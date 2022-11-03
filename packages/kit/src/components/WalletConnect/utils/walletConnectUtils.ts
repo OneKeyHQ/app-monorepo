@@ -9,6 +9,7 @@ import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { getTimeDurationMs } from '../../../utils/helper';
 import { DappConnectionModalRoutes } from '../../../views/DappModals/types';
+import unlockUtils from '../../AppLock/unlockUtils';
 import { WalletService } from '../types';
 import { ONEKEY_APP_DEEP_LINK } from '../walletConnectConsts';
 
@@ -214,16 +215,27 @@ async function openConnectToDappModal({
   if (!navigation) {
     return;
   }
-  navigation.navigate(RootRoutes.Modal, {
-    screen: ModalRoutes.DappConnectionModal,
-    params: {
-      screen: DappConnectionModalRoutes.ConnectionModal,
+  const showWalletConnectConnectionModal = () => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.DappConnectionModal,
       params: {
-        walletConnectUri: uri,
-        isDeepLink,
+        screen: DappConnectionModalRoutes.ConnectionModal,
+        params: {
+          walletConnectUri: uri,
+          isDeepLink,
+          refreshKey: Date.now(),
+        },
       },
-    },
-  });
+    });
+  };
+
+  if (platformEnv.isExtension) {
+    showWalletConnectConnectionModal();
+  } else {
+    unlockUtils.runAfterUnlock(() => {
+      showWalletConnectConnectionModal();
+    });
+  }
 }
 
 // V2:

@@ -1,5 +1,7 @@
 import React, { FC, useEffect, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+
 import { Box, OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -11,56 +13,63 @@ import { AppStateHeartbeat } from './AppStateHeartbeat';
 import { AppStateUnlock } from './AppStateUnlock';
 import { AppStateUpdater } from './AppStateUpdater';
 
-type AppLockProps = { children: JSX.Element };
+type AppLockProps = { children: JSX.Element; renderAsOverlay?: boolean };
 
-export const AppLockOverlayMode: FC<AppLockProps> = ({ children }) => {
+// open url matched here won't show unlock screen
+// TODO use https://www.npmjs.com/package/path-to-regexp to check match
+const unlockWhiteListUrl = [
+  '/account/', // /account/0x88888
+  '/wc/connect',
+  '/onlanding',
+  '/root/initial/tab/home/Revoke',
+  '/root/Revoke',
+];
+
+function isUnlockWhiteListUrl() {
+  // only available for web
+  // TODO only for dapp mode web, but not wallet mode web
+  if (!platformEnv.isWeb) {
+    return false;
+  }
+  return Boolean(
+    unlockWhiteListUrl.find((item) =>
+      window.location?.pathname?.startsWith(item),
+    ),
+  );
+}
+
+export const AppLockView: FC<AppLockProps> = ({
+  children,
+  renderAsOverlay,
+}) => {
   const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const isStatusUnlock = useAppSelector((s) => s.status.isUnlock);
   const isDataUnlock = useAppSelector((s) => s.data.isUnlock);
-
   const memo = useMemo(
     () => ({ enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock }),
     [enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock],
   );
   const data = useDebounce(memo, 300);
-
+  // const route = useRoute();
+  // console.log('AppLockView route', route);
   const prerequisites = data.isPasswordSet;
   const isUnlock = data.isDataUnlock && data.isStatusUnlock;
+  const showUnlockView = prerequisites && !isUnlock && !isUnlockWhiteListUrl();
+
+  // iOS should NOT render unlock screen by Overlay
+  // it's not working if Modal visible
+  if (showUnlockView && !renderAsOverlay) {
+    return <AppStateUnlock />;
+  }
 
   return (
-    <Box w="full" h="full">
-      {prerequisites && !isUnlock ? (
+    <Box w="full" h="full" testID="AppLockView">
+      {showUnlockView && renderAsOverlay ? (
         <OverlayContainer>
           <AppStateUnlock />
         </OverlayContainer>
       ) : null}
-      {prerequisites && isUnlock ? <AppStateUpdater /> : null}
-      {isUnlock ? <AppStateHeartbeat /> : null}
-      {children}
-    </Box>
-  );
-};
-
-export const AppLockNormalMode: FC<AppLockProps> = ({ children }) => {
-  const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
-  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const isStatusUnlock = useAppSelector((s) => s.status.isUnlock);
-  const isDataUnlock = useAppSelector((s) => s.data.isUnlock);
-  const memo = useMemo(
-    () => ({ enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock }),
-    [enableAppLock, isPasswordSet, isStatusUnlock, isDataUnlock],
-  );
-  const data = useDebounce(memo, 300);
-
-  const prerequisites = data.isPasswordSet;
-  const isUnlock = data.isDataUnlock && data.isStatusUnlock;
-
-  if (prerequisites && !isUnlock) {
-    return <AppStateUnlock />;
-  }
-  return (
-    <Box w="full" h="full">
       {prerequisites && isUnlock ? <AppStateUpdater /> : null}
       {isUnlock ? <AppStateHeartbeat /> : null}
       {children}
@@ -73,8 +82,13 @@ export const AppLock: FC<AppLockProps> = ({ children }) => {
   useEffect(() => {
     dispatch(setAppRenderReady());
   }, [dispatch]);
-  if (platformEnv.isNative) {
-    return <AppLockNormalMode>{children}</AppLockNormalMode>;
-  }
-  return <AppLockOverlayMode>{children}</AppLockOverlayMode>;
+  // web needs render all navigation
+  return (
+    <AppLockView
+      // renderAsOverlay
+      renderAsOverlay={!platformEnv.isNative}
+    >
+      {children}
+    </AppLockView>
+  );
 };

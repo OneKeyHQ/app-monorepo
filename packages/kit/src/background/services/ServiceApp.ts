@@ -106,11 +106,18 @@ class ServiceApp extends ServiceBase {
     return simpleDb.lastActivity.setValue(Date.now());
   }
 
-  isUnlock(): boolean {
+  @backgroundMethod()
+  isUnlock(): Promise<boolean> {
     const { appSelector } = this.backgroundApi;
     const isUnlock = appSelector((s) => s.data.isUnlock);
     const isStatusUnlock = appSelector((s) => s.status.isUnlock);
-    return Boolean(isUnlock && isStatusUnlock);
+    return Promise.resolve(Boolean(isUnlock && isStatusUnlock));
+  }
+
+  @backgroundMethod()
+  async isLock(): Promise<boolean> {
+    const isUnlock = await this.isUnlock();
+    return !isUnlock;
   }
 
   @backgroundMethod()
@@ -354,6 +361,7 @@ class ServiceApp extends ServiceBase {
     if (isOk) {
       await servicePassword.savePassword(password);
       dispatch(setHandOperatedLock(false), unlock(), release());
+      appEventBus.emit(AppEventBusNames.Unlocked);
     }
     return isOk;
   }

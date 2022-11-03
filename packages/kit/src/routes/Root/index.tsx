@@ -118,6 +118,10 @@ const App = () => {
       />
       <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen
+        name={RootRoutes.OnLandingWalletConnect}
+        component={OnLanding}
+      />
+      <RootStack.Screen
         options={{
           ...buildModalOpenAnimationOptions({ isVerticalLayout }),
         }}
