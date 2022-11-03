@@ -257,6 +257,18 @@ const PushNotification = () => {
               value: pushNotification.btcAndEthPriceAlertEnable,
               onChange: onChangePushNotification('btcAndEthPriceAlertEnable'),
             },
+            {
+              title: intl.formatMessage({
+                id: 'title__favorite',
+              }),
+              desc: intl.formatMessage({
+                id: 'form__favorite_desc',
+              }),
+              value: pushNotification.favoriteTokensPriceAlertEnable,
+              onChange: onChangePushNotification(
+                'favoriteTokensPriceAlertEnable',
+              ),
+            },
           ]}
           footer={
             <SelectFooter

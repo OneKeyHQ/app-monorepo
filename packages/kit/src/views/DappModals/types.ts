@@ -21,6 +21,7 @@ export type DappConnectionRoutesParams = {
   [DappConnectionModalRoutes.ConnectionModal]: {
     walletConnectUri?: string;
     isDeepLink?: boolean;
+    refreshKey?: number;
   };
   [DappConnectionModalRoutes.NetworkNotMatchModal]: undefined;
 };

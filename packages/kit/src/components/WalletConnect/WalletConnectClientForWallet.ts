@@ -117,6 +117,10 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     //    connector.session
     //    connector.uri
     try {
+      // call ProviderApiEthereum.eth_requestAccounts method
+      //    serviceDapp.openConnectionModal
+      //    _openModalByRouteParams
+      //    extUtils.openStandaloneWindow
       const sessionStatus = await this.getSessionStatusToApprove({
         connector,
       });

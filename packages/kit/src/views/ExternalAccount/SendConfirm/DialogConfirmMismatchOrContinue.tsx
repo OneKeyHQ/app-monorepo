@@ -1,14 +1,18 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Box,
   Dialog,
   HStack,
+  Icon,
   Image,
+  Pressable,
   Text,
   VStack,
+  useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
@@ -17,11 +21,17 @@ import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/networ
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LogoOneKey from '../../../../assets/onboarding/logo_onekey.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../../hooks';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { wait } from '../../../utils/helper';
 import ExternalAccountImg from '../components/ExternalAccountImg';
+import { useAddExternalAccount } from '../useAddExternalAccount';
+
+import type { IConnectToWalletResult } from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
 
 export interface IDialogConfirmMismatchContinueInfo {
   myAddress: string;
@@ -34,6 +44,7 @@ export interface IDialogConfirmMismatchContinueInfo {
   currentNetwork: Network;
   isAddressMismatched: boolean;
   isChainMismatched: boolean;
+  connectToWalletResult: IConnectToWalletResult;
 }
 
 export interface IDialogConfirmMismatchContinueProps
@@ -59,8 +70,12 @@ export function DialogConfirmMismatchOrContinue(
     currentNetwork,
     isAddressMismatched,
     isChainMismatched,
+    connectToWalletResult,
   } = props;
+  const toast = useToast();
   const { engine } = backgroundApiProxy;
+  const { addExternalAccount } = useAddExternalAccount();
+  const { openRootHome } = useNavigationActions();
   const { result: peerNetwork } = usePromiseResult(async () => {
     try {
       const networkId = generateNetworkIdByChainId({
@@ -137,12 +152,41 @@ export function DialogConfirmMismatchOrContinue(
                 <Text typography="Body2Strong" color="text-subdued">
                   {intl.formatMessage({ id: 'form__account' })}
                 </Text>
-                <Text
-                  typography="Body2"
-                  color={isAddressMismatched ? 'text-critical' : 'text-default'}
-                >
-                  {shortenAddress(peerAddress)}
-                </Text>
+                <Box>
+                  <Text
+                    typography="Body2"
+                    color={
+                      isAddressMismatched ? 'text-critical' : 'text-default'
+                    }
+                  >
+                    {shortenAddress(peerAddress)}
+                  </Text>
+                  {platformEnv.isWeb &&
+                  accountInfo?.type === 'injectedProvider' ? (
+                    <Pressable
+                      onPress={async () => {
+                        onClose?.();
+                        if (connectToWalletResult) {
+                          await addExternalAccount(connectToWalletResult);
+                          openRootHome();
+                          await wait(600);
+                          toast.show({
+                            title: intl.formatMessage({
+                              id: 'msg__connect_and_switch',
+                            }),
+                          });
+                        }
+                      }}
+                    >
+                      <HStack justifyContent="flex-end">
+                        <Text color="text-subdued">
+                          {intl.formatMessage({ id: 'action__connect' })}
+                        </Text>
+                        <Icon name="ChevronRightSolid" size={20} />
+                      </HStack>
+                    </Pressable>
+                  ) : null}
+                </Box>
               </HStack>
               <HStack justifyContent="space-between" py={3}>
                 <Text typography="Body2Strong" color="text-subdued">

@@ -10,6 +10,7 @@ import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import unlockUtils from '../../components/AppLock/unlockUtils';
 import { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
 import {
   IWalletConnectClientEventDestroy,
@@ -48,16 +49,32 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         }
         const { networkImpl } = connector.session;
         let request: Promise<any>;
-        if (networkImpl === IMPL_APTOS) {
-          request = this.aptosRequest(connector, payload);
-        } else {
-          request = this.ethereumRequest(connector, payload);
+        const isInteractiveMethod = this.isInteractiveMethod({ payload });
+        const doProviderRequest = () => {
+          if (networkImpl === IMPL_APTOS) {
+            request = this.aptosRequest(connector, payload);
+          } else {
+            request = this.ethereumRequest(connector, payload);
+          }
+          return this.responseCallRequest(connector, request, {
+            error,
+            payload,
+            isInteractiveMethod,
+          });
+        };
+
+        if (isInteractiveMethod) {
+          if (platformEnv.isDesktop) {
+            setTimeout(() => {
+              window.desktopApi.focus();
+            });
+          }
+          if (!platformEnv.isExtension) {
+            return unlockUtils.runAfterUnlock(doProviderRequest);
+          }
         }
-        // TODO active and focus desktop window
-        return this.responseCallRequest(connector, request, {
-          error,
-          payload,
-        });
+
+        return doProviderRequest();
       },
     );
   }
@@ -154,30 +171,37 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     return { chainId, accounts: result };
   }
 
+  isInteractiveMethod({ payload }: { payload: IJsonRpcRequest }) {
+    return Boolean(
+      payload.method &&
+        [
+          'eth_sendTransaction',
+          'eth_signTransaction',
+          'eth_sign',
+          'personal_sign',
+          'eth_signTypedData',
+          'eth_signTypedData_v1',
+          'eth_signTypedData_v3',
+          'eth_signTypedData_v4',
+        ].includes(payload.method),
+    );
+  }
+
   responseCallRequest(
     connector: OneKeyWalletConnector,
     resultPromise: Promise<any>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    { error, payload }: { error?: Error | null; payload: IJsonRpcRequest },
+    {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      error,
+      payload,
+      isInteractiveMethod,
+    }: {
+      error?: Error | null;
+      payload: IJsonRpcRequest;
+      isInteractiveMethod?: boolean;
+    },
   ) {
     const id = payload.id as number;
-    const isInteractiveMethod =
-      payload.method &&
-      [
-        'eth_sendTransaction',
-        'eth_signTransaction',
-        'eth_sign',
-        'personal_sign',
-        'eth_signTypedData',
-        'eth_signTypedData_v1',
-        'eth_signTypedData_v3',
-        'eth_signTypedData_v4',
-      ].includes(payload.method);
-    if (isInteractiveMethod && platformEnv.isDesktop) {
-      setTimeout(() => {
-        window.desktopApi.focus();
-      });
-    }
     return resultPromise
       .then((result) =>
         connector.approveRequest({

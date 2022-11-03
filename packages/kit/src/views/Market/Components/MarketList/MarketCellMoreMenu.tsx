@@ -81,7 +81,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
             id: intl.formatMessage({ id: 'action__add_to_favorites' }),
             onPress: () => {
               backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
-                token.coingeckoId,
+                { coingeckoId: token.coingeckoId, symbol: token.symbol },
               ]);
               toast.show({
                 title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
@@ -90,7 +90,14 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
             icon: 'StarOutline',
           },
         ];
-  }, [intl, selectedCategoryId, token.favorited, token.coingeckoId, toast]);
+  }, [
+    intl,
+    selectedCategoryId,
+    token.favorited,
+    token.coingeckoId,
+    token.symbol,
+    toast,
+  ]);
   return (
     <Box>
       {options.map(({ id, onPress, icon, textColor, iconColor }) => (

@@ -127,6 +127,7 @@ export type QuoteData = {
   txData?: TransactionData;
   additionalParams?: BuildTransactionAdditionalParameters;
   needApproved?: boolean;
+  percentageFee?: string;
 };
 
 export interface BuildTransactionAdditionalParameters {

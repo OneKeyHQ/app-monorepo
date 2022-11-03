@@ -1,7 +1,6 @@
 import axios, { Axios } from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
@@ -90,8 +89,9 @@ export class JupiterQuoter implements Quoter {
     this.client = axios.create({ timeout: 60 * 1000 });
   }
 
-  getBaseUrl(): string {
-    return `${getFiatEndpoint()}/jupiter`;
+  async getBaseURL(): Promise<string> {
+    const baseUrl = await backgroundApiProxy.serviceSwap.getServerEndPoint();
+    return `${baseUrl}/jupiter`;
   }
 
   isSupported(networkA: Network, networkB: Network): boolean {
@@ -99,7 +99,8 @@ export class JupiterQuoter implements Quoter {
   }
 
   private async fetchPrice(tokenIn: Token, tokenOut: Token) {
-    const url = `${this.getBaseUrl()}/v1/price`;
+    const baseUrl = await this.getBaseURL();
+    const url = `${baseUrl}/v1/price`;
     const res = await this.client.get(url, {
       params: {
         id: getSolanaTokenMint(tokenIn),
@@ -119,7 +120,8 @@ export class JupiterQuoter implements Quoter {
     address: string,
     outputMint: string,
   ): Promise<string | undefined> {
-    const url = `${this.getBaseUrl()}/v1/swap`;
+    const baseUrl = await this.getBaseURL();
+    const url = `${baseUrl}/v1/swap`;
     const res = await this.client.post(url, {
       route,
       userPublicKey: address,
@@ -153,8 +155,12 @@ export class JupiterQuoter implements Quoter {
   private async doQuote(
     params: JupiterQuoteParams,
     address: string,
-  ): Promise<undefined | { route: JupiterRoute; transaction: string }> {
-    const url = `${this.getBaseUrl()}/v1/quote`;
+  ): Promise<
+    | undefined
+    | { route: JupiterRoute; transaction: string; percentageFee?: string }
+  > {
+    const baseUrl = await this.getBaseURL();
+    const url = `${baseUrl}/v1/quote`;
     const res = await this.client.get(url, {
       params,
     });
@@ -169,7 +175,11 @@ export class JupiterQuoter implements Quoter {
       address,
       params.outputMint,
     );
-    return routeTransaction;
+    if (!routeTransaction) {
+      return undefined;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return { ...routeTransaction, percentageFee: res?.data?.percentageFee };
   }
 
   private async refreshRecentBlockBash(accountId: string, transaction: string) {
@@ -182,7 +192,10 @@ export class JupiterQuoter implements Quoter {
 
   private async findRouteAndTransaction(
     params: FetchQuoteParams,
-  ): Promise<undefined | { route: JupiterRoute; transaction: string }> {
+  ): Promise<
+    | undefined
+    | { route: JupiterRoute; transaction: string; percentageFee?: string }
+  > {
     const { tokenIn, tokenOut, typedValue, independentField, activeAccount } =
       params;
     const baseParams = {
@@ -225,7 +238,7 @@ export class JupiterQuoter implements Quoter {
     const { tokenIn, tokenOut } = params;
     const routeTransaction = await this.findRouteAndTransaction(params);
     if (routeTransaction) {
-      const { route, transaction } = routeTransaction;
+      const { route, transaction, percentageFee } = routeTransaction;
       if (route) {
         const result: QuoteData = {
           type: this.type,
@@ -246,6 +259,7 @@ export class JupiterQuoter implements Quoter {
           arrivalTime: 30,
           sellAmount: String(route.inAmount),
           buyAmount: String(route.outAmount),
+          percentageFee,
           txData: transaction,
         };
         return { data: result };

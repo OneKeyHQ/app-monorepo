@@ -97,7 +97,6 @@ const MarketList: FC = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ref={scrollRef}
-        mt={2}
         p={isVerticalLayout ? 2 : 3}
         bg="background-default"
         onScroll={onScroll}

@@ -146,7 +146,12 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                           });
                         } else {
                           backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens(
-                            [marketTokenItem.coingeckoId],
+                            [
+                              {
+                                coingeckoId: marketTokenItem.coingeckoId,
+                                symbol: marketTokenItem.symbol,
+                              },
+                            ],
                           );
                           toast.show({
                             title: intl.formatMessage({

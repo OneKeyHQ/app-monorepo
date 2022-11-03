@@ -276,7 +276,7 @@ const TokenInput: FC<TokenInputProps> = ({
           <Box>
             <Typography.Caption color="text-subdued" numberOfLines={2}>
               <FormatCurrency
-                numbers={[price ?? 0, balance ?? 0]}
+                numbers={[price ?? 0, inputValue ?? 0]}
                 render={(ele) => (
                   <Typography.Caption ml={3} color="text-subdued">
                     {price ? ele : '-'}
