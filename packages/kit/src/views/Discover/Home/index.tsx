@@ -20,7 +20,7 @@ const DiscoverPage: FC<DiscoverProps> = ({
 
   useFocusEffect(
     useCallback(() => {
-      backgroundApiProxy.serviceDiscover.getDapps();
+      backgroundApiProxy.serviceDiscover.fetchData();
     }, []),
   );
 

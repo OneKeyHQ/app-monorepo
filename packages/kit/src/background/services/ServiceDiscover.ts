@@ -35,33 +35,83 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getDapps() {
-    const { dispatch, appSelector } = this.backgroundApi;
-    const listedTags = appSelector((s) => s.discover.listedTags);
-    if (
-      listedTags &&
-      listedTags.length > 0 &&
-      Date.now() - this.updatedAt < 60 * 60 * 1000
-    ) {
-      return;
-    }
-    const url = `${this.baseUrl}/listing_data`;
+  async getAllDapps() {
+    const { dispatch } = this.backgroundApi;
+    const url = `${this.baseUrl}/dapps`;
+    const res = await this.client.get(url);
+    const data = res.data as DAppItemType[];
+    dispatch(setDappItems(data));
+  }
+
+  async getList(url: string) {
+    const { dispatch } = this.backgroundApi;
     const res = await this.client.get(url);
     const data = res.data as {
-      dapps: DAppItemType[];
       listedCategories: { name: string; _id: string }[];
       listedTags: { name: string; _id: string }[];
       categoryDapps: { label: string; id: string; items: DAppItemType[] }[];
       tagDapps: { label: string; id: string; items: DAppItemType[] }[];
     };
 
+    let dapps: DAppItemType[] = [];
+
+    dapps = data.categoryDapps.reduce(
+      (result, item) => result.concat(item.items),
+      dapps,
+    );
+
+    dapps = data.tagDapps.reduce(
+      (result, item) => result.concat(item.items),
+      dapps,
+    );
+
+    const set = new Set();
+
+    dapps = dapps.filter((item) => {
+      if (!set.has(item._id)) {
+        set.add(item._id);
+        return true;
+      }
+      return false;
+    });
+
     dispatch(
-      setDappItems(data.dapps),
       setCategoryDapps(data.categoryDapps),
       setListedCategories(data.listedCategories),
       setTagDapps(data.tagDapps),
       setListedTags(data.listedTags),
+      setDappItems(dapps),
     );
+  }
+
+  @backgroundMethod()
+  async getCompactList() {
+    const url = `${this.baseUrl}/compact_list`;
+    this.getList(url);
+  }
+
+  @backgroundMethod()
+  async getFullList() {
+    const url = `${this.baseUrl}/full_list`;
+    this.getList(url);
+  }
+
+  @backgroundMethod()
+  async fetchData() {
+    const { appSelector } = this.backgroundApi;
+    const categoryDapps = appSelector((s) => s.discover.categoryDapps);
+    const tagDapps = appSelector((s) => s.discover.tagDapps);
+    if (
+      tagDapps &&
+      tagDapps.length > 0 &&
+      categoryDapps &&
+      categoryDapps.length > 0 &&
+      Date.now() - this.updatedAt < 60 * 1000
+    ) {
+      return;
+    }
+    this.getCompactList();
+    this.getFullList();
 
     this.updatedAt = Date.now();
   }
