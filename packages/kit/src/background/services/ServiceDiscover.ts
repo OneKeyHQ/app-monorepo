@@ -5,6 +5,7 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import {
   addFavorite,
+  clearHistory,
   removeDappHistory,
   removeFavorite,
   removeWebSiteHistory,
@@ -189,6 +190,11 @@ class ServicDiscover extends ServiceBase {
     if (item.webSite && item.webSite.url && new URL(item.webSite.url).host) {
       this.removeWebSiteHistory(new URL(item.webSite.url).host);
     }
+  }
+
+  @backgroundMethod()
+  async clearHistory() {
+    this.backgroundApi.dispatch(clearHistory());
   }
 }
 

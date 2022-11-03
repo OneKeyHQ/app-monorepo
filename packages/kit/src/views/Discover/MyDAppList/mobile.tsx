@@ -1,10 +1,19 @@
-import { FC, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import {
+  FC,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  Dialog,
   Empty,
   FlatList,
   IconButton,
@@ -13,6 +22,8 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../hooks';
 import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
 import DAppIcon from '../DAppIcon';
@@ -137,13 +148,56 @@ const History = () => {
   );
 };
 
+const TrashButton = () => {
+  const intl = useIntl();
+  const [visible, setVisible] = useState(false);
+  const onPress = useCallback(() => {
+    setVisible(true);
+  }, []);
+  const onClear = useCallback(() => {
+    backgroundApiProxy.serviceDiscover.clearHistory();
+    setVisible(false);
+  }, []);
+  return (
+    <Box px="4">
+      <IconButton type="plain" name="TrashOutline" onPress={onPress} />
+      <Dialog
+        visible={visible}
+        contentProps={{
+          iconName: 'TrashSolid',
+          iconType: 'danger',
+          title: intl.formatMessage({ id: 'modal__clear_history' }),
+          content: intl.formatMessage({
+            id: 'modal__clear_history_desc',
+          }),
+        }}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__clear',
+          primaryActionProps: { type: 'destructive' },
+          onPrimaryActionPress: onClear,
+          onSecondaryActionPress() {
+            setVisible(false);
+          },
+        }}
+      />
+    </Box>
+  );
+};
+
 const Mobile = () => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const { defaultIndex } = useContext(MyDAppListContext);
   const [selectedIndex, setSelectedIndex] = useState<number>(defaultIndex ?? 0);
 
   const favorates = useMemo(() => <Favorates />, []);
   const history = useMemo(() => <History />, []);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (selectedIndex === 0 ? null : <TrashButton />),
+    });
+  }, [navigation, selectedIndex]);
 
   return (
     <Box flex="1" bg="background-default">

@@ -250,6 +250,7 @@ export const Mine = () => {
         keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
+        showsVerticalScrollIndicator={false}
       />
     </Box>
   );
