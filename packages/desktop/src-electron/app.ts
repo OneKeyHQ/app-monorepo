@@ -297,39 +297,30 @@ function createMainWindow() {
   });
 
   const filter = {
-    urls: ['http://127.0.0.1:21320/*', 'http://localhost:21320/*'],
+    urls: [
+      'http://127.0.0.1:21320/*',
+      'http://localhost:21320/*',
+      'https://mainnet.optimism.io/*',
+    ],
   };
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
-      /**
-       * temporary solution to switch origin when the sdk iframe src is modified in development mode.
-       */
-      const origin =
-        // @ts-expect-error
-        details?.frame?.url?.indexOf('hardware-sdk.test.onekey.so') > -1
-          ? 'https://hardware-sdk.test.onekey.so'
-          : 'https://jssdk.onekey.so';
-      // @ts-ignore electron declares requestHeaders as an empty interface
-      details.requestHeaders.Origin = origin;
+      const { url } = details;
+      if (
+        url.startsWith('http://127.0.0.1:21320') ||
+        url.startsWith('http://localhost:21320')
+      ) {
+        // resolve onekey bridge CORS error
+        details.requestHeaders.Origin = 'https://jssdk.onekey.so';
+      } else if (url.startsWith('https://mainnet.optimism.io')) {
+        // add metamask header to resolve rate-limit
+        details.requestHeaders.Origin =
+          'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
+      }
 
       callback({ cancel: false, requestHeaders: details.requestHeaders });
-    },
-  );
-
-  const rpcUrlFilter = {
-    urls: ['https://mainnet.optimism.io/*'],
-  };
-
-  session.defaultSession.webRequest.onBeforeSendHeaders(
-    rpcUrlFilter,
-    (details, callback) => {
-      // add metamask header to resolve rate-limit
-      details.requestHeaders.Origin =
-        'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
-
-      callback({ requestHeaders: details.requestHeaders });
     },
   );
 
