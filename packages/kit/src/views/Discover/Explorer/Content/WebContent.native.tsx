@@ -34,9 +34,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
         onWebViewRef={(ref) => {
           const { dispatch } = backgroundApiProxy;
           if (ref && ref.innerRef) {
-            if (!webviewRefs[id]) {
-              dispatch(setWebTabData({ id, refReady: true }));
-            }
+            dispatch(setWebTabData({ id, refReady: true }));
             webviewRefs[id] = ref;
           }
         }}

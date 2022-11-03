@@ -114,6 +114,12 @@ export const useWebController = ({
     }) => {
       const isValidNewUrl = typeof url === 'string' && url !== tab.url;
       if (isValidNewUrl) {
+        // onNavigation may continue to trigger
+        // when you go back to homepage on mobile
+        // so we need to break the loop
+        if (platformEnv.isNative && tab.url === homeTab.url) {
+          return;
+        }
         if (tab.timestamp && Date.now() - lastNewUrlTimeStamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
