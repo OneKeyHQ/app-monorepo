@@ -4,9 +4,9 @@ import { HasName } from './base';
 
 const WALLET_TYPE_HD = 'hd';
 const WALLET_TYPE_HW = 'hw';
-const WALLET_TYPE_IMPORTED = 'imported';
-const WALLET_TYPE_WATCHING = 'watching';
-const WALLET_TYPE_EXTERNAL = 'external';
+const WALLET_TYPE_IMPORTED = 'imported'; // as walletId
+const WALLET_TYPE_WATCHING = 'watching'; // as walletId
+const WALLET_TYPE_EXTERNAL = 'external'; // as walletId
 
 type WalletType =
   | typeof WALLET_TYPE_HD
