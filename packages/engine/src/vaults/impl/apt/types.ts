@@ -66,13 +66,16 @@ export interface SignMessagePayload {
   nonce: number; // A nonce the dapp should generate
 }
 
-export interface SignMessageResponse {
+export interface SignMessageRequest {
   address?: string;
   application?: string;
   chainId?: number;
-  fullMessage: string; // The message that was generated to sign
   message: string; // The message passed in by the user
   nonce: number;
+  fullMessage: string; // The message that was generated to sign
+}
+
+export interface SignMessageResponse extends SignMessageRequest {
   prefix: string; // Should always be APTOS
   signature: string; // The signed full message
 }

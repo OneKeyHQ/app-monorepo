@@ -1,4 +1,3 @@
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import { Provider } from './typings';
@@ -33,29 +32,16 @@ export const enabledNetworkIds: string[] = [
   OnekeyNetwork.goerli,
 ];
 
-export const zeroXServerEndpoints: Record<string, string> = {
-  get [OnekeyNetwork.eth]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=ethereum`;
-  },
-  get [OnekeyNetwork.bsc]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=bsc`;
-  },
-  get [OnekeyNetwork.polygon]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=polygon`;
-  },
-  get [OnekeyNetwork.fantom]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=fantom`;
-  },
-  get [OnekeyNetwork.avalanche]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=avalanche`;
-  },
-  get [OnekeyNetwork.celo]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=celo`;
-  },
-  get [OnekeyNetwork.optimism]() {
-    return `${getFiatEndpoint()}/0x/quote?chainID=optimism`;
-  },
-};
+export const zeroXenabledNetworkIds: string[] = [
+  OnekeyNetwork.eth,
+  OnekeyNetwork.bsc,
+  OnekeyNetwork.polygon,
+  OnekeyNetwork.fantom,
+  OnekeyNetwork.avalanche,
+  OnekeyNetwork.celo,
+  OnekeyNetwork.optimism,
+  OnekeyNetwork.arbitrum,
+];
 
 const serverURL = 'https://0x.onekey.so';
 export const quoterServerEndpoints: Record<string, string> = {
@@ -438,4 +424,5 @@ export const tokenReservedValues: Record<string, number> = {
   [OnekeyNetwork.bsc]: 0.01,
   [OnekeyNetwork.polygon]: 0.03,
   [OnekeyNetwork.btc]: 0,
+  [OnekeyNetwork.optimism]: 0.0001,
 };

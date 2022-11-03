@@ -94,22 +94,26 @@ export const tabRoutes: TabRouteConfig[] = [
       },
     ],
   },
-  // {
-  //   name: TabRoutes.NFT,
-  //   component: NFTMarket,
-  //   tabBarIcon: () => 'Square3Stack3Doutline',
-  //   translationId: 'title__nft',
-  //   children: [
-  //     {
-  //       name: HomeRoutes.NFTMarketStatsList,
-  //       component: NFTMarketStatsList,
-  //     },
-  //     {
-  //       name: HomeRoutes.NFTMarketLiveMintingList,
-  //       component: NFTMarketLiveMintingList,
-  //     },
-  //   ],
-  // },
+  {
+    name: TabRoutes.NFT,
+    component: NFTMarket,
+    tabBarIcon: () => 'Square3Stack3Doutline',
+    translationId: 'title__nft',
+    children: [
+      {
+        name: HomeRoutes.NFTMarketStatsList,
+        component: NFTMarketStatsList,
+      },
+      {
+        name: HomeRoutes.NFTMarketLiveMintingList,
+        component: NFTMarketLiveMintingList,
+      },
+      // {
+      //   name: HomeRoutes.NFTMarketCollectionScreen,
+      //   component: NFTMarketCollectionScreen,
+      // },
+    ],
+  },
   {
     name: TabRoutes.Discover,
     component: DiscoverScreen,
@@ -183,25 +187,6 @@ export const tabRoutes: TabRouteConfig[] = [
     ],
   },
 ];
-
-if (process.env.NODE_ENV !== 'production') {
-  tabRoutes.splice(3, 0, {
-    name: TabRoutes.NFT,
-    component: NFTMarket,
-    tabBarIcon: () => 'Square3Stack3Doutline',
-    translationId: 'title__nft',
-    children: [
-      {
-        name: HomeRoutes.NFTMarketStatsList,
-        component: NFTMarketStatsList,
-      },
-      {
-        name: HomeRoutes.NFTMarketLiveMintingList,
-        component: NFTMarketLiveMintingList,
-      },
-    ],
-  });
-}
 
 if (process.env.NODE_ENV !== 'production') {
   tabRoutes.push({

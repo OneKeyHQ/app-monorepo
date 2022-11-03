@@ -234,6 +234,7 @@ const Connection = () => {
   const route = useRoute<RouteProps>();
   const walletConnectUri = route?.params?.walletConnectUri;
   const isDeepLink = route?.params?.isDeepLink;
+  const refreshKey = route?.params?.refreshKey;
   lastWalletConnectUri = walletConnectUri;
   const isWalletConnectPreloading = Boolean(walletConnectUri);
   const [walletConnectError, setWalletConnectError] = useState<string>('');
@@ -287,6 +288,9 @@ const Connection = () => {
       if (walletConnectUriInfo?.v2) {
         toast.show({ title: 'WalletConnect V2 not supported yet.' });
       }
+      if (refreshKey) {
+        setWalletConnectError('');
+      }
       backgroundApiProxy.walletConnect
         .connect({
           uri: walletConnectUri || '',
@@ -309,6 +313,7 @@ const Connection = () => {
         });
     }
   }, [
+    refreshKey,
     closeModal,
     dispatch,
     intl,

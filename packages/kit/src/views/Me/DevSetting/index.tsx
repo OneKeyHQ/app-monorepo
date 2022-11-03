@@ -26,6 +26,7 @@ import {
   setEnableZeroNotificationThreshold,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
+  setUpdateDeviceRes,
   setUpdateDeviceSys,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -43,6 +44,7 @@ export const DevSettingSection = () => {
     preReleaseUpdate,
     updateDeviceBle,
     updateDeviceSys,
+    updateDeviceRes,
     enableTestFiatEndpoint,
     enableZeroNotificationThreshold,
   } = devMode || {};
@@ -143,6 +145,15 @@ export const DevSettingSection = () => {
               isChecked={updateDeviceSys}
               onToggle={() => {
                 dispatch(setUpdateDeviceSys(!updateDeviceSys));
+              }}
+            />
+          </Container.Item>
+          <Container.Item title="强制升级 Res 资源" titleColor="text-critical">
+            <Switch
+              labelType="false"
+              isChecked={updateDeviceRes}
+              onToggle={() => {
+                dispatch(setUpdateDeviceRes(!updateDeviceSys));
               }}
             />
           </Container.Item>

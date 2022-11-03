@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { DeviceEventEmitter } from 'react-native';
@@ -20,18 +20,24 @@ import { ModalRoutes, RootRoutes, SendRoutes } from '../../routes/routesEnum';
 
 import { AssetType } from './FilterBar';
 
-export const useRevokeAddress = () => {
+export const useRevokeAddress = (addressOrName = '') => {
   const [address, setAddress] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const updateAddress = useCallback(async (addressOrName: string) => {
+  const updateAddress = useCallback(async () => {
     setLoading(true);
     const res = await backgroundApiProxy.serviceRevoke.getAddress(
       addressOrName,
     );
     setAddress(res ?? '');
-    setLoading(false);
-  }, []);
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+  }, [addressOrName]);
+
+  useEffect(() => {
+    updateAddress();
+  }, [addressOrName, updateAddress]);
 
   return {
     updateAddress,
@@ -40,105 +46,85 @@ export const useRevokeAddress = () => {
   };
 };
 
-export const useERC20Allowances = (
+export const useTokenAllowances = (
   networkId: string,
   addressOrName: string,
+  assetType: AssetType,
 ) => {
+  const conditionRef = useRef<{ address: string; networkId: string }>();
   const [loading, setLoading] = useState(true);
-  const [allowances, setAllowances] = useState<ERC20TokenAllowance[]>();
+  const [allowances, setAllowances] =
+    useState<(ERC20TokenAllowance | ERC721TokenAllowance)[]>();
   const [prices, setPrices] = useState<Record<string, string>>({});
-  const {
-    address,
-    updateAddress,
-    loading: updateAddressLoading,
-  } = useRevokeAddress();
-
-  const refresh = useCallback(async () => {
-    if (!address || !networkId) {
-      setAllowances([]);
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
-      setAllowances([]);
-      const { allowance, prices: p } =
-        await backgroundApiProxy.serviceRevoke.fetchERC20TokenAllowences(
-          networkId,
-          address,
-        );
-      setPrices(p);
-      setAllowances(allowance);
-    } catch (error) {
-      debugLogger.http.error('getTransferEvents error', error);
-    }
-    setLoading(false);
-  }, [address, networkId]);
+  const { address, loading: updateAddressLoading } =
+    useRevokeAddress(addressOrName);
 
   useEffect(() => {
-    refresh();
-    DeviceEventEmitter.addListener('Revoke:refresh', refresh);
+    conditionRef.current = {
+      address,
+      networkId,
+    };
+  }, [address, networkId]);
+
+  const refresh = useCallback(
+    async (type: AssetType) => {
+      if (!address || !networkId) {
+        if (!updateAddressLoading) {
+          setAllowances([]);
+          setLoading(false);
+        }
+        return;
+      }
+      const isConditionChanged = () => {
+        const { current } = conditionRef;
+        return address !== current?.address || networkId !== current?.networkId;
+      };
+      try {
+        setLoading(true);
+        setAllowances([]);
+        if (type === AssetType.tokens) {
+          const { allowance, prices: p } =
+            await backgroundApiProxy.serviceRevoke.fetchERC20TokenAllowences(
+              networkId,
+              address,
+            );
+          if (isConditionChanged()) {
+            return;
+          }
+          setPrices(p);
+          setAllowances(allowance);
+        } else {
+          const res =
+            await backgroundApiProxy.serviceRevoke.fetchERC721TokenAllowances(
+              networkId,
+              address,
+            );
+          setAllowances(res);
+        }
+      } catch (error) {
+        debugLogger.http.error('getTransferEvents error', error);
+      }
+      if (isConditionChanged()) {
+        return;
+      }
+      setLoading(false);
+    },
+    [address, networkId, updateAddressLoading],
+  );
+
+  useEffect(() => {
+    refresh(assetType);
+    DeviceEventEmitter.addListener('Revoke:refresh', (type: AssetType) =>
+      refresh(type),
+    );
     return () => {
       DeviceEventEmitter.removeAllListeners();
     };
-  }, [refresh]);
-
-  useEffect(() => {
-    updateAddress(addressOrName);
-  }, [addressOrName, updateAddress]);
+  }, [refresh, assetType]);
 
   return {
     address,
     prices,
-    loading: loading || updateAddressLoading,
-    allowances,
-    refresh,
-  };
-};
-
-export const useERC721Allowances = (
-  networkId: string,
-  addressOrName: string,
-) => {
-  const [loading, setLoading] = useState(true);
-  const [allowances, setAllowances] = useState<ERC721TokenAllowance[]>();
-  const {
-    address,
-    updateAddress,
-    loading: updateAddressLoading,
-  } = useRevokeAddress();
-
-  const refresh = useCallback(async () => {
-    if (!address || !networkId) {
-      setAllowances([]);
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
-      setAllowances([]);
-      const res =
-        await backgroundApiProxy.serviceRevoke.fetchERC721TokenAllowances(
-          networkId,
-          address,
-        );
-      setAllowances(res);
-    } catch (error) {
-      debugLogger.http.error('getTransferEvents error', error);
-    }
-    setLoading(false);
-  }, [address, networkId]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    updateAddress(addressOrName);
-  }, [addressOrName, updateAddress]);
-
-  return {
-    address,
     loading: loading || updateAddressLoading,
     allowances,
     refresh,
@@ -241,7 +227,7 @@ export const useUpdateAllowance = ({
             skipSaveHistory: false,
             encodedTx: encodedApproveTx,
             onSuccess: () => {
-              DeviceEventEmitter?.emit('Revoke:refresh');
+              DeviceEventEmitter?.emit('Revoke:refresh', assetType);
             },
           },
         },

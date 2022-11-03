@@ -5,16 +5,19 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { IConnectToWalletResult } from '../../components/WalletConnect/useWalletConnectQrcodeModal';
-import { useActiveWalletAccount } from '../../hooks';
 
 export function useAddExternalAccount() {
   const { serviceAccount, serviceExternalAccount } = backgroundApiProxy;
-  const { externalWallet } = useActiveWalletAccount();
-  const nextAccountId = externalWallet?.nextAccountIds?.global;
   const addExternalAccount = useCallback(
     async (result: IConnectToWalletResult) => {
-      const { status, session, client, walletService, injectedProviderState } =
-        result;
+      const {
+        status,
+        session,
+        client,
+        walletService,
+        injectedProviderState,
+        externalAccountInfo,
+      } = result;
 
       debugLogger.walletConnect.info('Connect NewSession', {
         status,
@@ -28,13 +31,10 @@ export function useAddExternalAccount() {
       // EVM address should be lowerCase
       address = address.toLowerCase();
 
-      const accountName = nextAccountId ? `External #${nextAccountId}` : '';
-
       const addedResult = await serviceAccount.addExternalAccount({
         impl: IMPL_EVM,
         chainId,
         address,
-        name: accountName,
       });
 
       const accountId = addedResult.account.id;
@@ -50,12 +50,21 @@ export function useAddExternalAccount() {
         }
       }
 
+      let accountInfo = externalAccountInfo;
+      if (!accountInfo && walletService) {
+        accountInfo =
+          await serviceExternalAccount.generateExternalAccountInfoFromWalletService(
+            {
+              externalAccountType: 'injectedProvider',
+              walletService,
+            },
+          );
+      }
       // save injectedProvider accountInfo
-      if (injectedProviderState && walletService) {
+      if (injectedProviderState && accountInfo) {
         await serviceExternalAccount.saveExternalAccountInfo({
-          externalAccountType: 'injectedProvider',
           accountId,
-          walletService,
+          accountInfo,
         });
       }
 
@@ -65,7 +74,7 @@ export function useAddExternalAccount() {
 
       return addedResult;
     },
-    [nextAccountId, serviceAccount, serviceExternalAccount],
+    [serviceAccount, serviceExternalAccount],
   );
 
   return { addExternalAccount };

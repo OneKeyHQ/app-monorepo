@@ -12,6 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
 import { OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AptosMessage } from '../../../types/message';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
   IHardwareGetAddressParams,
@@ -20,6 +21,7 @@ import {
 } from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
 
+import { SignMessageRequest } from './types';
 import { buildSignedTx, generateUnsignedTransaction } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
@@ -165,10 +167,42 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw deviceUtils.convertDeviceError(response.payload);
   }
 
-  signMessage(
-    messages: any[],
+  override async signMessage(
+    messages: AptosMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    throw new Error('Method not implemented.');
+    debugLogger.common.info('signMessage', messages);
+    const dbAccount = await this.getDbAccount();
+
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const HardwareSDK = await this.getHardwareSDKInstance();
+
+    return Promise.all(
+      messages.map(async (message) => {
+        const messageRequest: SignMessageRequest = JSON.parse(message.message);
+        const response = await HardwareSDK.aptosSignMessage(
+          connectId,
+          deviceId,
+          {
+            path: dbAccount.path,
+            payload: {
+              message: messageRequest.message,
+              address: messageRequest.address,
+              application: messageRequest.application,
+              chainId: messageRequest?.chainId?.toString(),
+              nonce: messageRequest?.nonce?.toString(),
+            },
+            ...passphraseState,
+          },
+        );
+
+        if (!response.success) {
+          throw deviceUtils.convertDeviceError(response.payload);
+        }
+
+        return addHexPrefix(response.payload.signature);
+      }),
+    );
   }
 }

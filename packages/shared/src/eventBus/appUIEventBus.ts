@@ -9,6 +9,7 @@ enum AppUIEventBusNames {
   SwapCompleted = 'SwapCompleted',
   SwapError = 'SwapError',
   RemoveAccount = 'RemoveAccount',
+  Unlocked = 'Unlocked',
 }
 
 if (isExtensionBackground) {
@@ -17,7 +18,7 @@ if (isExtensionBackground) {
     {
       get() {
         throw new Error(
-          '[appEventBus] is NOT allowed in Extension Background process currently.',
+          '[appUIEventBus] is NOT allowed in Extension Background process currently. use [appEventBus] instead.',
         );
       },
     },

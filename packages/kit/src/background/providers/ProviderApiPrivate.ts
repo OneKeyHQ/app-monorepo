@@ -69,7 +69,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   ): Promise<any> {
     if (uri) {
       if (platformEnv.isExtension) {
-        // extension can not show Modal directly from background
+        // extension can not show Modal UI directly from background
         this.backgroundApi.walletConnect.connect({ uri });
       } else {
         walletConnectUtils.openConnectToDappModal({ uri });

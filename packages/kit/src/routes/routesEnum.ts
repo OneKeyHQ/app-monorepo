@@ -52,6 +52,7 @@ export enum RootRoutes {
   Onboarding = 'onboarding',
   Account = 'account',
   OnLanding = 'onlanding',
+  OnLandingWalletConnect = 'onlanding_wallet_connect',
 }
 export enum ReceiveTokenRoutes {
   ReceiveToken = 'ReceiveToken',

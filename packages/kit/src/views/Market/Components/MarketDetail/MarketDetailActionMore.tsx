@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,13 +13,10 @@ import { ModalProps } from '@onekeyhq/components/src/Modal';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { SelectProps } from '@onekeyhq/components/src/Select';
-import { useToast } from '@onekeyhq/components/src/Toast/useToast';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';
-import { useMarketTokenPriceSubscribeStatus } from '../../hooks/useMarketDetail';
 
 type MarketDetailActionMoreMenuOption = {
   id: string;
@@ -35,45 +32,46 @@ type MarketDetailActionMenuProps = {
 };
 const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
   closeOverlay,
-  token,
+  // token,
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const toast = useToast();
-  const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
-    coingeckoId: token.coingeckoId,
-  });
+  // const toast = useToast();
+  // const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
+  //   coingeckoId: token.coingeckoId,
+  // });
   const intl = useIntl();
-  const onPriceSubscribePress = useCallback(async () => {
-    let res: boolean;
-    if (priceSubscribeEnable) {
-      res =
-        await backgroundApiProxy.serviceMarket.fetchMarketTokenCancelPriceSubscribe(
-          token.coingeckoId,
-        );
-    } else {
-      res =
-        await backgroundApiProxy.serviceMarket.fetchMarketTokenAddPriceSubscribe(
-          token.coingeckoId,
-          token.symbol ?? 'unknow',
-        );
-    }
-    if (!res) return;
-    toast.show({
-      title: intl.formatMessage({
-        id: priceSubscribeEnable
-          ? 'msg__unsubscription_succeeded'
-          : 'msg__subscription_succeeded',
-      }),
-    });
-  }, [intl, priceSubscribeEnable, toast, token.coingeckoId, token.symbol]);
+  // const onPriceSubscribePress = useCallback(async () => {
+  //   let res: boolean;
+  //   if (priceSubscribeEnable) {
+  //     res =
+  //       await backgroundApiProxy.serviceMarket.fetchMarketTokenCancelPriceSubscribe(
+  //         token.coingeckoId,
+  //       );
+  //   } else {
+  //     res =
+  //       await backgroundApiProxy.serviceMarket.fetchMarketTokenAddPriceSubscribe(
+  //         token.coingeckoId,
+  //         token.symbol ?? 'unknow',
+  //       );
+  //   }
+  //   if (!res) return;
+  //   toast.show({
+  //     title: intl.formatMessage({
+  //       id: priceSubscribeEnable
+  //         ? 'msg__unsubscription_succeeded'
+  //         : 'msg__subscription_succeeded',
+  //     }),
+  //   });
+  // }, [intl, priceSubscribeEnable, toast, token.coingeckoId, token.symbol]);
   const options: MarketDetailActionMoreMenuOption[] = useMemo(
     () => [
       {
         id: intl.formatMessage({
           id: 'form__price_alert',
         }),
-        onPress: onPriceSubscribePress,
-        icon: priceSubscribeEnable ? 'BellOffOutline' : 'BellOutline',
+        onPress: () => {}, // TODO market  price subscribe
+        // icon: priceSubscribeEnable ? 'BellOffOutline' : 'BellOutline',
+        icon: 'BellOutline',
       },
       //   {
       //     id: 'Share',
@@ -83,7 +81,7 @@ const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
       //     icon: 'ShareOutline',
       //   },
     ],
-    [intl, onPriceSubscribePress, priceSubscribeEnable],
+    [intl],
   );
   return (
     <Box>

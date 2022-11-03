@@ -1,9 +1,10 @@
 import axios, { Axios } from 'axios';
 
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { estimatedTime, zeroXServerEndpoints } from '../config';
+import { estimatedTime, zeroXenabledNetworkIds } from '../config';
 import {
   BuildTransactionParams,
   BuildTransactionResponse,
@@ -51,6 +52,7 @@ type QuoteResponse = {
   buyTokenAddress: string;
   sellTokenAddress: string;
   estimatedGasTokenRefund?: string;
+  percentageFee?: string;
   allowanceTarget: string;
   sources: { name: string; proportion: string }[];
 };
@@ -64,8 +66,26 @@ export class SimpleQuoter implements Quoter {
     this.client = axios.create({ timeout: 10 * 1000 });
   }
 
+  async getBaseUrl(networkId: string) {
+    const baseURL = await backgroundApiProxy.serviceSwap.getServerEndPoint();
+    const records: Record<string, string> = {
+      [OnekeyNetwork.eth]: `${baseURL}/0x/quote?chainID=ethereum`,
+      [OnekeyNetwork.bsc]: `${baseURL}/0x/quote?chainID=bsc`,
+      [OnekeyNetwork.polygon]: `${baseURL}/0x/quote?chainID=polygon`,
+      [OnekeyNetwork.fantom]: `${baseURL}/0x/quote?chainID=fantom`,
+      [OnekeyNetwork.avalanche]: `${baseURL}/0x/quote?chainID=avalanche`,
+      [OnekeyNetwork.celo]: `${baseURL}/0x/quote?chainID=celo`,
+      [OnekeyNetwork.optimism]: `${baseURL}/0x/quote?chainID=optimism`,
+      [OnekeyNetwork.arbitrum]: `${baseURL}/0x/quote?chainID=arbitrum`,
+    };
+    return records[networkId];
+  }
+
   isSupported(networkA: Network, networkB: Network): boolean {
-    return networkA.id === networkB.id && !!zeroXServerEndpoints[networkA.id];
+    return (
+      networkA.id === networkB.id &&
+      zeroXenabledNetworkIds.includes(networkA.id)
+    );
   }
 
   getProviderLogo(name: string): string {
@@ -125,7 +145,7 @@ export class SimpleQuoter implements Quoter {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
 
-    const baseURL = zeroXServerEndpoints[tokenIn.networkId];
+    const baseURL = await this.getBaseUrl(tokenIn.networkId);
     if (!baseURL) {
       return;
     }
@@ -141,6 +161,7 @@ export class SimpleQuoter implements Quoter {
       sellAmount: data.sellAmount,
       sellTokenAddress: data.sellTokenAddress,
       arrivalTime: estimatedTime[networkIn.id] ?? 30,
+      percentageFee: data.percentageFee,
       providers,
     };
 
@@ -200,7 +221,7 @@ export class SimpleQuoter implements Quoter {
     } else {
       params.buyAmount = new TokenAmount(tokenOut, typedValue).toFormat();
     }
-    const baseURL = zeroXServerEndpoints[tokenIn.networkId];
+    const baseURL = await this.getBaseUrl(tokenIn.networkId);
     if (!baseURL) {
       return undefined;
     }

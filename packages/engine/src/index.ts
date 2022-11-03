@@ -362,6 +362,11 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getExternalWallet(): Promise<Wallet> {
+    return this.getWallet(WALLET_TYPE_EXTERNAL);
+  }
+
+  @backgroundMethod()
   async getWalletSafe(walletId: string): Promise<Wallet | undefined> {
     try {
       return await this.getWallet(walletId);

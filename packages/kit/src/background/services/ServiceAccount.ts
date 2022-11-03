@@ -34,7 +34,11 @@ import { getActiveWalletAccount } from '../../hooks/redux';
 import { getManageNetworks } from '../../hooks/useManageNetworks';
 import { passwordSet, release } from '../../store/reducers/data';
 import { changeActiveAccount } from '../../store/reducers/general';
-import { setBoardingCompleted, unlock } from '../../store/reducers/status';
+import {
+  setBoardingCompleted,
+  setBoardingNotCompleted,
+  unlock,
+} from '../../store/reducers/status';
 import { Avatar } from '../../utils/emojiUtils';
 import { DeviceNotOpenedPassphrase } from '../../utils/hardware/errors';
 import { wait } from '../../utils/helper';
@@ -42,6 +46,13 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+
+if (process.env.NODE_ENV !== 'production') {
+  // @ts-ignore
+  global.$$setBoardingNotCompleted = setBoardingNotCompleted;
+  // @ts-ignore
+  global.$$setBoardingCompleted = setBoardingCompleted;
+}
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -479,7 +490,7 @@ class ServiceAccount extends ServiceBase {
     impl: string;
     chainId: string | number;
     address: string;
-    name: string;
+    name?: string;
   }) {
     let networkId = generateNetworkIdByChainId({
       impl,
@@ -495,6 +506,13 @@ class ServiceAccount extends ServiceBase {
     }
 
     const { engine } = this.backgroundApi;
+
+    if (!name) {
+      const externalWallet = await engine.getExternalWallet();
+      const nextAccountId = externalWallet?.nextAccountIds?.global;
+      // eslint-disable-next-line no-param-reassign
+      name = nextAccountId ? `External #${nextAccountId}` : '';
+    }
 
     const account = await engine.addWatchingOrExternalAccount({
       networkId,

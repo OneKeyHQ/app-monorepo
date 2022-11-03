@@ -16,6 +16,10 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -102,8 +106,16 @@ export const AppStateUnlock = () => {
     setError('');
   }, []);
 
+  const doUnlockAction = useCallback(async (pwd: string) => {
+    const isOk = await backgroundApiProxy.serviceApp.unlock(pwd);
+    if (isOk) {
+      appUIEventBus.emit(AppUIEventBusNames.Unlocked);
+    }
+    return isOk;
+  }, []);
+
   const onUnlock = useCallback(async () => {
-    const isOk = await backgroundApiProxy.serviceApp.unlock(password);
+    const isOk = await doUnlockAction(password);
     if (isOk) {
       if (platformEnv.isNativeAndroid) {
         Keyboard.dismiss();
@@ -117,15 +129,18 @@ export const AppStateUnlock = () => {
         }),
       );
     }
-  }, [password, intl]);
+  }, [doUnlockAction, password, intl]);
 
-  const onOk = useCallback((pw: string) => {
-    backgroundApiProxy.serviceApp.unlock(pw);
-  }, []);
+  const onOk = useCallback(
+    (pw: string) => {
+      doUnlockAction(pw);
+    },
+    [doUnlockAction],
+  );
 
   return (
     <KeyboardDismissView>
-      <Center w="full" h="full" bg="background-default">
+      <Center testID="AppStateUnlock" w="full" h="full" bg="background-default">
         <Box
           maxW="96"
           p="8"

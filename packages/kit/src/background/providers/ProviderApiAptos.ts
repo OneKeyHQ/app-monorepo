@@ -9,14 +9,15 @@ import {
 import { BCS, TxnBuilderTypes } from 'aptos';
 
 import { IMPL_APTOS } from '@onekeyhq/engine/src/constants';
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { AptosMessageTypes } from '@onekeyhq/engine/src/types/message';
 import {
   IEncodedTxAptos,
   SignMessagePayload,
   SignMessageResponse,
 } from '@onekeyhq/engine/src/vaults/impl/apt/types';
 import {
-  formatSignMessage,
+  APTOS_SIGN_MESSAGE_PREFIX,
+  formatSignMessageRequest,
   generateTransferCreateCollection,
   generateTransferCreateNft,
   transactionPayloadToTxPayload,
@@ -356,7 +357,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
     const chainId = await (await vault.getClient()).getChainId();
 
-    const format = formatSignMessage(
+    const format = formatSignMessageRequest(
       params,
       account?.address ?? '',
       request.origin ?? '',
@@ -367,16 +368,17 @@ class ProviderApiAptos extends ProviderApiBase {
       request,
       {
         unsignedMessage: {
-          // Use PERSONAL_SIGN to sign plain message
-          type: ETHMessageTypes.PERSONAL_SIGN,
-          message: format.fullMessage,
+          type: AptosMessageTypes.SIGN_MESSAGE,
+          message: JSON.stringify(format),
         },
       },
     )) as string;
 
-    format.signature = isPetra ? stripHexPrefix(result) : result;
-
-    return Promise.resolve(format);
+    return Promise.resolve({
+      ...format,
+      prefix: APTOS_SIGN_MESSAGE_PREFIX,
+      signature: isPetra ? stripHexPrefix(result) : result,
+    });
   }
 
   @providerApiMethod()

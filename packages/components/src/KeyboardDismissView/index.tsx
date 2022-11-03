@@ -4,7 +4,7 @@ import { Keyboard } from 'react-native';
 
 import Pressable from '../Pressable';
 
-export const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
+const KeyboardDismissView: FC<ComponentProps<typeof Pressable>> = ({
   children,
   ...props
 }) => {

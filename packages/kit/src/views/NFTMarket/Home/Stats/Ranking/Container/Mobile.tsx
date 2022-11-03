@@ -4,7 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, FlatList, Text, useSafeAreaInsets } from '@onekeyhq/components';
+import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';

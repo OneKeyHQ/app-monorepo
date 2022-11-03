@@ -12,6 +12,7 @@ enum AppEventBusNames {
   BackupRequired = 'BackupRequired',
   NotificationStatusChanged = 'NotificationStatusChanged',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
+  Unlocked = 'Unlocked',
 }
 
 if (isExtensionUi) {
@@ -20,7 +21,7 @@ if (isExtensionUi) {
     {
       get() {
         throw new Error(
-          '[appEventBus] is NOT allowed in UI process currently.',
+          '[appEventBus] is NOT allowed in UI process currently. use [appUIEventBus] instead',
         );
       },
     },
