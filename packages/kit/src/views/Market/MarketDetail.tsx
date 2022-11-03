@@ -41,10 +41,7 @@ import { CurrencyType } from '../FiatPay/types';
 import { StakingRoutes } from '../Staking/typing';
 
 import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
-import {
-  useMarketDetail,
-  useMarketTokenPriceSubscribeStatus,
-} from './hooks/useMarketDetail';
+import { useMarketDetail } from './hooks/useMarketDetail';
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -79,7 +76,10 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
               });
             } else {
               backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
-                tokenItem.coingeckoId,
+                {
+                  coingeckoId: tokenItem.coingeckoId,
+                  symbol: tokenItem.symbol,
+                },
               ]);
               toast.show({
                 title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
@@ -159,35 +159,35 @@ const PurchaseButton = ({
 const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
   const intl = useIntl();
   const toast = useToast();
-  const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
-    coingeckoId: tokenItem.coingeckoId,
-  });
+  // const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
+  //   coingeckoId: tokenItem.coingeckoId,
+  // });
   const [isFetchIng, setIsFetching] = useState(false);
-  const onPriceSubscribePress = useCallback(async () => {
-    let res: boolean;
+  const onPriceSubscribePress = useCallback(() => {
+    // let res: boolean;
     setIsFetching(true);
-    if (priceSubscribeEnable) {
-      res =
-        await backgroundApiProxy.serviceMarket.fetchMarketTokenCancelPriceSubscribe(
-          tokenItem.coingeckoId,
-        );
-    } else {
-      res =
-        await backgroundApiProxy.serviceMarket.fetchMarketTokenAddPriceSubscribe(
-          tokenItem.coingeckoId,
-          tokenItem.symbol ?? 'unknow',
-        );
-    }
+    // if (priceSubscribeEnable) {
+    //   res =
+    //     await backgroundApiProxy.serviceMarket.fetchMarketTokenCancelPriceSubscribe(
+    //       tokenItem.coingeckoId,
+    //     );
+    // } else {
+    //   res =
+    //     await backgroundApiProxy.serviceMarket.fetchMarketTokenAddPriceSubscribe(
+    //       tokenItem.coingeckoId,
+    //       tokenItem.symbol ?? 'unknow',
+    //     );
+    // }
     setIsFetching(false);
-    if (!res) return;
-    toast.show({
-      title: intl.formatMessage({
-        id: priceSubscribeEnable
-          ? 'msg__unsubscription_succeeded'
-          : 'msg__subscription_succeeded',
-      }),
-    });
-  }, [intl, priceSubscribeEnable, toast, tokenItem]);
+    // if (!res) return;
+    // toast.show({
+    //   title: intl.formatMessage({
+    //     id: priceSubscribeEnable
+    //       ? 'msg__unsubscription_succeeded'
+    //       : 'msg__subscription_succeeded',
+    //   }),
+    // });
+  }, []);
   return (
     <Box>
       <IconButton
@@ -197,7 +197,7 @@ const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
         name="BellSolid"
         size="base"
         circle
-        iconColor={priceSubscribeEnable ? 'icon-warning' : 'icon-default'} // get subscribe status
+        iconColor="icon-default" // get subscribe status
         onPress={onPriceSubscribePress}
         isLoading={isFetchIng}
       />
