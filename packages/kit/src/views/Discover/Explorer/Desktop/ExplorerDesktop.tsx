@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { useDesktopTopDragBarController } from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController';
 
-import WebContent from '../Content/WebContent.desktop';
+import WebContent from '../Content/WebContent';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebController } from '../Controller/useWebController';
 import { webHandler } from '../explorerUtils';
