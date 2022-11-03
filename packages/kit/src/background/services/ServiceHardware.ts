@@ -308,9 +308,17 @@ class ServiceHardware extends ServiceBase {
     };
     hardwareSDK.on('ui-firmware-tip', listener);
 
+    // dev
+    const settings = this.backgroundApi.appSelector((s) => s.settings);
+    const enable = settings?.devMode?.enable ?? false;
+    const updateDeviceRes = settings?.devMode?.updateDeviceRes ?? false;
+
+    const forcedUpdateRes = enable && updateDeviceRes;
+
     return hardwareSDK
       .firmwareUpdateV2(connectId, {
         updateType: firmwareType,
+        forcedUpdateRes,
       })
       .finally(() => {
         hardwareSDK.off('ui-firmware-tip', listener);

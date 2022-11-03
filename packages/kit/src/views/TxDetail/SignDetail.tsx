@@ -18,7 +18,10 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import {
+  AptosMessageTypes,
+  ETHMessageTypes,
+} from '@onekeyhq/engine/src/types/message';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
 
@@ -33,13 +36,14 @@ type TypedDataV1 = {
   value: string;
 };
 
-const getSignTypeString = (signType: ETHMessageTypes) => {
+const getSignTypeString = (signType: ETHMessageTypes | AptosMessageTypes) => {
   const signTypeMap = {
     [ETHMessageTypes.ETH_SIGN]: 'eth_sign',
     [ETHMessageTypes.PERSONAL_SIGN]: 'personal_sign',
     [ETHMessageTypes.TYPED_DATA_V1]: 'signTypedData_v1',
     [ETHMessageTypes.TYPED_DATA_V3]: 'signTypedData_v3',
     [ETHMessageTypes.TYPED_DATA_V4]: 'signTypedData_v4',
+    [AptosMessageTypes.SIGN_MESSAGE]: 'signMessage',
   } as const;
   return signTypeMap[signType];
 };
@@ -140,6 +144,16 @@ const renderDataCard = (unsignedMessage: IUnsignedMessageEvm) => {
 
   if (type === ETHMessageTypes.PERSONAL_SIGN) {
     return renderCard(message);
+  }
+
+  if (type === AptosMessageTypes.SIGN_MESSAGE) {
+    let fullMessage = '';
+    try {
+      fullMessage = JSON.parse(message)?.fullMessage;
+    } catch (error) {
+      console.error(error);
+    }
+    return renderCard(fullMessage);
   }
 
   let formattedJson = '';
