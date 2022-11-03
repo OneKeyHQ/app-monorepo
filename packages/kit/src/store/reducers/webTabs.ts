@@ -81,6 +81,9 @@ export const webtabsSlice = createSlice({
             }
           }
         });
+        if (tab.url === homeTab.url) {
+          tab.title = homeTab.title;
+        }
       }
     },
     closeWebTab: (state, { payload }: PayloadAction<string>) => {

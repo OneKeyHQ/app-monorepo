@@ -1,6 +1,5 @@
 import { FC, useMemo, useState } from 'react';
 
-import { View } from 'react-native';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -11,15 +10,14 @@ import {
   homeTab,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
-import DiscoverHome from '../../Home';
 import { useWebController } from '../Controller/useWebController';
-import { webHandler, webviewRefs } from '../explorerUtils';
+import { webviewRefs } from '../explorerUtils';
 
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  const { openMatchDApp } = useWebController({
+  useWebController({
     id,
     navigationStateChangeEvent,
   });
@@ -49,30 +47,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
     [id, showHome],
   );
 
-  return (
-    <>
-      {webview}
-      {showHome && (
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: 0,
-            zIndex: 1,
-          }}
-        >
-          <DiscoverHome
-            onItemSelect={(dapp) => {
-              openMatchDApp({ id: dapp._id, dapp });
-            }}
-            onItemSelectHistory={openMatchDApp}
-          />
-        </View>
-      )}
-    </>
-  );
+  return webview;
 };
 
 WebContent.displayName = 'WebContent';
