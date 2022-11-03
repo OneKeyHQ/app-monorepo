@@ -31,6 +31,7 @@ import {
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
+import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;
@@ -388,6 +389,7 @@ export function useWalletConnectQrcodeModal() {
 }
 
 export type IConnectToWalletResult = {
+  externalAccountInfo?: IBaseExternalAccountInfo;
   injectedProviderState?: Web3ReactState;
   status?: ISessionStatusPro;
   session?: IWalletConnectSession | undefined;

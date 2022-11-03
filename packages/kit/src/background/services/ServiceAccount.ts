@@ -11,7 +11,11 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
-import { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
+import {
+  WALLET_TYPE_EXTERNAL,
+  Wallet,
+  WalletType,
+} from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import {
   updateAccountDetail,
@@ -490,7 +494,7 @@ class ServiceAccount extends ServiceBase {
     impl: string;
     chainId: string | number;
     address: string;
-    name: string;
+    name?: string;
   }) {
     let networkId = generateNetworkIdByChainId({
       impl,
@@ -506,6 +510,13 @@ class ServiceAccount extends ServiceBase {
     }
 
     const { engine } = this.backgroundApi;
+
+    if (!name) {
+      const externalWallet = await engine.getExternalWallet();
+      const nextAccountId = externalWallet?.nextAccountIds?.global;
+      // eslint-disable-next-line no-param-reassign
+      name = nextAccountId ? `External #${nextAccountId}` : '';
+    }
 
     const account = await engine.addWatchingOrExternalAccount({
       networkId,

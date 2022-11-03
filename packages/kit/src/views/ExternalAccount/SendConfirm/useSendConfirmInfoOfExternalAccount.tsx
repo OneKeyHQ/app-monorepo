@@ -5,7 +5,10 @@ import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';
-import { useWalletConnectQrcodeModal } from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
+import {
+  IConnectToWalletResult,
+  useWalletConnectQrcodeModal,
+} from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
 import { terminateWcConnection } from '../../../components/WalletConnect/utils/terminateWcConnection';
 import { WalletConnectClientForDapp } from '../../../components/WalletConnect/WalletConnectClientForDapp';
 import {
@@ -144,6 +147,10 @@ export function useSendConfirmInfoOfExternalAccount({
       let chainId: number | undefined = NaN;
       let accounts: string[] | undefined = [];
 
+      const connectToWalletResult: IConnectToWalletResult = {
+        walletService,
+      };
+
       if (isWalletConnectProvider) {
         if (!savedSession?.connected) {
           await wait(WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY);
@@ -153,7 +160,6 @@ export function useSendConfirmInfoOfExternalAccount({
         }
         // { accounts, chainId, peerId, peerMeta }
         const {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           status: connectorStatus,
           session,
           client: wcClient,
@@ -183,6 +189,9 @@ export function useSendConfirmInfoOfExternalAccount({
 
         chainId = wcConnector.chainId;
         accounts = wcConnector.accounts;
+        connectToWalletResult.client = wcClient;
+        connectToWalletResult.session = session;
+        connectToWalletResult.status = connectorStatus;
       }
 
       if (isInjectedProvider) {
@@ -203,6 +212,8 @@ export function useSendConfirmInfoOfExternalAccount({
 
         chainId = state.chainId;
         accounts = state.accounts;
+        connectToWalletResult.injectedProviderState = state;
+        connectToWalletResult.externalAccountInfo = accountInfo;
 
         setExternalAccountInfo((info) => {
           if (info) {
@@ -245,6 +256,7 @@ export function useSendConfirmInfoOfExternalAccount({
           isChainMismatched,
           walletUrl: accountInfo?.walletUrl,
           shouldGoBack: true,
+          connectToWalletResult,
         });
         if (!shouldContinue) {
           return defaultReturn;

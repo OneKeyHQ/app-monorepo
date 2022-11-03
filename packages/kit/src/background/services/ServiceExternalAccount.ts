@@ -1,4 +1,7 @@
-import type { IExternalAccountType } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import type {
+  IBaseExternalAccountInfo,
+  IExternalAccountType,
+} from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -15,20 +18,29 @@ export default class ServiceExternalAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async saveExternalAccountInfo({
-    accountId,
-    externalAccountType,
+  async generateExternalAccountInfoFromWalletService({
     walletService,
+    externalAccountType,
   }: {
-    accountId: string;
-    externalAccountType: IExternalAccountType;
     walletService: WalletService;
+    externalAccountType: IExternalAccountType;
   }) {
     const accountInfo =
       simpleDb.walletConnect.getBaseExternalAccountInfoFromWalletService({
         walletService,
       });
     accountInfo.type = externalAccountType;
+    return Promise.resolve(accountInfo);
+  }
+
+  @backgroundMethod()
+  async saveExternalAccountInfo({
+    accountId,
+    accountInfo,
+  }: {
+    accountId: string;
+    accountInfo: IBaseExternalAccountInfo;
+  }) {
     return simpleDb.walletConnect.saveExternalAccountInfo({
       accountId,
       accountInfo,
