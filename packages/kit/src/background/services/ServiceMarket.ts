@@ -23,7 +23,6 @@ import {
   updateMarketChats,
   updateMarketListSort,
   updateMarketTokenDetail,
-  updateMarketTokenPriceSubscribe,
   updateMarketTokens,
   updateMarketTokensBaseInfo,
   updateSearchKeyword,

@@ -9,12 +9,12 @@ import React, {
 } from 'react';
 
 import { Modal as NBModal } from 'native-base';
-import { Keyboard, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import Box from '../Box';
-import Pressable from '../Pressable';
+import KeyboardDismissView from '../KeyboardDismissView';
 
 import DialogCommon from './components';
 
@@ -122,13 +122,7 @@ const Dialog: FC<DialogProps> = ({
         }}
         {...props}
       >
-        <Pressable
-          p={6}
-          w="100%"
-          maxW="432px"
-          onPress={() => Keyboard.dismiss()}
-          alignSelf="center"
-        >
+        <KeyboardDismissView p={6} w="100%" maxW="432px" alignSelf="center">
           <Box
             w="100%"
             p={{ base: '4', lg: '6' }}
@@ -160,7 +154,7 @@ const Dialog: FC<DialogProps> = ({
               </Box>
             )}
           </Box>
-        </Pressable>
+        </KeyboardDismissView>
       </Outer>
     ),
     [
