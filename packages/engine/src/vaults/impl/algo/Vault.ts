@@ -12,6 +12,7 @@ import * as sdk from 'algosdk';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -73,6 +74,8 @@ export default class Vault extends VaultBase {
   private getAlgod = memoizee(
     (token, serverURL, port) => new sdk.Algodv2(token, serverURL, port),
     {
+      primitive: true,
+      maxAge: getTimeDurationMs({ minute: 3 }),
       max: 3,
     },
   );
@@ -88,6 +91,7 @@ export default class Vault extends VaultBase {
       );
     },
     {
+      maxAge: getTimeDurationMs({ minute: 3 }),
       promise: true,
       max: 1,
     },
@@ -106,7 +110,7 @@ export default class Vault extends VaultBase {
     },
     {
       promise: true,
-      maxAge: 60 * 1000,
+      maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
 
