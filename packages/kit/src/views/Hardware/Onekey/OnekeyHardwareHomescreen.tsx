@@ -304,7 +304,9 @@ const OnekeyHardwareHomescreen: FC = () => {
         {deviceType === 'touch' && (
           <Box display="flex" alignItems="center" justifyContent="center">
             <Typography.Text>
-              Supports PNG or JPG, 480 x 800 pixels
+              {intl.formatMessage({
+                id: 'form__support_png_and_jpg_480_800_pixels',
+              })}
             </Typography.Text>
           </Box>
         )}
