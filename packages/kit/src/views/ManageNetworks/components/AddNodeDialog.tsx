@@ -24,9 +24,29 @@ type Props = {
 
 type FieldValues = { url: string };
 
+const TrimInput = ({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange?: (text: string) => void;
+}) => {
+  const isSmallScreen = useIsVerticalLayout();
+  return (
+    <Form.Input
+      value={value}
+      // @ts-ignore
+      onChange={(v: string) => onChange?.(v?.trim?.())}
+      size={isSmallScreen ? 'xl' : 'default'}
+      autoFocus
+      focusable
+      placeholder="https://"
+    />
+  );
+};
+
 const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
   const intl = useIntl();
-  const isSmallScreen = useIsVerticalLayout();
 
   const { custom, preset } = useRPCUrls(networkId);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -97,12 +117,7 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
             },
           }}
         >
-          <Form.Input
-            size={isSmallScreen ? 'xl' : 'default'}
-            autoFocus
-            focusable
-            placeholder="https://"
-          />
+          <TrimInput />
         </Form.Item>
         <DialogCommon.FooterButton
           marginTop={0}
