@@ -1,7 +1,8 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useEffect, useMemo } from 'react';
 
 import { nanoid } from '@reduxjs/toolkit';
 import { LayoutChangeEvent } from 'react-native';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 import { Box, Button, Pressable, Typography } from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
@@ -99,11 +100,16 @@ const AddTabButton: FC = () => (
 const TabBarDesktop: FC = () => {
   const { tabs } = useAppSelector((s) => s.webTabs);
   const tabsExceptHome = useMemo(() => tabs.slice(1), [tabs]);
+  const ref = useAnimatedRef<Animated.ScrollView>();
+  useEffect(() => {
+    setTimeout(() => ref.current?.scrollToEnd(), 50);
+  }, [ref, tabs.length]);
   return (
     <Box flexDirection="row" w="100%" h="32px" alignItems="center">
       <Tab {...tabs[0]} />
       <Box flex={1} h="32px">
         <ScrollableButtonGroup
+          ref={ref}
           style={{
             maxWidth: '100%',
             flexGrow: 0,

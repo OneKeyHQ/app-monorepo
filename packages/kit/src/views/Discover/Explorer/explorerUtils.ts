@@ -42,7 +42,7 @@ export interface WebControllerBarProps {
   onStopLoading?: () => void;
   showExplorerBar?: boolean;
   onMore?: (value: boolean) => void;
-  moreView: React.ReactNode;
+  moreView?: React.ReactNode;
 }
 
 export interface ExplorerViewProps extends WebControllerBarProps {
@@ -143,8 +143,9 @@ export function crossWebviewLoadUrl({
   });
   debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
   if (platformEnv.isDesktop) {
-    // TODO wait wrapperRef, innerRef, dom-ready then loadURL
-    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url);
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url).catch();
   } else {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     // (wrapperRef?.innerRef as WebView)?.loadUrl(url);

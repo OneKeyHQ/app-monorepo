@@ -54,6 +54,7 @@ const USER_AGENT_ANDROID =
 const DESKTOP_USER_AGENT_MOCK = undefined;
 
 export type InpageProviderWebViewProps = InpageWebViewProps & {
+  id?: string;
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
   nativeWebviewSource?: WebViewSource;
@@ -65,6 +66,7 @@ export type InpageProviderWebViewProps = InpageWebViewProps & {
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
     {
+      id,
       src = '',
       onSrcChange,
       receiveHandler,
@@ -243,6 +245,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
           {isDesktop && (
             <Freeze freeze={desktopLoadError}>
               <DesktopWebView
+                id={id}
                 key={key}
                 ref={setWebViewRef}
                 src={src}

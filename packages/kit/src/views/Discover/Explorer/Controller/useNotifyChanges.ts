@@ -53,13 +53,12 @@ export const useNotifyChanges = () => {
   const webviewRef = getWebviewWrapperRef({
     tabId,
   });
-  const jsBridge = webviewRef?.jsBridge;
-  const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
-
   useEffect(() => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return;
     }
+
+    const jsBridge = webviewRef?.jsBridge;
     if (!jsBridge) {
       return;
     }
@@ -67,7 +66,7 @@ export const useNotifyChanges = () => {
     jsBridge.globalOnMessageEnabled = true;
     // connect background jsBridge
     backgroundApiProxy.connectBridge(jsBridge);
-  }, [jsBridge]);
+  }, [webviewRef]);
 
   useEffect(() => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
@@ -87,6 +86,8 @@ export const useNotifyChanges = () => {
     if (platformEnv.isNative) {
       notifyChanges(tabUrl, 'immediately');
     } else {
+      const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
+
       if (!innerRef) {
         return;
       }
@@ -94,23 +95,20 @@ export const useNotifyChanges = () => {
       if (innerRef.__domReady) {
         notifyChanges(tabUrl, 'immediately');
       } else {
-        let isNotifiedWhenDomReady = false;
+        const timer = setTimeout(() => {
+          notifyChanges(tabUrl, 'setTimeout');
+        }, 1000);
         const onDomReady = () => {
           notifyChanges(tabUrl, 'domReady');
-          isNotifiedWhenDomReady = true;
+          clearTimeout(timer);
         };
         innerRef.addEventListener('dom-ready', onDomReady);
 
-        const timer = setTimeout(() => {
-          if (!isNotifiedWhenDomReady) {
-            notifyChanges(tabUrl, 'setTimeout');
-          }
-        }, 1500);
         return () => {
           clearTimeout(timer);
           innerRef.removeEventListener('dom-ready', onDomReady);
         };
       }
     }
-  }, [innerRef, isFocusedInDiscoverTab, isMountedRef, tabUrl, webviewRef]);
+  }, [isFocusedInDiscoverTab, isMountedRef, tabUrl, webviewRef]);
 };
