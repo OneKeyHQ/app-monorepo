@@ -71,6 +71,7 @@ const OnekeyHardwareHomescreen: FC = () => {
   const { engine, serviceHardware } = backgroundApiProxy;
 
   const isSmallScreen = useIsVerticalLayout();
+  const isTouch = deviceType === 'touch';
 
   useEffect(() => {
     engine.getHWDeviceByWalletId(walletId).then((device) => {
@@ -118,7 +119,7 @@ const OnekeyHardwareHomescreen: FC = () => {
   useEffect(() => {
     const homescreensMap = getHomescreenData(deviceType);
     let dataSource = Object.values(homescreensMap).map((item) => item);
-    if (deviceType === 'touch') {
+    if (isTouch) {
       dataSource = syncUploadImage(dataSource);
     }
     const layoutData = hackLayout(dataSource);
@@ -126,7 +127,7 @@ const OnekeyHardwareHomescreen: FC = () => {
     setData(dataSource);
     setIsInitialized(true);
     initializedRef.current = true;
-  }, [deviceType, syncUploadImage]);
+  }, [isTouch, deviceType, syncUploadImage]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
@@ -138,22 +139,22 @@ const OnekeyHardwareHomescreen: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadImages]);
 
-  const addImage = useCallback((uri: string) => {
+  const addImage = useCallback((imageInfo: ImagePicker.ImageInfo) => {
+    const { uri, height, width } = imageInfo;
     const name = `upload-${Object.keys(imageCache).length}`;
-    imageCache[name] = { name, staticPath: uri };
+    imageCache[name] = { name, staticPath: uri, height, width };
     setUploadImages({ ...imageCache });
-    // setTimeout(() => syncDataSource());
   }, []);
 
   const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
-      quality: 0.2,
+      quality: 1,
     });
 
     if (!result.cancelled && result.uri) {
-      addImage(result.uri);
+      addImage(result);
     }
   }, [addImage]);
 
@@ -164,9 +165,11 @@ const OnekeyHardwareHomescreen: FC = () => {
       setLoading(true);
 
       const selectedItem = data[activeIndex];
-      if (deviceType === 'touch' && selectedItem.name.startsWith('upload')) {
+      if (isTouch && selectedItem.name.startsWith('upload')) {
         const uploadResParams = await generateUploadResParams(
           selectedItem.staticPath,
+          selectedItem.width ?? 0,
+          selectedItem.height ?? 0,
         );
         console.log('should upload: ', uploadResParams);
         if (uploadResParams) {
@@ -201,7 +204,7 @@ const OnekeyHardwareHomescreen: FC = () => {
     intl,
     toast,
     navigation,
-    deviceType,
+    isTouch,
   ]);
 
   const { width } = useWindowDimensions();
@@ -261,7 +264,7 @@ const OnekeyHardwareHomescreen: FC = () => {
             <Image
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               source={item.staticPath}
-              resizeMode="contain"
+              resizeMode={isTouch ? 'cover' : 'contain'}
               size={cardWidth}
               height={cardHeight}
               borderRadius="12px"
@@ -272,7 +275,7 @@ const OnekeyHardwareHomescreen: FC = () => {
           </Box>
         </Pressable>
       ),
-    [cardWidth, cardHeight, activeIndex, loading, pickImage],
+    [cardWidth, cardHeight, activeIndex, loading, pickImage, isTouch],
   );
 
   const flatlistProps = useMemo(
