@@ -29,6 +29,7 @@ import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import memoizee from 'memoizee';
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -101,6 +102,7 @@ export default class Vault extends VaultBase {
       promise: true,
       primitive: true,
       max: 50,
+      maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
 

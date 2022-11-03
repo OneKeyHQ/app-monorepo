@@ -19,6 +19,7 @@ import {
 import { batch } from 'react-redux';
 
 import {
+  IMPL_ALGO,
   IMPL_APTOS,
   IMPL_CFX,
   IMPL_EVM,
@@ -298,6 +299,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'aptos': IMPL_APTOS,
     'martian': IMPL_APTOS,
     'tron': IMPL_TRON,
+    'algo': IMPL_ALGO,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
@@ -310,6 +312,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.aptos,
   IInjectedProviderNames.conflux,
   IInjectedProviderNames.tron,
+  IInjectedProviderNames.algo,
 ];
 
 export function getNetworkImplFromDappScope(

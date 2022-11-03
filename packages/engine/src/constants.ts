@@ -44,13 +44,13 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_CFX,
   IMPL_BTC,
   IMPL_SOL,
-  // IMPL_ALGO,
   IMPL_STC,
   IMPL_TRON,
   IMPL_APTOS,
   IMPL_DOGE,
   IMPL_LTC,
   IMPL_BCH,
+  IMPL_ALGO,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -65,6 +65,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_DOGE,
   IMPL_LTC,
   IMPL_BCH,
+  IMPL_ALGO,
 ]);
 
 export const HISTORY_CONSTS = {

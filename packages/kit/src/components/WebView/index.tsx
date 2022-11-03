@@ -16,6 +16,7 @@ import extUtils from '../../utils/extUtils';
 import InpageProviderWebView from './InpageProviderWebView';
 
 function WebView({
+  id,
   src = '',
   onSrcChange,
   openUrlInExt = false,
@@ -29,6 +30,7 @@ function WebView({
   isSpinnerLoading,
   onContentLoaded,
 }: {
+  id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
@@ -69,6 +71,7 @@ function WebView({
   return (
     <Box flex={1} bg="background-default" {...containerProps}>
       <InpageProviderWebView
+        id={id}
         ref={(ref: IWebViewWrapperRef | null) => {
           if (ref) {
             onWebViewRef?.(ref);

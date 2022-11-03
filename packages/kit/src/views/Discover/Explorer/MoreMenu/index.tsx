@@ -1,98 +1,57 @@
-import React, { FC, useEffect, useState } from 'react';
+import { FC } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform, Share } from 'react-native';
 
-import { Box, Select, useToast } from '@onekeyhq/components';
+import { Select } from '@onekeyhq/components';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
+import { Toast } from '@onekeyhq/components/src/Toast/useToast';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useWebTab } from '../Controller/useWebTabs';
+import { homeTab, setWebTabData } from '../../../../store/reducers/webTabs';
+import { openUrlExternal } from '../../../../utils/openUrl';
+import { showOverlay } from '../../../../utils/overlayUtils';
+import { useWebController } from '../Controller/useWebController';
 
-export type MoreViewProps = {
-  visible: boolean;
-  onVisibleChange: (visible: boolean) => void;
-  onRefresh: () => void;
-  onShare: () => void;
-  onCopyUrlToClipboard: () => void;
-  onOpenBrowser: () => void;
-  onGoHomePage: () => void;
-};
-
-const MoreView: FC<MoreViewProps> = ({
-  visible,
-  onVisibleChange,
-  onRefresh,
-  onShare,
-  onCopyUrlToClipboard,
-  onOpenBrowser,
-  onGoHomePage,
-}) => {
+const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
   const intl = useIntl();
-  const toast = useToast();
 
-  const [currentOptionType, setCurrentOptionType] = useState<string | null>(
-    null,
-  );
-
-  const currentTab = useWebTab();
-
-  useEffect(() => {
-    function main() {
-      switch (currentOptionType) {
-        case 'refresh':
-          onRefresh();
-          setCurrentOptionType(null);
-          break;
-        case 'share':
-          onShare();
-          setCurrentOptionType(null);
-          break;
-        case 'copyUrl':
-          onCopyUrlToClipboard();
-          setCurrentOptionType(null);
-          break;
-        case 'openInBrowser':
-          onOpenBrowser();
-          setCurrentOptionType(null);
-          break;
-        case 'goHome':
-          onGoHomePage();
-          setCurrentOptionType(null);
-          break;
-        case 'unfavorites':
-          if (currentTab) {
-            backgroundApiProxy.serviceDiscover.removeBookmark(currentTab);
-          }
-          toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
-          break;
-        case 'favorites':
-          if (currentTab) {
-            backgroundApiProxy.serviceDiscover.addBookmark(currentTab);
-          }
-          toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
-          break;
-        default:
-          break;
-      }
-    }
-
-    setTimeout(() => main(), 500);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentOptionType]);
-
-  const options: SelectItem<string>[] = [
+  const { currentTab, stopLoading, reload } = useWebController();
+  const getCurrentUrl = () => currentTab?.url ?? '';
+  const options: SelectItem<() => void>[] = [
     {
       label: intl.formatMessage({
         id: 'action__refresh',
       }),
-      value: 'refresh',
+      value: reload,
       iconProps: { name: 'RefreshOutline' },
     },
     {
       label: intl.formatMessage({
         id: 'action__share',
       }),
-      value: 'share',
+      value: () => {
+        try {
+          Share.share(
+            Platform.OS === 'ios'
+              ? {
+                  url: getCurrentUrl(),
+                }
+              : {
+                  message: getCurrentUrl(),
+                },
+          )
+            .then((result) => {
+              console.log(result);
+            })
+            .catch((error) => {
+              console.error(error);
+            });
+        } catch (error) {
+          console.warn(error);
+        }
+      },
       iconProps: { name: 'ShareOutline' },
     },
     {
@@ -103,40 +62,57 @@ const MoreView: FC<MoreViewProps> = ({
         : intl.formatMessage({
             id: 'action__add_to_favorites',
           }),
-      value: currentTab?.isBookmarked ? 'unfavorites' : 'favorites',
+      value: () => {
+        if (!currentTab) return;
+        if (currentTab.isBookmarked) {
+          backgroundApiProxy.serviceDiscover.removeBookmark(currentTab);
+        } else {
+          backgroundApiProxy.serviceDiscover.addBookmark(currentTab);
+        }
+        Toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
+      },
       iconProps: { name: 'StarOutline' },
     },
     {
       label: intl.formatMessage({
         id: 'action__copy_url',
       }),
-      value: 'copyUrl',
+      value: () => {
+        copyToClipboard(getCurrentUrl());
+        Toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+      },
       iconProps: { name: 'LinkOutline' },
     },
     {
       label: intl.formatMessage({
         id: 'action__open_in_browser',
       }),
-      value: 'openInBrowser',
+      value: () => openUrlExternal(getCurrentUrl()),
       iconProps: { name: 'GlobeAltOutline' },
     },
     {
       label: intl.formatMessage({
         id: 'action__back_to_home_page',
       }),
-      value: 'goHome',
+      value: () => {
+        stopLoading();
+        backgroundApiProxy.dispatch(
+          setWebTabData({ ...homeTab, id: currentTab.id }),
+        );
+      },
       iconProps: { name: 'HomeOutline' },
     },
   ];
 
   return (
     <Select
-      visible={visible}
-      onVisibleChange={onVisibleChange}
+      visible
       dropdownPosition="right"
       title={intl.formatMessage({ id: 'select__options' })}
+      onVisibleChange={onClose}
       onChange={(v) => {
-        if (currentOptionType !== v) setCurrentOptionType(v);
+        onClose();
+        v();
       }}
       footer={null}
       activatable={false}
@@ -146,10 +122,10 @@ const MoreView: FC<MoreViewProps> = ({
       dropdownProps={{
         width: 248,
       }}
-      renderTrigger={() => <Box />}
       options={options}
     />
   );
 };
 
-export default MoreView;
+export const showWebMoreMenu = () =>
+  showOverlay((onClose) => <MoreMenu onClose={onClose} />);

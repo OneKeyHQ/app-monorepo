@@ -6,7 +6,11 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { ISessionStatus } from '@walletconnect/types';
 
-import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import {
+  IMPL_ALGO,
+  IMPL_APTOS,
+  IMPL_EVM,
+} from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -53,6 +57,8 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         const doProviderRequest = () => {
           if (networkImpl === IMPL_APTOS) {
             request = this.aptosRequest(connector, payload);
+          } else if (networkImpl === IMPL_ALGO) {
+            request = this.algoRequest(connector, payload);
           } else {
             request = this.ethereumRequest(connector, payload);
           }
@@ -118,11 +124,32 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     return Promise.resolve(resp.result as T);
   }
 
+  async algoRequest<T>(
+    connector: OneKeyWalletConnector,
+    data: any,
+  ): Promise<T> {
+    const { algo } = IInjectedProviderNames;
+    const resp = await this.backgroundApi.handleProviderMethods<T>({
+      scope: algo,
+      origin: this.getConnectorOrigin(connector),
+      data,
+    });
+    return Promise.resolve(resp.result as T);
+  }
+
   // TODO Support for more chain
   async getChainIdInteger(connector: OneKeyWalletConnector) {
     const { networkImpl } = connector.session;
     if (networkImpl === IMPL_APTOS) {
       const { chainId }: { chainId: number } = await this.aptosRequest(
+        connector,
+        { method: 'getChainId' },
+      );
+      return chainId;
+    }
+
+    if (networkImpl === IMPL_ALGO) {
+      const { chainId }: { chainId: number } = await this.algoRequest(
         connector,
         { method: 'getChainId' },
       );
@@ -157,6 +184,10 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         { method: 'connect' },
       );
       result = [address];
+    } else if (networkImpl === IMPL_ALGO) {
+      result = await this.algoRequest<string[]>(connector, {
+        method: 'connect',
+      });
     } else {
       result = await this.ethereumRequest<string[]>(connector, {
         method: 'eth_requestAccounts',
@@ -241,6 +272,10 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
           { method: 'account' },
         );
         accounts = [address];
+      } else if (connector.session.networkImpl === IMPL_ALGO) {
+        accounts = await this.algoRequest<string[]>(connector, {
+          method: 'accounts',
+        });
       } else {
         accounts = await this.ethereumRequest<string[]>(connector, {
           method: 'eth_accounts',

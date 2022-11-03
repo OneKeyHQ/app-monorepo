@@ -9,6 +9,7 @@ import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 import TronWeb from 'tronweb';
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { toBigIntHex } from '../../../engineUtils';
@@ -73,6 +74,7 @@ export default class Vault extends VaultBase {
     {
       promise: true,
       max: 3,
+      maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
 
@@ -90,7 +92,7 @@ export default class Vault extends VaultBase {
       }
       return contract;
     },
-    { promise: true, max: 100 },
+    { promise: true, max: 100, maxAge: getTimeDurationMs({ minute: 3 }) },
   );
 
   getTokenInfo = memoizee(
@@ -110,7 +112,7 @@ export default class Vault extends VaultBase {
         };
       }
     },
-    { promise: true, max: 100 },
+    { promise: true, max: 100, maxAge: getTimeDurationMs({ minute: 3 }) },
   );
 
   getParameters = memoizee(
@@ -123,7 +125,7 @@ export default class Vault extends VaultBase {
         ]),
       );
     },
-    { promise: true },
+    { promise: true, maxAge: getTimeDurationMs({ minute: 3 }) },
   );
 
   async getConsumableResource(address: string) {
