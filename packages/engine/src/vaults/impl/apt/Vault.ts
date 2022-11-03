@@ -15,7 +15,11 @@ import { get, groupBy, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
-import { getTimeStamp, isHexString } from '@onekeyhq/kit/src/utils/helper';
+import {
+  getTimeDurationMs,
+  getTimeStamp,
+  isHexString,
+} from '@onekeyhq/kit/src/utils/helper';
 import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -95,6 +99,7 @@ export default class Vault extends VaultBase {
   getClientCache = memoizee(async (rpcUrl) => this.getAptosClient(rpcUrl), {
     promise: true,
     max: 1,
+    maxAge: getTimeDurationMs({ minute: 3 }),
   });
 
   async getClient() {

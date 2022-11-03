@@ -2,7 +2,11 @@ import { IClientMeta, ISessionStatus } from '@walletconnect/types';
 import { merge } from 'lodash';
 import { Linking } from 'react-native';
 
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import {
+  IMPL_ALGO,
+  IMPL_APTOS,
+  IMPL_EVM,
+} from '@onekeyhq/engine/src/constants';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -82,7 +86,18 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     // eslint-disable-next-line no-param-reassign
     uri = uri?.trim() || uri;
     // uri network param defaults to evm
-    const network = new URL(uri).searchParams.get('network') || IMPL_EVM;
+    const { searchParams } = new URL(uri);
+
+    let network = IMPL_EVM;
+    if (
+      searchParams.get('network') === IMPL_ALGO ||
+      searchParams.get('algorand')
+    ) {
+      network = IMPL_ALGO;
+    }
+    if (searchParams.get('network') === IMPL_APTOS) {
+      network = IMPL_APTOS;
+    }
 
     if (this.previousUri && this.previousUri === uri) {
       await wait(1500);

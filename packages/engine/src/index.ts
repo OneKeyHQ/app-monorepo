@@ -10,6 +10,7 @@ import {
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import * as algosdk from 'algosdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
@@ -34,6 +35,7 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_BTC,
+  IMPL_ALGO,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_DOGE,
@@ -730,6 +732,7 @@ class Engine {
       '3': OnekeyNetwork.doge,
       '2': OnekeyNetwork.ltc,
       '145': OnekeyNetwork.bch,
+      '283': OnekeyNetwork.algo,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -1016,6 +1019,10 @@ class Engine {
           if (decodedPrivateKey.length === 64) {
             privateKey = decodedPrivateKey.slice(0, 32);
           }
+          break;
+        }
+        case IMPL_ALGO: {
+          privateKey = Buffer.from(algosdk.seedFromMnemonic(credential));
           break;
         }
         default:

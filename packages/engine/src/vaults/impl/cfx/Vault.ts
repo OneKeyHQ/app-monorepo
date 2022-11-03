@@ -14,7 +14,7 @@ import { Conflux, address as confluxAddress } from 'js-conflux-sdk';
 import { isEmpty, isNil, omitBy } from 'lodash';
 import memoizee from 'memoizee';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import {
   InvalidAddress,
@@ -86,6 +86,7 @@ export default class Vault extends VaultBase {
   getApiExplorerCache = memoizee(async (baseURL) => axios.create({ baseURL }), {
     promise: true,
     max: 1,
+    maxAge: getTimeDurationMs({ minute: 3 }),
   });
 
   getClientCache = memoizee(
@@ -93,6 +94,7 @@ export default class Vault extends VaultBase {
     {
       promise: true,
       max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
 
