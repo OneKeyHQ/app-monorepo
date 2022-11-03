@@ -12,8 +12,8 @@ import {
 } from '@onekeyhq/components';
 import { ERC721TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
 
-import { Filter } from '../FilterBar';
-import { useERC721Allowances, useIsVerticalOrMiddleLayout } from '../hooks';
+import { AssetType, Filter } from '../FilterBar';
+import { useIsVerticalOrMiddleLayout, useTokenAllowances } from '../hooks';
 
 import { EmptyRecord, Header, ListLoading } from './ERC20TokenList';
 import { ERC721Allowance } from './ERC721Allowance';
@@ -30,18 +30,18 @@ export const ERC721TokenList: FC<{
     loading,
     allowances,
     address: accountAddress,
-  } = useERC721Allowances(networkId, addressOrName);
+  } = useTokenAllowances(networkId, addressOrName, filters.assetType);
 
   const data = useMemo(
     () =>
-      allowances
+      (allowances
         ?.filter((item) => item.allowance.length > 0)
         ?.filter(({ balance }) => {
           if (filters.includeZeroBalancesTokens) {
             return true;
           }
           return balance !== '0';
-        }) ?? [],
+        }) ?? []) as ERC721TokenAllowance[],
     [filters, allowances],
   );
 
@@ -68,7 +68,7 @@ export const ERC721TokenList: FC<{
             />
           </ListItem.Column>
           <ListItem.Column>
-            <VStack w="100px" alignSelf="flex-start" textAlign="right">
+            <VStack w="200px" alignSelf="flex-start" textAlign="right">
               <Typography.Body2Strong>
                 {balance === 'ERC1155'
                   ? 'N/A'
@@ -170,7 +170,9 @@ export const ERC721TokenList: FC<{
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={isVertical ? undefined : () => <Header />}
+      ListHeaderComponent={
+        isVertical ? undefined : () => <Header assetType={AssetType.nfts} />
+      }
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id || token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}
