@@ -1,11 +1,4 @@
-import React, {
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -66,7 +59,6 @@ const OnekeyHardwareHomescreen: FC = () => {
   const [uploadImages, setUploadImages] =
     useState<typeof imageCache>(imageCache);
   const [isInitialized, setIsInitialized] = useState(false);
-  const initializedRef = useRef<boolean>(false);
 
   const { engine, serviceHardware } = backgroundApiProxy;
 
@@ -93,7 +85,7 @@ const OnekeyHardwareHomescreen: FC = () => {
   };
 
   const syncUploadImage = useCallback(
-    (images: HomescreenItem[]) => {
+    (images: HomescreenItem[], insertMode = false) => {
       const originData = images.filter(
         (i) =>
           !i.name.startsWith('hackLayout') && !i.name.startsWith('AddAction'),
@@ -104,6 +96,9 @@ const OnekeyHardwareHomescreen: FC = () => {
       Object.values(uploadImages).forEach((item) => {
         if (!originData.find((i) => i.name === item.name)) {
           dataSource.splice(insertIndex, 0, item as HomescreenItem);
+          if (insertMode) {
+            setActiveIndex(insertIndex);
+          }
           insertIndex += 1;
         }
       });
@@ -116,6 +111,7 @@ const OnekeyHardwareHomescreen: FC = () => {
     [uploadImages],
   );
 
+  // initialize
   useEffect(() => {
     const homescreensMap = getHomescreenData(deviceType);
     let dataSource = Object.values(homescreensMap).map((item) => item);
@@ -126,13 +122,12 @@ const OnekeyHardwareHomescreen: FC = () => {
     dataSource.push(...layoutData);
     setData(dataSource);
     setIsInitialized(true);
-    initializedRef.current = true;
   }, [isTouch, deviceType, syncUploadImage]);
 
+  // Organize data after uploading images
   useEffect(() => {
-    if (!initializedRef.current) return;
     if (!isInitialized) return;
-    const dataSource = syncUploadImage(data);
+    const dataSource = syncUploadImage(data, true);
     const layoutData = hackLayout(dataSource);
     dataSource.push(...layoutData);
     setData(dataSource);
@@ -175,6 +170,7 @@ const OnekeyHardwareHomescreen: FC = () => {
         if (uploadResParams) {
           await serviceHardware.uploadResource(connectId, uploadResParams);
         }
+        toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
         return;
       }
 
