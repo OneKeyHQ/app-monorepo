@@ -158,13 +158,12 @@ export const useWebController = ({
     gotoSite,
     openMatchDApp,
     goBack: () => {
-      let canGoBack =
-        tab?.refReady && tab?.canGoBack && tab?.url !== homeTab.url;
+      let canGoBack = tab?.refReady && tab?.canGoBack;
       if (platformEnv.isDesktop) {
         if (innerRef) {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          canGoBack = innerRef.canGoBack() && tab?.url !== homeTab.url;
+          canGoBack = innerRef.canGoBack();
         }
       }
 
