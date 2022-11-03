@@ -170,7 +170,7 @@ const DesktopWebView = forwardRef(
           if (onSrcChange) {
             onSrcChange(url);
           } else {
-            // webviewRef.current?.loadURL(url);
+            webviewRef.current?.loadURL(url);
           }
         },
       };
@@ -180,7 +180,7 @@ const DesktopWebView = forwardRef(
       return wrapper;
     });
 
-    const initWebviewByRef = useCallback(($ref) => {
+    const initWebviewByRef = useCallback(($ref: any) => {
       webviewRef.current = $ref as IElectronWebView;
       setIsWebviewReady(true);
     }, []);
@@ -228,9 +228,7 @@ const DesktopWebView = forwardRef(
                 try {
                   const uri = new URL(url);
                   originInUrl = uri?.origin || '';
-                } catch (error) {
-                  // noop
-                } finally {
+                } catch {
                   // noop
                 }
               }
@@ -244,7 +242,7 @@ const DesktopWebView = forwardRef(
               }
               return false;
             },
-          });
+          }).catch();
           if (origin) {
             // - receive
             jsBridgeHost.receive(data, { origin });

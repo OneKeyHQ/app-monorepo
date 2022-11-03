@@ -193,6 +193,7 @@ const ControllerBarDesktop: FC = () => {
                 }
               }
             }}
+            selectTextOnFocus
             onFocus={() => {
               setHistoryVisible(true);
             }}

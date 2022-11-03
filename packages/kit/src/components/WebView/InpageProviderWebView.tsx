@@ -54,6 +54,7 @@ const USER_AGENT_ANDROID =
 const DESKTOP_USER_AGENT_MOCK = undefined;
 
 export type InpageProviderWebViewProps = InpageWebViewProps & {
+  id?: string;
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
   nativeWebviewSource?: WebViewSource;

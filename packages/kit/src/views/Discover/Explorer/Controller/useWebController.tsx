@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { DialogManager } from '@onekeyhq/components';
@@ -113,12 +112,7 @@ export const useWebController = ({
       canGoForward,
       loading,
     }) => {
-      const isValidNewUrl =
-        typeof url === 'string' &&
-        url !== tab.url &&
-        // onNavigation only triggered when url changes in webpage
-        // so it can not be in homepage (which is not a webpage)
-        tab.url !== homeTab.url;
+      const isValidNewUrl = typeof url === 'string' && url !== tab.url;
       if (isValidNewUrl) {
         if (tab.timestamp && Date.now() - lastNewUrlTimeStamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
@@ -157,12 +151,13 @@ export const useWebController = ({
     gotoSite,
     openMatchDApp,
     goBack: () => {
-      let canGoBack = tab?.refReady && tab?.canGoBack;
+      let canGoBack =
+        tab?.refReady && tab?.canGoBack && tab?.url !== homeTab.url;
       if (platformEnv.isDesktop) {
         if (innerRef) {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          canGoBack = innerRef.canGoBack();
+          canGoBack = innerRef.canGoBack() && tab?.url !== homeTab.url;
         }
       }
 

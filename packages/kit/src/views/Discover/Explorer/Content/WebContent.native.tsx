@@ -30,7 +30,6 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const webview = useMemo(
     () => (
       <WebView
-        key={String(showHome)}
         src={url}
         onWebViewRef={(ref) => {
           const { dispatch } = backgroundApiProxy;
