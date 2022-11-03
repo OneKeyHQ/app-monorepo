@@ -140,6 +140,7 @@
     "**/buffer": "^6.0.3",
     "@types/react-native": "~0.68",
     "@types/react": "^17",
-    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
+    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview",
+    "dmg-builder": "23.6.0"
   }
 }
