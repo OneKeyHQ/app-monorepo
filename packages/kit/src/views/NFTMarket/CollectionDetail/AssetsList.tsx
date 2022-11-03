@@ -55,14 +55,18 @@ const AssetsList = ({
       contractAddress: string;
       cursor?: string;
     }) => {
-      console.log('getAsset');
       const data = await serviceNFT.getCollectionAssets(param);
       if (data?.content) {
         cursor.current = data.next;
-        updateListData((prev) => prev.concat(data?.content));
+        updateListData((prev) => {
+          if (context?.refreshing) {
+            return data.content;
+          }
+          return prev.concat(data?.content);
+        });
       }
     },
-    [serviceNFT],
+    [context?.refreshing, serviceNFT],
   );
   useEffect(() => {
     (() => {

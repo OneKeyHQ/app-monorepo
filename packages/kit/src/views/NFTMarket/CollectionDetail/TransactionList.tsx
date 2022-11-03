@@ -183,7 +183,12 @@ const TransactionList = ({
       const data = await serviceNFT.getCollectionTransactions(param);
       if (data?.content) {
         cursor.current = data.next;
-        updateListData((prev) => prev.concat(data?.content));
+        updateListData((prev) => {
+          if (context?.refreshing) {
+            return data.content;
+          }
+          return prev.concat(data?.content);
+        });
       }
     },
     [serviceNFT],
