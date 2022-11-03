@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react/no-unknown-property */
-import React, {
+import {
   forwardRef,
   useCallback,
   useEffect,
@@ -17,7 +17,6 @@ import {
 import {
   IWebViewWrapperRef,
   JsBridgeDesktopHost,
-  useIsIpcReady,
 } from '@onekeyfe/onekey-cross-webview';
 import { LoadURLOptions } from 'electron';
 import isArray from 'lodash/isArray';
@@ -25,8 +24,9 @@ import isEmpty from 'lodash/isEmpty';
 import isNil from 'lodash/isNil';
 import isPlainObject from 'lodash/isPlainObject';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
 const isDev = process.env.NODE_ENV !== 'production';
-const isBrowser = true;
 
 function usePreloadJsUrl() {
   const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS ?? {};
@@ -134,7 +134,6 @@ const DesktopWebView = forwardRef(
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
     const webviewRef = useRef<IElectronWebView | null>(null);
-    const isIpcReady = useIsIpcReady();
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
 
     if (props.preload) {
@@ -171,13 +170,8 @@ const DesktopWebView = forwardRef(
           if (onSrcChange) {
             onSrcChange(url);
           } else {
-            console.warn(
-              'DesktopWebView: Please pass onSrcChange props to enable loadURL() working.',
-            );
+            webviewRef.current?.loadURL(url);
           }
-          // use onSrcChange props change src
-          //    do not need call ElectronWebView.loadURL() manually.
-          // webviewRef.current?.loadURL(url);
         },
       };
 
@@ -186,18 +180,22 @@ const DesktopWebView = forwardRef(
       return wrapper;
     });
 
-    const initWebviewByRef = useCallback(($ref) => {
+    const initWebviewByRef = useCallback(($ref: any) => {
       webviewRef.current = $ref as IElectronWebView;
-      // desktop "ipc-message" listener must be added after webviewReady
-      //    so use ref to check it
       setIsWebviewReady(true);
     }, []);
 
     useEffect(() => {
       const webview = webviewRef.current;
-      if (!webview || !isIpcReady || !isWebviewReady) {
+      if (!webview || !isWebviewReady) {
         return;
       }
+
+      // only enable message for current focused webview
+      jsBridgeHost.globalOnMessageEnabled = true;
+      // connect background jsBridge
+      backgroundApiProxy.connectBridge(jsBridgeHost);
+
       const handleMessage = async (event: {
         channel: string;
         args: Array<string>;
@@ -230,9 +228,7 @@ const DesktopWebView = forwardRef(
                 try {
                   const uri = new URL(url);
                   originInUrl = uri?.origin || '';
-                } catch (error) {
-                  // noop
-                } finally {
+                } catch {
                   // noop
                 }
               }
@@ -246,7 +242,7 @@ const DesktopWebView = forwardRef(
               }
               return false;
             },
-          });
+          }).catch();
           if (origin) {
             // - receive
             jsBridgeHost.receive(data, { origin });
@@ -262,15 +258,11 @@ const DesktopWebView = forwardRef(
       return () => {
         webview.removeEventListener('ipc-message', handleMessage);
       };
-    }, [jsBridgeHost, isIpcReady, isWebviewReady, src]);
+    }, [jsBridgeHost, isWebviewReady, src]);
 
     const preloadJsUrl = usePreloadJsUrl();
 
     if (!preloadJsUrl) {
-      return null;
-    }
-
-    if (!isIpcReady) {
       return null;
     }
 
@@ -296,28 +288,25 @@ const DesktopWebView = forwardRef(
           </button>
         )}
 
-        {/* <div ref={ref} className="webview-container" /> */}
-        {isBrowser && (
-          <webview
-            ref={initWebviewByRef}
-            preload={preloadJsUrl}
-            src={isIpcReady && isWebviewReady ? src : undefined}
-            style={{
-              'width': '100%',
-              'height': '100%',
-              ...style,
-            }}
-            // @ts-ignore
-            allowpopups="true"
-            // @ts-ignore
-            nodeintegration="true"
-            nodeintegrationinsubframes="true"
-            webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1"
-            // mobile user-agent
-            // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
-            {...props}
-          />
-        )}
+        <webview
+          ref={initWebviewByRef}
+          preload={preloadJsUrl}
+          src={src}
+          style={{
+            'width': '100%',
+            'height': '100%',
+            ...style,
+          }}
+          // @ts-ignore
+          allowpopups="true"
+          // @ts-ignore
+          nodeintegration="true"
+          nodeintegrationinsubframes="true"
+          webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1"
+          // mobile user-agent
+          // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
+          {...props}
+        />
       </>
     );
   },

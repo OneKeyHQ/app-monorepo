@@ -31,26 +31,23 @@ export const useWebviewRef = ({
           return;
         }
         const getNavStatusInfo = () => {
-          if (!ref || !isDomReady.current) {
+          try {
+            return {
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              title: ref.getTitle(),
+              canGoBack:
+                // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                ref.canGoBack(),
+              canGoForward:
+                // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                ref.canGoForward(),
+            };
+          } catch {
             return undefined;
           }
-          // @ts-ignore
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          const title = ref.getTitle();
-          const canGoBack =
-            // @ts-ignore
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            ref.canGoBack();
-          const canGoForward =
-            // @ts-ignore
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            ref.canGoForward();
-          return {
-            // url: ref.getURL(), // TODO can not manual input text and navigate to new url
-            title,
-            canGoBack,
-            canGoForward,
-          };
         };
         const handleFinishLoading = () =>
           onNavigation({
@@ -69,12 +66,10 @@ export const useWebviewRef = ({
           isMainFrame: boolean;
         }) => {
           if (isMainFrame) {
-            // TODO cycle loadUrl when did-start-navigation?
-            const isInPlaceFinal = platformEnv.isDesktop ? true : isInPlace;
             onNavigation({
               url,
               loading: true,
-              isInPlace: isInPlaceFinal,
+              isInPlace,
               ...getNavStatusInfo(),
             });
           }

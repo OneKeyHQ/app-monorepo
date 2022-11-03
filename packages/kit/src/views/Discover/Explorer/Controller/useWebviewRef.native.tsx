@@ -30,6 +30,13 @@ export const useWebviewRef = ({
     } catch {}
   }, [ref]);
 
+  const reload = useCallback(() => {
+    try {
+      ref?.reload();
+      // eslint-disable-next-line no-empty
+    } catch {}
+  }, [ref]);
+
   const stopLoading = useCallback(() => {
     try {
       ref?.stopLoading();
@@ -64,5 +71,6 @@ export const useWebviewRef = ({
     goBack,
     goForward,
     stopLoading,
+    reload,
   };
 };

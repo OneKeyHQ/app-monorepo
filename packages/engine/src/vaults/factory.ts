@@ -1,5 +1,6 @@
 /* eslint-disable new-cap, @typescript-eslint/require-await */
 import {
+  IMPL_ALGO,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -20,6 +21,8 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 
+import VaultAlgo from './impl/algo/Vault';
+import VaultHelperAlgo from './impl/algo/VaultHelper';
 import VaultAptos from './impl/apt/Vault';
 import VaultHelperAptos from './impl/apt/VaultHelper';
 import VaultBch from './impl/bch/Vault';
@@ -81,6 +84,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_LTC) {
     return new VaultHelperLtc(options);
+  }
+  if (impl === IMPL_ALGO) {
+    return new VaultHelperAlgo(options);
   }
   if (impl === IMPL_BCH) {
     return new VaultHelperBch(options);
@@ -157,6 +163,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_LTC) {
     vault = new VaultLtc(options);
+  }
+  if (network.impl === IMPL_ALGO) {
+    vault = new VaultAlgo(options);
   }
   if (network.impl === IMPL_BCH) {
     vault = new VaultBch(options);

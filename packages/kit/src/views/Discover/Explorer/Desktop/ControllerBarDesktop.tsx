@@ -1,4 +1,4 @@
-import React, {
+import {
   ComponentProps,
   FC,
   forwardRef,
@@ -22,15 +22,13 @@ import {
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
 import { homeTab } from '../../../../store/reducers/webTabs';
+import { useWebController } from '../Controller/useWebController';
 import {
   MatchDAppItemType,
   SearchViewKeyEventType,
   SearchViewRef,
-  WebControllerBarProps,
 } from '../explorerUtils';
 import SearchView from '../Search/SearchView';
-
-import { useWebTab } from './useWebTabs';
 
 type BrowserURLInputProps = {
   onClear?: () => void;
@@ -91,19 +89,27 @@ function getHttpSafeState(searchContent?: string): ICON_NAMES {
   }
   return 'SearchCircleSolid';
 }
-const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
-  onSearchSubmitEditing,
-  loading,
-  canGoBack,
-  canGoForward,
-  onGoBack,
-  onNext,
-  onRefresh,
-  onStopLoading,
-}) => {
+const ControllerBarDesktop: FC = () => {
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
-  const currentTab = useWebTab();
+  const {
+    openMatchDApp,
+    gotoSite,
+    currentTab,
+    stopLoading,
+    goBack,
+    goForward,
+    reload,
+  } = useWebController();
+  const { loading, canGoBack, canGoForward } = currentTab;
+
+  const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
+    if (typeof dapp === 'string') {
+      return gotoSite({ url: dapp });
+    }
+    openMatchDApp(dapp);
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const url: string = currentTab?.url || '';
   const [searchText, setSearchText] = useState(url);
@@ -134,19 +140,19 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
           name="ArrowLeftOutline"
           disabled={!canGoBack}
           isDisabled={!canGoBack}
-          onPress={onGoBack}
+          onPress={goBack}
         />
         <IconButton
           type="plain"
           name="ArrowRightOutline"
           disabled={!canGoForward}
           isDisabled={!canGoForward}
-          onPress={onNext}
+          onPress={goForward}
         />
         <IconButton
           type="plain"
           name={loading ? 'CloseOutline' : 'RefreshOutline'}
-          onPress={loading ? onStopLoading : onRefresh}
+          onPress={loading ? stopLoading : reload}
         />
 
         <Pressable
@@ -187,6 +193,7 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
                 }
               }
             }}
+            selectTextOnFocus
             onFocus={() => {
               setHistoryVisible(true);
             }}
@@ -233,6 +240,6 @@ const WebControllerBarDesktop: FC<WebControllerBarProps> = ({
     </>
   );
 };
-WebControllerBarDesktop.displayName = 'WebControllerBarDesktop';
+ControllerBarDesktop.displayName = 'ControllerBarDesktop';
 
-export default WebControllerBarDesktop;
+export default ControllerBarDesktop;
