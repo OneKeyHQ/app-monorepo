@@ -93,7 +93,8 @@ const HeaderSmall: React.FC = () => {
   const marketTopTabName = useMarketTopTabName();
   return (
     <Box
-      p="4"
+      px="4"
+      pt="4"
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
