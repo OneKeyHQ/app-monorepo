@@ -323,21 +323,21 @@ export const TouchData = {
   'wallpaper-1': {
     'name': 'wallpaper-1',
     'staticPath': require('@onekeyhq/kit/assets/hardware/homescreens/touch/zoom-wallpaper-1.jpg'),
-    'hex': 'wallpaper-1.jpg',
+    'hex': '77616c6c70617065722d312e6a7067',
   },
   'wallpaper-2': {
     'name': 'wallpaper-2',
     'staticPath': require('@onekeyhq/kit/assets/hardware/homescreens/touch/zoom-wallpaper-2.jpg'),
-    'hex': 'wallpaper-2.jpg',
+    'hex': '77616c6c70617065722d322e6a7067',
   },
   'wallpaper-3': {
     'name': 'wallpaper-3',
     'staticPath': require('@onekeyhq/kit/assets/hardware/homescreens/touch/zoom-wallpaper-3.jpg'),
-    'hex': 'wallpaper-3.jpg',
+    'hex': '77616c6c70617065722d332e6a7067',
   },
   'wallpaper-4': {
     'name': 'wallpaper-4',
     'staticPath': require('@onekeyhq/kit/assets/hardware/homescreens/touch/zoom-wallpaper-4.jpg'),
-    'hex': 'wallpaper-4.jpg',
+    'hex': '77616c6c70617065722d342e6a7067',
   },
 };
