@@ -8,6 +8,7 @@ import { Linking } from 'react-native';
 
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -31,7 +32,6 @@ import {
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
-import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;

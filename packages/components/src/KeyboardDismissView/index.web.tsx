@@ -2,7 +2,7 @@ import { FC } from 'react';
 
 import { View } from 'native-base';
 
-export const KeyboardDismissView: FC = ({ children, ...props }) => (
+const KeyboardDismissView: FC = ({ children, ...props }) => (
   <View w="full" h="full" {...props}>
     {children}
   </View>

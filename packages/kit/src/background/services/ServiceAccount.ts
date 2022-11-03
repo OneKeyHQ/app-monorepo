@@ -11,11 +11,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
-import {
-  WALLET_TYPE_EXTERNAL,
-  Wallet,
-  WalletType,
-} from '@onekeyhq/engine/src/types/wallet';
+import { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { setActiveIds } from '@onekeyhq/kit/src/store/reducers/general';
 import {
   updateAccountDetail,

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Box,
-  Button,
   Dialog,
   HStack,
   Icon,

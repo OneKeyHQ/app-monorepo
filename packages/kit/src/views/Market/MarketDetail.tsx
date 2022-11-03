@@ -157,8 +157,6 @@ const PurchaseButton = ({
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
-  const intl = useIntl();
-  const toast = useToast();
   // const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
   //   coingeckoId: tokenItem.coingeckoId,
   // });
