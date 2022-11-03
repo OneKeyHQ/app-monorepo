@@ -7,7 +7,13 @@ enum ETHMessageTypes {
   TYPED_DATA_V4 = 4,
 }
 
-export function getEthProviderMethodFromMessageType(type: ETHMessageTypes) {
+enum AptosMessageTypes {
+  SIGN_MESSAGE = 'aptosSignMessage',
+}
+
+export function getEthProviderMethodFromMessageType(
+  type: ETHMessageTypes | AptosMessageTypes,
+) {
   // https://docs.metamask.io/guide/signing-data.html#a-brief-history
   switch (type) {
     case ETHMessageTypes.ETH_SIGN:
@@ -20,6 +26,8 @@ export function getEthProviderMethodFromMessageType(type: ETHMessageTypes) {
       return 'eth_signTypedData_v3';
     case ETHMessageTypes.TYPED_DATA_V4:
       return 'eth_signTypedData_v4';
+    case AptosMessageTypes.SIGN_MESSAGE:
+      return 'signMessage';
     default:
       // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
       const checkType: never = type;
@@ -31,7 +39,12 @@ type ETHMessage = {
   message: string;
 };
 
-type Message = string | ETHMessage;
+type AptosMessage = {
+  type: AptosMessageTypes;
+  message: string;
+};
 
-export { ETHMessageTypes };
-export type { ETHMessage, Message };
+type Message = string | ETHMessage | AptosMessage;
+
+export { ETHMessageTypes, AptosMessageTypes };
+export type { ETHMessage, AptosMessage, Message };

@@ -14,15 +14,19 @@ import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AptosMessage } from '../../../types/message';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
-import { IUnsignedMessageEvm } from '../evm/Vault';
 
-import { generateUnsignedTransaction, signRawTransaction } from './utils';
+import {
+  formatFullMessage,
+  generateUnsignedTransaction,
+  signRawTransaction,
+} from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
@@ -123,7 +127,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(
-    messages: IUnsignedMessageEvm[],
+    messages: AptosMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     const dbAccount = await this.getDbAccount();
@@ -134,7 +138,8 @@ export class KeyringHd extends KeyringHdBase {
 
     return Promise.all(
       messages.map(async (message) => {
-        const [signature] = await signer.sign(Buffer.from(message.message));
+        const { fullMessage } = JSON.parse(message.message);
+        const [signature] = await signer.sign(Buffer.from(fullMessage));
         return addHexPrefix(signature.toString('hex'));
       }),
     );

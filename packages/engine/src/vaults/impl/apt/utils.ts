@@ -24,11 +24,13 @@ import { TypeTagParser } from './builder_utils';
 import {
   ArgumentABI,
   SignMessagePayload,
-  SignMessageResponse,
+  SignMessageRequest,
   TxPayload,
 } from './types';
 
 import type { Signer } from '../../../proxy';
+
+export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 
 // Move Module
 export const APTOS_COINSTORE = '0x1::coin::CoinStore';
@@ -483,24 +485,37 @@ export async function transactionPayloadToTxPayload(
   throw new OneKeyHardwareError(Error('not support'));
 }
 
-export function formatSignMessage(
+export function formatFullMessage(message: SignMessageRequest): string {
+  let fullMessage = `${APTOS_SIGN_MESSAGE_PREFIX}\n`;
+  if (message.address) {
+    fullMessage += `address: ${message.address}\n`;
+  }
+  if (message.application) {
+    fullMessage += `application: ${message.application}\n`;
+  }
+  if (message.chainId) {
+    fullMessage += `chainId: ${message.chainId}\n`;
+  }
+  fullMessage += `message: ${message.message}\n`;
+  fullMessage += `nonce: ${message.nonce}`;
+
+  return fullMessage;
+}
+
+export function formatSignMessageRequest(
   message: SignMessagePayload,
   address: string,
   application: string,
   chainId: number,
-): SignMessageResponse {
-  const response: SignMessageResponse = {
+): SignMessageRequest {
+  const request: SignMessageRequest = {
     message: message.message,
     nonce: message.nonce,
-    prefix: 'APTOS',
-    signature: '',
     fullMessage: '',
   };
 
-  let fullMessage = `${response.prefix}\n`;
   if (message.address) {
-    fullMessage += `address: ${address}\n`;
-    response.address = address;
+    request.address = address;
   }
   if (message.application) {
     let host: string;
@@ -510,20 +525,15 @@ export function formatSignMessage(
     } catch (error) {
       host = application;
     }
-
-    fullMessage += `application: ${host}\n`;
-    response.application = application;
+    request.application = host;
   }
   if (message.chainId) {
-    fullMessage += `chainId: ${chainId}\n`;
-    response.chainId = chainId;
+    request.chainId = chainId;
   }
-  fullMessage += `message: ${message.message}\n`;
-  fullMessage += `nonce: ${message.nonce}`;
 
-  response.fullMessage = fullMessage;
+  request.fullMessage = formatFullMessage(request);
 
-  return response;
+  return request;
 }
 
 export function generateRegisterToken(tokenAddress: string): TxPayload {
