@@ -5,11 +5,12 @@ import { Freeze } from 'react-freeze';
 
 import { Box } from '@onekeyhq/components';
 
+import { SingleWebContainer } from '../Content/WebContainer';
 import WebContent from '../Content/WebContent';
 import { useWebController } from '../Controller/useWebController';
 import { MatchDAppItemType, webHandler } from '../explorerUtils';
 
-import WebContainer from './WebContainer';
+import ExplorerBar from './ExplorerBarMobile';
 
 const showExplorerBar = webHandler !== 'browser';
 
@@ -51,12 +52,8 @@ const ExplorerMobile: FC = () => {
 
   return (
     <Box flex={1} bg="background-default">
-      <WebContainer
-        explorerContent={explorerContent}
-        showExplorerBar={showExplorerBar}
-        onSearchSubmitEditing={onSearchSubmitEditing}
-        onGoBack={goBack}
-      />
+      <ExplorerBar onSearchSubmitEditing={onSearchSubmitEditing} />
+      <SingleWebContainer />
     </Box>
   );
 };

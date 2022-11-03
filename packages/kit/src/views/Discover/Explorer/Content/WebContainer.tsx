@@ -63,7 +63,7 @@ export const TabbedWebContainer = memo(() => {
 TabbedWebContainer.displayName = 'TabbedWebContainer';
 
 // for browser
-export const WebContainer = () => {
+export const SingleWebContainer = () => {
   const { openMatchDApp } = useWebController();
 
   return (
@@ -76,4 +76,4 @@ export const WebContainer = () => {
   );
 };
 
-WebContainer.displayName = 'WebContainer';
+SingleWebContainer.displayName = 'SingleWebContainer';

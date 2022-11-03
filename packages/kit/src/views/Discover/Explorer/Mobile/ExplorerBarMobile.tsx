@@ -2,13 +2,7 @@ import { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Icon,
-  IconButton,
-  Pressable,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
 import useNavigation from '@onekeyhq/kit/src/hooks/useNavigation';
 import {
   DiscoverModalRoutes,
