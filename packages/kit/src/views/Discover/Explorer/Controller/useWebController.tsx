@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import { DialogManager } from '@onekeyhq/components';
@@ -115,7 +114,6 @@ export const useWebController = ({
     }) => {
       const now = Date.now();
       const isValidNewUrl = typeof url === 'string' && url !== tab.url;
-
       if (isValidNewUrl) {
         if (tab.timestamp && now - tab.timestamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
@@ -160,12 +158,13 @@ export const useWebController = ({
     gotoSite,
     openMatchDApp,
     goBack: () => {
-      let canGoBack = tab?.refReady && tab?.canGoBack;
+      let canGoBack =
+        tab?.refReady && tab?.canGoBack && tab?.url !== homeTab.url;
       if (platformEnv.isDesktop) {
         if (innerRef) {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          canGoBack = innerRef.canGoBack();
+          canGoBack = innerRef.canGoBack() && tab?.url !== homeTab.url;
         }
       }
 
