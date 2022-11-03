@@ -23,8 +23,8 @@ const prefix = Linking.createURL('/');
 
 type WhiteListItem = {
   screen: string;
-  path?: string;
-  schema?: string;
+  path: string;
+  exact?: boolean;
 };
 
 type WhiteListItemList = WhiteListItem[];
@@ -106,9 +106,10 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
   },
   {
+    // /root/initial/tab/home/Revoke
     screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
-    // schema: '/revoke',
-    path: `/${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    path: `/revoke`,
+    exact: true,
   },
   {
     screen: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
@@ -127,14 +128,20 @@ const normalRouteWhiteList: WhiteListItemList = [
 /**
  * split white list config and generate hierarchy config for react-navigation linking config
  */
-const generateScreenHierarchyRouteConfig = (
-  screenListStr: string,
-  path?: string,
-  schema?: string,
-): Record<string, any> => {
+const generateScreenHierarchyRouteConfig = ({
+  screenListStr,
+  path,
+  exact,
+  fullPath,
+}: {
+  screenListStr: string;
+  path: string;
+  exact?: boolean;
+  fullPath: string;
+}): Record<string, any> => {
   const screens = screenListStr.split('/').filter(Boolean);
   const pathList = (path || '').split('/').filter(Boolean);
-  if (!screens.length || (!pathList.length && !schema)) {
+  if (!screens.length || (!pathList.length && !exact)) {
     return {};
   }
 
@@ -142,18 +149,18 @@ const generateScreenHierarchyRouteConfig = (
   const currentPath = pathList[0] || currentRoute;
 
   const isLastScreen = screens.length === 1;
+  const isExactUrl = Boolean(isLastScreen && exact);
   return {
-    [currentRoute]:
-      isLastScreen && schema
-        ? schema
-        : {
-            path: `/${currentPath}`,
-            screens: generateScreenHierarchyRouteConfig(
-              screens.slice(1).join('/'),
-              pathList.slice(1).join('/'),
-              schema,
-            ),
-          },
+    [currentRoute]: {
+      path: isExactUrl ? fullPath : `/${currentPath}`,
+      exact: isExactUrl,
+      screens: generateScreenHierarchyRouteConfig({
+        screenListStr: screens.slice(1).join('/'),
+        path: pathList.slice(1).join('/'),
+        fullPath,
+        exact,
+      }),
+    },
   };
 };
 
@@ -164,7 +171,12 @@ const generateScreenHierarchyRouteConfigList = (
     (memo, tab) =>
       merge(
         memo,
-        generateScreenHierarchyRouteConfig(tab.screen, tab.path, tab.schema),
+        generateScreenHierarchyRouteConfig({
+          screenListStr: tab.screen,
+          path: tab.path,
+          exact: tab.exact,
+          fullPath: tab.path,
+        }),
       ),
     {},
   );
