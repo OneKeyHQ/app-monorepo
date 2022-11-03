@@ -47,6 +47,7 @@ export type SettingsState = {
     preReleaseUpdate?: boolean;
     updateDeviceBle?: boolean;
     updateDeviceSys?: boolean;
+    updateDeviceRes?: boolean;
     enableTestFiatEndpoint?: boolean;
     enableZeroNotificationThreshold?: boolean;
   };
@@ -107,6 +108,7 @@ const initialState: SettingsState = {
     preReleaseUpdate: false,
     updateDeviceBle: false,
     updateDeviceSys: false,
+    updateDeviceRes: false,
     enableTestFiatEndpoint: false,
     enableZeroNotificationThreshold: false,
   },
@@ -223,6 +225,9 @@ export const settingsSlice = createSlice({
     },
     setUpdateDeviceSys(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, updateDeviceSys: action.payload };
+    },
+    setUpdateDeviceRes(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, updateDeviceRes: action.payload };
     },
     setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
       state.devMode = {
@@ -371,6 +376,7 @@ export const {
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceSys,
+  setUpdateDeviceRes,
   setDeviceUpdates,
   setDeviceDoneUpdate,
   setEnableHaptics,
