@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 
+import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 import { RootSiblingParent } from 'react-native-root-siblings';
@@ -32,9 +33,11 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
 import Webview from '@onekeyhq/kit/src/views/Webview';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
+import { useNavigationBack } from '../../hooks/useAppNavigation';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
@@ -144,6 +147,7 @@ export const stackScreenList = [
 export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
 const Dashboard = () => {
+  const goBack = useNavigationBack();
   const isVerticalLayout = useIsVerticalLayout();
   const [bgColor, textColor, borderBottomColor] = useThemeValue([
     'background-default',
@@ -188,6 +192,17 @@ const Dashboard = () => {
             borderBottomWidth: 0,
             shadowColor: borderBottomColor,
           },
+
+          headerLeft: platformEnv.isRuntimeBrowser
+            ? ({ tintColor }) => (
+                <NavigationHeaderBackButton
+                  tintColor={tintColor}
+                  // eslint-disable-next-line @typescript-eslint/unbound-method
+                  onPress={goBack}
+                  canGoBack
+                />
+              )
+            : undefined,
           header:
             Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
           headerTintColor: textColor,

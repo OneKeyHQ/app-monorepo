@@ -22,7 +22,12 @@ import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 const prefix = Linking.createURL('/');
 
 type WhiteListItem = {
-  screen: string;
+  screen:
+    | string
+    | {
+        vertical: string;
+        desktop: string;
+      };
   path: string;
   exact?: boolean;
 };
@@ -98,32 +103,43 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
   },
   {
-    screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
-    path: `/${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
+    screen: {
+      vertical: `${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
+      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
+    },
+    path: `/tokenDetail`,
+    exact: true,
   },
   {
-    screen: `${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
-    path: `/${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
-  },
-  {
-    // /root/initial/tab/home/Revoke
-    screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    screen: {
+      vertical: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
+      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    },
     path: `/revoke`,
     exact: true,
   },
   {
-    screen: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
-    path: `/${RootRoutes.Root}/${HomeRoutes.Revoke}`,
-  },
-  {
-    screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
-    path: `/${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
-  },
-  {
-    screen: `${RootRoutes.Root}/${HomeRoutes.MarketDetail}`,
-    path: `/${RootRoutes.Root}/${HomeRoutes.MarketDetail}`,
+    screen: {
+      vertical: `${RootRoutes.Root}/${HomeRoutes.MarketDetail}`,
+      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
+    },
+    path: `/marketDetail`,
+    exact: true,
   },
 ];
+
+const getScreen = (
+  screen: WhiteListItem['screen'],
+  isVerticalLayout?: boolean,
+) => {
+  if (typeof screen === 'string') {
+    return screen;
+  }
+  if (isVerticalLayout && screen.vertical) {
+    return screen.vertical;
+  }
+  return screen.desktop;
+};
 
 /**
  * split white list config and generate hierarchy config for react-navigation linking config
@@ -166,13 +182,14 @@ const generateScreenHierarchyRouteConfig = ({
 
 const generateScreenHierarchyRouteConfigList = (
   whiteListConfig: WhiteListItemList,
+  isVerticalLayout = false,
 ) =>
   whiteListConfig.reduce(
     (memo, tab) =>
       merge(
         memo,
         generateScreenHierarchyRouteConfig({
-          screenListStr: tab.screen,
+          screenListStr: getScreen(tab.screen, isVerticalLayout),
           path: tab.path,
           exact: tab.exact,
           fullPath: tab.path,
@@ -203,13 +220,13 @@ function generateTabHierarchy(isVerticalLayout?: boolean) {
   return tabRoutesWhiteList.reduce(
     (memo, tabRoute) => ({
       ...memo,
-      [tabRoute.screen]: {
+      [getScreen(tabRoute.screen)]: {
         path: isVerticalLayout ? tabRoute.path : undefined,
         ...(isVerticalLayout
           ? {}
           : {
               screens: {
-                [`tab-${tabRoute.screen}`]: tabRoute.path,
+                [`tab-${getScreen(tabRoute.screen)}`]: tabRoute.path,
               },
             }),
       },
@@ -234,54 +251,59 @@ export function getExtensionIndexHtml() {
   return 'ui-expand-tab.html';
 }
 
-const screenHierarchyConfig =
-  generateScreenHierarchyRouteConfigList(normalRouteWhiteList);
-const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => ({
-  enabled: true,
-  prefixes: [prefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
-  /**
-   * Only change url at whitelist routes, or return home page
-   */
-  getPathFromState(state, options) {
+const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => {
+  const screenHierarchyConfig = generateScreenHierarchyRouteConfigList(
+    normalRouteWhiteList,
+    isVerticalLayout,
+  );
+  return {
+    enabled: true,
+    prefixes: [prefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
     /**
-     * firefox route issue, refresh cannot recognize hash, just redirect to home page after refresh.
+     * Only change url at whitelist routes, or return home page
      */
-    if (platformEnv.isExtFirefox) {
-      return `/${getExtensionIndexHtml()}`;
-    }
-    const defaultPath = getPathFromStateDefault(state, options);
-    const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
+    getPathFromState(state, options) {
+      /**
+       * firefox route issue, refresh cannot recognize hash, just redirect to home page after refresh.
+       */
+      if (platformEnv.isExtFirefox) {
+        return `/${getExtensionIndexHtml()}`;
+      }
+      const defaultPath = getPathFromStateDefault(state, options);
+      const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
 
-    const isWhiteList = whiteList.some(
-      (item) =>
-        defaultPathWithoutQuery && item.path === defaultPathWithoutQuery,
-    );
-    if (isWhiteList) return defaultPath;
-    return '/';
-  },
-  config: {
-    initialRouteName: RootRoutes.Root,
-    screens: {
-      [RootRoutes.Root]: {
-        screens: {
-          [HomeRoutes.InitialTab]: {
-            screens: {
-              [RootRoutes.Tab]: {
-                screens: generateTabHierarchy(isVerticalLayout),
+      const isWhiteList = whiteList.some(
+        (item) =>
+          defaultPathWithoutQuery && item.path === defaultPathWithoutQuery,
+      );
+      if (isWhiteList) return defaultPath;
+      return '/';
+    },
+    config: {
+      initialRouteName: RootRoutes.Root,
+      screens: {
+        [RootRoutes.Root]: {
+          screens: {
+            [HomeRoutes.InitialTab]: {
+              screens: {
+                [RootRoutes.Tab]: {
+                  screens: generateTabHierarchy(isVerticalLayout),
+                },
               },
             },
           },
         },
+        ...screenHierarchyConfig,
+        // custom route with path params needs to be defined at last
+        // /account/:address/:networkId?
+        [RootRoutes.Account]: AccountRootLandingPathSchema,
+        // /wc/connect
+        [RootRoutes.OnLandingWalletConnect]:
+          WalletConnectUniversalLinkPathSchema,
+        NotFound: '*',
       },
-      ...screenHierarchyConfig,
-      // custom route with path params needs to be defined at last
-      // /account/:address/:networkId?
-      [RootRoutes.Account]: AccountRootLandingPathSchema,
-      // /wc/connect
-      [RootRoutes.OnLandingWalletConnect]: WalletConnectUniversalLinkPathSchema,
-      NotFound: '*',
     },
-  },
-});
+  };
+};
 
 export default buildLinking;

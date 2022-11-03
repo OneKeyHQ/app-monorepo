@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 
+import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
@@ -204,7 +205,7 @@ function buildTabName(name: TabRoutes) {
   return `tab-${name}`;
 }
 
-export const getStackTabScreen = (tabName: TabRoutes) => {
+export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
   const tab = tabRoutes.find((t) => t.name === tabName) as TabRouteConfig;
   const screens = [
     {
@@ -253,6 +254,16 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
               key={s.name}
               screenOptions={{
                 header: customRenderHeader,
+                headerLeft: !customRenderHeader
+                  ? ({ tintColor }) => (
+                      <NavigationHeaderBackButton
+                        tintColor={tintColor}
+                        // eslint-disable-next-line @typescript-eslint/unbound-method
+                        onPress={goBack}
+                        canGoBack
+                      />
+                    )
+                  : undefined,
                 // lazy: true,
                 headerShown: index > 0 || Boolean(customRenderHeader),
               }}
