@@ -34,6 +34,7 @@ import {
   generateUploadResParams,
   imageCache,
 } from '@onekeyhq/kit/src/utils/hardware/homescreens';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type RouteProps = RouteProp<
@@ -166,7 +167,7 @@ const OnekeyHardwareHomescreen: FC = () => {
           selectedItem.width ?? 0,
           selectedItem.height ?? 0,
         );
-        console.log('should upload: ', uploadResParams);
+        debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
         if (uploadResParams) {
           await serviceHardware.uploadResource(connectId, uploadResParams);
         }
@@ -259,7 +260,11 @@ const OnekeyHardwareHomescreen: FC = () => {
           <Box flex={1} height={16}>
             <Image
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              source={item.staticPath}
+              source={
+                item.name.startsWith('upload')
+                  ? { uri: item.staticPath }
+                  : item.staticPath
+              }
               resizeMode={isTouch ? 'cover' : 'contain'}
               size={cardWidth}
               height={cardHeight}
