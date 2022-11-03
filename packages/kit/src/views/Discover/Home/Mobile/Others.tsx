@@ -102,6 +102,7 @@ const ChainsSelector: FC<{ networkIds: string[] }> = ({ networkIds }) => {
     <FlatList
       data={data}
       renderItem={renderItem}
+      showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item.networkId}
     />
   );
@@ -152,6 +153,7 @@ const DappsContainer = () => {
     <FlatList
       data={data}
       renderItem={renderItem}
+      showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item._id}
     />
   );

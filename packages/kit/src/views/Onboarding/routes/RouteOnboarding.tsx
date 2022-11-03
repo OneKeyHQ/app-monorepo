@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
@@ -75,6 +76,13 @@ export function RouteOnboarding() {
       )),
     [],
   );
+
+  useEffect(() => {
+    backgroundApiProxy.serviceOnboarding.checkOnboardingStatus();
+    return () => {
+      backgroundApiProxy.serviceOnboarding.checkOnboardingStatus();
+    };
+  }, []);
 
   return (
     <RootSiblingParent>
