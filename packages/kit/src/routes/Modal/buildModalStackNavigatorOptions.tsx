@@ -4,6 +4,10 @@ import {
   StackNavigationOptions,
   TransitionPresets,
 } from '@react-navigation/stack';
+import {
+  StackCardStyleInterpolator,
+  TransitionPreset,
+} from '@react-navigation/stack/lib/typescript/src/types';
 import { isNil } from 'lodash';
 import { Easing } from 'react-native';
 
@@ -11,7 +15,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const extAnimConfig = {
+const extAnimConfig: {
+  transition: Omit<
+    TransitionPreset,
+    'cardStyleInterpolator' | 'gestureDirection' | 'headerStyleInterpolator'
+  >;
+  openModalAnim: {
+    cardStyleInterpolator: StackCardStyleInterpolator;
+  };
+  stackScreenAnim: {
+    cardStyleInterpolator: StackCardStyleInterpolator;
+  };
+} = {
   transition: {
     transitionSpec: {
       open: {
