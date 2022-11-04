@@ -7,6 +7,7 @@ import SupportTokenList from '@onekeyhq/kit/src/views/FiatPay/SupportTokenList';
 
 import { CurrencyType } from '../../views/FiatPay/types';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 export enum FiatPayRoutes {
@@ -48,10 +49,10 @@ const FiatPayModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <BuyNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <BuyNavigator.Screen

@@ -10,6 +10,7 @@ import StakedETHOnKele from '../../views/Staking/StakedETHOnKele';
 import StakingAmount from '../../views/Staking/StakingAmount';
 import StakingETHNotes from '../../views/Staking/StakingETHNotes';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 const StakingNavigator = createStackNavigator<StakingRoutesParams>();
@@ -33,10 +34,10 @@ const StakingModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <StakingNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <StakingNavigator.Screen

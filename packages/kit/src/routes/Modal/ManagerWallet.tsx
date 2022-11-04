@@ -10,6 +10,8 @@ import ModifyWalletNameView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWa
 import { ValidationFields } from '../../components/Protected/types';
 import { Avatar } from '../../utils/emojiUtils';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
+
 export enum ManagerWalletModalRoutes {
   ManagerWalletModal = 'ManagerWalletModal',
   ManagerWalletAuthorityVerifyModal = 'ManagerWalletAuthorityVerifyModal',
@@ -58,10 +60,10 @@ const ManagerWalletModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <ManagerWalletNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <ManagerWalletNavigator.Screen
