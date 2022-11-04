@@ -6,6 +6,7 @@ import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import CollectionModalView from '@onekeyhq/kit/src/views/Wallet/NFT/CollectionModal';
 import NFTDetailView from '@onekeyhq/kit/src/views/Wallet/NFT/NFTDetail';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 export enum CollectiblesModalRoutes {
@@ -41,10 +42,10 @@ const CollectibleModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <CollectibleNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <CollectibleNavigator.Screen

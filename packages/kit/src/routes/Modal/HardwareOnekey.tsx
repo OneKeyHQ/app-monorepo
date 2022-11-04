@@ -10,6 +10,7 @@ import OnekeyHardwarePinCode from '@onekeyhq/kit/src/views/Hardware/Onekey/Oneke
 import OnekeyHardwareVerify from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareVerify';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 export enum OnekeyHardwareModalRoutes {
@@ -88,10 +89,10 @@ const OnekeyHardwareModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <OnekeyHardwareNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <OnekeyHardwareNavigator.Screen

@@ -7,6 +7,7 @@ import BackupManual from '@onekeyhq/kit/src/views/BackupWallet/BackupManual';
 import BackupMnemonic from '@onekeyhq/kit/src/views/BackupWallet/BackupMnemonic';
 import BackupOptions from '@onekeyhq/kit/src/views/BackupWallet/BackupOptions';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 export enum BackupWalletModalRoutes {
@@ -66,10 +67,10 @@ const BackupWalletModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <BackupWalletNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <BackupWalletNavigator.Screen
