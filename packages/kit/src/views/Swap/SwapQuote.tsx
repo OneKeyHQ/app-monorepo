@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Switch, Typography } from '@onekeyhq/components';
@@ -11,17 +10,10 @@ import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../store/reducers/settings';
 
 import SwappingVia from './components/SwappingVia';
+import TransactionFee from './components/TransactionFee';
 import TransactionRate from './components/TransactionRate';
 import { useSwapState } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
-import { isNoCharge } from './utils';
-
-function formatPercentageFee(percentageFee?: string): string {
-  if (!percentageFee) return '0';
-  let bn = new BigNumber(percentageFee);
-  bn = bn.multipliedBy(100);
-  return bn.isNaN() ? '0' : bn.toFixed();
-}
 
 const SwapArrivalTime = () => {
   const intl = useIntl();
@@ -192,23 +184,10 @@ const SwapQuote = () => {
           {intl.formatMessage({ id: 'form__included_onekey_fee' })}
         </Typography.Caption>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          {isNoCharge(quote.type) ||
-          (quote.percentageFee && Number(quote.percentageFee) === 0) ? (
-            <Box flexDirection="column" alignItems="flex-end">
-              <Typography.Caption color="text-subdued" strikeThrough>
-                0.2 - 0.875%
-              </Typography.Caption>
-              <Typography.Caption color="text-success">
-                {intl.formatMessage({ id: 'form__free_limited_time' })}
-              </Typography.Caption>
-            </Box>
-          ) : (
-            <Typography.Caption color="text-subdued">
-              {!quote.percentageFee
-                ? ' 0.2 - 0.875%'
-                : `${formatPercentageFee(quote.percentageFee)}%`}
-            </Typography.Caption>
-          )}
+          <TransactionFee
+            type={quote.type}
+            percentageFee={quote.percentageFee}
+          />
         </Box>
       </Box>
       <Box

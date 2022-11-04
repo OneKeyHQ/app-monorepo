@@ -200,6 +200,7 @@ export interface TransactionDetails {
   providers?: Provider[];
   arrivalTime?: number;
   destinationTransactionHash?: string;
+  percentageFee?: string;
 }
 
 export type TransactionProgress =

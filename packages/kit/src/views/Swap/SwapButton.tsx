@@ -191,6 +191,7 @@ const ExchangeButton = () => {
             receivingAddress: recipient?.address,
             providers: quote.providers,
             arrivalTime: quote.arrivalTime,
+            percentageFee: quote.percentageFee,
             tokens: {
               rate: Number(quote.instantRate),
               from: {
