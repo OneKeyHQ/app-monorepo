@@ -17,6 +17,7 @@ import {
 import { PriceAlertAddModal } from '../../views/PushNotification/PriceAlertAddModal';
 import { PriceAlertListModal } from '../../views/PushNotification/PriceAlertListModal';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 const ManageTokenNavigator = createStackNavigator<ManageTokenRoutesParams>();
@@ -60,10 +61,10 @@ const ManageTokenModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <ManageTokenNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <ManageTokenNavigator.Screen

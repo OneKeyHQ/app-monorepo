@@ -7,6 +7,7 @@ import UpdateInfoModel from '../../views/Hardware/UpdateFirmware/UpdateInfo';
 import UpdateWarningModel from '../../views/Hardware/UpdateFirmware/UpdateWarning';
 import UpdatingModel from '../../views/Hardware/UpdateFirmware/Updating';
 
+import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
 export enum HardwareUpdateModalRoutes {
@@ -60,10 +61,10 @@ const HardwareUpdateModalStack = () => {
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <HardwareUpdateNavigator.Navigator
-      screenOptions={{
+      screenOptions={(navInfo) => ({
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
-      }}
+        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
+      })}
     >
       {modalRoutes.map((route) => (
         <HardwareUpdateNavigator.Screen
