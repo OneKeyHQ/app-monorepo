@@ -49,12 +49,12 @@
     "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "1.1.5",
-    "@onekeyfe/cross-inpage-provider-errors": "1.1.5",
-    "@onekeyfe/cross-inpage-provider-injected": "1.1.5",
-    "@onekeyfe/cross-inpage-provider-types": "1.1.5",
-    "@onekeyfe/extension-bridge-hosted": "1.1.5",
-    "@onekeyfe/onekey-cross-webview": "1.1.5",
+    "@onekeyfe/cross-inpage-provider-core": "1.1.6",
+    "@onekeyfe/cross-inpage-provider-errors": "1.1.6",
+    "@onekeyfe/cross-inpage-provider-injected": "1.1.6",
+    "@onekeyfe/cross-inpage-provider-types": "1.1.6",
+    "@onekeyfe/extension-bridge-hosted": "1.1.6",
+    "@onekeyfe/onekey-cross-webview": "1.1.6",
     "@web3-react/core": "8.0.35-beta.0",
     "@web3-react/empty": "8.0.20-beta.0",
     "@web3-react/metamask": "8.0.28-beta.0",
