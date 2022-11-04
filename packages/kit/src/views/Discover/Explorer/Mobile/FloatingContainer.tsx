@@ -1,24 +1,16 @@
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
-  Extrapolation,
   interpolate,
   runOnJS,
-  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
-import {
-  Box,
-  Icon,
-  NetImage,
-  Pressable,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Pressable } from '@onekeyhq/components';
 
 import WebContent from '../Content/WebContent';
 import { useWebController } from '../Controller/useWebController';
@@ -31,15 +23,7 @@ const FloatingContainer: FC<{
   onMinimize: () => void;
   onSearch: () => void;
 }> = ({ onMaximize, onMinimize, onSearch }) => {
-  const {
-    openMatchDApp,
-    gotoSite,
-    tabs,
-    currentTab,
-    incomingUrl,
-    clearIncomingUrl,
-    goBack,
-  } = useWebController();
+  const { tabs, currentTab } = useWebController();
   const hasTabs = tabs.length > 1;
   const lastTabLength = useRef(tabs.length);
   const [containerHeight, setContainerHeight] = useState(0);

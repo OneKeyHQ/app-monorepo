@@ -1,6 +1,9 @@
 import { FC } from 'react';
 
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 
 import {
   Box,
@@ -88,6 +91,7 @@ const FloatingBar: FC<{
     <Animated.View
       style={useAnimatedStyle(
         () => ({
+          opacity: interpolate(expandAnim.value, [0, 1], [1, 0]),
           display: expandAnim.value === FLOATINGWINDOW_MIN ? 'flex' : 'none',
         }),
         [],
@@ -98,6 +102,7 @@ const FloatingBar: FC<{
     <Animated.View
       style={useAnimatedStyle(
         () => ({
+          opacity: expandAnim.value,
           display: expandAnim.value === FLOATINGWINDOW_MIN ? 'none' : 'flex',
         }),
         [],
