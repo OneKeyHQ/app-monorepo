@@ -4,6 +4,8 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import { Box, Icon, NetImage, Typography } from '@onekeyhq/components';
 
+import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
+import { useWebTab } from '../Controller/useWebTabs';
 import { FLOATINGWINDOW_MIN } from '../explorerUtils';
 
 const InfoBar: FC<{
@@ -35,19 +37,40 @@ const InfoBar: FC<{
   </Box>
 );
 
-const AddressBar: FC = () => (
-  <Box
-    px="16px"
-    py="7px"
-    h="56px"
-    w="full"
-    flexDirection="row"
-    alignItems="center"
-    justifyContent="space-between"
-  >
-    <Icon name="ChevronDownSolid" />
-  </Box>
-);
+const AddressBar: FC = () => {
+  const tab = useWebTab();
+  return (
+    <Box
+      px="16px"
+      py="7px"
+      h="56px"
+      w="full"
+      flexDirection="row"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <Icon name="ChevronDownSolid" />
+      <Box
+        flex="1"
+        bg="action-secondary-default"
+        h="42px"
+        borderRadius="12px"
+        borderWidth="1px"
+        borderColor="border-default"
+        ml="12px"
+        px="5px"
+        py="5px"
+        flexDirection="row"
+        alignItems="center"
+      >
+        <Typography.Body1 mx="6px" flex="1" color="text-subdued">
+          {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
+        </Typography.Body1>
+        <NetworkAccountSelectorTrigger size="sm" type="basic" />
+      </Box>
+    </Box>
+  );
+};
 
 const FloatingBar: FC<{
   leftImgSrc?: string;
