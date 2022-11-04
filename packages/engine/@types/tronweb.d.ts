@@ -1,4 +1,6 @@
 /* eslint-disable camelcase */
+import { Callback } from '@onekeyfe/onekey-tron-provider/dist/types';
+
 type ITokenContract = {
   name: () => { call: () => Promise<{ _name: string } | string> };
   symbol: () => { call: () => Promise<{ _symbol: string } | string> };
@@ -58,6 +60,7 @@ type ISignedTransaction = IUnsignedTransaction & {
 type ITransactionWithResult = IUnsignedTransaction & {
   ret: [{ contractRet?: string }];
 };
+
 declare module 'tronweb' {
   export class TronWeb {
     constructor(e: any);
