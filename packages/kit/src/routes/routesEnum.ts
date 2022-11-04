@@ -85,6 +85,7 @@ export enum HomeRoutes {
   Revoke = 'Revoke',
   NFTMarketStatsList = 'NFTMarketStatsList',
   NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
+  NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
 }
 export enum TabRoutes {
   // Overview = 'overview',

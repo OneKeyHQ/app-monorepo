@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import { Network } from '@onekeyhq/engine/src/types/network';
+import { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
@@ -134,6 +135,11 @@ export type HomeRoutesParams = {
   [HomeRoutes.Revoke]: undefined;
   [HomeRoutes.NFTMarketStatsList]: { network: Network };
   [HomeRoutes.NFTMarketLiveMintingList]: { network: Network };
+  [HomeRoutes.NFTMarketCollectionScreen]: {
+    networkId: string;
+    contractAddress: string;
+    collection?: Collection;
+  };
 };
 /** HomeStack */
 

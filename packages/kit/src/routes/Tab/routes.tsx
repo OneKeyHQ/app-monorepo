@@ -33,6 +33,7 @@ import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
+import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
 import renderCustomSubStackHeader from '../Stack/Header';
@@ -108,10 +109,10 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.NFTMarketLiveMintingList,
         component: NFTMarketLiveMintingList,
       },
-      // {
-      //   name: HomeRoutes.NFTMarketCollectionScreen,
-      //   component: NFTMarketCollectionScreen,
-      // },
+      {
+        name: HomeRoutes.NFTMarketCollectionScreen,
+        component: NFTMarketCollectionScreen,
+      },
     ],
   },
   {

@@ -27,7 +27,7 @@ const CollectionLogo: FC<Props> = ({ verified, ...imageProps }) => {
       <Box width={width} height={height}>
         <NetImage
           skeleton
-          borderRadius={12}
+          borderRadius="12px"
           fallbackElement={fallbackElement}
           {...imageProps}
         />

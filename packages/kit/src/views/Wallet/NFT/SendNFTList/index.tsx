@@ -35,7 +35,7 @@ type NavigationProps = NativeStackNavigationProp<
   SendRoutes.PreSendToken
 >;
 
-function useGridListLayout({
+export function useGridListLayout({
   maxCardWidth,
   pageWidth,
   numColumns,

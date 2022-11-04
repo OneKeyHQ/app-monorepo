@@ -26,6 +26,7 @@ const MarketCap = () => {
           }));
           const data = await serviceNFT.getMarketCapCollection({
             chain: context.selectedNetwork?.id,
+            limit: context.isTab ? 5 : 100,
           });
           if (data) {
             setContext((ctx) => {
