@@ -48,6 +48,7 @@ export interface TabRouteConfig {
   children?: {
     name: HomeRoutes;
     component: React.FC<any>;
+    alwaysShowBackButton?: boolean;
   }[];
 }
 
@@ -61,6 +62,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.ScreenTokenDetail,
         component: TokenDetail,
+        alwaysShowBackButton: true,
       },
       {
         name: HomeRoutes.FullTokenListScreen,
@@ -69,6 +71,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.Revoke,
         component: RevokePage,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -93,6 +96,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.MarketDetail,
         component: MarketDetail,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -212,6 +216,7 @@ export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
       // fix: Found screens with the same name nested inside one another
       name: buildTabName(tab.name),
       component: tab.component,
+      alwaysShowBackButton: false,
     },
     ...(tab.children || []),
   ];
@@ -254,16 +259,17 @@ export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
               key={s.name}
               screenOptions={{
                 header: customRenderHeader,
-                headerLeft: !customRenderHeader
-                  ? ({ tintColor }) => (
-                      <NavigationHeaderBackButton
-                        tintColor={tintColor}
-                        // eslint-disable-next-line @typescript-eslint/unbound-method
-                        onPress={goBack}
-                        canGoBack
-                      />
-                    )
-                  : undefined,
+                headerLeft:
+                  s.alwaysShowBackButton && platformEnv.isRuntimeBrowser
+                    ? ({ tintColor }) => (
+                        <NavigationHeaderBackButton
+                          tintColor={tintColor}
+                          // eslint-disable-next-line @typescript-eslint/unbound-method
+                          onPress={goBack}
+                          canGoBack
+                        />
+                      )
+                    : undefined,
                 // lazy: true,
                 headerShown: index > 0 || Boolean(customRenderHeader),
               }}

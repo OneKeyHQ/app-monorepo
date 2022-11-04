@@ -57,6 +57,7 @@ export const stackScreenList = [
   {
     name: HomeRoutes.ScreenTokenDetail,
     component: TokenDetail,
+    alwaysShowBackButton: true,
   },
   {
     name: HomeRoutes.SettingsWebviewScreen,
@@ -125,10 +126,12 @@ export const stackScreenList = [
   {
     name: HomeRoutes.MarketDetail,
     component: MarketDetail,
+    alwaysShowBackButton: true,
   },
   {
     name: HomeRoutes.Revoke,
     component: RevokePage,
+    alwaysShowBackButton: true,
   },
   {
     name: HomeRoutes.NFTMarketStatsList,
@@ -165,9 +168,21 @@ const Dashboard = () => {
         key={stack.name}
         name={stack.name}
         component={stack.component}
+        options={{
+          headerLeft:
+            platformEnv.isRuntimeBrowser && stack.alwaysShowBackButton
+              ? ({ tintColor }) => (
+                  <NavigationHeaderBackButton
+                    tintColor={tintColor}
+                    onPress={goBack}
+                    canGoBack
+                  />
+                )
+              : undefined,
+        }}
       />
     ));
-  }, [isVerticalLayout]);
+  }, [isVerticalLayout, goBack]);
 
   return (
     <StackNavigator.Navigator>
@@ -193,16 +208,6 @@ const Dashboard = () => {
             shadowColor: borderBottomColor,
           },
 
-          headerLeft: platformEnv.isRuntimeBrowser
-            ? ({ tintColor }) => (
-                <NavigationHeaderBackButton
-                  tintColor={tintColor}
-                  // eslint-disable-next-line @typescript-eslint/unbound-method
-                  onPress={goBack}
-                  canGoBack
-                />
-              )
-            : undefined,
           header:
             Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
           headerTintColor: textColor,
