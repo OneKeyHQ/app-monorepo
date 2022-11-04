@@ -66,13 +66,10 @@ export interface SearchViewProps {
 
 export type WebHandler = 'browser' | 'webview' | 'tabbedWebview';
 export const webHandler: WebHandler = (() => {
-  if (platformEnv.isWeb || platformEnv.isExtension) {
-    return 'browser';
-  }
-  if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
+  if (platformEnv.isDesktop || platformEnv.isNative) {
     return 'tabbedWebview';
   }
-  return 'webview';
+  return 'browser';
 })();
 
 export const isValidWebUrl = (url: string) =>

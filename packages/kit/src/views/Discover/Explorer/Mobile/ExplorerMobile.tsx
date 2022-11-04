@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
@@ -6,23 +6,15 @@ import { Freeze } from 'react-freeze';
 import { Box } from '@onekeyhq/components';
 
 import { SingleWebContainer } from '../Content/WebContainer';
-import WebContent from '../Content/WebContent';
 import { useWebController } from '../Controller/useWebController';
-import { MatchDAppItemType, webHandler } from '../explorerUtils';
+import { MatchDAppItemType } from '../explorerUtils';
 
 import ExplorerBar from './ExplorerBarMobile';
-
-const showExplorerBar = webHandler !== 'browser';
+import FloatingContainer from './FloatingContainer';
 
 const ExplorerMobile: FC = () => {
-  const {
-    openMatchDApp,
-    gotoSite,
-    tabs,
-    incomingUrl,
-    clearIncomingUrl,
-    goBack,
-  } = useWebController();
+  const { openMatchDApp, gotoSite, incomingUrl, clearIncomingUrl } =
+    useWebController();
 
   useFocusEffect(
     useCallback(() => {
@@ -40,20 +32,18 @@ const ExplorerMobile: FC = () => {
     openMatchDApp(dapp);
   };
 
-  const explorerContent = useMemo(
-    () =>
-      tabs.map((tab) => (
-        <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
-          <WebContent {...tab} />
-        </Freeze>
-      )),
-    [tabs],
-  );
+  const [showHome, setShowHome] = useState(true);
 
   return (
     <Box flex={1} bg="background-default">
-      <ExplorerBar onSearchSubmitEditing={onSearchSubmitEditing} />
-      <SingleWebContainer />
+      <Freeze freeze={!showHome}>
+        <ExplorerBar onSearchSubmitEditing={onSearchSubmitEditing} />
+        <SingleWebContainer />
+      </Freeze>
+      <FloatingContainer
+        onMaximize={() => setShowHome(false)}
+        onMinimize={() => setShowHome(true)}
+      />
     </Box>
   );
 };
