@@ -38,9 +38,10 @@ import {
   TransactionDetails,
   TransactionStatus,
 } from '../../typings';
-import { formatAmount, isNoCharge } from '../../utils';
+import { formatAmount } from '../../utils';
 import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
+import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
 
 type TransactionProps = {
@@ -531,20 +532,10 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
         <TransactionField
           label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
         >
-          {isNoCharge(tx.quoterType) ? (
-            <Box flexDirection="column" alignItems="flex-end">
-              <Typography.Caption color="text-subdued" strikeThrough>
-                0.2 - 0.875%
-              </Typography.Caption>
-              <Typography.Caption color="text-success">
-                {intl.formatMessage({ id: 'form__free_limited_time' })}
-              </Typography.Caption>
-            </Box>
-          ) : (
-            <Typography.Caption color="text-subdued">
-              0.2 - 0.875%
-            </Typography.Caption>
-          )}
+          <TransactionFee
+            type={tx.quoterType}
+            percentageFee={tx.percentageFee}
+          />
         </TransactionField>
         <TransactionField label={intl.formatMessage({ id: 'form__created' })}>
           <Typography.Caption color="text-subdued">
