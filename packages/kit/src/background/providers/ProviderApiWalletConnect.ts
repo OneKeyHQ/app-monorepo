@@ -60,6 +60,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
           } else if (networkImpl === IMPL_ALGO) {
             request = this.algoRequest(connector, payload);
           } else {
+            // IMPL_EVM
             request = this.ethereumRequest(connector, payload);
           }
           return this.responseCallRequest(connector, request, {
@@ -92,7 +93,9 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     if (accounts.length && origin) {
       this.backgroundApi.serviceDapp.removeConnectedAccounts({
         origin,
-        networkImpl: IMPL_EVM,
+        networkImpl:
+          // @ts-ignore
+          connector?.session?.networkImpl || connector?.networkImpl || IMPL_EVM,
         addresses: accounts,
       });
     }
@@ -140,27 +143,33 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
   // TODO Support for more chain
   async getChainIdInteger(connector: OneKeyWalletConnector) {
     const { networkImpl } = connector.session;
+    const prevChainId = connector.chainId || 0;
+
+    let chainId: number | undefined;
     if (networkImpl === IMPL_APTOS) {
-      const { chainId }: { chainId: number } = await this.aptosRequest(
+      const res: { chainId: number } | undefined = await this.aptosRequest(
         connector,
         { method: 'getChainId' },
       );
-      return chainId;
-    }
-
-    if (networkImpl === IMPL_ALGO) {
-      const { chainId }: { chainId: number } = await this.algoRequest(
+      chainId = res?.chainId;
+    } else if (networkImpl === IMPL_ALGO) {
+      const res: { chainId: number } | undefined = await this.algoRequest(
         connector,
         { method: 'getChainId' },
       );
-      return chainId;
+      chainId = res?.chainId;
+    } else {
+      // IMPL_EVM
+      chainId = parseInt(
+        await this.ethereumRequest(connector, { method: 'net_version' }),
+        10,
+      );
     }
 
-    // EVM
-    return parseInt(
-      await this.ethereumRequest(connector, { method: 'net_version' }),
-      10,
-    );
+    if (!chainId) {
+      chainId = prevChainId;
+    }
+    return chainId;
   }
 
   override async getSessionStatusToApprove(options: {
@@ -189,6 +198,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         method: 'connect',
       });
     } else {
+      // IMPL_EVM
       result = await this.ethereumRequest<string[]>(connector, {
         method: 'eth_requestAccounts',
       });
@@ -277,6 +287,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
           method: 'accounts',
         });
       } else {
+        // IMPL_EVM
         accounts = await this.ethereumRequest<string[]>(connector, {
           method: 'eth_accounts',
         });

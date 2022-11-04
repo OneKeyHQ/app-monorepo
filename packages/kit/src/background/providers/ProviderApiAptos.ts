@@ -56,7 +56,7 @@ class ProviderApiAptos extends ProviderApiBase {
     const data = async ({ origin }: { origin: string }) => {
       const params = await this.account({ origin });
       const result = {
-        method: 'wallet_events_accountsChanged',
+        method: 'wallet_events_accountChanged',
         params,
       };
       return result;
