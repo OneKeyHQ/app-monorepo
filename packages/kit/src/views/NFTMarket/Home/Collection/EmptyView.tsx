@@ -13,6 +13,7 @@ const EmptyView = () => {
     <FlatList
       horizontal
       ListHeaderComponent={() => <Box width="16px" />}
+      showsHorizontalScrollIndicator={false}
       contentContainerStyle={{
         paddingBottom: 16,
         paddingTop: 16,

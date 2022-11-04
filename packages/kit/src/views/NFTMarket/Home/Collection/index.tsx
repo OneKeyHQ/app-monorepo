@@ -1,4 +1,11 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
@@ -11,6 +18,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -41,7 +49,7 @@ const Mobile: FC<Props> = ({ listData, onSelectCollection }) => {
           <Box size="280px" borderRadius="12px" overflow="hidden">
             <NetImage width="280px" height="280px" src={bannerUrl} />
           </Box>
-          <Text mt="8px" typography="Body1Strong">
+          <Text mt="8px" typography="Body1Strong" numberOfLines={1}>
             {contractName}
           </Text>
           {floorPrice && (
@@ -80,10 +88,9 @@ const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
   const ref = useRef(null);
   const intl = useIntl();
 
-  const renderItem: ListRenderItem<Collection> = useCallback(
-    ({ item }) => {
+  const renderItem = useCallback(
+    (item: Collection) => {
       const { bannerUrl, contractName, floorPrice, chain } = item;
-
       return (
         <Pressable
           onPress={() => {
@@ -101,7 +108,7 @@ const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
           >
             <NetImage width="280px" height="146px" src={bannerUrl} />
           </Box>
-          <Text mt="8px" typography="Body1Strong">
+          <Text mt="8px" typography="Body1Strong" numberOfLines={1}>
             {contractName}
           </Text>
           {floorPrice && (
@@ -121,39 +128,36 @@ const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
     },
     [intl, onSelectCollection],
   );
+
+  const Banners = useMemo(
+    () => listData.map((item) => renderItem(item)),
+    [listData, renderItem],
+  );
+
   return (
-    <>
-      <FlatList
-        ref={ref}
-        horizontal
-        onScroll={(e) => {
-          console.log('e = ', e);
-        }}
-        ListHeaderComponent={() => <Box width="16px" />}
-        showsHorizontalScrollIndicator
-        contentContainerStyle={{
-          paddingBottom: 16,
-          paddingTop: 16,
-        }}
-        data={listData}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.contractAddress as string}
-      />
-      {/* {platformEnv.isWeb ? (
-        <Pressable
-          position="absolute"
-          bgColor="blue.300"
-          width="50px"
-          height="50px"
-          right={0}
-          top="75px"
-          onPress={() => {
-            console.log('111');
-            // console.log('ref = ', ref.current._listRef._scrollMetrics);
-          }}
-        />
-      ) : null} */}
-    </>
+    <ScrollableButtonGroup
+      mt="16px"
+      justifyContent="center"
+      bg="transparent"
+      ref={ref}
+      style={{
+        maxWidth: '100%',
+        flexGrow: 0,
+        height: 202,
+      }}
+      leftButtonProps={{
+        bgColor: 'action-secondary-default',
+        size: 'base',
+        circle: true,
+      }}
+      rightButtonProps={{
+        bgColor: 'action-secondary-default',
+        size: 'base',
+        circle: true,
+      }}
+    >
+      {Banners}
+    </ScrollableButtonGroup>
   );
 };
 

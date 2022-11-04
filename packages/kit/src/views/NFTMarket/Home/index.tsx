@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useLayoutEffect } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { ListRenderItem } from 'react-native';
 
 import { Box, FlatList, useIsVerticalLayout } from '@onekeyhq/components';
@@ -20,8 +21,6 @@ type ModuleData = {
   id: string;
 };
 const Content = () => {
-  console.log();
-
   const data: ModuleData[] = [
     { id: NFTModule.Collection },
     { id: NFTModule.Stats },
@@ -61,7 +60,13 @@ const Content = () => {
 };
 
 const NFTMarket = () => {
+  const navigation = useNavigation();
+
   const isSmallScreen = useIsVerticalLayout();
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
+
   const paddingX = isSmallScreen ? 0 : '51px';
   return (
     <Box paddingX={paddingX} flex={1}>

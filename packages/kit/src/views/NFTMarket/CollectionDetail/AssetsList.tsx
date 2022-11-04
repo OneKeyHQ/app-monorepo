@@ -9,6 +9,7 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -134,7 +135,7 @@ const AssetsList = ({
 
   const paddingX = isSmallScreen ? 16 : 0;
   return (
-    <FlatList<NFTAsset>
+    <Tabs.FlatList<NFTAsset>
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       key={numColumns}
       numColumns={numColumns}
