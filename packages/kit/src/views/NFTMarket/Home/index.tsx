@@ -3,11 +3,11 @@ import React, { useCallback, useLayoutEffect } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { ListRenderItem } from 'react-native';
 
-import { Box, FlatList, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, FlatList } from '@onekeyhq/components';
 
 import CollectionModule from './Collection';
 import LiveMintingModule from './LiveMinting';
-import SearchBar from './SearchBar';
+import PageHeader from './PageHeader';
 import StatsModule from './Stats';
 
 export enum NFTModule {
@@ -47,14 +47,14 @@ const Content = () => {
 
   return (
     <FlatList
-      contentContainerStyle={{
-        paddingBottom: 16,
-        paddingTop: 16,
-      }}
       data={data}
       ItemSeparatorComponent={() => <Box height="32px" />}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
+      w="100%"
+      maxW="992px"
+      mx="auto"
+      py="32px"
     />
   );
 };
@@ -62,16 +62,17 @@ const Content = () => {
 const NFTMarket = () => {
   const navigation = useNavigation();
 
-  const isSmallScreen = useIsVerticalLayout();
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const paddingX = isSmallScreen ? 0 : '51px';
   return (
-    <Box paddingX={paddingX} flex={1}>
-      <SearchBar />
-      <Content />
+    <Box flex={1}>
+      {/* TODO repleace with Header component in the future  */}
+      <PageHeader />
+      <Box justifyContent="center" px={{ base: '16px', md: '32px' }} flex={1}>
+        <Content />
+      </Box>
     </Box>
   );
 };
