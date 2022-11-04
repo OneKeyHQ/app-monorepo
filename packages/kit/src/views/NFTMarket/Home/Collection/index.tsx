@@ -42,11 +42,9 @@ const Mobile: FC<Props> = ({ listData, onSelectCollection }) => {
           onPress={() => {
             onSelectCollection(item);
           }}
-          width="280px"
-          height="336px"
-          mr="10px"
+          mr="16px"
         >
-          <Box size="280px" borderRadius="12px" overflow="hidden">
+          <Box borderRadius="12px" overflow="hidden">
             <NetImage width="280px" height="280px" src={bannerUrl} />
           </Box>
           <Text mt="8px" typography="Body1Strong" numberOfLines={1}>
@@ -71,17 +69,15 @@ const Mobile: FC<Props> = ({ listData, onSelectCollection }) => {
   );
 
   return (
-    <FlatList
-      horizontal
-      ListHeaderComponent={() => <Box width="16px" />}
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingTop: 16,
-      }}
-      data={listData}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.contractAddress as string}
-    />
+    <Box>
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={listData}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.contractAddress as string}
+      />
+    </Box>
   );
 };
 const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
@@ -96,9 +92,7 @@ const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
           onPress={() => {
             onSelectCollection(item);
           }}
-          width="220px"
-          height="202px"
-          mr="10px"
+          mr="16px"
         >
           <Box
             width="220px"
@@ -136,7 +130,6 @@ const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
 
   return (
     <ScrollableButtonGroup
-      mt="16px"
       justifyContent="center"
       bg="transparent"
       ref={ref}
@@ -194,7 +187,7 @@ const CollectionModule = () => {
 
   return (
     <Box>
-      <Text pl={isSmallScreen ? '16px' : 0} typography="Heading">
+      <Text typography="Heading" mb="16px">
         {intl.formatMessage({
           id: 'content__notable_collections',
         })}

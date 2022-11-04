@@ -48,13 +48,13 @@ const Content = () => {
   return (
     <FlatList
       data={data}
-      ItemSeparatorComponent={() => <Box height="32px" />}
+      ItemSeparatorComponent={() => <Box h={{ base: '32px', md: '48px' }} />}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
       w="100%"
       maxW="992px"
       mx="auto"
-      py="32px"
+      py={{ base: '16px', md: '32px' }}
     />
   );
 };
