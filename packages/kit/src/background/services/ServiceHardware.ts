@@ -61,7 +61,7 @@ class ServiceHardware extends ServiceBase {
 
   stopConnect = false;
 
-  featursCache: Record<string, IOneKeyDeviceFeatures> = {};
+  featuresCache: Record<string, IOneKeyDeviceFeatures> = {};
 
   async getSDKInstance() {
     return getHardwareSDKInstance().then((instance) => {
@@ -117,7 +117,7 @@ class ServiceHardware extends ServiceBase {
                     w.associatedDevice === device.id && !isPassphraseWallet(w),
                 );
                 if (wallet) {
-                  this.featursCache[wallet.id] = features;
+                  this.featuresCache[wallet.id] = features;
                   this.syncDeviceLabel(features, wallet.id);
                 }
               } catch {
@@ -180,14 +180,14 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getFeatursByWalletId(walletId: string) {
-    return Promise.resolve(this.featursCache[walletId] ?? null);
+    return Promise.resolve(this.featuresCache[walletId] ?? null);
   }
 
   @backgroundMethod()
   async updateFeaturesCache(walletId: string, payload: Record<string, any>) {
-    if (!this.featursCache[walletId]) return;
-    this.featursCache[walletId] = {
-      ...this.featursCache[walletId],
+    if (!this.featuresCache[walletId]) return;
+    this.featuresCache[walletId] = {
+      ...this.featuresCache[walletId],
       ...payload,
     };
     return Promise.resolve(true);
@@ -195,8 +195,8 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async cleanFeaturesCache(walletId: string) {
-    if (this.featursCache[walletId]) {
-      delete this.featursCache[walletId];
+    if (this.featuresCache[walletId]) {
+      delete this.featuresCache[walletId];
     }
     return Promise.resolve(true);
   }
