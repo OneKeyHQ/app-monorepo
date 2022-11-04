@@ -12,6 +12,8 @@ import {
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
+import { PortalExit } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
+
 import { useIsVerticalLayout, useThemeValue } from '../../../Provider/hooks';
 import NavigationBar from '../../NavigationBar';
 import { getTabBarHeight } from '../../NavigationBar/Mobile';
@@ -73,14 +75,17 @@ export default function BottomTabView(props: Props) {
     () => (
       <SafeAreaInsetsContext.Consumer>
         {(insets) => (
-          <NavigationBar
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            insets={insets!}
-            navigation={navigation}
-            state={state}
-            descriptors={descriptors}
-            foldableList={props.foldableList}
-          />
+          <>
+            <NavigationBar
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+              insets={insets!}
+              navigation={navigation}
+              state={state}
+              descriptors={descriptors}
+              foldableList={props.foldableList}
+            />
+            <PortalExit name="BottomTab-Overlay" />
+          </>
         )}
       </SafeAreaInsetsContext.Consumer>
     ),

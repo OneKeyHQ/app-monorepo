@@ -16,6 +16,7 @@ import WebContent from '../Content/WebContent';
 import { useWebController } from '../Controller/useWebController';
 import { FLOATINGWINDOW_MAX, FLOATINGWINDOW_MIN } from '../explorerUtils';
 
+import { ControllerBarMobile } from './ControllerBarMobile';
 import FloatingBar from './FloatingBar';
 
 const FloatingContainer: FC<{
@@ -93,6 +94,7 @@ const FloatingContainer: FC<{
           />
         </Pressable>
         {explorerContent}
+        <ControllerBarMobile expandAnim={expandAnim} />
       </Box>
     </Animated.View>
   );

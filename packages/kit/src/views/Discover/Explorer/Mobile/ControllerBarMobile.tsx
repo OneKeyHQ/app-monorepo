@@ -1,10 +1,16 @@
 import { FC } from 'react';
 
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 
+import { Box } from '@onekeyhq/components';
+
+import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
 
-const ControllerBarMobile: FC<{
+export const ControllerBarMobile: FC<{
   expandAnim: Animated.SharedValue<number>;
 }> = ({ expandAnim }) => {
   const {
@@ -18,16 +24,27 @@ const ControllerBarMobile: FC<{
   } = useWebController();
   const { loading, canGoBack, canGoForward } = currentTab;
   return (
-    <Animated.View
-      style={useAnimatedStyle(
-        () => ({
-          opacity: expandAnim.value,
-          display: expandAnim.value === FLOATINGWINDOW_MIN ? 'none' : 'flex',
-        }),
-        [],
-      )}
-    >
-      <AddressBar onSearch={onSearch} />
-    </Animated.View>
+    <PortalEntry target="BottomTab-Overlay">
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1,
+          },
+          useAnimatedStyle(
+            () => ({
+              height: interpolate(expandAnim.value, [0, 1], [0, 54]),
+              opacity: expandAnim.value,
+            }),
+            [],
+          ),
+        ]}
+      >
+        <Box w="full" h="54px" bg="red.500" />
+      </Animated.View>
+    </PortalEntry>
   );
 };
