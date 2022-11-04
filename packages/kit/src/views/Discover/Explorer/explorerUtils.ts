@@ -148,3 +148,6 @@ export function crossWebviewLoadUrl({
     (wrapperRef?.innerRef as WebView)?.loadUrl(url);
   }
 }
+
+export const FLOATINGWINDOW_MIN = 0;
+export const FLOATINGWINDOW_MAX = 1;

@@ -22,38 +22,10 @@ import {
 
 import WebContent from '../Content/WebContent';
 import { useWebController } from '../Controller/useWebController';
+import { FLOATINGWINDOW_MAX, FLOATINGWINDOW_MIN } from '../explorerUtils';
 
-const FloatingBar: FC<{
-  leftImgSrc?: string;
-  text?: string;
-}> = ({ leftImgSrc, text }) => (
-  <Box
-    bg="surface-subdued"
-    px="12px"
-    py="8px"
-    h="48px"
-    w="full"
-    borderTopLeftRadius="12px"
-    borderTopRightRadius="12px"
-    flexDirection="row"
-    alignItems="center"
-    justifyContent="space-between"
-  >
-    <NetImage width="30px" height="30px" borderRadius="6px" src={leftImgSrc} />
-    <Typography.Body2Strong
-      color="text-default"
-      flex={1}
-      textAlign="left"
-      mx="8px"
-    >
-      {text}
-    </Typography.Body2Strong>
-    <Icon name="ExpandOutline" />
-  </Box>
-);
+import FloatingBar from './FloatingBar';
 
-const MINIMIZED = 0;
-const MAXIMIZED = 1;
 const FloatingContainer: FC<{
   onMaximize: () => void;
   onMinimize: () => void;
@@ -69,7 +41,7 @@ const FloatingContainer: FC<{
   const hasTabs = tabs.length > 1;
   const lastTabLength = useRef(tabs.length);
   const [containerHeight, setContainerHeight] = useState(0);
-  const expandAnim = useSharedValue(MINIMIZED);
+  const expandAnim = useSharedValue(FLOATINGWINDOW_MIN);
 
   const explorerContent = tabs.map((tab) => (
     <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
@@ -77,16 +49,16 @@ const FloatingContainer: FC<{
     </Freeze>
   ));
   const expand = useCallback(() => {
-    expandAnim.value = withTiming(MAXIMIZED, { duration: 300 }, () =>
+    expandAnim.value = withTiming(FLOATINGWINDOW_MAX, { duration: 300 }, () =>
       runOnJS(onMaximize),
     );
   }, [expandAnim, onMaximize]);
   const minimize = useCallback(() => {
     onMinimize();
-    expandAnim.value = withTiming(MINIMIZED, { duration: 300 });
+    expandAnim.value = withTiming(FLOATINGWINDOW_MIN, { duration: 300 });
   }, [expandAnim, onMinimize]);
   const toggle = useCallback(() => {
-    if (expandAnim.value === MINIMIZED) {
+    if (expandAnim.value === FLOATINGWINDOW_MIN) {
       expand();
     } else {
       minimize();
@@ -95,7 +67,7 @@ const FloatingContainer: FC<{
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabLength.current;
-    if (newTabAdded && expandAnim.value === MINIMIZED) {
+    if (newTabAdded && expandAnim.value === FLOATINGWINDOW_MIN) {
       lastTabLength.current = tabs.length;
       setTimeout(() => {
         expand();
@@ -115,7 +87,7 @@ const FloatingContainer: FC<{
               {
                 translateY: interpolate(
                   expandAnim.value,
-                  [MINIMIZED, MAXIMIZED],
+                  [FLOATINGWINDOW_MIN, FLOATINGWINDOW_MAX],
                   [containerHeight - 48, 0],
                 ),
               },
@@ -127,16 +99,11 @@ const FloatingContainer: FC<{
       onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
     >
       <Pressable height="48px" onPress={toggle}>
-        <Animated.View
-          style={useAnimatedStyle(
-            () => ({
-              display: expandAnim.value === MINIMIZED ? 'flex' : 'none',
-            }),
-            [],
-          )}
-        >
-          <FloatingBar leftImgSrc={firstTab.favicon} text={firstTab.title} />
-        </Animated.View>
+        <FloatingBar
+          expandAnim={expandAnim}
+          leftImgSrc={firstTab.favicon}
+          text={firstTab.title}
+        />
       </Pressable>
     </Animated.View>
   );
