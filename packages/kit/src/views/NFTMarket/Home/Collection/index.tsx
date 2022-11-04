@@ -139,14 +139,14 @@ const Desktop: FC<Props> = ({ listData, onSelectCollection }) => {
         height: 202,
       }}
       leftButtonProps={{
-        bgColor: 'action-secondary-default',
         size: 'base',
-        circle: true,
+        type: 'basic',
+        ml: '16px',
       }}
       rightButtonProps={{
-        bgColor: 'action-secondary-default',
         size: 'base',
-        circle: true,
+        type: 'basic',
+        mr: '16px',
       }}
     >
       {Banners}
