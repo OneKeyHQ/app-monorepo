@@ -4,7 +4,6 @@ import { ListRenderItem } from 'react-native';
 
 import {
   Box,
-  FlatList,
   Text,
   useIsVerticalLayout,
   useUserDevice,
