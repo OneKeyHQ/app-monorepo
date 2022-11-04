@@ -31,7 +31,7 @@ const ExplorerBar: FC<ExplorerBarProps> = ({ onSearchSubmitEditing }) => {
         params: {
           url: '',
           onSelectorItem: (item: MatchDAppItemType | string) => {
-            onSearchSubmitEditing?.(item);
+            onSearchSubmitEditing(item);
           },
         },
       },

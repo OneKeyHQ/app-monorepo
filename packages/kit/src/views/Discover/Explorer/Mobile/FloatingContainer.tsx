@@ -98,13 +98,15 @@ const FloatingContainer: FC<{
       ]}
       onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
     >
-      <Pressable height="48px" onPress={toggle}>
-        <FloatingBar
-          expandAnim={expandAnim}
-          leftImgSrc={firstTab.favicon}
-          text={firstTab.title}
-        />
-      </Pressable>
+      <Box flex={1} bg="background-default">
+        <Pressable height="48px" onPress={toggle}>
+          <FloatingBar
+            expandAnim={expandAnim}
+            leftImgSrc={firstTab.favicon}
+            text={firstTab.title}
+          />
+        </Pressable>
+      </Box>
     </Animated.View>
   );
 };

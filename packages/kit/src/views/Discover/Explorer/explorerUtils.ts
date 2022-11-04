@@ -1,5 +1,3 @@
-import { ReactNode } from 'react';
-
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { WebView } from 'react-native-webview';

@@ -35,21 +35,47 @@ const InfoBar: FC<{
   </Box>
 );
 
+const AddressBar: FC = () => (
+  <Box
+    px="16px"
+    py="7px"
+    h="56px"
+    w="full"
+    flexDirection="row"
+    alignItems="center"
+    justifyContent="space-between"
+  >
+    <Icon name="ChevronDownSolid" />
+  </Box>
+);
+
 const FloatingBar: FC<{
   leftImgSrc?: string;
   text?: string;
   expandAnim: Animated.SharedValue<number>;
 }> = ({ leftImgSrc, text, expandAnim }) => (
-  <Animated.View
-    style={useAnimatedStyle(
-      () => ({
-        display: expandAnim.value === FLOATINGWINDOW_MIN ? 'flex' : 'none',
-      }),
-      [],
-    )}
-  >
-    <InfoBar leftImgSrc={leftImgSrc} text={text} />
-  </Animated.View>
+  <>
+    <Animated.View
+      style={useAnimatedStyle(
+        () => ({
+          display: expandAnim.value === FLOATINGWINDOW_MIN ? 'flex' : 'none',
+        }),
+        [],
+      )}
+    >
+      <InfoBar leftImgSrc={leftImgSrc} text={text} />
+    </Animated.View>
+    <Animated.View
+      style={useAnimatedStyle(
+        () => ({
+          display: expandAnim.value === FLOATINGWINDOW_MIN ? 'none' : 'flex',
+        }),
+        [],
+      )}
+    >
+      <AddressBar />
+    </Animated.View>
+  </>
 );
 FloatingBar.displayName = 'FloatingBar';
 export default FloatingBar;
