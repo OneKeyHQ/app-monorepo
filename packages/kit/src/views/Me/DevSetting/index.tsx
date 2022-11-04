@@ -148,17 +148,20 @@ export const DevSettingSection = () => {
               }}
             />
           </Container.Item>
-          <Container.Item title="强制升级 Res 资源" titleColor="text-critical">
+          <Container.Item
+            title={intl.formatMessage({ id: 'action__test_update_resource' })}
+            titleColor="text-critical"
+          >
             <Switch
               labelType="false"
               isChecked={updateDeviceRes}
               onToggle={() => {
-                dispatch(setUpdateDeviceRes(!updateDeviceSys));
+                dispatch(setUpdateDeviceRes(!updateDeviceRes));
               }}
             />
           </Container.Item>
           <Container.Item
-            title="测试环境域名(需要重启App)"
+            title={intl.formatMessage({ id: 'action__test_onekey_service' })}
             subDescribe={`范围: \n[token、价格、余额、推送] \n ${fiatEndpoint}\n ${getSocketEndpoint()}`}
             titleColor="text-critical"
           >
