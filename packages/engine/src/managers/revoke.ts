@@ -181,10 +181,18 @@ export class BackendProvider {
         filter,
       );
       return data;
-    } catch (error) {
-      // debugLogger.http.error('BackendProvider response', error);
+    } catch (error: any) {
+      const errorMessage =
+        // eslint-disable-next-line
+        error?.response?.data?.message ??
+        // eslint-disable-next-line
+        error?.error?.message ??
+        // eslint-disable-next-line
+        error?.data?.message ??
+        // eslint-disable-next-line
+        error?.message;
+      throw new Error(errorMessage);
     }
-    return [];
   }
 }
 
