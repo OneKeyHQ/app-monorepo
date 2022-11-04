@@ -14,6 +14,7 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { Box, Center, IconButton } from '@onekeyhq/components';
@@ -139,7 +140,12 @@ const ScrollableButtonGroup = forwardRef<
             { position: 'absolute' },
             useAnimatedStyle(
               () => ({
-                opacity: showLeftArrow.value ? 1 : 0,
+                opacity: withTiming(showLeftArrow.value ? 1 : 0, {
+                  duration: 150,
+                }),
+                scale: withTiming(showLeftArrow.value ? 1 : 0, {
+                  duration: 150,
+                }),
                 zIndex: showLeftArrow.value ? 1 : -1,
               }),
               [],
@@ -206,7 +212,12 @@ const ScrollableButtonGroup = forwardRef<
             { position: 'absolute', right: 0 },
             useAnimatedStyle(
               () => ({
-                opacity: showRightArrow.value ? 1 : 0,
+                opacity: withTiming(showRightArrow.value ? 1 : 0, {
+                  duration: 150,
+                }),
+                scale: withTiming(showRightArrow.value ? 1 : 0, {
+                  duration: 150,
+                }),
                 zIndex: showRightArrow.value ? 1 : -1,
               }),
               [],
