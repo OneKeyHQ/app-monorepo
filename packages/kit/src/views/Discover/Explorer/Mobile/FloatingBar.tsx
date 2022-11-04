@@ -2,16 +2,22 @@ import { FC } from 'react';
 
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
-import { Box, Icon, NetImage, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  NetImage,
+  Pressable,
+  Typography,
+} from '@onekeyhq/components';
 
 import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
 import { useWebTab } from '../Controller/useWebTabs';
 import { FLOATINGWINDOW_MIN } from '../explorerUtils';
 
 const InfoBar: FC<{
-  leftImgSrc?: string;
+  favicon?: string;
   text?: string;
-}> = ({ leftImgSrc, text }) => (
+}> = ({ favicon, text }) => (
   <Box
     bg="surface-subdued"
     px="12px"
@@ -24,7 +30,7 @@ const InfoBar: FC<{
     alignItems="center"
     justifyContent="space-between"
   >
-    <NetImage width="30px" height="30px" borderRadius="6px" src={leftImgSrc} />
+    <NetImage width="30px" height="30px" borderRadius="6px" src={favicon} />
     <Typography.Body2Strong
       color="text-default"
       flex={1}
@@ -37,20 +43,19 @@ const InfoBar: FC<{
   </Box>
 );
 
-const AddressBar: FC = () => {
+const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
   const tab = useWebTab();
   return (
     <Box
       px="16px"
-      py="7px"
       h="56px"
-      w="full"
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
+      pb="7px"
     >
       <Icon name="ChevronDownSolid" />
-      <Box
+      <Pressable
         flex="1"
         bg="action-secondary-default"
         h="42px"
@@ -62,21 +67,23 @@ const AddressBar: FC = () => {
         py="5px"
         flexDirection="row"
         alignItems="center"
+        onPress={onSearch}
       >
         <Typography.Body1 mx="6px" flex="1" color="text-subdued">
           {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
         </Typography.Body1>
         <NetworkAccountSelectorTrigger size="sm" type="basic" />
-      </Box>
+      </Pressable>
     </Box>
   );
 };
 
 const FloatingBar: FC<{
-  leftImgSrc?: string;
+  favicon?: string;
   text?: string;
   expandAnim: Animated.SharedValue<number>;
-}> = ({ leftImgSrc, text, expandAnim }) => (
+  onSearch: () => void;
+}> = ({ favicon, text, expandAnim, onSearch }) => (
   <>
     <Animated.View
       style={useAnimatedStyle(
@@ -86,7 +93,7 @@ const FloatingBar: FC<{
         [],
       )}
     >
-      <InfoBar leftImgSrc={leftImgSrc} text={text} />
+      <InfoBar favicon={favicon} text={text} />
     </Animated.View>
     <Animated.View
       style={useAnimatedStyle(
@@ -96,7 +103,7 @@ const FloatingBar: FC<{
         [],
       )}
     >
-      <AddressBar />
+      <AddressBar onSearch={onSearch} />
     </Animated.View>
   </>
 );

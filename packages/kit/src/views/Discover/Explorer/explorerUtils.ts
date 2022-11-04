@@ -43,10 +43,6 @@ export interface WebControllerBarProps {
   moreView?: React.ReactNode;
 }
 
-export interface ExplorerBarProps {
-  onSearchSubmitEditing: (text: MatchDAppItemType | string) => void;
-}
-
 export type SearchViewKeyEventType = 'ArrowUp' | 'ArrowDown' | 'Enter';
 
 export interface SearchViewRef {

@@ -29,11 +29,13 @@ import FloatingBar from './FloatingBar';
 const FloatingContainer: FC<{
   onMaximize: () => void;
   onMinimize: () => void;
-}> = ({ onMaximize, onMinimize }) => {
+  onSearch: () => void;
+}> = ({ onMaximize, onMinimize, onSearch }) => {
   const {
     openMatchDApp,
     gotoSite,
     tabs,
+    currentTab,
     incomingUrl,
     clearIncomingUrl,
     goBack,
@@ -75,7 +77,6 @@ const FloatingContainer: FC<{
     }
   }, [expand, expandAnim.value, tabs.length]);
 
-  const firstTab = tabs[1] || {};
   return (
     <Animated.View
       style={[
@@ -99,13 +100,15 @@ const FloatingContainer: FC<{
       onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
     >
       <Box flex={1} bg="background-default">
-        <Pressable height="48px" onPress={toggle}>
+        <Pressable h="48px" onPress={toggle}>
           <FloatingBar
             expandAnim={expandAnim}
-            leftImgSrc={firstTab.favicon}
-            text={firstTab.title}
+            favicon={currentTab.favicon}
+            text={currentTab.title}
+            onSearch={onSearch}
           />
         </Pressable>
+        {explorerContent}
       </Box>
     </Animated.View>
   );
