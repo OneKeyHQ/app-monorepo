@@ -90,7 +90,7 @@
       },
       "android": {
         "serviceAccountKeyPath": "./pc-api-8644398719570171123-0-dcae07e2afab.json",
-        "track": "alpha"
+        "track": "internal"
       }
     }
   }

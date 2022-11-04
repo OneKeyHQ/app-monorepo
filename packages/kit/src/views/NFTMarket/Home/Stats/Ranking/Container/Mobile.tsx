@@ -9,6 +9,7 @@ import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import PriceText, { PriceString } from '../../../../PriceText';
+import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
 import StatsItemCell from '../../StatsItemCell';
@@ -16,11 +17,18 @@ import StatsItemCell from '../../StatsItemCell';
 const Mobile = ({ listData }: { listData: NFTMarketRanking[] }) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
+  const goToCollectionDetail = useCollectionDetail();
 
   const { bottom } = useSafeAreaInsets();
   const renderItem: ListRenderItem<NFTMarketRanking> = useCallback(
     ({ item, index }) => (
       <StatsItemCell
+        onPress={() => {
+          goToCollectionDetail({
+            contractAddress: item.contract_address as string,
+            networkId: context?.selectedNetwork?.id as string,
+          });
+        }}
         height="56px"
         paddingX="16px"
         index={`${index + 1}`}
@@ -48,7 +56,7 @@ const Mobile = ({ listData }: { listData: NFTMarketRanking[] }) => {
         ]}
       />
     ),
-    [context?.selectedNetwork?.id, intl],
+    [context?.selectedNetwork?.id, goToCollectionDetail, intl],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {

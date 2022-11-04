@@ -122,7 +122,13 @@ const Dialog: FC<DialogProps> = ({
         }}
         {...props}
       >
-        <KeyboardDismissView p={6} w="100%" maxW="432px" alignSelf="center">
+        <KeyboardDismissView
+          p={6}
+          w="100%"
+          h="auto"
+          maxW="432px"
+          alignSelf="center"
+        >
           <Box
             w="100%"
             p={{ base: '4', lg: '6' }}

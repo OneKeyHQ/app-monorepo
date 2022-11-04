@@ -35,6 +35,7 @@ import Webview from '@onekeyhq/kit/src/views/Webview';
 
 import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
+import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
 import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
@@ -133,6 +134,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.NFTMarketLiveMintingList,
     component: NFTMarketLiveMintingList,
+  },
+  {
+    name: HomeRoutes.NFTMarketCollectionScreen,
+    component: NFTMarketCollectionScreen,
   },
 ];
 

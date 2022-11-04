@@ -45,6 +45,20 @@ export type Collection = {
   totalPrice: number;
   collectionId?: string;
   chain?: string;
+  ercType?: string;
+  attributes?: {
+    attribute_name: string;
+    attributes_values: {
+      attributes_value: string;
+      total: number;
+    };
+  }[];
+  name?: string;
+  itemsTotal?: number;
+  ownersTotal?: number;
+  amountsTotal?: number;
+  volume24h?: number;
+  NBCP?: string;
 };
 
 export type NFTAsset = {
@@ -77,6 +91,11 @@ export type NFTAsset = {
     source: string;
     thumbnail: string;
   };
+  assetAttributes?: {
+    attribute_name: string;
+    attribute_value: string;
+    percentage: string;
+  }[];
 };
 
 export type NFTTransaction = {
@@ -86,7 +105,7 @@ export type NFTTransaction = {
   blockNumber?: string;
   blockHash?: string;
   gasPrice?: string;
-  timestamp?: string;
+  timestamp?: number;
   contractAddress?: string;
   contractName?: string;
   tokenId?: string;
@@ -100,6 +119,7 @@ export type NFTTransaction = {
   eventType?: string;
   exchangeName?: string;
   asset?: NFTAsset;
+  verified?: boolean;
   collectionId?: string;
   // sol
   tokenAddress?: string;
@@ -129,7 +149,7 @@ export type NFTMarketCapCollection = {
 
   volume_change_1d?: string;
   volume_change_7d?: string;
-
+  verified?: boolean;
   market_cap: number | null;
 };
 

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import camelcaseKeys from 'camelcase-keys';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
@@ -15,6 +14,7 @@ import {
   NFTMarketCapCollection,
   NFTMarketRanking,
   NFTServiceResp,
+  NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
 
 import {
@@ -41,10 +41,121 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getMarketCapCollection({ chain }: { chain?: string }) {
-    const url = `${this.baseUrl}/market/marketCap?chain=${
+  async getCollection({
+    chain,
+    contractAddress,
+    showStatistics = false,
+  }: {
+    chain: string;
+    contractAddress: string;
+    showStatistics?: boolean;
+  }) {
+    const url = `${
+      this.baseUrl
+    }/collection?chain=${chain}&contractAddress=${contractAddress}&showStatistics=${
+      showStatistics === true ? 'true' : 'false'
+    }`;
+
+    const { data, success } = await this.client
+      .get<NFTServiceResp<Collection>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: {} as Collection }));
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getCollectionAssets({
+    chain,
+    contractAddress,
+    cursor,
+    limit = 50,
+  }: {
+    chain: string;
+    contractAddress: string;
+    cursor?: string;
+    limit?: number;
+  }) {
+    let url = `${this.baseUrl}/collection/assets?chain=${chain}&contractAddress=${contractAddress}&limit=${limit}`;
+    if (cursor) {
+      url += `&cursor=${cursor}`;
+    }
+    const { data, success } = await this.client
+      .get<
+        NFTServiceResp<{ total: number; next: string; content: NFTAsset[] }>
+      >(url)
+      .then((resp) => resp.data)
+      .catch(() => ({
+        success: false,
+        data: { total: 0, next: undefined, content: [] as NFTAsset[] },
+      }));
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getCollectionTransactions({
+    chain,
+    contractAddress,
+    cursor,
+    limit = 50,
+    eventTypes,
+    showAsset,
+  }: {
+    chain: string;
+    contractAddress: string;
+    cursor?: string;
+    eventTypes?: string;
+    limit?: number;
+    showAsset?: boolean;
+  }) {
+    let url = `${this.baseUrl}/collection/transactions?chain=${chain}&contractAddress=${contractAddress}&limit=${limit}`;
+    if (eventTypes) {
+      url += `&event_types=${eventTypes}`;
+    }
+    if (showAsset === true) {
+      url += `&show_asset=true`;
+    }
+    if (cursor) {
+      url += `&cursor=${cursor}`;
+    }
+    const { data, success } = await this.client
+      .get<
+        NFTServiceResp<{
+          total: number;
+          next: string;
+          content: NFTTransaction[];
+        }>
+      >(url)
+      .then((resp) => resp.data)
+      .catch(() => ({
+        success: false,
+        data: { total: 0, next: undefined, content: [] as NFTTransaction[] },
+      }));
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getMarketCapCollection({
+    chain,
+    limit,
+  }: {
+    chain?: string;
+    limit?: number;
+  }) {
+    let url = `${this.baseUrl}/market/marketCap?chain=${
       chain ?? OnekeyNetwork.eth
     }`;
+    if (limit) {
+      url += `&limit=${limit}`;
+    }
     const { data, success } = await this.client
       .get<NFTServiceResp<NFTMarketCapCollection[]>>(url)
       .then((resp) => resp.data)
@@ -95,7 +206,7 @@ class ServiceNFT extends ServiceBase {
     if (!success) {
       return [];
     }
-    return camelcaseKeys(data, { deep: true });
+    return data;
   }
 
   @backgroundMethod()

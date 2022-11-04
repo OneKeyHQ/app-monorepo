@@ -9,6 +9,7 @@ import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import CollectionLogo from '../../../CollectionLogo';
 import PriceText from '../../../PriceText';
+import { useCollectionDetail } from '../../hook';
 import EmptyView from '../../Stats/EmptyView';
 import StatsItemCell from '../../Stats/StatsItemCell';
 import { useLiveMintContext } from '../context';
@@ -16,10 +17,17 @@ import { useLiveMintContext } from '../context';
 const Mobile = () => {
   const context = useLiveMintContext()?.context;
   const { formatDistance } = useFormatDate();
+  const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
     ({ item }) => (
       <StatsItemCell
+        onPress={() => {
+          goToCollectionDetail({
+            contractAddress: item.contractAddress as string,
+            networkId: context?.selectedNetwork?.id as string,
+          });
+        }}
         height="56px"
         paddingX="16px"
         title={item.collection.contractName}
@@ -54,7 +62,7 @@ const Mobile = () => {
         ]}
       />
     ),
-    [context?.selectedNetwork?.id, formatDistance],
+    [context?.selectedNetwork?.id, formatDistance, goToCollectionDetail],
   );
 
   if (
