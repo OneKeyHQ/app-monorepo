@@ -1,11 +1,4 @@
-import React, {
-  FC,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { FC, ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { IBoxProps } from 'native-base';
@@ -21,8 +14,6 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { useOnboardingClose } from './hooks';
 import {
@@ -108,10 +99,6 @@ const Layout: FC<LayoutProps> = ({
     // wait animation done
     setTimeout(onboardingGoBack, 200);
   }, [onboardingGoBack]);
-
-  useEffect(() => {
-    backgroundApiProxy.serviceOnboarding.checkOnboardingStatus();
-  }, []);
 
   const finalVisible = useMemo(() => {
     if (platformEnv.isNative) {

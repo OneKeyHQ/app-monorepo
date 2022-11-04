@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 
+import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
@@ -47,6 +48,7 @@ export interface TabRouteConfig {
   children?: {
     name: HomeRoutes;
     component: React.FC<any>;
+    alwaysShowBackButton?: boolean;
   }[];
 }
 
@@ -60,6 +62,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.ScreenTokenDetail,
         component: TokenDetail,
+        alwaysShowBackButton: true,
       },
       {
         name: HomeRoutes.FullTokenListScreen,
@@ -68,6 +71,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.Revoke,
         component: RevokePage,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -92,6 +96,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.MarketDetail,
         component: MarketDetail,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -204,13 +209,14 @@ function buildTabName(name: TabRoutes) {
   return `tab-${name}`;
 }
 
-export const getStackTabScreen = (tabName: TabRoutes) => {
+export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
   const tab = tabRoutes.find((t) => t.name === tabName) as TabRouteConfig;
   const screens = [
     {
       // fix: Found screens with the same name nested inside one another
       name: buildTabName(tab.name),
       component: tab.component,
+      alwaysShowBackButton: false,
     },
     ...(tab.children || []),
   ];
@@ -253,6 +259,17 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
               key={s.name}
               screenOptions={{
                 header: customRenderHeader,
+                headerLeft:
+                  s.alwaysShowBackButton && platformEnv.isRuntimeBrowser
+                    ? ({ tintColor }) => (
+                        <NavigationHeaderBackButton
+                          tintColor={tintColor}
+                          // eslint-disable-next-line @typescript-eslint/unbound-method
+                          onPress={goBack}
+                          canGoBack
+                        />
+                      )
+                    : undefined,
                 // lazy: true,
                 headerShown: index > 0 || Boolean(customRenderHeader),
               }}

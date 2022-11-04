@@ -268,6 +268,9 @@ export default class ServiceNotification extends ServiceBase {
       const tabScreenName = params?.coingeckoId
         ? TabRoutes.Market
         : TabRoutes.Home;
+      if (navigation?.canGoBack()) {
+        navigation?.goBack();
+      }
       navigation?.navigate(RootRoutes.Tab, {
         screen: tabScreenName,
       });
@@ -378,15 +381,17 @@ export default class ServiceNotification extends ServiceBase {
           ...pick(params, 'title', 'content', 'extras'),
           notificationEventType: 'notificationArrived',
         });
-        new Notification(params.title, {
+        const n = new Notification(params.title, {
           body: params.content,
           icon: platformEnv.isDesktopMac ? undefined : logo,
-        }).onclick = () => {
+        });
+        n.onclick = () => {
           this.handleNotificationCallback({
             messageID: '',
             ...pick(params, 'title', 'content', 'extras'),
             notificationEventType: 'notificationOpened',
           });
+          n.close();
         };
       },
     );

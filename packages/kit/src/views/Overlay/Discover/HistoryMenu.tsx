@@ -15,6 +15,9 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../hooks';
+import { DiscoverModalRoutes } from '../../../routes/Modal/Discover';
+import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { OverlayPanel } from '../OverlayPanel';
 
@@ -29,6 +32,7 @@ const DiscoverHistoryMenu: FC<{
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
   const toast = useToast();
+  const navigation = useNavigation();
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -40,6 +44,28 @@ const DiscoverHistoryMenu: FC<{
     | undefined
   )[] = useMemo(
     () => [
+      isVerticalLayout
+        ? {
+            id: 'title__share',
+            onPress: () => {
+              const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
+              const name = item.dapp?.name ?? item.webSite?.title ?? 'Unknown';
+              const url = item.dapp?.url ?? item.webSite?.url ?? '';
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Discover,
+                params: {
+                  screen: DiscoverModalRoutes.ShareModal,
+                  params: {
+                    url,
+                    name,
+                    logoURL,
+                  },
+                },
+              });
+            },
+            icon: 'ShareOutline',
+          }
+        : false,
       {
         id: 'action__copy_url',
         onPress: () => {
@@ -60,7 +86,7 @@ const DiscoverHistoryMenu: FC<{
         isDanger: true,
       },
     ],
-    [item, toast, intl],
+    [item, toast, intl, isVerticalLayout, navigation],
   );
   return (
     <Box bg="surface-subdued" flexDirection="column">

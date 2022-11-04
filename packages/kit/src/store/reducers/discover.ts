@@ -178,6 +178,9 @@ export const discoverSlice = createSlice({
       }
       delete state.dappHistory[action.payload];
     },
+    clearHistory(state) {
+      state.dappHistory = {};
+    },
     addFavorite(state, action: PayloadAction<string>) {
       if (!state.dappFavorites) {
         state.dappFavorites = [];
@@ -242,6 +245,7 @@ export const {
   setListedTags,
   setCategoryDapps,
   setTagDapps,
+  clearHistory,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;
