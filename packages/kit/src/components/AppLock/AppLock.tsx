@@ -19,8 +19,6 @@ const unlockWhiteListUrl = [
   '/account/', // /account/0x88888
   '/wc/connect',
   '/onlanding',
-  '/root/initial/tab/home/Revoke',
-  '/root/Revoke',
   '/revoke',
 ];
 

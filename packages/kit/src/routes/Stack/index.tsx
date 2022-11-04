@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 
+import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 import { RootSiblingParent } from 'react-native-root-siblings';
@@ -32,9 +33,11 @@ import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
 import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
 import Webview from '@onekeyhq/kit/src/views/Webview';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
+import { useNavigationBack } from '../../hooks/useAppNavigation';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
@@ -54,6 +57,7 @@ export const stackScreenList = [
   {
     name: HomeRoutes.ScreenTokenDetail,
     component: TokenDetail,
+    alwaysShowBackButton: true,
   },
   {
     name: HomeRoutes.SettingsWebviewScreen,
@@ -122,10 +126,12 @@ export const stackScreenList = [
   {
     name: HomeRoutes.MarketDetail,
     component: MarketDetail,
+    alwaysShowBackButton: true,
   },
   {
     name: HomeRoutes.Revoke,
     component: RevokePage,
+    alwaysShowBackButton: true,
   },
   {
     name: HomeRoutes.NFTMarketStatsList,
@@ -144,6 +150,7 @@ export const stackScreenList = [
 export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
 const Dashboard = () => {
+  const goBack = useNavigationBack();
   const isVerticalLayout = useIsVerticalLayout();
   const [bgColor, textColor, borderBottomColor] = useThemeValue([
     'background-default',
@@ -161,9 +168,21 @@ const Dashboard = () => {
         key={stack.name}
         name={stack.name}
         component={stack.component}
+        options={{
+          headerLeft:
+            platformEnv.isRuntimeBrowser && stack.alwaysShowBackButton
+              ? ({ tintColor }) => (
+                  <NavigationHeaderBackButton
+                    tintColor={tintColor}
+                    onPress={goBack}
+                    canGoBack
+                  />
+                )
+              : undefined,
+        }}
       />
     ));
-  }, [isVerticalLayout]);
+  }, [isVerticalLayout, goBack]);
 
   return (
     <StackNavigator.Navigator>
@@ -188,6 +207,7 @@ const Dashboard = () => {
             borderBottomWidth: 0,
             shadowColor: borderBottomColor,
           },
+
           header:
             Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
           headerTintColor: textColor,

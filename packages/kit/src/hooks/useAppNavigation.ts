@@ -29,6 +29,10 @@ export function useNavigationGoHomeForceReload() {
     if (platformEnv.isRuntimeBrowser && !platformEnv.isExtensionBackground) {
       // navigate() not working
       navigation.navigate(RootRoutes.Root);
+      if (platformEnv.isWeb) {
+        window.location.href = '/';
+        return;
+      }
       window.location.href = '#/';
       // standalone window reload will cause approve promise fail
       if (!platformEnv.isExtensionUiStandaloneWindow) {

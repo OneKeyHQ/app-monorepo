@@ -15,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from '../../components/LazyDisplayView';
 import { useNavigationActions } from '../../hooks';
+import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { TabRoutes, TabRoutesParams } from '../types';
 
 import { getStackTabScreen, tabRoutes } from './routes';
@@ -23,6 +24,7 @@ const Tab = createBottomTabNavigator<TabRoutesParams>();
 
 const TabNavigator = () => {
   const intl = useIntl();
+  const goBack = useNavigationBack();
   const isVerticalLayout = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
   const {
@@ -137,7 +139,7 @@ const TabNavigator = () => {
         key={tab.name}
         name={tab.name}
         component={
-          isVerticalLayout ? tab.component : getStackTabScreen(tab.name)
+          isVerticalLayout ? tab.component : getStackTabScreen(tab.name, goBack)
         }
         options={{
           headerShown: tab.name !== TabRoutes.NFT,
@@ -146,7 +148,7 @@ const TabNavigator = () => {
         }}
       />
     ));
-  }, [intl, isVerticalLayout]);
+  }, [intl, isVerticalLayout, goBack]);
 
   return useMemo(
     () => (
