@@ -141,12 +141,12 @@ const ScrollableButtonGroup = forwardRef<
             useAnimatedStyle(
               () => ({
                 opacity: withTiming(showLeftArrow.value ? 1 : 0, {
-                  duration: 150,
+                  duration: 300,
                 }),
                 scale: withTiming(showLeftArrow.value ? 1 : 0, {
-                  duration: 150,
+                  duration: 300,
                 }),
-                zIndex: showLeftArrow.value ? 1 : -1,
+                zIndex: 1,
               }),
               [],
             ),
@@ -213,12 +213,12 @@ const ScrollableButtonGroup = forwardRef<
             useAnimatedStyle(
               () => ({
                 opacity: withTiming(showRightArrow.value ? 1 : 0, {
-                  duration: 150,
+                  duration: 300,
                 }),
                 scale: withTiming(showRightArrow.value ? 1 : 0, {
-                  duration: 150,
+                  duration: 300,
                 }),
-                zIndex: showRightArrow.value ? 1 : -1,
+                zIndex: 1,
               }),
               [],
             ),
