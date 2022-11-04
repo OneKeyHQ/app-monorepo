@@ -59,6 +59,8 @@ type ITransactionWithResult = IUnsignedTransaction & {
   ret: [{ contractRet?: string }];
 };
 
+type Callback = false | ((err: Error | null, info: any) => any);
+
 declare module 'tronweb' {
   export class TronWeb {
     constructor(e: any);
@@ -83,6 +85,7 @@ declare module 'tronweb' {
         any,
       ) => Promise<{ code?: string; message?: string; result?: boolean }>;
       getTransaction: (string) => Promise<ITransactionWithResult>;
+      getNodeInfo: (callback?: Callback) => Promise<any>;
     };
 
     transactionBuilder: {

@@ -90,6 +90,24 @@ class ProviderApiTron extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async tron_getNodeInfo() {
+    const { accountId, networkId, networkImpl } = getActiveWalletAccount();
+
+    if (networkImpl !== IMPL_TRON) {
+      return {};
+    }
+
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultTron;
+
+    const tronWeb = await vault.getClient();
+
+    return tronWeb.trx.getNodeInfo();
+  }
+
+  @providerApiMethod()
   async tron_accounts(request: IJsBridgeMessagePayload) {
     const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
       {
