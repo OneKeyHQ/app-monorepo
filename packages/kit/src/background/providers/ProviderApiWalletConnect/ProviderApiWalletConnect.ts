@@ -5,6 +5,7 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { ISessionStatus } from '@walletconnect/types';
+import { debounce } from 'lodash';
 
 import {
   IMPL_ALGO,
@@ -255,37 +256,44 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       });
   }
 
-  async notifySessionChanged() {
-    const { connector } = this;
-    if (connector && connector.connected) {
-      const prevAccounts = connector.accounts || [];
-      const chainId = await this.getChainIdInteger(connector);
-      const { networkImpl } = connector.session;
-      let accounts: string[] = [];
-      const requestProxy = this.getRequestProxy({ networkImpl });
-      accounts = await requestProxy.getAccounts(connector);
+  notifySessionChanged = debounce(
+    async () => {
+      const { connector } = this;
+      if (connector && connector.connected) {
+        const prevAccounts = connector.accounts || [];
+        const chainId = await this.getChainIdInteger(connector);
+        const { networkImpl } = connector.session;
+        let accounts: string[] = [];
+        const requestProxy = this.getRequestProxy({ networkImpl });
+        accounts = await requestProxy.getAccounts(connector);
 
-      // TODO do not disconnect session, but keep prevAccount if wallet active account changed
-      if (!accounts || !accounts.length) {
-        accounts = prevAccounts;
+        // TODO do not disconnect session, but keep prevAccount if wallet active account changed
+        if (!accounts || !accounts.length) {
+          accounts = prevAccounts;
 
-        // *** ATTENTION ***  wallet-connect does NOT support empty accounts
-        // connector.updateSession({
-        //   chainId,
-        //   accounts: [],
-        // });
-        // return;
+          // *** ATTENTION ***  wallet-connect does NOT support empty accounts
+          // connector.updateSession({
+          //   chainId,
+          //   accounts: [],
+          // });
+          // return;
+        }
+        if (accounts && accounts.length) {
+          connector.updateSession({
+            chainId,
+            accounts,
+          });
+        } else {
+          await this.disconnect();
+        }
       }
-      if (accounts && accounts.length) {
-        connector.updateSession({
-          chainId,
-          accounts,
-        });
-      } else {
-        await this.disconnect();
-      }
-    }
-  }
+    },
+    800,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 }
 
 export default ProviderApiWalletConnect;
