@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -164,12 +165,26 @@ const OnekeyHardwareHomescreen: FC = () => {
 
       const selectedItem = data[activeIndex];
       if (isTouch && selectedItem.name.startsWith('upload')) {
-        const uploadResParams = await generateUploadResParams(
-          selectedItem.staticPath,
-          selectedItem.width ?? 0,
-          selectedItem.height ?? 0,
-        );
-        debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
+        let uploadResParams: DeviceUploadResourceParams | undefined;
+        try {
+          uploadResParams = await generateUploadResParams(
+            selectedItem.staticPath,
+            selectedItem.width ?? 0,
+            selectedItem.height ?? 0,
+          );
+          debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
+        } catch (e) {
+          console.log('image operate error: ', e);
+          toast.show(
+            {
+              title: '图片处理失败，请更换图片后重试',
+            },
+            {
+              type: 'error',
+            },
+          );
+          return;
+        }
         if (uploadResParams) {
           setButtonTextId('form__updating_resource');
           await serviceHardware.uploadResource(connectId, uploadResParams);

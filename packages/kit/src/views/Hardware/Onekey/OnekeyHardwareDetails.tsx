@@ -68,9 +68,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         return;
       }
       const res = await serviceHardware.getDeviceSupportFeatures(connectId);
-      setShowHomescreenSetting(
-        !!(res.modifyHomescreen as SupportFeatureType).support && hasHomescreen,
-      );
+      setShowHomescreenSetting(!!res.modifyHomescreen.support && hasHomescreen);
     },
     [serviceHardware, deviceType],
   );
@@ -93,7 +91,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
         setDeviceConnectId(device?.mac);
         setDeviceId(device?.deviceId);
-        await getModifyHomescreenConfig(device?.uuid);
+        await getModifyHomescreenConfig(device?.mac);
       } catch (err: any) {
         if (navigation?.canGoBack?.()) {
           navigation.goBack();
