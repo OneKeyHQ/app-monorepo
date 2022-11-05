@@ -14,17 +14,22 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import unlockUtils from '../../components/AppLock/unlockUtils';
-import { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
+import unlockUtils from '../../../components/AppLock/unlockUtils';
+import { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';
 import {
   IWalletConnectClientEventDestroy,
   IWalletConnectClientEventRpc,
-} from '../../components/WalletConnect/WalletConnectClient';
-import { WalletConnectClientForWallet } from '../../components/WalletConnect/WalletConnectClientForWallet';
-import { closeDappConnectionPreloading } from '../../store/reducers/refresher';
-import { backgroundClass } from '../decorators';
+} from '../../../components/WalletConnect/WalletConnectClient';
+import { WalletConnectClientForWallet } from '../../../components/WalletConnect/WalletConnectClientForWallet';
+import { closeDappConnectionPreloading } from '../../../store/reducers/refresher';
+import { backgroundClass } from '../../decorators';
 
-import type { IBackgroundApi } from '../IBackgroundApi';
+import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
+import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
+import { WalletConnectRequestProxyAptos } from './WalletConnectRequestProxyAptos';
+import { WalletConnectRequestProxyEvm } from './WalletConnectRequestProxyEvm';
+
+import type { IBackgroundApi } from '../../IBackgroundApi';
 
 @backgroundClass()
 class ProviderApiWalletConnect extends WalletConnectClientForWallet {
@@ -32,6 +37,24 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     super();
     this.backgroundApi = backgroundApi;
     this.setupEventHandlers();
+  }
+
+  requestProxyMap: {
+    [networkImpl: string]: WalletConnectRequestProxy;
+  } = {
+    [IMPL_EVM]: new WalletConnectRequestProxyEvm({
+      client: this,
+    }),
+    [IMPL_APTOS]: new WalletConnectRequestProxyAptos({
+      client: this,
+    }),
+    [IMPL_ALGO]: new WalletConnectRequestProxyAlgo({
+      client: this,
+    }),
+  };
+
+  getRequestProxy({ networkImpl }: { networkImpl: string }) {
+    return this.requestProxyMap[networkImpl] || this.requestProxyMap[IMPL_EVM];
   }
 
   backgroundApi: IBackgroundApi;
@@ -55,14 +78,8 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         let request: Promise<any>;
         const isInteractiveMethod = this.isInteractiveMethod({ payload });
         const doProviderRequest = () => {
-          if (networkImpl === IMPL_APTOS) {
-            request = this.aptosRequest(connector, payload);
-          } else if (networkImpl === IMPL_ALGO) {
-            request = this.algoRequest(connector, payload);
-          } else {
-            // IMPL_EVM
-            request = this.ethereumRequest(connector, payload);
-          }
+          const requestProxy = this.getRequestProxy({ networkImpl });
+          request = requestProxy.request(connector, payload);
           return this.responseCallRequest(connector, request, {
             error,
             payload,
@@ -140,31 +157,14 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     return Promise.resolve(resp.result as T);
   }
 
-  // TODO Support for more chain
   async getChainIdInteger(connector: OneKeyWalletConnector) {
     const { networkImpl } = connector.session;
     const prevChainId = connector.chainId || 0;
 
     let chainId: number | undefined;
-    if (networkImpl === IMPL_APTOS) {
-      const res: { chainId: number } | undefined = await this.aptosRequest(
-        connector,
-        { method: 'getChainId' },
-      );
-      chainId = res?.chainId;
-    } else if (networkImpl === IMPL_ALGO) {
-      const res: { chainId: number } | undefined = await this.algoRequest(
-        connector,
-        { method: 'getChainId' },
-      );
-      chainId = res?.chainId;
-    } else {
-      // IMPL_EVM
-      chainId = parseInt(
-        await this.ethereumRequest(connector, { method: 'net_version' }),
-        10,
-      );
-    }
+    const requestProxy = this.getRequestProxy({ networkImpl });
+
+    chainId = await requestProxy.getChainId(connector);
 
     if (!chainId) {
       chainId = prevChainId;
@@ -187,22 +187,8 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     dispatch(closeDappConnectionPreloading());
 
     let result: string[] = [];
-    if (networkImpl === IMPL_APTOS) {
-      const { address } = await this.aptosRequest<{ address: string }>(
-        connector,
-        { method: 'connect' },
-      );
-      result = [address];
-    } else if (networkImpl === IMPL_ALGO) {
-      result = await this.algoRequest<string[]>(connector, {
-        method: 'connect',
-      });
-    } else {
-      // IMPL_EVM
-      result = await this.ethereumRequest<string[]>(connector, {
-        method: 'eth_requestAccounts',
-      });
-    }
+    const proxyRequest = this.getRequestProxy({ networkImpl });
+    result = await proxyRequest.connect(connector);
 
     const chainId = await this.getChainIdInteger(connector);
     // walletConnect approve empty accounts is not allowed
@@ -274,24 +260,11 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     if (connector && connector.connected) {
       const prevAccounts = connector.accounts || [];
       const chainId = await this.getChainIdInteger(connector);
-
+      const { networkImpl } = connector.session;
       let accounts: string[] = [];
-      if (connector.session.networkImpl === IMPL_APTOS) {
-        const { address } = await this.aptosRequest<{ address: string }>(
-          connector,
-          { method: 'account' },
-        );
-        accounts = [address];
-      } else if (connector.session.networkImpl === IMPL_ALGO) {
-        accounts = await this.algoRequest<string[]>(connector, {
-          method: 'accounts',
-        });
-      } else {
-        // IMPL_EVM
-        accounts = await this.ethereumRequest<string[]>(connector, {
-          method: 'eth_accounts',
-        });
-      }
+      const requestProxy = this.getRequestProxy({ networkImpl });
+      accounts = await requestProxy.getAccounts(connector);
+
       // TODO do not disconnect session, but keep prevAccount if wallet active account changed
       if (!accounts || !accounts.length) {
         accounts = prevAccounts;

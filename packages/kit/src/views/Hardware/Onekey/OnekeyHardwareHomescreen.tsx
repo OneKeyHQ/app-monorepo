@@ -334,7 +334,7 @@ const OnekeyHardwareHomescreen: FC = () => {
         </Box>
       </>
     ),
-    [handleConfirm, isTouch, loading, isSmallScreen, intl, bottom],
+    [handleConfirm, loading, isSmallScreen, intl, bottom, deviceType],
   );
 
   return (

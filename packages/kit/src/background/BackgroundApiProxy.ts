@@ -8,7 +8,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
-import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
+import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';

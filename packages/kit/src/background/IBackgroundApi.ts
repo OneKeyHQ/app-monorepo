@@ -8,7 +8,7 @@ import ServiceExternalAccount from './services/ServiceExternalAccount';
 
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
-import type ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
+import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';
