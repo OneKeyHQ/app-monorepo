@@ -36,9 +36,10 @@
     "electron-store": "^8.1.0",
     "electron-updater": "^5.2.1",
     "expo": "^45.0.5",
+    "expo-yarn-workspaces": "2.0.3",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
-    "react-native-web": "0.18.9"
+    "react-native-web": "0.18.10"
   },
   "devDependencies": {
     "@electron/remote": "^2.0.1",
