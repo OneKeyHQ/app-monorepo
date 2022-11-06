@@ -12,9 +12,8 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
-import { AssetType } from './FilterBar';
 import { useUpdateAllowance } from './hooks';
-import { RevokeRoutes, RevokeRoutesParams } from './types';
+import { AssetType, RevokeRoutes, RevokeRoutesParams } from './types';
 
 type FieldValues = {
   allowance: number;

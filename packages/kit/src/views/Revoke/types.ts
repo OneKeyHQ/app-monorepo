@@ -18,3 +18,15 @@ export type RevokeRoutesParams = {
     networkId: string;
   };
 };
+
+export enum AssetType {
+  tokens = 0,
+  nfts,
+}
+
+export type Filter = {
+  assetType: AssetType;
+  includeUnverifiedTokens: boolean;
+  includeZeroBalancesTokens: boolean;
+  includeTokensWithoutAllowances: boolean;
+};

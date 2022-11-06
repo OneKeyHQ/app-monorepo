@@ -26,15 +26,17 @@ import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSe
 import { useActiveWalletAccount, useDebounce } from '../../hooks';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
-import FilterBar, { AssetType } from './FilterBar';
+import FilterBar from './FilterBar';
 import RevokeHeader from './Header';
 import { ERC20TokenList } from './List/ERC20TokenList';
 import { ERC721TokenList } from './List/ERC721TokenList';
+import { AssetType } from './types';
 
 const defaultFilter = {
   assetType: AssetType.tokens,
-  includeUnverifiedTokens: false,
-  includeZeroBalancesTokens: false,
+  includeUnverifiedTokens: true,
+  includeZeroBalancesTokens: true,
+  includeTokensWithoutAllowances: true,
 };
 
 const RevokePage: FC = () => {

@@ -20,8 +20,8 @@ import {
 } from '@onekeyhq/engine/src/managers/revoke';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
-import { AssetType, Filter } from '../FilterBar';
 import { useIsVerticalOrMiddleLayout, useTokenAllowances } from '../hooks';
+import { AssetType, Filter } from '../types';
 
 import { ERC20Allowance } from './ERC20Allowance';
 
@@ -169,7 +169,10 @@ export const ERC20TokenList: FC<{
   const data = useMemo(
     () =>
       (allowances
-        ?.filter((item) => item.allowance.length > 0)
+        ?.filter(
+          (item) =>
+            item.allowance.length > 0 || filters.includeTokensWithoutAllowances,
+        )
         ?.filter(
           ({ token }) => filters.includeUnverifiedTokens || token.verified,
         )

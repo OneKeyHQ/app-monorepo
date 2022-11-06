@@ -1,22 +1,11 @@
 import React, { FC, useCallback } from 'react';
 
-import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Button, HStack, IconButton, Typography } from '@onekeyhq/components';
 
 import showExtraFilters from './Overlays/ExtraFilters';
-
-export enum AssetType {
-  tokens = 0,
-  nfts,
-}
-
-export type Filter = {
-  assetType: AssetType;
-  includeUnverifiedTokens: boolean;
-  includeZeroBalancesTokens: boolean;
-};
+import { AssetType, Filter } from './types';
 
 export type Props = Filter & {
   onChange: (filter: Filter) => void;
@@ -41,7 +30,7 @@ const FilterBar: FC<Props> = (props) => {
   const showExtraFiltersOverlay = useCallback(
     () =>
       showExtraFilters({
-        ...pick(filter, 'includeUnverifiedTokens', 'includeZeroBalancesTokens'),
+        ...filter,
         onChange: handleChange,
       }),
     [filter, handleChange],

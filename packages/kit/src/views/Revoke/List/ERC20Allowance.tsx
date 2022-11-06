@@ -24,7 +24,6 @@ import { FormatCurrencyNumber } from '../../../components/Format';
 import { navigationRef } from '../../../provider/NavigationProvider';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { useConnectAndCreateExternalAccount } from '../../ExternalAccount/useConnectAndCreateExternalAccount';
-import { AssetType } from '../FilterBar';
 import {
   useAccountCanTransaction,
   useSpenderAppName,
@@ -33,7 +32,7 @@ import {
 import showAllowanceDetailOverlay, {
   ActionKey,
 } from '../Overlays/AllowanceDetail';
-import { RevokeRoutes } from '../types';
+import { AssetType, RevokeRoutes } from '../types';
 
 type Props = {
   spender: string;
