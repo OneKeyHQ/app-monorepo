@@ -45,6 +45,8 @@ buildscript {
 
 allprojects {
     repositories { 
+        // https://github.com/facebook/react-native/issues/35210
+        // TODO: remove this section once update to 0.71
         exclusiveContent {
            // We get React Native's Android binaries exclusively through npm,
            // from a local Maven repo inside node_modules/react-native/.
