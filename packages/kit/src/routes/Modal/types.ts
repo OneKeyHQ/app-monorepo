@@ -30,3 +30,5 @@ export type { ManageConnectedSitesRoutesParams } from '../../views/ManageConnect
 export type { PushNotificationRoutesParams } from '../../views/PushNotification/types';
 export type { WebviewRoutesParams } from './WebView';
 export type { RevokeRoutesParams } from './Revoke';
+// eslint-disable-next-line import/no-cycle
+export type { SearchNFTCollectionRoutesParams } from './SearchNFTCollection';
