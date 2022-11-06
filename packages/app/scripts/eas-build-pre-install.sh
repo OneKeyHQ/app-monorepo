@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 # EAS Environment Secrets
 # Run Path: packages/app
-
-yarn global add expo-cli sharp-cli@^1.10.0
-
 echo "@onekeyhq:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
 # Install Secret Keys
