@@ -40,6 +40,7 @@ const ListHeader: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const setContext = useStatsListContext()?.setContext;
+  const context = useStatsListContext()?.context;
   const intl = useIntl();
 
   return (
@@ -70,6 +71,7 @@ const ListHeader: FC = () => {
           onPress={() => {
             navigation.navigate(HomeRoutes.NFTMarketStatsList, {
               network: selectedNetwork,
+              selectedIndex: context?.selectedIndex,
             });
           }}
           height="32px"
@@ -147,6 +149,7 @@ export const StatsList = () => {
               }),
             },
           ]}
+          size="lg"
           selectedIndex={selectedIndex}
           bg="background-default"
           onButtonPress={(index) => {

@@ -43,6 +43,8 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
     [categorys],
   );
 
+  console.log('categorys = ', categorys);
+
   const [toggleIndex, setToggleIndex] = useState(() => defaultSelectedIndex);
 
   const toggleCategory = useCallback(

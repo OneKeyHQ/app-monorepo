@@ -5,7 +5,7 @@ import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 export const floorPriceSymbolMap: Record<string, string> = {
   [OnekeyNetwork.eth]: 'ETH',
-  [OnekeyNetwork.optimism]: 'main',
+  [OnekeyNetwork.optimism]: 'AVAX',
   [OnekeyNetwork.bsc]: 'BNB',
   [OnekeyNetwork.polygon]: 'MATIC',
   [OnekeyNetwork.arbitrum]: 'ETH',

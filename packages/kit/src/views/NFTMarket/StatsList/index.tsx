@@ -19,11 +19,11 @@ const StatsListScreen = () => {
   const intl = useIntl();
   const route =
     useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTMarketStatsList>>();
-  const { network } = route.params;
+  const { network, selectedIndex } = route.params;
   const [selectedNetwork, setSelectedNetwork] = useState<Network>(network);
   const [context, setContext] = useState<StatsListContextValue>({
     isTab: false,
-    selectedIndex: 0,
+    selectedIndex,
     selectedTime: 2,
     selectedNetwork,
   });

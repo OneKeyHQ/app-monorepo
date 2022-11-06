@@ -12,6 +12,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { NFTTransaction } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -191,7 +192,7 @@ const TransactionList = ({
         });
       }
     },
-    [serviceNFT],
+    [context?.refreshing, serviceNFT],
   );
   useEffect(() => {
     (() => {
@@ -230,7 +231,7 @@ const TransactionList = ({
   const paddingX = isSmallScreen ? 16 : 0;
 
   return (
-    <FlatList<NFTTransaction>
+    <Tabs.FlatList<NFTTransaction>
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       ListHeaderComponent={ListHeaderComponent}
       ItemSeparatorComponent={() => (

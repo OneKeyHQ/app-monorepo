@@ -115,7 +115,7 @@ class ServiceNFT extends ServiceBase {
   }) {
     let url = `${this.baseUrl}/collection/transactions?chain=${chain}&contractAddress=${contractAddress}&limit=${limit}`;
     if (eventTypes) {
-      url += `&event_types=${eventTypes}`;
+      url += `&event_type=${eventTypes}`;
     }
     if (showAsset === true) {
       url += `&show_asset=true`;

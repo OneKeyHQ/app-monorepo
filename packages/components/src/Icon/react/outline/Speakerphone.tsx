@@ -1,5 +1,4 @@
-import Svg, { Path, SvgProps } from 'react-native-svg';
-
+import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgSpeakerphone = (props: SvgProps) => (
   <Svg
     fill="none"
