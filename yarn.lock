@@ -10597,7 +10597,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bindings@npm:^1.2.1, bindings@npm:^1.3.0, bindings@npm:^1.5.0":
+"bindings@npm:^1.3.0, bindings@npm:^1.5.0":
   version: 1.5.0
   resolution: "bindings@npm:1.5.0"
   dependencies:
@@ -20825,33 +20825,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"keccak@npm:^1.0.2":
-  version: 1.4.0
-  resolution: "keccak@npm:1.4.0"
-  dependencies:
-    bindings: ^1.2.1
-    inherits: ^2.0.3
-    nan: ^2.2.1
-    node-gyp: latest
-    safe-buffer: ^5.1.0
-  checksum: 236ba4183d64e1118566c4f123d812cc8fa5fb0fa477b6743bc398aced42595816f46a322bf0240a6a7589eff932aa1540066a30db2367e4049436d9fa30f537
-  languageName: node
-  linkType: hard
-
-"keccak@npm:^2.0.0":
-  version: 2.1.0
-  resolution: "keccak@npm:2.1.0"
-  dependencies:
-    bindings: ^1.5.0
-    inherits: ^2.0.4
-    nan: ^2.14.0
-    node-gyp: latest
-    safe-buffer: ^5.2.0
-  checksum: 41367dc13038b24bfe6cc77d7fc2c8908edada0883bc50d751ad7aa7fc1091a9baab8ff79aeae3b262ff6042cb60b6521277d1f383493ce0bc0e9e3e3c933853
-  languageName: node
-  linkType: hard
-
-"keccak@npm:^3.0.0, keccak@npm:^3.0.1":
+"keccak@npm:^3":
   version: 3.0.2
   resolution: "keccak@npm:3.0.2"
   dependencies:
@@ -22696,7 +22670,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"nan@npm:^2.12.1, nan@npm:^2.13.2, nan@npm:^2.14.0, nan@npm:^2.2.1":
+"nan@npm:^2.12.1, nan@npm:^2.13.2, nan@npm:^2.14.0":
   version: 2.17.0
   resolution: "nan@npm:2.17.0"
   dependencies:

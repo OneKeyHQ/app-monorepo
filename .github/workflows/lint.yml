@@ -41,5 +41,5 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn dlx expo-cli && yarn
+          npm i -g expo-cli && yarn
           yarn lint && yarn test

@@ -34,7 +34,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn dlx expo-cli && yarn
+          npm i -g expo-cli && yarn
 
       - name: Generate stats.json
         env:
@@ -76,7 +76,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          yarn dlx expo-cli && yarn
+          npm i -g expo-cli && yarn
 
       - name: Generate stats.json
         env:

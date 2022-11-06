@@ -2,7 +2,7 @@
 # EAS Environment Secrets
 # Run Path: packages/app
 
-yarn dlx expo-cli
+npm i -g expo-cli
 
 echo "@onekeyhq:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
