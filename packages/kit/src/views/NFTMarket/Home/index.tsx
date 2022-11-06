@@ -5,8 +5,8 @@ import { ListRenderItem } from 'react-native';
 
 import { Box, FlatList } from '@onekeyhq/components';
 
-import CollectionModule from './Collection';
 import LiveMintingModule from './LiveMinting';
+import NotableCollections from './NotableCollections';
 import PageHeader from './PageHeader';
 import StatsModule from './Stats';
 
@@ -31,7 +31,7 @@ const Content = () => {
   const renderItem: ListRenderItem<ModuleData> = useCallback(({ item }) => {
     const { id } = item;
     if (id === NFTModule.Collection) {
-      return <CollectionModule />;
+      return <NotableCollections />;
     }
     if (id === NFTModule.Stats) {
       return <StatsModule />;
@@ -51,10 +51,12 @@ const Content = () => {
       ItemSeparatorComponent={() => <Box h={{ base: '32px', md: '48px' }} />}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
-      w="100%"
-      maxW="992px"
-      mx="auto"
-      py={{ base: '16px', md: '32px' }}
+      p={{ base: '16px', md: '32px' }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992,
+        marginHorizontal: 'auto',
+      }}
     />
   );
 };
@@ -70,9 +72,7 @@ const NFTMarket = () => {
     <Box flex={1}>
       {/* TODO repleace with Header component in the future  */}
       <PageHeader />
-      <Box justifyContent="center" px={{ base: '16px', md: '32px' }} flex={1}>
-        <Content />
-      </Box>
+      <Content />
     </Box>
   );
 };
