@@ -241,7 +241,17 @@ class Engine {
           defaultNetworkList.push([dbNetwork.id, dbNetwork.enabled]);
         }
       });
-      await this.dbApi.updateNetworkList(defaultNetworkList, true);
+      await this.dbApi.updateNetworkList(
+        defaultNetworkList.map(([id, enable]) => {
+          const preset = presetNetworksList.find((p) => p.id === id);
+          if (preset && !preset.enabled && enable) {
+            debugLogger.engine.info(`removed preset disabled network id=${id}`);
+            return [id, false];
+          }
+          return [id, enable];
+        }),
+        true,
+      );
     } catch (error) {
       console.error(error);
     }
