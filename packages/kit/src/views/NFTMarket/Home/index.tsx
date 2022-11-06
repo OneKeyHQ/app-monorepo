@@ -3,11 +3,11 @@ import React, { useCallback, useLayoutEffect } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { ListRenderItem } from 'react-native';
 
-import { Box, FlatList, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, FlatList } from '@onekeyhq/components';
 
-import CollectionModule from './Collection';
 import LiveMintingModule from './LiveMinting';
-import SearchBar from './SearchBar';
+import NotableCollections from './NotableCollections';
+import PageHeader from './PageHeader';
 import StatsModule from './Stats';
 
 export enum NFTModule {
@@ -31,7 +31,7 @@ const Content = () => {
   const renderItem: ListRenderItem<ModuleData> = useCallback(({ item }) => {
     const { id } = item;
     if (id === NFTModule.Collection) {
-      return <CollectionModule />;
+      return <NotableCollections />;
     }
     if (id === NFTModule.Stats) {
       return <StatsModule />;
@@ -47,14 +47,16 @@ const Content = () => {
 
   return (
     <FlatList
-      contentContainerStyle={{
-        paddingBottom: 16,
-        paddingTop: 16,
-      }}
       data={data}
-      ItemSeparatorComponent={() => <Box height="32px" />}
+      ItemSeparatorComponent={() => <Box h={{ base: '32px', md: '48px' }} />}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
+      p={{ base: '16px', md: '32px' }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992,
+        marginHorizontal: 'auto',
+      }}
     />
   );
 };
@@ -62,15 +64,14 @@ const Content = () => {
 const NFTMarket = () => {
   const navigation = useNavigation();
 
-  const isSmallScreen = useIsVerticalLayout();
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const paddingX = isSmallScreen ? 0 : '51px';
   return (
-    <Box paddingX={paddingX} flex={1}>
-      <SearchBar />
+    <Box flex={1}>
+      {/* TODO repleace with Header component in the future  */}
+      <PageHeader />
       <Content />
     </Box>
   );

@@ -36,7 +36,7 @@ type Display2XLargeProps = TextShapeProps;
 const Display2XLargeDefaultProps = {
   width: 146,
   height: 20,
-  rounded: 10,
+  rounded: 4,
   x: 0,
   y: 0,
 } as const;
@@ -70,7 +70,7 @@ type DisplayXLargeProps = TextShapeProps;
 const DisplayXLargeDefaultProps = {
   width: 128,
   height: 18,
-  rounded: 9,
+  rounded: 4,
   x: 0,
   y: 0,
 } as const;
@@ -104,7 +104,7 @@ type PageHeadingProps = TextShapeProps;
 const PageHeadingDefaultProps = {
   width: 112,
   height: 16,
-  rounded: 8,
+  rounded: 4,
   x: 0,
   y: 0,
 } as const;
@@ -138,7 +138,7 @@ type HeadingProps = TextShapeProps;
 const HeadingDefaultProps = {
   width: 96,
   height: 14,
-  rounded: 7,
+  rounded: 4,
   x: 0,
   y: 0,
 } as const;
@@ -172,7 +172,7 @@ type Body1Props = TextShapeProps;
 const Body1DefaultProps = {
   width: 80,
   height: 12,
-  rounded: 6,
+  rounded: 4,
   x: 0,
   y: 0,
 } as const;
@@ -199,7 +199,7 @@ type Body2Props = TextShapeProps;
 const Body2DefaultProps = {
   width: 64,
   height: 10,
-  rounded: 5,
+  rounded: 4,
   x: 0,
   y: 0,
 };

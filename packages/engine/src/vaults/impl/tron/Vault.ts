@@ -78,7 +78,7 @@ export default class Vault extends VaultBase {
     },
   );
 
-  private async getClient() {
+  public async getClient() {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     return this.getTronWeb(rpcURL);
   }

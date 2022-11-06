@@ -149,6 +149,7 @@ export const StatsList = () => {
               }),
             },
           ]}
+          size="lg"
           selectedIndex={selectedIndex}
           bg="background-default"
           onButtonPress={(index) => {

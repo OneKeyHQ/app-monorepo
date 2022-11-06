@@ -5,6 +5,7 @@ import { LayoutChangeEvent } from 'react-native';
 
 import {
   Center,
+  HStack,
   ICON_NAMES,
   Icon,
   NetImage,
@@ -54,48 +55,57 @@ const ToggleButton: FC<
   const isSmall = size === 'sm';
   const iconSize = leftIconSize || (isSmall ? '16px' : '20px');
   return (
-    <Pressable
-      _hover={{
-        bg: 'surface-selected',
+    <Pressable mr="8px" onPress={onPress} onLayout={onLayout}>
+      {({ isHovered, isPressed }) => {
+        const toggleButtonBg = () => {
+          if (isCurrent) return 'surface-selected';
+          if (isPressed) return 'surface-pressed';
+          if (isHovered) return 'surface-hovered';
+          return 'transparent';
+        };
+
+        return (
+          <HStack
+            alignItems="center"
+            h={isSmall ? '32px' : '36px'}
+            px={isSmall ? '8px' : '12px'}
+            py={isSmall ? '6px' : '8px'}
+            borderRadius="9999px"
+            bg={toggleButtonBg()}
+          >
+            {(!!leftIcon || !!leftImage) && (
+              <Center
+                borderRadius="9999px"
+                w={iconSize}
+                h={iconSize}
+                mr={isSmall ? '4px' : '8px'}
+              >
+                {!!leftIcon && (
+                  <Icon
+                    name={leftIcon}
+                    color={isCurrent ? 'icon-hovered' : 'icon-default'}
+                  />
+                )}
+                {!!leftImage && (
+                  <NetImage
+                    height={iconSize}
+                    width={iconSize}
+                    src={leftImage}
+                  />
+                )}
+              </Center>
+            )}
+            {leftComponentRender?.()}
+            <Typography.Body2Strong
+              maxW={maxTextWidth}
+              isTruncated
+              color={isCurrent ? 'text-default' : 'text-subdued'}
+            >
+              {text}
+            </Typography.Body2Strong>
+          </HStack>
+        );
       }}
-      h={isSmall ? '32px' : '36px'}
-      px={isSmall ? '8px' : '12px'}
-      py={isSmall ? '6px' : '8px'}
-      mr="8px"
-      bg={isCurrent ? 'surface-selected' : 'transparent'}
-      borderRadius="9999px"
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      onPress={onPress}
-      onLayout={onLayout}
-    >
-      {(!!leftIcon || !!leftImage) && (
-        <Center
-          borderRadius="9999px"
-          w={iconSize}
-          h={iconSize}
-          mr={isSmall ? '4px' : '8px'}
-        >
-          {!!leftIcon && (
-            <Icon
-              name={leftIcon}
-              color={isCurrent ? 'icon-hovered' : 'icon-default'}
-            />
-          )}
-          {!!leftImage && (
-            <NetImage height={iconSize} width={iconSize} src={leftImage} />
-          )}
-        </Center>
-      )}
-      {leftComponentRender?.()}
-      <Typography.Body2Strong
-        maxW={maxTextWidth}
-        isTruncated
-        color={isCurrent ? 'text-default' : 'text-subdued'}
-      >
-        {text}
-      </Typography.Body2Strong>
     </Pressable>
   );
 };
