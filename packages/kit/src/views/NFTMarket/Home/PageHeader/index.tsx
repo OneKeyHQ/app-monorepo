@@ -1,4 +1,3 @@
-
 import React, { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
@@ -14,7 +13,6 @@ import {
   Pressable,
   Text,
 } from '@onekeyhq/components';
-
 import {
   ModalRoutes,
   ModalScreenProps,
