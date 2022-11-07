@@ -95,55 +95,61 @@ export const ShareView = () => {
   );
 
   return (
-    <Box p="6" bg="surface-subdued" alignItems="center" h="full">
+    <Box bg="surface-subdued" alignItems="center" h="full">
       <ViewShot ref={ref}>
-        <Box
-          borderWidth="1"
-          borderColor="border-default"
-          p="6"
-          borderRadius={48}
-          alignItems="center"
-        >
-          <Box bg="white" p="6" borderRadius={24}>
-            <QRCode
-              value="https://onekey.so/download"
-              size={256}
-              logoBackgroundColor="white"
-              {...props}
-            />
-          </Box>
-          <Typography.DisplayMedium mt="6">{name}</Typography.DisplayMedium>
-          <Typography.Body1 mt="2" color="text-subdued">
-            {url}
-          </Typography.Body1>
-          <Divider w="64" orientation="horizontal" my="6" />
-
-          <Box flexDirection="row" alignItems="center">
-            <Typography.Body2 mr="3">Share With</Typography.Body2>
-            <LogoPrimary width={82} height={25} />
+        <Box p="6" bg="surface-subdued">
+          <Box
+            borderWidth="1"
+            borderColor="border-default"
+            p="6"
+            borderRadius={48}
+            alignItems="center"
+          >
+            <Box bg="white" p="6" borderRadius={24}>
+              <QRCode
+                value="https://onekey.so/download"
+                size={256}
+                logoBackgroundColor="white"
+                {...props}
+              />
+            </Box>
+            <Typography.DisplayMedium mt="6" color="text-default">
+              {name}
+            </Typography.DisplayMedium>
+            <Typography.Body1 mt="2" color="text-subdued">
+              {url}
+            </Typography.Body1>
+            <Divider color="divider" w="64" orientation="horizontal" my="6" />
+            <Box flexDirection="row" alignItems="center">
+              <Typography.Body2 mr="3" color="text-default" fontWeight={500}>
+                Share With
+              </Typography.Body2>
+              <LogoPrimary width={82} height={25} />
+            </Box>
           </Box>
         </Box>
       </ViewShot>
-      <Button
-        w="full"
-        mt="6"
-        type="plain"
-        size="xl"
-        leftIconName="DuplicateSolid"
-        onPress={onCopy}
-      >
-        Copy URL
-      </Button>
-      <Button
-        w="full"
-        mt="16"
-        type="basic"
-        size="xl"
-        leftIconName="ShareSolid"
-        onPress={onCapture}
-      >
-        Share
-      </Button>
+      <Box px="6" w="full">
+        <Button
+          w="full"
+          type="plain"
+          size="xl"
+          leftIconName="DuplicateSolid"
+          onPress={onCopy}
+        >
+          Copy URL
+        </Button>
+        <Button
+          w="full"
+          mt="16"
+          type="basic"
+          size="xl"
+          leftIconName="ShareSolid"
+          onPress={onCapture}
+        >
+          Share
+        </Button>
+      </Box>
     </Box>
   );
 };
