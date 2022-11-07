@@ -16,7 +16,6 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import { useActiveWalletAccount } from '../../../hooks';
-import { AssetType } from '../FilterBar';
 import {
   useAccountCanTransaction,
   useSpenderAppName,
@@ -25,6 +24,7 @@ import {
 import showAllowanceDetailOverlay, {
   ActionKey,
 } from '../Overlays/AllowanceDetail';
+import { AssetType } from '../types';
 
 import { ApproveDialog } from './ERC20Allowance';
 

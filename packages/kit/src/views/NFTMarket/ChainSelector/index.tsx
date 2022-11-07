@@ -63,13 +63,14 @@ const ChainSelector: FC<Props> = ({
     <Box>
       <Select
         title={intl.formatMessage({ id: 'network__network' })}
-        dropdownPosition="left"
+        dropdownPosition="right"
         dropdownProps={isSmallScreen ? {} : { minW: '240px' }}
+        positionTranslateY={10}
         headerShown={false}
         options={options}
         isTriggerPlain
+        activatable
         footer={null}
-        activatable={false}
         onChange={onChange}
         renderTrigger={() => (
           <Row alignItems="center" space="4px" {...tiggerProps}>

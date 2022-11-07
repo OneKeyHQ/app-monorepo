@@ -5,7 +5,7 @@ import { Buffer } from 'buffer';
 import { bytesToHex } from '@noble/hashes/utils';
 import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import { ResourceType } from '@onekeyfe/hd-transport';
-import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
+import { Action, SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -186,10 +186,10 @@ function getOriginX(
   scaleH: number,
 ) {
   const width = Math.ceil((scaleH / originH) * originW);
-  const originX =
-    width <= scaleW
-      ? 0
-      : Math.ceil(Math.ceil(width / 2) - Math.ceil(scaleW / 2));
+  if (width <= scaleW) {
+    return null;
+  }
+  const originX = Math.ceil(Math.ceil(width / 2) - Math.ceil(scaleW / 2));
   return originX;
 }
 
@@ -201,25 +201,29 @@ export const compressHomescreen = async (
   originH: number,
 ) => {
   if (!uri) return;
-  const imageResult = await manipulateAsync(
-    uri,
-    [
-      {
-        resize: {
-          height,
-        },
+  const actions: Action[] = [
+    {
+      resize: {
+        height,
       },
-      {
-        crop: {
-          height,
-          width,
-          originX: getOriginX(originW, originH, width, height),
-          originY: 0,
-        },
+    },
+  ];
+  const originX = getOriginX(originW, originH, width, height);
+  if (originX !== null) {
+    actions.push({
+      crop: {
+        height,
+        width,
+        originX,
+        originY: 0,
       },
-    ],
-    { compress: 0.9, format: SaveFormat.JPEG, base64: true },
-  );
+    });
+  }
+  const imageResult = await manipulateAsync(uri, actions, {
+    compress: 0.9,
+    format: SaveFormat.JPEG,
+    base64: true,
+  });
 
   const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
   const arrayBuffer = new Uint8Array(buffer);

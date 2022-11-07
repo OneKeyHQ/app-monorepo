@@ -6,7 +6,7 @@ import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 
-import { useManageNetworks } from '../../../hooks';
+import { useRuntime } from '../../../hooks/redux';
 import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,7 +19,7 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 export function useDefaultNetWork() {
-  const { enabledNetworks: networks } = useManageNetworks();
+  const { networks } = useRuntime();
   return useMemo(() => {
     const ethNetWork = networks.find((n) => n.id === ethNetwokId);
     return ethNetWork as Network;

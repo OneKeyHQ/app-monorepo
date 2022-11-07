@@ -12,8 +12,8 @@ import {
 } from '@onekeyhq/components';
 import { ERC721TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
 
-import { AssetType, Filter } from '../FilterBar';
 import { useIsVerticalOrMiddleLayout, useTokenAllowances } from '../hooks';
+import { AssetType, Filter } from '../types';
 
 import { EmptyRecord, Header, ListLoading } from './ERC20TokenList';
 import { ERC721Allowance } from './ERC721Allowance';
@@ -35,7 +35,10 @@ export const ERC721TokenList: FC<{
   const data = useMemo(
     () =>
       (allowances
-        ?.filter((item) => item.allowance.length > 0)
+        ?.filter(
+          (item) =>
+            item.allowance.length > 0 || filters.includeTokensWithoutAllowances,
+        )
         ?.filter(({ balance }) => {
           if (filters.includeZeroBalancesTokens) {
             return true;

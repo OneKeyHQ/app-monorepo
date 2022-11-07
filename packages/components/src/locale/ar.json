@@ -806,6 +806,7 @@
   "form__import_as": "استيراد بتنسيق",
   "form__imported_as_a_watch_account": "استيراد كحساب مراقب",
   "form__include_nfts_in_totals": "تضمين NFTs في الإجماليات",
+  "form__include_tokens_without_allowances": "قم بتضمين الرموز المميزة بدون البدلات",
   "form__include_unverified_tokens": "قم بتضمين الرموز التي لم يتم التحقق منها",
   "form__include_zero_balances": "قم بتضمين الرموز المميزة للأرصدة الصفرية",
   "form__included_onekey_fee": "وشملت رسوم OneKey",
@@ -855,7 +856,7 @@
   "form__network_uppercase": "شبكة الاتصال",
   "form__new": "جديد",
   "form__nft": "NFT",
-  "form__nft_search_placeholder": "بحث عن مجموعات ...",
+  "form__nft_search_placeholder": "ابحث عن مجموعات",
   "form__no_allowance": "لا تخويل",
   "form__no_anti_whale": "لا مضاد للحوت",
   "form__no_anti_whale_desc": "لا يحد العقد من المعاملات أو مقتنيات العملات المعدنية.",
@@ -1296,6 +1297,7 @@
   "msg__received": "🤑 تم استلام {assets}",
   "msg__received_a_nft": "🤑 حصل على NFT",
   "msg__received_desc": "من {address}",
+  "msg__recipient_hasnt_activated_str": "فشل إرسال. لم ينشط المستلم {0}",
   "msg__recover_account_progress": "{0} تم استرداد الحسابات. {1} الإجماليات",
   "msg__recover_account_stopping": "جاري إيقاف الاسترداد ، يرجى الانتظار ...",
   "msg__removed": "إزالة!",
@@ -1309,6 +1311,7 @@
   "msg__str_is_staking_in_progress": "{0} قيد التقدم",
   "msg__str_maximum_amount": "{0} الحد الأقصى للمبلغ",
   "msg__str_minimum_amount": "{0} الحد الأدنى للمبلغ",
+  "msg__str_minimum_balance_is_str": "فشل إرسال. الحد الأدنى للرصيد [٪ s {0} هو {0}",
   "msg__str_not_exist": "{0} غير موجود",
   "msg__str_not_supported_by_hardware_wallets": "في انتظار تحديث البرنامج الثابت ، لا يتم دعم محفظة الأجهزة.",
   "msg__submitted_successfully": "تم الإرسال بنجاح",

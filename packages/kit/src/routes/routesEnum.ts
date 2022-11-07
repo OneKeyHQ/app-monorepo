@@ -43,6 +43,7 @@ export enum ModalRoutes {
   PushNotification = 'PushNotification',
   Webview = 'Webview',
   Revoke = 'Revoke',
+  SearchNFT = 'SearchNFT',
 }
 
 export enum RootRoutes {

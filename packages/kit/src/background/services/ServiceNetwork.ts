@@ -85,13 +85,13 @@ class ServiceNetwork extends ServiceBase {
   async initNetworks() {
     const { engine } = this.backgroundApi;
     await engine.syncPresetNetworks();
-    return this.fetchNetworks();
+    return this.fetchNetworks(true);
   }
 
   @backgroundMethod()
-  async fetchNetworks() {
+  async fetchNetworks(enabledOnly = false) {
     const { engine, dispatch } = this.backgroundApi;
-    const networks = await engine.listNetworks(false);
+    const networks = await engine.listNetworks(enabledOnly);
     dispatch(updateNetworks(networks));
     return networks;
   }
