@@ -248,6 +248,7 @@ class Engine {
       });
 
       for (const n of networksToRemoved) {
+        debugLogger.engine.warn(`will remove network: ${n[0]}`);
         await this.dbApi.deleteNetwork(n[0]);
       }
 
