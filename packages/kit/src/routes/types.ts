@@ -141,6 +141,7 @@ export type HomeRoutesParams = {
     contractAddress: string;
     collection?: Collection;
   };
+  [HomeRoutes.RevokeRedirect]: undefined;
 };
 /** HomeStack */
 

@@ -103,6 +103,16 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
   },
   {
+    screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.RevokeRedirect}`,
+    path: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    exact: true,
+  },
+  {
+    screen: `${RootRoutes.Root}/${HomeRoutes.RevokeRedirect}`,
+    path: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
+    exact: true,
+  },
+  {
     screen: {
       vertical: `${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
       desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
