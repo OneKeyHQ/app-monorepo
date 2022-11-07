@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} está apostando em andamento",
   "msg__str_maximum_amount": "{0} Valor Máximo",
   "msg__str_minimum_amount": "{0} Valor Mínimo",
-  "msg__str_minimum_balance_is_str": "O envio falhou. O saldo mínimo de [%s {0} é {0}",
+  "msg__str_minimum_balance_is_str": "O envio falhou. O saldo mínimo de {token} é {amount}",
   "msg__str_not_exist": "{0} não existe",
   "msg__str_not_supported_by_hardware_wallets": "Aguardando atualização de firmware, carteira de hardware não é suportada.",
   "msg__submitted_successfully": "submetido com sucesso",

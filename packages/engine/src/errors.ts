@@ -198,6 +198,22 @@ export class InvalidMnemonic extends OneKeyError {
   override key = 'msg__engine__invalid_mnemonic';
 }
 
+export class MimimumBalanceRequired extends OneKeyError {
+  override key = 'msg__str_minimum_balance_is_str';
+
+  constructor(token: string, amount: string) {
+    super('', { token, amount });
+  }
+}
+
+export class RecipientHasNotActived extends OneKeyError {
+  override key = 'msg__recipient_hasnt_activated_str';
+
+  constructor(tokenName: string) {
+    super('', { '0': tokenName });
+  }
+}
+
 export class InvalidAddress extends OneKeyError {
   override key = 'msg__engine__incorrect_address';
 

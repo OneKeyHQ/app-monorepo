@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} sta picchettando in corso",
   "msg__str_maximum_amount": "{0} Importo massimo",
   "msg__str_minimum_amount": "{0} Importo minimo",
-  "msg__str_minimum_balance_is_str": "Invio fallito. Il saldo minimo di [%s {0} è {0}",
+  "msg__str_minimum_balance_is_str": "Invio fallito. Il saldo minimo {token} è {amount}",
   "msg__str_not_exist": "{0} non esiste",
   "msg__str_not_supported_by_hardware_wallets": "In attesa dell'aggiornamento del firmware, il portafoglio hardware non è supportato.",
   "msg__submitted_successfully": "Inviato con successo",

@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} ay Staking in Progress",
   "msg__str_maximum_amount": "{0} Pinakamataas na Halaga",
   "msg__str_minimum_amount": "{0} Minimum na Halaga",
-  "msg__str_minimum_balance_is_str": "Nabigo ang Pagpapadala. Ang {0} minimum na balanse ay {0}",
+  "msg__str_minimum_balance_is_str": "Nabigo ang Pagpapadala. Ang {token} minimum na balanse ay {amount}",
   "msg__str_not_exist": "{0} ay wala",
   "msg__str_not_supported_by_hardware_wallets": "Naghihintay ng pag-update ng firmware, hindi suportado ang hardware wallet.",
   "msg__submitted_successfully": "Matagumpay na naisumite",

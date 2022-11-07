@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} выполняет стейкинг",
   "msg__str_maximum_amount": "{0} Максимальная сумма",
   "msg__str_minimum_amount": "{0} Минимальная сумма",
-  "msg__str_minimum_balance_is_str": "Отправить не удалось. Минимальный баланс [%s {0} составляет {0}",
+  "msg__str_minimum_balance_is_str": "Отправить не удалось. Минимальный баланс {token} составляет {amount}",
   "msg__str_not_exist": "{0} не существует",
   "msg__str_not_supported_by_hardware_wallets": "Ожидание обновления прошивки, аппаратный кошелек не поддерживается.",
   "msg__submitted_successfully": "Отправлено успешно",

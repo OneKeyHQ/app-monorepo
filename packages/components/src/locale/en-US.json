@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} is Staking in Progress",
   "msg__str_maximum_amount": "{0} Maximum Amount",
   "msg__str_minimum_amount": "Minimum swap amount {0}",
-  "msg__str_minimum_balance_is_str": "Send Failed. The {0} minimum balance is {0}",
+  "msg__str_minimum_balance_is_str": "Send Failed. The {token} minimum balance is {amount}",
   "msg__str_not_exist": "{0} not exist",
   "msg__str_not_supported_by_hardware_wallets": "Waiting for firmware update, hardware wallet is not supported for now.",
   "msg__submitted_successfully": "Submitted successfully",

@@ -219,7 +219,7 @@ class DeviceUtils {
 
   showErrorToast(error: any, defKey?: LocaleIds): boolean {
     try {
-      const { className, key, code } = error || {};
+      const { className, key, code, info } = error || {};
 
       if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
         return false;
@@ -233,7 +233,7 @@ class DeviceUtils {
       }
 
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        const { info, data } = error || {};
+        const { data } = error || {};
 
         const errorMessage = formatMessage({ id: key }, info ?? {});
 
@@ -284,7 +284,7 @@ class DeviceUtils {
           return true;
         }
       } else {
-        const errorMessage = formatMessage({ id: defKey ?? key });
+        const errorMessage = formatMessage({ id: defKey ?? key }, info);
 
         if (errorMessage) {
           ToastManager.show({ title: errorMessage }, { type: 'error' });

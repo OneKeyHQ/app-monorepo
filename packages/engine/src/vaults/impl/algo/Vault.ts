@@ -18,8 +18,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import {
   InvalidAddress,
   InvalidTokenAddress,
+  MimimumBalanceRequired,
   NotImplemented,
   OneKeyInternalError,
+  RecipientHasNotActived,
 } from '../../../errors';
 import { DBSimpleAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
@@ -59,6 +61,11 @@ import type {
 } from './types';
 
 const ASSET_ID_END_BOUNDARY = new BigNumber('0x10000000000000000');
+
+const MINIMUM_BALANCE_REQUIRED_REG_EXP =
+  /^.*account \w+ balance \d+ below min (\d+).*$/;
+const TARGET_ADDRESS_TOKEN_NOT_ACTIVE_REG_EXP =
+  /^.*asset (\d+) missing from \w+$/;
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -526,17 +533,50 @@ export default class Vault extends VaultBase {
       rawTx: signedTx.rawTx,
     });
     const client = await this.getClient();
-    const { txId: txid } = await client
-      .sendRawTransaction(Buffer.from(signedTx.rawTx, 'base64'))
-      .do();
-    debugLogger.engine.info('broadcastTransaction END:', {
-      txid,
-      rawTx: signedTx.rawTx,
-    });
-    return {
-      ...signedTx,
-      txid,
-    };
+    try {
+      const { txId: txid } = await client
+        .sendRawTransaction(Buffer.from(signedTx.rawTx, 'base64'))
+        .do();
+      debugLogger.engine.info('broadcastTransaction END:', {
+        txid,
+        rawTx: signedTx.rawTx,
+      });
+      return {
+        ...signedTx,
+        txid,
+      };
+    } catch (e) {
+      // When alog transaction fails, only an error message is returned
+      const { message } = e as Error;
+      if (TARGET_ADDRESS_TOKEN_NOT_ACTIVE_REG_EXP.test(message)) {
+        const assetId = message.match(
+          TARGET_ADDRESS_TOKEN_NOT_ACTIVE_REG_EXP,
+        )![1];
+        const token = await this.engine.ensureTokenInDB(
+          this.networkId,
+          assetId.toString(),
+        );
+        return Promise.reject(
+          new RecipientHasNotActived(token?.name || assetId),
+        );
+      }
+      if (MINIMUM_BALANCE_REQUIRED_REG_EXP.test(message)) {
+        const { name, decimals } = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
+        const minimumBalance = message.match(
+          MINIMUM_BALANCE_REQUIRED_REG_EXP,
+        )![1];
+        return Promise.reject(
+          new MimimumBalanceRequired(
+            name,
+            new BigNumber(minimumBalance).shiftedBy(-decimals).toFixed(),
+          ),
+        );
+      }
+
+      return Promise.reject(e);
+    }
   }
 
   override async getExportedCredential(password: string): Promise<string> {
@@ -673,6 +713,7 @@ export default class Vault extends VaultBase {
                   ? IDecodedTxDirection.SELF
                   : IDecodedTxDirection.OUT;
             }
+
             decodedTx.actions[0] = {
               type: IDecodedTxActionType.TOKEN_TRANSFER,
               direction,
@@ -680,7 +721,7 @@ export default class Vault extends VaultBase {
                 tokenInfo: token,
                 from: transaction.sender,
                 to,
-                amount: new BigNumber(closeAmount ?? amount)
+                amount: new BigNumber(closeAmount > 0 ? closeAmount : amount)
                   .shiftedBy(-token.decimals)
                   .toFixed(),
                 amountValue: amount.toString(),

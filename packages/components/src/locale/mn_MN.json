@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} гүйлгээ хийж байна",
   "msg__str_maximum_amount": "{0} Хамгийн их дүн",
   "msg__str_minimum_amount": "{0} Хамгийн бага дүн",
-  "msg__str_minimum_balance_is_str": "Илгээж чадсангүй. {0} хамгийн бага үлдэгдэл нь {0}",
+  "msg__str_minimum_balance_is_str": "Илгээж чадсангүй. {token} хамгийн бага үлдэгдэл нь {amount}",
   "msg__str_not_exist": "{0} байхгүй байна",
   "msg__str_not_supported_by_hardware_wallets": "Програм хангамжийн шинэчлэлтийг хүлээж байгаа тул техник хангамжийн түрийвч дэмжигдээгүй байна.",
   "msg__submitted_successfully": "Амжилттай илгээсэн",

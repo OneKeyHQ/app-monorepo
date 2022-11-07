@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} কাজ চলছে",
   "msg__str_maximum_amount": "{0} সর্বাধিক পরিমাণ",
   "msg__str_minimum_amount": "{0} সর্বনিম্ন পরিমাণ",
-  "msg__str_minimum_balance_is_str": "পাঠাতে ব্যর্থ. {0} সর্বনিম্ন ব্যালেন্স হল {0}",
+  "msg__str_minimum_balance_is_str": "পাঠাতে ব্যর্থ. {token} ন্যূনতম ব্যালেন্স হল {amount}",
   "msg__str_not_exist": "{0} বিদ্যমান নেই",
   "msg__str_not_supported_by_hardware_wallets": "ফার্মওয়্যার আপডেটের জন্য অপেক্ষা করা হচ্ছে, হার্ডওয়্যার ওয়ালেট সমর্থিত নয়।",
   "msg__submitted_successfully": "সফলভাবে দাখিল হল",

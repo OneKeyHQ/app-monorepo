@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} กำลังวางเดิมพัน",
   "msg__str_maximum_amount": "{0} จำนวนสูงสุด",
   "msg__str_minimum_amount": "{0} จำนวนขั้นต่ำ",
-  "msg__str_minimum_balance_is_str": "ส่งไม่สำเร็จ {0} ยอดคงเหลือขั้นต่ำคือ {0}",
+  "msg__str_minimum_balance_is_str": "ส่งไม่สำเร็จ ยอดคงเหลือขั้นต่ำ {token} คือ {amount}",
   "msg__str_not_exist": "{0} ไม่มีอยู่",
   "msg__str_not_supported_by_hardware_wallets": "กำลังรอการอัปเดตเฟิร์มแวร์ ไม่รองรับกระเป๋าเงินฮาร์ดแวร์",
   "msg__submitted_successfully": "ส่งเรียบร้อยแล้ว",

@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} स्टेकिंग प्रगति पर है",
   "msg__str_maximum_amount": "{0} अधिकतम राशि",
   "msg__str_minimum_amount": "{0} न्यूनतम राशि",
-  "msg__str_minimum_balance_is_str": "भेजना विफल। {0} न्यूनतम शेषराशि {0} है",
+  "msg__str_minimum_balance_is_str": "भेजना विफल। {token} न्यूनतम शेष {amount} है",
   "msg__str_not_exist": "{0} मौजूद नहीं है",
   "msg__str_not_supported_by_hardware_wallets": "फर्मवेयर अपडेट की प्रतीक्षा में, हार्डवेयर वॉलेट समर्थित नहीं है।",
   "msg__submitted_successfully": "सफलतापूर्वक जमा",

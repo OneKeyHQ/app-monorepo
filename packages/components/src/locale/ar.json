@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} قيد التقدم",
   "msg__str_maximum_amount": "{0} الحد الأقصى للمبلغ",
   "msg__str_minimum_amount": "{0} الحد الأدنى للمبلغ",
-  "msg__str_minimum_balance_is_str": "فشل إرسال. الحد الأدنى للرصيد [٪ s {0} هو {0}",
+  "msg__str_minimum_balance_is_str": "فشل إرسال. الحد الأدنى للرصيد {token} هو {amount}",
   "msg__str_not_exist": "{0} غير موجود",
   "msg__str_not_supported_by_hardware_wallets": "في انتظار تحديث البرنامج الثابت ، لا يتم دعم محفظة الأجهزة.",
   "msg__submitted_successfully": "تم الإرسال بنجاح",

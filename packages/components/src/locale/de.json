@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} Staking läuft",
   "msg__str_maximum_amount": "{0} Höchstbetrag",
   "msg__str_minimum_amount": "{0} Mindestbetrag",
-  "msg__str_minimum_balance_is_str": "Senden fehlgeschlagen. Das Mindestguthaben von [%s {0} beträgt {0}",
+  "msg__str_minimum_balance_is_str": "Senden fehlgeschlagen. Das {token} -Mindestguthaben beträgt {amount}",
   "msg__str_not_exist": "{0} existiert nicht",
   "msg__str_not_supported_by_hardware_wallets": "Warten auf Firmware-Update, Hardware Wallet wird nicht unterstützt.",
   "msg__submitted_successfully": "Erfolgreich abgeschickt",
