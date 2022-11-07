@@ -233,7 +233,7 @@ class DeviceUtils {
       }
 
       if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-        const { info, data } = error || {};
+        const { data } = error || {};
 
         const errorMessage = formatMessage({ id: key }, info ?? {});
 
