@@ -1,9 +1,10 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { useIntl } from 'react-intl';
+import { MessageDescriptor, useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -54,6 +55,8 @@ const OnekeyHardwareHomescreen: FC = () => {
   const { bottom } = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(false);
+  const [buttonTextId, setButtonTextId] =
+    useState<MessageDescriptor['id']>('action__confirm');
   const [data, setData] = useState<HomescreenItem[]>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
@@ -162,13 +165,28 @@ const OnekeyHardwareHomescreen: FC = () => {
 
       const selectedItem = data[activeIndex];
       if (isTouch && selectedItem.name.startsWith('upload')) {
-        const uploadResParams = await generateUploadResParams(
-          selectedItem.staticPath,
-          selectedItem.width ?? 0,
-          selectedItem.height ?? 0,
-        );
-        debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
+        let uploadResParams: DeviceUploadResourceParams | undefined;
+        try {
+          uploadResParams = await generateUploadResParams(
+            selectedItem.staticPath,
+            selectedItem.width ?? 0,
+            selectedItem.height ?? 0,
+          );
+          debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
+        } catch (e) {
+          console.log('image operate error: ', e);
+          toast.show(
+            {
+              title: '图片处理失败，请更换图片后重试',
+            },
+            {
+              type: 'error',
+            },
+          );
+          return;
+        }
         if (uploadResParams) {
+          setButtonTextId('form__updating_resource');
           await serviceHardware.uploadResource(connectId, uploadResParams);
         }
         toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
@@ -192,6 +210,7 @@ const OnekeyHardwareHomescreen: FC = () => {
       );
     } finally {
       setLoading(false);
+      setButtonTextId('action__confirm');
     }
   }, [
     connectId,
@@ -328,13 +347,21 @@ const OnekeyHardwareHomescreen: FC = () => {
             isLoading={loading}
           >
             {intl.formatMessage({
-              id: 'action__confirm',
+              id: buttonTextId,
             })}
           </Button>
         </Box>
       </>
     ),
-    [handleConfirm, isTouch, loading, isSmallScreen, intl, bottom],
+    [
+      handleConfirm,
+      deviceType,
+      loading,
+      isSmallScreen,
+      intl,
+      bottom,
+      buttonTextId,
+    ],
   );
 
   return (

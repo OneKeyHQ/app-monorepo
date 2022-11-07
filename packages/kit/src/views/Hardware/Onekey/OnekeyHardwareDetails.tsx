@@ -1,6 +1,10 @@
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
+import {
+  SupportFeatureType,
+  getDeviceType,
+  getDeviceUUID,
+} from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -42,20 +46,32 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const [deviceConnectId, setDeviceConnectId] = useState<string>();
   const [deviceId, setDeviceId] = useState<string>();
   const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
+  const [showHomescreenSetting, setShowHomescreenSetting] = useState(false);
+  const deviceType = getDeviceType(deviceFeatures);
 
   const canOnDeviceInputPin = useMemo(() => {
-    const deviceType = getDeviceType(deviceFeatures);
     if (deviceType === 'classic' || deviceType === 'mini') return true;
     return false;
-  }, [deviceFeatures]);
+  }, [deviceType]);
 
   const updates = useMemo(
     () => deviceUpdates?.[deviceConnectId ?? ''],
     [deviceUpdates, deviceConnectId],
   );
 
-  const deviceType = getDeviceType(deviceFeatures);
-  const showHomescreenSetting = getHomescreenKeys(deviceType).length > 0;
+  const getModifyHomescreenConfig = useCallback(
+    async (connectId?: string) => {
+      if (!connectId) return;
+      const hasHomescreen = getHomescreenKeys(deviceType).length > 0;
+      if (deviceType === 'mini' || deviceType === 'classic') {
+        setShowHomescreenSetting(hasHomescreen);
+        return;
+      }
+      const res = await serviceHardware.getDeviceSupportFeatures(connectId);
+      setShowHomescreenSetting(!!res.modifyHomescreen.support && hasHomescreen);
+    },
+    [serviceHardware, deviceType],
+  );
 
   const refreshDevicePayload = () => {
     engine
@@ -75,6 +91,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
         setDeviceConnectId(device?.mac);
         setDeviceId(device?.deviceId);
+        await getModifyHomescreenConfig(device?.mac);
       } catch (err: any) {
         if (navigation?.canGoBack?.()) {
           navigation.goBack();
@@ -83,7 +100,15 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         deviceUtils.showErrorToast(err, 'action__connection_timeout');
       }
     })();
-  }, [deviceType, engine, intl, navigation, serviceHardware, walletId]);
+  }, [
+    deviceType,
+    engine,
+    intl,
+    navigation,
+    serviceHardware,
+    walletId,
+    getModifyHomescreenConfig,
+  ]);
 
   return (
     <Box
