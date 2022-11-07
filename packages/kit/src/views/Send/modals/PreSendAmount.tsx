@@ -275,8 +275,11 @@ function PreSendAmount() {
               },
               { type: 'error' },
             );
-          } else if (typeof e === 'string') {
-            toast.show({ title: e }, { type: 'error' });
+          } else {
+            toast.show(
+              { title: typeof e === 'string' ? e : (e as Error).message },
+              { type: 'error' },
+            );
           }
         } finally {
           setIsLoading(false);
