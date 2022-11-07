@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} đang tiến hành",
   "msg__str_maximum_amount": "{0} Số tiền tối đa",
   "msg__str_minimum_amount": "{0} Số tiền tối thiểu",
-  "msg__str_minimum_balance_is_str": "Gửi thất bại. Số dư tối thiểu {0} là {0}",
+  "msg__str_minimum_balance_is_str": "Gửi thất bại. Số dư tối thiểu của {token} là {amount}",
   "msg__str_not_exist": "{0} không tồn tại",
   "msg__str_not_supported_by_hardware_wallets": "Đang chờ cập nhật chương trình cơ sở, ví phần cứng không được hỗ trợ.",
   "msg__submitted_successfully": "gửi thành công",

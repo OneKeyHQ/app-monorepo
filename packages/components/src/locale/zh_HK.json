@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0}正在質押確認中",
   "msg__str_maximum_amount": "{0}最大金額",
   "msg__str_minimum_amount": "{0}最低金額",
-  "msg__str_minimum_balance_is_str": "發送失敗。{0} 的最小余額為 {0}",
+  "msg__str_minimum_balance_is_str": "發送失敗。{token} 的最小余額為 {amount}",
   "msg__str_not_exist": "{0} 不存在",
   "msg__str_not_supported_by_hardware_wallets": "等待固件更新，暂时不支持硬件錢包。",
   "msg__submitted_successfully": "提交成功",

@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0}はステーキング中",
   "msg__str_maximum_amount": "最大引き換え量は{0}です",
   "msg__str_minimum_amount": "最小スワップ数は {0}です。",
-  "msg__str_minimum_balance_is_str": "送信に失敗しました。 {0}最小残高は{0}",
+  "msg__str_minimum_balance_is_str": "送信に失敗しました。 {token}の最低残高は{amount}です",
   "msg__str_not_exist": "{0}は存在しない",
   "msg__str_not_supported_by_hardware_wallets": "ファームウェアの更新を待っています。ハードウェア ウォレットはサポートされていません。",
   "msg__submitted_successfully": "投稿成功",

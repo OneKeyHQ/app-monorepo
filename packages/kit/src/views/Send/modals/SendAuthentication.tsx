@@ -240,6 +240,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       //  replacement transaction underpriced
       //  already known
       // TODO: better error displaying
+      debugger;
       if (error?.code === -32603 && typeof error?.data?.message === 'string') {
         toast.show(
           {

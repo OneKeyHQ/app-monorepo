@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} 이(가) 스테이킹 진행 중입니다.",
   "msg__str_maximum_amount": "{0} 최대 금액",
   "msg__str_minimum_amount": "{0} 최소 금액",
-  "msg__str_minimum_balance_is_str": "보내기에 실패했습니다. {0} 최소 잔액은 {0} 입니다.",
+  "msg__str_minimum_balance_is_str": "보내기에 실패했습니다. {token} 최소 잔액은 {amount} 입니다.",
   "msg__str_not_exist": "{0} 존재하지 않습니다",
   "msg__str_not_supported_by_hardware_wallets": "펌웨어 업데이트를 기다리는 중이며 하드웨어 지갑은 지원되지 않습니다.",
   "msg__submitted_successfully": "성공적으로 제출됨",

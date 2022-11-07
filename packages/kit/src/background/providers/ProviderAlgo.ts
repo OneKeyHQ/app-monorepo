@@ -102,24 +102,32 @@ class ProviderApiAlgo extends ProviderApiBase {
   @providerApiMethod()
   public async algo_signTxn(
     request: IJsBridgeMessagePayload,
-    walletTransactions: Array<{ txn: string }>,
-  ): Promise<string[]> {
-    const signedTxs: string[] = [];
+    walletTransactions: Array<{ txn: string; signers: [] }>,
+  ): Promise<(string | null)[]> {
+    const signedTxs: (string | null)[] = [];
     for (let i = 0; i < walletTransactions.length; i += 1) {
-      await this.backgroundApi.serviceDapp.processBatchTransactionOneByOne({
-        run: async () => {
-          const { txn } = walletTransactions[i];
-          const result =
-            await this.backgroundApi.serviceDapp.openSignAndSendModal(request, {
-              encodedTx: txn,
-              signOnly: true,
+      // transaction with signers means that this transaction is not meant to be signed
+      if (Array.isArray(walletTransactions[i].signers)) {
+        signedTxs.push(null);
+      } else {
+        await this.backgroundApi.serviceDapp.processBatchTransactionOneByOne({
+          run: async () => {
+            const { txn } = walletTransactions[i];
+            const result =
+              await this.backgroundApi.serviceDapp.openSignAndSendModal(
+                request,
+                {
+                  encodedTx: txn,
+                  signOnly: true,
+                },
+              );
+            signedTxs.push(result as string);
+            this.backgroundApi.serviceDapp.setSendConfirmModalVisible({
+              visible: false,
             });
-          signedTxs.push(result as string);
-          this.backgroundApi.serviceDapp.setSendConfirmModalVisible({
-            visible: false,
-          });
-        },
-      });
+          },
+        });
+      }
     }
 
     return signedTxs;

@@ -1313,7 +1313,7 @@
   "msg__str_is_staking_in_progress": "{0} виконує ставку",
   "msg__str_maximum_amount": "{0} Максимальна сума",
   "msg__str_minimum_amount": "{0} Мінімальна сума",
-  "msg__str_minimum_balance_is_str": "Не вдалося надіслати. Мінімальний баланс [%s {0} становить {0}",
+  "msg__str_minimum_balance_is_str": "Не вдалося надіслати. Мінімальний баланс {token} становить {amount}",
   "msg__str_not_exist": "{0} не існує",
   "msg__str_not_supported_by_hardware_wallets": "Очікування оновлення мікропрограми, апаратний гаманець не підтримується.",
   "msg__submitted_successfully": "Подано успішно",
