@@ -122,9 +122,6 @@ class ProviderApiAlgo extends ProviderApiBase {
                 },
               );
             signedTxs.push(result as string);
-            this.backgroundApi.serviceDapp.setSendConfirmModalVisible({
-              visible: false,
-            });
           },
         });
       }
