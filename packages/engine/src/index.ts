@@ -176,9 +176,23 @@ class Engine {
     await this.dbApi.cleanupPendingWallets();
   }
 
+  async checkDisabledPresetNetworks() {
+    const dbNetworks = await this.dbApi.listNetworks();
+    const presetNetworksList = Object.values(getPresetNetworks());
+    const networksToRemoved = dbNetworks.filter(({ id }) => {
+      const preset = presetNetworksList.find((p) => p.id === id);
+      return preset && !preset.enabled && !preset.isTestnet;
+    });
+
+    for (const n of networksToRemoved) {
+      debugLogger.engine.warn(`will remove network: ${n.id}`);
+      await this.dbApi.deleteNetwork(n.id);
+    }
+  }
+
   async syncPresetNetworks(): Promise<void> {
     await syncLatestNetworkList();
-
+    await this.checkDisabledPresetNetworks();
     try {
       const defaultNetworkList: Array<[string, boolean]> = [];
       const dbNetworks = await this.dbApi.listNetworks();
@@ -239,6 +253,7 @@ class Engine {
       ) {
         return;
       }
+
       const specifiedNetworks = new Set(defaultNetworkList.map(([id]) => id));
       dbNetworks.forEach((dbNetwork) => {
         if (!specifiedNetworks.has(dbNetwork.id)) {
@@ -246,22 +261,7 @@ class Engine {
         }
       });
 
-      const networksToRemoved = defaultNetworkList.filter(([id]) => {
-        const preset = presetNetworksList.find((p) => p.id === id);
-        return preset && !preset.enabled && !preset.isTestnet;
-      });
-
-      for (const n of networksToRemoved) {
-        debugLogger.engine.warn(`will remove network: ${n[0]}`);
-        await this.dbApi.deleteNetwork(n[0]);
-      }
-
-      await this.dbApi.updateNetworkList(
-        defaultNetworkList.filter((n) =>
-          networksToRemoved.find((r) => r[0] !== n[0]),
-        ),
-        true,
-      );
+      await this.dbApi.updateNetworkList(defaultNetworkList, true);
     } catch (error) {
       console.error(error);
     }
