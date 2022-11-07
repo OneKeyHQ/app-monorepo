@@ -410,6 +410,8 @@ export default class Vault extends VaultBase {
     } catch (e) {
       if (typeof e === 'string' && e.endsWith('balance is not sufficient.')) {
         throw new InsufficientBalance();
+      } else if (typeof e === 'string') {
+        throw new Error(e);
       } else {
         throw e;
       }
