@@ -10,6 +10,7 @@ import {
   createDeferred,
 } from '@onekeyfe/hd-shared';
 import BleManager from 'react-native-ble-manager';
+import semver from 'semver';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { ToastManager } from '@onekeyhq/components';
@@ -177,7 +178,6 @@ class DeviceUtils {
         this.checkBonded = false;
         return Promise.resolve(true);
       }
-      console.log(bondedDevices);
 
       if (retry > maxRetryCount) {
         this.checkBonded = false;
@@ -445,6 +445,19 @@ class DeviceUtils {
       return new Error.BridgeNetworkError({ message });
     }
     return null;
+  }
+
+  detectIsPublicBetaTouch(serialNo?: string, version?: string) {
+    if (!serialNo) return false;
+    const deviceShortType = serialNo.slice(0, 2);
+    const buildDate = serialNo.slice(7, 15);
+    const buildDataNum = Number(buildDate);
+    // Build date before 2022.10.20 and firmware version lower than 3.3.0
+    const publicBetaEnd = 20221020;
+    if (deviceShortType?.toUpperCase?.() !== 'TC') return false;
+    if (buildDataNum < publicBetaEnd && semver.gt('3.3.0', version ?? '3.3.0'))
+      return true;
+    return false;
   }
 }
 
