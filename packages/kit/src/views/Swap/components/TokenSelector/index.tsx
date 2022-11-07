@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ImageSourcePropType, ListRenderItem } from 'react-native';
+import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -11,16 +11,15 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
   Searchbar,
   Spinner,
+  ToggleButtonGroup,
   Token as TokenComponent,
-  Typography,
 } from '@onekeyhq/components';
+import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import SwapAllChainsLogoPNG from '@onekeyhq/kit/assets/swap_all_chains_logo.png';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   useDebounce,
@@ -38,40 +37,10 @@ import { useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { TokenSelectorContext } from './context';
 import { DataUpdaters } from './refresher';
 
-type NetworkItemProps = {
-  logoURI?: ImageSourcePropType;
-  value?: string;
-  name: string;
-};
-const NetworkItem: FC<NetworkItemProps> = ({ name, logoURI, value }) => {
-  const { networkId, setNetworkId } = useContext(TokenSelectorContext);
-  const onPress = useCallback(() => {
-    setNetworkId?.(value);
-  }, [setNetworkId, value]);
-  return (
-    <Pressable
-      mr="2"
-      py="1.5"
-      pl="1.5"
-      pr="2.5"
-      bg={
-        value === networkId
-          ? 'surface-neutral-hovered'
-          : 'surface-neutral-subdued'
-      }
-      borderRadius="full"
-      display="flex"
-      flexDirection="row"
-      mb="2"
-      onPress={onPress}
-    >
-      {logoURI ? <Image size="5" source={logoURI} /> : null}
-      <Typography.Body2Strong ml="1">{name}</Typography.Body2Strong>
-    </Pressable>
-  );
-};
+type NetworkItemProp = ToggleButtonProps & { networkId?: string };
 
 const NetworkSelector: FC = () => {
+  const { networkId, setNetworkId } = useContext(TokenSelectorContext);
   const networks = useEnabledSwappableNetworks();
   const intl = useIntl();
   const enabledNetworks = useMemo(() => {
@@ -83,39 +52,51 @@ const NetworkSelector: FC = () => {
     return evmNetworks;
   }, [networks]);
 
-  return platformEnv.isNative ? (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} mb="2">
-      <NetworkItem
-        name={intl.formatMessage({ id: 'option__all' })}
-        logoURI={SwapAllChainsLogoPNG}
-        value={undefined}
-        key="option__all"
+  const buttons: NetworkItemProp[] = useMemo(() => {
+    const result: NetworkItemProp[] = [
+      {
+        text: intl.formatMessage({ id: 'option__all' }),
+        networkId: undefined,
+        leftComponentRender: () => (
+          <Box mr="1">
+            <Image size={5} source={SwapAllChainsLogoPNG} />
+          </Box>
+        ),
+      },
+    ];
+    const items = enabledNetworks.map((item) => ({
+      text: item.shortName,
+      networkId: item.id,
+      leftComponentRender: () => (
+        <Box mr="1">
+          <Image size={5} src={item.logoURI} />
+        </Box>
+      ),
+    }));
+    return result.concat(items);
+  }, [enabledNetworks, intl]);
+
+  const onButtonPress = useCallback(
+    (index: number) => {
+      const item = buttons[index];
+      setNetworkId?.(item.networkId);
+    },
+    [buttons, setNetworkId],
+  );
+
+  const selectedIndex = useMemo(() => {
+    const index = buttons.findIndex((item) => item.networkId === networkId);
+    return index;
+  }, [buttons, networkId]);
+
+  return (
+    <Box mb="4">
+      <ToggleButtonGroup
+        buttons={buttons}
+        selectedIndex={selectedIndex}
+        onButtonPress={onButtonPress}
+        bg="surface-subdued"
       />
-      {enabledNetworks.map((item) => (
-        <NetworkItem
-          name={item.shortName}
-          logoURI={{ uri: item.logoURI }}
-          value={item.id}
-          key={item.id}
-        />
-      ))}
-    </ScrollView>
-  ) : (
-    <Box display="flex" flexDirection="row" mb="2" flexWrap="wrap">
-      <NetworkItem
-        name={intl.formatMessage({ id: 'option__all' })}
-        logoURI={SwapAllChainsLogoPNG}
-        value={undefined}
-        key="option__all"
-      />
-      {enabledNetworks.map((item) => (
-        <NetworkItem
-          name={item.shortName}
-          logoURI={{ uri: item.logoURI }}
-          value={item.id}
-          key={item.id}
-        />
-      ))}
     </Box>
   );
 };
