@@ -44,6 +44,8 @@ const initialState: WebTabsInitialState = {
   incomingUrl: '',
 };
 
+export const homeResettingFlags: Record<string, number> = {};
+
 export const webtabsSlice = createSlice({
   name: 'webTabs',
   initialState,
@@ -73,6 +75,9 @@ export const webtabsSlice = createSlice({
             tab[key] = value;
             if (key === 'url') {
               tab.timestamp = Date.now();
+              if (value === homeTab.url && payload.id) {
+                homeResettingFlags[payload.id] = Date.now();
+              }
             }
           }
         });
