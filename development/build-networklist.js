@@ -3,9 +3,11 @@ const prettier = require('prettier');
 const fs = require('fs');
 
 const networkCodeIdPairs = {};
-networkList.networks.forEach((network) => {
-  networkCodeIdPairs[network.shortcode] = network.id;
-});
+networkList.networks
+  .filter((n) => n.enable || n.isTestnet)
+  .forEach((network) => {
+    networkCodeIdPairs[network.shortcode] = network.id;
+  });
 
 const comments = `/*
   Auto-Gen by development/build-networklist.js from @onekeyfe/network-list
