@@ -3,6 +3,7 @@ import React, { FC, useEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import { useIntl } from 'react-intl';
+import semver from 'semver';
 
 import {
   Alert,
@@ -26,6 +27,7 @@ import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../../utils/hardware';
 
@@ -48,6 +50,7 @@ const UpdateInfoModal: FC = () => {
   const { deviceUpdates } = useSettings();
 
   const [device, setDevice] = useState<Device>();
+  const [features, setFeatures] = useState<IOneKeyDeviceFeatures>();
   const [bleFirmware, setBleFirmware] = useState<BLEFirmwareInfo>();
   const [sysFirmware, setSysFirmware] = useState<SYSFirmwareInfo>();
 
@@ -68,6 +71,15 @@ const UpdateInfoModal: FC = () => {
       setDevice(findDevice);
 
       const connectId = findDevice.mac;
+
+      serviceHardware
+        .getFeatures(connectId ?? '')
+        .then((f) => {
+          setFeatures(f);
+        })
+        .catch(() => {
+          // ignore
+        });
 
       let { ble, firmware } = deviceUpdates?.[connectId] || {};
 
@@ -140,6 +152,20 @@ const UpdateInfoModal: FC = () => {
                 })}
               />
             </Box>
+            {!!deviceUtils.detectIsPublicBetaTouch(
+              device?.uuid,
+              features?.onekey_version,
+            ) && (
+              <Box mt={4}>
+                <Alert
+                  dismiss={false}
+                  alertType="warn"
+                  title={intl.formatMessage({
+                    id: 'modal__firmware_pre_release_hint',
+                  })}
+                />
+              </Box>
+            )}
 
             {!bleFirmware && !sysFirmware && (
               <Box mt={6} alignItems="center">
