@@ -16,6 +16,7 @@ import {
   DiscoverRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Discover';
 
+import { homeTab } from '../../../../store/reducers/webTabs';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
@@ -35,7 +36,9 @@ export const SearchModalView: FC = () => {
   const route = useRoute<RouteProps>();
   const { url, onSelectorItem } = route.params;
 
-  const [searchContent, setSearchContent] = useState<string>(url ?? '');
+  const [searchContent, setSearchContent] = useState<string>(
+    !url || url === homeTab.url ? '' : url,
+  );
   const searchContentTerm = useDebounce(searchContent, 300);
 
   const { loading, searchedDapps } = useSearchLocalDapp(

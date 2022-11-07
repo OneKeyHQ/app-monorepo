@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-// import { WebView } from 'react-native-webview';
+import { WebView } from 'react-native-webview';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -148,6 +148,6 @@ export function crossWebviewLoadUrl({
     (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url).catch();
   } else {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    // (wrapperRef?.innerRef as WebView)?.loadUrl(url);
+    (wrapperRef?.innerRef as WebView)?.loadUrl(url);
   }
 }
