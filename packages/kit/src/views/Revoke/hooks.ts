@@ -18,7 +18,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks';
 import { ModalRoutes, RootRoutes, SendRoutes } from '../../routes/routesEnum';
 
-import { AssetType } from './FilterBar';
+import { AssetType } from './types';
 
 export const useRevokeAddress = (addressOrName = '') => {
   const [address, setAddress] = useState<string>('');

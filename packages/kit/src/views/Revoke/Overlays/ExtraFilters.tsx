@@ -6,17 +6,11 @@ import { Box, Switch, VStack } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
 import { BottomSheetSettings } from '../../Overlay/AccountValueSettings';
-
-type Filter = Pick<
-  Props,
-  'includeZeroBalancesTokens' | 'includeUnverifiedTokens'
->;
+import { AssetType, Filter } from '../types';
 
 type Props = {
-  includeUnverifiedTokens: boolean;
-  includeZeroBalancesTokens: boolean;
   onChange: (filter: Filter) => void;
-};
+} & Filter;
 
 const ExtraFilters: FC<Props> = (props) => {
   const intl = useIntl();
@@ -24,7 +18,12 @@ const ExtraFilters: FC<Props> = (props) => {
   const { onChange, ...filters } = props;
 
   const handleChange = useCallback(
-    (k: 'includeZeroBalancesTokens' | 'includeUnverifiedTokens') => {
+    (
+      k:
+        | 'includeZeroBalancesTokens'
+        | 'includeUnverifiedTokens'
+        | 'includeTokensWithoutAllowances',
+    ) => {
       onChange({
         ...filters,
         [k]: !filters[k],
@@ -35,20 +34,33 @@ const ExtraFilters: FC<Props> = (props) => {
 
   return (
     <VStack pb="60px">
-      <Switch
-        isChecked={filters.includeUnverifiedTokens}
-        label={intl.formatMessage({
-          id: 'form__include_unverified_tokens',
-        })}
-        isFullMode
-        onToggle={() => handleChange('includeUnverifiedTokens')}
-      />
-      <Box h="6" />
+      {filters.assetType === AssetType.tokens ? (
+        <>
+          <Switch
+            isChecked={filters.includeUnverifiedTokens}
+            label={intl.formatMessage({
+              id: 'form__include_unverified_tokens',
+            })}
+            isFullMode
+            onToggle={() => handleChange('includeUnverifiedTokens')}
+          />
+          <Box h="6" />
+        </>
+      ) : null}
       <Switch
         isChecked={filters.includeZeroBalancesTokens}
         label={intl.formatMessage({ id: 'form__include_zero_balances' })}
         isFullMode
         onToggle={() => handleChange('includeZeroBalancesTokens')}
+      />
+      <Box h="6" />
+      <Switch
+        isChecked={filters.includeTokensWithoutAllowances}
+        label={intl.formatMessage({
+          id: 'form__include_tokens_without_allowances',
+        })}
+        isFullMode
+        onToggle={() => handleChange('includeTokensWithoutAllowances')}
       />
     </VStack>
   );
@@ -62,8 +74,10 @@ const Wrapper = ({
   closeOverlay: () => void;
 }) => {
   const [state, setState] = useState<Filter>({
+    assetType: props.assetType,
     includeUnverifiedTokens: props.includeUnverifiedTokens,
     includeZeroBalancesTokens: props.includeZeroBalancesTokens,
+    includeTokensWithoutAllowances: props.includeTokensWithoutAllowances,
   });
 
   const close = useCallback(() => {
