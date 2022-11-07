@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'moti';
 import { useIntl } from 'react-intl';
 
@@ -12,9 +13,41 @@ import {
   Pressable,
   Text,
 } from '@onekeyhq/components';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+
+import {
+  SearchNFTCollectionRoutes,
+  SearchNFTCollectionRoutesParams,
+} from '../../NFTSearchModal/type';
+import { useCollectionDetail } from '../hook';
+
+type NavigationProps = ModalScreenProps<SearchNFTCollectionRoutesParams>;
 
 const PageHeader = () => {
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const goToCollectionDetail = useCollectionDetail();
+
+  const searchAction = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.SearchNFT,
+      params: {
+        screen: SearchNFTCollectionRoutes.SearchModal,
+        params: {
+          onSelectCollection: ({ networkId, contractAddress }) => {
+            goToCollectionDetail({
+              networkId,
+              contractAddress,
+            });
+          },
+        },
+      },
+    });
+  }, [goToCollectionDetail, navigation]);
 
   return (
     <SafeAreaView>
@@ -30,6 +63,9 @@ const PageHeader = () => {
             <HStack alignItems="center">
               <Box ml="16px" mr="8px" h="16px" w="1px" bgColor="divider" />
               <Pressable
+                onPress={() => {
+                  searchAction();
+                }}
                 flexDirection="row"
                 p="8px"
                 borderRadius="xl"
@@ -52,6 +88,9 @@ const PageHeader = () => {
             name="SearchSolid"
             circle
             hitSlop={8}
+            onPress={() => {
+              searchAction();
+            }}
           />
         </Hidden>
       </HStack>

@@ -1,4 +1,11 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -7,15 +14,18 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Divider,
-  FlatList,
   Icon,
+  Pressable,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTTransaction } from '@onekeyhq/engine/src/types/nft';
+import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useRuntime } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
@@ -110,8 +120,13 @@ const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
   );
 };
 
-const DesktopCell: FC<{ item: NFTTransaction }> = ({ item }) => {
+const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
+  network,
+  item,
+}) => {
   const { formatDistance } = useFormatDate();
+
+  const { openAddressDetails } = useOpenBlockBrowser(network);
   return (
     <Row
       justifyContent="space-between"
@@ -134,18 +149,30 @@ const DesktopCell: FC<{ item: NFTTransaction }> = ({ item }) => {
         </Box>
       </Row>
 
-      <Box flex={1} justifyContent="center">
+      <Pressable
+        onPress={() => {
+          openAddressDetails(item.send);
+        }}
+        flex={1}
+        justifyContent="center"
+      >
         <Text textAlign="right" numberOfLines={1} typography="Body1Underline">
           {item.send}
         </Text>
-      </Box>
+      </Pressable>
 
       <Icon name="ChevronDoubleRightSolid" size={20} />
-      <Box flex={1} justifyContent="center">
+      <Pressable
+        onPress={() => {
+          openAddressDetails(item.receive);
+        }}
+        flex={1}
+        justifyContent="center"
+      >
         <Text textAlign="right" numberOfLines={1} typography="Body1Underline">
           {item.receive}
         </Text>
-      </Box>
+      </Pressable>
 
       <Box flex={1} justifyContent="center">
         <Text textAlign="right" numberOfLines={1} typography="Body1Strong">
@@ -223,10 +250,20 @@ const TransactionList = ({
     setContext,
   ]);
 
+  const { networks } = useRuntime();
+  const currentNetwork = useMemo(
+    () => networks.find((n) => n.id === networkId),
+    [networkId, networks],
+  );
+
   const renderItem: ListRenderItem<NFTTransaction> = useCallback(
     ({ item }) =>
-      isSmallScreen ? <MobileCell item={item} /> : <DesktopCell item={item} />,
-    [isSmallScreen],
+      isSmallScreen ? (
+        <MobileCell item={item} />
+      ) : (
+        <DesktopCell network={currentNetwork} item={item} />
+      ),
+    [currentNetwork, isSmallScreen],
   );
   const paddingX = isSmallScreen ? 16 : 0;
 

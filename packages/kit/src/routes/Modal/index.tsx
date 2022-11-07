@@ -38,6 +38,7 @@ import PushNotification from './PushNotification';
 import ReceiveToken from './ReceiveToken';
 import Revoke from './Revoke';
 import ScanQrcode from './ScanQrcode';
+import SearchNFT from './SearchNFTCollection';
 import Send from './Send';
 import StakingModal from './Staking';
 import SubmitRequestModal from './SubmitRequest';
@@ -179,6 +180,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Revoke,
     component: Revoke,
+  },
+  {
+    name: ModalRoutes.SearchNFT,
+    component: SearchNFT,
   },
 ];
 

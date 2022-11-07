@@ -67,6 +67,19 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
+  async searchCollections({ chain, name }: { chain: string; name: string }) {
+    const url = `${this.baseUrl}/collection/search?chain=${chain}&name=${name}`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<Collection[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as Collection[] }));
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
   async getCollectionAssets({
     chain,
     contractAddress,
