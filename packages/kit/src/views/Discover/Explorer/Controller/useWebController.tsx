@@ -10,6 +10,7 @@ import { useAppSelector } from '../../../../hooks';
 import { appSelector } from '../../../../store';
 import { updateFirstRemindDAPP } from '../../../../store/reducers/discover';
 import {
+  homeResettingFlags,
   homeTab,
   setIncomingUrl,
   setWebTabData,
@@ -24,7 +25,6 @@ import {
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 
-let lastNewUrlTimeStamp = Date.now();
 export const useWebController = ({
   id,
   navigationStateChangeEvent,
@@ -112,18 +112,21 @@ export const useWebController = ({
       canGoForward,
       loading,
     }) => {
+      const now = Date.now();
       const isValidNewUrl = typeof url === 'string' && url !== tab.url;
 
       if (isValidNewUrl) {
-        if (
-          platformEnv.isDesktop &&
-          tab.timestamp &&
-          Date.now() - lastNewUrlTimeStamp < 500
-        ) {
+        if (tab.timestamp && now - tab.timestamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
-        lastNewUrlTimeStamp = Date.now();
+        if (
+          homeResettingFlags[curId] &&
+          url !== homeTab.url &&
+          now - homeResettingFlags[curId] < 1000
+        ) {
+          return;
+        }
         gotoSite({ url, title, favicon, isNewWindow, isInPlace });
       }
 
