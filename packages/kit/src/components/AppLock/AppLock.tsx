@@ -20,6 +20,8 @@ const unlockWhiteListUrl = [
   '/wc/connect',
   '/onlanding',
   '/revoke',
+  '/root/initial/tab/home/Revoke',
+  '/root/Revoke',
 ];
 
 function isUnlockWhiteListUrl() {
