@@ -36,7 +36,7 @@ const Swap = () => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {!isSmall ? <SwapHeader /> : null}
+      {!isSmall ? <SwapHeader /> : <Box h="6" />}
       <SwapObserver />
       <Center px="4">
         <Box maxW="420" width="full">
