@@ -42,6 +42,9 @@ PODS:
     - ExpoModulesCore
   - ExpoHaptics (11.2.0):
     - ExpoModulesCore
+  - ExpoImageManipulator (10.4.0):
+    - EXImageLoader
+    - ExpoModulesCore
   - ExpoImagePicker (13.1.1):
     - ExpoModulesCore
   - ExpoKeepAwake (10.1.1):
@@ -636,6 +639,7 @@ DEPENDENCIES:
   - Expo (from `../../../node_modules/expo/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
+  - ExpoImageManipulator (from `../../../node_modules/expo-image-manipulator/ios`)
   - ExpoImagePicker (from `../../../node_modules/expo-image-picker/ios`)
   - ExpoKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
   - ExpoLinearGradient (from `../../../node_modules/expo-linear-gradient/ios`)
@@ -779,6 +783,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-clipboard/ios"
   ExpoHaptics:
     :path: "../../../node_modules/expo-haptics/ios"
+  ExpoImageManipulator:
+    :path: "../../../node_modules/expo-image-manipulator/ios"
   ExpoImagePicker:
     :path: "../../../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
@@ -934,6 +940,7 @@ SPEC CHECKSUMS:
   Expo: b9fff0a1eac0f424fc68ea49b4347fb308e52e17
   ExpoClipboard: e2dda22be0524595a5eeead51665f60729829123
   ExpoHaptics: ad58ec96a25e57579c14a47c7d71f0de0de8656a
+  ExpoImageManipulator: f4e286afa83c1c618de8701b0812ee0b647895fc
   ExpoImagePicker: d9d6b4f29db437fc7796f13cee5f133f5b4b5f7c
   ExpoKeepAwake: c0c494b442ecd8122974c13b93ccfb57bd408e88
   ExpoLinearGradient: 0debcf7d6cd7fea3050c218544f0db2de9a64f42

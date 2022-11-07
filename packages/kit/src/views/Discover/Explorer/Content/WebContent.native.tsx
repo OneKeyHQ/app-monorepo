@@ -38,13 +38,12 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
             webviewRefs[id] = ref;
           }
         }}
-        onNavigationStateChange={
-          showHome ? undefined : setNavigationStateChangeEvent
-        }
+        onNavigationStateChange={setNavigationStateChangeEvent}
         allowpopups
       />
     ),
-    [id, showHome, url],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [id],
   );
 
   return (
