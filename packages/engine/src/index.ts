@@ -207,7 +207,11 @@ class Engine {
           const existingStatus = dbNetworkMap[network.id];
           if (typeof existingStatus !== 'undefined') {
             defaultNetworkList.push([network.id, existingStatus]);
-          } else {
+          } else if (network.enabled || network.isTestnet) {
+            // both network.enabled and network.isTestnet are false
+            // means this network is disabled
+            // so do not add to local cache and do not show this network in ui
+            // TODO: add 'disbaled' field to hold above condition
             await this.dbApi.addNetwork({
               id: network.id,
               name: network.name,
