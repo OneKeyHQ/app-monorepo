@@ -20,7 +20,9 @@ const ListItem: FC<ListItemProps> = ({
     <Pressable onPress={onPress} onLongPress={onLongPress}>
       {({ isHovered, isPressed }) => (
         <HStack
-          p={2}
+          px={2}
+          py={1.5}
+          my={0.5}
           space={4}
           alignItems="center"
           borderRadius="xl"
