@@ -546,6 +546,7 @@ export default class Vault extends VaultBase {
         txid,
       };
     } catch (e) {
+      // When alog transaction fails, only an error message is returned
       const { message } = e as Error;
       if (TARGET_ADDRESS_TOKEN_NOT_ACTIVE_REG_EXP.test(message)) {
         const assetId = message.match(
