@@ -93,20 +93,6 @@ export function getContentWithAsset(asset: NFTAsset) {
   }
 }
 
-export const getUserNFTAssets = async (params: {
-  accountId: string;
-  networkId: string;
-}): Promise<NFTServiceResp<Collection[]>> => {
-  const { accountId, networkId } = params;
-  const endpoint = getFiatEndpoint();
-  const apiUrl = `${endpoint}/NFT/v2/list?address=${accountId}&chain=${networkId}`;
-  const data = await axios
-    .get<NFTServiceResp<Collection[]>>(apiUrl)
-    .then((resp) => resp.data)
-    .catch(() => ({ data: [] }));
-  return data;
-};
-
 export const syncImage = async (params: {
   contractAddress?: string;
   tokenId: string;

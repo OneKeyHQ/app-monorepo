@@ -2,11 +2,7 @@ import axios from 'axios';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import {
-  getAsset,
-  getNFTSymbolPrice,
-  getUserNFTAssets,
-} from '@onekeyhq/engine/src/managers/nft';
+import { getAsset, getNFTSymbolPrice } from '@onekeyhq/engine/src/managers/nft';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import {
   Collection,
@@ -38,6 +34,25 @@ class ServiceNFT extends ServiceBase {
 
   get baseUrl() {
     return `${getFiatEndpoint()}/NFT`;
+  }
+
+  @backgroundMethod()
+  async getUserNFTAssets({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const apiUrl = `${this.baseUrl}/v2/list?address=${accountId}&chain=${networkId}`;
+    const { data, success } = await axios
+      .get<NFTServiceResp<Collection[]>>(apiUrl)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] }));
+    if (!success) {
+      return [];
+    }
+    return data;
   }
 
   @backgroundMethod()
@@ -289,12 +304,12 @@ class ServiceNFT extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    const { data } = await getUserNFTAssets({ accountId, networkId });
+    const collections = await this.getUserNFTAssets({ accountId, networkId });
     const { dispatch } = this.backgroundApi;
 
     const floorPrice = 0;
     let lastSalePrice = 0;
-    const items = data.map((collection) => {
+    const items = collections.map((collection) => {
       let totalPrice = 0;
       collection.assets = collection.assets.map((asset) => {
         asset.collection.floorPrice = collection.floorPrice;
