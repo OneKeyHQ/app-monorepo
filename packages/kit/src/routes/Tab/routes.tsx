@@ -26,6 +26,7 @@ import PushNotification from '@onekeyhq/kit/src/views/PushNotification';
 import PushNotificationManageAccountDynamic from '@onekeyhq/kit/src/views/PushNotification/AccountDynamic';
 import PushNotificationManagePriceAlert from '@onekeyhq/kit/src/views/PushNotification/PriceAlertListStack';
 import RevokePage from '@onekeyhq/kit/src/views/Revoke';
+import RevokeRedirectPage from '@onekeyhq/kit/src/views/Revoke/Redirect';
 import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
@@ -72,6 +73,10 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.Revoke,
         component: RevokePage,
         alwaysShowBackButton: true,
+      },
+      {
+        name: HomeRoutes.RevokeRedirect,
+        component: RevokeRedirectPage,
       },
     ],
   },

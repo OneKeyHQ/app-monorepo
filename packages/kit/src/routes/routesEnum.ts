@@ -83,6 +83,7 @@ export enum HomeRoutes {
   PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
   MarketDetail = 'MarketDetail',
   Revoke = 'Revoke',
+  RevokeRedirect = 'RevokeRedirect',
   NFTMarketStatsList = 'NFTMarketStatsList',
   NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
