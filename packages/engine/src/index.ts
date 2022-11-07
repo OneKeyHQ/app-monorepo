@@ -207,7 +207,11 @@ class Engine {
           const existingStatus = dbNetworkMap[network.id];
           if (typeof existingStatus !== 'undefined') {
             defaultNetworkList.push([network.id, existingStatus]);
-          } else {
+          } else if (network.enabled || network.isTestnet) {
+            // both network.enabled and network.isTestnet are false
+            // means this network is disabled
+            // so do not add to local cache and do not show this network in ui
+            // TODO: add 'disbaled' field to hold above condition
             await this.dbApi.addNetwork({
               id: network.id,
               name: network.name,
@@ -241,15 +245,21 @@ class Engine {
           defaultNetworkList.push([dbNetwork.id, dbNetwork.enabled]);
         }
       });
+
+      const networksToRemoved = defaultNetworkList.filter(([id]) => {
+        const preset = presetNetworksList.find((p) => p.id === id);
+        return preset && !preset.enabled && !preset.isTestnet;
+      });
+
+      for (const n of networksToRemoved) {
+        debugLogger.engine.warn(`will remove network: ${n[0]}`);
+        await this.dbApi.deleteNetwork(n[0]);
+      }
+
       await this.dbApi.updateNetworkList(
-        defaultNetworkList.map(([id, enable]) => {
-          const preset = presetNetworksList.find((p) => p.id === id);
-          if (preset && !preset.enabled && enable) {
-            debugLogger.engine.info(`removed preset disabled network id=${id}`);
-            return [id, false];
-          }
-          return [id, enable];
-        }),
+        defaultNetworkList.filter((n) =>
+          networksToRemoved.find((r) => r[0] !== n[0]),
+        ),
         true,
       );
     } catch (error) {
