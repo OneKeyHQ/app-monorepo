@@ -5,6 +5,7 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { ISessionStatus } from '@walletconnect/types';
+import { debounce } from 'lodash';
 
 import {
   IMPL_ALGO,
@@ -14,17 +15,22 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import unlockUtils from '../../components/AppLock/unlockUtils';
-import { OneKeyWalletConnector } from '../../components/WalletConnect/OneKeyWalletConnector';
+import unlockUtils from '../../../components/AppLock/unlockUtils';
+import { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';
 import {
   IWalletConnectClientEventDestroy,
   IWalletConnectClientEventRpc,
-} from '../../components/WalletConnect/WalletConnectClient';
-import { WalletConnectClientForWallet } from '../../components/WalletConnect/WalletConnectClientForWallet';
-import { closeDappConnectionPreloading } from '../../store/reducers/refresher';
-import { backgroundClass } from '../decorators';
+} from '../../../components/WalletConnect/WalletConnectClient';
+import { WalletConnectClientForWallet } from '../../../components/WalletConnect/WalletConnectClientForWallet';
+import { closeDappConnectionPreloading } from '../../../store/reducers/refresher';
+import { backgroundClass } from '../../decorators';
 
-import type { IBackgroundApi } from '../IBackgroundApi';
+import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
+import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
+import { WalletConnectRequestProxyAptos } from './WalletConnectRequestProxyAptos';
+import { WalletConnectRequestProxyEvm } from './WalletConnectRequestProxyEvm';
+
+import type { IBackgroundApi } from '../../IBackgroundApi';
 
 @backgroundClass()
 class ProviderApiWalletConnect extends WalletConnectClientForWallet {
@@ -32,6 +38,24 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     super();
     this.backgroundApi = backgroundApi;
     this.setupEventHandlers();
+  }
+
+  requestProxyMap: {
+    [networkImpl: string]: WalletConnectRequestProxy;
+  } = {
+    [IMPL_EVM]: new WalletConnectRequestProxyEvm({
+      client: this,
+    }),
+    [IMPL_APTOS]: new WalletConnectRequestProxyAptos({
+      client: this,
+    }),
+    [IMPL_ALGO]: new WalletConnectRequestProxyAlgo({
+      client: this,
+    }),
+  };
+
+  getRequestProxy({ networkImpl }: { networkImpl: string }) {
+    return this.requestProxyMap[networkImpl] || this.requestProxyMap[IMPL_EVM];
   }
 
   backgroundApi: IBackgroundApi;
@@ -55,13 +79,8 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         let request: Promise<any>;
         const isInteractiveMethod = this.isInteractiveMethod({ payload });
         const doProviderRequest = () => {
-          if (networkImpl === IMPL_APTOS) {
-            request = this.aptosRequest(connector, payload);
-          } else if (networkImpl === IMPL_ALGO) {
-            request = this.algoRequest(connector, payload);
-          } else {
-            request = this.ethereumRequest(connector, payload);
-          }
+          const requestProxy = this.getRequestProxy({ networkImpl });
+          request = requestProxy.request(connector, payload);
           return this.responseCallRequest(connector, request, {
             error,
             payload,
@@ -92,7 +111,9 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     if (accounts.length && origin) {
       this.backgroundApi.serviceDapp.removeConnectedAccounts({
         origin,
-        networkImpl: IMPL_EVM,
+        networkImpl:
+          // @ts-ignore
+          connector?.session?.networkImpl || connector?.networkImpl || IMPL_EVM,
         addresses: accounts,
       });
     }
@@ -137,30 +158,19 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     return Promise.resolve(resp.result as T);
   }
 
-  // TODO Support for more chain
   async getChainIdInteger(connector: OneKeyWalletConnector) {
     const { networkImpl } = connector.session;
-    if (networkImpl === IMPL_APTOS) {
-      const { chainId }: { chainId: number } = await this.aptosRequest(
-        connector,
-        { method: 'getChainId' },
-      );
-      return chainId;
-    }
+    const prevChainId = connector.chainId || 0;
 
-    if (networkImpl === IMPL_ALGO) {
-      const { chainId }: { chainId: number } = await this.algoRequest(
-        connector,
-        { method: 'getChainId' },
-      );
-      return chainId;
-    }
+    let chainId: number | undefined;
+    const requestProxy = this.getRequestProxy({ networkImpl });
 
-    // EVM
-    return parseInt(
-      await this.ethereumRequest(connector, { method: 'net_version' }),
-      10,
-    );
+    chainId = await requestProxy.getChainId(connector);
+
+    if (!chainId) {
+      chainId = prevChainId;
+    }
+    return chainId;
   }
 
   override async getSessionStatusToApprove(options: {
@@ -178,21 +188,8 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     dispatch(closeDappConnectionPreloading());
 
     let result: string[] = [];
-    if (networkImpl === IMPL_APTOS) {
-      const { address } = await this.aptosRequest<{ address: string }>(
-        connector,
-        { method: 'connect' },
-      );
-      result = [address];
-    } else if (networkImpl === IMPL_ALGO) {
-      result = await this.algoRequest<string[]>(connector, {
-        method: 'connect',
-      });
-    } else {
-      result = await this.ethereumRequest<string[]>(connector, {
-        method: 'eth_requestAccounts',
-      });
-    }
+    const proxyRequest = this.getRequestProxy({ networkImpl });
+    result = await proxyRequest.connect(connector);
 
     const chainId = await this.getChainIdInteger(connector);
     // walletConnect approve empty accounts is not allowed
@@ -259,49 +256,44 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       });
   }
 
-  async notifySessionChanged() {
-    const { connector } = this;
-    if (connector && connector.connected) {
-      const prevAccounts = connector.accounts || [];
-      const chainId = await this.getChainIdInteger(connector);
+  notifySessionChanged = debounce(
+    async () => {
+      const { connector } = this;
+      if (connector && connector.connected) {
+        const prevAccounts = connector.accounts || [];
+        const chainId = await this.getChainIdInteger(connector);
+        const { networkImpl } = connector.session;
+        let accounts: string[] = [];
+        const requestProxy = this.getRequestProxy({ networkImpl });
+        accounts = await requestProxy.getAccounts(connector);
 
-      let accounts: string[] = [];
-      if (connector.session.networkImpl === IMPL_APTOS) {
-        const { address } = await this.aptosRequest<{ address: string }>(
-          connector,
-          { method: 'account' },
-        );
-        accounts = [address];
-      } else if (connector.session.networkImpl === IMPL_ALGO) {
-        accounts = await this.algoRequest<string[]>(connector, {
-          method: 'accounts',
-        });
-      } else {
-        accounts = await this.ethereumRequest<string[]>(connector, {
-          method: 'eth_accounts',
-        });
-      }
-      // TODO do not disconnect session, but keep prevAccount if wallet active account changed
-      if (!accounts || !accounts.length) {
-        accounts = prevAccounts;
+        // TODO do not disconnect session, but keep prevAccount if wallet active account changed
+        if (!accounts || !accounts.length) {
+          accounts = prevAccounts;
 
-        // *** ATTENTION ***  wallet-connect does NOT support empty accounts
-        // connector.updateSession({
-        //   chainId,
-        //   accounts: [],
-        // });
-        // return;
+          // *** ATTENTION ***  wallet-connect does NOT support empty accounts
+          // connector.updateSession({
+          //   chainId,
+          //   accounts: [],
+          // });
+          // return;
+        }
+        if (accounts && accounts.length) {
+          connector.updateSession({
+            chainId,
+            accounts,
+          });
+        } else {
+          await this.disconnect();
+        }
       }
-      if (accounts && accounts.length) {
-        connector.updateSession({
-          chainId,
-          accounts,
-        });
-      } else {
-        await this.disconnect();
-      }
-    }
-  }
+    },
+    800,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 }
 
 export default ProviderApiWalletConnect;

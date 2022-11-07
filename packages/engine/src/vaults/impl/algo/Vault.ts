@@ -634,6 +634,7 @@ export default class Vault extends VaultBase {
           const {
             receiver: to,
             amount,
+            // eslint-disable-next-line no-unused-vars,@typescript-eslint/no-unused-vars
             'close-to': closeTo,
             'close-amount': closeAmount,
             'asset-id': assetId,

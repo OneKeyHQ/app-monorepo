@@ -2,7 +2,7 @@ import { Engine } from '@onekeyhq/engine';
 
 import BackgroundApiBase from './BackgroundApiBase';
 import { IBackgroundApi } from './IBackgroundApi';
-import ProviderApiWalletConnect from './providers/ProviderApiWalletConnect';
+import { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
 import ServiceAccount from './services/ServiceAccount';
 import ServiceAccountSelector from './services/ServiceAccountSelector';
 import ServiceApp from './services/ServiceApp';
