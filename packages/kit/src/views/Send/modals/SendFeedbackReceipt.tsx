@@ -25,14 +25,25 @@ export function SendFeedbackReceipt() {
   const { network } = useActiveSideAccount(route.params);
   const openBlockBrowser = useOpenBlockBrowser(network);
   const [count, setCount] = useState(3);
-  const isAutoClose = platformEnv.isExtensionUiStandaloneWindow;
+  const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
+  const isAutoClose = isExtStandaloneWindow;
   const { serviceDapp } = backgroundApiProxy;
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const registerWindowUnload = isExtStandaloneWindow;
+    if (registerWindowUnload) {
+      window.addEventListener('beforeunload', () =>
+        serviceDapp.setSendConfirmModalVisible({ visible: false }),
+      );
+    }
+    return () => {
       serviceDapp.setSendConfirmModalVisible({ visible: false });
-    },
-    [serviceDapp],
-  );
+      if (registerWindowUnload) {
+        window.removeEventListener('beforeunload', () =>
+          serviceDapp.setSendConfirmModalVisible({ visible: false }),
+        );
+      }
+    };
+  }, [serviceDapp]);
 
   const doClose = useCallback(() => {
     if (isFunction(route?.params?.closeModal)) {
@@ -40,7 +51,8 @@ export function SendFeedbackReceipt() {
     } else {
       closeModal();
     }
-  }, [closeModal, route?.params]);
+    serviceDapp.setSendConfirmModalVisible({ visible: false });
+  }, [serviceDapp, closeModal, route?.params]);
   useInterval(() => {
     if (!isAutoClose) {
       return;
