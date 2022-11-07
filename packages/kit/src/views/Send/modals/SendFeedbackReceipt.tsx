@@ -28,22 +28,23 @@ export function SendFeedbackReceipt() {
   const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
   const isAutoClose = isExtStandaloneWindow;
   const { serviceDapp } = backgroundApiProxy;
+
+  const handleHideSendConfirmModal = useCallback(() => {
+    serviceDapp.setSendConfirmModalVisible({ visible: false });
+  }, [serviceDapp]);
+
   useEffect(() => {
     const registerWindowUnload = isExtStandaloneWindow;
     if (registerWindowUnload) {
-      window.addEventListener('beforeunload', () =>
-        serviceDapp.setSendConfirmModalVisible({ visible: false }),
-      );
+      window.addEventListener('beforeunload', handleHideSendConfirmModal);
     }
     return () => {
-      serviceDapp.setSendConfirmModalVisible({ visible: false });
+      handleHideSendConfirmModal();
       if (registerWindowUnload) {
-        window.removeEventListener('beforeunload', () =>
-          serviceDapp.setSendConfirmModalVisible({ visible: false }),
-        );
+        window.removeEventListener('beforeunload', handleHideSendConfirmModal);
       }
     };
-  }, [serviceDapp]);
+  }, [handleHideSendConfirmModal, isExtStandaloneWindow]);
 
   const doClose = useCallback(() => {
     if (isFunction(route?.params?.closeModal)) {
@@ -51,8 +52,15 @@ export function SendFeedbackReceipt() {
     } else {
       closeModal();
     }
-    serviceDapp.setSendConfirmModalVisible({ visible: false });
-  }, [serviceDapp, closeModal, route?.params]);
+    if (isExtStandaloneWindow) {
+      handleHideSendConfirmModal();
+    }
+  }, [
+    route?.params,
+    isExtStandaloneWindow,
+    closeModal,
+    handleHideSendConfirmModal,
+  ]);
   useInterval(() => {
     if (!isAutoClose) {
       return;
