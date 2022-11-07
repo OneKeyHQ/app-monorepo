@@ -22,8 +22,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
     navigationStateChangeEvent,
   });
 
-  const showHome =
-    (id === 'home' && webHandler === 'tabbedWebview') || url === homeTab.url;
+  const showHome = url === homeTab.url;
 
   const webview = useMemo(
     () => (
