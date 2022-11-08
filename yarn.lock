@@ -5102,10 +5102,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.16":
-  version: 1.6.16
-  resolution: "@onekeyfe/network-list@npm:1.6.16"
-  checksum: bd3867d75830741ab8c1ca09ba2268028737ba7abba4ac2b833a9660becfb588c5b85ce4f7a7a77e46888ea3b6d12e7b031da62f7abc48a572832d711ee0392d
+"@onekeyfe/network-list@file:.yalc/@onekeyfe/network-list::locator=%40onekeyhq%2Fengine%40workspace%3Apackages%2Fengine":
+  version: 1.6.17
+  resolution: "@onekeyfe/network-list@file:.yalc/@onekeyfe/network-list#.yalc/@onekeyfe/network-list::hash=89ae4c&locator=%40onekeyhq%2Fengine%40workspace%3Apackages%2Fengine"
+  checksum: cd48e3dd41c875032b2bb80922bb265afde6b77fd15cefae45c255c304292fb184b48b20c5b48d2e086520a250c1cdd1bdecddf173ddd3d26491f80a42154e6c
   languageName: node
   linkType: hard
 
@@ -5484,7 +5484,7 @@ __metadata:
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.45
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.16
+    "@onekeyfe/network-list": "file:.yalc/@onekeyfe/network-list"
     "@solana/spl-token": ^0.3.0
     "@solana/web3.js": ^1.53.0
     "@types/bchaddrjs": ^0.4.0
@@ -5512,6 +5512,7 @@ __metadata:
     npm-run-all: ^4.1.5
     tiny-lru: ^8.0.2
     tronweb: ^4.3.0
+    xrpl: ^2.5.0
   languageName: unknown
   linkType: soft
 
@@ -10568,7 +10569,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"big-integer@npm:1.6.x, big-integer@npm:^1.6.44":
+"big-integer@npm:1.6.x, big-integer@npm:^1.6.44, big-integer@npm:^1.6.48":
   version: 1.6.51
   resolution: "big-integer@npm:1.6.51"
   checksum: 3d444173d1b2e20747e2c175568bedeebd8315b0637ea95d75fd27830d3b8e8ba36c6af40374f36bdaea7b5de376dcada1b07587cb2a79a928fccdb6e6e3c518
@@ -10636,7 +10637,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bip32@npm:^2.0.4":
+"bip32@npm:^2.0.4, bip32@npm:^2.0.6":
   version: 2.0.6
   resolution: "bip32@npm:2.0.6"
   dependencies:
@@ -19791,7 +19792,7 @@ colour@latest:
   resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=2cadf288224242cec715a2e260f872235c58874c"
   peerDependencies:
     react-native: ">= 0.60"
-  checksum: 6a1feb9f66c55bed4a983e44a8865635f9b7a6e7b65b74aa1ddf28770f99adf0283bd9d4f6cbbbf0445abc55b3361beb0f2ecbc072b0a6a38afd190277f341ad
+  checksum: 1137e8771ff8d40268a40b786413ca27b4beed2da27707627433e50a04ed0fba91e1e200458d988bdc95605a99b1e157933887f683df3bfdfa45cba632beb098
   languageName: node
   linkType: hard
 
@@ -27175,7 +27176,21 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"ripple-keypairs@npm:^1.0.0":
+"ripple-binary-codec@npm:^1.4.2":
+  version: 1.4.2
+  resolution: "ripple-binary-codec@npm:1.4.2"
+  dependencies:
+    assert: ^2.0.0
+    big-integer: ^1.6.48
+    buffer: 5.6.0
+    create-hash: ^1.2.0
+    decimal.js: ^10.2.0
+    ripple-address-codec: ^4.2.4
+  checksum: 40ba24415b50145d29643bcbd3086bbdaf4d6a8b5621befc711cfbced81068713a703080aa9953ccdc72543b1c2af9d7fe468627dc704cb4e829e2265c2553c8
+  languageName: node
+  linkType: hard
+
+"ripple-keypairs@npm:^1.0.0, ripple-keypairs@npm:^1.1.4":
   version: 1.1.4
   resolution: "ripple-keypairs@npm:1.1.4"
   dependencies:
@@ -31740,6 +31755,21 @@ optjs@latest:
   languageName: node
   linkType: hard
 
+"ws@npm:^8.2.2":
+  version: 8.11.0
+  resolution: "ws@npm:8.11.0"
+  peerDependencies:
+    bufferutil: ^4.0.1
+    utf-8-validate: ^5.0.2
+  peerDependenciesMeta:
+    bufferutil:
+      optional: true
+    utf-8-validate:
+      optional: true
+  checksum: 316b33aba32f317cd217df66dbfc5b281a2f09ff36815de222bc859e3424d83766d9eb2bd4d667de658b6ab7be151f258318fb1da812416b30be13103e5b5c67
+  languageName: node
+  linkType: hard
+
 "ws@npm:~8.2.3":
   version: 8.2.3
   resolution: "ws@npm:8.2.3"
@@ -31909,6 +31939,23 @@ optjs@latest:
   version: 2.0.0
   resolution: "xmlhttprequest-ssl@npm:2.0.0"
   checksum: 1e98df67f004fec15754392a131343ea92e6ab5ac4d77e842378c5c4e4fd5b6a9134b169d96842cc19422d77b1606b8df84a5685562b3b698cb68441636f827e
+  languageName: node
+  linkType: hard
+
+"xrpl@npm:^2.5.0":
+  version: 2.5.0
+  resolution: "xrpl@npm:2.5.0"
+  dependencies:
+    bignumber.js: ^9.0.0
+    bip32: ^2.0.6
+    bip39: ^3.0.4
+    https-proxy-agent: ^5.0.0
+    lodash: ^4.17.4
+    ripple-address-codec: ^4.2.4
+    ripple-binary-codec: ^1.4.2
+    ripple-keypairs: ^1.1.4
+    ws: ^8.2.2
+  checksum: a4ef87f49fc0c5083f7fb6a8a1b7ff24b47dec37ae9108a101cbe5d1b38aff4a709b6087c5e4e77270c592326eb66dc26483eb46afcf86acfaa8563b08406258
   languageName: node
   linkType: hard
 
