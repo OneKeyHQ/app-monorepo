@@ -399,12 +399,13 @@ export function FormatCurrencyNumber({
   const isBTCCurrency = selectedFiatMoneySymbol === 'btc';
 
   return isBTCCurrency ? (
-    `${getFiatCodeUnit(selectedFiatMoneySymbol)}${formatMarketValueForInfo(
-      value,
-    )}`
+    <>
+      `${getFiatCodeUnit(selectedFiatMoneySymbol)}$
+      {formatMarketValueForInfo(value)}`
+    </>
   ) : (
     <FormattedNumber
-      value={value}
+      value={value ?? 0}
       currencyDisplay="narrowSymbol"
       // eslint-disable-next-line react/style-prop-object
       style={onlyNumber ? 'decimal' : 'currency'}
