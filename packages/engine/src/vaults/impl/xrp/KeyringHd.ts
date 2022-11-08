@@ -1,4 +1,4 @@
-import { batchGetPrivateKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import * as XRPL from 'xrpl';
 
 import { COINTYPE_XRP as COIN_TYPE } from '../../../constants';
@@ -21,7 +21,7 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const pubkeyInfos = batchGetPrivateKeys(
+    const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,
       password,
@@ -42,6 +42,7 @@ export class KeyringHd extends KeyringHdBase {
       } = info;
 
       const pub = pubkey.toString('hex');
+
       const address = XRPL.deriveAddress(pub);
 
       const name = (names || [])[index] || `XRP #${indexes[index] + 1}`;
