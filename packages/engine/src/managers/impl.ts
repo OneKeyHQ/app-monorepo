@@ -11,6 +11,7 @@ import {
   COINTYPE_SOL,
   COINTYPE_STC,
   COINTYPE_TRON,
+  COINTYPE_XRP,
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_BCH,
@@ -23,6 +24,7 @@ import {
   IMPL_SOL,
   IMPL_STC,
   IMPL_TRON,
+  IMPL_XRP,
 } from '../constants';
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
@@ -46,6 +48,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_DOGE]: COINTYPE_DOGE,
   [IMPL_LTC]: COINTYPE_LTC,
   [IMPL_BCH]: COINTYPE_BCH,
+  [IMPL_XRP]: COINTYPE_XRP,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -65,6 +68,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_DOGE]: AccountType.UTXO,
   [IMPL_LTC]: AccountType.UTXO,
   [IMPL_BCH]: AccountType.UTXO,
+  [IMPL_XRP]: AccountType.SIMPLE,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -84,6 +88,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_DOGE]: Curve.SECP256K1,
   [IMPL_LTC]: Curve.SECP256K1,
   [IMPL_BCH]: Curve.SECP256K1,
+  [IMPL_XRP]: Curve.SECP256K1,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -166,6 +171,7 @@ const defaultAccountNameInfo: Record<
       label: 'Legacy (P2PKH)',
     },
   },
+  [IMPL_XRP]: { default: { prefix: 'XRP', category: `44'/${COINTYPE_XRP}'` } },
 };
 
 function getAccountNameInfoByImpl(

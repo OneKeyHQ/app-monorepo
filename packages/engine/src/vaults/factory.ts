@@ -12,6 +12,7 @@ import {
   IMPL_SOL,
   IMPL_STC,
   IMPL_TRON,
+  IMPL_XRP,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getNetworkImpl } from '../managers/network';
@@ -45,6 +46,8 @@ import VaultStc from './impl/stc/Vault';
 import VaultHelperStc from './impl/stc/VaultHelper';
 import VaultTron from './impl/tron/Vault';
 import VaultHelperTron from './impl/tron/VaultHelper';
+import VaultXrp from './impl/xrp/Vault';
+import VaultHelperXrp from './impl/xrp/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
 import type { KeyringBase } from './keyring/KeyringBase';
@@ -90,6 +93,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_BCH) {
     return new VaultHelperBch(options);
+  }
+  if (impl === IMPL_XRP) {
+    return new VaultHelperXrp(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -169,6 +175,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_BCH) {
     vault = new VaultBch(options);
+  }
+  if (network.impl === IMPL_XRP) {
+    vault = new VaultXrp(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(
