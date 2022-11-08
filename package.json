@@ -1,11 +1,9 @@
 {
   "name": "@onekeyhq/app-monorepo",
   "private": true,
-  "workspaces": {
-    "packages": [
-      "packages/*"
-    ]
-  },
+  "workspaces": [
+    "packages/*"
+  ],
   "engines": {
     "node": "^16.0.0"
   },
@@ -42,7 +40,7 @@
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
     "test": "yarn test:unit",
     "test:unit": "yarn jest ./test/unit/",
-    "setup:env": "if [ ! -f .env ]; then cp .env.example .env; fi",
+    "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
     "prepare": "husky install",
     "stats:web": "yarn workspace @onekeyhq/web stats",
     "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json",
@@ -81,7 +79,6 @@
     "babel-plugin-inline-import": "^3.0.0",
     "babel-plugin-lodash": "^3.3.4",
     "babel-plugin-transform-inline-environment-variables": "^0.4.3",
-    "concurrently": "^7.0.0",
     "copy-webpack-plugin": "^6.0.2",
     "css-loader": "^5.2.7",
     "ejs-loader": "^0.5.0",
@@ -99,7 +96,7 @@
     "eslint-plugin-react-hooks": "^4.2.0",
     "eth-rpc-errors": "^4.0.3",
     "expo": "^45.0.5",
-    "expo-yarn-workspaces": "^2.0.0",
+    "expo-yarn-workspaces": "^2.0.3",
     "file-loader": "^6.2.0",
     "fs-extra": "^10.0.0",
     "globalthis": "^1.0.2",
@@ -111,7 +108,7 @@
     "lint-staged": "^11.2.6",
     "metro-minify-terser": "^0.72.3",
     "node-notifier": "^10.0.0",
-    "patch-package": "^6.4.7",
+    "patch-package": "^6.5.0",
     "prettier": "^2.3.2",
     "react-native-bundle-visualizer": "^3.1.1",
     "rimraf": "^3.0.2",
@@ -126,21 +123,24 @@
   },
   "resolutions": {
     "@babel/core": "^7.19.3",
-    "**/webpack-dev-server": "^4.3.1",
-    "**/browserslist": "^4",
-    "**/immer": "^9",
-    "**/node-fetch": "^2",
-    "**/metro-react-native-babel-preset": "0.70.0",
-    "**/tslib": "^2.4.0",
-    "**/got": "^11.8.5",
-    "**/shell-quote": "^1.7.3",
+    "webpack-dev-server": "^4.3.1",
+    "browserslist": "^4",
+    "immer": "^9",
+    "node-fetch": "^2",
+    "metro-react-native-babel-preset": "0.70.0",
+    "tslib": "^2.4.0",
+    "got": "^11.8.5",
+    "shell-quote": "^1.7.3",
     "react-native-svg": "12.3.0",
     "react-native-qrcode-svg": "6.1.2",
     "@solana/web3.js": "1.47.3",
-    "**/buffer": "^6.0.3",
+    "buffer": "^6.0.3",
     "@types/react-native": "~0.68",
     "@types/react": "^17",
     "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview",
-    "dmg-builder": "23.6.0"
-  }
+    "dmg-builder": "23.6.0",
+    "keccak": "^3",
+    "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz"
+  },
+  "packageManager": "yarn@3.2.4"
 }

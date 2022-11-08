@@ -14,10 +14,11 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
-    "firebase": "^9.8.2",
     "expo": "^45.0.5",
-    "react-native-web": "0.18.9",
-    "moti": "^0.20.0"
+    "expo-yarn-workspaces": "^2.0.3",
+    "firebase": "^9.8.2",
+    "moti": "^0.20.0",
+    "react-native-web": "0.18.10"
   },
   "private": true
 }

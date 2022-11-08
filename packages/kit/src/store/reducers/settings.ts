@@ -1,5 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import deepEqual from 'dequal';
+import { dequal as deepEqual } from 'dequal';
 import uuid from 'react-native-uuid';
 
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';

@@ -78,8 +78,10 @@ export const ChangeModal = () => {
       })}
       hideSecondaryAction
       onPrimaryActionPress={({ close }) => {
-        handleSubmit(onSubmit)();
         close?.();
+        setTimeout(() => {
+          handleSubmit((values: FieldValues) => onSubmit(values))();
+        }, 600);
       }}
       primaryActionTranslationId="action__change"
     >

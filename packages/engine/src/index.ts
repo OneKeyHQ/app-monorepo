@@ -176,9 +176,23 @@ class Engine {
     await this.dbApi.cleanupPendingWallets();
   }
 
+  async checkDisabledPresetNetworks() {
+    const dbNetworks = await this.dbApi.listNetworks();
+    const presetNetworksList = Object.values(getPresetNetworks());
+    const networksToRemoved = dbNetworks.filter(({ id }) => {
+      const preset = presetNetworksList.find((p) => p.id === id);
+      return preset && !preset.enabled && !preset.isTestnet;
+    });
+
+    for (const n of networksToRemoved) {
+      debugLogger.engine.warn(`will remove network: ${n.id}`);
+      await this.dbApi.deleteNetwork(n.id);
+    }
+  }
+
   async syncPresetNetworks(): Promise<void> {
     await syncLatestNetworkList();
-
+    await this.checkDisabledPresetNetworks();
     try {
       const defaultNetworkList: Array<[string, boolean]> = [];
       const dbNetworks = await this.dbApi.listNetworks();
@@ -207,7 +221,11 @@ class Engine {
           const existingStatus = dbNetworkMap[network.id];
           if (typeof existingStatus !== 'undefined') {
             defaultNetworkList.push([network.id, existingStatus]);
-          } else {
+          } else if (network.enabled || network.isTestnet) {
+            // both network.enabled and network.isTestnet are false
+            // means this network is disabled
+            // so do not add to local cache and do not show this network in ui
+            // TODO: add 'disbaled' field to hold above condition
             await this.dbApi.addNetwork({
               id: network.id,
               name: network.name,
@@ -235,23 +253,15 @@ class Engine {
       ) {
         return;
       }
+
       const specifiedNetworks = new Set(defaultNetworkList.map(([id]) => id));
       dbNetworks.forEach((dbNetwork) => {
         if (!specifiedNetworks.has(dbNetwork.id)) {
           defaultNetworkList.push([dbNetwork.id, dbNetwork.enabled]);
         }
       });
-      await this.dbApi.updateNetworkList(
-        defaultNetworkList.map(([id, enable]) => {
-          const preset = presetNetworksList.find((p) => p.id === id);
-          if (preset && !preset.enabled && enable) {
-            debugLogger.engine.info(`removed preset disabled network id=${id}`);
-            return [id, false];
-          }
-          return [id, enable];
-        }),
-        true,
-      );
+
+      await this.dbApi.updateNetworkList(defaultNetworkList, true);
     } catch (error) {
       console.error(error);
     }
