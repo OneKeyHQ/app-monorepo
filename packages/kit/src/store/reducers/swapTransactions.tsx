@@ -1,9 +1,19 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { Token } from '@onekeyhq/engine/src/types/token';
+
 import { TransactionDetails } from '../../views/Swap/typings';
+
+type TokenListItem = {
+  name: string;
+  networkId: string;
+  logoURI: string;
+  tokens: Token[];
+};
 
 export type TransactionsState = {
   transactions: Record<string, Record<string, TransactionDetails[]>>;
+  tokenList?: TokenListItem[];
 };
 
 const initialState: TransactionsState = {
@@ -89,6 +99,9 @@ export const swapTransactionsSlice = createSlice({
       const { accountId } = action.payload;
       state.transactions[accountId] = {};
     },
+    updateTokenList(state, action: PayloadAction<TokenListItem[]>) {
+      state.tokenList = action.payload;
+    },
   },
 });
 
@@ -98,6 +111,7 @@ export const {
   archiveTransaction,
   clearTransactions,
   clearAccountTransactions,
+  updateTokenList,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;
