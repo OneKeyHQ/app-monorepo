@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { Linking } from 'react-native';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -16,6 +16,7 @@ export const useWebviewRef = ({
   navigationStateChangeEvent?: WebViewNavigation;
   onNavigation: OnWebviewNavigation;
 }) => {
+  const lastNavEventId = useRef<number>();
   const goBack = useCallback(() => {
     try {
       ref?.goBack();
@@ -47,9 +48,12 @@ export const useWebviewRef = ({
 
   useEffect(() => {
     if (navigationStateChangeEvent) {
-      const { canGoBack, canGoForward, loading, title, url } =
+      const { canGoBack, canGoForward, loading, title, url, lockIdentifier } =
         navigationStateChangeEvent;
-
+      if (lockIdentifier === lastNavEventId.current) {
+        return;
+      }
+      lastNavEventId.current = lockIdentifier;
       const isDeepLink = !url.startsWith('http') && url !== 'about:blank';
       if (isDeepLink) {
         stopLoading();

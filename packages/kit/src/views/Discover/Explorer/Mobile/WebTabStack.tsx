@@ -16,6 +16,7 @@ const WebTabStack = memo(() => {
   useNotifyChanges();
   const { tabs, currentTab, openMatchDApp } = useWebController();
 
+  const showHome = currentTab.url === homeTab.url;
   const content = useMemo(
     () =>
       tabs.slice(1).map((tab) => (
@@ -25,7 +26,6 @@ const WebTabStack = memo(() => {
       )),
     [tabs],
   );
-  const showHome = currentTab.url === homeTab.url;
 
   return (
     <Box flex={1}>
