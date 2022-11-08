@@ -89,11 +89,10 @@ const Screen = () => {
         height="full"
         flexDirection="column"
         maxW={MAX_PAGE_CONTAINER_WIDTH}
-        paddingX="51px"
-        paddingTop="32px"
       >
         <CollectionInfo />
         <TabBar
+          paddingX="51px"
           mt="32px"
           height="54px"
           itemWidth="54px"
@@ -114,7 +113,9 @@ const Screen = () => {
             },
           ]}
         />
-        <Divider />
+        <Box paddingX="51px">
+          <Divider />
+        </Box>
         <Box flex={1}>
           {context?.selectedIndex === 0 ? (
             <AssetsList

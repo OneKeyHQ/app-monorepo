@@ -265,7 +265,7 @@ const TransactionList = ({
       ),
     [currentNetwork, isSmallScreen],
   );
-  const paddingX = isSmallScreen ? 16 : 0;
+  const paddingX = isSmallScreen ? 16 : 51;
 
   return (
     <Tabs.FlatList<NFTTransaction>

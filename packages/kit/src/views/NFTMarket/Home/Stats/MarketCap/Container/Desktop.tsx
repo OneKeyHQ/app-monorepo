@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
@@ -7,6 +8,7 @@ import { ListRenderItem } from 'react-native';
 import { List, ListItem } from '@onekeyhq/components';
 import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
+import { formatMarketValueForComma } from '../../../../../Market/utils';
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';
 import { useCollectionDetail } from '../../../hook';
@@ -92,7 +94,11 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
             w="160px"
             text={{
               label: PriceString({
-                price: item.market_cap,
+                price: formatMarketValueForComma(
+                  new BigNumber(item.market_cap ?? '0')
+                    .decimalPlaces(2)
+                    .toNumber(),
+                ),
                 networkId: context?.selectedNetwork?.id,
               }),
               labelProps: { textAlign: 'right' },

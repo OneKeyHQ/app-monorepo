@@ -102,8 +102,7 @@ const ListHeaderComponent = () => {
             },
           }}
         />
-        {/* TODO */}
-        {/* <ListItem.Column
+        <ListItem.Column
           w="160px"
           text={{
             label: intl.formatMessage({
@@ -115,7 +114,7 @@ const ListHeaderComponent = () => {
               textAlign: 'right',
             },
           }}
-        /> */}
+        />
         <ListItem.Column
           w="160px"
           text={{
@@ -169,7 +168,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
             <ListItem.Column
               text={{
                 label: `${index + 1}`,
-                labelProps: { pb: '24px', typography: 'Body1Mono' },
+                labelProps: { pb: '24px', typography: 'Body1Strong' },
               }}
             />
             <ListItem.Column
@@ -196,6 +195,13 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
                         .decimalPlaces(2)
                         .toString()}%`
                     : '',
+                labelProps: { textAlign: 'right' },
+              }}
+            />
+            <ListItem.Column
+              w="160px"
+              text={{
+                label: item.blueChip?.next_blue_chip_probability ?? '-',
                 labelProps: { textAlign: 'right' },
               }}
             />

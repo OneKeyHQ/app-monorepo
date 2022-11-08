@@ -18,7 +18,13 @@ const Desktop: FC<Props> = ({ collection }) => {
   const intl = useIntl();
 
   return (
-    <Box h="184px" flexDirection="column">
+    <Box
+      width="full"
+      h="216px"
+      flexDirection="column"
+      paddingX="51px"
+      mt="32px"
+    >
       <Box flexDirection="row">
         <CollectionLogo src={collection?.logoUrl} width="64px" height="64px" />
         <Box flexDirection="column" ml="21px" justifyContent="center" flex={1}>

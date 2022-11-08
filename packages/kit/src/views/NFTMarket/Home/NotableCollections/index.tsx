@@ -29,16 +29,21 @@ const ListView: FC<Props> = ({ listData, onSelectCollection }) => {
   const ref = useRef(null);
 
   const renderItem = useCallback(
-    (item: Collection) => {
-      const { bannerUrl, contractName, floorPrice, chain } = item;
+    (item: Collection, index: number) => {
+      const { bannerUrl, contractName, floorPrice, chain, priceSymbol } = item;
       return (
         <CollectionCard
+          key={`${item.contractAddress as string} ${index}`}
           onPress={() => {
             onSelectCollection(item);
           }}
           contractName={contractName}
           netImageProps={{ src: bannerUrl }}
-          priceTextProps={{ price: floorPrice, networkId: chain }}
+          priceTextProps={{
+            price: floorPrice,
+            networkId: chain,
+            symbol: priceSymbol,
+          }}
           style={{ marginRight: 16 }}
         />
       );
@@ -47,7 +52,7 @@ const ListView: FC<Props> = ({ listData, onSelectCollection }) => {
   );
 
   const Banners = useMemo(
-    () => listData.map((item) => renderItem(item)),
+    () => listData.map((item, index) => renderItem(item, index)),
     [listData, renderItem],
   );
 
@@ -96,6 +101,8 @@ const NotableCollection = () => {
     [goToCollectionDetail],
   );
 
+  console.log('listData = ', listData.length);
+
   return (
     <Box>
       <Text typography="Heading" mb="16px">
@@ -119,4 +126,4 @@ const NotableCollection = () => {
   );
 };
 
-export default NotableCollection;
+export default React.memo(NotableCollection);

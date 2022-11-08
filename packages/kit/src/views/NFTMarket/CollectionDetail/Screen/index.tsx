@@ -57,8 +57,6 @@ const Screen = () => {
       }}
       headerHeight={isVerticalLayout ? 296 : 216}
       containerStyle={{
-        paddingLeft: isVerticalLayout ? 0 : 51,
-        paddingRight: isVerticalLayout ? 0 : 51,
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: '100%',
         marginHorizontal: 'auto', // Center align vertically

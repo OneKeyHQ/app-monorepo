@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
@@ -7,6 +8,7 @@ import { ListRenderItem } from 'react-native';
 import { List, ListItem, Text } from '@onekeyhq/components';
 import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
+import { formatMarketValueForComma } from '../../../../../Market/utils';
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';
 import { useCollectionDetail } from '../../../hook';
@@ -34,7 +36,7 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
         <ListItem.Column
           text={{
             label: `${index + 1}`,
-            labelProps: { pb: '24px', typography: 'Body1Mono' },
+            labelProps: { pb: '24px', typography: 'Body1Strong' },
           }}
         />
         <ListItem.Column
@@ -62,7 +64,11 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
                 numberOfLines={1}
               >
                 {PriceString({
-                  price: item.market_cap,
+                  price: formatMarketValueForComma(
+                    new BigNumber(item.market_cap ?? '0')
+                      .decimalPlaces(2)
+                      .toNumber(),
+                  ),
                   networkId: context?.selectedNetwork?.id,
                 })}
               </Text>

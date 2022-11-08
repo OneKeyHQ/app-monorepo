@@ -132,7 +132,7 @@ const AssetsList = ({
     [cardWidth, margin, marginBottom],
   );
 
-  const paddingX = isSmallScreen ? 16 : 0;
+  const paddingX = isSmallScreen ? 16 : 51;
   return (
     <Tabs.FlatList<NFTAsset>
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}

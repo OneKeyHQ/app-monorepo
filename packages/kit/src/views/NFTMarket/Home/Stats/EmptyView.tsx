@@ -12,8 +12,8 @@ import {
 type Props = {
   isTab?: boolean;
   numberOfData: number;
-} & ComponentProps<typeof List>;
-const EmptyView: FC<Props> = ({ numberOfData, ...rest }) => {
+} & Pick<ComponentProps<typeof List>, 'ListHeaderComponent'>;
+const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const listData = useMemo(() => {
     const arr: number[] = [];
@@ -54,7 +54,7 @@ const EmptyView: FC<Props> = ({ numberOfData, ...rest }) => {
           </ListItem.Column>
         </ListItem>
       )}
-      keyExtractor={(item) => `${item}`}
+      keyExtractor={(item, index) => `${index}`}
       {...rest}
     />
   );
