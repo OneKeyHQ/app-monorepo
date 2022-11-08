@@ -49,19 +49,44 @@ export default class Vault extends VaultBase {
     },
   );
 
+  override async getClientEndpointStatus(
+    url: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    const client = new XRPL.Client(url);
+    if (!client.isConnected()) {
+      await client.connect();
+    }
+    const start = performance.now();
+    const response = await client.request({
+      command: 'ledger',
+      ledger_index: 'validated',
+    });
+    const latestBlock = response.result.ledger_index;
+    client.disconnect();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      latestBlock,
+    };
+  }
+
   override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
     const result = await Promise.all(
       requests.map(async ({ address }) => {
         const client = await this.getClient();
-        const response = await client.request({
-          'command': 'account_info',
-          'account': address,
-          'ledger_index': 'validated',
-        });
+        try {
+          const response = await client.request({
+            'command': 'account_info',
+            'account': address,
+            'ledger_index': 'validated',
+          });
 
-        return new BigNumber(response.result?.account_data?.Balance);
+          return new BigNumber(response.result?.account_data?.Balance);
+        } catch (error) {
+          console.error(error);
+          throw error;
+        }
       }),
     );
 
