@@ -127,27 +127,29 @@ const DefaultList: FC<Props> = ({ selectNetwork }) => {
   }, [selectNetwork?.id, serviceNFT]);
 
   return (
-    <RankingList
-      selectNetwork={selectNetwork}
-      listData={listData}
-      ListHeaderComponent={() => (
-        <Box height="117px" width="full" paddingTop="57px" paddingX="16px">
-          <Box
-            flexDirection="column"
-            justifyContent="center"
-            width="full"
-            height="60px"
-          >
-            <Text typography="Heading">
-              {intl.formatMessage({
-                id: 'content__ranking',
-              })}
-            </Text>
+    <Box paddingX="16px" flex={1} overflow="hidden">
+      <RankingList
+        selectNetwork={selectNetwork}
+        listData={listData}
+        ListHeaderComponent={() => (
+          <Box height="117px" width="full" paddingTop="57px" paddingX="16px">
+            <Box
+              flexDirection="column"
+              justifyContent="center"
+              width="full"
+              height="60px"
+            >
+              <Text typography="Heading">
+                {intl.formatMessage({
+                  id: 'content__ranking',
+                })}
+              </Text>
+            </Box>
           </Box>
-        </Box>
-      )}
-      ListFooterComponent={() => <Box height={`${bottom}px`} />}
-    />
+        )}
+        ListFooterComponent={() => <Box height={`${bottom}px`} />}
+      />
+    </Box>
   );
 };
 
@@ -250,7 +252,7 @@ const NFTSearchModal: FC = () => {
 
   const { loading, result: collectonList } = useCollectionSearch(
     terms,
-    selectNetwork.id,
+    selectNetwork?.id,
   );
   const isLoading = loading || keyword !== terms;
 
@@ -262,6 +264,9 @@ const NFTSearchModal: FC = () => {
       headerShown={false}
       staticChildrenProps={{
         flex: 1,
+        borderRadius: '24px',
+        overflow: 'hidden',
+        paddingBottom: '16px',
       }}
     >
       {terms.length > 0 ? (

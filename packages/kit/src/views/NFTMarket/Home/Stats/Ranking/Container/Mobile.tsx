@@ -86,7 +86,11 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
     );
   }
   return (
-    <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
+    <MotiView
+      style={{ flex: 1 }}
+      from={{ opacity: 0.5 }}
+      animate={{ opacity: 1 }}
+    >
       <List
         data={listData}
         renderItem={renderItem}
