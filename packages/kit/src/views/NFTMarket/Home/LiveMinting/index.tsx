@@ -85,18 +85,15 @@ export const LiveMintingList = () => {
 
   const isFocused = useIsFocused();
 
-  const shouldDoRefresh = useMemo(
-    (): boolean =>
-      // if (!context?.selectedNetwork?.id) {
-      //   return false;
-      // }
-      // if (!isFocused) {
-      //   return false;
-      // }
-      false,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [context?.selectedNetwork?.id, isFocused],
-  );
+  const shouldDoRefresh = useMemo((): boolean => {
+    if (!context?.selectedNetwork?.id) {
+      return false;
+    }
+    if (!isFocused) {
+      return false;
+    }
+    return true;
+  }, [context?.selectedNetwork?.id, isFocused]);
 
   const fetchData = async () => {
     if (setContext) {
