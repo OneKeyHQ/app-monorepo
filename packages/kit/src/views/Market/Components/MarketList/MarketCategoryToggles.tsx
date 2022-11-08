@@ -79,7 +79,7 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
               <Box
                 mr="6"
                 w="10"
-                h="4"
+                h="8"
                 borderRadius="9999px"
                 overflow="hidden"
                 key={i}

@@ -5,7 +5,7 @@ import { StyleProp, ViewStyle } from 'react-native';
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useManageTokens } from '../../hooks';
+import { useManageTokens, useSettings } from '../../hooks';
 
 import { MarketApiData, PriceApiProps, fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
@@ -23,6 +23,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   const { charts: reduxCachedCharts, prices } = useManageTokens();
+  const { selectedFiatMoneySymbol } = useSettings();
   const tokenId = contract || 'main';
   const isNoPriceData = prices[tokenId] === null;
   const dayData = reduxCachedCharts[tokenId];
@@ -47,6 +48,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
           networkId,
           days: TIMEOPTIONS_VALUE[newTimeIndex],
           points,
+          vs_currency: selectedFiatMoneySymbol,
         });
         if (dayData?.length && newData?.length) {
           latestPriceData = dayData[dayData.length - 1];

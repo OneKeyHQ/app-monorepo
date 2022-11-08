@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import { TokenBalanceValue } from '../store/reducers/tokens';
+import { formatMarketValueForInfo } from '../views/Market/utils';
 
 export function calculateGains({
   basePrice,
@@ -30,7 +31,9 @@ export function calculateGains({
   let percentageGain: number | string = basePrice
     ? (gain / basePrice) * 100
     : 0;
-  const gainText = isPositive ? `+${gain.toFixed(2)}` : gain.toFixed(2);
+  const gainText = isPositive
+    ? `+${formatMarketValueForInfo(gain)}`
+    : formatMarketValueForInfo(gain);
   percentageGain = isPositive
     ? `+${percentageGain.toFixed(2)}%`
     : `${percentageGain.toFixed(2)}%`;

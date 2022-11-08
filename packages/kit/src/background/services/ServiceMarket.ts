@@ -139,11 +139,13 @@ export default class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchMarketDetail(coingeckoId: string) {
     const { appSelector, dispatch } = this.backgroundApi;
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const locale = appSelector((s) => s.settings.locale);
     const path = '/market/detail';
     const data = await this.fetchData(
       path,
       {
+        vs_currency: vsCurrency ?? 'usd',
         id: coingeckoId,
         locale: locale === 'system' ? getDefaultLocale() : locale,
       },
@@ -210,19 +212,20 @@ export default class ServiceMarket extends ServiceBase {
     points?: string;
   }): Promise<[number, number][]> {
     const path = '/market/token/chart';
+    const { appSelector, dispatch } = this.backgroundApi;
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const data = await this.fetchData(
       path,
       {
         coingeckoId,
         days,
         points,
+        vs_currency: vsCurrency ?? 'usd',
       },
       [],
     );
     if (data.length > 0) {
-      this.backgroundApi.dispatch(
-        updateMarketChats({ coingeckoId, chart: data, days }),
-      );
+      dispatch(updateMarketChats({ coingeckoId, chart: data, days }));
     }
     return Promise.resolve([]);
   }

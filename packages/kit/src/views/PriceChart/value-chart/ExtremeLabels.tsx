@@ -3,7 +3,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useChartData } from '@onekeyfe/react-native-animated-charts';
 import { Text, View } from 'react-native';
 
-import { FormatCurrencyNumber } from '../../../components/Format';
+import { useSettings } from '../../../hooks';
+import { formatMarketValueForInfo, getFiatCodeUnit } from '../../Market/utils';
 
 function trim(val: number) {
   return Math.min(Math.max(val, 0.05), 0.95);
@@ -92,7 +93,7 @@ const CenteredLabel = ({
 const ExtremeLabels = React.memo(
   ({ color, width }: { color: string; width: number }) => {
     const { greatestX, greatestY, smallestX, smallestY } = useChartData();
-
+    const { selectedFiatMoneySymbol } = useSettings();
     if (!(greatestX && greatestY && smallestX && smallestY)) {
       return null;
     }
@@ -102,7 +103,6 @@ const ExtremeLabels = React.memo(
     const positionMax = trim(
       (greatestY.x - smallestX.x) / (greatestX.x - smallestX.x),
     );
-
     return (
       <>
         {positionMin ? (
@@ -114,7 +114,10 @@ const ExtremeLabels = React.memo(
             }}
             width={width}
           >
-            <FormatCurrencyNumber value={formatNative(smallestY.y)} />
+            {`${getFiatCodeUnit(
+              selectedFiatMoneySymbol,
+            )}${formatMarketValueForInfo(formatNative(smallestY.y))}`}
+            {/* <FormatCurrencyNumber value={formatNative(smallestY.y)} /> */}
           </CenteredLabel>
         ) : null}
         {positionMax ? (
@@ -126,7 +129,10 @@ const ExtremeLabels = React.memo(
             }}
             width={width}
           >
-            <FormatCurrencyNumber value={formatNative(greatestY.y)} />
+            {`${getFiatCodeUnit(
+              selectedFiatMoneySymbol,
+            )}${formatMarketValueForInfo(formatNative(smallestY.y))}`}
+            {/* <FormatCurrencyNumber value={formatNative(greatestY.y)} /> */}
           </CenteredLabel>
         ) : null}
       </>

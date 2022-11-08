@@ -115,14 +115,12 @@ const SwapButton = ({
 
 const StakeButton = ({
   onPress,
-  isDisabled,
 }: {
   onPress: () => void;
   isDisabled?: boolean;
 }) => (
   <Box>
     <IconButton
-      isDisabled={isDisabled}
       ml={4}
       type="basic"
       name="SaveSolid"
@@ -134,16 +132,9 @@ const StakeButton = ({
   </Box>
 );
 
-const PurchaseButton = ({
-  onPress,
-  isDisabled,
-}: {
-  onPress: () => void;
-  isDisabled: boolean;
-}) => (
+const PurchaseButton = ({ onPress }: { onPress: () => void }) => (
   <Box>
     <IconButton
-      isDisabled={isDisabled}
       ml={4}
       type="basic"
       name="PlusSolid"
@@ -296,41 +287,43 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }
                 }}
               />
-              <StakeButton
-                isDisabled={!stakedSupport}
-                onPress={() => {
-                  if (token && stakedSupport) {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.Staking,
-                      params: {
-                        screen: StakingRoutes.StakingAmount,
+              {stakedSupport ? (
+                <StakeButton
+                  onPress={() => {
+                    if (token && stakedSupport) {
+                      navigation.navigate(RootRoutes.Modal, {
+                        screen: ModalRoutes.Staking,
                         params: {
-                          networkId: token.networkId,
+                          screen: StakingRoutes.StakingAmount,
+                          params: {
+                            networkId: token.networkId,
+                          },
+                        },
+                      });
+                    }
+                  }}
+                />
+              ) : null}
+              {crypotoCurrency ? (
+                <PurchaseButton
+                  onPress={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.FiatPay,
+                      params: {
+                        screen: FiatPayRoutes.AmountInputModal,
+                        params: {
+                          token: crypotoCurrency as CurrencyType,
+                          type: 'Buy',
                         },
                       },
                     });
-                  }
-                }}
-              />
-              <PurchaseButton
-                isDisabled={!crypotoCurrency}
-                onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.FiatPay,
-                    params: {
-                      screen: FiatPayRoutes.AmountInputModal,
-                      params: {
-                        token: crypotoCurrency as CurrencyType,
-                        type: 'Buy',
-                      },
-                    },
-                  });
-                }}
-              />
-              <FavoritButton tokenItem={marketTokenItem} />
-              {marketTokenItem ? (
-                <BellButton tokenItem={marketTokenItem} />
+                  }}
+                />
               ) : null}
+              <FavoritButton tokenItem={marketTokenItem} />
+              {/* {marketTokenItem ? (
+                <BellButton tokenItem={marketTokenItem} />
+              ) : null} */}
             </Box>
           </Box>
           {children}
