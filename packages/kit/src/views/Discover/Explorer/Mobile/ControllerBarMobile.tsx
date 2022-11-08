@@ -48,6 +48,7 @@ export const ControllerBarMobile: FC<{
           },
           useAnimatedStyle(
             () => ({
+              zIndex: expandAnim.value === 0 ? -1 : 1,
               translateY: interpolate(
                 expandAnim.value,
                 [0, 1],

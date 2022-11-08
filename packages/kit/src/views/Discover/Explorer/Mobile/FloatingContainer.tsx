@@ -1,6 +1,5 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
-import { Freeze } from 'react-freeze';
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
@@ -12,12 +11,12 @@ import Animated, {
 
 import { Box, Pressable } from '@onekeyhq/components';
 
-import WebContent from '../Content/WebContent';
 import { useWebController } from '../Controller/useWebController';
 import { FLOATINGWINDOW_MAX, FLOATINGWINDOW_MIN } from '../explorerUtils';
 
 import { ControllerBarMobile } from './ControllerBarMobile';
 import FloatingBar from './FloatingBar';
+import WebTabStack from './WebTabStack';
 
 const FloatingContainer: FC<{
   onMaximize: () => void;
@@ -30,11 +29,6 @@ const FloatingContainer: FC<{
   const [containerHeight, setContainerHeight] = useState(0);
   const expandAnim = useSharedValue(FLOATINGWINDOW_MIN);
 
-  const explorerContent = tabs.map((tab) => (
-    <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
-      <WebContent {...tab} />
-    </Freeze>
-  ));
   const expand = useCallback(() => {
     expandAnim.value = withTiming(FLOATINGWINDOW_MAX, { duration: 300 }, () =>
       runOnJS(onMaximize),
@@ -63,40 +57,42 @@ const FloatingContainer: FC<{
   }, [expand, expandAnim.value, tabs.length]);
 
   return (
-    <Animated.View
-      style={[
-        StyleSheet.absoluteFill,
-        useAnimatedStyle(
-          () => ({
-            zIndex: containerHeight > 0 && hasTabs ? 1 : -1,
-            transform: [
-              {
-                translateY: interpolate(
-                  expandAnim.value,
-                  [FLOATINGWINDOW_MIN, FLOATINGWINDOW_MAX],
-                  [containerHeight - 48, 0],
-                ),
-              },
-            ],
-          }),
-          [containerHeight, hasTabs],
-        ),
-      ]}
-      onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
-    >
-      <Box flex={1} bg="background-default">
-        <Pressable h="48px" onPress={toggle}>
-          <FloatingBar
-            expandAnim={expandAnim}
-            favicon={currentTab.favicon}
-            text={currentTab.title}
-            onSearch={onSearch}
-          />
-        </Pressable>
-        {explorerContent}
-        <ControllerBarMobile expandAnim={expandAnim} />
-      </Box>
-    </Animated.View>
+    <>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          useAnimatedStyle(
+            () => ({
+              zIndex: containerHeight > 0 && hasTabs ? 1 : -1,
+              transform: [
+                {
+                  translateY: interpolate(
+                    expandAnim.value,
+                    [FLOATINGWINDOW_MIN, FLOATINGWINDOW_MAX],
+                    [containerHeight - 48, 0],
+                  ),
+                },
+              ],
+            }),
+            [containerHeight, hasTabs],
+          ),
+        ]}
+        onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+      >
+        <Box flex={1} bg="background-default">
+          <Pressable h="48px" onPress={toggle}>
+            <FloatingBar
+              expandAnim={expandAnim}
+              favicon={currentTab.favicon}
+              text={currentTab.title}
+              onSearch={onSearch}
+            />
+          </Pressable>
+          <WebTabStack />
+        </Box>
+      </Animated.View>
+      <ControllerBarMobile expandAnim={expandAnim} />
+    </>
   );
 };
 FloatingContainer.displayName = 'FloatingContainer';

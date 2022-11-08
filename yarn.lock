@@ -5543,6 +5543,7 @@ __metadata:
     fuse.js: ^6.5.3
     lightweight-charts: ^3.8.0
     moti: ^0.20.0
+    react-freeze: ^1.0.3
     react-intl: ^5.21.2
     react-native-animated-splash-screen: ^2.0.5
     react-native-camera: 4.2.1
@@ -25352,12 +25353,12 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-freeze@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "react-freeze@npm:1.0.0"
+"react-freeze@npm:^1.0.0, react-freeze@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "react-freeze@npm:1.0.3"
   peerDependencies:
-    react: ^17.0.0
-  checksum: c746b9d369c77296c277626cf7dd5ff24d49657e2f16412d14f845d1b428588184c0009374119f7dec24be37ab8c134d15aa4ecd57360c874880af508dcc577b
+    react: ">=17.0.0"
+  checksum: 4258eabdbbf74aaebc38ad1fd7cfdc1984d2a844a2247b39a341c55c1beb02d5e855e6473ec5683205a52b2251d0f7dffa07cd8100f402dd2698af88b932d946
   languageName: node
   linkType: hard
 

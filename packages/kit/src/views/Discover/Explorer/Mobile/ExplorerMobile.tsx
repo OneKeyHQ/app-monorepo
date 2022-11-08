@@ -12,7 +12,7 @@ import {
 } from '../../../../routes/Modal/Discover';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../../routes/types';
-import { SingleWebContainer } from '../Content/WebContainer';
+import WebHomeContainer from '../Content/WebHomeContainer';
 import { useWebController } from '../Controller/useWebController';
 import { MatchDAppItemType } from '../explorerUtils';
 
@@ -61,7 +61,7 @@ const ExplorerMobile: FC = () => {
     <Box flex={1} bg="background-default" mt={`${top}px`}>
       <Freeze freeze={!showHome}>
         <ExplorerBar onSearch={onSearch} />
-        <SingleWebContainer />
+        <WebHomeContainer />
       </Freeze>
       <FloatingContainer
         onMaximize={() => setShowHome(false)}

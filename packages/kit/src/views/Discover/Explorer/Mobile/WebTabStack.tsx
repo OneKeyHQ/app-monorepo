@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
@@ -12,34 +12,24 @@ import WebContent from '../Content/WebContent';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebController } from '../Controller/useWebController';
 
-export const TabbedWebContainer = memo(() => {
+const WebTabStack = memo(() => {
   useNotifyChanges();
-  const {
-    gotoSite,
-    tabs,
-    incomingUrl,
-    clearIncomingUrl,
-    currentTab,
-    openMatchDApp,
-  } = useWebController();
+  const { tabs, currentTab, openMatchDApp } = useWebController();
 
-  const showHome = currentTab.url === homeTab.url;
-  useFocusEffect(
-    useCallback(() => {
-      if (incomingUrl) {
-        gotoSite({ url: incomingUrl, isNewWindow: true });
-        clearIncomingUrl();
-      }
-    }, [clearIncomingUrl, gotoSite, incomingUrl]),
-  );
-
-  return (
-    <Box flex={1} zIndex={3}>
-      {tabs.map((tab) => (
+  const content = useMemo(
+    () =>
+      tabs.slice(1).map((tab) => (
         <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
           <WebContent {...tab} />
         </Freeze>
-      ))}
+      )),
+    [tabs],
+  );
+  const showHome = currentTab.url === homeTab.url;
+
+  return (
+    <Box flex={1}>
+      {content}
       <View
         style={{
           position: 'absolute',
@@ -60,20 +50,5 @@ export const TabbedWebContainer = memo(() => {
     </Box>
   );
 });
-TabbedWebContainer.displayName = 'TabbedWebContainer';
-
-// for browser
-export const SingleWebContainer = () => {
-  const { openMatchDApp } = useWebController();
-
-  return (
-    <DiscoverHome
-      onItemSelect={(dapp) => {
-        openMatchDApp({ id: dapp._id, dapp });
-      }}
-      onItemSelectHistory={openMatchDApp}
-    />
-  );
-};
-
-SingleWebContainer.displayName = 'SingleWebContainer';
+WebTabStack.displayName = 'WebTabStack';
+export default WebTabStack;

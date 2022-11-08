@@ -7,14 +7,12 @@ import {
 } from '@onekeyhq/components';
 import { useDesktopTopDragBarController } from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController';
 
-import {
-  SingleWebContainer,
-  TabbedWebContainer,
-} from '../Content/WebContainer';
+import WebHomeContainer from '../Content/WebHomeContainer';
 import { webHandler } from '../explorerUtils';
 
 import ControllerBarDesktop from './ControllerBarDesktop';
 import TabBarDesktop from './TabBarDesktop';
+import TabbedWebContainer from './TabbedWebContainer';
 
 const showExplorerBar = webHandler !== 'browser';
 
@@ -37,7 +35,7 @@ const ExplorerDesktop: FC = () => {
       {webHandler === 'tabbedWebview' ? (
         <TabbedWebContainer />
       ) : (
-        <SingleWebContainer />
+        <WebHomeContainer />
       )}
     </Box>
   );

@@ -95,10 +95,10 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
         id: 'action__back_to_home_page',
       }),
       value: () => {
-        // stopLoading();
-        // backgroundApiProxy.dispatch(
-        //   setWebTabData({ ...homeTab, id: currentTab.id }),
-        // );
+        stopLoading();
+        backgroundApiProxy.dispatch(
+          setWebTabData({ ...homeTab, id: currentTab.id }),
+        );
       },
       iconProps: { name: 'HomeOutline' },
     },
