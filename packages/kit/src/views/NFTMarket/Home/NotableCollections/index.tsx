@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import { Box, Text } from '@onekeyhq/components';
@@ -106,10 +107,12 @@ const NotableCollection = () => {
         {listData.length === 0 ? (
           <EmptyView />
         ) : (
-          <ListView
-            listData={listData}
-            onSelectCollection={onSelectCollection}
-          />
+          <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
+            <ListView
+              listData={listData}
+              onSelectCollection={onSelectCollection}
+            />
+          </MotiView>
         )}
       </Box>
     </Box>
