@@ -397,15 +397,15 @@ export function FormatCurrencyNumber({
     decimals ??
     getSuggestedDecimals(value instanceof BigNumber ? value.toNumber() : value);
   const isBTCCurrency = selectedFiatMoneySymbol === 'btc';
-
+  const numberValue = value instanceof BigNumber ? value.toNumber() : value;
   return isBTCCurrency ? (
     <>
-      `${getFiatCodeUnit(selectedFiatMoneySymbol)}$
-      {formatMarketValueForInfo(value)}`
+      `${!onlyNumber ? getFiatCodeUnit(selectedFiatMoneySymbol) : ''}$
+      {formatMarketValueForInfo(numberValue)}`
     </>
   ) : (
     <FormattedNumber
-      value={value ?? 0}
+      value={numberValue ?? 0}
       currencyDisplay="narrowSymbol"
       // eslint-disable-next-line react/style-prop-object
       style={onlyNumber ? 'decimal' : 'currency'}
