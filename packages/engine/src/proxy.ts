@@ -611,7 +611,6 @@ class ProviderController extends BaseProviderController {
     options?: any,
   ): Promise<string> {
     try {
-      // @ts-expect-error
       return await super.broadcastTransaction(networkId, rawTx, options);
     } catch (e) {
       throw extractResponseError(e);
