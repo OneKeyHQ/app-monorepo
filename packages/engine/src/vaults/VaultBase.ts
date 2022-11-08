@@ -272,7 +272,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     });
   }
 
-  async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+  async broadcastTransaction(
+    signedTx: ISignedTx,
+    options?: any,
+  ): Promise<ISignedTx> {
     debugLogger.engine.info('broadcastTransaction START:', {
       rawTx: signedTx.rawTx,
     });
@@ -280,6 +283,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const txid = await this.engine.providerManager.broadcastTransaction(
       this.networkId,
       signedTx.rawTx,
+      options,
     );
     debugLogger.engine.info('broadcastTransaction END:', {
       txid,

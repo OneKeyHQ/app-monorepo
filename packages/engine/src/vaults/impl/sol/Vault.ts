@@ -29,7 +29,7 @@ import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import memoizee from 'memoizee';
 
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -43,7 +43,7 @@ import {
 } from '../../../managers/nft';
 import { extractResponseError } from '../../../proxy';
 import { NFTTransaction } from '../../../types/nft';
-import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
+import { IDecodedTxActionType, IDecodedTxStatus, ISignedTx } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -484,6 +484,68 @@ export default class Vault extends VaultBase {
       }
     }
     return Promise.resolve(encodedTx);
+  }
+
+  override async broadcastTransaction(signedTx: ISignedTx) {
+    let isNodeBehind = false;
+    const maxRetryTimes = 6;
+    let retryTime = 0;
+    let lastRpcErrorMessage = '';
+
+    const doBroadcast = async () => {
+      if (retryTime > maxRetryTimes) {
+        throw new Error(
+          `Solana broadcastTransaction retry times exceeded: ${
+            lastRpcErrorMessage || ''
+          }`,
+        );
+      }
+      retryTime += 1;
+      try {
+        const options = isNodeBehind
+          ? {
+              // https://docs.solana.com/developing/clients/jsonrpc-api#sendtransaction
+              //     commitment: 'confirmed',
+              preflightCommitment: 'confirmed',
+            }
+          : {};
+        const result = await super.broadcastTransaction(
+          signedTx,
+          options || {},
+        );
+        return result;
+      } catch (error) {
+        // @ts-ignore
+        const rpcErrorData = error?.data as
+          | {
+              code: number;
+              message: string;
+              data: any;
+            }
+          | undefined;
+        if (error && rpcErrorData) {
+          // https://marinade.finance/app/defi/
+          // error.data
+          //    {"code":-32005,"message":"Node is behind by 1018821 slots","data":{"numSlotsBehind":1018821}}
+          //    {"code":-32002,"message":"Transaction simulation failed: Blockhash not found","data":{"accounts":null,"err":"BlockhashNotFound","logs":[],"unitsConsumed":0}}
+          if (rpcErrorData.code === -32005 || rpcErrorData.code === -32002) {
+            isNodeBehind = true;
+            lastRpcErrorMessage = rpcErrorData.message;
+            await wait(1000);
+            return;
+          }
+        }
+        throw error;
+      }
+    };
+
+    do {
+      const result = await doBroadcast();
+      if (result) {
+        return result;
+      }
+    } while (isNodeBehind);
+    throw new Error('Solana broadcastTransaction retry failed');
   }
 
   override async buildUnsignedTxFromEncodedTx(

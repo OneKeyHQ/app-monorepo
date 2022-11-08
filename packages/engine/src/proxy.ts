@@ -608,9 +608,11 @@ class ProviderController extends BaseProviderController {
   override async broadcastTransaction(
     networkId: string,
     rawTx: string,
+    options?: any,
   ): Promise<string> {
     try {
-      return await super.broadcastTransaction(networkId, rawTx);
+      // @ts-expect-error
+      return await super.broadcastTransaction(networkId, rawTx, options);
     } catch (e) {
       throw extractResponseError(e);
     }
