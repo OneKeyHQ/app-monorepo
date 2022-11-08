@@ -4736,9 +4736,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/blockchain-libs@npm:0.0.45":
-  version: 0.0.45
-  resolution: "@onekeyfe/blockchain-libs@npm:0.0.45"
+"@onekeyfe/blockchain-libs@npm:0.0.46":
+  version: 0.0.46
+  resolution: "@onekeyfe/blockchain-libs@npm:0.0.46"
   dependencies:
     "@conflux-dev/conflux-address-js": ^1.3.11
     "@metamask/eth-sig-util": ^4.0.0
@@ -4769,7 +4769,7 @@ __metadata:
     whatwg-url: ^7.0.0
   peerDependencies:
     "@onekeyfe/js-sdk": "*"
-  checksum: 29bd8298bf61b18e874777ab4f6c5db0991f514ca162a1e0c3faa936c4d7086e23aedb1468ba44866b96a79052789bed817e694b11c9683a5786f0b2b02d3875
+  checksum: ff4bcb1d55b62361fc209199e78dd590ab13bcf90962e4079975a00a9585d598282a25f9b89fe8b80ee21a2d8e3741d51b9e098c21fbd2841f2f6272fed89144
   languageName: node
   linkType: hard
 
@@ -5482,7 +5482,7 @@ __metadata:
     "@ethersproject/transactions": ^5.6.0
     "@metamask/eth-sig-util": ^4.0.0
     "@noble/hashes": 1.1.2
-    "@onekeyfe/blockchain-libs": 0.0.45
+    "@onekeyfe/blockchain-libs": 0.0.46
     "@onekeyfe/js-sdk": 1.1.5
     "@onekeyfe/network-list": 1.6.16
     "@solana/spl-token": ^0.3.0
