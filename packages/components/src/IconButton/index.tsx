@@ -41,6 +41,7 @@ const IconButton: FC<IconButtonProps & ComponentProps<typeof Button>> = ({
   circle,
   isLoading,
   isDisabled,
+  borderRadius,
   ...props
 }) => {
   const rect = getRect(size);
@@ -54,7 +55,7 @@ const IconButton: FC<IconButtonProps & ComponentProps<typeof Button>> = ({
       pr={rect}
       pb={rect}
       pl={rect}
-      borderRadius={circle ? 'full' : 12}
+      borderRadius={circle ? 'full' : borderRadius ?? 12}
       leftIconName={name}
       iconSize={iconSize}
       {...props}
