@@ -16,8 +16,13 @@ yarn-error.log
 /packages/app/.env
 /packages/app/pc-api-8644398719570171123-0-dcae07e2afab.json
 
-.yarn
-.yarnrc
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
 /packages/desktop/public/static/connect
 /packages/kit/src/public/static/connect

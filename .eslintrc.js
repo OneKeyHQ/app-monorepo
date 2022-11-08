@@ -12,7 +12,8 @@ const jsRules = {
   'import/extensions': 'off',
   'react/function-component-definition': 'off',
   'react/jsx-props-no-spreading': 'off',
-  'react/no-unused-prop-types':'off',
+  'react/no-unused-prop-types': 'off',
+  'import/no-unresolved': 'off', // tsc can check this
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {

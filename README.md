@@ -36,7 +36,7 @@ We really need your support, star or watch this repo for latest updates.
 ## 🚀 Getting Onboard
 
 1. Install [node.js LTS version  (>= 16)](https://nodejs.org/en/)
-2. Install [yarn package management tool](https://yarnpkg.com/)(After installing the latest version of yarn, execute `yarn policies set-version 1.18.0` in the root directory)
+2. Install [yarn package management tool](https://yarnpkg.com/)
 3. Install [git lfs](https://git-lfs.github.com/) (some binaries are required for pulling and updating)
 4. To start the iOS project, make sure that the local XCode version is greater than or equal to 13.3
 5. To start the Android project, make sure that the local JDK version is greater than or equal to 11
