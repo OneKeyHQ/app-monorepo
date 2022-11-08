@@ -22,6 +22,7 @@ export type CollectiblesRoutesParams = {
   [CollectiblesModalRoutes.NFTDetailModal]: {
     asset: NFTAsset;
     network: Network;
+    isOwner: boolean;
   };
 };
 

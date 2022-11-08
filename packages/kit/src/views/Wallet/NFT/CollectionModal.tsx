@@ -114,6 +114,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
           params: {
             asset,
             network,
+            isOwner: true,
           },
         },
       });

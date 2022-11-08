@@ -75,7 +75,7 @@ const NFTDetailModal: FC = () => {
         CollectiblesModalRoutes.NFTDetailModal
       >
     >();
-  const { network, asset } = route.params;
+  const { network, asset, isOwner } = route.params;
 
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
@@ -105,19 +105,22 @@ const NFTDetailModal: FC = () => {
     imageContent: (
       <Box flexDirection="column">
         <CollectibleContent asset={asset} />
-        <Button
-          isDisabled={isDisabled}
-          mt="24px"
-          width="full"
-          height="42px"
-          size="lg"
-          type="primary"
-          onPress={sendAction}
-        >
-          {intl.formatMessage({
-            id: 'action__send',
-          })}
-        </Button>
+        {isOwner && (
+          <Button
+            isDisabled={isDisabled}
+            mt="24px"
+            width="full"
+            height="42px"
+            size="lg"
+            type="primary"
+            onPress={sendAction}
+          >
+            {intl.formatMessage({
+              id: 'action__send',
+            })}
+          </Button>
+        )}
+
         {platformEnv.isDev && (
           <Button
             mt={4}
