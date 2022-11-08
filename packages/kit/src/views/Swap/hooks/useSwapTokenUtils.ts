@@ -5,6 +5,7 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useAccountTokensBalance,
+  useAppSelector,
   useNetworkTokensPrice,
   useThrottle,
 } from '../../../hooks';
@@ -76,3 +77,18 @@ export const useTokenPrice = (token?: Token) => {
     return prices[token.tokenIdOnNetwork || 'main'];
   }, [prices, token]);
 };
+
+export function useSwapTokenList(networkId?: string) {
+  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  return useMemo(() => {
+    if (!tokenList) {
+      return [];
+    }
+    let activeNetworkId = networkId;
+    if (!activeNetworkId) {
+      activeNetworkId = 'All';
+    }
+    const data = tokenList.find((item) => item.networkId === activeNetworkId);
+    return data?.tokens ?? [];
+  }, [tokenList, networkId]);
+}

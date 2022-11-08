@@ -19,62 +19,45 @@ import {
 import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/engine/src/types/token';
-import SwapAllChainsLogoPNG from '@onekeyhq/kit/assets/swap_all_chains_logo.png';
 
 import {
+  useAppSelector,
   useDebounce,
   useNetworkSimple,
-  useNetworkTokens,
 } from '../../../../hooks';
-import { enabledNetworkIds } from '../../config';
+import { useRestrictedTokens } from '../../hooks/useSwap';
 import {
-  useEnabledSwappableNetworks,
-  useRestrictedTokens,
-  useSwappableNativeTokens,
-} from '../../hooks/useSwap';
-import { useTokenSearch } from '../../hooks/useSwapTokenUtils';
+  useSwapTokenList,
+  useTokenSearch,
+} from '../../hooks/useSwapTokenUtils';
 
 import { TokenSelectorContext } from './context';
-import { DataUpdaters } from './refresher';
+import { EmptySkeleton } from './EmptySkeleton';
 
 type NetworkItemProp = ToggleButtonProps & { networkId?: string };
 
 const NetworkSelector: FC = () => {
-  const { networkId, setNetworkId } = useContext(TokenSelectorContext);
-  const networks = useEnabledSwappableNetworks();
   const intl = useIntl();
-  const enabledNetworks = useMemo(() => {
-    const evmNetworks = networks.sort((a, b) => {
-      const networkIdA = enabledNetworkIds.indexOf(a.id);
-      const networkIdB = enabledNetworkIds.indexOf(b.id);
-      return networkIdA < networkIdB ? -1 : 1;
-    });
-    return evmNetworks;
-  }, [networks]);
+  const { networkId, setNetworkId } = useContext(TokenSelectorContext);
+  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
 
   const buttons: NetworkItemProp[] = useMemo(() => {
-    const result: NetworkItemProp[] = [
-      {
-        text: intl.formatMessage({ id: 'option__all' }),
-        networkId: undefined,
-        leftComponentRender: () => (
-          <Box mr="1">
-            <Image size={5} source={SwapAllChainsLogoPNG} />
-          </Box>
-        ),
-      },
-    ];
-    const items = enabledNetworks.map((item) => ({
-      text: item.shortName,
-      networkId: item.id,
+    if (!tokenList) {
+      return [];
+    }
+    return tokenList.map((item) => ({
+      text:
+        item.name.toLowerCase() === 'all'
+          ? intl.formatMessage({ id: 'option__all' })
+          : item.name,
+      networkId: item.name.toLowerCase() === 'all' ? undefined : item.networkId,
       leftComponentRender: () => (
         <Box mr="1">
           <Image size={5} src={item.logoURI} />
         </Box>
       ),
     }));
-    return result.concat(items);
-  }, [enabledNetworks, intl]);
+  }, [tokenList, intl]);
 
   const onButtonPress = useCallback(
     (index: number) => {
@@ -230,25 +213,9 @@ const TokenSelector: FC<TokenSelectorProps> = ({
 }) => {
   const intl = useIntl();
   const { networkId: activeNetworkId } = useContext(TokenSelectorContext);
-  const swappableNativeTokens = useSwappableNativeTokens();
-  const networkTokens = useNetworkTokens(activeNetworkId);
+  const tokenList = useSwapTokenList(activeNetworkId);
 
-  const list = useMemo(() => {
-    const items = [...networkTokens];
-    const index = items.findIndex((o) => !o.tokenIdOnNetwork);
-    if (index > 0) {
-      const deleted = items.splice(index, 1);
-      return deleted.concat(items);
-    }
-    return items;
-  }, [networkTokens]);
-
-  const tokens = useMemo(
-    () => (!activeNetworkId ? swappableNativeTokens ?? [] : list),
-    [swappableNativeTokens, activeNetworkId, list],
-  );
-
-  const restrictedTokens = useRestrictedTokens(tokens, included, excluded);
+  const restrictedTokens = useRestrictedTokens(tokenList, included, excluded);
 
   const [keyword, setKeyword] = useState<string>('');
   const terms = useDebounce(keyword, 500);
@@ -275,6 +242,20 @@ const TokenSelector: FC<TokenSelectorProps> = ({
     [listItems.length, onSelect],
   );
 
+  const tokenSources = useAppSelector((s) => s.swapTransactions.tokenList);
+  if (!tokenSources) {
+    return (
+      <Modal
+        header={intl.formatMessage({ id: 'title__select_a_token' })}
+        height="560px"
+        footer={null}
+        hidePrimaryAction
+      >
+        <EmptySkeleton />
+      </Modal>
+    );
+  }
+
   return (
     <>
       <Modal
@@ -300,7 +281,6 @@ const TokenSelector: FC<TokenSelectorProps> = ({
           ),
         }}
       />
-      <DataUpdaters />
     </>
   );
 };

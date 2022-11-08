@@ -1,8 +1,11 @@
-/* eslint-disable @typescript-eslint/require-await */
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+import axios from 'axios';
+
 import { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
@@ -23,7 +26,10 @@ import {
   setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
-import { clearTransactions } from '../../store/reducers/swapTransactions';
+import {
+  clearTransactions,
+  updateTokenList,
+} from '../../store/reducers/swapTransactions';
 import { SendConfirmParams } from '../../views/Send/types';
 import { enabledNetworkIds } from '../../views/Swap/config';
 import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
@@ -33,6 +39,8 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
+  request = axios.create({ timeout: 60 * 1000 });
+
   getNetwork(networkId?: string): Network | undefined {
     if (!networkId) {
       return;
@@ -448,5 +456,21 @@ export default class ServiceSwap extends ServiceBase {
       }
     }
     return false;
+  }
+
+  @backgroundMethod()
+  async getSwapTokens() {
+    const { dispatch } = this.backgroundApi;
+    const endpoint = await this.getServerEndPoint();
+    const url = `${endpoint}/swap/tokens`;
+    const res = await this.request.get(url);
+    const { data } = res;
+    if (data && Array.isArray(data)) {
+      const items = data.map((item) => ({
+        ...item,
+        tokens: item.tokens.map((o: any) => formatServerToken(o)),
+      }));
+      dispatch(updateTokenList(items));
+    }
   }
 }

@@ -5,14 +5,12 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../../hooks';
-import { useRuntime } from '../../../hooks/redux';
 import {
   setError,
   setLoading,
   setQuoteLimited,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
-import { enabledNetworkIds } from '../config';
 import { SwapQuoter } from '../quoter';
 import { FetchQuoteParams, SwapError } from '../typings';
 import {
@@ -300,29 +298,4 @@ export function useRestrictedTokens(
     }
     return result;
   }, [tokens, included, excluded]);
-}
-
-export function useEnabledSwappableNetworks() {
-  const { networks } = useRuntime();
-  return useMemo(
-    () =>
-      networks.filter(
-        (item) => item.enabled && enabledNetworkIds.includes(item.id),
-      ),
-    [networks],
-  );
-}
-
-export function useSwappableNativeTokens() {
-  const enabledNativeTokens = useAppSelector(
-    (s) => s.tokens.enabledNativeTokens,
-  );
-  return useMemo(() => {
-    if (!enabledNativeTokens) {
-      return [];
-    }
-    return enabledNativeTokens.filter((item) =>
-      enabledNetworkIds.includes(item.networkId),
-    );
-  }, [enabledNativeTokens]);
 }
