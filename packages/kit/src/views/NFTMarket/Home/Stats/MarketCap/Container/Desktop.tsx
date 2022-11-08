@@ -72,7 +72,7 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
           <ListItem.Column
             text={{
               label: `${index + 1}`,
-              labelProps: { pb: '24px', typography: 'Body1Mono' },
+              labelProps: { pb: '24px', typography: 'Body1' },
             }}
           />
           <ListItem.Column

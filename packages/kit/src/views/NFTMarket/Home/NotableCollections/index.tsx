@@ -101,8 +101,6 @@ const NotableCollection = () => {
     [goToCollectionDetail],
   );
 
-  console.log('listData = ', listData.length);
-
   return (
     <Box>
       <Text typography="Heading" mb="16px">
