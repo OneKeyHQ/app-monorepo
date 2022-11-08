@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   HStack,
   Icon,
   Pressable,
@@ -170,7 +169,7 @@ export const StatsList = () => {
               }));
             }
           }}
-          width="auto"
+          flex={1}
         />
         {context?.isTab && isSmallScreen && (
           <Text typography="Body2" color="text-subdued" textAlign="right">
