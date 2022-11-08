@@ -1,51 +1,83 @@
 import React, { useCallback } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+import { MotiView } from 'moti';
+import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
+import { List, ListItem, Text } from '@onekeyhq/components';
 import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
+import { formatMarketValueForComma } from '../../../../../Market/utils';
 import CollectionLogo from '../../../../CollectionLogo';
-import PriceText from '../../../../PriceText';
+import { PriceString } from '../../../../PriceText';
 import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
-import StatsItemCell from '../../StatsItemCell';
 
 const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
   const context = useStatsListContext()?.context;
-  const { bottom } = useSafeAreaInsets();
+  const intl = useIntl();
   const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTMarketCapCollection> = useCallback(
     ({ item, index }) => (
-      <StatsItemCell
+      <ListItem
         onPress={() => {
           goToCollectionDetail({
             contractAddress: item.contract_address as string,
             networkId: context?.selectedNetwork?.id as string,
           });
         }}
-        height="56px"
-        paddingX="16px"
-        index={`${index + 1}`}
-        title={item.contract_name}
-        subTitle={item.floor_price ? `Floor ${item.floor_price}` : ''}
-        logoComponent={
+      >
+        <ListItem.Column>
           <CollectionLogo src={item.logo_url} width="56px" height="56px" />
-        }
-        rightComponents={[
-          <PriceText
-            price={item.market_cap}
-            networkId={context?.selectedNetwork?.id}
-            textAlign="right"
-            numberOfLines={1}
-            typography="Body1Strong"
-          />,
-        ]}
-      />
+        </ListItem.Column>
+        <ListItem.Column
+          text={{
+            label: `${index + 1}`,
+            labelProps: { pb: '24px', typography: 'Body1Strong' },
+          }}
+        />
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: item.contract_name,
+            labelProps: { isTruncated: true },
+            description: PriceString({
+              prefix: intl.formatMessage({
+                id: 'content__floor',
+              }),
+              price: item.floor_price,
+              networkId: context?.selectedNetwork?.id,
+            }),
+            descriptionProps: { numberOfLines: 1 },
+          }}
+        />
+        <ListItem.Column
+          text={{
+            label: (
+              <Text
+                typography="Body1Strong"
+                textAlign="right"
+                mb="24px"
+                numberOfLines={1}
+              >
+                {PriceString({
+                  price: formatMarketValueForComma(
+                    new BigNumber(item.market_cap ?? '0')
+                      .decimalPlaces(2)
+                      .toNumber(),
+                  ),
+                  networkId: context?.selectedNetwork?.id,
+                })}
+              </Text>
+            ),
+          }}
+        />
+      </ListItem>
     ),
-    [context?.selectedNetwork?.id, goToCollectionDetail],
+    [context?.selectedNetwork?.id, goToCollectionDetail, intl],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {
@@ -58,17 +90,15 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
   }
 
   return (
-    <FlatList
-      data={listData}
-      renderItem={renderItem}
-      ItemSeparatorComponent={() => <Box height="20px" />}
-      ListFooterComponent={() =>
-        context?.isTab === false ? <Box height={`${bottom}px`} /> : null
-      }
-      keyExtractor={(item, index) =>
-        `${item.contract_address as string}${index}`
-      }
-    />
+    <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
+      <List
+        data={listData}
+        renderItem={renderItem}
+        keyExtractor={(item, index) =>
+          `${item.contract_address as string}${index}`
+        }
+      />
+    </MotiView>
   );
 };
 export default Mobile;

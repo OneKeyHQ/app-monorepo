@@ -1,26 +1,20 @@
-import React, { FC, useMemo } from 'react';
-
-import { Column } from 'native-base';
+import React, { ComponentProps, FC, useMemo } from 'react';
 
 import {
   Box,
   CustomSkeleton,
-  FlatList,
+  List,
+  ListItem,
+  Skeleton,
   useIsVerticalLayout,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 
 type Props = {
   isTab?: boolean;
   numberOfData: number;
-  ListHeaderComponent?: () => React.ReactElement;
-};
-const EmptyView: FC<Props> = ({ numberOfData, isTab, ListHeaderComponent }) => {
-  const isSmallScreen = useIsVerticalLayout();
-
-  const { bottom } = useSafeAreaInsets();
-  const height = isSmallScreen ? 56 : 64;
-
+} & Pick<ComponentProps<typeof List>, 'ListHeaderComponent'>;
+const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
+  const isVerticalLayout = useIsVerticalLayout();
   const listData = useMemo(() => {
     const arr: number[] = [];
     for (let i = 0; i < numberOfData; i += 1) {
@@ -29,36 +23,39 @@ const EmptyView: FC<Props> = ({ numberOfData, isTab, ListHeaderComponent }) => {
     return arr;
   }, [numberOfData]);
 
-  const avatarSize = isSmallScreen ? 56 : 40;
-  const padding = isSmallScreen ? 16 : 16;
   return (
-    <FlatList
-      ListHeaderComponent={ListHeaderComponent}
+    <List
       data={listData}
       renderItem={() => (
-        <Box
-          paddingX={`${padding}px`}
-          width="full"
-          height={`${height}px`}
-          flexDirection="row"
-          alignItems="center"
-        >
-          <CustomSkeleton
-            width={`${avatarSize}px`}
-            height={`${avatarSize}px`}
-            borderRadius="12px"
+        <ListItem>
+          <ListItem.Column>
+            <CustomSkeleton
+              width={isVerticalLayout ? '56px' : '40px'}
+              height={isVerticalLayout ? '56px' : '40px'}
+              borderRadius="12px"
+            />
+          </ListItem.Column>
+          <ListItem.Column>
+            <Box pb="24px" w="16px">
+              <Skeleton shape="Body1" width={16} />
+            </Box>
+          </ListItem.Column>
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: <Skeleton shape="Body1" />,
+              description: <Skeleton shape="Body2" />,
+            }}
           />
-          <Column ml="12px" space="4px" justifyContent="center">
-            <CustomSkeleton width="153px" height="24px" borderRadius="12px" />
-            <CustomSkeleton width="86px" height="20px" borderRadius="10px" />
-          </Column>
-        </Box>
+          <ListItem.Column>
+            <Box pb={{ base: '24px', md: 0 }}>
+              <Skeleton shape="Body1" />
+            </Box>
+          </ListItem.Column>
+        </ListItem>
       )}
-      ItemSeparatorComponent={() => <Box height="20px" />}
-      ListFooterComponent={() =>
-        isTab === false ? <Box height={`${bottom}px`} /> : null
-      }
-      keyExtractor={(item) => `${item}`}
+      keyExtractor={(item, index) => `${index}`}
+      {...rest}
     />
   );
 };

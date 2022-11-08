@@ -1,62 +1,79 @@
-import React, { useCallback } from 'react';
+import React, { ComponentProps, FC, useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
+import { List, ListItem } from '@onekeyhq/components';
+import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
-import PriceText, { PriceString } from '../../../../PriceText';
+import { PriceString } from '../../../../PriceText';
 import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
-import StatsItemCell from '../../StatsItemCell';
 
-const Mobile = ({ listData }: { listData: NFTMarketRanking[] }) => {
+type Props = { listData: NFTMarketRanking[]; selectNetwork?: Network } & Pick<
+  ComponentProps<typeof List>,
+  'ListHeaderComponent' | 'ListFooterComponent'
+>;
+
+const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
   const goToCollectionDetail = useCollectionDetail();
+  const network = context?.selectedNetwork ?? selectNetwork;
 
-  const { bottom } = useSafeAreaInsets();
   const renderItem: ListRenderItem<NFTMarketRanking> = useCallback(
     ({ item, index }) => (
-      <StatsItemCell
+      <ListItem
         onPress={() => {
           goToCollectionDetail({
             contractAddress: item.contract_address as string,
-            networkId: context?.selectedNetwork?.id as string,
+            networkId: network?.id as string,
           });
         }}
-        height="56px"
-        paddingX="16px"
-        index={`${index + 1}`}
-        title={item.contract_name}
-        subTitle={PriceString({
-          prefix: intl.formatMessage({
-            id: 'content__floor',
-          }),
-          price: item.floor_price,
-          networkId: context?.selectedNetwork?.id,
-        })}
-        logoComponent={
+      >
+        <ListItem.Column>
           <CollectionLogo src={item.logo_url} width="56px" height="56px" />
-        }
-        rightComponents={[
-          <PriceText
-            price={new BigNumber(item.volume ?? '0')
-              .decimalPlaces(2)
-              .toString()}
-            networkId={context?.selectedNetwork?.id}
-            textAlign="right"
-            numberOfLines={1}
-            typography="Body1Strong"
-          />,
-        ]}
-      />
+        </ListItem.Column>
+        <ListItem.Column
+          text={{
+            label: `${index + 1}`,
+            labelProps: { pb: '24px', typography: 'Body1Strong' },
+          }}
+        />
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: item.contract_name,
+            labelProps: { isTruncated: true },
+            description: PriceString({
+              prefix: intl.formatMessage({
+                id: 'content__floor',
+              }),
+              price: item.floor_price,
+              networkId: network?.id,
+            }),
+            descriptionProps: { numberOfLines: 1 },
+          }}
+        />
+        <ListItem.Column
+          text={{
+            label: PriceString({
+              price: new BigNumber(item.volume ?? '0')
+                .decimalPlaces(2)
+                .toString(),
+              networkId: network?.id,
+            }),
+            labelProps: { textAlign: 'right', mb: '24px', numberOfLines: 1 },
+          }}
+        />
+      </ListItem>
     ),
-    [context?.selectedNetwork?.id, goToCollectionDetail, intl],
+    [network?.id, goToCollectionDetail, intl],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {
@@ -64,21 +81,25 @@ const Mobile = ({ listData }: { listData: NFTMarketRanking[] }) => {
       <EmptyView
         isTab={context?.isTab}
         numberOfData={context?.isTab ? 5 : 10}
+        ListHeaderComponent={listProps.ListHeaderComponent}
       />
     );
   }
   return (
-    <FlatList
-      data={listData}
-      renderItem={renderItem}
-      ItemSeparatorComponent={() => <Box height="20px" />}
-      ListFooterComponent={() =>
-        context?.isTab === false ? <Box height={`${bottom}px`} /> : null
-      }
-      keyExtractor={(item, index) =>
-        `${item.contract_address as string}${index}`
-      }
-    />
+    <MotiView
+      style={{ flex: 1 }}
+      from={{ opacity: 0.5 }}
+      animate={{ opacity: 1 }}
+    >
+      <List
+        data={listData}
+        renderItem={renderItem}
+        keyExtractor={(item, index) =>
+          `${item.contract_address as string}${index}`
+        }
+        {...listProps}
+      />
+    </MotiView>
   );
 };
 export default Mobile;

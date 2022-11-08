@@ -28,10 +28,14 @@ type Props = {
   tiggerProps?: ComponentProps<typeof Box>;
   selectedNetwork: Network;
   onChange: (network: Network) => void;
+  showChainName?: boolean;
+  triggerSize?: 'sm' | 'lg' | string;
 };
 const ChainSelector: FC<Props> = ({
   tiggerProps,
   selectedNetwork,
+  showChainName,
+  triggerSize,
   onChange,
 }) => {
   const intl = useIntl();
@@ -65,21 +69,41 @@ const ChainSelector: FC<Props> = ({
         title={intl.formatMessage({ id: 'network__network' })}
         dropdownPosition="right"
         dropdownProps={isSmallScreen ? {} : { minW: '240px' }}
-        positionTranslateY={10}
         headerShown={false}
         options={options}
         isTriggerPlain
         activatable
         footer={null}
         onChange={onChange}
-        renderTrigger={() => (
-          <Row alignItems="center" space="4px" {...tiggerProps}>
-            <Token size="20px" token={{ logoURI: selectedNetwork?.logoURI }} />
-            {!isSmallScreen && (
-              <Text typography="Body2Strong">{selectedNetwork?.name}</Text>
-            )}
-            <Icon size={20} name="ChevronDownSolid" />
-          </Row>
+        renderTrigger={({ isHovered, isPressed }) => (
+          <Box m="-8px" {...tiggerProps}>
+            <Row
+              alignItems="center"
+              p="8px"
+              bgColor={
+                // eslint-disable-next-line no-nested-ternary
+                isPressed
+                  ? 'surface-pressed'
+                  : isHovered
+                  ? 'surface-hovered'
+                  : 'transparent'
+              }
+              borderRadius="xl"
+            >
+              <Token
+                size={triggerSize === 'lg' ? '24px' : '20px'}
+                token={{ logoURI: selectedNetwork?.logoURI }}
+              />
+              {showChainName && (
+                <Text ml="8px" typography="Body2Strong">
+                  {selectedNetwork?.name}
+                </Text>
+              )}
+              <Box ml="4px">
+                <Icon size={20} name="ChevronDownSolid" />
+              </Box>
+            </Row>
+          </Box>
         )}
       />
     </Box>

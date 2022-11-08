@@ -1,7 +1,8 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
 import { Box, Button, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -81,6 +82,60 @@ export const LiveMintingList = () => {
   const context = useLiveMintContext()?.context;
   const setContext = useLiveMintContext()?.setContext;
   const { serviceNFT } = backgroundApiProxy;
+
+  const isFocused = useIsFocused();
+
+  const shouldDoRefresh = useMemo((): boolean => {
+    if (!context?.selectedNetwork?.id) {
+      return false;
+    }
+    if (!isFocused) {
+      return false;
+    }
+    return true;
+  }, [context?.selectedNetwork?.id, isFocused]);
+
+  const fetchData = async () => {
+    if (setContext) {
+      setContext((ctx) => ({
+        ...ctx,
+        loading: true,
+      }));
+      const data = await serviceNFT.getLiveMinting({
+        chain: context?.selectedNetwork?.id,
+        limit: context?.isTab ? 5 : 20,
+      });
+      if (data) {
+        setContext((ctx) => {
+          const { isTab } = ctx;
+          return {
+            ...ctx,
+            liveMintList: isTab ? data.slice(0, 5) : data,
+            loading: false,
+          };
+        });
+      } else {
+        setContext((ctx) => ({
+          ...ctx,
+          liveMintList: [],
+          loading: false,
+        }));
+      }
+    }
+    return [];
+  };
+
+  const swrKey = 'liveMinting';
+  useSWR(swrKey, fetchData, {
+    refreshInterval: 30 * 1000,
+    revalidateOnMount: false,
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+    isPaused() {
+      return !shouldDoRefresh;
+    },
+  });
+
   useEffect(() => {
     (async () => {
       if (setContext) {

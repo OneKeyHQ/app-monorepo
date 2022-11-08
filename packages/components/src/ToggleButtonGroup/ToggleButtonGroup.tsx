@@ -13,7 +13,9 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import ScrollableButtonGroup from '../ScrollableButtonGroup/ScrollableButtonGroup';
+import ScrollableButtonGroup, {
+  ScrollableButtonGroupProps,
+} from '../ScrollableButtonGroup/ScrollableButtonGroup';
 
 export interface ToggleButtonProps {
   text: string;
@@ -22,7 +24,7 @@ export interface ToggleButtonProps {
   leftComponentRender?: () => ReactElement;
 }
 
-interface ToggleButtonGroupProps {
+interface ToggleButtonGroupProps extends ScrollableButtonGroupProps {
   buttons: ToggleButtonProps[];
   selectedIndex: number;
   onButtonPress: (index: number) => void;
@@ -117,6 +119,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   size = 'sm',
   bg = 'surface-default',
   maxTextWidth,
+  ...rest
 }) => (
   <ScrollableButtonGroup
     bg={bg}
@@ -126,6 +129,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
     alignItems="center"
     position="relative"
     selectedIndex={selectedIndex}
+    {...rest}
   >
     {buttons.map((btn, index) => (
       <ToggleButton

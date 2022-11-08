@@ -1,24 +1,37 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  Pressable,
   Text,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import {
+  CollectiblesModalRoutes,
+  CollectiblesRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
+import { useRuntime } from '../../../hooks/redux';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { useGridListLayout } from '../../Wallet/NFT/SendNFTList';
 
 import { useCollectionDetailContext } from './context';
 
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 const AssetsList = ({
   contractAddress,
   networkId,
@@ -29,6 +42,7 @@ const AssetsList = ({
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const isMounted = useIsMounted();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const [listData, updateListData] = useState<NFTAsset[]>([]);
   const context = useCollectionDetailContext()?.context;
@@ -68,6 +82,7 @@ const AssetsList = ({
     },
     [context?.refreshing, serviceNFT],
   );
+
   useEffect(() => {
     (() => {
       if (context?.selectedIndex === 0 && isMounted) {
@@ -94,6 +109,27 @@ const AssetsList = ({
     networkId,
     setContext,
   ]);
+  const { networks } = useRuntime();
+
+  const network = networks.find((item) => item.id === networkId);
+
+  const handleSelectAsset = useCallback(
+    (asset: NFTAsset) => {
+      if (!network) return;
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
+        params: {
+          screen: CollectiblesModalRoutes.NFTDetailModal,
+          params: {
+            asset,
+            network,
+            isOwner: false,
+          },
+        },
+      });
+    },
+    [navigation, network],
+  );
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
     ({ item }) => {
@@ -105,7 +141,10 @@ const AssetsList = ({
       }
 
       return (
-        <Box
+        <Pressable
+          onPress={() => {
+            handleSelectAsset(item);
+          }}
           flexDirection="column"
           height={cardWidth + 52}
           width={cardWidth}
@@ -126,13 +165,13 @@ const AssetsList = ({
               {`${item.latestTradePrice} ${item.latestTradeSymbol as string}`}
             </Text>
           )}
-        </Box>
+        </Pressable>
       );
     },
     [cardWidth, margin, marginBottom],
   );
 
-  const paddingX = isSmallScreen ? 16 : 0;
+  const paddingX = isSmallScreen ? 16 : 51;
   return (
     <Tabs.FlatList<NFTAsset>
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}

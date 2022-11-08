@@ -1,103 +1,135 @@
 import React, { useCallback } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, Divider, FlatList, Text } from '@onekeyhq/components';
+import { List, ListItem } from '@onekeyhq/components';
 import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
+import { formatMarketValueForComma } from '../../../../../Market/utils';
 import CollectionLogo from '../../../../CollectionLogo';
-import PriceText from '../../../../PriceText';
+import { PriceString } from '../../../../PriceText';
 import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
-import StatsItemCell from '../../StatsItemCell';
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
   return (
-    <Box>
-      <StatsItemCell
-        mb="8px"
-        height="16px"
-        leftComponent={
-          <Text color="text-subdued" typography="Subheading">
-            {intl.formatMessage({
+    <>
+      <ListItem>
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: intl.formatMessage({
               id: 'content__collection',
-            })}
-          </Text>
-        }
-        rightComponents={[
-          <Text
-            textAlign="right"
-            numberOfLines={1}
-            typography="Subheading"
-            color="text-subdued"
-          >
-            {intl.formatMessage({
+            }),
+            labelProps: {
+              typography: 'Subheading',
+              color: 'text-subdued',
+            },
+          }}
+        />
+        <ListItem.Column
+          w="160px"
+          text={{
+            label: intl.formatMessage({
               id: 'content__market_cap',
-            })}
-          </Text>,
-        ]}
-      />
-      <Divider />
-    </Box>
+            }),
+            labelProps: {
+              typography: 'Subheading',
+              color: 'text-subdued',
+              textAlign: 'right',
+            },
+          }}
+        />
+      </ListItem>
+    </>
   );
 };
 
 const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
   const context = useStatsListContext()?.context;
+  const intl = useIntl();
   const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTMarketCapCollection> = useCallback(
     ({ item, index }) => (
-      <StatsItemCell
-        onPress={() => {
-          goToCollectionDetail({
-            contractAddress: item.contract_address as string,
-            networkId: context?.selectedNetwork?.id as string,
-          });
-        }}
-        height="64px"
-        index={`${index + 1}`}
-        title={item.contract_name}
-        subTitle={item.floor_price ? `Floor ${item.floor_price}` : ''}
-        rightComponents={[
-          <PriceText
-            price={item.market_cap}
-            networkId={context?.selectedNetwork?.id}
-            textAlign="right"
-            numberOfLines={1}
-            typography="Body1Strong"
-          />,
-        ]}
-        logoComponent={
-          <CollectionLogo src={item.logo_url} width="40px" height="40px" />
-        }
-      />
+      <>
+        <ListItem
+          onPress={() => {
+            goToCollectionDetail({
+              contractAddress: item.contract_address as string,
+              networkId: context?.selectedNetwork?.id as string,
+            });
+          }}
+        >
+          <ListItem.Column>
+            <CollectionLogo src={item.logo_url} width="40px" height="40px" />
+          </ListItem.Column>
+          <ListItem.Column
+            text={{
+              label: `${index + 1}`,
+              labelProps: { pb: '24px', typography: 'Body1' },
+            }}
+          />
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.contract_name,
+              labelProps: { isTruncated: true },
+              description: PriceString({
+                prefix: intl.formatMessage({
+                  id: 'content__floor',
+                }),
+                price: item.floor_price,
+                networkId: context?.selectedNetwork?.id,
+              }),
+              descriptionProps: { numberOfLines: 1 },
+            }}
+          />
+          <ListItem.Column
+            w="160px"
+            text={{
+              label: PriceString({
+                price: formatMarketValueForComma(
+                  new BigNumber(item.market_cap ?? '0')
+                    .decimalPlaces(2)
+                    .toNumber(),
+                ),
+                networkId: context?.selectedNetwork?.id,
+              }),
+              labelProps: { textAlign: 'right' },
+            }}
+          />
+        </ListItem>
+      </>
     ),
-    [context?.selectedNetwork?.id, goToCollectionDetail],
+    [context?.selectedNetwork?.id, goToCollectionDetail, intl],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {
     return (
       <EmptyView
-        ListHeaderComponent={ListHeaderComponent}
+        ListHeaderComponent={() => ListHeaderComponent()}
         isTab={context?.isTab}
         numberOfData={context?.isTab ? 5 : 10}
       />
     );
   }
   return (
-    <FlatList
-      ListHeaderComponent={ListHeaderComponent}
-      data={listData}
-      renderItem={renderItem}
-      ItemSeparatorComponent={() => <Divider />}
-      keyExtractor={(item, index) =>
-        `${item.contract_address as string}${index}`
-      }
-    />
+    <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
+      <List
+        ListHeaderComponent={() => ListHeaderComponent()}
+        data={listData}
+        renderItem={renderItem}
+        keyExtractor={(item, index) =>
+          `${item.contract_address as string}${index}`
+        }
+      />
+    </MotiView>
   );
 };
 export default Desktop;

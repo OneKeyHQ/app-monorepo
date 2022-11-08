@@ -64,7 +64,7 @@ const Desktop = () => {
   const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
-    ({ item, index }) => (
+    ({ item }) => (
       <StatsItemCell
         onPress={() => {
           goToCollectionDetail({
@@ -73,7 +73,6 @@ const Desktop = () => {
           });
         }}
         height="64px"
-        index={`${index + 1}`}
         title={item.collection.contractName}
         subTitle={item.tokenId ? `ID ${item.tokenId}` : ''}
         rightComponents={[
