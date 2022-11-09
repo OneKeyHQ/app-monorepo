@@ -488,19 +488,11 @@ export default class Vault extends VaultBase {
 
   override async broadcastTransaction(signedTx: ISignedTx) {
     let isNodeBehind = false;
-    const maxRetryTimes = 6;
+    const maxRetryTimes = 8;
     let retryTime = 0;
     let lastRpcErrorMessage = '';
 
     const doBroadcast = async () => {
-      if (retryTime > maxRetryTimes) {
-        throw new Error(
-          `Solana broadcastTransaction retry times exceeded: ${
-            lastRpcErrorMessage || ''
-          }`,
-        );
-      }
-      retryTime += 1;
       try {
         const options = isNodeBehind
           ? {
@@ -531,7 +523,6 @@ export default class Vault extends VaultBase {
           if (rpcErrorData.code === -32005 || rpcErrorData.code === -32002) {
             isNodeBehind = true;
             lastRpcErrorMessage = rpcErrorData.message;
-            await wait(1000);
             return;
           }
         }
@@ -540,11 +531,22 @@ export default class Vault extends VaultBase {
     };
 
     do {
+      retryTime += 1;
+      if (retryTime > maxRetryTimes) {
+        isNodeBehind = false;
+        throw new Error(
+          `Solana broadcastTransaction retry times exceeded: ${
+            lastRpcErrorMessage || ''
+          }`,
+        );
+      }
       const result = await doBroadcast();
       if (result) {
         return result;
       }
+      await wait(1000);
     } while (isNodeBehind);
+
     throw new Error('Solana broadcastTransaction retry failed');
   }
 
