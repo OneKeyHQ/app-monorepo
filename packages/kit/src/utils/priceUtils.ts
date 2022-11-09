@@ -27,13 +27,13 @@ export function calculateGains({
   const priceNum = new BigNumber(typeof price === 'string' ? +price : price);
 
   const gain = priceNum.minus(basePrice ?? 0);
-  const isPositive = gain > 0;
+  const isPositive = gain.toNumber() > 0;
   let percentageGain: number | string = basePrice
-    ? gain.dividedBy(basePrice) * 100
+    ? gain.dividedBy(basePrice).multipliedBy(100).toNumber()
     : 0;
   const gainText = isPositive
-    ? `+${formatMarketValueForInfo(gain)}`
-    : formatMarketValueForInfo(gain);
+    ? `+${formatMarketValueForInfo(gain.toNumber())}`
+    : formatMarketValueForInfo(gain.toNumber());
   percentageGain = isPositive
     ? `+${percentageGain.toFixed(2)}%`
     : `${percentageGain.toFixed(2)}%`;
