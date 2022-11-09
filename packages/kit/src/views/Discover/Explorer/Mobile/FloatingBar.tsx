@@ -30,7 +30,13 @@ const InfoBar: FC<{
     alignItems="center"
     justifyContent="space-between"
   >
-    <NetImage width="30px" height="30px" borderRadius="6px" src={favicon} />
+    <NetImage
+      key={favicon}
+      width="30px"
+      height="30px"
+      borderRadius="6px"
+      src={favicon}
+    />
     <Typography.Body2Strong
       color="text-default"
       flex={1}

@@ -97,6 +97,7 @@ export const useWebController = ({
           url: dapp.url,
           title: dapp.name,
           dAppId: dapp._id,
+          favicon: dapp.logoURL,
         });
       }
     },

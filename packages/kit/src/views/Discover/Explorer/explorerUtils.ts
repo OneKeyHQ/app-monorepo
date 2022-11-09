@@ -5,6 +5,7 @@ import { WebView } from 'react-native-webview';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// eslint-disable-next-line import/no-cycle
 import { appSelector } from '../../../store';
 import { DAppItemType } from '../type';
 

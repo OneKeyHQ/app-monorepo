@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+// eslint-disable-next-line import/no-cycle
 import { webviewRefs } from '../../views/Discover/Explorer/explorerUtils';
 
 export interface WebTab {
@@ -77,6 +78,12 @@ export const webtabsSlice = createSlice({
               tab.timestamp = Date.now();
               if (value === homeTab.url && payload.id) {
                 homeResettingFlags[payload.id] = Date.now();
+              }
+              if (!payload.favicon) {
+                try {
+                  tab.favicon = `${new URL(tab.url).origin}/favicon.ico`;
+                  // eslint-disable-next-line no-empty
+                } catch {}
               }
             }
           }
