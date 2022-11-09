@@ -39,7 +39,8 @@
     "expo-yarn-workspaces": "2.0.3",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
-    "react-native-web": "0.18.10"
+    "react-native-web": "0.18.10",
+    "rimraf": "^3.0.2"
   },
   "devDependencies": {
     "@electron/remote": "^2.0.1",

@@ -48,6 +48,7 @@
     "react-redux": "^7.2.6",
     "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",
+    "rimraf": "^3.0.2",
     "semver": "^7.3.7",
     "socket.io-client": "^4.5.2",
     "swr": "^1.1.2",
