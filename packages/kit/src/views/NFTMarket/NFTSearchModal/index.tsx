@@ -121,7 +121,7 @@ const DefaultList: FC<Props> = ({ selectNetwork }) => {
         time: '1d',
       });
       if (data) {
-        updateListData(data);
+        updateListData(data.slice(0, 10));
       }
     })();
   }, [selectNetwork?.id, serviceNFT]);

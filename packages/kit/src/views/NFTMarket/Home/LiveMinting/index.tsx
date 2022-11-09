@@ -4,7 +4,14 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
-import { Box, Button, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  Icon,
+  Pressable,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -37,16 +44,12 @@ const ListHeader: FC = () => {
   const intl = useIntl();
 
   return (
-    <Box
-      paddingX={isSmallScreen ? '16px' : 0}
-      flexDirection="row"
-      justifyContent="space-between"
-      mb="12px"
-    >
+    <Box flexDirection="row" justifyContent="space-between" mb="16px">
       <Text typography="Heading">Live Minting</Text>
-      <Box flexDirection="row" alignItems="center">
+      <HStack alignItems="center" space="20px">
         <ChainSelector
           selectedNetwork={selectedNetwork}
+          showChainName={!isSmallScreen}
           onChange={(n) => {
             setSelectedNetwork(n);
             if (setContext) {
@@ -57,22 +60,33 @@ const ListHeader: FC = () => {
             }
           }}
         />
-        <Button
-          onPress={() => {
-            navigation.navigate(HomeRoutes.NFTMarketLiveMintingList, {
-              network: selectedNetwork,
-            });
-          }}
-          height="32px"
-          type="plain"
-          size="sm"
-          textProps={{ color: 'text-subdued' }}
-        >
-          {intl.formatMessage({
-            id: 'action__view_all',
-          })}
-        </Button>
-      </Box>
+        <Box m="-8px" mr="-12px">
+          <Pressable
+            onPress={() => {
+              navigation.navigate(HomeRoutes.NFTMarketLiveMintingList, {
+                network: selectedNetwork,
+              });
+            }}
+            p="8px"
+            rounded="xl"
+            flexDirection="row"
+            alignItems="center"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+          >
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              color="text-subdued"
+              mr="4px"
+            >
+              {intl.formatMessage({
+                id: 'action__see_all',
+              })}
+            </Text>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+        </Box>
+      </HStack>
     </Box>
   );
 };

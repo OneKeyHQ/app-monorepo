@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { List, ListItem } from '@onekeyhq/components';
+import { Box, List, ListItem } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
@@ -42,7 +42,7 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
         <ListItem.Column
           text={{
             label: `${index + 1}`,
-            labelProps: { pb: '24px', typography: 'Body1Strong' },
+            labelProps: { pb: '24px', typography: 'Body1Mono' },
           }}
         />
         <ListItem.Column
@@ -97,6 +97,7 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
         keyExtractor={(item, index) =>
           `${item.contract_address as string}${index}`
         }
+        ItemSeparatorComponent={() => <Box h="4px" />}
         {...listProps}
       />
     </MotiView>

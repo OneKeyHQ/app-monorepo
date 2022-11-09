@@ -168,7 +168,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
             <ListItem.Column
               text={{
                 label: `${index + 1}`,
-                labelProps: { pb: '24px', typography: 'Body1Strong' },
+                labelProps: { pb: '24px', typography: 'Body1Mono' },
               }}
             />
             <ListItem.Column

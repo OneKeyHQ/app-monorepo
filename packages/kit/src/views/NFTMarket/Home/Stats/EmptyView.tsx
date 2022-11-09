@@ -35,11 +35,6 @@ const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
               borderRadius="12px"
             />
           </ListItem.Column>
-          <ListItem.Column>
-            <Box pb="24px" w="16px">
-              <Skeleton shape="Body1" width={16} />
-            </Box>
-          </ListItem.Column>
           <ListItem.Column
             flex={1}
             text={{
@@ -55,6 +50,7 @@ const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
         </ListItem>
       )}
       keyExtractor={(item, index) => `${index}`}
+      ItemSeparatorComponent={() => <Box h={isVerticalLayout ? '4px' : 0} />}
       {...rest}
     />
   );

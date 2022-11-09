@@ -3,7 +3,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 
 import { HomeRoutes } from '../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../routes/types';
@@ -17,8 +17,7 @@ import {
 } from '../Home/LiveMinting/context';
 
 const List = () => {
-  const isSmallScreen = useIsVerticalLayout();
-  const paddingX = isSmallScreen ? 0 : '51px';
+  const { bottom } = useSafeAreaInsets();
   const navigation = useNavigation();
   const intl = useIntl();
   const setContext = useLiveMintContext()?.setContext;
@@ -45,9 +44,17 @@ const List = () => {
   }, [context?.selectedNetwork, defaultNetwork, intl, navigation, setContext]);
 
   return (
-    <Box paddingX={paddingX} flex={1} paddingTop="16px">
+    <ScrollView
+      p={{ base: '16px', md: '32px' }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992,
+        marginHorizontal: 'auto',
+        paddingBottom: bottom,
+      }}
+    >
       <LiveMintingList />
-    </Box>
+    </ScrollView>
   );
 };
 

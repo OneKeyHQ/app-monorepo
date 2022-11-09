@@ -21,6 +21,7 @@ type ModuleData = {
   id: string;
 };
 const Content = () => {
+  const { bottom } = useSafeAreaInsets();
   const data: ModuleData[] = [
     { id: NFTModule.Collection },
     { id: NFTModule.Stats },
@@ -55,6 +56,7 @@ const Content = () => {
         width: '100%',
         maxWidth: 992,
         marginHorizontal: 'auto',
+        paddingBottom: bottom,
       }}
     />
   );

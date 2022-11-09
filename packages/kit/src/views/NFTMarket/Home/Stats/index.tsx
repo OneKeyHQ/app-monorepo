@@ -52,7 +52,7 @@ const ListHeader: FC = () => {
           id: 'content__stats',
         })}
       </Text>
-      <HStack alignItems="center" space="16px">
+      <HStack alignItems="center" space="20px">
         <ChainSelector
           selectedNetwork={selectedNetwork}
           showChainName={!isSmallScreen}
@@ -66,7 +66,7 @@ const ListHeader: FC = () => {
             }
           }}
         />
-        <Box m="-8px">
+        <Box m="-8px" mr="-12px">
           <Pressable
             onPress={() => {
               navigation.navigate(HomeRoutes.NFTMarketStatsList, {
@@ -159,7 +159,7 @@ export const StatsList = () => {
           ]}
           size="lg"
           selectedIndex={selectedIndex}
-          bg="background-default"
+          bg="transparent"
           onButtonPress={(index) => {
             setSelectedIndex(index);
             if (setContext) {
