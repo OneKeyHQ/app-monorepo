@@ -1,6 +1,5 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
 import { View } from 'react-native';
 

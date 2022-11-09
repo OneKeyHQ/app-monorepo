@@ -63,6 +63,7 @@ const FloatingContainer: FC<{
           StyleSheet.absoluteFill,
           useAnimatedStyle(
             () => ({
+              overflow: 'hidden',
               zIndex: containerHeight > 0 && hasTabs ? 1 : -1,
               transform: [
                 {

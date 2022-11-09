@@ -50,10 +50,6 @@ export const useWebviewRef = ({
     if (navigationStateChangeEvent) {
       const { canGoBack, canGoForward, loading, title, url, lockIdentifier } =
         navigationStateChangeEvent;
-      if (lockIdentifier === lastNavEventId.current) {
-        return;
-      }
-      lastNavEventId.current = lockIdentifier;
       const isDeepLink = !url.startsWith('http') && url !== 'about:blank';
       if (isDeepLink) {
         stopLoading();
@@ -64,6 +60,10 @@ export const useWebviewRef = ({
         return;
       }
       if (loading) {
+        if (lockIdentifier === lastNavEventId.current) {
+          return;
+        }
+        lastNavEventId.current = lockIdentifier;
         onNavigation({ url, title, canGoBack, canGoForward, loading });
       } else {
         onNavigation({ title, canGoBack, canGoForward, loading });

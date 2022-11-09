@@ -17,7 +17,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  useWebController({
+  const { gotoSite } = useWebController({
     id,
     navigationStateChangeEvent,
   });
@@ -41,11 +41,14 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
         onNavigationStateChange={
           showHome ? undefined : setNavigationStateChangeEvent
         }
+        onOpenWindow={(e) => {
+          gotoSite({ url: e.nativeEvent.targetUrl });
+        }}
         allowpopups
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome],
+    [id, showHome, gotoSite],
   );
 
   return webview;
