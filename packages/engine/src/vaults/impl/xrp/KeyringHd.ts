@@ -119,7 +119,10 @@ export class KeyringHd extends KeyringHdBase {
       dbAccount.pub,
       `00${prvKey}`,
     );
-    console.log(sign);
-    debugger;
+
+    return {
+      txid: sign.hash,
+      rawTx: sign.tx_blob,
+    };
   }
 }

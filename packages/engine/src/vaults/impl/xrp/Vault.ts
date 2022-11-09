@@ -5,6 +5,7 @@ import memoizee from 'memoizee';
 import * as XRPL from 'xrpl';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { InvalidAddress } from '../../../errors';
 import { DBSimpleAccount } from '../../../types/account';
@@ -18,6 +19,7 @@ import {
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
+  ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -161,7 +163,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve({
       inputs: [],
       outputs: [],
-      payload: { excodedTx: encodedTx },
+      payload: { encodedTx },
       encodedTx,
     });
   }
@@ -172,6 +174,30 @@ export default class Vault extends VaultBase {
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
     return Promise.resolve(encodedTx);
+  }
+
+  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const client = await this.getClient();
+    try {
+      const result = await client.submitAndWait(signedTx.rawTx);
+      console.log(result);
+    } catch (err) {
+      debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+
+    return {
+      ...signedTx,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 
   override attachFeeInfoToEncodedTx(params: {
