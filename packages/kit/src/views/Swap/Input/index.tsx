@@ -8,7 +8,6 @@ import {
 } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
-import { networkSupportedTokens, swftOnlyNetwork } from '../config';
 import { useSwapState } from '../hooks/useSwap';
 
 import type { Token } from '../../../store/typings';
@@ -29,22 +28,6 @@ const Input = () => {
     [navigation],
   );
 
-  const included = useMemo(() => {
-    if (
-      outputToken &&
-      networkSelectorId &&
-      networkSelectorId !== outputToken.networkId
-    ) {
-      return networkSupportedTokens[networkSelectorId];
-    }
-    if (networkSelectorId && swftOnlyNetwork.includes(networkSelectorId)) {
-      return networkSupportedTokens[networkSelectorId];
-    }
-    return undefined;
-  }, [networkSelectorId, outputToken]);
-
-
-
   const value = useMemo(
     () => ({
       impl: network?.impl,
@@ -57,7 +40,7 @@ const Input = () => {
 
   return (
     <TokenSelectorContext.Provider value={value}>
-      <TokenSelector included={included} onSelect={onSelect} />
+      <TokenSelector onSelect={onSelect} />
     </TokenSelectorContext.Provider>
   );
 };

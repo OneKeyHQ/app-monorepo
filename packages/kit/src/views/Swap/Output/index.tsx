@@ -6,8 +6,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAppSelector, useNavigation } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
-import { networkSupportedTokens, swftOnlyNetwork } from '../config';
-import { useSwapState } from '../hooks/useSwap';
 
 const Output = () => {
   const navigation = useNavigation();
@@ -24,20 +22,6 @@ const Output = () => {
     [navigation],
   );
 
-  const included = useMemo(() => {
-    if (
-      inputToken &&
-      networkSelectorId &&
-      networkSelectorId !== inputToken.networkId
-    ) {
-      return networkSupportedTokens[networkSelectorId];
-    }
-    if (networkSelectorId && swftOnlyNetwork.includes(networkSelectorId)) {
-      return networkSupportedTokens[networkSelectorId];
-    }
-    return undefined;
-  }, [networkSelectorId, inputToken]);
-
   const value = useMemo(
     () => ({
       networkId: networkSelectorId,
@@ -49,7 +33,7 @@ const Output = () => {
 
   return (
     <TokenSelectorContext.Provider value={value}>
-      <TokenSelector included={included} onSelect={onSelect} />
+      <TokenSelector onSelect={onSelect} />
     </TokenSelectorContext.Provider>
   );
 };
