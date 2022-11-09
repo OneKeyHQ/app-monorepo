@@ -5510,6 +5510,8 @@ __metadata:
     natsort: ^2.0.3
     near-api-js: ^0.44.2
     npm-run-all: ^4.1.5
+    ripple-binary-codec: ^1.5.0-beta.1
+    ripple-keypairs: ^1.1.4
     tiny-lru: ^8.0.2
     tronweb: ^4.3.0
     xrpl: ^2.5.0
@@ -27187,6 +27189,20 @@ optjs@latest:
     decimal.js: ^10.2.0
     ripple-address-codec: ^4.2.4
   checksum: 40ba24415b50145d29643bcbd3086bbdaf4d6a8b5621befc711cfbced81068713a703080aa9953ccdc72543b1c2af9d7fe468627dc704cb4e829e2265c2553c8
+  languageName: node
+  linkType: hard
+
+"ripple-binary-codec@npm:^1.5.0-beta.1":
+  version: 1.5.0-beta.1
+  resolution: "ripple-binary-codec@npm:1.5.0-beta.1"
+  dependencies:
+    assert: ^2.0.0
+    big-integer: ^1.6.48
+    buffer: 5.6.0
+    create-hash: ^1.2.0
+    decimal.js: ^10.2.0
+    ripple-address-codec: ^4.2.4
+  checksum: 6bacd2489fe3d65129c3efcebd7842fde4d74487b05712849ab48690dfbb0733a50756fe3a872c1fd719ee3eff753e76181001fdc059fa92d1faac43a7242be9
   languageName: node
   linkType: hard
 

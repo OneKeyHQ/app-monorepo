@@ -15,8 +15,11 @@ import {
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
+  IEncodedTxUpdateOptions,
   IFeeInfo,
+  IFeeInfoUnit,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -150,6 +153,32 @@ export default class Vault extends VaultBase {
     return {
       ...prepared,
     };
+  }
+
+  override async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTx,
+  ): Promise<IUnsignedTxPro> {
+    return Promise.resolve({
+      inputs: [],
+      outputs: [],
+      payload: { excodedTx: encodedTx },
+      encodedTx,
+    });
+  }
+
+  override updateEncodedTx(
+    encodedTx: IEncodedTx,
+    payload: any,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTx> {
+    return Promise.resolve(encodedTx);
+  }
+
+  override attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    return Promise.resolve(params.encodedTx);
   }
 
   override async fetchFeeInfo(encodedTx: IEncodedTxXrp): Promise<IFeeInfo> {
