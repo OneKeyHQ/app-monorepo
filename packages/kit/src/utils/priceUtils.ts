@@ -24,12 +24,12 @@ export function calculateGains({
       gainTextBg,
     };
   }
-  const priceNum = typeof price === 'string' ? +price : price;
+  const priceNum = new BigNumber(typeof price === 'string' ? +price : price);
 
-  const gain = priceNum - basePrice;
+  const gain = priceNum.minus(basePrice ?? 0);
   const isPositive = gain > 0;
   let percentageGain: number | string = basePrice
-    ? (gain / basePrice) * 100
+    ? gain.dividedBy(basePrice) * 100
     : 0;
   const gainText = isPositive
     ? `+${formatMarketValueForInfo(gain)}`

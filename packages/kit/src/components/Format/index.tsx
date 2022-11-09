@@ -400,8 +400,9 @@ export function FormatCurrencyNumber({
   const numberValue = value instanceof BigNumber ? value.toNumber() : value;
   return isBTCCurrency ? (
     <>
-      `${!onlyNumber ? getFiatCodeUnit(selectedFiatMoneySymbol) : ''}$
-      {formatMarketValueForInfo(numberValue)}`
+      {`${
+        !onlyNumber ? getFiatCodeUnit(selectedFiatMoneySymbol) : ''
+      }${formatMarketValueForInfo(numberValue)}`}
     </>
   ) : (
     <FormattedNumber

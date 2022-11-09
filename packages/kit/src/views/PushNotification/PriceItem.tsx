@@ -24,9 +24,9 @@ export function FormatCurrencyNumber({
     return null;
   }
   return currency === 'btc' ? (
-    <>
-      `${getFiatCodeUnit('btc')}${formatMarketValueForInfo(value)}`
-    </>
+    <>{`${!onlyNumber ? getFiatCodeUnit('btc') : ''}${formatMarketValueForInfo(
+      value,
+    )}`}</>
   ) : (
     <FormattedNumber
       value={value}
