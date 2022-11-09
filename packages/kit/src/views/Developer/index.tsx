@@ -567,6 +567,16 @@ export const Debug = () => {
             >
               <Typography.Body1>Batch Transfer DAI</Typography.Body1>
             </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() =>
+                handleBatchTransfer(
+                  '0xdc31ee1784292379fbb2964b3b9c4124d8f89c60',
+                )
+              }
+            >
+              <Typography.Body1>BatchTransferToken</Typography.Body1>
+            </Pressable>
           </VStack>
         </Box>
       </Box>
