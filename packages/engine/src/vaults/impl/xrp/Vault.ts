@@ -6,6 +6,16 @@ import * as XRPL from 'xrpl';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
+import { InvalidAddress } from '../../../errors';
+import { DBSimpleAccount } from '../../../types/account';
+import {
+  IDecodedTx,
+  IDecodedTxActionType,
+  IDecodedTxLegacy,
+  IDecodedTxStatus,
+  IEncodedTx,
+  ITransferInfo,
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -13,6 +23,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { IEncodedTxXrp } from './types';
 
 let clientInstance: XRPL.Client | null = null;
 // @ts-ignore
@@ -67,6 +78,70 @@ export default class Vault extends VaultBase {
       responseTime: Math.floor(performance.now() - start),
       latestBlock,
     };
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    if (XRPL.isValidClassicAddress(address)) {
+      return Promise.resolve(address);
+    }
+    return Promise.reject(new InvalidAddress());
+  }
+
+  override async decodeTx(
+    encodedTx: IEncodedTxXrp,
+    payload?: any,
+  ): Promise<IDecodedTx> {
+    const network = await this.engine.getNetwork(this.networkId);
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: encodedTx.Destination,
+      signer: encodedTx.Account,
+      nonce: 0,
+      actions: [
+        {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          nativeTransfer: {
+            tokenInfo: token,
+            from: encodedTx.Account,
+            to: encodedTx.Destination,
+            amount: new BigNumber(encodedTx.Amount)
+              .shiftedBy(-network.decimals)
+              .toFixed(),
+            amountValue: encodedTx.Amount,
+            extraInfo: null,
+          },
+        },
+      ],
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      payload,
+      extraInfo: null,
+      totalFeeInNative: encodedTx.Fee,
+    };
+
+    return decodedTx;
+  }
+
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    return Promise.resolve({} as IDecodedTxLegacy);
+  }
+
+  override async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxXrp> {
+    const { to, amount } = transferInfo;
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const client = await this.getClient();
+    const prepared = await client.autofill({
+      TransactionType: 'Payment',
+      Account: dbAccount.address,
+      Amount: XRPL.xrpToDrops(amount),
+      Destination: to,
+    });
+    return prepared;
   }
 
   override async getBalances(
