@@ -28,7 +28,7 @@ import {
   createOutputActionFromNFTTransaction,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
-import { BatchTransferContractAddresses } from '../../../presets/BatchTransferContractAddresses';
+import { BatchTransferContractAddresses } from '../../../presets/batchTransferContractAddresses';
 import { OnekeyNetwork } from '../../../presets/networkIds';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
@@ -489,9 +489,21 @@ export default class Vault extends VaultBase {
           throw new Error(`Token not found: ${transferInfo.token as string}`);
         }
 
-        batchMethod = BatchTransferSelectors.disperseTokenSimple;
+        batchMethod = BatchTransferSelectors.disperseToken;
         paramTypes = ['address', 'address[]', 'uint256[]'];
-        ParamValues = [];
+        ParamValues = [
+          token.tokenIdOnNetwork,
+          ...reduce(
+            transferInfos,
+            (result: [string[], string[]], info) => {
+              const amountBN = new BigNumber(info.amount);
+              result[0].push(info.to);
+              result[1].push(toBigIntHex(amountBN.shiftedBy(token.decimals)));
+              return result;
+            },
+            [[], []],
+          ),
+        ];
       }
     } else {
       batchMethod = BatchTransferSelectors.disperseEther;
@@ -516,7 +528,7 @@ export default class Vault extends VaultBase {
       data: `${batchMethod}${defaultAbiCoder
         .encode(paramTypes, ParamValues)
         .slice(2)}`,
-      value: toBigIntHex(totalAmountBN),
+      value: isTransferToken ? '0x0' : toBigIntHex(totalAmountBN),
     };
   }
 

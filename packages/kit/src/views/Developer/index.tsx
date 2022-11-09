@@ -17,6 +17,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { BatchTransferContractAddresses } from '@onekeyhq/engine/src/presets/batchTransferContractAddresses';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getActiveWalletAccount,
@@ -79,41 +80,121 @@ export const Debug = () => {
     });
   }, [navigation, intl]);
 
-  const handleBatchTransfer = useCallback(async () => {
-    const { networkId, accountId, accountAddress } = getActiveWalletAccount();
-    const encodedTx = await engine.buildEncodedTxFromBatchTransfer({
+  const handleApproveToken = useCallback(
+    async ({
       networkId,
       accountId,
-      transferInfos: [
-        {
-          from: accountAddress,
-          to: accountAddress,
-          amount: '0.001',
-        },
-        {
-          from: accountAddress,
-          to: accountAddress,
-          amount: '0.001',
-        },
-      ],
-    });
-
-    // @ts-ignore
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Send,
-      params: {
-        screen: SendRoutes.SendConfirm,
-        params: {
-          accountId,
+      token,
+      spender,
+      amount,
+    }: {
+      networkId: string;
+      accountId: string;
+      token: string;
+      amount: string;
+      spender: string;
+    }) => {
+      const encodedApproveTx =
+        await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+          amount,
           networkId,
-          encodedTx,
-          feeInfoUseFeeInTx: false,
-          feeInfoEditable: true,
-          backRouteName: SendRoutes.PreSendAddress,
+          spender,
+          accountId,
+          token,
+        });
+
+      return new Promise((resolve) => {
+        // @ts-ignore
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendConfirm,
+            params: {
+              accountId,
+              networkId,
+              feeInfoEditable: true,
+              feeInfoUseFeeInTx: false,
+              skipSaveHistory: false,
+              encodedTx: encodedApproveTx,
+              onSuccess: () => {
+                resolve('');
+              },
+            },
+          },
+        });
+      });
+    },
+    [],
+  );
+
+  const handleBatchTransfer = useCallback(
+    async (token?: string) => {
+      const { networkId, accountId, accountAddress } = getActiveWalletAccount();
+      let transferInfos;
+      if (token) {
+        transferInfos = [
+          {
+            from: accountAddress,
+            to: accountAddress,
+            token,
+            amount: '1',
+          },
+          {
+            from: accountAddress,
+            to: accountAddress,
+            token,
+            amount: '1',
+          },
+        ];
+      } else {
+        transferInfos = [
+          {
+            from: accountAddress,
+            to: accountAddress,
+            amount: '0.001',
+          },
+          {
+            from: accountAddress,
+            to: accountAddress,
+            amount: '0.001',
+          },
+        ];
+      }
+
+      if (token) {
+        await handleApproveToken({
+          networkId,
+          accountId,
+          spender: BatchTransferContractAddresses[networkId],
+          token,
+          amount: '2',
+        });
+      }
+
+      const encodedTx = await engine.buildEncodedTxFromBatchTransfer({
+        networkId,
+        accountId,
+        transferInfos,
+      });
+
+      // @ts-ignore
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendConfirm,
+          params: {
+            accountId,
+            networkId,
+            encodedTx,
+            feeInfoUseFeeInTx: false,
+            feeInfoEditable: true,
+            backRouteName: SendRoutes.PreSendAddress,
+          },
         },
-      },
-    });
-  }, [engine, navigation]);
+      });
+    },
+    [engine, navigation],
+  );
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -468,8 +549,21 @@ export const Debug = () => {
             >
               <Typography.Body1>PersonalSign</Typography.Body1>
             </Pressable>
-            <Pressable {...pressableProps} onPress={handleBatchTransfer}>
+            <Pressable
+              {...pressableProps}
+              onPress={() => handleBatchTransfer()}
+            >
               <Typography.Body1>BatchTransfer</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() =>
+                handleBatchTransfer(
+                  '0xdc31ee1784292379fbb2964b3b9c4124d8f89c60',
+                )
+              }
+            >
+              <Typography.Body1>BatchTransferToken</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>
