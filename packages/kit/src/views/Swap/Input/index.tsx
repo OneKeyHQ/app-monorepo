@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -18,7 +18,9 @@ const Input = () => {
   const { network } = useActiveWalletAccount();
   const { outputToken } = useSwapState();
 
-  const networkSelectorId = useAppSelector((s) => s.swap.networkSelectorId);
+  const inputToken = useAppSelector(s => s.swap.inputToken);
+  const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(inputToken?.networkId)
+
   const onSelect = useCallback(
     (token: Token) => {
       backgroundApiProxy.serviceSwap.setInputToken(token);
@@ -41,9 +43,7 @@ const Input = () => {
     return undefined;
   }, [networkSelectorId, outputToken]);
 
-  const onSelectNetworkId = useCallback((networkid?: string) => {
-    backgroundApiProxy.serviceSwap.setNetworkSelectorId(networkid);
-  }, []);
+
 
   const value = useMemo(
     () => ({

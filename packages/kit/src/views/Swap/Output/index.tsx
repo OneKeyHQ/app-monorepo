@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -11,8 +11,10 @@ import { useSwapState } from '../hooks/useSwap';
 
 const Output = () => {
   const navigation = useNavigation();
-  const { inputToken } = useSwapState();
-  const networkSelectorId = useAppSelector((s) => s.swap.networkSelectorId);
+
+  const inputToken = useAppSelector(s => s.swap.inputToken);
+  const outputToken = useAppSelector(s => s.swap.outputToken);
+  const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(outputToken?.networkId)
 
   const onSelect = useCallback(
     (token: Token) => {
@@ -35,10 +37,6 @@ const Output = () => {
     }
     return undefined;
   }, [networkSelectorId, inputToken]);
-
-  const onSelectNetworkId = useCallback((networkid?: string) => {
-    backgroundApiProxy.serviceSwap.setNetworkSelectorId(networkid);
-  }, []);
 
   const value = useMemo(
     () => ({
