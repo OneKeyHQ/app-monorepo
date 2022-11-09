@@ -205,9 +205,7 @@ type TokenSelectorProps = {
   onSelect?: (token: Token) => void;
 };
 
-const TokenSelector: FC<TokenSelectorProps> = ({
-  onSelect,
-}) => {
+const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
   const intl = useIntl();
   const { networkId: activeNetworkId } = useContext(TokenSelectorContext);
   const tokenList = useSwapTokenList(activeNetworkId);

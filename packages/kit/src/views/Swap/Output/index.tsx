@@ -10,9 +10,11 @@ import { TokenSelectorContext } from '../components/TokenSelector/context';
 const Output = () => {
   const navigation = useNavigation();
 
-  const inputToken = useAppSelector(s => s.swap.inputToken);
-  const outputToken = useAppSelector(s => s.swap.outputToken);
-  const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(outputToken?.networkId)
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
+    outputToken?.networkId,
+  );
 
   const onSelect = useCallback(
     (token: Token) => {

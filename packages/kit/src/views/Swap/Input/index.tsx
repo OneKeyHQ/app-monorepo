@@ -17,8 +17,10 @@ const Input = () => {
   const { network } = useActiveWalletAccount();
   const { outputToken } = useSwapState();
 
-  const inputToken = useAppSelector(s => s.swap.inputToken);
-  const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(inputToken?.networkId)
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
+    inputToken?.networkId,
+  );
 
   const onSelect = useCallback(
     (token: Token) => {

@@ -6,11 +6,12 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token, ServerToken } from '@onekeyhq/engine/src/types/token';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+import { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { IEncodedTx, IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
+
 import { getActiveWalletAccount } from '../../hooks/redux';
 import {
   clearState,
@@ -98,14 +99,15 @@ export default class ServiceSwap extends ServiceBase {
     const { engine, appSelector } = this.backgroundApi;
 
     const USDC = {
-      name: "USD Coin",
-      symbol: "USDC",
-      address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      name: 'USD Coin',
+      symbol: 'USDC',
+      address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
       decimals: 6,
-      logoURI: "https://common.onekey-asset.com/token/evm-1/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48.jpg",
-      impl: "evm",
-      chainId: "1",
-    } as ServerToken
+      logoURI:
+        'https://common.onekey-asset.com/token/evm-1/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48.jpg',
+      impl: 'evm',
+      chainId: '1',
+    } as ServerToken;
 
     const network = await engine.getNetwork(OnekeyNetwork.eth);
     const nativeToken = await engine.getNativeTokenInfo(network.id);
@@ -115,7 +117,7 @@ export default class ServiceSwap extends ServiceBase {
     }
     const outputToken = appSelector((s) => s.swap.outputToken);
     if (!outputToken) {
-      this.setOutputToken(formatServerToken(USDC))
+      this.setOutputToken(formatServerToken(USDC));
     }
   }
 
@@ -139,10 +141,10 @@ export default class ServiceSwap extends ServiceBase {
         );
       }
     }
-    const tokenNetwork = this.getNetwork(token.networkId)
+    const tokenNetwork = this.getNetwork(token.networkId);
     this.selectToken('OUTPUT', tokenNetwork, token);
     if (tokenNetwork) {
-      this.setRecipient(tokenNetwork)
+      this.setRecipient(tokenNetwork);
     }
   }
 
@@ -446,13 +448,13 @@ export default class ServiceSwap extends ServiceBase {
     keyword?: string;
   }) {
     const { engine, appSelector } = this.backgroundApi;
-    const networks = appSelector(s => s.runtime.networks)
+    const networks = appSelector((s) => s.runtime.networks);
     if (!keyword || !keyword.trim()) {
       return [];
     }
     const term = keyword.trim();
     const tokens = await engine.searchTokens(networkId, term, 1);
-    const networkIds = networks.map(item => item.id)
+    const networkIds = networks.map((item) => item.id);
     return tokens.filter((t) => networkIds.includes(t.networkId));
   }
 

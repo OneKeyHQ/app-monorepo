@@ -1,16 +1,16 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
+
 import { AppState, AppStateStatus } from 'react-native';
 
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const NetworkObserver = () => {
   useEffect(() => {
@@ -36,7 +36,7 @@ const AccountsObserver = () => {
   return null;
 };
 
-const TokenUpdaterWeb  = () => {
+const TokenUpdaterWeb = () => {
   useEffect(() => {
     backgroundApiProxy.serviceSwap.getSwapTokens();
   }, []);
@@ -63,7 +63,7 @@ const TokenUpdaterNative = () => {
     };
   }, [onChange]);
   return null;
-}
+};
 
 const SwapListener = () => (
   <>

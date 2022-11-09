@@ -1571,7 +1571,7 @@ class Engine {
   async searchTokens(
     networkId: string | undefined,
     searchTerm: string,
-    includeNativeToken?: 0 | 1
+    includeNativeToken?: 0 | 1,
   ): Promise<Array<Token>> {
     if (searchTerm.length === 0) {
       return [];
@@ -1579,7 +1579,7 @@ class Engine {
     if (!networkId) {
       const result = await fetchOnlineTokens({
         query: searchTerm,
-        includeNativeToken
+        includeNativeToken,
       });
       return result.map((t) => formatServerToken(t));
     }
