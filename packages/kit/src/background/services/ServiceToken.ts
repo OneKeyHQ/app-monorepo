@@ -295,9 +295,12 @@ export default class ServiceToken extends ServiceBase {
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
       tokenIdsOnNetwork = Array.from(new Set(tokenIdsOnNetwork));
     }
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const [prices, charts] = await engine.getPricesAndCharts(
       activeNetworkId,
       tokenIdsOnNetwork,
+      true,
+      vsCurrency,
     );
     const fullPrices: Record<string, string | null> = {
       main: prices.main?.toFixed() || null,

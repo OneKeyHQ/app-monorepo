@@ -2324,6 +2324,7 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
+    vsCurrency?: string,
   ): Promise<[Record<string, BigNumber>, Record<string, TokenChartData>]> {
     // Get price info
     const [prices, charts] = await this.priceManager.getPricesAndCharts(
@@ -2332,6 +2333,7 @@ class Engine {
         (tokenIdOnNetwork) => tokenIdOnNetwork.length > 0,
       ),
       withMain,
+      vsCurrency,
     );
     return [prices, charts];
   }

@@ -9,6 +9,7 @@ import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { formatMarketValueForInfo, getFiatCodeUnit } from '../Market/utils';
 
 export function FormatCurrencyNumber({
   value,
@@ -22,7 +23,11 @@ export function FormatCurrencyNumber({
   if (typeof value !== 'number') {
     return null;
   }
-  return (
+  return currency === 'btc' ? (
+    <>{`${!onlyNumber ? getFiatCodeUnit('btc') : ''}${formatMarketValueForInfo(
+      value,
+    )}`}</>
+  ) : (
     <FormattedNumber
       value={value}
       currencyDisplay="narrowSymbol"

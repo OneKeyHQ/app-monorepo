@@ -234,7 +234,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                 key={tag.id}
                 text={{
                   label: `${getFiatCodeUnit(selectedFiatMoneySymbol)}${
-                    marketTokenItem.price < 1
+                    marketTokenItem.price <= 1
                       ? formatMarketValueForInfo(marketTokenItem.price)
                       : formatMarketValueForComma(marketTokenItem.price)
                   }`,

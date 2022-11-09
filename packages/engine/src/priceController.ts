@@ -119,6 +119,7 @@ export class PriceController {
     networkId: string,
     tokenIdOnNetwork: Array<string>,
     withMain = true,
+    vs_currency = 'usd',
   ): Promise<[Record<string, BigNumber>, Record<string, TokenChartData>]> {
     const prices: Record<string, BigNumber> = {};
     const charts: Record<string, TokenChartData> = {};
@@ -142,6 +143,7 @@ export class PriceController {
           networkId,
           addresses: ['main'],
           points: '2',
+          vs_currency,
         });
         charts.main = response.main;
         if (charts.main) {
@@ -159,6 +161,7 @@ export class PriceController {
           networkId,
           addresses: tokenIdOnNetwork.slice(i, i + batchSize),
           points: '2',
+          vs_currency,
         });
         Object.keys(batchCharts).forEach((address) => {
           const tempChart = batchCharts[address];
