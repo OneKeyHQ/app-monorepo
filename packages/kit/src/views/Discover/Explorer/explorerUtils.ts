@@ -5,6 +5,7 @@ import { WebView } from 'react-native-webview';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { appSelector } from '../../../store';
 import { DAppItemType } from '../type';
 
 import type { WebSiteHistory } from '../type';
@@ -120,6 +121,13 @@ export function getWebviewWrapperRef({
   // DO NOT useMemo() here, as webviewRefs may be updated
   const ref = tabId ? webviewRefs[tabId] : null;
   return ref ?? null;
+}
+
+export function getCurrentTab(id: string) {
+  const {
+    webTabs: { tabs },
+  } = appSelector((s) => s);
+  return tabs.find((t) => t.id === id);
 }
 
 export function crossWebviewLoadUrl({

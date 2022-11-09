@@ -5,16 +5,10 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
-import {
-  Box,
-  Button,
-  Center,
-  Icon,
-  IconButton,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
 import useFloatingBottomTabBarHeight from '@onekeyhq/components/src/Layout/BottomTabs/utils/useBottomTabBarHeight';
 
+import { homeTab } from '../../../../store/reducers/webTabs';
 import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
 import { showWebMoreMenu } from '../MoreMenu';
@@ -22,18 +16,9 @@ import { showWebMoreMenu } from '../MoreMenu';
 export const ControllerBarMobile: FC<{
   expandAnim: Animated.SharedValue<number>;
 }> = ({ expandAnim }) => {
-  const {
-    openMatchDApp,
-    gotoSite,
-    currentTab,
-    stopLoading,
-    goBack,
-    goForward,
-    reload,
-    tabs,
-  } = useWebController();
+  const { currentTab, goBack, goForward, tabs } = useWebController();
   const tabBarHeight = useFloatingBottomTabBarHeight();
-  const { canGoBack, canGoForward } = currentTab;
+  const { canGoForward } = currentTab;
   return (
     <PortalEntry target="BottomTab-Overlay">
       <Animated.View
@@ -61,7 +46,12 @@ export const ControllerBarMobile: FC<{
         ]}
       >
         <Box bg="surface-subdued" w="full" h="full" flexDirection="row">
-          <Button flex={1} type="plain" disabled={!canGoBack} onPress={goBack}>
+          <Button
+            flex={1}
+            type="plain"
+            disabled={currentTab.url === homeTab.url}
+            onPress={goBack}
+          >
             <Icon color="icon-pressed" name="ChevronLeftSolid" />
           </Button>
 

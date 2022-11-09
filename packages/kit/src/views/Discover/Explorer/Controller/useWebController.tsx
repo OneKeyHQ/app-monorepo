@@ -19,6 +19,7 @@ import DappOpenHintDialog from '../DappOpenHintDialog';
 import {
   MatchDAppItemType,
   OnWebviewNavigation,
+  getCurrentTab,
   webviewRefs,
 } from '../explorerUtils';
 
@@ -52,7 +53,7 @@ export const useWebController = ({
     [dispatch],
   );
   const gotoSite = useGotoSite({
-    tab,
+    id: curId,
   });
   const openMatchDApp = useCallback(
     async ({ dapp, webSite }: MatchDAppItemType) => {
@@ -113,9 +114,11 @@ export const useWebController = ({
       loading,
     }) => {
       const now = Date.now();
-      const isValidNewUrl = typeof url === 'string' && url !== tab.url;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const curTab = getCurrentTab(curId)!;
+      const isValidNewUrl = typeof url === 'string' && url !== curTab.url;
       if (isValidNewUrl) {
-        if (tab.timestamp && now - tab.timestamp < 500) {
+        if (curTab.timestamp && now - curTab.timestamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
@@ -140,7 +143,7 @@ export const useWebController = ({
         }),
       );
     },
-    [curId, dispatch, gotoSite, tab],
+    [curId, dispatch, gotoSite],
   );
 
   const { goBack, goForward, stopLoading, reload } = useWebviewRef({

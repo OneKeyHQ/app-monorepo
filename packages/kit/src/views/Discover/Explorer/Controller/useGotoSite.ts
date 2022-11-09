@@ -2,17 +2,14 @@ import { useCallback } from 'react';
 
 import { nanoid } from '@reduxjs/toolkit';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../../hooks';
+import { appSelector } from '../../../../store';
 import {
   addWebSiteHistory,
   setDappHistory,
   updateHistory,
 } from '../../../../store/reducers/discover';
 import {
-  WebTab,
   addWebTab,
   closeWebTab,
   setWebTabData,
@@ -21,9 +18,8 @@ import { openUrl } from '../../../../utils/openUrl';
 import { WebSiteHistory } from '../../type';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
-export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
-  const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
-  return useCallback(
+export const useGotoSite = ({ id }: { id?: string }) =>
+  useCallback(
     ({
       url,
       title,
@@ -36,6 +32,11 @@ export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
       isNewWindow?: boolean;
       isInPlace?: boolean;
     }) => {
+      const {
+        webTabs: { tabs },
+        discover: { dappFavorites },
+      } = appSelector((s) => s);
+      const tab = tabs.find((t) => t.id === id);
       if (url && tab) {
         const validatedUrl = validateUrl(url);
         if (!validatedUrl) {
@@ -100,6 +101,5 @@ export const useGotoSite = ({ tab }: { tab?: WebTab }) => {
       }
       return false;
     },
-    [tab, dappFavorites],
+    [id],
   );
-};

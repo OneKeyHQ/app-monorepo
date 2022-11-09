@@ -16,7 +16,7 @@ export const useWebviewRef = ({
   navigationStateChangeEvent?: WebViewNavigation;
   onNavigation: OnWebviewNavigation;
 }) => {
-  const lastNavEventId = useRef<number>();
+  const lastNavEventSnapshot = useRef('');
   const goBack = useCallback(() => {
     try {
       ref?.goBack();
@@ -48,7 +48,12 @@ export const useWebviewRef = ({
 
   useEffect(() => {
     if (navigationStateChangeEvent) {
-      const { canGoBack, canGoForward, loading, title, url, lockIdentifier } =
+      const snapshot = JSON.stringify(navigationStateChangeEvent);
+      if (snapshot === lastNavEventSnapshot.current) {
+        return;
+      }
+      lastNavEventSnapshot.current = snapshot;
+      const { canGoBack, canGoForward, loading, title, url } =
         navigationStateChangeEvent;
       const isDeepLink = !url.startsWith('http') && url !== 'about:blank';
       if (isDeepLink) {
@@ -60,10 +65,6 @@ export const useWebviewRef = ({
         return;
       }
       if (loading) {
-        if (lockIdentifier === lastNavEventId.current) {
-          return;
-        }
-        lastNavEventId.current = lockIdentifier;
         onNavigation({ url, title, canGoBack, canGoForward, loading });
       } else {
         onNavigation({ title, canGoBack, canGoForward, loading });
