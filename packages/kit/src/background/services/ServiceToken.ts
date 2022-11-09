@@ -12,7 +12,6 @@ import {
   setAccountTokens,
   setAccountTokensBalances,
   setCharts,
-  setEnabledNativeTokens,
   setNativeToken,
   setNetworkTokens,
   setPrices,
@@ -363,30 +362,5 @@ export default class ServiceToken extends ServiceBase {
     const nativeTokenInfo = await engine.getNativeTokenInfo(networkId);
     dispatch(setNativeToken({ networkId, token: nativeTokenInfo }));
     return nativeTokenInfo;
-  }
-
-  @backgroundMethod()
-  async getEnabledNativeTokens(options?: {
-    forceUpdate: boolean;
-  }): Promise<Token[]> {
-    const { appSelector, dispatch } = this.backgroundApi;
-    const swappableNativeTokens = appSelector(
-      (s) => s.tokens.enabledNativeTokens,
-    );
-    if (
-      swappableNativeTokens &&
-      swappableNativeTokens.length > 0 &&
-      !options?.forceUpdate
-    ) {
-      return swappableNativeTokens;
-    }
-    const networks = appSelector((s) => s.runtime.networks);
-    const enabledNetworks = networks.filter(
-      (item) => !item.isTestnet && item.enabled,
-    );
-    const items = enabledNetworks.map((item) => this.getNativeToken(item.id));
-    const tokens = await Promise.all(items);
-    dispatch(setEnabledNativeTokens(tokens));
-    return tokens;
   }
 }

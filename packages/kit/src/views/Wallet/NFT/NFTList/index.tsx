@@ -304,6 +304,7 @@ function NFTListContainer() {
           params: {
             asset,
             network,
+            isOwner: true,
           },
         },
       });

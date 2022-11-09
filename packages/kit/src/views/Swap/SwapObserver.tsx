@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
@@ -7,22 +8,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, usePrevious } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
-
-import { useEnabledSwappableNetworks } from './hooks/useSwap';
-import { isNetworkEnabled } from './utils';
+import { useAppSelector } from '../../hooks';
 
 const NetworkObserver = () => {
-  const { network } = useActiveWalletAccount();
-  const prevNetowrk = usePrevious(network);
   useEffect(() => {
-    if (network && isNetworkEnabled(network)) {
-      if (prevNetowrk === undefined) {
-        backgroundApiProxy.serviceSwap.setDefaultInputToken(network.id);
-      }
-    }
-  }, [network, prevNetowrk]);
+    backgroundApiProxy.serviceSwap.setDefaultInputToken(OnekeyNetwork.eth);
+  }, []);
   return null;
 };
 
@@ -44,23 +35,9 @@ const AccountsObserver = () => {
 };
 
 const TokenUpdater = () => {
-  const enabledNetworks = useEnabledSwappableNetworks();
   useEffect(() => {
-    backgroundApiProxy.serviceToken.getEnabledNativeTokens({
-      forceUpdate: true,
-    });
+    backgroundApiProxy.serviceSwap.getSwapTokens();
   }, []);
-  useEffect(() => {
-    async function main() {
-      for (let i = 0; i < enabledNetworks.length; i += 1) {
-        const network = enabledNetworks[i];
-        await backgroundApiProxy.serviceToken.fetchTokensIfEmpty({
-          activeNetworkId: network.id,
-        });
-      }
-    }
-    main();
-  }, [enabledNetworks]);
   return null;
 };
 

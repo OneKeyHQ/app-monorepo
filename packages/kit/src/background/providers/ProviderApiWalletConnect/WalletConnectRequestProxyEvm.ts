@@ -14,9 +14,10 @@ export class WalletConnectRequestProxyEvm extends WalletConnectRequestProxy {
       });
    */
   override async connect(connector: OneKeyWalletConnector) {
-    return this.request<string[]>(connector, {
+    const accounts = await this.request<string[] | undefined>(connector, {
       method: 'eth_requestAccounts',
     });
+    return accounts || [];
   }
 
   /*
@@ -26,9 +27,10 @@ export class WalletConnectRequestProxyEvm extends WalletConnectRequestProxy {
         });
    */
   override async getAccounts(connector: OneKeyWalletConnector) {
-    return this.request<string[]>(connector, {
+    const accounts = await this.request<string[] | undefined>(connector, {
       method: 'eth_accounts',
     });
+    return accounts || [];
   }
 
   /*
@@ -39,9 +41,9 @@ export class WalletConnectRequestProxyEvm extends WalletConnectRequestProxy {
       );
    */
   override async getChainId(connector: OneKeyWalletConnector) {
-    return parseInt(
-      await this.request<string>(connector, { method: 'net_version' }),
-      10,
-    );
+    const netVersionStr = await this.request<string | undefined>(connector, {
+      method: 'net_version',
+    });
+    return parseInt(netVersionStr ?? '0', 10);
   }
 }
