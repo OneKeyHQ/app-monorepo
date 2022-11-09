@@ -17,7 +17,6 @@ import {
   resetState,
   resetTypedValue,
   setInputToken,
-  setNetworkSelectorId,
   setOutputToken,
   setQuote,
   setQuoteTime,
@@ -31,7 +30,6 @@ import {
   updateTokenList,
 } from '../../store/reducers/swapTransactions';
 import { SendConfirmParams } from '../../views/Send/types';
-import { enabledNetworkIds } from '../../views/Swap/config';
 import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -102,10 +100,8 @@ export default class ServiceSwap extends ServiceBase {
     const nativeToken = await engine.getNativeTokenInfo(network.id);
     const inputToken = appSelector((s) => s.swap.inputToken);
     if (nativeToken && !inputToken) {
-      this.selectToken('INPUT', network, nativeToken);
-      this.setSendingAccountByNetwork(network);
+      this.setInputToken(nativeToken);
     }
-    this.setNetworkSelectorId(network.id);
   }
 
   @backgroundMethod()
@@ -152,12 +148,6 @@ export default class ServiceSwap extends ServiceBase {
   async userInput(field: FieldType, typedValue: string) {
     const { dispatch } = this.backgroundApi;
     dispatch(setTypedValue({ independentField: field, typedValue }));
-  }
-
-  @backgroundMethod()
-  async setNetworkSelectorId(networkId?: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setNetworkSelectorId(networkId));
   }
 
   @backgroundMethod()
@@ -436,13 +426,15 @@ export default class ServiceSwap extends ServiceBase {
     networkId?: string;
     keyword?: string;
   }) {
-    const { engine } = this.backgroundApi;
+    const { engine, appSelector } = this.backgroundApi;
+    const networks = appSelector(s => s.runtime.networks)
     if (!keyword || !keyword.trim()) {
       return [];
     }
     const term = keyword.trim();
     const tokens = await engine.searchTokens(networkId, term, 1);
-    return tokens.filter((t) => enabledNetworkIds.includes(t.networkId));
+    const networkIds = networks.map(item => item.id)
+    return tokens.filter((t) => networkIds.includes(t.networkId));
   }
 
   @backgroundMethod()
