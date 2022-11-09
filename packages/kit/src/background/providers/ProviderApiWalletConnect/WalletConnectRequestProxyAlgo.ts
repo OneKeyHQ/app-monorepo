@@ -15,9 +15,10 @@ export class WalletConnectRequestProxyAlgo extends WalletConnectRequestProxy {
     }
    */
   override async connect(connector: OneKeyWalletConnector) {
-    return this.request<string[]>(connector, {
+    const accounts = await this.request<string[] | undefined>(connector, {
       method: 'connect',
     });
+    return accounts || [];
   }
 
   /*
@@ -28,9 +29,10 @@ export class WalletConnectRequestProxyAlgo extends WalletConnectRequestProxy {
       }
    */
   override async getAccounts(connector: OneKeyWalletConnector) {
-    return this.request<string[]>(connector, {
+    const accounts = await this.request<string[] | undefined>(connector, {
       method: 'accounts',
     });
+    return accounts || [];
   }
 
   /*
@@ -43,7 +45,7 @@ export class WalletConnectRequestProxyAlgo extends WalletConnectRequestProxy {
     }
    */
   override async getChainId(connector: OneKeyWalletConnector) {
-    const res: { chainId: number } | undefined = await this.request(connector, {
+    const res = await this.request<{ chainId: number } | undefined>(connector, {
       method: 'getChainId',
     });
     return res?.chainId;

@@ -17,10 +17,10 @@ export class WalletConnectRequestProxyAptos extends WalletConnectRequestProxy {
     }
    */
   override async connect(connector: OneKeyWalletConnector) {
-    const { address } = await this.request<{ address: string }>(connector, {
+    const res = await this.request<{ address: string } | undefined>(connector, {
       method: 'connect',
     });
-    return [address];
+    return [res?.address].filter(Boolean);
   }
 
   /*
@@ -33,10 +33,10 @@ export class WalletConnectRequestProxyAptos extends WalletConnectRequestProxy {
       }
    */
   override async getAccounts(connector: OneKeyWalletConnector) {
-    const { address } = await this.request<{ address: string }>(connector, {
+    const res = await this.request<{ address: string } | undefined>(connector, {
       method: 'account',
     });
-    return [address];
+    return [res?.address].filter(Boolean);
   }
 
   /*
@@ -49,7 +49,7 @@ export class WalletConnectRequestProxyAptos extends WalletConnectRequestProxy {
     }
    */
   override async getChainId(connector: OneKeyWalletConnector) {
-    const res: { chainId: number } | undefined = await this.request(connector, {
+    const res = await this.request<{ chainId: number } | undefined>(connector, {
       method: 'getChainId',
     });
     return res?.chainId;
