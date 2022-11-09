@@ -441,14 +441,14 @@ export default class ServiceSwap extends ServiceBase {
       return [];
     }
     const term = keyword.trim();
-    const tokens = await engine.searchTokens(networkId, term);
+    const tokens = await engine.searchTokens(networkId, term, 1);
     return tokens.filter((t) => enabledNetworkIds.includes(t.networkId));
   }
 
   @backgroundMethod()
   async checkAccountInWallets(accountId: string) {
     const { appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets); // engine.getWallets(); dont include hidden wallet (passphrase account)
+    const wallets = appSelector((s) => s.runtime.wallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       if (wallet.accounts.includes(accountId)) {
