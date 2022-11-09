@@ -1,3 +1,8 @@
+/*
+- packages/shared/src/web/index.html.ejs
+- packages/kit/src/store/reducers/settings.ts # setThemePreloadToLocalStorage
+- packages/ext/src/assets/theme-preload.js
+ */
 (function () {
   const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
   if (theme === 'dark') {
