@@ -11,9 +11,11 @@ import { DBSimpleAccount } from '../../../types/account';
 import {
   IDecodedTx,
   IDecodedTxActionType,
+  IDecodedTxDirection,
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
+  IFeeInfo,
   ITransferInfo,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
@@ -92,10 +94,11 @@ export default class Vault extends VaultBase {
     payload?: any,
   ): Promise<IDecodedTx> {
     const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     const decodedTx: IDecodedTx = {
       txid: '',
-      owner: encodedTx.Destination,
+      owner: encodedTx.Account,
       signer: encodedTx.Account,
       nonce: 0,
       actions: [
@@ -111,6 +114,10 @@ export default class Vault extends VaultBase {
             amountValue: encodedTx.Amount,
             extraInfo: null,
           },
+          direction:
+            encodedTx.Destination === dbAccount.address
+              ? IDecodedTxDirection.SELF
+              : IDecodedTxDirection.OUT,
         },
       ],
       status: IDecodedTxStatus.Pending,
@@ -119,7 +126,6 @@ export default class Vault extends VaultBase {
       encodedTx,
       payload,
       extraInfo: null,
-      totalFeeInNative: encodedTx.Fee,
     };
 
     return decodedTx;
@@ -141,7 +147,24 @@ export default class Vault extends VaultBase {
       Amount: XRPL.xrpToDrops(amount),
       Destination: to,
     });
-    return prepared;
+    return {
+      ...prepared,
+    };
+  }
+
+  override async fetchFeeInfo(encodedTx: IEncodedTxXrp): Promise<IFeeInfo> {
+    const network = await this.engine.getNetwork(this.networkId);
+    return {
+      customDisabled: true,
+      limit: XRPL.dropsToXrp(encodedTx.Fee ?? '0'),
+      prices: ['1'],
+      defaultPresetIndex: '1',
+      feeSymbol: 'XRP',
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      tx: null, // Must be null if network not support feeInTx
+    };
   }
 
   override async getBalances(
