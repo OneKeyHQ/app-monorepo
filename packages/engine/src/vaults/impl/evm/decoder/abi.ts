@@ -38,6 +38,12 @@ export enum Erc1155MethodSelectors {
   setApprovalForAll = '0xa22cb465', // keccak256(Buffer.from('setApprovalForAll(address,bool)')).toString('hex') => 0xa22cb4651ab9570f89bb516380c40ce76762284fb1f21337ceaf6adab99e7d4a
 }
 
+export enum BatchTransferSelectors {
+  disperseEther = '0xe63d38ed',
+  disperseToken = '0xc73a2d60',
+  disperseTokenSimple = '0x51ba162c',
+}
+
 const ABI = {
   ERC20,
   ERC721,

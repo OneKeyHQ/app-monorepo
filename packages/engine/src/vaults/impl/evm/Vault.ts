@@ -13,7 +13,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { difference, isNil, isString, merge, toLower } from 'lodash';
+import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -28,6 +28,7 @@ import {
   createOutputActionFromNFTTransaction,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
+import { BatchTransferContractAddresses } from '../../../presets/BatchTransferContractAddresses';
 import { OnekeyNetwork } from '../../../presets/networkIds';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
@@ -68,7 +69,7 @@ import {
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
-import { Erc20MethodSelectors } from './decoder/abi';
+import { BatchTransferSelectors, Erc20MethodSelectors } from './decoder/abi';
 import {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
@@ -450,6 +451,72 @@ export default class Vault extends VaultBase {
       to: transferInfo.to,
       value: amountHex,
       data: '0x',
+    };
+  }
+
+  override async buildEncodedTxFromBatchTransfer(
+    transferInfos: ITransferInfo[],
+  ): Promise<IEncodedTxEvm> {
+    const network = await this.getNetwork();
+    const transferInfo = transferInfos[0];
+    const isTransferToken = Boolean(transferInfo.token);
+    const { tokenId, isNFT, type } = transferInfo;
+
+    const batchTransferContractAddress =
+      BatchTransferContractAddresses[network.id];
+
+    if (!batchTransferContractAddress) {
+      throw new NotImplemented();
+    }
+
+    let batchMethod: string;
+    let paramTypes: string[];
+    let ParamValues: any[];
+    let totalAmountBN = new BigNumber(0);
+
+    if (isTransferToken) {
+      if (isNFT && type && tokenId) {
+        // TODO
+        batchMethod = '';
+        paramTypes = [];
+        ParamValues = [];
+      } else {
+        const token = await this.engine.ensureTokenInDB(
+          this.networkId,
+          transferInfo.token ?? '',
+        );
+        if (!token) {
+          throw new Error(`Token not found: ${transferInfo.token as string}`);
+        }
+
+        batchMethod = BatchTransferSelectors.disperseTokenSimple;
+        paramTypes = ['address', 'address[]', 'uint256[]'];
+        ParamValues = [];
+      }
+    } else {
+      batchMethod = BatchTransferSelectors.disperseEther;
+      paramTypes = ['address[]', 'uint256[]'];
+      ParamValues = reduce(
+        transferInfos,
+        (result: [string[], string[]], info) => {
+          const amountBN = new BigNumber(info.amount).shiftedBy(
+            network.decimals,
+          );
+          totalAmountBN = totalAmountBN.plus(amountBN);
+          result[0].push(info.to);
+          result[1].push(amountBN.toFixed());
+          return result;
+        },
+        [[], []],
+      );
+    }
+    return {
+      from: transferInfo.from,
+      to: batchTransferContractAddress,
+      data: `${batchMethod}${defaultAbiCoder
+        .encode(paramTypes, ParamValues)
+        .slice(2)}`,
+      value: toBigIntHex(totalAmountBN),
     };
   }
 

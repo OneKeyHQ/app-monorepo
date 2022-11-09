@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
@@ -59,7 +59,7 @@ export const Debug = () => {
   console.log('Developer Debug page render >>>>>>>');
   const { width, height } = useWindowDimensions();
   const { network, account, wallet } = useActiveWalletAccount();
-  const { serviceAccount } = backgroundApiProxy;
+  const { serviceAccount, engine } = backgroundApiProxy;
   const toast = useToast();
   const pressableProps = {
     p: '4',
@@ -78,6 +78,42 @@ export const Debug = () => {
       }),
     });
   }, [navigation, intl]);
+
+  const handleBatchTransfer = useCallback(async () => {
+    const { networkId, accountId, accountAddress } = getActiveWalletAccount();
+    const encodedTx = await engine.buildEncodedTxFromBatchTransfer({
+      networkId,
+      accountId,
+      transferInfos: [
+        {
+          from: accountAddress,
+          to: accountAddress,
+          amount: '0.001',
+        },
+        {
+          from: accountAddress,
+          to: accountAddress,
+          amount: '0.001',
+        },
+      ],
+    });
+
+    // @ts-ignore
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Send,
+      params: {
+        screen: SendRoutes.SendConfirm,
+        params: {
+          accountId,
+          networkId,
+          encodedTx,
+          feeInfoUseFeeInTx: false,
+          feeInfoEditable: true,
+          backRouteName: SendRoutes.PreSendAddress,
+        },
+      },
+    });
+  }, [engine, navigation]);
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -431,6 +467,9 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>PersonalSign</Typography.Body1>
+            </Pressable>
+            <Pressable {...pressableProps} onPress={handleBatchTransfer}>
+              <Typography.Body1>BatchTransfer</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>
