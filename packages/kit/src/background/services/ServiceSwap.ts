@@ -8,9 +8,9 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import { Token, ServerToken } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { IEncodedTx, IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
-
 import { getActiveWalletAccount } from '../../hooks/redux';
 import {
   clearState,
@@ -94,13 +94,28 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setDefaultInputToken(networkId: string) {
+  async setDefaultInputToken() {
     const { engine, appSelector } = this.backgroundApi;
-    const network = await engine.getNetwork(networkId);
+
+    const USDC = {
+      name: "USD Coin",
+      symbol: "USDC",
+      address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      decimals: 6,
+      logoURI: "https://common.onekey-asset.com/token/evm-1/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48.jpg",
+      impl: "evm",
+      chainId: "1",
+    } as ServerToken
+
+    const network = await engine.getNetwork(OnekeyNetwork.eth);
     const nativeToken = await engine.getNativeTokenInfo(network.id);
     const inputToken = appSelector((s) => s.swap.inputToken);
     if (nativeToken && !inputToken) {
       this.setInputToken(nativeToken);
+    }
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    if (!outputToken) {
+      this.setOutputToken(formatServerToken(USDC))
     }
   }
 
@@ -124,7 +139,11 @@ export default class ServiceSwap extends ServiceBase {
         );
       }
     }
-    this.selectToken('OUTPUT', this.getNetwork(token.networkId), token);
+    const tokenNetwork = this.getNetwork(token.networkId)
+    this.selectToken('OUTPUT', tokenNetwork, token);
+    if (tokenNetwork) {
+      this.setRecipient(tokenNetwork)
+    }
   }
 
   @backgroundMethod()

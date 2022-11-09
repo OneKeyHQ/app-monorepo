@@ -12,7 +12,7 @@ import { useAppSelector } from '../../hooks';
 
 const NetworkObserver = () => {
   useEffect(() => {
-    backgroundApiProxy.serviceSwap.setDefaultInputToken(OnekeyNetwork.eth);
+    backgroundApiProxy.serviceSwap.setDefaultInputToken();
   }, []);
   return null;
 };
