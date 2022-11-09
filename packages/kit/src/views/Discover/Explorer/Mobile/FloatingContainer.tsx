@@ -33,18 +33,21 @@ const FloatingContainer: FC<{
     expandAnim.value = withTiming(FLOATINGWINDOW_MAX, { duration: 300 }, () =>
       runOnJS(onMaximize),
     );
-  }, [expandAnim, onMaximize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onMaximize]);
   const minimize = useCallback(() => {
     onMinimize();
     expandAnim.value = withTiming(FLOATINGWINDOW_MIN, { duration: 300 });
-  }, [expandAnim, onMinimize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onMinimize]);
   const toggle = useCallback(() => {
     if (expandAnim.value === FLOATINGWINDOW_MIN) {
       expand();
     } else {
       minimize();
     }
-  }, [expand, expandAnim.value, minimize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expand, minimize]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabLength.current;
@@ -54,7 +57,8 @@ const FloatingContainer: FC<{
         expand();
       }, 100);
     }
-  }, [expand, expandAnim.value, tabs.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expand, tabs.length]);
 
   return (
     <>
@@ -63,7 +67,6 @@ const FloatingContainer: FC<{
           StyleSheet.absoluteFill,
           useAnimatedStyle(
             () => ({
-              overflow: 'hidden',
               zIndex: containerHeight > 0 && hasTabs ? 1 : -1,
               transform: [
                 {

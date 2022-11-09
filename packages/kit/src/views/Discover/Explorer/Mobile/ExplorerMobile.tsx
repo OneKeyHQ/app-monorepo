@@ -59,10 +59,12 @@ const ExplorerMobile: FC = () => {
 
   return (
     <Box flex={1} bg="background-default" mt={`${top}px`}>
-      <Freeze freeze={!showHome}>
-        <ExplorerBar onSearch={onSearch} />
-        <WebHomeContainer />
-      </Freeze>
+      <Box flex={1} bg="background-default">
+        <Freeze freeze={!showHome}>
+          <ExplorerBar onSearch={onSearch} />
+          <WebHomeContainer />
+        </Freeze>
+      </Box>
       <FloatingContainer
         onMaximize={() => setShowHome(false)}
         onMinimize={() => setShowHome(true)}
