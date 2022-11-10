@@ -16,6 +16,10 @@ import {
 } from '../../hooks';
 import { Token } from '../../store/typings';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
+import {
+  formatMarketValueForInfo,
+  getFiatCodeUnit,
+} from '../../views/Market/utils';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */
@@ -384,18 +388,25 @@ export function FormatCurrencyNumber({
   onlyNumber?: boolean;
 }) {
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  // const fiatMap = useAppSelector((s) => s.fiatMoney.map);
   if (typeof value !== 'number' && !(value instanceof BigNumber)) {
     return null;
   }
-  const fiat = fiatMap[selectedFiatMoneySymbol] || 0;
+  // const fiat = fiatMap[selectedFiatMoneySymbol] || 0;
   const maxDecimals =
     decimals ??
     getSuggestedDecimals(value instanceof BigNumber ? value.toNumber() : value);
-
-  return (
+  const isBTCCurrency = selectedFiatMoneySymbol === 'btc';
+  const numberValue = value instanceof BigNumber ? value.toNumber() : value;
+  return isBTCCurrency ? (
+    <>
+      {`${
+        !onlyNumber ? getFiatCodeUnit(selectedFiatMoneySymbol) : ''
+      }${formatMarketValueForInfo(numberValue)}`}
+    </>
+  ) : (
     <FormattedNumber
-      value={new BigNumber(fiat).multipliedBy(value).toNumber()}
+      value={numberValue ?? 0}
       currencyDisplay="narrowSymbol"
       // eslint-disable-next-line react/style-prop-object
       style={onlyNumber ? 'decimal' : 'currency'}
