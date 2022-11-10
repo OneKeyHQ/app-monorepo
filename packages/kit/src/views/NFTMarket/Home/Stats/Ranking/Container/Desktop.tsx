@@ -188,7 +188,6 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
 
       return (
         <ListItem
-          my="1px"
           onPress={() => {
             goToCollectionDetail({
               contractAddress: item.contract_address as string,
@@ -270,7 +269,6 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
                 >
                   <Badge
                     bgColor={volumeChangeBgColor}
-                    size="lg"
                     title={volumeChange}
                     color={volumeTextColor}
                   />

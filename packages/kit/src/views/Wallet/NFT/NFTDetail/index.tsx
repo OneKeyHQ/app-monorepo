@@ -391,7 +391,7 @@ const NFTDetailModal: FC = () => {
                     });
                   }}
                 >
-                  <Typography.Body2Strong mr="8px">
+                  <Typography.Body2Strong mr="8px" isTruncated maxW="160px">
                     {asset.tokenId}
                   </Typography.Body2Strong>
                   <Icon name="DuplicateSolid" size={20} />
