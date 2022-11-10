@@ -80,7 +80,12 @@ const ToggleButton: FC<
             bg={toggleButtonBg()}
           >
             {(!!leftIcon || !!leftImage) && (
-              <Center borderRadius="9999px" w={iconSize} h={iconSize}>
+              <Center
+                borderRadius="9999px"
+                w={iconSize}
+                h={iconSize}
+                mr={isSmall ? '4px' : '8px'}
+              >
                 {!!leftIcon && (
                   <Icon
                     name={leftIcon}
@@ -99,7 +104,6 @@ const ToggleButton: FC<
             {leftComponentRender?.()}
             {text.length > 0 ? (
               <Typography.Body2Strong
-                ml={isSmall ? '4px' : '8px'}
                 maxW={maxTextWidth}
                 isTruncated
                 color={isCurrent ? 'text-default' : 'text-subdued'}
