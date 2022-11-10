@@ -125,6 +125,7 @@ export const webtabsSlice = createSlice({
         delete webviewRefs[id];
       }
       state.tabs = [homeTab];
+      state.currentTabId = homeTab.id;
     },
     setCurrentWebTab: (state, { payload }: PayloadAction<string>) => {
       if (state.currentTabId !== payload) {
