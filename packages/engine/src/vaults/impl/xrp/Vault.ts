@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 import * as XRPL from 'xrpl';
@@ -19,6 +20,7 @@ import {
   IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
+  IHistoryTx,
   ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
@@ -200,6 +202,31 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    return Promise.all(
+      txids.map(async (txid) => {
+        const client = await this.getClient();
+        const response = await client.request({
+          command: 'tx',
+          transaction: txid,
+          binary: false,
+        });
+        const transactionResult =
+          (response.result?.meta as XRPL.TransactionMetadata)
+            ?.TransactionResult ?? '';
+        if (transactionResult === 'tesSUCCESS') {
+          return TransactionStatus.CONFIRM_AND_SUCCESS;
+        }
+        if (transactionResult.startsWith('tef')) {
+          return TransactionStatus.CONFIRM_BUT_FAILED;
+        }
+        return TransactionStatus.PENDING;
+      }),
+    );
+  }
+
   override attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTx;
     feeInfoValue: IFeeInfoUnit;
@@ -213,7 +240,7 @@ export default class Vault extends VaultBase {
       customDisabled: true,
       limit: XRPL.dropsToXrp(encodedTx.Fee ?? '0'),
       prices: ['1'],
-      defaultPresetIndex: '1',
+      defaultPresetIndex: '0',
       feeSymbol: 'XRP',
       feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
