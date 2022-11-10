@@ -17,7 +17,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { BatchTransferContractAddresses } from '@onekeyhq/engine/src/presets/batchTransferContractAddresses';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getActiveWalletAccount,
@@ -165,7 +165,7 @@ export const Debug = () => {
         await handleApproveToken({
           networkId,
           accountId,
-          spender: BatchTransferContractAddresses[networkId],
+          spender: batchTransferContractAddress[networkId],
           token,
           amount: '2',
         });

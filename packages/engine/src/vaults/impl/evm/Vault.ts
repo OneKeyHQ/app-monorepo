@@ -28,7 +28,7 @@ import {
   createOutputActionFromNFTTransaction,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
-import { BatchTransferContractAddresses } from '../../../presets/batchTransferContractAddresses';
+import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
 import { OnekeyNetwork } from '../../../presets/networkIds';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
@@ -308,7 +308,7 @@ export default class Vault extends VaultBase {
     interactInfo?: IDecodedTxInteractInfo;
   }): Promise<IDecodedTx> {
     // batch transfer
-    if (encodedTx.to === BatchTransferContractAddresses[this.networkId]) {
+    if (encodedTx.to === batchTransferContractAddress[this.networkId]) {
       const decodeTx = await this.decodeBatchTransferTx(encodedTx, payload);
       if (decodeTx) return decodeTx;
     }
@@ -542,10 +542,9 @@ export default class Vault extends VaultBase {
     const isTransferToken = Boolean(transferInfo.token);
     const { tokenId, isNFT, type } = transferInfo;
 
-    const batchTransferContractAddress =
-      BatchTransferContractAddresses[network.id];
+    const contract = batchTransferContractAddress[network.id];
 
-    if (!batchTransferContractAddress) {
+    if (!contract) {
       throw new NotImplemented();
     }
 
@@ -604,7 +603,7 @@ export default class Vault extends VaultBase {
     }
     return {
       from: transferInfo.from,
-      to: batchTransferContractAddress,
+      to: contract,
       data: `${batchMethod}${defaultAbiCoder
         .encode(paramTypes, ParamValues)
         .slice(2)}`,

@@ -1,6 +1,6 @@
 import { OnekeyNetwork } from './networkIds';
 
-export const BatchTransferContractAddresses: {
+export const batchTransferContractAddress: {
   [k: string]: string;
 } = {
   [OnekeyNetwork.eth]: '',
