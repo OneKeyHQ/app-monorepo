@@ -33,9 +33,8 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
           text: c.name ?? '',
         };
         if (c.categoryId === MARKET_FAVORITES_CATEGORYID) {
-          buttonData.leftComponentRender = () => (
-            <Icon name="StarSolid" color="icon-warning" size={20} />
-          );
+          buttonData.leftIcon = 'StarSolid';
+          buttonData.leftIconSelectedColor = 'icon-warning';
           buttonData.text = '';
         }
         return buttonData;
