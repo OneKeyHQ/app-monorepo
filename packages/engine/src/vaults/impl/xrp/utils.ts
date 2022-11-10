@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { sign } from 'ripple-keypairs';
-import { encode, encodeForSigning, hashes } from 'xrpl';
+import { TransactionMetadata, encode, encodeForSigning, hashes } from 'xrpl';
+
+import { IDecodedTxStatus } from '../../types';
 
 import type { Transaction } from 'xrpl';
 
@@ -52,4 +55,26 @@ function removeTrailingZeros(tx: Transaction): void {
 
 function computeSignature(tx: Transaction, privateKey: string): string {
   return sign(encodeForSigning(tx), privateKey);
+}
+
+export function getTxStatus(meta: TransactionMetadata) {
+  const transactionResult = meta?.TransactionResult ?? '';
+  if (transactionResult === 'tesSUCCESS') {
+    return TransactionStatus.CONFIRM_AND_SUCCESS;
+  }
+  if (transactionResult.startsWith('tef')) {
+    return TransactionStatus.CONFIRM_BUT_FAILED;
+  }
+  return TransactionStatus.PENDING;
+}
+
+export function getDecodedTxStatus(meta: TransactionMetadata) {
+  const transactionResult = meta?.TransactionResult ?? '';
+  if (transactionResult === 'tesSUCCESS') {
+    return IDecodedTxStatus.Confirmed;
+  }
+  if (transactionResult.startsWith('tef')) {
+    return IDecodedTxStatus.Failed;
+  }
+  return IDecodedTxStatus.Pending;
 }

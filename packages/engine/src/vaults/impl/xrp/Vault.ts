@@ -32,7 +32,8 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IEncodedTxXrp } from './types';
+import { IEncodedTxXrp, IXrpTransaction } from './types';
+import { getDecodedTxStatus, getTxStatus } from './utils';
 
 let clientInstance: XRPL.Client | null = null;
 // @ts-ignore
@@ -213,18 +214,111 @@ export default class Vault extends VaultBase {
           transaction: txid,
           binary: false,
         });
-        const transactionResult =
-          (response.result?.meta as XRPL.TransactionMetadata)
-            ?.TransactionResult ?? '';
-        if (transactionResult === 'tesSUCCESS') {
-          return TransactionStatus.CONFIRM_AND_SUCCESS;
-        }
-        if (transactionResult.startsWith('tef')) {
-          return TransactionStatus.CONFIRM_BUT_FAILED;
-        }
-        return TransactionStatus.PENDING;
+        return getTxStatus(response.result.meta as XRPL.TransactionMetadata);
       }),
     );
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const { localHistory } = options;
+
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const client = await this.getClient();
+    let txs: IXrpTransaction[] = [];
+    try {
+      const response = await client.request({
+        command: 'account_tx',
+        account: dbAccount.address,
+        ledger_index_min: -1,
+        ledger_index_max: -1,
+        binary: false,
+        limit: 100,
+        forward: false,
+      });
+      txs = response.result.transactions;
+    } catch (e) {
+      console.error(e);
+    }
+
+    const promises = txs.map((txInfo) => {
+      try {
+        const { tx, meta } = txInfo;
+        const historyTxToMerge = localHistory.find(
+          (item) => item.decodedTx.txid === tx?.hash,
+        );
+        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+          // No need to update.
+          return null;
+        }
+        if (tx?.TransactionType !== 'Payment') {
+          return null;
+        }
+
+        let direction = IDecodedTxDirection.OUT;
+        if (tx.Destination === dbAccount.address) {
+          direction =
+            tx.Account === dbAccount.address
+              ? IDecodedTxDirection.SELF
+              : IDecodedTxDirection.IN;
+        }
+        const amount = new BigNumber(
+          typeof tx.Amount === 'string' ? tx.Amount : tx.Amount.value,
+        )
+          .shiftedBy(-decimals)
+          .toFixed();
+        const amountValue =
+          typeof tx.Amount === 'string' ? tx.Amount : tx.Amount.value;
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.hash ?? '',
+          owner: dbAccount.address,
+          signer: dbAccount.address,
+          nonce: tx.Sequence ?? 0,
+          actions: [
+            {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: token,
+                from: tx.Account,
+                to: tx.Destination,
+                amount,
+                amountValue,
+                extraInfo: null,
+              },
+            },
+          ],
+          status: getDecodedTxStatus(meta as XRPL.TransactionMetadata),
+          networkId: this.networkId,
+          accountId: this.accountId,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(tx.Fee ?? 0)
+            .shiftedBy(-decimals)
+            .toFixed(),
+        };
+        decodedTx.updatedAt =
+          typeof tx.date !== 'undefined'
+            ? XRPL.rippleTimeToUnixTime(tx.date)
+            : Date.now();
+        decodedTx.createdAt =
+          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+        return this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
+        console.error(e);
+        return Promise.resolve(null);
+      }
+    });
+
+    return (await Promise.all(promises)).filter(Boolean);
   }
 
   override attachFeeInfoToEncodedTx(params: {

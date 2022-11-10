@@ -1,3 +1,5 @@
+import type { Transaction, TransactionMetadata } from 'xrpl';
+
 export interface IEncodedTxXrp {
   TransactionType: 'Payment';
   Account: string;
@@ -5,4 +7,15 @@ export interface IEncodedTxXrp {
   Amount: string;
   Destination: string;
   DestinationTag?: number;
+}
+
+interface ResponseOnlyTxInfo {
+  date?: number;
+  hash?: string;
+  ledger_index?: number;
+}
+
+export interface IXrpTransaction {
+  meta: string | TransactionMetadata;
+  tx?: Transaction & ResponseOnlyTxInfo;
 }
