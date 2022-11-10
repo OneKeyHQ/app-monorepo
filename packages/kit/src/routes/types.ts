@@ -140,6 +140,7 @@ export type HomeRoutesParams = {
     networkId: string;
     contractAddress: string;
     collection?: Collection;
+    title?: string;
   };
   [HomeRoutes.RevokeRedirect]: undefined;
 };

@@ -17,7 +17,7 @@ import EmptyView from '../../EmptyView';
 
 type Props = { listData: NFTMarketRanking[]; selectNetwork?: Network } & Pick<
   ComponentProps<typeof List>,
-  'ListHeaderComponent' | 'ListFooterComponent'
+  'ListHeaderComponent' | 'ListFooterComponent' | 'headerProps'
 >;
 
 const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
@@ -33,6 +33,7 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
           goToCollectionDetail({
             contractAddress: item.contract_address as string,
             networkId: network?.id as string,
+            title: item.contract_name,
           });
         }}
       >

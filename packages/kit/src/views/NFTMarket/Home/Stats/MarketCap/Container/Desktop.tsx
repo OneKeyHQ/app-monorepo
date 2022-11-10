@@ -64,6 +64,7 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
             goToCollectionDetail({
               contractAddress: item.contract_address as string,
               networkId: context?.selectedNetwork?.id as string,
+              title: item.contract_name,
             });
           }}
         >

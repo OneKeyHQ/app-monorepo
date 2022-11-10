@@ -17,24 +17,22 @@ const CollectionDetail = () => {
     useRoute<
       RouteProp<HomeRoutesParams, HomeRoutes.NFTMarketCollectionScreen>
     >();
-  const { networkId, collection, contractAddress } = route.params;
+  const { networkId, collection, contractAddress, title } = route.params;
   const [context, setContext] = useState<CollectionDetailContextValue>({
     selectedIndex: 0,
     collection,
+    assetList: [],
+    txList: [],
   });
   const navigation = useNavigation();
 
+  console.log('title = ', title);
+
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: collection?.contractName,
+      title: title ?? collection?.contractName ?? collection?.name,
     });
-  }, [collection?.contractName, navigation]);
-
-  useEffect(() => {
-    navigation.setOptions({
-      title: context.collection?.contractName,
-    });
-  }, [context.collection?.contractName, navigation]);
+  }, [collection?.contractName, collection?.name, navigation, title]);
 
   const { serviceNFT } = backgroundApiProxy;
 
@@ -47,6 +45,7 @@ const CollectionDetail = () => {
       const data = await serviceNFT.getCollection({
         chain: networkId,
         contractAddress,
+        showStatistics: true,
       });
       if (data) {
         setContext((ctx) => ({

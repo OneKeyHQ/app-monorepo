@@ -78,6 +78,7 @@ const Desktop = () => {
             goToCollectionDetail({
               contractAddress: item.contractAddress as string,
               networkId: context?.selectedNetwork?.id as string,
+              title: item.contractName,
             });
           }}
         >

@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   getActiveWalletAccount,
@@ -33,6 +34,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { SendRoutes } from '../../../../routes';
 
 import CollectibleContent from './CollectibleContent';
@@ -75,7 +77,42 @@ const NFTDetailModal: FC = () => {
         CollectiblesModalRoutes.NFTDetailModal
       >
     >();
-  const { network, asset, isOwner } = route.params;
+  const { network, asset: outerAsset, isOwner } = route.params;
+
+  const [asset, updateAsset] = useState(outerAsset);
+  const { serviceNFT } = backgroundApiProxy;
+
+  useEffect(() => {
+    (async () => {
+      if (network.id) {
+        if (network.id === OnekeyNetwork.sol) {
+          const data = await serviceNFT.fetchAsset({
+            chain: network.id,
+            tokenId: outerAsset.tokenAddress as string,
+          });
+          if (data) {
+            updateAsset(data);
+          }
+        } else {
+          const data = await serviceNFT.fetchAsset({
+            chain: network.id,
+            contractAddress: outerAsset.contractAddress,
+            tokenId: outerAsset.tokenId as string,
+            showAttribute: true,
+          });
+          if (data) {
+            updateAsset(data);
+          }
+        }
+      }
+    })();
+  }, [
+    outerAsset.contractAddress,
+    outerAsset.tokenAddress,
+    outerAsset.tokenId,
+    network.id,
+    serviceNFT,
+  ]);
 
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 

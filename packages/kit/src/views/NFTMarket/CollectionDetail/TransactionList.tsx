@@ -1,11 +1,4 @@
-import React, {
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -32,6 +25,10 @@ import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import StatsItemCell from '../Home/Stats/StatsItemCell';
 
 import { useCollectionDetailContext } from './context';
+import { ListProps } from './type';
+
+// TODO:laoding view
+const Footer: FC = () => <Box />;
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
@@ -97,10 +94,14 @@ const ListHeaderComponent = () => {
 const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
   const { formatDistance } = useFormatDate();
 
+  let name = `# ${item.asset?.tokenId ?? ''}`;
+  if (item.asset?.name && item.asset?.name.length > 0) {
+    name = item.asset?.name;
+  }
   return (
     <StatsItemCell
       height="48px"
-      title={item.asset?.name}
+      title={name}
       subTitle={item.timestamp ? formatDistance(item.timestamp) : ''}
       logoComponent={
         item.asset && (
@@ -124,8 +125,11 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
   network,
   item,
 }) => {
+  let name = `# ${item.asset?.tokenId ?? ''}`;
+  if (item.asset?.name && item.asset?.name.length > 0) {
+    name = item.asset?.name;
+  }
   const { formatDistance } = useFormatDate();
-
   const { openAddressDetails } = useOpenBlockBrowser(network);
   return (
     <Row
@@ -141,7 +145,7 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
 
         <Box flexDirection="column" flex={1}>
           <Text typography="Body1Strong" numberOfLines={1}>
-            {item.asset?.name}
+            {name}
           </Text>
           <Text color="text-subdued" typography="Body2" numberOfLines={1}>
             {item.timestamp ? formatDistance(item.timestamp) : ''}
@@ -183,18 +187,22 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
   );
 };
 
-const TransactionList = ({
-  contractAddress,
-  networkId,
-}: {
-  contractAddress: string;
-  networkId: string;
-}) => {
+export const TransactionCell: FC<{
+  network?: Network;
+  item: NFTTransaction;
+}> = ({ network, item }) => {
+  const isSmallScreen = useIsVerticalLayout();
+  if (isSmallScreen) {
+    return <MobileCell item={item} />;
+  }
+  return <DesktopCell item={item} network={network} />;
+};
+
+const TransactionList: FC<ListProps> = ({ contractAddress, networkId }) => {
   const isSmallScreen = useIsVerticalLayout();
 
   const context = useCollectionDetailContext()?.context;
   const setContext = useCollectionDetailContext()?.setContext;
-  const [listData, updateListData] = useState<NFTTransaction[]>([]);
   const cursor = useRef<string | undefined>();
 
   const { serviceNFT } = backgroundApiProxy;
@@ -211,15 +219,17 @@ const TransactionList = ({
       const data = await serviceNFT.getCollectionTransactions(param);
       if (data?.content) {
         cursor.current = data.next;
-        updateListData((prev) => {
-          if (context?.refreshing) {
-            return data.content;
-          }
-          return prev.concat(data?.content);
-        });
+        if (setContext) {
+          setContext((ctx) => {
+            if (context?.refreshing) {
+              return { ...ctx, txList: data.content };
+            }
+            return { ...ctx, txList: ctx.txList.concat(data?.content) };
+          });
+        }
       }
     },
-    [context?.refreshing, serviceNFT],
+    [context?.refreshing, serviceNFT, setContext],
   );
   useEffect(() => {
     (() => {
@@ -227,17 +237,19 @@ const TransactionList = ({
         if (context?.refreshing) {
           cursor.current = undefined;
         }
-        getData({
-          chain: networkId,
-          contractAddress,
-          cursor: cursor.current,
-          eventTypes: 'sale',
-          showAsset: true,
-        }).then(() => {
-          if (setContext) {
-            setContext((ctx) => ({ ...ctx, refreshing: false }));
-          }
-        });
+        if (cursor.current !== null) {
+          getData({
+            chain: networkId,
+            contractAddress,
+            cursor: cursor.current,
+            eventTypes: 'sale',
+            showAsset: true,
+          }).then(() => {
+            if (setContext) {
+              setContext((ctx) => ({ ...ctx, refreshing: false }));
+            }
+          });
+        }
       }
     })();
   }, [
@@ -257,13 +269,8 @@ const TransactionList = ({
   );
 
   const renderItem: ListRenderItem<NFTTransaction> = useCallback(
-    ({ item }) =>
-      isSmallScreen ? (
-        <MobileCell item={item} />
-      ) : (
-        <DesktopCell network={currentNetwork} item={item} />
-      ),
-    [currentNetwork, isSmallScreen],
+    ({ item }) => <TransactionCell item={item} network={currentNetwork} />,
+    [currentNetwork],
   );
   const paddingX = isSmallScreen ? 16 : 51;
 
@@ -274,16 +281,24 @@ const TransactionList = ({
       ItemSeparatorComponent={() => (
         <Divider height="16px" bgColor="background-default" />
       )}
-      data={listData}
+      data={context?.txList}
       renderItem={renderItem}
+      ListFooterComponent={() => {
+        if (cursor.current !== null) {
+          return <Footer />;
+        }
+        return <Box />;
+      }}
       onEndReached={() => {
-        getData({
-          chain: networkId,
-          contractAddress,
-          cursor: cursor.current,
-          eventTypes: 'sale',
-          showAsset: true,
-        });
+        if (cursor.current !== null) {
+          getData({
+            chain: networkId,
+            contractAddress,
+            cursor: cursor.current,
+            eventTypes: 'sale',
+            showAsset: true,
+          });
+        }
       }}
     />
   );

@@ -34,15 +34,18 @@ export function useCollectionDetail() {
       collection,
       networkId,
       contractAddress,
+      title,
     }: {
       collection?: Collection;
       networkId: string;
       contractAddress: string;
+      title?: string;
     }) => {
       navigation.navigate(HomeRoutes.NFTMarketCollectionScreen, {
         networkId,
         contractAddress,
         collection,
+        title,
       });
     },
     [navigation],
