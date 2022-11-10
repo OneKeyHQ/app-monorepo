@@ -110,7 +110,6 @@ type Props = {
 
 const DefaultList: FC<Props> = ({ selectNetwork }) => {
   const { serviceNFT } = backgroundApiProxy;
-  const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
 
   const [listData, updateListData] = useState<NFTMarketRanking[]>([]);
@@ -136,15 +135,11 @@ const DefaultList: FC<Props> = ({ selectNetwork }) => {
           }),
           actions: [
             {
-              label: (
-                <Text typography="Body2" color="text-subdued">
-                  {intl.formatMessage(
-                    {
-                      id: 'content__int_day_volume',
-                    },
-                    { 0: 1 },
-                  )}
-                </Text>
+              label: intl.formatMessage(
+                {
+                  id: 'content__int_day_volume',
+                },
+                { 0: 1 },
               ),
             },
           ],
@@ -258,6 +253,7 @@ const SearchResultList: FC<Props> = ({
 
 const NFTSearchModal: FC = () => {
   const defaultNetwork = useDefaultNetWork();
+  const { bottom } = useSafeAreaInsets();
 
   const [selectNetwork, updateSearchNetwork] = useState(defaultNetwork);
   const [keyword, setKeyword] = useState<string>('');
@@ -290,7 +286,7 @@ const NFTSearchModal: FC = () => {
         <ScrollView
           flex={1}
           p={{ base: '16px', md: '24px' }}
-          contentContainerStyle={{ flex: 1 }}
+          contentContainerStyle={{ flex: 1, paddingBottom: bottom }}
         >
           {terms.length > 0 ? (
             <SearchResultList

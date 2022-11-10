@@ -10,6 +10,7 @@ import {
   getHttpImageWithAsset,
 } from '@onekeyhq/engine/src/managers/nft';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NFTAudio from '../../../../components/NFTAudio';
 import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
@@ -21,19 +22,27 @@ import useUniqueToken, { ComponentType } from './useUniqueToken';
 
 export type Props = {
   asset: NFTAsset;
+  size?: number;
 };
 
-const CollectibleContent: FC<Props> = ({ asset }) => {
+const CollectibleContent: FC<Props> = ({ asset, size }) => {
   const { componentType } = useUniqueToken(asset);
   const { screenWidth } = useUserDevice();
   const isSmallScreen = useIsVerticalLayout();
 
-  const imageWidth = isSmallScreen ? screenWidth - 32 : 358;
+  // eslint-disable-next-line no-nested-ternary
+  const imageWidth = isSmallScreen
+    ? platformEnv.isExtension
+      ? 176
+      : screenWidth - 32
+    : 288;
   const uri = getContentWithAsset(asset);
 
   if (uri) {
     if (componentType === undefined) {
-      return <CustomSkeleton size={`${imageWidth}px`} borderRadius="20px" />;
+      return (
+        <CustomSkeleton size={size || `${imageWidth}px`} borderRadius="12px" />
+      );
     }
     if (componentType === ComponentType.Image) {
       return (
@@ -41,29 +50,30 @@ const CollectibleContent: FC<Props> = ({ asset }) => {
           url={uri}
           asset={asset}
           thumbnail={false}
-          size={imageWidth}
+          size={size || imageWidth}
           skeleton
-          borderRadius="20px"
+          borderRadius="12px"
           resizeMode="cover"
+          shadow="depth.5"
         />
       );
     }
     if (componentType === ComponentType.Video) {
-      return <NFTVideo url={uri} size={imageWidth} />;
+      return <NFTVideo url={uri} size={size || imageWidth} />;
     }
     if (componentType === ComponentType.SVG) {
-      return <NFTSVG url={uri} size={imageWidth} />;
+      return <NFTSVG url={uri} size={size || imageWidth} />;
     }
     if (componentType === ComponentType.Audio) {
       const imageUrl = getHttpImageWithAsset(asset);
-      return <NFTAudio url={uri} size={imageWidth} poster={imageUrl} />;
+      return <NFTAudio url={uri} size={size || imageWidth} poster={imageUrl} />;
     }
   }
   return (
     <MemoFallbackElement
       contentType={asset.contentType}
       logoUrl={asset.collection.logoUrl}
-      size={imageWidth}
+      size={size || imageWidth}
     />
   );
 };

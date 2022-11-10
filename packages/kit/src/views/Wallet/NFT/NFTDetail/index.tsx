@@ -1,17 +1,26 @@
 import React, { FC, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { BlurView } from 'expo-blur';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
+  Center,
+  HStack,
+  Icon,
   IconButton,
   Modal,
+  Pressable,
   ScrollView,
+  Text,
   Typography,
   VStack,
   useIsVerticalLayout,
+  useSafeAreaInsets,
+  useTheme,
   useToast,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -36,6 +45,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { SendRoutes } from '../../../../routes';
+import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 
 import CollectibleContent from './CollectibleContent';
 
@@ -45,27 +55,13 @@ type Props = {
   imageContent: JSX.Element;
   content: JSX.Element | null;
 };
-const Desktop: FC<Props> = ({ imageContent, content }) => (
-  <Box flexDirection="row" flex={1}>
-    {imageContent}
-    <Box flex={1} flexDirection="column" px="24px">
-      <ScrollView>{content}</ScrollView>
-    </Box>
-  </Box>
-);
-const Mobile: FC<Props> = ({ imageContent, content }) => (
-  <Box flexDirection="column" flex={1} pr="16px">
-    <ScrollView>
-      {imageContent}
-      <Box paddingY="24px">{content}</Box>
-    </ScrollView>
-  </Box>
-);
 
 const NFTDetailModal: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const modalClose = useModalClose();
+  const { themeVariant } = useTheme();
+  const { bottom } = useSafeAreaInsets();
 
   const { wallet } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -140,187 +136,309 @@ const NFTDetailModal: FC = () => {
 
   const shareProps: Props = {
     imageContent: (
-      <Box flexDirection="column">
-        <CollectibleContent asset={asset} />
-        {isOwner && (
-          <Button
-            isDisabled={isDisabled}
-            mt="24px"
-            width="full"
-            height="42px"
-            size="lg"
-            type="primary"
-            onPress={sendAction}
+      <>
+        {/* eslint-disable-next-line no-nested-ternary */}
+        {platformEnv.isExtension ? (
+          <Box overflow="hidden" mt="-16px" mr="-16px" ml="-16px">
+            <Center position="absolute" top={0} right={0} bottom={0} left={0}>
+              <CollectibleContent asset={asset} size={360} />
+            </Center>
+            <BlurView
+              tint={themeVariant === 'light' ? 'light' : 'dark'}
+              intensity={100}
+              style={{
+                alignItems: 'center',
+                padding: 24,
+              }}
+            >
+              <CollectibleContent asset={asset} />
+            </BlurView>
+          </Box>
+        ) : isSmallScreen ? (
+          <CollectibleContent asset={asset} />
+        ) : (
+          <Box
+            alignSelf="stretch"
+            borderLeftRadius={24}
+            mr="24px"
+            overflow="hidden"
           >
-            {intl.formatMessage({
-              id: 'action__send',
-            })}
-          </Button>
+            <Center position="absolute" top={0} right={0} bottom={0} left={0}>
+              <CollectibleContent asset={asset} size={592} />
+            </Center>
+            <BlurView
+              tint={themeVariant === 'light' ? 'light' : 'dark'}
+              intensity={100}
+              style={{
+                flex: 1,
+                alignSelf: 'stretch',
+                justifyContent: 'center',
+                padding: 24,
+              }}
+            >
+              <CollectibleContent asset={asset} />
+            </BlurView>
+          </Box>
         )}
-
-        {platformEnv.isDev && (
-          <Button
-            mt={4}
-            onPress={() => {
-              console.log('asset = ', asset);
-            }}
-          >
-            AssetButtonTest
-          </Button>
-        )}
-      </Box>
+      </>
     ),
     content: asset && (
-      <Box w="100%">
+      <VStack space="24px">
         {/* Asset name and collection name */}
-        <VStack mb="24px">
+        <Box>
           <Typography.DisplayLarge fontWeight="700">
-            {asset.name}
+            {asset.name && asset.name.length > 0
+              ? asset.name
+              : `#${asset.tokenId as string}`}
           </Typography.DisplayLarge>
-          {!!asset.collection.contractName && (
+          <HStack space="8px" mt="4px">
+            <Text typography="Body1" color="text-subdued">
+              {intl.formatMessage({ id: 'content__last_sale' })}
+            </Text>
+            <Text typography="Body1Strong" color="text-subdued">
+              {asset.latestTradePrice || 'N/A'}
+            </Text>
+          </HStack>
+          {/* {!!asset.collection.contractName && (
             <Typography.Body2 color="text-subdued">
               {asset.collection.contractName}
             </Typography.Body2>
+          )} */}
+        </Box>
+
+        {/* Collection */}
+        <Pressable>
+          {({ isHovered, isPressed }) => (
+            <HStack
+              px="16px"
+              py="12px"
+              rounded="12px"
+              space="12px"
+              borderWidth={StyleSheet.hairlineWidth}
+              alignItems="center"
+              borderColor="border-default"
+              bgColor={
+                // eslint-disable-next-line no-nested-ternary
+                isPressed
+                  ? 'surface-pressed'
+                  : isHovered
+                  ? 'surface-hovered'
+                  : 'surface-default'
+              }
+            >
+              <CollectionLogo
+                src={asset.collection.logoUrl}
+                width="40px"
+                height="40px"
+              />
+              <Box flex={1}>
+                <Text typography="Body1Strong">
+                  {asset.collection.contractName}
+                </Text>
+                <Text typography="Body2" color="text-subdued" mt="4px">
+                  1000 Items • Floor 0 ETH
+                </Text>
+              </Box>
+              <Icon name="ChevronRightSolid" />
+            </HStack>
           )}
-        </VStack>
+        </Pressable>
+
+        {isOwner && (
+          <HStack space="16px">
+            <Button
+              type="primary"
+              isDisabled={isDisabled}
+              width="full"
+              size="lg"
+              leftIconName="ArrowUpSolid"
+              onPress={sendAction}
+            >
+              {intl.formatMessage({
+                id: 'action__send',
+              })}
+            </Button>
+            {/* More button in future */}
+          </HStack>
+        )}
 
         {/* Description */}
         {!!asset.description && (
-          <VStack space={3} mb="24px">
-            <Typography.Heading fontWeight="600">
-              {intl.formatMessage({ id: 'content__description' })}
-            </Typography.Heading>
-            <Typography.Body2 color="text-subdued">
-              {asset.description}
-            </Typography.Body2>
-          </VStack>
+          <Typography.Body2 color="text-subdued">
+            {asset.description}
+          </Typography.Body2>
         )}
 
         {/* traits */}
-        {!!asset.attributes?.length && (
-          <VStack space="12px" mb="12px">
+        {!!asset.assetAttributes?.length && (
+          <VStack space="16px">
             <Typography.Heading>
               {intl.formatMessage({ id: 'content__attributes' })}
             </Typography.Heading>
-            <Box flexDirection="row" flexWrap="wrap">
-              {asset.attributes.map((trait, index) => (
-                <Box
-                  key={`${trait.traitType}-${index}`}
-                  alignSelf="flex-start"
-                  padding="16px"
-                  mr="12px"
-                  mb="12px"
-                  bgColor="surface-default"
-                  borderRadius="12px"
+            {platformEnv.isNative ? (
+              <>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  mb="-12px"
+                  mx="-16px"
+                  pl="16px"
                 >
-                  <Typography.Body2
-                    color="text-subdued"
-                    textTransform="uppercase"
+                  {asset.assetAttributes.map((trait, index) => (
+                    <Box
+                      key={`${trait.attribute_name}-${index}`}
+                      px="12px"
+                      py="8px"
+                      mr="12px"
+                      mb="12px"
+                      bgColor="surface-neutral-subdued"
+                      borderRadius="12px"
+                    >
+                      <HStack justifyContent="space-between" mb="4px">
+                        <Typography.Caption
+                          mr="12px"
+                          numberOfLines={1}
+                          color="text-subdued"
+                        >
+                          {trait.attribute_name}
+                        </Typography.Caption>
+                        <Typography.Caption color="text-success">
+                          {trait.percentage}
+                        </Typography.Caption>
+                      </HStack>
+                      <Typography.Body2Strong>
+                        {trait.attribute_value}
+                      </Typography.Body2Strong>
+                    </Box>
+                  ))}
+                </ScrollView>
+              </>
+            ) : (
+              <Box flexDirection="row" flexWrap="wrap" mb="-12px" mr="-12px">
+                {asset.assetAttributes.map((trait, index) => (
+                  <Box
+                    key={`${trait.attribute_name}-${index}`}
+                    px="12px"
+                    py="8px"
+                    mr="12px"
+                    mb="12px"
+                    bgColor="surface-neutral-subdued"
+                    borderRadius="12px"
                   >
-                    {trait.traitType}
-                  </Typography.Body2>
-                  <Typography.Body1Strong>{trait.value}</Typography.Body1Strong>
-                </Box>
-              ))}
-            </Box>
+                    <HStack justifyContent="space-between" mb="4px">
+                      <Typography.Caption
+                        mr="12px"
+                        numberOfLines={1}
+                        color="text-subdued"
+                      >
+                        {trait.attribute_name}
+                      </Typography.Caption>
+                      <Typography.Caption color="text-success">
+                        {trait.percentage}
+                      </Typography.Caption>
+                    </HStack>
+                    <Typography.Body2Strong>
+                      {trait.attribute_value}
+                    </Typography.Body2Strong>
+                  </Box>
+                ))}
+              </Box>
+            )}
           </VStack>
         )}
 
         {/* Details */}
-        <VStack>
-          <Typography.Heading mb="12px">
+        <Box>
+          <Typography.Heading mb="16px">
             {intl.formatMessage({ id: 'content__details' })}
           </Typography.Heading>
-          <VStack bgColor="surface-default" borderRadius="12px">
-            {!!asset.tokenId && (
-              <Box
-                flexDirection="column"
-                alignItems="flex-start"
-                padding="16px"
-              >
-                <Typography.Body1Strong color="text-subdued" mb="4px">
-                  Token ID
-                </Typography.Body1Strong>
-                <Typography.Body1Strong>{asset.tokenId}</Typography.Body1Strong>
-              </Box>
-            )}
-            {!!network && (
-              <Box
-                flexDirection="column"
-                alignItems="flex-start"
-                padding="16px"
-              >
-                <Typography.Body1Strong color="text-subdued" mb="4px">
-                  {intl.formatMessage({ id: 'content__blockchain' })}
-                </Typography.Body1Strong>
-
-                <Typography.Body1Strong flex="1">
-                  {network.name}
-                </Typography.Body1Strong>
-              </Box>
-            )}
+          <VStack space="16px">
             {!!asset.contractAddress && (
-              <Box
-                flexDirection="column"
-                alignItems="flex-start"
-                padding="16px"
-              >
-                <Typography.Body1Strong color="text-subdued" mb="4px">
+              <HStack space="12px">
+                <Typography.Body2Strong color="text-subdued" flex={1}>
                   {intl.formatMessage({
                     id: 'transaction__contract_address',
                   })}
-                </Typography.Body1Strong>
+                </Typography.Body2Strong>
 
-                <Box flexDirection="row" alignItems="center">
-                  <Typography.Body1Strong>
+                <Pressable
+                  flexDirection="row"
+                  onPress={() => {
+                    copyToClipboard(asset.contractAddress ?? '');
+                    toast.show({
+                      title: intl.formatMessage({ id: 'msg__copied' }),
+                    });
+                  }}
+                >
+                  <Typography.Body2Strong mr="8px">
                     {shortenAddress(asset.contractAddress, 6)}
-                  </Typography.Body1Strong>
-                  <IconButton
-                    size="sm"
-                    type="plain"
-                    name="DuplicateSolid"
-                    onPress={() => {
-                      copyToClipboard(asset.contractAddress ?? '');
-                      toast.show({
-                        title: intl.formatMessage({ id: 'msg__copied' }),
-                      });
-                    }}
-                  />
-                </Box>
-              </Box>
+                  </Typography.Body2Strong>
+                  <Icon name="DuplicateSolid" size={20} />
+                </Pressable>
+              </HStack>
             )}
-            {!!asset.tokenAddress && (
-              <Box
-                flexDirection="column"
-                alignItems="flex-start"
-                padding="16px"
-              >
-                <Typography.Body1Strong color="text-subdued" mb="4px">
-                  Token address
-                </Typography.Body1Strong>
-                <Box flexDirection="row" alignItems="center">
-                  <Typography.Body1Strong>
-                    {shortenAddress(asset.tokenAddress, 6)}
-                  </Typography.Body1Strong>
-                  <IconButton
-                    size="sm"
-                    type="plain"
-                    name="DuplicateSolid"
-                    onPress={() => {
-                      copyToClipboard(asset.tokenAddress ?? '');
-                      toast.show({
-                        title: intl.formatMessage({ id: 'msg__copied' }),
-                      });
-                    }}
-                  />
-                </Box>
-              </Box>
+            {!!asset.tokenId && (
+              <HStack space="12px">
+                <Typography.Body2Strong color="text-subdued" flex={1}>
+                  NFT ID
+                </Typography.Body2Strong>
+                <Pressable
+                  flexDirection="row"
+                  onPress={() => {
+                    copyToClipboard(asset.tokenId ?? '');
+                    toast.show({
+                      title: intl.formatMessage({ id: 'msg__copied' }),
+                    });
+                  }}
+                >
+                  <Typography.Body2Strong mr="8px">
+                    {asset.tokenId}
+                  </Typography.Body2Strong>
+                  <Icon name="DuplicateSolid" size={20} />
+                </Pressable>
+              </HStack>
+            )}
+            {!!asset.ercType && (
+              <HStack space="12px">
+                <Typography.Body2Strong color="text-subdued" flex={1}>
+                  {intl.formatMessage({
+                    id: 'content__nft_standard',
+                  })}
+                </Typography.Body2Strong>
+                <Typography.Body2Strong>{asset.ercType}</Typography.Body2Strong>
+              </HStack>
+            )}
+            {!!network && (
+              <HStack space="12px">
+                <Typography.Body2Strong color="text-subdued" flex={1}>
+                  {intl.formatMessage({ id: 'content__blockchain' })}
+                </Typography.Body2Strong>
+
+                <Typography.Body2Strong>{network.name}</Typography.Body2Strong>
+              </HStack>
             )}
           </VStack>
-        </VStack>
-      </Box>
+        </Box>
+      </VStack>
     ),
   };
+
+  const Desktop: FC<Props> = ({ imageContent, content }) => (
+    <Box flexDirection="row">
+      {imageContent}
+      <ScrollView h="640px" p="24px">
+        {content}
+      </ScrollView>
+    </Box>
+  );
+  const Mobile: FC<Props> = ({ imageContent, content }) => (
+    <ScrollView p="16px">
+      {imageContent}
+      <Box mt="24px" mb={bottom}>
+        {content}
+      </Box>
+    </ScrollView>
+  );
 
   const modalContent = () =>
     isSmallScreen ? <Mobile {...shareProps} /> : <Desktop {...shareProps} />;
@@ -328,14 +446,19 @@ const NFTDetailModal: FC = () => {
     <Modal
       size="2xl"
       footer={null}
-      height="640px"
-      header={asset.contractName ?? ''}
-      staticChildrenProps={{
-        flex: 1,
-        pt: '24px',
-        pl: isSmallScreen ? '16px' : '24px',
-      }}
+      headerShown={false}
+      staticChildrenProps={{ p: 0, flex: 1 }}
     >
+      <IconButton
+        name="CloseSolid"
+        size="xs"
+        position="absolute"
+        top={platformEnv.isExtension ? '8px' : '24px'}
+        right={platformEnv.isExtension ? '8px' : '24px'}
+        circle
+        zIndex={1}
+        onPress={modalClose}
+      />
       {modalContent()}
     </Modal>
   );
