@@ -81,18 +81,6 @@ export const tabRoutes: TabRouteConfig[] = [
     ],
   },
   {
-    name: TabRoutes.Swap,
-    component: SwapScreen,
-    tabBarIcon: () => 'SwitchHorizontalSolid',
-    translationId: 'title__swap',
-    children: [
-      {
-        name: HomeRoutes.SwapHistory,
-        component: SwapHistory,
-      },
-    ],
-  },
-  {
     name: TabRoutes.Market,
     component: MarketScreen,
     tabBarIcon: () => 'ChartSquareLineOutline',
@@ -102,6 +90,18 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.MarketDetail,
         component: MarketDetail,
         alwaysShowBackButton: true,
+      },
+    ],
+  },
+  {
+    name: TabRoutes.Swap,
+    component: SwapScreen,
+    tabBarIcon: () => 'SwitchHorizontalSolid',
+    translationId: 'title__swap',
+    children: [
+      {
+        name: HomeRoutes.SwapHistory,
+        component: SwapHistory,
       },
     ],
   },
