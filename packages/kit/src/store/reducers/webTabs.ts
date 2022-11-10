@@ -120,6 +120,12 @@ export const webtabsSlice = createSlice({
         return true;
       });
     },
+    closeAllWebTabs: (state) => {
+      for (const id of Object.getOwnPropertyNames(webviewRefs)) {
+        delete webviewRefs[id];
+      }
+      state.tabs = [homeTab];
+    },
     setCurrentWebTab: (state, { payload }: PayloadAction<string>) => {
       if (state.currentTabId !== payload) {
         for (const tab of state.tabs) {
@@ -140,5 +146,6 @@ export const {
   closeWebTab,
   setCurrentWebTab,
   setIncomingUrl,
+  closeAllWebTabs,
 } = webtabsSlice.actions;
 export default webtabsSlice.reducer;

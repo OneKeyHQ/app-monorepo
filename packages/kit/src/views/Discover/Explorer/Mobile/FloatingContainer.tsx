@@ -1,22 +1,26 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
-  runOnJS,
   useAnimatedStyle,
-  useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
 import { Box, Pressable } from '@onekeyhq/components';
 
 import { useWebController } from '../Controller/useWebController';
-import { FLOATINGWINDOW_MAX, FLOATINGWINDOW_MIN } from '../explorerUtils';
+import {
+  MAX_OR_SHOW,
+  MIN_OR_HIDE,
+  expandAnim,
+  expandFloatingWindow,
+  toggleFloatingWindow,
+} from '../explorerAnimation';
 
 import { ControllerBarMobile } from './ControllerBarMobile';
 import FloatingBar from './FloatingBar';
-import WebTabStack from './WebTabStack';
+import WebTabFront from './WebTabFront';
+import WebTabGrid from './WebTabGrid';
 
 const FloatingContainer: FC<{
   onMaximize: () => void;
@@ -27,38 +31,17 @@ const FloatingContainer: FC<{
   const hasTabs = tabs.length > 1;
   const lastTabLength = useRef(tabs.length);
   const [containerHeight, setContainerHeight] = useState(0);
-  const expandAnim = useSharedValue(FLOATINGWINDOW_MIN);
-
-  const expand = useCallback(() => {
-    expandAnim.value = withTiming(FLOATINGWINDOW_MAX, { duration: 300 }, () =>
-      runOnJS(onMaximize),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onMaximize]);
-  const minimize = useCallback(() => {
-    onMinimize();
-    expandAnim.value = withTiming(FLOATINGWINDOW_MIN, { duration: 300 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onMinimize]);
-  const toggle = useCallback(() => {
-    if (expandAnim.value === FLOATINGWINDOW_MIN) {
-      expand();
-    } else {
-      minimize();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expand, minimize]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabLength.current;
-    if (newTabAdded && expandAnim.value === FLOATINGWINDOW_MIN) {
+    if (newTabAdded && expandAnim.value === MIN_OR_HIDE) {
       lastTabLength.current = tabs.length;
       setTimeout(() => {
-        expand();
+        expandFloatingWindow(onMaximize);
       }, 100);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expand, tabs.length]);
+  }, [tabs.length]);
 
   return (
     <>
@@ -72,7 +55,7 @@ const FloatingContainer: FC<{
                 {
                   translateY: interpolate(
                     expandAnim.value,
-                    [FLOATINGWINDOW_MIN, FLOATINGWINDOW_MAX],
+                    [MIN_OR_HIDE, MAX_OR_SHOW],
                     [containerHeight - 48, 0],
                   ),
                 },
@@ -84,18 +67,21 @@ const FloatingContainer: FC<{
         onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
       >
         <Box flex={1} bg="background-default">
-          <Pressable h="48px" onPress={toggle}>
+          <Pressable
+            h="48px"
+            onPress={() => toggleFloatingWindow({ onMaximize, onMinimize })}
+          >
             <FloatingBar
-              expandAnim={expandAnim}
               favicon={currentTab.favicon}
               text={currentTab.title}
               onSearch={onSearch}
             />
           </Pressable>
-          <WebTabStack />
+          <WebTabFront />
+          <WebTabGrid />
         </Box>
       </Animated.View>
-      <ControllerBarMobile expandAnim={expandAnim} />
+      <ControllerBarMobile />
     </>
   );
 };

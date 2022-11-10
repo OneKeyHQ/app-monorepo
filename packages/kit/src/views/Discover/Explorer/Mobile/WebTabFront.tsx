@@ -11,7 +11,7 @@ import WebContent from '../Content/WebContent';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebController } from '../Controller/useWebController';
 
-const WebTabStack = memo(() => {
+const WebTabFront = memo(() => {
   useNotifyChanges();
   const { tabs, currentTab, openMatchDApp } = useWebController();
 
@@ -49,5 +49,5 @@ const WebTabStack = memo(() => {
     </Box>
   );
 });
-WebTabStack.displayName = 'WebTabStack';
-export default WebTabStack;
+WebTabFront.displayName = 'WebTabFront';
+export default WebTabFront;

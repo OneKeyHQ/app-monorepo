@@ -12,7 +12,7 @@ import {
 
 import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
 import { useWebTab } from '../Controller/useWebTabs';
-import { FLOATINGWINDOW_MIN } from '../explorerUtils';
+import { MIN_OR_HIDE, expandAnim } from '../explorerUtils';
 
 const InfoBar: FC<{
   favicon?: string;
@@ -87,15 +87,14 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
 const FloatingBar: FC<{
   favicon?: string;
   text?: string;
-  expandAnim: Animated.SharedValue<number>;
   onSearch: () => void;
-}> = ({ favicon, text, expandAnim, onSearch }) => (
+}> = ({ favicon, text, onSearch }) => (
   <>
     <Animated.View
       style={useAnimatedStyle(
         () => ({
           opacity: 1 - expandAnim.value,
-          display: expandAnim.value === FLOATINGWINDOW_MIN ? 'flex' : 'none',
+          display: expandAnim.value === MIN_OR_HIDE ? 'flex' : 'none',
         }),
         [],
       )}
@@ -106,7 +105,7 @@ const FloatingBar: FC<{
       style={useAnimatedStyle(
         () => ({
           opacity: expandAnim.value,
-          display: expandAnim.value === FLOATINGWINDOW_MIN ? 'none' : 'flex',
+          display: expandAnim.value === MIN_OR_HIDE ? 'none' : 'flex',
         }),
         [],
       )}
