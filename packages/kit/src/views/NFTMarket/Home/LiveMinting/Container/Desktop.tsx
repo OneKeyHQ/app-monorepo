@@ -22,7 +22,8 @@ const ListHeaderComponent = () => {
     <>
       <ListItem>
         <ListItem.Column
-          flex={1}
+          p={2}
+          flex={3}
           text={{
             label: intl.formatMessage({
               id: 'content__collection',
@@ -34,7 +35,7 @@ const ListHeaderComponent = () => {
           }}
         />
         <ListItem.Column
-          w="160px"
+          flex={1}
           text={{
             label: intl.formatMessage({
               id: 'content__price',
@@ -47,7 +48,7 @@ const ListHeaderComponent = () => {
           }}
         />
         <ListItem.Column
-          w="332px"
+          flex={2}
           text={{
             label: intl.formatMessage({
               id: 'content__time',
@@ -72,23 +73,21 @@ const Desktop = () => {
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
     ({ item }) => (
-      <>
-        <ListItem
-          onPress={() => {
-            goToCollectionDetail({
-              contractAddress: item.contractAddress as string,
-              networkId: context?.selectedNetwork?.id as string,
-              title: item.contractName,
-            });
-          }}
-        >
-          <ListItem.Column>
-            <CollectionLogo
-              src={item.collection.logoUrl}
-              width="40px"
-              height="40px"
-            />
-          </ListItem.Column>
+      <ListItem
+        onPress={() => {
+          goToCollectionDetail({
+            contractAddress: item.contractAddress as string,
+            networkId: context?.selectedNetwork?.id as string,
+            title: item.contractName,
+          });
+        }}
+      >
+        <ListItem flex={3}>
+          <CollectionLogo
+            src={item.collection.logoUrl}
+            width="40px"
+            height="40px"
+          />
           <ListItem.Column
             flex={1}
             text={{
@@ -98,29 +97,29 @@ const Desktop = () => {
               descriptionProps: { numberOfLines: 1 },
             }}
           />
-          <ListItem.Column
-            w="160px"
-            text={{
-              label: PriceString({
-                price: new BigNumber(item.mintPrice ?? '0')
-                  .decimalPlaces(2)
-                  .toString(),
-                networkId: context?.selectedNetwork?.id,
-              }),
-              labelProps: { textAlign: 'right' },
-            }}
-          />
-          <ListItem.Column
-            w="332"
-            text={{
-              label: item.mintTimestamp
-                ? formatDistance(item.mintTimestamp)
-                : '_',
-              labelProps: { textAlign: 'right' },
-            }}
-          />
         </ListItem>
-      </>
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: PriceString({
+              price: new BigNumber(item.mintPrice ?? '0')
+                .decimalPlaces(2)
+                .toString(),
+              networkId: context?.selectedNetwork?.id,
+            }),
+            labelProps: { textAlign: 'right' },
+          }}
+        />
+        <ListItem.Column
+          flex={2}
+          text={{
+            label: item.mintTimestamp
+              ? formatDistance(item.mintTimestamp)
+              : '_',
+            labelProps: { textAlign: 'right' },
+          }}
+        />
+      </ListItem>
     ),
     [context?.selectedNetwork?.id, formatDistance, goToCollectionDetail],
   );

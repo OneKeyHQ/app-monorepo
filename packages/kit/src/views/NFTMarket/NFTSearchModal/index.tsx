@@ -19,7 +19,6 @@ import {
   Searchbar,
   Spinner,
   Text,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -32,7 +31,6 @@ import ChainSelector from '../ChainSelector';
 import CollectionLogo from '../CollectionLogo';
 import { useDefaultNetWork } from '../Home/hook';
 import RankingList from '../Home/Stats/Ranking/Container/Mobile';
-import StatsItemCell from '../Home/Stats/StatsItemCell';
 
 import {
   SearchNFTCollectionRoutes,
@@ -58,6 +56,7 @@ const Header: FC<{
       h="57px"
     >
       <Searchbar
+        autoFocus
         flex={1}
         w="auto"
         bgColor="transparent"
