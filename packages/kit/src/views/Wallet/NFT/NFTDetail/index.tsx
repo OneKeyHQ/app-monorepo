@@ -9,6 +9,7 @@ import {
   Box,
   Button,
   Center,
+  CustomSkeleton,
   HStack,
   Icon,
   IconButton,
@@ -26,7 +27,9 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+import { Collection } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   getActiveWalletAccount,
@@ -46,6 +49,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { SendRoutes } from '../../../../routes';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
+import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
 
 import CollectibleContent from './CollectibleContent';
 
@@ -110,8 +114,25 @@ const NFTDetailModal: FC = () => {
     serviceNFT,
   ]);
 
+  const isEVM = network.impl === IMPL_EVM;
+  const [collection, updateCollection] = useState<Collection>();
+  useEffect(() => {
+    (async () => {
+      if (network.id && isEVM) {
+        const data = await serviceNFT.getCollection({
+          chain: network.id,
+          contractAddress: outerAsset.contractAddress as string,
+        });
+        if (data) {
+          updateCollection(data);
+        }
+      }
+    })();
+  }, [outerAsset.contractAddress, network.id, serviceNFT, isEVM]);
+
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
+  const goToCollectionDetail = useCollectionDetail();
   const sendAction = () => {
     const { accountId, networkId } = getActiveWalletAccount();
     navigation.navigate(RootRoutes.Modal, {
@@ -207,42 +228,79 @@ const NFTDetailModal: FC = () => {
         </Box>
 
         {/* Collection */}
-        <Pressable>
-          {({ isHovered, isPressed }) => (
-            <HStack
-              px="16px"
-              py="12px"
-              rounded="12px"
-              space="12px"
-              borderWidth={StyleSheet.hairlineWidth}
-              alignItems="center"
-              borderColor="border-default"
-              bgColor={
-                // eslint-disable-next-line no-nested-ternary
-                isPressed
-                  ? 'surface-pressed'
-                  : isHovered
-                  ? 'surface-hovered'
-                  : 'surface-default'
-              }
-            >
-              <CollectionLogo
-                src={asset.collection.logoUrl}
-                width="40px"
-                height="40px"
-              />
-              <Box flex={1}>
-                <Text typography="Body1Strong">
-                  {asset.collection.contractName}
-                </Text>
-                <Text typography="Body2" color="text-subdued" mt="4px">
-                  1000 Items • Floor 0 ETH
-                </Text>
-              </Box>
-              <Icon name="ChevronRightSolid" />
-            </HStack>
-          )}
-        </Pressable>
+        {isEVM && (
+          <Pressable
+            onPress={() => {
+              goToCollectionDetail({
+                networkId: network.id,
+                contractAddress: collection?.contractAddress as string,
+                collection,
+                title: collection?.name,
+              });
+            }}
+          >
+            {({ isHovered, isPressed }) => (
+              <HStack
+                px="16px"
+                py="12px"
+                rounded="12px"
+                space="12px"
+                borderWidth={StyleSheet.hairlineWidth}
+                alignItems="center"
+                borderColor="border-default"
+                bgColor={
+                  // eslint-disable-next-line no-nested-ternary
+                  isPressed
+                    ? 'surface-pressed'
+                    : isHovered
+                    ? 'surface-hovered'
+                    : 'surface-default'
+                }
+              >
+                {collection ? (
+                  <CollectionLogo
+                    src={collection.logoUrl}
+                    width="40px"
+                    height="40px"
+                  />
+                ) : (
+                  <CustomSkeleton
+                    width="40px"
+                    height="40px"
+                    borderRadius="12px"
+                  />
+                )}
+                <Box flex={1}>
+                  <Text typography="Body1Strong">
+                    {asset.collection.contractName}
+                  </Text>
+                  {collection ? (
+                    <Text typography="Body2" color="text-subdued" mt="4px">
+                      {`${
+                        collection?.itemsTotal ?? '-'
+                      } Items • ${intl.formatMessage({
+                        id: 'content__floor',
+                      })} ${
+                        collection.floorPrice
+                          ? `${collection.floorPrice} ${
+                              collection.priceSymbol as string
+                            }`
+                          : '-'
+                      }`}
+                    </Text>
+                  ) : (
+                    <CustomSkeleton
+                      width="70px"
+                      height="20px"
+                      borderRadius="11px"
+                    />
+                  )}
+                </Box>
+                <Icon name="ChevronRightSolid" />
+              </HStack>
+            )}
+          </Pressable>
+        )}
 
         {isOwner && (
           <HStack space="16px">
@@ -270,7 +328,7 @@ const NFTDetailModal: FC = () => {
         )}
 
         {/* traits */}
-        {!!asset.assetAttributes?.length && (
+        {isEVM && !!asset.assetAttributes?.length && (
           <VStack space="16px">
             <Typography.Heading>
               {intl.formatMessage({ id: 'content__attributes' })}
