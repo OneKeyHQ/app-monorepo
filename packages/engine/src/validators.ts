@@ -286,6 +286,26 @@ class Validators {
   }
 
   @backgroundMethod()
+  async validatePreSendAddress({
+    address,
+    networkId,
+    accountId,
+  }: {
+    address: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vaultSettings = await this.engine.getVaultSettings(networkId);
+    if (vaultSettings.cannotSendToSelf) {
+      const account = await this.dbApi.getAccount(accountId);
+      if (account.address === address) {
+        throw new errors.InvalidSameAddress();
+      }
+    }
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
   async validateGasLimit({
     networkId,
     value,

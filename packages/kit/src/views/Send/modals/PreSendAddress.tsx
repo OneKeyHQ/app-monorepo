@@ -256,6 +256,13 @@ function PreSendAddress() {
                         networkId,
                         toAddress,
                       );
+                      await backgroundApiProxy.validator.validatePreSendAddress(
+                        {
+                          address: toAddress,
+                          networkId,
+                          accountId,
+                        },
+                      );
                     } catch (error0: any) {
                       if (isValidNameServiceName && !resolvedAddress)
                         return undefined;

@@ -49,6 +49,8 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
 
   minGasLimit?: number;
+
+  cannotSendToSelf?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

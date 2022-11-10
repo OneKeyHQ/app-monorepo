@@ -14,6 +14,8 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.001',
 
   isUTXOModel: false,
+
+  cannotSendToSelf: true,
 };
 
 export default settings;
