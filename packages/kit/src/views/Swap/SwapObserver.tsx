@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 
-import { AppState, AppStateStatus } from 'react-native';
-
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { AppStatusActiveListener } from '../../components/AppStatusActiveListener'
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 
@@ -36,40 +34,17 @@ const AccountsObserver = () => {
   return null;
 };
 
-const TokenUpdaterWeb = () => {
-  useEffect(() => {
-    backgroundApiProxy.serviceSwap.getSwapTokens();
-  }, []);
-  return null;
-};
-
-const TokenUpdaterNative = () => {
-  const appState = useRef(AppState.currentState);
-  const onChange = useCallback((nextState: AppStateStatus) => {
-    if (appState.current === 'background' && nextState === 'active') {
-      backgroundApiProxy.serviceApp.checkLockStatus();
-    }
-    appState.current = nextState;
-  }, []);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', onChange);
-    return () => {
-      // AppState.addEventListener return subscription object in native, but return empty in web
-      if (subscription) {
-        subscription.remove();
-      } else {
-        AppState.removeEventListener('change', onChange);
-      }
-    };
-  }, [onChange]);
-  return null;
+const TokenUpdater = () => {
+  const onActive = useCallback(() => backgroundApiProxy.serviceSwap.getSwapTokens(), [])
+  useEffect(() => { onActive() }, []);
+  return <AppStatusActiveListener onActive={onActive}></AppStatusActiveListener>;
 };
 
 const SwapListener = () => (
   <>
     <NetworkObserver />
     <AccountsObserver />
-    {platformEnv.isNative ? <TokenUpdaterNative /> : <TokenUpdaterWeb />}
+    <TokenUpdater />
   </>
 );
 

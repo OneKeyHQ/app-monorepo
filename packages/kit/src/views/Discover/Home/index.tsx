@@ -1,14 +1,20 @@
-import { FC, useCallback, useState } from 'react';
-
-import { useFocusEffect } from '@react-navigation/core';
+import { FC, useCallback, useEffect, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import { AppStatusActiveListener } from '../../../components/AppStatusActiveListener'
 import { DiscoverContext, ItemSource } from './context';
 import { Desktop } from './Desktop';
 import { Mobile } from './Mobile';
 import { DiscoverProps } from './type';
+
+
+const Updater = () => {
+  const onActive = useCallback(() => backgroundApiProxy.serviceDiscover.fetchData(), [])
+  useEffect(() => { onActive() }, []);
+  return <AppStatusActiveListener onActive={onActive}/>
+}
 
 const DiscoverPage: FC<DiscoverProps> = ({
   onItemSelect,
@@ -17,12 +23,6 @@ const DiscoverPage: FC<DiscoverProps> = ({
   const [categoryId, setCategoryId] = useState('');
   const isSmall = useIsVerticalLayout();
   const [itemSource, setItemSource] = useState<ItemSource>('Favorites');
-
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceDiscover.fetchData();
-    }, []),
-  );
 
   return (
     <DiscoverContext.Provider
@@ -36,6 +36,7 @@ const DiscoverPage: FC<DiscoverProps> = ({
       }}
     >
       {isSmall ? <Mobile /> : <Desktop />}
+      <Updater />
     </DiscoverContext.Provider>
   );
 };
