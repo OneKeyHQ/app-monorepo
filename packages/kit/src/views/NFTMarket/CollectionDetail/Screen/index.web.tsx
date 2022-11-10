@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   Pressable,
   Text,
   useIsVerticalLayout,
@@ -57,17 +58,19 @@ const TabBar: FC<TabBarProps> = ({
           >
             <Box justifyContent="center" flexDirection="column" height="100%">
               <Box height="full">
-                <Text
-                  typography="Body2Strong"
-                  textAlign="center"
-                  color={isActive ? activeColor : inactiveColor}
-                >
-                  {item.title}
-                </Text>
+                <Center height="full">
+                  <Text
+                    typography="Body2Strong"
+                    textAlign="center"
+                    color={isActive ? activeColor : inactiveColor}
+                  >
+                    {item.title}
+                  </Text>
+                </Center>
+                {isActive ? (
+                  <Box height="2px" bgColor={indicatorColor} />
+                ) : null}
               </Box>
-              {isActive ? (
-                <Box width={itemWidth} height="2px" bgColor={indicatorColor} />
-              ) : null}
             </Box>
           </Pressable>
         );
@@ -86,7 +89,6 @@ const AssetHeader = () => {
     <Box flexDirection="column" alignItems="flex-start">
       <MemoCollectionInfo />
       <TabBar
-        mt="32px"
         mb={isSmallScreen ? '24px' : '32px'}
         height="54px"
         itemWidth="54px"
@@ -119,7 +121,6 @@ const TransactionHeader = () => {
     <Box flexDirection="column" alignItems="flex-start">
       <MemoCollectionInfo />
       <TabBar
-        mt="32px"
         height="54px"
         itemWidth="54px"
         selectedIndex={context?.selectedIndex}

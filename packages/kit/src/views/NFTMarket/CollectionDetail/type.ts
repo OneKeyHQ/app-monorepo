@@ -1,4 +1,6 @@
-import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { ComponentProps } from 'react';
+
+import { List } from '@onekeyhq/components';
 
 export enum TabEnum {
   Items = 'items',
@@ -8,4 +10,4 @@ export enum TabEnum {
 export type ListProps = {
   contractAddress: string;
   networkId: string;
-} & Pick<FlatListProps, 'ListHeaderComponent'>;
+} & Pick<ComponentProps<typeof List>, 'ListHeaderComponent'>;

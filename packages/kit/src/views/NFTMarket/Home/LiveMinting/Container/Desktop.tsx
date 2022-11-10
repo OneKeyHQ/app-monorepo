@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
@@ -82,7 +83,7 @@ const Desktop = () => {
           });
         }}
       >
-        <ListItem flex={3}>
+        <Row flex={3} space="12px">
           <CollectionLogo
             src={item.collection.logoUrl}
             width="40px"
@@ -97,7 +98,8 @@ const Desktop = () => {
               descriptionProps: { numberOfLines: 1 },
             }}
           />
-        </ListItem>
+        </Row>
+
         <ListItem.Column
           flex={1}
           text={{

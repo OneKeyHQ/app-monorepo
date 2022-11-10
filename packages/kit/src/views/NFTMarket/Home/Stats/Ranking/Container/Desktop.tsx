@@ -268,6 +268,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
                   flexDirection="row"
                 >
                   <Badge
+                    size="sm"
                     bgColor={volumeChangeBgColor}
                     title={volumeChange}
                     color={volumeTextColor}

@@ -7,12 +7,13 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Divider,
+  FlatList,
   Icon,
+  ListItem,
   Pressable,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTTransaction } from '@onekeyhq/engine/src/types/nft';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
@@ -22,7 +23,6 @@ import { useRuntime } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
-import StatsItemCell from '../Home/Stats/StatsItemCell';
 
 import { useCollectionDetailContext } from './context';
 import { ListProps } from './type';
@@ -37,62 +37,57 @@ export const ListHeader = () => {
     return <Box height="24px" />;
   }
   return (
-    <Box
-      width="full"
-      flexDirection="column-reverse"
-      height="64px"
-      paddingBottom="16px"
-    >
-      <Row
-        justifyContent="space-between"
-        alignItems="center"
-        space="12px"
-        height="48px"
-      >
-        <Row flex={2.7} space="12px" alignItems="center">
-          <Text color="text-subdued" typography="Subheading">
-            {intl.formatMessage({
-              id: 'title__nft',
-            })}
-          </Text>
-        </Row>
-
-        <Box flex={1} justifyContent="center">
-          <Text
-            textAlign="left"
-            numberOfLines={1}
-            typography="Subheading"
-            color="text-subdued"
-          >
-            FROM
-          </Text>
-        </Box>
-        <Box size="20px" />
-        <Box flex={1} justifyContent="center">
-          <Text
-            textAlign="left"
-            numberOfLines={1}
-            typography="Subheading"
-            color="text-subdued"
-          >
-            TO
-          </Text>
-        </Box>
-
-        <Box flex={1} justifyContent="center">
-          <Text
-            textAlign="right"
-            numberOfLines={1}
-            typography="Subheading"
-            color="text-subdued"
-          >
-            {intl.formatMessage({
-              id: 'content__price',
-            })}
-          </Text>
-        </Box>
-      </Row>
-    </Box>
+    <ListItem width="full">
+      <ListItem.Column
+        p={2}
+        flex={2.7}
+        text={{
+          label: intl.formatMessage({
+            id: 'title__nft',
+          }),
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+          },
+        }}
+      />
+      <ListItem.Column
+        flex={1}
+        text={{
+          label: 'FROM',
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+            textAlign: 'left',
+          },
+        }}
+      />
+      <Box size="20px" />
+      <ListItem.Column
+        flex={1}
+        text={{
+          label: 'TO',
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+            textAlign: 'left',
+          },
+        }}
+      />
+      <ListItem.Column
+        flex={1}
+        text={{
+          label: intl.formatMessage({
+            id: 'content__price',
+          }),
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+            textAlign: 'right',
+          },
+        }}
+      />
+    </ListItem>
   );
 };
 
@@ -104,25 +99,33 @@ const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
     name = item.asset?.name;
   }
   return (
-    <StatsItemCell
-      height="48px"
-      title={name}
-      subTitle={item.timestamp ? formatDistance(item.timestamp) : ''}
-      logoComponent={
-        item.asset && (
-          <NFTListImage asset={item.asset} borderRadius="6px" size={40} />
-        )
-      }
-      rightComponents={[
-        <Box flexDirection="column" justifyContent="flex-start" height="100%">
-          <Text
-            textAlign="right"
-            numberOfLines={1}
-            typography="Body1Strong"
-          >{`${item.tradePrice ?? 0} ${item.tradeSymbol ?? ''}`}</Text>
-        </Box>,
-      ]}
-    />
+    <ListItem width="full">
+      {item.asset && (
+        <NFTListImage asset={item.asset} borderRadius="6px" size={40} />
+      )}
+      <ListItem.Column
+        text={{
+          label: name,
+          labelProps: { typography: 'Body1Strong', numberOfLines: 1 },
+          description: item.timestamp ? formatDistance(item.timestamp) : '',
+          descriptionProps: {
+            numberOfLines: 1,
+            typography: 'Body2',
+            color: 'text-subdued',
+          },
+        }}
+      />
+      <ListItem.Column
+        flex={1}
+        text={{
+          label: `${item.tradePrice ?? 0} ${item.tradeSymbol ?? ''}`,
+          labelProps: {
+            typography: 'Body1Strong',
+            textAlign: 'right',
+          },
+        }}
+      />
+    </ListItem>
   );
 };
 
@@ -136,71 +139,84 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
   }
   const { formatDistance } = useFormatDate();
   const { openAddressDetails } = useOpenBlockBrowser(network);
+
   return (
-    <Row
-      justifyContent="space-between"
-      alignItems="center"
-      space="12px"
-      height="48px"
-    >
-      <Row flex={2.7} space="12px" alignItems="center">
+    <ListItem width="full">
+      <Row flex={2.7} space="12px">
         {item.asset && (
           <NFTListImage asset={item.asset} borderRadius="6px" size={40} />
         )}
-
-        <Box flexDirection="column" flex={1}>
-          <Text typography="Body1Strong" numberOfLines={1}>
-            {name}
-          </Text>
-          <Text color="text-subdued" typography="Body2" numberOfLines={1}>
-            {item.timestamp ? formatDistance(item.timestamp) : ''}
-          </Text>
-        </Box>
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: name,
+            labelProps: { typography: 'Body1Strong', numberOfLines: 1 },
+            description: item.timestamp ? formatDistance(item.timestamp) : '',
+            descriptionProps: {
+              numberOfLines: 1,
+              typography: 'Body2',
+              color: 'text-subdued',
+            },
+          }}
+        />
       </Row>
-
-      <Pressable
-        onPress={() => {
-          openAddressDetails(item.send);
-        }}
+      <ListItem.Column
         flex={1}
-        justifyContent="center"
-      >
-        <Text textAlign="right" numberOfLines={1} typography="Body1Underline">
-          {item.send}
-        </Text>
-      </Pressable>
-
+        text={{
+          label: (
+            <Pressable
+              onPress={() => {
+                openAddressDetails(item.send);
+              }}
+              flex={1}
+              justifyContent="center"
+            >
+              <Text
+                textAlign="right"
+                numberOfLines={1}
+                typography="Body1Underline"
+              >
+                {item.send}
+              </Text>
+            </Pressable>
+          ),
+        }}
+      />
       <Icon name="ChevronDoubleRightSolid" size={20} />
-      <Pressable
-        onPress={() => {
-          openAddressDetails(item.receive);
-        }}
+      <ListItem.Column
         flex={1}
-        justifyContent="center"
-      >
-        <Text textAlign="right" numberOfLines={1} typography="Body1Underline">
-          {item.receive}
-        </Text>
-      </Pressable>
-
-      <Box flex={1} justifyContent="center">
-        <Text textAlign="right" numberOfLines={1} typography="Body1Strong">
-          {`${item.tradePrice ?? 0} ${item.tradeSymbol ?? ''}`}
-        </Text>
-      </Box>
-    </Row>
+        text={{
+          label: (
+            <Pressable
+              onPress={() => {
+                openAddressDetails(item.receive);
+              }}
+              flex={1}
+              justifyContent="center"
+            >
+              <Text
+                textAlign="right"
+                numberOfLines={1}
+                typography="Body1Underline"
+              >
+                {item.receive}
+              </Text>
+            </Pressable>
+          ),
+        }}
+      />
+      <ListItem.Column
+        flex={1}
+        text={{
+          label: `${item.tradePrice ?? 0} ${item.tradeSymbol ?? ''}`,
+          labelProps: {
+            typography: 'Body1Strong',
+            textAlign: 'right',
+          },
+        }}
+      />
+    </ListItem>
   );
-};
-
-export const TransactionCell: FC<{
-  network?: Network;
-  item: NFTTransaction;
-}> = ({ network, item }) => {
-  const isSmallScreen = useIsVerticalLayout();
-  if (isSmallScreen) {
-    return <MobileCell item={item} />;
-  }
-  return <DesktopCell item={item} network={network} />;
 };
 
 const TransactionList: FC<ListProps> = ({
@@ -278,18 +294,20 @@ const TransactionList: FC<ListProps> = ({
   );
 
   const renderItem: ListRenderItem<NFTTransaction> = useCallback(
-    ({ item }) => <TransactionCell item={item} network={currentNetwork} />,
-    [currentNetwork],
+    ({ item }) => {
+      if (isSmallScreen) {
+        return <MobileCell item={item} />;
+      }
+      return <DesktopCell item={item} network={currentNetwork} />;
+    },
+    [currentNetwork, isSmallScreen],
   );
   const paddingX = isSmallScreen ? 16 : 51;
 
   return (
-    <Tabs.FlatList<NFTTransaction>
+    <FlatList<NFTTransaction>
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       ListHeaderComponent={ListHeaderComponent ?? ListHeader}
-      ItemSeparatorComponent={() => (
-        <Divider height="16px" bgColor="background-default" />
-      )}
       data={context?.txList}
       renderItem={renderItem}
       ListFooterComponent={() => {
