@@ -21,6 +21,7 @@ export interface WebTab {
   loading?: boolean;
   refReady?: boolean;
   timestamp?: number;
+  thumbnail?: string;
 }
 
 export interface WebTabsInitialState {

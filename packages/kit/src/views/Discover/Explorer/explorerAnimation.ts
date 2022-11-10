@@ -1,12 +1,34 @@
-import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
+import { createRef } from 'react';
 
+import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
+import ViewShot, { captureRef } from 'react-native-view-shot';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { appSelector } from '../../../store';
+import { setWebTabData } from '../../../store/reducers/webTabs';
 // for mobile tab animations
 export const MIN_OR_HIDE = 0;
 export const MAX_OR_SHOW = 1;
 export const expandAnim = makeMutable(MIN_OR_HIDE);
 export const showTabGridAnim = makeMutable(MIN_OR_HIDE);
+export const tabViewShotRef = createRef<ViewShot>();
 
 export const showTabGrid = () => {
+  if (platformEnv.isNative) {
+    captureRef(tabViewShotRef, {
+      width: 200,
+    }).then((uri) => {
+      const { currentTabId } = appSelector((s) => s.webTabs);
+      backgroundApiProxy.dispatch(
+        setWebTabData({
+          id: currentTabId,
+          thumbnail: uri,
+        }),
+      );
+    });
+  }
   showTabGridAnim.value = withTiming(MAX_OR_SHOW);
 };
 

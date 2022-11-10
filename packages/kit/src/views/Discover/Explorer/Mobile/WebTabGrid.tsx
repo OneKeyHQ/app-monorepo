@@ -33,64 +33,71 @@ const WebTabCard: FC<
   WebTab & {
     width: number;
   }
-> = ({ width, isCurrent, title, favicon, id }) => (
-  <Pressable
-    w={width}
-    h={width}
-    borderRadius="12px"
-    borderWidth="1px"
-    borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
-    overflow="hidden"
-    ml={`${CELL_GAP}px`}
-    mt={`${CELL_GAP}px`}
-    onPress={() => {
-      if (!isCurrent) {
-        backgroundApiProxy.dispatch(setCurrentWebTab(id));
-      }
-      hideTabGrid();
-    }}
-  >
-    <Box
-      bg="surface-default"
-      px="9px"
-      h="32px"
-      w="full"
-      borderTopLeftRadius="12px"
-      borderTopRightRadius="12px"
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="space-between"
+> = ({ width, isCurrent, title, favicon, id, thumbnail }) => {
+  console.log({ thumbnail });
+  return (
+    <Pressable
+      w={width}
+      h={width}
+      borderRadius="12px"
+      borderWidth="1px"
+      borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
+      overflow="hidden"
+      ml={`${CELL_GAP}px`}
+      mt={`${CELL_GAP}px`}
+      onPress={() => {
+        if (!isCurrent) {
+          backgroundApiProxy.dispatch(setCurrentWebTab(id));
+        }
+        hideTabGrid();
+      }}
     >
-      <NetImage
-        key={favicon}
-        width="18px"
-        height="18px"
-        borderRadius="4px"
-        src={favicon}
-      />
-      <Typography.CaptionStrong
-        color="text-default"
-        flex={1}
-        textAlign="left"
-        numberOfLines={1}
-        mx="4px"
+      <Box
+        bg="surface-default"
+        px="9px"
+        h="32px"
+        w="full"
+        borderTopLeftRadius="12px"
+        borderTopRightRadius="12px"
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
       >
-        {title}
-      </Typography.CaptionStrong>
-      <IconButton
-        size="sm"
-        type="plain"
-        name="CloseSolid"
-        onPress={() => {
-          backgroundApiProxy.dispatch(closeWebTab(id));
-        }}
+        <NetImage
+          key={favicon}
+          width="18px"
+          height="18px"
+          borderRadius="4px"
+          src={favicon}
+        />
+        <Typography.CaptionStrong
+          color="text-default"
+          flex={1}
+          textAlign="left"
+          numberOfLines={1}
+          mx="4px"
+        >
+          {title}
+        </Typography.CaptionStrong>
+        <IconButton
+          size="sm"
+          type="plain"
+          name="CloseSolid"
+          onPress={() => {
+            backgroundApiProxy.dispatch(closeWebTab(id));
+          }}
+        />
+      </Box>
+      <Image
+        flex={1}
+        borderColor="red.300"
+        borderWidth={2}
+        resizeMode="cover"
+        src={thumbnail}
       />
-    </Box>
-    {/* TODO thumbnail */}
-    <Image />
-  </Pressable>
-);
-
+    </Pressable>
+  );
+};
 const WebTabGrid = () => {
   const tabs = useWebTabs();
   const { width } = useWindowDimensions();

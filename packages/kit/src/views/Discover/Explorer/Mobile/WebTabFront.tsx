@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 
 import { Freeze } from 'react-freeze';
 import { View } from 'react-native';
+import ViewShot from 'react-native-view-shot';
 
 import { Box } from '@onekeyhq/components';
 
@@ -10,6 +11,7 @@ import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebController } from '../Controller/useWebController';
+import { tabViewShotRef } from '../explorerAnimation';
 
 const WebTabFront = memo(() => {
   useNotifyChanges();
@@ -27,7 +29,7 @@ const WebTabFront = memo(() => {
   );
 
   return (
-    <Box flex={1}>
+    <ViewShot style={{ flex: 1 }} ref={tabViewShotRef}>
       {content}
       <View
         style={{
@@ -46,7 +48,7 @@ const WebTabFront = memo(() => {
           onItemSelectHistory={openMatchDApp}
         />
       </View>
-    </Box>
+    </ViewShot>
   );
 });
 WebTabFront.displayName = 'WebTabFront';
