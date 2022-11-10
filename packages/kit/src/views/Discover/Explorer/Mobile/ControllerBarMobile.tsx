@@ -35,14 +35,19 @@ export const ControllerBarMobile: FC = () => {
 
   const pageController = (
     <Animated.View
-      style={useAnimatedStyle(
-        () => ({
-          flex: 1,
-          display: showTabGridAnim.value === MAX_OR_SHOW ? 'none' : 'flex',
-          opacity: 1 - showTabGridAnim.value,
-        }),
-        [],
-      )}
+      style={[
+        {
+          ...StyleSheet.absoluteFillObject,
+          flexDirection: 'row',
+        },
+        useAnimatedStyle(
+          () => ({
+            zIndex: showTabGridAnim.value === MAX_OR_SHOW ? -1 : 1,
+            opacity: 1 - showTabGridAnim.value,
+          }),
+          [],
+        ),
+      ]}
     >
       <Button
         flex={1}
@@ -95,14 +100,19 @@ export const ControllerBarMobile: FC = () => {
 
   const tabController = (
     <Animated.View
-      style={useAnimatedStyle(
-        () => ({
-          flex: 1,
-          display: showTabGridAnim.value === MIN_OR_HIDE ? 'none' : 'flex',
-          opacity: showTabGridAnim.value,
-        }),
-        [],
-      )}
+      style={[
+        {
+          ...StyleSheet.absoluteFillObject,
+          flexDirection: 'row',
+        },
+        useAnimatedStyle(
+          () => ({
+            zIndex: showTabGridAnim.value === MIN_OR_HIDE ? -1 : 1,
+            opacity: showTabGridAnim.value,
+          }),
+          [],
+        ),
+      ]}
     >
       <Button flex={1} type="plain" onPress={hideTabGrid}>
         <Icon color="icon-pressed" name="ChevronLeftSolid" />

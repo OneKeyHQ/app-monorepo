@@ -12,7 +12,7 @@ import {
 
 import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
 import { useWebTab } from '../Controller/useWebTabs';
-import { MIN_OR_HIDE, expandAnim } from '../explorerUtils';
+import { MIN_OR_HIDE, expandAnim } from '../explorerAnimation';
 
 const InfoBar: FC<{
   favicon?: string;
