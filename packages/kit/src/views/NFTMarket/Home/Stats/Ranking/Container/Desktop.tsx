@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, List, ListItem } from '@onekeyhq/components';
+import { Box, List, ListItem, useUserDevice } from '@onekeyhq/components';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
@@ -17,6 +17,9 @@ import EmptyView from '../../EmptyView';
 const ListHeaderComponent = () => {
   const intl = useIntl();
   const context = useStatsListContext()?.context;
+  const { screenWidth } = useUserDevice();
+  const pageWidth = screenWidth - 224;
+  const hideSaleItem = pageWidth < 900;
 
   const saleTitle = useMemo(() => {
     switch (context?.selectedTime) {
@@ -78,7 +81,8 @@ const ListHeaderComponent = () => {
     <>
       <ListItem>
         <ListItem.Column
-          flex={1}
+          p={2}
+          flex={1.9}
           text={{
             label: intl.formatMessage({
               id: 'content__collection',
@@ -90,7 +94,7 @@ const ListHeaderComponent = () => {
           }}
         />
         <ListItem.Column
-          w="160px"
+          flex={1}
           text={{
             label: intl.formatMessage({
               id: 'content__uique_owner',
@@ -103,7 +107,7 @@ const ListHeaderComponent = () => {
           }}
         />
         <ListItem.Column
-          w="160px"
+          flex={1}
           text={{
             label: intl.formatMessage({
               id: 'content__blue_chip_rates',
@@ -115,19 +119,22 @@ const ListHeaderComponent = () => {
             },
           }}
         />
+        {!hideSaleItem && (
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: saleTitle,
+              labelProps: {
+                typography: 'Subheading',
+                color: 'text-subdued',
+                textAlign: 'right',
+              },
+            }}
+          />
+        )}
+
         <ListItem.Column
-          w="160px"
-          text={{
-            label: saleTitle,
-            labelProps: {
-              typography: 'Subheading',
-              color: 'text-subdued',
-              textAlign: 'right',
-            },
-          }}
-        />
-        <ListItem.Column
-          w="160px"
+          flex={1}
           text={{
             label: volumeTitle,
             labelProps: {
@@ -147,6 +154,9 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
   const goToCollectionDetail = useCollectionDetail();
+  const { screenWidth } = useUserDevice();
+  const pageWidth = screenWidth - 224;
+  const hideSaleItem = pageWidth < 900;
 
   const renderItem: ListRenderItem<NFTMarketRanking> = useCallback(
     ({ item, index }) => {
@@ -164,32 +174,33 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
               });
             }}
           >
-            <ListItem.Column>
+            <ListItem flex={1.9}>
               <CollectionLogo src={item.logo_url} width="40px" height="40px" />
-            </ListItem.Column>
-            <ListItem.Column
-              text={{
-                label: `${index + 1}`,
-                labelProps: { pb: '24px', typography: 'Body1Mono' },
-              }}
-            />
+              <ListItem.Column
+                text={{
+                  label: `${index + 1}`,
+                  labelProps: { pb: '24px', typography: 'Body1Mono' },
+                }}
+              />
+              <ListItem.Column
+                flex={1}
+                text={{
+                  label: item.contract_name,
+                  labelProps: { isTruncated: true },
+                  description: PriceString({
+                    prefix: intl.formatMessage({
+                      id: 'content__floor',
+                    }),
+                    price: item.floor_price,
+                    networkId: context?.selectedNetwork?.id,
+                  }),
+                  descriptionProps: { numberOfLines: 1 },
+                }}
+              />
+            </ListItem>
+
             <ListItem.Column
               flex={1}
-              text={{
-                label: item.contract_name,
-                labelProps: { isTruncated: true },
-                description: PriceString({
-                  prefix: intl.formatMessage({
-                    id: 'content__floor',
-                  }),
-                  price: item.floor_price,
-                  networkId: context?.selectedNetwork?.id,
-                }),
-                descriptionProps: { numberOfLines: 1 },
-              }}
-            />
-            <ListItem.Column
-              w="160px"
               text={{
                 label:
                   uniqueOwner <= 100
@@ -201,21 +212,23 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
               }}
             />
             <ListItem.Column
-              w="160px"
+              flex={1}
               text={{
                 label: item.blueChip?.next_blue_chip_probability ?? '-',
                 labelProps: { textAlign: 'right' },
               }}
             />
+            {!hideSaleItem && (
+              <ListItem.Column
+                flex={1}
+                text={{
+                  label: item.sales,
+                  labelProps: { textAlign: 'right' },
+                }}
+              />
+            )}
             <ListItem.Column
-              w="160px"
-              text={{
-                label: item.sales,
-                labelProps: { textAlign: 'right' },
-              }}
-            />
-            <ListItem.Column
-              w="160px"
+              flex={1}
               text={{
                 label: PriceString({
                   price: new BigNumber(item.volume ?? '0')
@@ -230,7 +243,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
         </>
       );
     },
-    [context?.selectedNetwork?.id, goToCollectionDetail, intl],
+    [context?.selectedNetwork?.id, goToCollectionDetail, hideSaleItem, intl],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {
