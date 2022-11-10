@@ -51,6 +51,8 @@ type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<StackBasicRoutesParams, StackRoutes.Developer>
 >;
 
+const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
+const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
@@ -135,13 +137,13 @@ export const Debug = () => {
         transferInfos = [
           {
             from: accountAddress,
-            to: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_1,
             token,
             amount: '1',
           },
           {
             from: accountAddress,
-            to: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_2,
             token,
             amount: '1',
           },
@@ -150,12 +152,12 @@ export const Debug = () => {
         transferInfos = [
           {
             from: accountAddress,
-            to: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_1,
             amount: '0.001',
           },
           {
             from: accountAddress,
-            to: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_2,
             amount: '0.001',
           },
         ];
