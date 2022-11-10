@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, List, ListItem, useUserDevice } from '@onekeyhq/components';
+import { Box, List, ListItem, Text, useUserDevice } from '@onekeyhq/components';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
@@ -163,6 +163,22 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
       const uniqueOwner =
         ((item.owners_total ?? 0) / (item.items_total ?? 0)) * 100;
 
+      const volumeChange = item.volume_change ?? '-';
+      let volumeChangeBgColor;
+      let volumeTextColor;
+      if (item?.volume_change?.startsWith('-')) {
+        //-
+        volumeChangeBgColor = 'surface-critical-subdued';
+        volumeTextColor = 'text-critical';
+      } else if (!item?.volume_change?.startsWith('0.00%')) {
+        //+
+        volumeChangeBgColor = 'surface-success-subdued';
+        volumeTextColor = 'text-success';
+      } else {
+        // 0
+        volumeTextColor = 'text-subdued';
+      }
+
       return (
         <>
           <ListItem
@@ -228,6 +244,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
               />
             )}
             <ListItem.Column
+              alignItems="flex-end"
               flex={1}
               text={{
                 label: PriceString({
@@ -237,6 +254,22 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
                   networkId: context?.selectedNetwork?.id,
                 }),
                 labelProps: { textAlign: 'right' },
+                description: (
+                  <Box
+                    borderRadius="6px"
+                    bgColor={volumeChangeBgColor}
+                    paddingX="6px"
+                    paddingY="2px"
+                  >
+                    <Text
+                      color={volumeTextColor}
+                      textAlign="right"
+                      numberOfLines={1}
+                    >
+                      {volumeChange}
+                    </Text>
+                  </Box>
+                ),
               }}
             />
           </ListItem>
