@@ -19,6 +19,7 @@ import {
   Searchbar,
   Spinner,
   Text,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { Network } from '@onekeyhq/engine/src/types/network';
@@ -140,6 +141,7 @@ const DefaultList: FC<Props> = ({ selectNetwork }) => {
                 },
                 { 0: 1 },
               ),
+              onPress: () => {},
             },
           ],
         }}

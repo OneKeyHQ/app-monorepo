@@ -11,7 +11,6 @@ import {
   Box,
   List,
   ListItem,
-  Text,
   useUserDevice,
 } from '@onekeyhq/components';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
