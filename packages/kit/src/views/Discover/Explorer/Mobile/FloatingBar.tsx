@@ -42,6 +42,7 @@ const InfoBar: FC<{
       flex={1}
       textAlign="left"
       mx="8px"
+      numberOfLines={1}
     >
       {text}
     </Typography.Body2Strong>
@@ -53,6 +54,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
   const tab = useWebTab();
   return (
     <Box
+      bg="surface-subdued"
       px="16px"
       h="56px"
       flexDirection="row"
@@ -75,7 +77,12 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         alignItems="center"
         onPress={onSearch}
       >
-        <Typography.Body1 mx="6px" flex="1" color="text-subdued">
+        <Typography.Body1
+          mx="6px"
+          flex="1"
+          color="text-subdued"
+          numberOfLines={1}
+        >
           {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
         </Typography.Body1>
         <NetworkAccountSelectorTrigger size="sm" type="basic" />

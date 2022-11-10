@@ -1,4 +1,4 @@
-import { FC, useMemo } from 'react';
+import { FC, ReactNode, useMemo } from 'react';
 
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -10,18 +10,20 @@ import {
   NetImage,
   Pressable,
   Typography,
+  useThemeValue,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
   WebTab,
   closeWebTab,
+  homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
-  showTabGrid,
+  hideTabGrid,
   showTabGridAnim,
 } from '../explorerAnimation';
 
@@ -39,15 +41,17 @@ const WebTabCard: FC<
     borderWidth="1px"
     borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
     overflow="hidden"
+    ml={`${CELL_GAP}px`}
+    mt={`${CELL_GAP}px`}
     onPress={() => {
       if (!isCurrent) {
         backgroundApiProxy.dispatch(setCurrentWebTab(id));
       }
-      showTabGrid();
+      hideTabGrid();
     }}
   >
     <Box
-      bg="surface-subdued"
+      bg="surface-default"
       px="9px"
       h="32px"
       w="full"
@@ -68,11 +72,14 @@ const WebTabCard: FC<
         color="text-default"
         flex={1}
         textAlign="left"
+        numberOfLines={1}
         mx="4px"
       >
         {title}
       </Typography.CaptionStrong>
       <IconButton
+        size="sm"
+        type="plain"
         name="CloseSolid"
         onPress={() => {
           backgroundApiProxy.dispatch(closeWebTab(id));
@@ -87,31 +94,42 @@ const WebTabCard: FC<
 const WebTabGrid = () => {
   const tabs = useWebTabs();
   const { width } = useWindowDimensions();
-  const cellWidth = width - CELL_GAP * 3;
+  const cellWidth = (width - CELL_GAP * 3) / 2;
 
   const content = useMemo(() => {
-    const cells = [];
+    const cells: ReactNode[] = [];
     tabs.forEach((tab) => {
+      if (tab.id === homeTab.id) {
+        return;
+      }
       if (tab.isCurrent) {
         cells.unshift(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
       } else {
         cells.push(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
       }
     });
+    return cells;
   }, [cellWidth, tabs]);
 
   return (
     <Animated.ScrollView
       style={[
-        StyleSheet.absoluteFill,
+        {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: useThemeValue('background-default'),
+        },
         useAnimatedStyle(() => ({
           zIndex: showTabGridAnim.value === MAX_OR_SHOW ? 1 : -1,
         })),
       ]}
+      showsVerticalScrollIndicator={false}
       contentContainerStyle={{
-        flex: 1,
+        flexGrow: 1,
         flexDirection: 'row',
+        justifyContent: 'flex-start',
         flexWrap: 'wrap',
+        alignItems: 'flex-start',
+        paddingTop: CELL_GAP,
         paddingRight: CELL_GAP,
       }}
     >

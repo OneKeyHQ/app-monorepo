@@ -7,13 +7,11 @@ export const expandAnim = makeMutable(MIN_OR_HIDE);
 export const showTabGridAnim = makeMutable(MIN_OR_HIDE);
 
 export const showTabGrid = () => {
-  // TODO withtiming
-  showTabGridAnim.value = MAX_OR_SHOW;
+  showTabGridAnim.value = withTiming(MAX_OR_SHOW);
 };
 
 export const hideTabGrid = () => {
-  // TODO withtiming
-  showTabGridAnim.value = MIN_OR_HIDE;
+  showTabGridAnim.value = withTiming(MIN_OR_HIDE);
 };
 
 export const expandFloatingWindow = (onMaximize: () => void = () => {}) => {
