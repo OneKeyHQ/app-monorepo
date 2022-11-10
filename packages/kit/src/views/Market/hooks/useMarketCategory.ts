@@ -2,6 +2,8 @@ import { useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import {
@@ -41,16 +43,38 @@ export const useMarketCategoryList = () => {
   }, [categorys]);
 };
 
+const RECOMMENDED_VIEW_COUNT_VERTIVAL = 8;
+const RECOMMENDED_VIEW_COUNT = 12;
+
 export const useMarketFavoriteRecommentedList = () => {
   const categorys = useAppSelector((s) => s.market.categorys);
+  const isVertival = useIsVerticalLayout();
   const favoritesCategory = categorys[MARKET_FAVORITES_CATEGORYID];
-  return useMemo(
-    () =>
-      favoritesCategory && favoritesCategory.recommendedTokens
-        ? favoritesCategory.recommendedTokens
-        : [],
-    [favoritesCategory],
-  );
+  return useMemo(() => {
+    if (favoritesCategory && favoritesCategory.recommendedTokens?.length) {
+      if (
+        favoritesCategory.recommendedTokens?.length > RECOMMENDED_VIEW_COUNT
+      ) {
+        return [...favoritesCategory.recommendedTokens].slice(
+          0,
+          isVertival ? RECOMMENDED_VIEW_COUNT_VERTIVAL : RECOMMENDED_VIEW_COUNT,
+        );
+      }
+      if (
+        favoritesCategory.recommendedTokens?.length >
+        RECOMMENDED_VIEW_COUNT_VERTIVAL
+      ) {
+        return isVertival
+          ? [...favoritesCategory.recommendedTokens].slice(
+              0,
+              RECOMMENDED_VIEW_COUNT_VERTIVAL,
+            )
+          : [...favoritesCategory.recommendedTokens];
+      }
+      return [...favoritesCategory.recommendedTokens];
+    }
+    return [];
+  }, [favoritesCategory, isVertival]);
 };
 
 export const useMarketFavoriteCategoryTokenIds = () => {

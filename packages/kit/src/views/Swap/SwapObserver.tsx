@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
@@ -8,11 +7,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { AppStatusActiveListener } from '../../components/AppStatusActiveListener';
 import { useAppSelector } from '../../hooks';
 
 const NetworkObserver = () => {
   useEffect(() => {
-    backgroundApiProxy.serviceSwap.setDefaultInputToken(OnekeyNetwork.eth);
+    backgroundApiProxy.serviceSwap.setDefaultInputToken();
   }, []);
   return null;
 };
@@ -35,10 +35,14 @@ const AccountsObserver = () => {
 };
 
 const TokenUpdater = () => {
+  const onActive = useCallback(
+    () => backgroundApiProxy.serviceSwap.getSwapTokens(),
+    [],
+  );
   useEffect(() => {
-    backgroundApiProxy.serviceSwap.getSwapTokens();
-  }, []);
-  return null;
+    onActive();
+  }, [onActive]);
+  return <AppStatusActiveListener onActive={onActive} />;
 };
 
 const SwapListener = () => (

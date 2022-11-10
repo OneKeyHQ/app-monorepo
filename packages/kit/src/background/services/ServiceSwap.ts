@@ -6,9 +6,10 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
+import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { IEncodedTx, IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
@@ -17,7 +18,6 @@ import {
   resetState,
   resetTypedValue,
   setInputToken,
-  setNetworkSelectorId,
   setOutputToken,
   setQuote,
   setQuoteTime,
@@ -31,7 +31,6 @@ import {
   updateTokenList,
 } from '../../store/reducers/swapTransactions';
 import { SendConfirmParams } from '../../views/Send/types';
-import { enabledNetworkIds } from '../../views/Swap/config';
 import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -96,16 +95,30 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setDefaultInputToken(networkId: string) {
+  async setDefaultInputToken() {
     const { engine, appSelector } = this.backgroundApi;
-    const network = await engine.getNetwork(networkId);
+
+    const USDC = {
+      name: 'USD Coin',
+      symbol: 'USDC',
+      address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      decimals: 6,
+      logoURI:
+        'https://common.onekey-asset.com/token/evm-1/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48.jpg',
+      impl: 'evm',
+      chainId: '1',
+    } as ServerToken;
+
+    const network = await engine.getNetwork(OnekeyNetwork.eth);
     const nativeToken = await engine.getNativeTokenInfo(network.id);
     const inputToken = appSelector((s) => s.swap.inputToken);
     if (nativeToken && !inputToken) {
-      this.selectToken('INPUT', network, nativeToken);
-      this.setSendingAccountByNetwork(network);
+      this.setInputToken(nativeToken);
     }
-    this.setNetworkSelectorId(network.id);
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    if (!outputToken) {
+      this.setOutputToken(formatServerToken(USDC));
+    }
   }
 
   @backgroundMethod()
@@ -128,7 +141,11 @@ export default class ServiceSwap extends ServiceBase {
         );
       }
     }
-    this.selectToken('OUTPUT', this.getNetwork(token.networkId), token);
+    const tokenNetwork = this.getNetwork(token.networkId);
+    this.selectToken('OUTPUT', tokenNetwork, token);
+    if (tokenNetwork) {
+      this.setRecipient(tokenNetwork);
+    }
   }
 
   @backgroundMethod()
@@ -152,12 +169,6 @@ export default class ServiceSwap extends ServiceBase {
   async userInput(field: FieldType, typedValue: string) {
     const { dispatch } = this.backgroundApi;
     dispatch(setTypedValue({ independentField: field, typedValue }));
-  }
-
-  @backgroundMethod()
-  async setNetworkSelectorId(networkId?: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setNetworkSelectorId(networkId));
   }
 
   @backgroundMethod()
@@ -436,19 +447,21 @@ export default class ServiceSwap extends ServiceBase {
     networkId?: string;
     keyword?: string;
   }) {
-    const { engine } = this.backgroundApi;
+    const { engine, appSelector } = this.backgroundApi;
+    const networks = appSelector((s) => s.runtime.networks);
     if (!keyword || !keyword.trim()) {
       return [];
     }
     const term = keyword.trim();
-    const tokens = await engine.searchTokens(networkId, term);
-    return tokens.filter((t) => enabledNetworkIds.includes(t.networkId));
+    const tokens = await engine.searchTokens(networkId, term, 1);
+    const networkIds = networks.map((item) => item.id);
+    return tokens.filter((t) => networkIds.includes(t.networkId));
   }
 
   @backgroundMethod()
   async checkAccountInWallets(accountId: string) {
     const { appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets); // engine.getWallets(); dont include hidden wallet (passphrase account)
+    const wallets = appSelector((s) => s.runtime.wallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       if (wallet.accounts.includes(accountId)) {

@@ -142,6 +142,14 @@ export function setThemePreloadToLocalStorage(
       if (forceUpdate || !localStorage.getItem(key)) {
         localStorage.setItem(key, value);
       }
+
+      // same to theme-preload.js
+      if (value === 'dark') {
+        document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
+      }
+      if (value === 'light' || value === 'system') {
+        document.documentElement.style.backgroundColor = 'white';
+      }
     }
   } catch (error) {
     console.error(error);

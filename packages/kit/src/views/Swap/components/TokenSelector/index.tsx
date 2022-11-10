@@ -25,7 +25,6 @@ import {
   useDebounce,
   useNetworkSimple,
 } from '../../../../hooks';
-import { useRestrictedTokens } from '../../hooks/useSwap';
 import {
   useSwapTokenList,
   useTokenSearch,
@@ -206,16 +205,10 @@ type TokenSelectorProps = {
   onSelect?: (token: Token) => void;
 };
 
-const TokenSelector: FC<TokenSelectorProps> = ({
-  excluded,
-  included,
-  onSelect,
-}) => {
+const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
   const intl = useIntl();
   const { networkId: activeNetworkId } = useContext(TokenSelectorContext);
   const tokenList = useSwapTokenList(activeNetworkId);
-
-  const restrictedTokens = useRestrictedTokens(tokenList, included, excluded);
 
   const [keyword, setKeyword] = useState<string>('');
   const terms = useDebounce(keyword, 500);
@@ -225,9 +218,9 @@ const TokenSelector: FC<TokenSelectorProps> = ({
   );
   const isLoading = loading || keyword !== terms;
 
-  const listItems = useMemo(
-    () => (terms ? searchedTokens : restrictedTokens),
-    [terms, searchedTokens, restrictedTokens],
+  const dataSources = useMemo(
+    () => (terms ? searchedTokens : tokenList),
+    [terms, searchedTokens, tokenList],
   );
 
   const renderItem: ListRenderItem<Token> = useCallback(
@@ -236,10 +229,10 @@ const TokenSelector: FC<TokenSelectorProps> = ({
         token={item}
         onSelect={onSelect}
         isFirst={index === 0}
-        isLast={index === listItems.length - 1}
+        isLast={index === dataSources.length - 1}
       />
     ),
-    [listItems.length, onSelect],
+    [dataSources.length, onSelect],
   );
 
   const tokenSources = useAppSelector((s) => s.swapTransactions.tokenList);
@@ -264,7 +257,7 @@ const TokenSelector: FC<TokenSelectorProps> = ({
         footer={null}
         hidePrimaryAction
         flatListProps={{
-          data: listItems,
+          data: dataSources,
           // @ts-ignore
           renderItem,
           ItemSeparatorComponent: Divider,

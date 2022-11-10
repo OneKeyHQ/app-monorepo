@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import { ThemeToken } from '../Provider/theme';
 import ScrollableButtonGroup, {
   ScrollableButtonGroupProps,
 } from '../ScrollableButtonGroup/ScrollableButtonGroup';
@@ -20,6 +21,7 @@ import ScrollableButtonGroup, {
 export interface ToggleButtonProps {
   text: string;
   leftIcon?: ICON_NAMES;
+  leftIconSelectedColor?: ThemeToken;
   leftImage?: string;
   leftComponentRender?: () => ReactElement;
 }
@@ -53,9 +55,11 @@ const ToggleButton: FC<
   onLayout,
   size,
   maxTextWidth,
+  leftIconSelectedColor,
 }) => {
   const isSmall = size === 'sm';
   const iconSize = leftIconSize || (isSmall ? '16px' : '20px');
+  const selectedIconColor = leftIconSelectedColor || 'icon-hovered';
   return (
     <Pressable mr="8px" onPress={onPress} onLayout={onLayout}>
       {({ isHovered, isPressed }) => {
@@ -76,16 +80,11 @@ const ToggleButton: FC<
             bg={toggleButtonBg()}
           >
             {(!!leftIcon || !!leftImage) && (
-              <Center
-                borderRadius="9999px"
-                w={iconSize}
-                h={iconSize}
-                mr={isSmall ? '4px' : '8px'}
-              >
+              <Center borderRadius="9999px" w={iconSize} h={iconSize}>
                 {!!leftIcon && (
                   <Icon
                     name={leftIcon}
-                    color={isCurrent ? 'icon-hovered' : 'icon-default'}
+                    color={isCurrent ? selectedIconColor : 'icon-default'}
                   />
                 )}
                 {!!leftImage && (
@@ -98,13 +97,16 @@ const ToggleButton: FC<
               </Center>
             )}
             {leftComponentRender?.()}
-            <Typography.Body2Strong
-              maxW={maxTextWidth}
-              isTruncated
-              color={isCurrent ? 'text-default' : 'text-subdued'}
-            >
-              {text}
-            </Typography.Body2Strong>
+            {text.length > 0 ? (
+              <Typography.Body2Strong
+                ml={isSmall ? '4px' : '8px'}
+                maxW={maxTextWidth}
+                isTruncated
+                color={isCurrent ? 'text-default' : 'text-subdued'}
+              >
+                {text}
+              </Typography.Body2Strong>
+            ) : null}
           </HStack>
         );
       }}
