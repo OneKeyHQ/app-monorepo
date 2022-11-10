@@ -36,7 +36,7 @@ const TabbedWebContainer = memo(() => {
   return (
     <Box flex={1} zIndex={3}>
       {tabs.map((tab) => (
-        <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
+        <Freeze key={tab.id} freeze={!tab.isCurrent}>
           <WebContent {...tab} />
         </Freeze>
       ))}

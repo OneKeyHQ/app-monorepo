@@ -19,7 +19,7 @@ const WebTabStack = memo(() => {
   const content = useMemo(
     () =>
       tabs.slice(1).map((tab) => (
-        <Freeze key={`${tab.id}-Freeze`} freeze={!tab.isCurrent}>
+        <Freeze key={tab.id} freeze={!tab.isCurrent}>
           <WebContent {...tab} />
         </Freeze>
       )),

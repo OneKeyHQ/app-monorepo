@@ -1,7 +1,5 @@
 import { useCallback } from 'react';
 
-import { nanoid } from '@reduxjs/toolkit';
-
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../../store';
 import {
@@ -45,14 +43,14 @@ export const useGotoSite = ({ id }: { id?: string }) =>
         if (webHandler === 'browser') {
           return openUrl(validatedUrl);
         }
+        const tabId = tab.id;
         const { dispatch } = backgroundApiProxy;
         const isDeepLink =
           !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
         const isNewTab =
-          (isNewWindow || tab.id === 'home' || isDeepLink) &&
+          (isNewWindow || tabId === 'home' || isDeepLink) &&
           webHandler === 'tabbedWebview';
 
-        const tabId = isNewTab ? nanoid() : tab.id;
         if (dAppId) {
           dispatch(setDappHistory(dAppId));
         }
@@ -61,7 +59,6 @@ export const useGotoSite = ({ id }: { id?: string }) =>
         dispatch(
           isNewTab
             ? addWebTab({
-                id: tabId,
                 title,
                 url: validatedUrl,
                 favicon,

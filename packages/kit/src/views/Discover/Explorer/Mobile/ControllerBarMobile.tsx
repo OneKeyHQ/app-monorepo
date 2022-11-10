@@ -8,7 +8,8 @@ import Animated, {
 import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
 import useFloatingBottomTabBarHeight from '@onekeyhq/components/src/Layout/BottomTabs/utils/useBottomTabBarHeight';
 
-import { homeTab } from '../../../../store/reducers/webTabs';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { addWebTab, homeTab } from '../../../../store/reducers/webTabs';
 import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
 import { showWebMoreMenu } from '../MoreMenu';
@@ -64,7 +65,13 @@ export const ControllerBarMobile: FC<{
             <Icon color="icon-pressed" name="ChevronRightSolid" />
           </Button>
 
-          <Button flex={1} type="plain">
+          <Button
+            flex={1}
+            type="plain"
+            onPress={() => {
+              backgroundApiProxy.dispatch(addWebTab({ ...homeTab }));
+            }}
+          >
             <Icon color="icon-pressed" name="PlusCircleSolid" />
           </Button>
 

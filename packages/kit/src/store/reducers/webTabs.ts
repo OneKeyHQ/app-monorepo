@@ -1,4 +1,7 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { PayloadAction, createSlice, nanoid } from '@reduxjs/toolkit';
+
+import { ToastManager } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line import/no-cycle
 import { webviewRefs } from '../../views/Discover/Explorer/explorerUtils';
@@ -47,11 +50,21 @@ const initialState: WebTabsInitialState = {
 
 export const homeResettingFlags: Record<string, number> = {};
 
+const hasTabLimits = platformEnv.isNative && !platformEnv.isNativeIOSPad;
+const MAXTABS = 10;
 export const webtabsSlice = createSlice({
   name: 'webTabs',
   initialState,
   reducers: {
-    addWebTab: (state, { payload }: PayloadAction<WebTab>) => {
+    addWebTab: (state, { payload }: PayloadAction<Partial<WebTab>>) => {
+      if (hasTabLimits && state.tabs.length === MAXTABS) {
+        // TODO
+        ToastManager.show('Too many tabs');
+        return;
+      }
+      if (!payload.id || payload.id === homeTab.id) {
+        payload.id = nanoid();
+      }
       if (payload.isCurrent) {
         for (const tab of state.tabs) {
           tab.isCurrent = false;
@@ -59,7 +72,7 @@ export const webtabsSlice = createSlice({
         state.currentTabId = payload.id;
       }
       payload.timestamp = Date.now();
-      state.tabs.push(payload);
+      state.tabs.push(payload as WebTab);
     },
     setWebTabData: (
       state,

@@ -32,25 +32,15 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
         id: 'action__share',
       }),
       value: () => {
-        try {
-          Share.share(
-            Platform.OS === 'ios'
-              ? {
-                  url: getCurrentUrl(),
-                }
-              : {
-                  message: getCurrentUrl(),
-                },
-          )
-            .then((result) => {
-              console.log(result);
-            })
-            .catch((error) => {
-              console.error(error);
-            });
-        } catch (error) {
-          console.warn(error);
-        }
+        Share.share(
+          Platform.OS === 'ios'
+            ? {
+                url: getCurrentUrl(),
+              }
+            : {
+                message: getCurrentUrl(),
+              },
+        ).catch();
       },
       iconProps: { name: 'ShareOutline' },
     },
