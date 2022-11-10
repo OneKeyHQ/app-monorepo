@@ -2,10 +2,18 @@ import React, { useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, List, ListItem, Text, useUserDevice } from '@onekeyhq/components';
+import {
+  Badge,
+  Box,
+  List,
+  ListItem,
+  Text,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
@@ -81,7 +89,7 @@ const ListHeaderComponent = () => {
     <>
       <ListItem>
         <ListItem.Column
-          p={2}
+          p={0}
           flex={1.9}
           text={{
             label: intl.formatMessage({
@@ -180,100 +188,98 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
       }
 
       return (
-        <>
-          <ListItem
-            onPress={() => {
-              goToCollectionDetail({
-                contractAddress: item.contract_address as string,
-                networkId: context?.selectedNetwork?.id as string,
-                title: item.contract_name,
-              });
-            }}
-          >
-            <ListItem flex={1.9}>
-              <CollectionLogo src={item.logo_url} width="40px" height="40px" />
-              <ListItem.Column
-                text={{
-                  label: `${index + 1}`,
-                  labelProps: { pb: '24px', typography: 'Body1Mono' },
-                }}
-              />
-              <ListItem.Column
-                flex={1}
-                text={{
-                  label: item.contract_name,
-                  labelProps: { isTruncated: true },
-                  description: PriceString({
-                    prefix: intl.formatMessage({
-                      id: 'content__floor',
-                    }),
-                    price: item.floor_price,
-                    networkId: context?.selectedNetwork?.id,
+        <ListItem
+          my="1px"
+          onPress={() => {
+            goToCollectionDetail({
+              contractAddress: item.contract_address as string,
+              networkId: context?.selectedNetwork?.id as string,
+              title: item.contract_name,
+            });
+          }}
+        >
+          <Row flex={1.9} space="12px">
+            <CollectionLogo src={item.logo_url} width="40px" height="40px" />
+            <ListItem.Column
+              text={{
+                label: `${index + 1}`,
+                labelProps: { pb: '24px', typography: 'Body1Mono' },
+              }}
+            />
+            <ListItem.Column
+              flex={1}
+              text={{
+                label: item.contract_name,
+                labelProps: { isTruncated: true },
+                description: PriceString({
+                  prefix: intl.formatMessage({
+                    id: 'content__floor',
                   }),
-                  descriptionProps: { numberOfLines: 1 },
-                }}
-              />
-            </ListItem>
-
-            <ListItem.Column
-              flex={1}
-              text={{
-                label:
-                  uniqueOwner <= 100
-                    ? `${new BigNumber(uniqueOwner ?? '0')
-                        .decimalPlaces(2)
-                        .toString()}%`
-                    : '',
-                labelProps: { textAlign: 'right' },
-              }}
-            />
-            <ListItem.Column
-              flex={1}
-              text={{
-                label: item.blueChip?.next_blue_chip_probability ?? '-',
-                labelProps: { textAlign: 'right' },
-              }}
-            />
-            {!hideSaleItem && (
-              <ListItem.Column
-                flex={1}
-                text={{
-                  label: item.sales,
-                  labelProps: { textAlign: 'right' },
-                }}
-              />
-            )}
-            <ListItem.Column
-              alignItems="flex-end"
-              flex={1}
-              text={{
-                label: PriceString({
-                  price: new BigNumber(item.volume ?? '0')
-                    .decimalPlaces(2)
-                    .toString(),
+                  price: item.floor_price,
                   networkId: context?.selectedNetwork?.id,
                 }),
-                labelProps: { textAlign: 'right' },
-                description: (
-                  <Box
-                    borderRadius="6px"
-                    bgColor={volumeChangeBgColor}
-                    paddingX="6px"
-                    paddingY="2px"
-                  >
-                    <Text
-                      color={volumeTextColor}
-                      textAlign="right"
-                      numberOfLines={1}
-                    >
-                      {volumeChange}
-                    </Text>
-                  </Box>
-                ),
+                descriptionProps: { numberOfLines: 1 },
               }}
             />
-          </ListItem>
-        </>
+          </Row>
+
+          <ListItem.Column
+            flex={1}
+            text={{
+              label:
+                uniqueOwner <= 100
+                  ? `${new BigNumber(uniqueOwner ?? '0')
+                      .decimalPlaces(2)
+                      .toString()}%`
+                  : '',
+              labelProps: { textAlign: 'right' },
+            }}
+          />
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.blueChip?.next_blue_chip_probability ?? '-',
+              labelProps: { textAlign: 'right' },
+            }}
+          />
+          {!hideSaleItem && (
+            <ListItem.Column
+              flex={1}
+              text={{
+                label: item.sales,
+                labelProps: { textAlign: 'right' },
+              }}
+            />
+          )}
+          <ListItem.Column
+            space="2px"
+            flex={1}
+            text={{
+              label: PriceString({
+                price: new BigNumber(item.volume ?? '0')
+                  .decimalPlaces(2)
+                  .toString(),
+                networkId: context?.selectedNetwork?.id,
+              }),
+              labelProps: { textAlign: 'right' },
+              description: (
+                <Box
+                  justifyContent="flex-end"
+                  flex={1}
+                  width="full"
+                  flexDirection="row"
+                >
+                  <Badge
+                    bgColor={volumeChangeBgColor}
+                    size="lg"
+                    title={volumeChange}
+                    color={volumeTextColor}
+                  />
+                </Box>
+              ),
+            }}
+          />
+        </ListItem>
       );
     },
     [context?.selectedNetwork?.id, goToCollectionDetail, hideSaleItem, intl],
