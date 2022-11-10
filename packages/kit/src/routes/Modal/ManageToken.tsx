@@ -10,6 +10,7 @@ import {
   ViewTokenModal,
 } from '../../views/ManageTokens';
 import ActivateTokenAuthModal from '../../views/ManageTokens/ActivateTokenAuthModal';
+import TokenRiskDetail from '../../views/ManageTokens/RiskDetail';
 import {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
@@ -54,6 +55,10 @@ const modalRoutes = [
   {
     name: ManageTokenRoutes.PriceAlertAdd,
     component: PriceAlertAddModal,
+  },
+  {
+    name: ManageTokenRoutes.TokenRiskDetail,
+    component: TokenRiskDetail,
   },
 ];
 

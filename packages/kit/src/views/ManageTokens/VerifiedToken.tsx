@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -6,18 +6,25 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
-  Divider,
+  HStack,
   Icon,
+  Image,
   Modal,
+  Pressable,
   Spinner,
   Text,
   Token as TokenImage,
+  Typography,
+  VStack,
 } from '@onekeyhq/components';
-import {
-  TokenSource,
-  fetchTokenSource,
-} from '@onekeyhq/engine/src/managers/token';
+import { safeItems } from '@onekeyhq/engine/src/managers/goplus';
+import { TokenSource } from '@onekeyhq/engine/src/managers/token';
+import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 
+import { useNavigation } from '../../hooks';
+import { ModalRoutes, RootRoutes } from '../../routes/types';
+
+import { useTokenSourceList } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 type NavigationProps = RouteProp<
@@ -27,46 +34,69 @@ type NavigationProps = RouteProp<
 
 const VerifiedTokens: React.FC = () => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const route = useRoute<NavigationProps>();
-  const [sourceList, setSources] = useState<TokenSource[]>([]);
-  const { source = [] } = route.params;
+  const { loading, data } = useTokenSourceList();
+  const {
+    token,
+    token: { source },
+  } = route.params;
 
-  useEffect(() => {
-    fetchTokenSource().then((list) => {
-      const data = list.filter((l) => l.count > 0);
-      setSources(data);
+  const goRiskDetail = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageToken,
+      params: {
+        screen: ManageTokenRoutes.TokenRiskDetail,
+        params: {
+          token,
+        },
+      },
     });
-  }, [source]);
+  }, [navigation, token]);
 
   const header = useMemo(
     () => (
-      <Box flexDirection="column" alignItems="center" mb={3}>
+      <Box flexDirection="column" alignItems="center" mb={4}>
         <Icon size={44} name="BadgeCheckSolid" color="icon-success" />
-        <Text typography="DisplayXLarge" mt={3}>
+        <Text typography="DisplayXLarge" mt={3} mb="1">
           {intl.formatMessage({ id: 'title__verified_token' })}
         </Text>
         <Text mt={2}>
           {intl.formatMessage({ id: 'title__verified_token_desc' })}
         </Text>
+        <Pressable w="full" onPress={goRiskDetail}>
+          <HStack mt="9" mb="8" w="full" alignItems="center">
+            <Image size="40px" source={NoRisks} />
+            <VStack flex="1" ml="3">
+              <Typography.Body1Strong mb="1">
+                {intl.formatMessage({ id: 'form__no_risks' })}
+              </Typography.Body1Strong>
+              <Typography.Body2>
+                {intl.formatMessage(
+                  { id: 'form__no_risks_desc' },
+                  {
+                    0: safeItems.length,
+                  },
+                )}
+              </Typography.Body2>
+            </VStack>
+            <Icon name="ChevronRightSolid" size={20} />
+          </HStack>
+        </Pressable>
+        <Typography.Subheading w="full" mb="2">
+          {intl.formatMessage({ id: 'form__token_lists__uppercase' })}
+        </Typography.Subheading>
       </Box>
     ),
-    [intl],
+    [intl, goRiskDetail],
   );
 
   const renderItem = useCallback(
     (props: { item: TokenSource; index: number }) => {
-      const { item, index } = props;
-      const active = source.includes(item.name);
+      const { item } = props;
+      const active = source?.includes(item.name);
       return (
-        <Box
-          flexDirection="row"
-          alignItems="center"
-          py={4}
-          px={4}
-          bgColor="surface-default"
-          borderTopRadius={index === 0 ? 12 : 0}
-          borderBottomRadius={index === sourceList.length - 1 ? 12 : 0}
-        >
+        <Box flexDirection="row" alignItems="center" mb={4}>
           <TokenImage
             flex={1}
             showInfo
@@ -93,10 +123,10 @@ const VerifiedTokens: React.FC = () => {
         </Box>
       );
     },
-    [source, sourceList.length],
+    [source],
   );
 
-  if (!sourceList.length) {
+  if (loading) {
     return (
       <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={null}>
         <Center flex={1}>
@@ -112,10 +142,9 @@ const VerifiedTokens: React.FC = () => {
       hideSecondaryAction
       footer={null}
       flatListProps={{
-        data: sourceList.sort((s) => (source.includes(s.name) ? -1 : 1)),
+        data: data.sort((s) => (source?.includes(s.name) ? -1 : 1)),
         // @ts-ignore
         renderItem,
-        ItemSeparatorComponent: Divider,
         keyExtractor: (item) => (item as TokenSource).name,
         showsVerticalScrollIndicator: false,
         ListHeaderComponent: header,
