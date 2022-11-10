@@ -575,7 +575,7 @@ export const Debug = () => {
                 )
               }
             >
-              <Typography.Body1>BatchTransferToken</Typography.Body1>
+              <Typography.Body1>Batch Transfer DAI</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>
