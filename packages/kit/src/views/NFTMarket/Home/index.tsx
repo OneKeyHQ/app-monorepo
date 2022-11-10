@@ -52,6 +52,7 @@ const Content = () => {
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
       p={{ base: '16px', md: '32px' }}
+      showsVerticalScrollIndicator={false}
       contentContainerStyle={{
         width: '100%',
         maxWidth: 992,

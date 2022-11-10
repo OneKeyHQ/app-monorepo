@@ -28,13 +28,11 @@ type Props = {
   tiggerProps?: ComponentProps<typeof Box>;
   selectedNetwork: Network;
   onChange: (network: Network) => void;
-  showChainName?: boolean;
   triggerSize?: 'sm' | 'lg' | string;
 };
 const ChainSelector: FC<Props> = ({
   tiggerProps,
   selectedNetwork,
-  showChainName,
   triggerSize,
   onChange,
 }) => {
@@ -94,7 +92,7 @@ const ChainSelector: FC<Props> = ({
                 size={triggerSize === 'lg' ? '24px' : '20px'}
                 token={{ logoURI: selectedNetwork?.logoURI }}
               />
-              {showChainName && (
+              {!isSmallScreen && (
                 <Text ml="8px" typography="Body2Strong">
                   {selectedNetwork?.name}
                 </Text>

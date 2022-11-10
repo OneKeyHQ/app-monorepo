@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { List, ListItem } from '@onekeyhq/components';
+import { Box, List, ListItem } from '@onekeyhq/components';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
@@ -60,6 +60,7 @@ const ListHeaderComponent = () => {
           }}
         />
       </ListItem>
+      <Box mx="8px" borderBottomWidth={1} borderColor="divider" />
     </>
   );
 };
@@ -143,6 +144,7 @@ const Desktop = () => {
         ListHeaderComponent={() => ListHeaderComponent()}
         data={context?.liveMintList}
         renderItem={renderItem}
+        showDivider
         keyExtractor={(item) =>
           `${item.contractAddress as string}${item.tokenId as string}`
         }

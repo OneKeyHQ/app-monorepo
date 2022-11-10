@@ -35,7 +35,6 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 const ListHeader: FC = () => {
-  const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const defaultNetwork = useDefaultNetWork();
   const [selectedNetwork, setSelectedNetwork] =
@@ -49,7 +48,6 @@ const ListHeader: FC = () => {
       <HStack alignItems="center" space="20px">
         <ChainSelector
           selectedNetwork={selectedNetwork}
-          showChainName={!isSmallScreen}
           onChange={(n) => {
             setSelectedNetwork(n);
             if (setContext) {

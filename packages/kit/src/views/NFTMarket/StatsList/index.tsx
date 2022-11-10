@@ -32,6 +32,7 @@ const StatsListScreen = () => {
       title: 'Stats',
       headerRight: () => (
         <ChainSelector
+          triggerSize="lg"
           selectedNetwork={selectedNetwork}
           onChange={(n) => {
             setSelectedNetwork(n);

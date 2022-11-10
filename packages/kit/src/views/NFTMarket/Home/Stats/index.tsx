@@ -55,7 +55,6 @@ const ListHeader: FC = () => {
       <HStack alignItems="center" space="20px">
         <ChainSelector
           selectedNetwork={selectedNetwork}
-          showChainName={!isSmallScreen}
           onChange={(n) => {
             setSelectedNetwork(n);
             if (setContext) {
