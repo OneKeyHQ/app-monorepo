@@ -192,6 +192,80 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
+  async decodeBatchTransferTx(
+    encodedTx: IEncodedTxEvm,
+    payload?: any,
+  ): Promise<IDecodedTx | null> {
+    const decoder = EVMTxDecoder.getDecoder(this.engine);
+    const ethersTx = (await this.helper.parseToNativeTx(
+      encodedTx,
+    )) as ethers.Transaction;
+    if (!Number.isFinite(ethersTx.chainId)) {
+      ethersTx.chainId = Number(await this.getNetworkChainId());
+    }
+
+    const [txDesc] = decoder.parseBatchTransfer(ethersTx);
+    if (txDesc) {
+      const decodedTx = await this.decodeTx(
+        {
+          ...encodedTx,
+          to: '',
+          value: '0x0',
+        },
+        payload,
+      );
+      const extraActions = [];
+      switch (txDesc.name) {
+        case 'disperseEther': {
+          const recipients: string[] = txDesc.args[0];
+          const values: string[] = txDesc.args[1];
+
+          for (let i = 0; i < recipients.length; i += 1) {
+            const result = await this.decodeTx({
+              from: encodedTx.from,
+              to: recipients[i],
+              value: values[i],
+            });
+            extraActions.push(result.actions[0]);
+          }
+          break;
+        }
+        case 'disperseToken': {
+          const tokenAddress = txDesc.args[0];
+          const recipients: string[] = txDesc.args[1];
+          const values: string[] = txDesc.args[2];
+
+          const token = await this.engine.ensureTokenInDB(
+            this.networkId,
+            tokenAddress,
+          );
+
+          if (!token) break;
+
+          for (let i = 0; i < recipients.length; i += 1) {
+            const encodedTokenTx = await this.buildEncodedTxFromTransfer({
+              from: encodedTx.from,
+              to: recipients[i],
+              token: tokenAddress,
+              amount: new BigNumber(values[i].toString())
+                .shiftedBy(-token.decimals)
+                .toFixed(),
+            });
+            const result = await this.decodeTx(encodedTokenTx);
+            extraActions.push(result.actions[0]);
+          }
+          break;
+        }
+        default:
+          return null;
+      }
+      decodedTx.actions = [decodedTx.actions[0], ...extraActions];
+      return decodedTx;
+    }
+
+    return null;
+  }
+
   decodeTxMemoizee = memoizee(
     async (encodedTx: IEncodedTxEvm, payload?: any): Promise<IDecodedTx> =>
       this.decodeTx(encodedTx, payload),
@@ -233,6 +307,12 @@ export default class Vault extends VaultBase {
     payload?: SendConfirmPayloadInfo;
     interactInfo?: IDecodedTxInteractInfo;
   }): Promise<IDecodedTx> {
+    // batch transfer
+    if (encodedTx.to === BatchTransferContractAddresses[this.networkId]) {
+      const decodeTx = await this.decodeBatchTransferTx(encodedTx, payload);
+      if (decodeTx) return decodeTx;
+    }
+
     const address = await this.getAccountAddress();
     const network = await this.getNetwork();
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);

@@ -553,7 +553,7 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => handleBatchTransfer()}
             >
-              <Typography.Body1>BatchTransfer</Typography.Body1>
+              <Typography.Body1>Batch Transfer ETH</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}
@@ -563,7 +563,7 @@ export const Debug = () => {
                 )
               }
             >
-              <Typography.Body1>BatchTransferToken</Typography.Body1>
+              <Typography.Body1>Batch Transfer DAI</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>
