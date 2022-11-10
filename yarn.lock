@@ -5102,10 +5102,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@file:.yalc/@onekeyfe/network-list::locator=%40onekeyhq%2Fengine%40workspace%3Apackages%2Fengine":
+"@onekeyfe/network-list@npm:1.6.17":
   version: 1.6.17
-  resolution: "@onekeyfe/network-list@file:.yalc/@onekeyfe/network-list#.yalc/@onekeyfe/network-list::hash=89ae4c&locator=%40onekeyhq%2Fengine%40workspace%3Apackages%2Fengine"
-  checksum: cd48e3dd41c875032b2bb80922bb265afde6b77fd15cefae45c255c304292fb184b48b20c5b48d2e086520a250c1cdd1bdecddf173ddd3d26491f80a42154e6c
+  resolution: "@onekeyfe/network-list@npm:1.6.17"
+  checksum: 4d2e7fd8de1135e4d1010dfd70c92e3c58583940a0c1f3c78a900b853b6787ffbb5307c0994e78803d7bb1277929ad605cc5f77c07600bece803f21401f7fffa
   languageName: node
   linkType: hard
 
@@ -5484,7 +5484,7 @@ __metadata:
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.45
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": "file:.yalc/@onekeyfe/network-list"
+    "@onekeyfe/network-list": 1.6.17
     "@solana/spl-token": ^0.3.0
     "@solana/web3.js": ^1.53.0
     "@types/bchaddrjs": ^0.4.0

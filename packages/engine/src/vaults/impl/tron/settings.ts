@@ -12,6 +12,8 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
+
+  cannotSendToSelf: true,
 };
 
 export default settings;

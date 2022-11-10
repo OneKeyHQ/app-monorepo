@@ -161,7 +161,7 @@ export default class Vault extends VaultBase {
   }
 
   override async buildUnsignedTxFromEncodedTx(
-    encodedTx: IEncodedTx,
+    encodedTx: IEncodedTxXrp,
   ): Promise<IUnsignedTxPro> {
     return Promise.resolve({
       inputs: [],
@@ -172,10 +172,13 @@ export default class Vault extends VaultBase {
   }
 
   override updateEncodedTx(
-    encodedTx: IEncodedTx,
+    encodedTx: IEncodedTxXrp,
     payload: any,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
+    const { amount } = payload;
+    const dropAmount = XRPL.xrpToDrops(amount);
+    encodedTx.Amount = dropAmount;
     return Promise.resolve(encodedTx);
   }
 

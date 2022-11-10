@@ -62,7 +62,10 @@ export function getTxStatus(meta: TransactionMetadata) {
   if (transactionResult === 'tesSUCCESS') {
     return TransactionStatus.CONFIRM_AND_SUCCESS;
   }
-  if (transactionResult.startsWith('tef')) {
+  if (
+    transactionResult.startsWith('tef') ||
+    transactionResult.startsWith('tec')
+  ) {
     return TransactionStatus.CONFIRM_BUT_FAILED;
   }
   return TransactionStatus.PENDING;
@@ -73,7 +76,10 @@ export function getDecodedTxStatus(meta: TransactionMetadata) {
   if (transactionResult === 'tesSUCCESS') {
     return IDecodedTxStatus.Confirmed;
   }
-  if (transactionResult.startsWith('tef')) {
+  if (
+    transactionResult.startsWith('tef') ||
+    transactionResult.startsWith('tec')
+  ) {
     return IDecodedTxStatus.Failed;
   }
   return IDecodedTxStatus.Pending;
