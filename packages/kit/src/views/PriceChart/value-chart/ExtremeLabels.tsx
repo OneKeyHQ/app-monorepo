@@ -131,7 +131,7 @@ const ExtremeLabels = React.memo(
           >
             {`${getFiatCodeUnit(
               selectedFiatMoneySymbol,
-            )}${formatMarketValueForInfo(formatNative(smallestY.y))}`}
+            )}${formatMarketValueForInfo(formatNative(greatestY.y))}`}
             {/* <FormatCurrencyNumber value={formatNative(greatestY.y)} /> */}
           </CenteredLabel>
         ) : null}
