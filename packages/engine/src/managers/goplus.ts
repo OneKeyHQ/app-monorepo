@@ -29,7 +29,6 @@ export const dangerItems: [keyof GoPlusTokenSecurity, CheckItemFunc][] = [
   ['personal_slippage_modifiable', (data) => data === '1'],
   ['is_true_token', (data) => data === '0'],
   ['is_airdrop_scam', (data) => data === '1'],
-  ['is_airdrop_scam', (data) => data === '1'],
   ['buy_tax', (data) => new B(data).multipliedBy(100).isGreaterThan(50)],
   ['sell_tax', (data) => new B(data).multipliedBy(100).isGreaterThan(50)],
 ];
