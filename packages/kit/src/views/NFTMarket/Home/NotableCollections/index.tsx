@@ -101,8 +101,6 @@ const NotableCollection = () => {
     [goToCollectionDetail],
   );
 
-  console.log('listData = ', listData.length);
-
   return (
     <Box>
       <Text typography="Heading" mb="16px">
@@ -114,7 +112,11 @@ const NotableCollection = () => {
         {listData.length === 0 ? (
           <EmptyView />
         ) : (
-          <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
+          <MotiView
+            style={{ flex: 1 }}
+            from={{ opacity: 0.5 }}
+            animate={{ opacity: 1 }}
+          >
             <ListView
               listData={listData}
               onSelectCollection={onSelectCollection}

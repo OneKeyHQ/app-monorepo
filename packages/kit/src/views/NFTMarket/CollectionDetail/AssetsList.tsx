@@ -32,6 +32,7 @@ import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { useGridListLayout } from '../../Wallet/NFT/SendNFTList';
 
 import { useCollectionDetailContext } from './context';
+import { ListProps } from './type';
 
 export function getRequestLimit(numberColumn: number) {
   switch (numberColumn) {
@@ -136,10 +137,8 @@ export const AssetListCell: FC<{
 const AssetsList = ({
   contractAddress,
   networkId,
-}: {
-  contractAddress: string;
-  networkId: string;
-}) => {
+  ListHeaderComponent,
+}: ListProps) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const isMounted = useIsMounted();
@@ -259,9 +258,9 @@ const AssetsList = ({
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       key={numColumns}
       numColumns={numColumns}
-      ListHeaderComponent={() => (
-        <Box height={isSmallScreen ? '24px' : '32px'} />
-      )}
+      ListHeaderComponent={
+        ListHeaderComponent ?? <Box height={isSmallScreen ? '24px' : '32px'} />
+      }
       ListFooterComponent={() => {
         if (cursor.current !== null) {
           return (

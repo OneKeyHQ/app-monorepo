@@ -30,14 +30,19 @@ import { ListProps } from './type';
 // TODO:laoding view
 const Footer: FC = () => <Box />;
 
-const ListHeaderComponent = () => {
+export const ListHeader = () => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
   if (isSmallScreen) {
     return <Box height="24px" />;
   }
   return (
-    <Box flexDirection="column-reverse" height="64px" paddingBottom="16px">
+    <Box
+      width="full"
+      flexDirection="column-reverse"
+      height="64px"
+      paddingBottom="16px"
+    >
       <Row
         justifyContent="space-between"
         alignItems="center"
@@ -198,7 +203,11 @@ export const TransactionCell: FC<{
   return <DesktopCell item={item} network={network} />;
 };
 
-const TransactionList: FC<ListProps> = ({ contractAddress, networkId }) => {
+const TransactionList: FC<ListProps> = ({
+  contractAddress,
+  networkId,
+  ListHeaderComponent,
+}) => {
   const isSmallScreen = useIsVerticalLayout();
 
   const context = useCollectionDetailContext()?.context;
@@ -277,7 +286,7 @@ const TransactionList: FC<ListProps> = ({ contractAddress, networkId }) => {
   return (
     <Tabs.FlatList<NFTTransaction>
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
-      ListHeaderComponent={ListHeaderComponent}
+      ListHeaderComponent={ListHeaderComponent ?? ListHeader}
       ItemSeparatorComponent={() => (
         <Divider height="16px" bgColor="background-default" />
       )}
