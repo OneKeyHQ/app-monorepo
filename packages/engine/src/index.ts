@@ -1899,6 +1899,31 @@ class Engine {
   }
 
   @backgroundMethod()
+  async buildEncodedTxFromBatchTransfer({
+    networkId,
+    accountId,
+    transferInfos,
+  }: {
+    networkId: string;
+    accountId: string;
+    transferInfos: ITransferInfo[];
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    const result = await vault.buildEncodedTxFromBatchTransfer(transferInfos);
+    debugLogger.sendTx.info(
+      'buildEncodedTxFromBatchTransfer: ',
+      transferInfos,
+      result,
+      {
+        networkId,
+        accountId,
+      },
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return result;
+  }
+
+  @backgroundMethod()
   async getGasPrice(networkId: string): Promise<Array<string | EIP1559Fee>> {
     const ret = await this.providerManager.getGasPrice(networkId);
     if (ret.length > 0 && ret[0] instanceof BigNumber) {
