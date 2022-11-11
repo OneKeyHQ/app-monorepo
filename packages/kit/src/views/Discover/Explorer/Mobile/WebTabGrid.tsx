@@ -1,12 +1,12 @@
 import { FC, ReactNode, useMemo } from 'react';
 
+import { Image as NBImage } from 'native-base';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
   Box,
   IconButton,
-  Image,
   NetImage,
   Pressable,
   Typography,
@@ -88,7 +88,7 @@ const WebTabCard: FC<
           }}
         />
       </Box>
-      <Image flex={1} resizeMode="cover" src={thumbnail} />
+      <NBImage flex={1} resizeMode="cover" src={thumbnail} />
     </Pressable>
   );
 };

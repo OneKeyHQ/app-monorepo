@@ -1,5 +1,6 @@
 import { createRef } from 'react';
 
+import { FlipType, SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 
@@ -17,9 +18,7 @@ export const tabViewShotRef = createRef<ViewShot>();
 
 export const showTabGrid = () => {
   if (platformEnv.isNative) {
-    captureRef(tabViewShotRef, {
-      width: 200,
-    }).then((uri) => {
+    captureRef(tabViewShotRef, {}).then((uri) => {
       const { currentTabId } = appSelector((s) => s.webTabs);
       backgroundApiProxy.dispatch(
         setWebTabData({
