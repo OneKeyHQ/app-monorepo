@@ -124,6 +124,5 @@ export {
   getSupportedImpls,
 };
 
-// 3.16
 // switch network default rpc to onekey rpc node
-export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.16.0';
+export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.18.0';
