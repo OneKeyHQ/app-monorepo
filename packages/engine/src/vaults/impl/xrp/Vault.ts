@@ -114,6 +114,13 @@ export default class Vault extends VaultBase {
     return Promise.resolve(ret);
   }
 
+  override async validateImportedCredential(input: string): Promise<boolean> {
+    return Promise.resolve(
+      this.settings.importedAccountEnabled &&
+        /^(00)?[0-9a-zA-Z]{64}$/.test(input),
+    );
+  }
+
   override async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {

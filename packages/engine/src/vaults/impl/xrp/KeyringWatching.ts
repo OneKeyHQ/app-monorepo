@@ -22,7 +22,7 @@ export class KeyringWatching extends KeyringWatchingBase {
         type: AccountType.SIMPLE,
         path: '',
         coinType: COIN_TYPE,
-        pub: '', // TODO: only address is supported for now.
+        pub: '',
         address: normalizedAddress,
       },
     ]);

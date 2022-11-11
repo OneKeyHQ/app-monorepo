@@ -1,14 +1,8 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
-  decrypt,
-  encrypt,
-} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import * as RippleBinaryCodeC from 'ripple-binary-codec';
-import * as Keypairs from 'ripple-keypairs';
 import * as XRPL from 'xrpl';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -28,7 +22,6 @@ import { signature } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
-// @ts-ignore
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(
     password: string,
