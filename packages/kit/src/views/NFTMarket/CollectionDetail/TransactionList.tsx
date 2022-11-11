@@ -31,7 +31,7 @@ import { ListProps } from './type';
 const Footer: FC = () => (
   <>
     {[1, 2, 3, 4, 5].map(() => (
-      <ListItem>
+      <ListItem px={0}>
         <ListItem.Column>
           <CustomSkeleton width="40px" height="40px" borderRadius="12px" />
         </ListItem.Column>

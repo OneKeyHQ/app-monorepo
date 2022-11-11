@@ -1,6 +1,7 @@
 import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { MotiPressable } from 'moti/interactions';
 import { Column, Row } from 'native-base';
 import { ListRenderItem } from 'react-native';
 
@@ -8,6 +9,7 @@ import {
   Box,
   CustomSkeleton,
   Pressable,
+  Skeleton,
   Text,
   useIsVerticalLayout,
   useUserDevice,
@@ -60,15 +62,11 @@ const Footer: FC<FooterProps> = ({
 
   const rowArray = new Array(numRows).fill(0);
   const colArray = new Array(numColumns).fill(0);
+  const isSmallScreen = useIsVerticalLayout();
   return (
-    <Column width="full" space={`${marginBottom}px`} paddingBottom="16px">
+    <Column width="full" space={`${marginBottom}px`}>
       {rowArray.map((col, rowIndex) => (
-        <Row
-          key={`col${rowIndex}`}
-          width="full"
-          space={`${margin}px`}
-          marginBottom="20px"
-        >
+        <Row key={`col${rowIndex}`} width="full" space={`${margin}px`}>
           {colArray.map((row, colIndex) => (
             <Box key={`row${colIndex}${rowIndex}`} flexDirection="column">
               <CustomSkeleton
@@ -76,18 +74,9 @@ const Footer: FC<FooterProps> = ({
                 height={cardWidth}
                 borderRadius="12px"
               />
-              <CustomSkeleton
-                mt="8px"
-                width="50px"
-                height="10px"
-                borderRadius="5px"
-              />
-              <CustomSkeleton
-                mt="4px"
-                width="70px"
-                height="10px"
-                borderRadius="5px"
-              />
+              <Box mt="8px">
+                <Skeleton shape={isSmallScreen ? 'Body2' : 'Body1'} />
+              </Box>
             </Box>
           ))}
         </Row>
@@ -115,20 +104,41 @@ export const AssetListCell: FC<{
     price = `${asset.latestTradePrice} ${asset.latestTradeSymbol as string}`;
   }
   const { onPress } = props;
+  const isSmallScreen = useIsVerticalLayout();
+
   return (
-    <Pressable
-      onPress={onPress}
-      flexDirection="column"
-      px={{ base: '4px', md: '12px' }}
-    >
-      <NFTListImage asset={asset} borderRadius="12px" size={cardWidth} />
-      <Text typography="Body2Strong" mt="8px" numberOfLines={1}>
-        {name}
-      </Text>
-      <Text typography="Body2" mt="4px" color="text-subdued" numberOfLines={1}>
-        {price}
-      </Text>
-    </Pressable>
+    <>
+      <MotiPressable
+        style={{
+          marginHorizontal: isSmallScreen ? 4 : 12,
+          width: cardWidth,
+        }}
+        onPress={onPress}
+        animate={useCallback(
+          ({ hovered, pressed }) => ({
+            opacity: hovered || pressed ? 0.8 : 1,
+          }),
+          [],
+        )}
+      >
+        <NFTListImage asset={asset} borderRadius="12px" size={cardWidth} />
+        <Box mt="8px" alignSelf="stretch">
+          <Text typography="Body2Strong" isTruncated>
+            {name}
+          </Text>
+          {price ? (
+            <Text
+              typography="Body2"
+              mt="4px"
+              color="text-subdued"
+              numberOfLines={1}
+            >
+              {price}
+            </Text>
+          ) : null}
+        </Box>
+      </MotiPressable>
+    </>
   );
 };
 const AssetsList = ({
@@ -262,7 +272,7 @@ const AssetsList = ({
       }}
       columnWrapperStyle={{
         marginHorizontal: isSmallScreen ? -4 : -12,
-        paddingBottom: isSmallScreen ? 8 : 24,
+        paddingBottom: isSmallScreen ? 16 : 24,
       }}
       ListFooterComponent={() => {
         if (cursor.current !== null) {

@@ -43,7 +43,7 @@ const TabBar: FC<TabBarProps> = ({
   const inactiveColor = useThemeValue('text-subdued');
 
   return (
-    <Box {...ContainerProps} w="100%" mt="32px">
+    <Box {...ContainerProps} w="100%" mt={{ base: '24px', md: '32px' }}>
       <Box
         h="1px"
         position="absolute"

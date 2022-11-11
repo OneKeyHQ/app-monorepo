@@ -36,7 +36,7 @@ const NavigationApp = () => {
   const routeNameRef = useRef<string>();
   const isVerticalLayout = useIsVerticalLayout();
   const [bgColor, textColor, dividerColor] = useThemeValue([
-    'surface-subdued',
+    'background-default',
     'text-default',
     'divider',
   ]);

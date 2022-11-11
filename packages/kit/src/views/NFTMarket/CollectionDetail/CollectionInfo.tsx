@@ -101,7 +101,12 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
         <Box mt="16px">{Description}</Box>
       </Hidden>
 
-      <Box flexDirection="row" mt="24px" flexWrap="wrap">
+      <Box
+        flexDirection="row"
+        mt="24px"
+        flexWrap="wrap"
+        mb={{ base: '-16px', md: 0 }}
+      >
         {statsIndex.map((item) =>
           item ? (
             <Box
