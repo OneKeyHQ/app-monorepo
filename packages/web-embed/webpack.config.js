@@ -6,7 +6,7 @@ const webpackTools = require('../../development/webpackTools');
 
 const InlineChunkHtmlPlugin = require('./development/InlineChunkHtmlPlugin');
 
-const platform = webpackTools.developmentConsts.platforms.web;
+const platform = webpackTools.developmentConsts.platforms.webEmbed;
 console.log('============ webpack.version ', webpack.version, platform);
 
 module.exports = async function (env, argv) {
