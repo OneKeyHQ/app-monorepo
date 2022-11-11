@@ -1247,14 +1247,12 @@ class Engine {
       if (!tokenInfo) {
         throw new Error('findToken ERROR: token not found.');
       }
-      const dangerItems = (
-        await getTokenRiskyItems({
-          apiName: GoPlusSupportApis.token_security,
-          networkId,
-          address: tokenIdOnNetwork,
-        })
-      )?.[1];
-      if (dangerItems?.length > 0) {
+      const { hasSecurity } = await getTokenRiskyItems({
+        apiName: GoPlusSupportApis.token_security,
+        networkId,
+        address: tokenIdOnNetwork,
+      });
+      if (hasSecurity) {
         tokenInfo = {
           ...tokenInfo,
           security: true,

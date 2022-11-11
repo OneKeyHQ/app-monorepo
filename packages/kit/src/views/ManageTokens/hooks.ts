@@ -80,7 +80,12 @@ export const useTokenSourceList = () => {
 
 export const useTokenSecurityInfo = (networkId?: string, address?: string) => {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<(keyof GoPlusTokenSecurity)[][]>([]);
+  const [data, setData] = useState<{
+    safe: (keyof GoPlusTokenSecurity)[];
+    danger: (keyof GoPlusTokenSecurity)[];
+    warn: (keyof GoPlusTokenSecurity)[];
+    hasSecurity: boolean;
+  }>({ safe: [], danger: [], warn: [], hasSecurity: false });
 
   const fetch = useCallback(() => {
     if (!networkId || !address) {
