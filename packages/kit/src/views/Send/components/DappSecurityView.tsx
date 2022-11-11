@@ -1,20 +1,43 @@
 import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Box, HStack, Icon, Typography, VStack } from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
+import {
+  GoPlusDappContract,
+  GoPlusPhishing,
+} from '@onekeyhq/engine/src/types/goplus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../../hooks';
+
+// @ts-ignore
+const localeMaps: Record<
+  keyof GoPlusDappContract | keyof GoPlusPhishing,
+  LocaleIds
+> = {
+  is_open_source: 'badge__not_open_source',
+  malicious_contract: 'badge__malicious_contract',
+  malicious_creator: 'badge__malicious_contract_creator',
+  phishing_site: 'badge__phishing_site',
+};
 
 export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
   hostname,
   origin,
 }) => {
-  const [securityItems, setSecurityItems] = useState<string[] | undefined>();
+  const intl = useIntl();
+  const { networkId } = useActiveWalletAccount();
+  const [securityItems, setSecurityItems] = useState<
+    (keyof GoPlusDappContract | keyof GoPlusPhishing)[] | undefined
+  >();
 
   const fetchSecurityInfo = useCallback(() => {
     backgroundApiProxy.serviceToken
-      .getSiteSecurityInfo(origin)
+      .getSiteSecurityInfo(origin, networkId)
       .then((res) => setSecurityItems(res));
-  }, [origin]);
+  }, [origin, networkId]);
 
   useEffect(() => {
     fetchSecurityInfo();
@@ -43,7 +66,7 @@ export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
           <Typography.Body2>{hostname}</Typography.Body2>
         </VStack>
       </HStack>
-      {securityItems?.length > 0 ? (
+      {securityItems && securityItems?.length > 0 ? (
         <HStack
           borderTopWidth="1px"
           borderTopColor="divider"
@@ -61,7 +84,7 @@ export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
               borderRadius="6px"
             >
               <Typography.Body2Strong color="text-critical">
-                {item}
+                {intl.formatMessage({ id: localeMaps[item] ?? '' })}
               </Typography.Body2Strong>
             </Box>
           ))}

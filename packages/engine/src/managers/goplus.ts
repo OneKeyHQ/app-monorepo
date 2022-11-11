@@ -2,6 +2,9 @@ import B from 'bignumber.js';
 
 import {
   GoPlusAddressSecurity,
+  GoPlusDappContract,
+  GoPlusDappSecurity,
+  GoPlusPhishing,
   GoPlusSupportApis,
   GoPlusTokenSecurity,
 } from '../types/goplus';
@@ -62,6 +65,16 @@ export const addressItems: [keyof GoPlusAddressSecurity, CheckItemFunc][] = [
   ['blacklist_doubt', (d) => d === '1'],
 ];
 
+export const dappDangerItems: [
+  keyof GoPlusDappContract | keyof GoPlusPhishing,
+  CheckItemFunc,
+][] = [
+  ['is_open_source', (d) => d === 0],
+  ['malicious_contract', (d) => d === 1],
+  ['malicious_creator', (d) => d === 1],
+  ['phishing_site', (d) => d === 1],
+];
+
 export const fetchSecurityInfo = async <T>(
   params: CheckParams,
 ): Promise<T | undefined> => {
@@ -90,14 +103,36 @@ export const getAddressRiskyItems = async (params: CheckParams) => {
   return addressItems.filter(([k, func]) => func(info?.[k])).map(([k]) => k);
 };
 
-export const checkSite = async (url: string) => {
-  const result: string[] = [];
-  const data = await fetchData<{
-    phishing?: unknown;
-  }>('/token/site', { url }, {});
-  if (data?.phishing) {
-    // TODO: site security locales
-    // result.push('phishing');
+export const getSiteRiskyItems = (
+  info: Partial<GoPlusDappContract & GoPlusPhishing>,
+) => {
+  if (!info) {
+    return [];
   }
-  return result;
+  return dappDangerItems.filter(([k, func]) => func(info?.[k])).map(([k]) => k);
+};
+
+export const checkSite = async (
+  url: string,
+  networkId: string,
+): Promise<(keyof GoPlusDappContract | keyof GoPlusPhishing)[]> => {
+  const data = await fetchData<Partial<GoPlusDappSecurity>>(
+    '/token/site',
+    { url, networkId },
+    {},
+  );
+  const { dappSecurity, phishing, chainId } = data ?? {};
+  if (dappSecurity?.is_audit === 1) {
+    return [];
+  }
+
+  const contractItems =
+    dappSecurity?.contracts_security
+      .find((c) => String(c.chain_id) === chainId)
+      ?.contracts?.map((c) => getSiteRiskyItems(c))
+      ?.flat() ?? [];
+
+  const phishingItems = getSiteRiskyItems(phishing ?? {});
+
+  return Array.from(new Set([...contractItems, ...phishingItems]));
 };

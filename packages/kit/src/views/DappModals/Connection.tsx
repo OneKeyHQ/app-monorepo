@@ -164,6 +164,7 @@ function ConnectionContent({
             borderWidth={2}
             zIndex={2}
             borderColor="surface-subdued"
+            bg="surface-subdued"
           >
             <Image
               w="full"
