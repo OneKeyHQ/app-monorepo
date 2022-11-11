@@ -1,9 +1,18 @@
 import React from 'react';
 
-import { Center, Typography } from '@onekeyhq/components';
+import { Center, Text, Typography } from '@onekeyhq/components';
 
 const TypographyGallery = () => (
   <Center flex="1" bg="background-hovered">
+    <Text
+      fontSize={{
+        base: 'md',
+        md: 'lg',
+        lg: 'xl',
+      }}
+    >
+      This is responsive text
+    </Text>
     <Typography.DisplayXLarge my="4">DisplayXLarge</Typography.DisplayXLarge>
     <Typography.DisplayLarge color="text-default">
       DisplayLarge
