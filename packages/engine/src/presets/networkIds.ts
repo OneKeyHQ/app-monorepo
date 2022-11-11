@@ -54,6 +54,7 @@ export const OnekeyNetwork = {
   'tbtc': 'tbtc--0',
   'trx': 'tron--0x2b6653dc',
   'ttrx': 'tron--0x94a9059e',
+  'xrp': 'xrp--0',
 } as const;
 
 /*

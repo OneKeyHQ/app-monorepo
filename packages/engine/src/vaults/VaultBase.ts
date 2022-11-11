@@ -296,6 +296,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
+  async buildEncodedTxFromBatchTransfer(
+    transferInfos: ITransferInfo[],
+  ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
+
   // TODO: is currently a mint
   async activateAccount() {
     throw new NotImplemented();

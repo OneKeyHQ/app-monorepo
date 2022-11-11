@@ -13,7 +13,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { difference, isNil, isString, merge, toLower } from 'lodash';
+import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -28,6 +28,7 @@ import {
   createOutputActionFromNFTTransaction,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
+import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
 import { OnekeyNetwork } from '../../../presets/networkIds';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
@@ -68,7 +69,7 @@ import {
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
-import { Erc20MethodSelectors } from './decoder/abi';
+import { BatchTransferSelectors, Erc20MethodSelectors } from './decoder/abi';
 import {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
@@ -191,6 +192,126 @@ export default class Vault extends VaultBase {
     return decodedTx;
   }
 
+  async decodeBatchTransferTx(
+    encodedTx: IEncodedTxEvm,
+    payload?: any,
+  ): Promise<IDecodedTx | null> {
+    const decoder = EVMTxDecoder.getDecoder(this.engine);
+    const ethersTx = (await this.helper.parseToNativeTx(
+      encodedTx,
+    )) as ethers.Transaction;
+    if (!Number.isFinite(ethersTx.chainId)) {
+      ethersTx.chainId = Number(await this.getNetworkChainId());
+    }
+
+    const [txDesc] = decoder.parseBatchTransfer(ethersTx);
+    if (!txDesc) return null;
+
+    const extraActions: IDecodedTxAction[] = [];
+    const network = await this.getNetwork();
+    const address = await this.getAccountAddress();
+    switch (txDesc.name) {
+      case 'disperseEther': {
+        const recipients: string[] = txDesc.args[0];
+        const values: string[] = txDesc.args[1];
+        const nativeToken = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
+        for (let i = 0; i < recipients.length; i += 1) {
+          extraActions.push({
+            type: IDecodedTxActionType.NATIVE_TRANSFER,
+            direction: await this.buildTxActionDirection({
+              from: encodedTx.from,
+              to: recipients[i],
+              address,
+            }),
+            nativeTransfer: await this.buildNativeTransferAction({
+              fromAddress: encodedTx.from,
+              toAddress: recipients[i],
+              amount: new BigNumber(values[i].toString())
+                .shiftedBy(-nativeToken.decimals)
+                .toFixed(),
+              value: values[i].toString(),
+            } as IDecodedTxLegacy),
+          });
+        }
+        break;
+      }
+      case 'disperseToken': {
+        const tokenAddress = txDesc.args[0];
+        const recipients: string[] = txDesc.args[1];
+        const values: string[] = txDesc.args[2];
+
+        const token = await this.engine.ensureTokenInDB(
+          this.networkId,
+          tokenAddress,
+        );
+
+        if (!token) break;
+
+        for (let i = 0; i < recipients.length; i += 1) {
+          extraActions.push({
+            type: IDecodedTxActionType.TOKEN_TRANSFER,
+            direction: await this.buildTxActionDirection({
+              from: encodedTx.from,
+              to: recipients[i],
+              address,
+            }),
+            tokenTransfer: await this.buildTokenTransferAction({
+              info: {
+                token,
+                from: encodedTx.from,
+                recipient: recipients[i],
+                amount: new BigNumber(values[i].toString())
+                  .shiftedBy(-token.decimals)
+                  .toFixed(),
+                amountValue: values[i].toString(),
+              },
+            } as unknown as IDecodedTxLegacy),
+          });
+        }
+        break;
+      }
+      default:
+        return null;
+    }
+
+    const mainAction: IDecodedTxAction = {
+      type: IDecodedTxActionType.UNKNOWN,
+      direction: await this.buildTxActionDirection({
+        from: encodedTx.from,
+        to: encodedTx.to,
+        address,
+      }),
+      unknownAction: {
+        extraInfo: {},
+      },
+    };
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: address,
+      signer: encodedTx.from || address,
+      nonce: new BigNumber(encodedTx.nonce ?? 0).toNumber(),
+      actions: [mainAction, ...extraActions],
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      feeInfo: {
+        limit: encodedTx.gasLimit,
+        price: convertFeeValueToGwei({
+          value: encodedTx.gasPrice ?? '1',
+          network,
+        }),
+        priceValue: encodedTx.gasPrice,
+      },
+      payload,
+      extraInfo: null,
+    };
+    return decodedTx;
+  }
+
   decodeTxMemoizee = memoizee(
     async (encodedTx: IEncodedTxEvm, payload?: any): Promise<IDecodedTx> =>
       this.decodeTx(encodedTx, payload),
@@ -232,6 +353,12 @@ export default class Vault extends VaultBase {
     payload?: SendConfirmPayloadInfo;
     interactInfo?: IDecodedTxInteractInfo;
   }): Promise<IDecodedTx> {
+    // batch transfer
+    if (encodedTx.to === batchTransferContractAddress[this.networkId]) {
+      const decodeTx = await this.decodeBatchTransferTx(encodedTx, payload);
+      if (decodeTx) return decodeTx;
+    }
+
     const address = await this.getAccountAddress();
     const network = await this.getNetwork();
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
@@ -267,27 +394,16 @@ export default class Vault extends VaultBase {
 
     if (decodedTxLegacy.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
       action.type = IDecodedTxActionType.NATIVE_TRANSFER;
-      action.nativeTransfer = {
-        tokenInfo: nativeToken,
-        from: decodedTxLegacy.fromAddress,
-        to: decodedTxLegacy.toAddress,
-        amount: decodedTxLegacy.amount,
-        amountValue: decodedTxLegacy.value,
-        extraInfo: null,
-      };
+      action.nativeTransfer = await this.buildNativeTransferAction(
+        decodedTxLegacy,
+      );
       extraNativeTransferAction = undefined;
     }
     if (decodedTxLegacy.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
-      const info = decodedTxLegacy.info as EVMDecodedItemERC20Transfer;
       action.type = IDecodedTxActionType.TOKEN_TRANSFER;
-      action.tokenTransfer = {
-        tokenInfo: info.token,
-        from: info.from ?? address,
-        to: info.recipient,
-        amount: info.amount,
-        amountValue: info.value,
-        extraInfo: null,
-      };
+      action.tokenTransfer = await this.buildTokenTransferAction(
+        decodedTxLegacy,
+      );
     }
     if (decodedTxLegacy.txType === EVMDecodedTxType.TOKEN_APPROVE) {
       const info = decodedTxLegacy.info as EVMDecodedItemERC20Approve;
@@ -450,6 +566,85 @@ export default class Vault extends VaultBase {
       to: transferInfo.to,
       value: amountHex,
       data: '0x',
+    };
+  }
+
+  override async buildEncodedTxFromBatchTransfer(
+    transferInfos: ITransferInfo[],
+  ): Promise<IEncodedTxEvm> {
+    const network = await this.getNetwork();
+    const transferInfo = transferInfos[0];
+    const isTransferToken = Boolean(transferInfo.token);
+    const { tokenId, isNFT, type } = transferInfo;
+
+    const contract = batchTransferContractAddress[network.id];
+
+    if (!contract) {
+      throw new Error(
+        `${network.name} has not deployed a batch transfer contract`,
+      );
+    }
+
+    let batchMethod: string;
+    let paramTypes: string[];
+    let ParamValues: any[];
+    let totalAmountBN = new BigNumber(0);
+
+    if (isTransferToken) {
+      if (isNFT && type && tokenId) {
+        // TODO
+        batchMethod = '';
+        paramTypes = [];
+        ParamValues = [];
+      } else {
+        const token = await this.engine.ensureTokenInDB(
+          this.networkId,
+          transferInfo.token ?? '',
+        );
+        if (!token) {
+          throw new Error(`Token not found: ${transferInfo.token as string}`);
+        }
+
+        batchMethod = BatchTransferSelectors.disperseToken;
+        paramTypes = ['address', 'address[]', 'uint256[]'];
+        ParamValues = [
+          token.tokenIdOnNetwork,
+          ...reduce(
+            transferInfos,
+            (result: [string[], string[]], info) => {
+              const amountBN = new BigNumber(info.amount);
+              result[0].push(info.to);
+              result[1].push(toBigIntHex(amountBN.shiftedBy(token.decimals)));
+              return result;
+            },
+            [[], []],
+          ),
+        ];
+      }
+    } else {
+      batchMethod = BatchTransferSelectors.disperseEther;
+      paramTypes = ['address[]', 'uint256[]'];
+      ParamValues = reduce(
+        transferInfos,
+        (result: [string[], string[]], info) => {
+          const amountBN = new BigNumber(info.amount).shiftedBy(
+            network.decimals,
+          );
+          totalAmountBN = totalAmountBN.plus(amountBN);
+          result[0].push(info.to);
+          result[1].push(amountBN.toFixed());
+          return result;
+        },
+        [[], []],
+      );
+    }
+    return {
+      from: transferInfo.from,
+      to: contract,
+      data: `${batchMethod}${defaultAbiCoder
+        .encode(paramTypes, ParamValues)
+        .slice(2)}`,
+      value: isTransferToken ? '0x0' : toBigIntHex(totalAmountBN),
     };
   }
 
@@ -916,6 +1111,31 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only functionalities below.
+
+  async buildNativeTransferAction(decodedTxLegacy: IDecodedTxLegacy) {
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    return {
+      tokenInfo: nativeToken,
+      from: decodedTxLegacy.fromAddress,
+      to: decodedTxLegacy.toAddress,
+      amount: decodedTxLegacy.amount,
+      amountValue: decodedTxLegacy.value,
+      extraInfo: null,
+    };
+  }
+
+  async buildTokenTransferAction(decodedTxLegacy: IDecodedTxLegacy) {
+    const address = await this.getAccountAddress();
+    const info = decodedTxLegacy.info as EVMDecodedItemERC20Transfer;
+    return {
+      tokenInfo: info.token,
+      from: info.from ?? address,
+      to: info.recipient,
+      amount: info.amount,
+      amountValue: info.value,
+      extraInfo: null,
+    };
+  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getJsonRPCClient();
