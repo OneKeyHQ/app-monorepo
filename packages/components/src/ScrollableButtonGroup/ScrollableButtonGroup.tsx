@@ -146,7 +146,9 @@ const ScrollableButtonGroup = forwardRef<
                 scale: withTiming(showLeftArrow.value ? 1 : 0, {
                   duration: 300,
                 }),
-                zIndex: 1,
+                zIndex: withTiming(showLeftArrow.value ? 1 : -1, {
+                  duration: 300,
+                }),
               }),
               [],
             ),
@@ -218,7 +220,9 @@ const ScrollableButtonGroup = forwardRef<
                 scale: withTiming(showRightArrow.value ? 1 : 0, {
                   duration: 300,
                 }),
-                zIndex: 1,
+                zIndex: withTiming(showRightArrow.value ? 1 : -1, {
+                  duration: 300,
+                }),
               }),
               [],
             ),

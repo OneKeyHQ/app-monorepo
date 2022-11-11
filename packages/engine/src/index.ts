@@ -72,6 +72,7 @@ import {
   getWatchingAccountUUID,
 } from './managers/backup';
 import { getDefaultPurpose } from './managers/derivation';
+import { getTokenRiskyItems } from './managers/goplus';
 import { implToCoinTypes } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
@@ -100,6 +101,7 @@ import {
 } from './types/account';
 import { CredentialType } from './types/credential';
 import { DevicePayload } from './types/device';
+import { GoPlusSupportApis } from './types/goplus';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -1219,6 +1221,7 @@ class Engine {
       let tokenInfo:
         | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
             logoURI?: string;
+            security?: boolean;
           })
         | undefined;
       const { impl, chainId } = parseNetworkId(networkId);
@@ -1243,6 +1246,19 @@ class Engine {
       }
       if (!tokenInfo) {
         throw new Error('findToken ERROR: token not found.');
+      }
+      const dangerItems = (
+        await getTokenRiskyItems({
+          apiName: GoPlusSupportApis.token_security,
+          networkId,
+          address: tokenIdOnNetwork,
+        })
+      )?.[1];
+      if (dangerItems?.length > 0) {
+        tokenInfo = {
+          ...tokenInfo,
+          security: true,
+        };
       }
       return {
         id: tokenId,

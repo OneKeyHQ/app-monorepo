@@ -1,9 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
+import {
+  Box,
+  Form,
+  HStack,
+  Token,
+  Typography,
+  useForm,
+} from '@onekeyhq/components';
+import { LocaleIds } from '@onekeyhq/components/src/locale';
+import {
+  GoPlusAddressSecurity,
+  GoPlusSupportApis,
+} from '@onekeyhq/engine/src/types/goplus';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -31,6 +43,21 @@ type FormValues = {
   to: string;
 };
 
+// @ts-ignore
+const localeMaps: Record<keyof GoPlusAddressSecurity, LocaleIds> = {
+  'honeypot_related_address': 'badge__honeypot_related',
+  'phishing_activities': 'badge__phishing',
+  'blackmail_activities': 'badge__blackmail',
+  'stealing_attack': 'badge__stealing_attack',
+  'fake_kyc': 'badge__fake_kyc',
+  'malicious_mining_activities': 'badge__malicious_mining',
+  'darkweb_transactions': 'badge__darkweb_txns',
+  'cybercrime': 'badge__cybercrime',
+  'money_laundering': 'badge__money_laudering',
+  'financial_crime': 'badge__financial_crime',
+  'blacklist_doubt': 'badge__blacklist_doubt',
+};
+
 function NFTView({ asset }: { asset?: NFTAsset }) {
   if (asset) {
     return (
@@ -45,9 +72,36 @@ function NFTView({ asset }: { asset?: NFTAsset }) {
   return <Box size="40px" />;
 }
 
+const GoPlusSecurityItems: FC<{ items: (keyof GoPlusAddressSecurity)[] }> = ({
+  items,
+}) => {
+  const intl = useIntl();
+  return (
+    <HStack mt="2" w="full" flexWrap="wrap">
+      {items.map((item) => (
+        <Box
+          bg="surface-critical-subdued"
+          px="2"
+          py="2px"
+          mr="2"
+          borderRadius="6px"
+          mb="2"
+        >
+          <Typography.Body2Strong key={item} color="text-critical">
+            {intl.formatMessage({ id: localeMaps[item] })}
+          </Typography.Body2Strong>
+        </Box>
+      ))}
+    </HStack>
+  );
+};
+
 function PreSendAddress() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
+  const [securityItems, setSecurityItems] = useState<
+    (keyof GoPlusAddressSecurity)[]
+  >([]);
   const { serviceNFT, engine } = backgroundApiProxy;
   const transferInfo = useMemo(() => ({ ...route.params }), [route.params]);
   const { isNFT } = transferInfo;
@@ -109,6 +163,32 @@ function PreSendAddress() {
 
   const [warningMessage, setWarningMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const fetchSecurityInfo = useCallback(async () => {
+    if (submitDisabled) {
+      return;
+    }
+    const address = resolvedAddress || formValues.to;
+    if (!isValid || !networkId || !address) {
+      return;
+    }
+    try {
+      const addressSecurity =
+        await backgroundApiProxy.serviceToken.getAddressRiskyItems({
+          address,
+          networkId,
+          apiName: GoPlusSupportApis.address_security,
+        });
+      console.log(addressSecurity);
+      setSecurityItems(addressSecurity);
+    } catch (error) {
+      console.log(error);
+    }
+  }, [networkId, isValid, formValues, resolvedAddress, submitDisabled]);
+
+  useEffect(() => {
+    fetchSecurityInfo();
+  }, [fetchSecurityInfo]);
 
   const isContractAddressCheck = useCallback(
     (address: string) =>
@@ -303,6 +383,7 @@ function PreSendAddress() {
                 />
               </Form.Item>
             </Form>
+            <GoPlusSecurityItems items={securityItems} />
           </Box>
         ),
       }}

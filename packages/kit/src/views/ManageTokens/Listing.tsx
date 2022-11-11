@@ -75,6 +75,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
         decimal: token.decimals,
         logoURI: token.logoURI,
         verified: token.verified,
+        security: token?.security,
         source: token.source || [],
       });
     },

@@ -1,5 +1,15 @@
 import { debounce } from 'lodash';
 
+import {
+  CheckParams,
+  checkSite,
+  getAddressRiskyItems,
+  getTokenRiskyItems,
+} from '@onekeyhq/engine/src/managers/goplus';
+import {
+  fetchTokenSource,
+  fetchTools,
+} from '@onekeyhq/engine/src/managers/token';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   AppEventBusNames,
@@ -365,5 +375,30 @@ export default class ServiceToken extends ServiceBase {
     const nativeTokenInfo = await engine.getNativeTokenInfo(networkId);
     dispatch(setNativeToken({ networkId, token: nativeTokenInfo }));
     return nativeTokenInfo;
+  }
+
+  @backgroundMethod()
+  async fetchTokenSource() {
+    return fetchTokenSource();
+  }
+
+  @backgroundMethod()
+  async getTokenRiskyItems(params: CheckParams) {
+    return getTokenRiskyItems(params);
+  }
+
+  @backgroundMethod()
+  async getAddressRiskyItems(params: CheckParams) {
+    return getAddressRiskyItems(params);
+  }
+
+  @backgroundMethod()
+  async getSiteSecurityInfo(url: string) {
+    return checkSite(url);
+  }
+
+  @backgroundMethod()
+  async fetchTools(networkId: string) {
+    return fetchTools(networkId);
   }
 }

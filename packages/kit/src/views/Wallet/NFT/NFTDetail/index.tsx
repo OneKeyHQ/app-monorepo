@@ -16,6 +16,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Skeleton,
   Text,
   Typography,
   VStack,
@@ -274,27 +275,25 @@ const NFTDetailModal: FC = () => {
                   <Text typography="Body1Strong">
                     {asset.collection.contractName}
                   </Text>
-                  {collection ? (
-                    <Text typography="Body2" color="text-subdued" mt="4px">
-                      {`${
-                        collection?.itemsTotal ?? '-'
-                      } Items • ${intl.formatMessage({
-                        id: 'content__floor',
-                      })} ${
-                        collection.floorPrice
-                          ? `${collection.floorPrice} ${
-                              collection.priceSymbol as string
-                            }`
-                          : '-'
-                      }`}
-                    </Text>
-                  ) : (
-                    <CustomSkeleton
-                      width="70px"
-                      height="20px"
-                      borderRadius="11px"
-                    />
-                  )}
+                  <Box mt="4px">
+                    {collection ? (
+                      <Text typography="Body2" color="text-subdued">
+                        {`${
+                          collection?.itemsTotal ?? '-'
+                        } Items • ${intl.formatMessage({
+                          id: 'content__floor',
+                        })} ${
+                          collection.floorPrice
+                            ? `${collection.floorPrice} ${
+                                collection.priceSymbol as string
+                              }`
+                            : '-'
+                        }`}
+                      </Text>
+                    ) : (
+                      <Skeleton shape="Body2" />
+                    )}
+                  </Box>
                 </Box>
                 <Icon name="ChevronRightSolid" />
               </HStack>
@@ -338,7 +337,7 @@ const NFTDetailModal: FC = () => {
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  mb="-12px"
+                  mb="-8px"
                   mx="-16px"
                   pl="16px"
                 >
@@ -347,8 +346,8 @@ const NFTDetailModal: FC = () => {
                       key={`${trait.attribute_name}-${index}`}
                       px="12px"
                       py="8px"
-                      mr="12px"
-                      mb="12px"
+                      mr="8px"
+                      mb="8px"
                       bgColor="surface-neutral-subdued"
                       borderRadius="12px"
                     >
@@ -372,14 +371,14 @@ const NFTDetailModal: FC = () => {
                 </ScrollView>
               </>
             ) : (
-              <Box flexDirection="row" flexWrap="wrap" mb="-12px" mr="-12px">
+              <Box flexDirection="row" flexWrap="wrap" mb="-8px" mr="-8px">
                 {asset.assetAttributes.map((trait, index) => (
                   <Box
                     key={`${trait.attribute_name}-${index}`}
                     px="12px"
                     py="8px"
-                    mr="12px"
-                    mb="12px"
+                    mr="8px"
+                    mb="8px"
                     bgColor="surface-neutral-subdued"
                     borderRadius="12px"
                   >

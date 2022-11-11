@@ -9,6 +9,7 @@ import React, {
 import { Box, Center } from 'native-base';
 import { ResponsiveValue } from 'native-base/lib/typescript/components/types';
 
+import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
@@ -63,7 +64,7 @@ export const TokenVerifiedIcon: React.FC<{
   size?: number;
 }> = ({ token, size = 16 }) => {
   const navigation = useNavigation();
-  if (!token || !token.verified) {
+  if (!token || (!token.verified && !token.security)) {
     return null;
   }
 
@@ -71,16 +72,26 @@ export const TokenVerifiedIcon: React.FC<{
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageToken,
       params: {
-        screen: ManageTokenRoutes.VerifiedToken,
+        screen: token.security
+          ? ManageTokenRoutes.TokenRiskDetail
+          : ManageTokenRoutes.VerifiedToken,
         params: {
-          source: token.source || [],
+          token: {
+            ...token,
+            ...parseNetworkId(token.networkId ?? ''),
+          },
         },
       },
     });
   };
+
   return (
     <Pressable p="6px" onPress={toVerifiedTokenPage}>
-      <Icon size={size} name="BadgeCheckSolid" color="icon-success" />
+      {token.verified ? (
+        <Icon size={size} name="BadgeCheckSolid" color="icon-success" />
+      ) : (
+        <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
+      )}
     </Pressable>
   );
 };
@@ -232,7 +243,7 @@ const Token: FC<TokenProps> = ({
       numberOfLines: 1,
       ...nameProps,
     });
-    if (!showTokenVerifiedIcon || !token?.verified) {
+    if (!showTokenVerifiedIcon || (!token?.verified && !token?.security)) {
       return dom;
     }
     return (
