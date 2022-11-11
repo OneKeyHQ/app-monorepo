@@ -1,7 +1,6 @@
 import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { MotiPressable } from 'moti/interactions';
 import { Column, Row } from 'native-base';
 import { ListRenderItem } from 'react-native';
 
@@ -108,22 +107,19 @@ export const AssetListCell: FC<{
 
   return (
     <>
-      <MotiPressable
+      <Pressable
         style={{
           marginHorizontal: isSmallScreen ? 4 : 12,
           width: cardWidth,
         }}
         onPress={onPress}
-        animate={useCallback(
-          ({ hovered, pressed }) => ({
-            opacity: hovered || pressed ? 0.8 : 1,
-          }),
-          [],
-        )}
       >
         <NFTListImage asset={asset} borderRadius="12px" size={cardWidth} />
         <Box mt="8px" alignSelf="stretch">
-          <Text typography="Body2Strong" isTruncated>
+          <Text
+            typography={{ sm: 'Body2Strong', md: 'Body1Strong' }}
+            isTruncated
+          >
             {name}
           </Text>
           {price ? (
@@ -137,7 +133,7 @@ export const AssetListCell: FC<{
             </Text>
           ) : null}
         </Box>
-      </MotiPressable>
+      </Pressable>
     </>
   );
 };

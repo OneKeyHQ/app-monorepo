@@ -160,7 +160,7 @@ const NFTDetailModal: FC = () => {
     imageContent: (
       <>
         {/* eslint-disable-next-line no-nested-ternary */}
-        {platformEnv.isExtension ? (
+        {platformEnv.isExtension || platformEnv.isNativeIOSPad ? (
           <Box overflow="hidden" mt="-16px" mr="-16px" ml="-16px">
             <Center position="absolute" top={0} right={0} bottom={0} left={0}>
               <CollectibleContent asset={asset} size={360} />
@@ -498,7 +498,11 @@ const NFTDetailModal: FC = () => {
   );
 
   const modalContent = () =>
-    isSmallScreen ? <Mobile {...shareProps} /> : <Desktop {...shareProps} />;
+    isSmallScreen || platformEnv.isNativeIOSPad ? (
+      <Mobile {...shareProps} />
+    ) : (
+      <Desktop {...shareProps} />
+    );
   return (
     <Modal
       size="2xl"
