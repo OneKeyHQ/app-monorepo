@@ -3,14 +3,9 @@ import React from 'react';
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  useIsVerticalLayout,
-  useThemeValue,
-  useUserDevice,
-} from '@onekeyhq/components';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { HomeRoutes } from '../../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../../routes/types';
 import AssetsList from '../AssetsList';
@@ -31,7 +26,6 @@ const Screen = () => {
 
   const context = useCollectionDetailContext()?.context;
   const setContext = useCollectionDetailContext()?.setContext;
-  const { screenWidth } = useUserDevice();
   const [tabbarBgColor, borderDefault] = useThemeValue([
     'background-default',
     'border-subdued',
@@ -47,10 +41,7 @@ const Screen = () => {
         }
       }}
       initialTabName="items"
-      renderHeader={() => (
-        <CollectionInfo paddingX={isVerticalLayout ? 0 : '51px'} />
-      )}
-      width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
+      renderHeader={() => <CollectionInfo p={{ base: '16px', md: '32px' }} />}
       pagerProps={{ scrollEnabled: false }}
       onIndexChange={(index) => {
         if (setContext) {
@@ -59,9 +50,7 @@ const Screen = () => {
       }}
       headerHeight={isVerticalLayout ? 296 : 216}
       containerStyle={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        width: '100%',
-        marginHorizontal: 'auto', // Center align vertically
+        // width: '100%',
         backgroundColor: tabbarBgColor,
         alignSelf: 'center',
         flex: 1,

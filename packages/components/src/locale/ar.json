@@ -96,6 +96,7 @@
   "action__dismiss": "رفض",
   "action__done": "منتهي",
   "action__dont_have_device": "جهازي ليس معي",
+  "action__dont_show_again": "لا تظهر مرة أخرى",
   "action__download": "تحميل",
   "action__edit": "تعديل",
   "action__edit_fee": "تحرير الرسوم",
@@ -267,8 +268,11 @@
   "badge__fake_kyc": "🎭 وهمية KYC",
   "badge__financial_crime": "🚓 الجرائم المالية",
   "badge__honeypot_related": "🍯 المصيدة ذات الصلة",
+  "badge__malicious_contract": "☠️ عقد ضار",
+  "badge__malicious_contract_creator": "👹 منشئ العقد الضار",
   "badge__malicious_mining": "⛏ التعدين الضار",
   "badge__money_laudering": "💰 غسيل أموال",
+  "badge__not_open_source": "🧑‍💻 ليست مفتوحة المصدر",
   "badge__phishing": "🎣 التصيد",
   "badge__stealing_attack": "🔫 سرقة الهجوم",
   "checkbox__i_have_written_down_phrase": "لقد كتبت عبارة الاسترداد.",
@@ -444,6 +448,7 @@
   "content__native_metamask_tutorials_5": "انسخ والصق عبارة الاسترداد في الحقل الموجود على اليسار.",
   "content__nft_standard": "معيار NFT",
   "content__no_charge": "لا تهمة",
+  "content__no_description": "بدون وصف",
   "content__no_need_to_enter_a_password_for_each_transaction": "لا توجد كلمة مرور مطلوبة.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "ومع ذلك ، لا ينبغي تمكين هذه الميزة للأصول الرئيسية أو الهواتف العامة.",
   "content__no_password_until_next_locking": "حتى القفل التالي ، لا يلزم إدخال كلمة مرور",
@@ -760,6 +765,7 @@
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
   "form__download_when_available": "قم بتنزيل التحديثات الجديدة عند توفرها",
+  "form__enable_onekey": "تمكين OneKey",
   "form__english": "إنجليزي",
   "form__ens_name": "اسم ENS",
   "form__enter_address": "أدخل العنوان",
@@ -937,6 +943,7 @@
   "form__proxy_contract_found_desc": "يسمح عقد الوكيل للمالك بتغيير وظيفة الرمز المميز وسعره.",
   "form__quests": "أسئلة",
   "form__rate": "معدل",
+  "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
   "form__receiving_address": "عنوان الاستلام",
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
@@ -1020,9 +1027,9 @@
   "form__token": "رمز",
   "form__token_lists__uppercase": "قوائم رمزية",
   "form__token_symbol": "رمز الرمز",
-  "form__too_much_buy_tax": "Too Much Buy Tax",
-  "form__too_much_buy_tax_desc": "When the buy tax is over {0}, transactions could be stopped.",
-  "form__too_much_sell_tax": "Too Much Sell Tax",
+  "form__too_much_buy_tax": "الكثير من ضريبة الشراء",
+  "form__too_much_buy_tax_desc": "عندما تزيد ضريبة الشراء عن {0} ، يمكن إيقاف المعاملات.",
+  "form__too_much_sell_tax": "الكثير من ضريبة البيع",
   "form__too_much_sell_tax_desc": "عندما تزيد ضريبة البيع عن {0} ، يمكن إيقاف المعاملات.",
   "form__tools": "أدوات",
   "form__top_50_tokens": "أفضل 50 توكينز",
@@ -1452,6 +1459,10 @@
   "title__explore": "يستكشف",
   "title__explore_dapps": "اكتشف DApps",
   "title__export_public_key": "تصدير المفتاح العام",
+  "title__extension_enabled": "التمديد ممكّن",
+  "title__extension_enabled_desc": "لقد قمت بتمكين OneKey كمحفظة افتراضية. قم بتحديث الموقع ليصبح ساري المفعول.",
+  "title__extension_paused": "تم إيقاف التمديد مؤقتًا",
+  "title__extension_paused_desc": "لقد قمت بإيقاف امتداد OneKey مؤقتًا واستخدمت محافظًا أخرى كمحفظتك الافتراضية.",
   "title__farm": "مزرعة",
   "title__favorite": "مفضل",
   "title__favorites": "المفضلة",

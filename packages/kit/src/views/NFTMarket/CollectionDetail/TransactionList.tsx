@@ -301,11 +301,9 @@ const TransactionList: FC<ListProps> = ({
     },
     [currentNetwork, isSmallScreen],
   );
-  const paddingX = isSmallScreen ? 16 : 51;
 
   return (
     <FlatList<NFTTransaction>
-      contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       ListHeaderComponent={ListHeaderComponent ?? ListHeader}
       data={context?.txList}
       renderItem={renderItem}
@@ -314,6 +312,14 @@ const TransactionList: FC<ListProps> = ({
           return <Footer />;
         }
         return <Box />;
+      }}
+      style={{
+        padding: isSmallScreen ? 16 : 32,
+      }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992,
+        alignSelf: 'center',
       }}
       onEndReached={() => {
         if (cursor.current !== null) {

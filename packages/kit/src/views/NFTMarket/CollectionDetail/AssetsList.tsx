@@ -119,12 +119,9 @@ export const AssetListCell: FC<{
     <Pressable
       onPress={onPress}
       flexDirection="column"
-      height={cardWidth + 52}
-      width={cardWidth}
-      marginRight={`${margin}px`}
-      marginBottom={`${marginBottom}px`}
+      px={{ base: '4px', md: '12px' }}
     >
-      <NFTListImage asset={asset} borderRadius="6px" size={cardWidth} />
+      <NFTListImage asset={asset} borderRadius="12px" size={cardWidth} />
       <Text typography="Body2Strong" mt="8px" numberOfLines={1}>
         {name}
       </Text>
@@ -245,22 +242,28 @@ const AssetsList = ({
         }}
         asset={item}
         cardWidth={cardWidth}
-        margin={margin}
-        marginBottom={marginBottom}
       />
     ),
-    [cardWidth, handleSelectAsset, margin, marginBottom],
+    [cardWidth, handleSelectAsset],
   );
 
-  const paddingX = isSmallScreen ? 16 : 51;
   return (
     <Tabs.FlatList
-      contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       key={numColumns}
       numColumns={numColumns}
-      ListHeaderComponent={
-        ListHeaderComponent ?? <Box height={isSmallScreen ? '24px' : '32px'} />
-      }
+      ListHeaderComponent={ListHeaderComponent}
+      style={{
+        padding: isSmallScreen ? 16 : 32,
+      }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992,
+        alignSelf: 'center',
+      }}
+      columnWrapperStyle={{
+        marginHorizontal: isSmallScreen ? -4 : -12,
+        paddingBottom: isSmallScreen ? 8 : 24,
+      }}
       ListFooterComponent={() => {
         if (cursor.current !== null) {
           return (

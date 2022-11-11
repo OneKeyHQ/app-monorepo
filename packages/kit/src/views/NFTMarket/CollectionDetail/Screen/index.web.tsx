@@ -12,7 +12,6 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { HomeRoutes } from '../../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../../routes/types';
 import AssetsList from '../AssetsList';
@@ -154,28 +153,21 @@ const Screen = () => {
   const context = useCollectionDetailContext()?.context;
 
   return (
-    <Box flexDirection="row" justifyContent="center" flex={1}>
-      <Box
-        width="full"
-        height="full"
-        flexDirection="column"
-        maxW={MAX_PAGE_CONTAINER_WIDTH}
-      >
-        {context?.selectedIndex === 0 ? (
-          <AssetsList
-            contractAddress={contractAddress}
-            networkId={networkId}
-            ListHeaderComponent={() => <AssetHeader />}
-          />
-        ) : (
-          <TransactionList
-            contractAddress={contractAddress}
-            networkId={networkId}
-            ListHeaderComponent={() => <TransactionHeader />}
-          />
-        )}
-      </Box>
-    </Box>
+    <>
+      {context?.selectedIndex === 0 ? (
+        <AssetsList
+          contractAddress={contractAddress}
+          networkId={networkId}
+          ListHeaderComponent={() => <AssetHeader />}
+        />
+      ) : (
+        <TransactionList
+          contractAddress={contractAddress}
+          networkId={networkId}
+          ListHeaderComponent={() => <TransactionHeader />}
+        />
+      )}
+    </>
   );
 };
 

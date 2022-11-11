@@ -56,8 +56,8 @@ const StatsListScreen = () => {
         contentContainerStyle={{
           width: '100%',
           maxWidth: 992,
-          marginHorizontal: 'auto',
           paddingBottom: bottom,
+          alignSelf: 'center',
         }}
       >
         <StatsList />
