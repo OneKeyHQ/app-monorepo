@@ -1,6 +1,7 @@
 import { PayloadAction, createSlice, nanoid } from '@reduxjs/toolkit';
 
 import { ToastManager } from '@onekeyhq/components';
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { webviewRefs } from '../../views/Discover/Explorer/explorerUtils';
@@ -58,8 +59,14 @@ export const webtabsSlice = createSlice({
   reducers: {
     addWebTab: (state, { payload }: PayloadAction<Partial<WebTab>>) => {
       if (hasTabLimits && state.tabs.length === MAXTABS) {
-        // TODO
-        ToastManager.show('Too many tabs');
+        ToastManager.show(
+          formatMessage(
+            { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+            {
+              0: MAXTABS,
+            },
+          ),
+        );
         return;
       }
       if (!payload.id || payload.id === homeTab.id) {
