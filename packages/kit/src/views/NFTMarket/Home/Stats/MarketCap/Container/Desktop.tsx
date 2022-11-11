@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { List, ListItem } from '@onekeyhq/components';
+import { Box, List, ListItem } from '@onekeyhq/components';
 import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
 import { formatMarketValueForComma } from '../../../../../Market/utils';
@@ -46,6 +46,7 @@ const ListHeaderComponent = () => {
           }}
         />
       </ListItem>
+      <Box mx="8px" borderBottomWidth={1} borderColor="divider" />
     </>
   );
 };
@@ -63,6 +64,7 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
             goToCollectionDetail({
               contractAddress: item.contract_address as string,
               networkId: context?.selectedNetwork?.id as string,
+              title: item.contract_name,
             });
           }}
         >
@@ -72,7 +74,7 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
           <ListItem.Column
             text={{
               label: `${index + 1}`,
-              labelProps: { pb: '24px', typography: 'Body1' },
+              labelProps: { pb: '24px', typography: 'Body1Mono' },
             }}
           />
           <ListItem.Column
@@ -124,6 +126,7 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
       <List
         ListHeaderComponent={() => ListHeaderComponent()}
         data={listData}
+        showDivider
         renderItem={renderItem}
         keyExtractor={(item, index) =>
           `${item.contract_address as string}${index}`

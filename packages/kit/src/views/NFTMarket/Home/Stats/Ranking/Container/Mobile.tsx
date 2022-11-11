@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { List, ListItem } from '@onekeyhq/components';
+import { Box, List, ListItem, Text } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
@@ -17,7 +17,7 @@ import EmptyView from '../../EmptyView';
 
 type Props = { listData: NFTMarketRanking[]; selectNetwork?: Network } & Pick<
   ComponentProps<typeof List>,
-  'ListHeaderComponent' | 'ListFooterComponent'
+  'ListHeaderComponent' | 'ListFooterComponent' | 'headerProps'
 >;
 
 const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
@@ -27,53 +27,88 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
   const network = context?.selectedNetwork ?? selectNetwork;
 
   const renderItem: ListRenderItem<NFTMarketRanking> = useCallback(
-    ({ item, index }) => (
-      <ListItem
-        onPress={() => {
-          goToCollectionDetail({
-            contractAddress: item.contract_address as string,
-            networkId: network?.id as string,
-          });
-        }}
-      >
-        <ListItem.Column>
-          <CollectionLogo src={item.logo_url} width="56px" height="56px" />
-        </ListItem.Column>
-        <ListItem.Column
-          text={{
-            label: `${index + 1}`,
-            labelProps: { pb: '24px', typography: 'Body1Strong' },
+    ({ item, index }) => {
+      const volumeChange = item.volume_change ?? '-';
+      let volumeChangeBgColor;
+      let volumeTextColor;
+      if (item?.volume_change?.startsWith('-')) {
+        //-
+        volumeChangeBgColor = 'surface-critical-subdued';
+        volumeTextColor = 'text-critical';
+      } else if (!item?.volume_change?.startsWith('0.00%')) {
+        //+
+        volumeChangeBgColor = 'surface-success-subdued';
+        volumeTextColor = 'text-success';
+      } else {
+        // 0
+        volumeTextColor = 'text-subdued';
+      }
+      return (
+        <ListItem
+          onPress={() => {
+            goToCollectionDetail({
+              contractAddress: item.contract_address as string,
+              networkId: network?.id as string,
+              title: item.contract_name,
+            });
           }}
-        />
-        <ListItem.Column
-          flex={1}
-          text={{
-            label: item.contract_name,
-            labelProps: { isTruncated: true },
-            description: PriceString({
-              prefix: intl.formatMessage({
-                id: 'content__floor',
+        >
+          <ListItem.Column>
+            <CollectionLogo src={item.logo_url} width="56px" height="56px" />
+          </ListItem.Column>
+          <ListItem.Column
+            text={{
+              label: `${index + 1}`,
+              labelProps: { pb: '24px', typography: 'Body1Mono' },
+            }}
+          />
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.contract_name,
+              labelProps: { isTruncated: true },
+              description: PriceString({
+                prefix: intl.formatMessage({
+                  id: 'content__floor',
+                }),
+                price: item.floor_price,
+                networkId: network?.id,
               }),
-              price: item.floor_price,
-              networkId: network?.id,
-            }),
-            descriptionProps: { numberOfLines: 1 },
-          }}
-        />
-        <ListItem.Column
-          text={{
-            label: PriceString({
-              price: new BigNumber(item.volume ?? '0')
-                .decimalPlaces(2)
-                .toString(),
-              networkId: network?.id,
-            }),
-            labelProps: { textAlign: 'right', mb: '24px', numberOfLines: 1 },
-          }}
-        />
-      </ListItem>
-    ),
-    [network?.id, goToCollectionDetail, intl],
+              descriptionProps: { numberOfLines: 1 },
+            }}
+          />
+          <ListItem.Column
+            alignItems="flex-end"
+            text={{
+              label: PriceString({
+                price: new BigNumber(item.volume ?? '0')
+                  .decimalPlaces(2)
+                  .toString(),
+                networkId: context?.selectedNetwork?.id,
+              }),
+              labelProps: { textAlign: 'right', numberOfLines: 1 },
+              description: (
+                <Box
+                  borderRadius="6px"
+                  bgColor={volumeChangeBgColor}
+                  paddingX="6px"
+                  paddingY="2px"
+                >
+                  <Text
+                    color={volumeTextColor}
+                    textAlign="right"
+                    numberOfLines={1}
+                  >
+                    {volumeChange}
+                  </Text>
+                </Box>
+              ),
+            }}
+          />
+        </ListItem>
+      );
+    },
+    [intl, network?.id, context?.selectedNetwork?.id, goToCollectionDetail],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {
@@ -97,6 +132,7 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
         keyExtractor={(item, index) =>
           `${item.contract_address as string}${index}`
         }
+        ItemSeparatorComponent={() => <Box h="4px" />}
         {...listProps}
       />
     </MotiView>

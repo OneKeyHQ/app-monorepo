@@ -47,7 +47,9 @@ const Screen = () => {
         }
       }}
       initialTabName="items"
-      renderHeader={() => <CollectionInfo />}
+      renderHeader={() => (
+        <CollectionInfo paddingX={isVerticalLayout ? 0 : '51px'} />
+      )}
       width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
       pagerProps={{ scrollEnabled: false }}
       onIndexChange={(index) => {

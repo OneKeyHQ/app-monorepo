@@ -2,10 +2,17 @@ import React, { useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { List, ListItem } from '@onekeyhq/components';
+import {
+  Badge,
+  Box,
+  List,
+  ListItem,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
@@ -17,6 +24,9 @@ import EmptyView from '../../EmptyView';
 const ListHeaderComponent = () => {
   const intl = useIntl();
   const context = useStatsListContext()?.context;
+  const { screenWidth } = useUserDevice();
+  const pageWidth = screenWidth - 224;
+  const hideSaleItem = pageWidth < 900;
 
   const saleTitle = useMemo(() => {
     switch (context?.selectedTime) {
@@ -78,7 +88,8 @@ const ListHeaderComponent = () => {
     <>
       <ListItem>
         <ListItem.Column
-          flex={1}
+          p={0}
+          flex={1.9}
           text={{
             label: intl.formatMessage({
               id: 'content__collection',
@@ -90,7 +101,7 @@ const ListHeaderComponent = () => {
           }}
         />
         <ListItem.Column
-          w="160px"
+          flex={1}
           text={{
             label: intl.formatMessage({
               id: 'content__uique_owner',
@@ -103,7 +114,7 @@ const ListHeaderComponent = () => {
           }}
         />
         <ListItem.Column
-          w="160px"
+          flex={1}
           text={{
             label: intl.formatMessage({
               id: 'content__blue_chip_rates',
@@ -115,19 +126,22 @@ const ListHeaderComponent = () => {
             },
           }}
         />
+        {!hideSaleItem && (
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: saleTitle,
+              labelProps: {
+                typography: 'Subheading',
+                color: 'text-subdued',
+                textAlign: 'right',
+              },
+            }}
+          />
+        )}
+
         <ListItem.Column
-          w="160px"
-          text={{
-            label: saleTitle,
-            labelProps: {
-              typography: 'Subheading',
-              color: 'text-subdued',
-              textAlign: 'right',
-            },
-          }}
-        />
-        <ListItem.Column
-          w="160px"
+          flex={1}
           text={{
             label: volumeTitle,
             labelProps: {
@@ -138,6 +152,7 @@ const ListHeaderComponent = () => {
           }}
         />
       </ListItem>
+      <Box mx="8px" borderBottomWidth={1} borderColor="divider" />
     </>
   );
 };
@@ -146,29 +161,47 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
   const goToCollectionDetail = useCollectionDetail();
+  const { screenWidth } = useUserDevice();
+  const pageWidth = screenWidth - 224;
+  const hideSaleItem = pageWidth < 900;
 
   const renderItem: ListRenderItem<NFTMarketRanking> = useCallback(
     ({ item, index }) => {
       const uniqueOwner =
         ((item.owners_total ?? 0) / (item.items_total ?? 0)) * 100;
 
+      const volumeChange = item.volume_change ?? '-';
+      let volumeChangeBgColor;
+      let volumeTextColor;
+      if (item?.volume_change?.startsWith('-')) {
+        //-
+        volumeChangeBgColor = 'surface-critical-subdued';
+        volumeTextColor = 'text-critical';
+      } else if (!item?.volume_change?.startsWith('0.00%')) {
+        //+
+        volumeChangeBgColor = 'surface-success-subdued';
+        volumeTextColor = 'text-success';
+      } else {
+        // 0
+        volumeTextColor = 'text-subdued';
+      }
+
       return (
-        <>
-          <ListItem
-            onPress={() => {
-              goToCollectionDetail({
-                contractAddress: item.contract_address as string,
-                networkId: context?.selectedNetwork?.id as string,
-              });
-            }}
-          >
-            <ListItem.Column>
-              <CollectionLogo src={item.logo_url} width="40px" height="40px" />
-            </ListItem.Column>
+        <ListItem
+          onPress={() => {
+            goToCollectionDetail({
+              contractAddress: item.contract_address as string,
+              networkId: context?.selectedNetwork?.id as string,
+              title: item.contract_name,
+            });
+          }}
+        >
+          <Row flex={1.9} space="12px">
+            <CollectionLogo src={item.logo_url} width="40px" height="40px" />
             <ListItem.Column
               text={{
                 label: `${index + 1}`,
-                labelProps: { pb: '24px', typography: 'Body1Strong' },
+                labelProps: { pb: '24px', typography: 'Body1Mono' },
               }}
             />
             <ListItem.Column
@@ -186,49 +219,68 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
                 descriptionProps: { numberOfLines: 1 },
               }}
             />
+          </Row>
+
+          <ListItem.Column
+            flex={1}
+            text={{
+              label:
+                uniqueOwner <= 100
+                  ? `${new BigNumber(uniqueOwner ?? '0')
+                      .decimalPlaces(2)
+                      .toString()}%`
+                  : '',
+              labelProps: { textAlign: 'right' },
+            }}
+          />
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.blueChip?.next_blue_chip_probability ?? '-',
+              labelProps: { textAlign: 'right' },
+            }}
+          />
+          {!hideSaleItem && (
             <ListItem.Column
-              w="160px"
-              text={{
-                label:
-                  uniqueOwner <= 100
-                    ? `${new BigNumber(uniqueOwner ?? '0')
-                        .decimalPlaces(2)
-                        .toString()}%`
-                    : '',
-                labelProps: { textAlign: 'right' },
-              }}
-            />
-            <ListItem.Column
-              w="160px"
-              text={{
-                label: item.blueChip?.next_blue_chip_probability ?? '-',
-                labelProps: { textAlign: 'right' },
-              }}
-            />
-            <ListItem.Column
-              w="160px"
+              flex={1}
               text={{
                 label: item.sales,
                 labelProps: { textAlign: 'right' },
               }}
             />
-            <ListItem.Column
-              w="160px"
-              text={{
-                label: PriceString({
-                  price: new BigNumber(item.volume ?? '0')
-                    .decimalPlaces(2)
-                    .toString(),
-                  networkId: context?.selectedNetwork?.id,
-                }),
-                labelProps: { textAlign: 'right' },
-              }}
-            />
-          </ListItem>
-        </>
+          )}
+          <ListItem.Column
+            space="2px"
+            flex={1}
+            text={{
+              label: PriceString({
+                price: new BigNumber(item.volume ?? '0')
+                  .decimalPlaces(2)
+                  .toString(),
+                networkId: context?.selectedNetwork?.id,
+              }),
+              labelProps: { textAlign: 'right' },
+              description: (
+                <Box
+                  justifyContent="flex-end"
+                  flex={1}
+                  width="full"
+                  flexDirection="row"
+                >
+                  <Badge
+                    size="sm"
+                    bgColor={volumeChangeBgColor}
+                    title={volumeChange}
+                    color={volumeTextColor}
+                  />
+                </Box>
+              ),
+            }}
+          />
+        </ListItem>
       );
     },
-    [context?.selectedNetwork?.id, goToCollectionDetail, intl],
+    [context?.selectedNetwork?.id, goToCollectionDetail, hideSaleItem, intl],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {
@@ -246,6 +298,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
       <List
         ListHeaderComponent={() => ListHeaderComponent()}
         data={listData}
+        showDivider
         renderItem={renderItem}
         keyExtractor={(item, index) =>
           `${item.contract_address as string}${index}`

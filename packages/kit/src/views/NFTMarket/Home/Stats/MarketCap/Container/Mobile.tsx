@@ -5,7 +5,7 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { List, ListItem, Text } from '@onekeyhq/components';
+import { Box, List, ListItem, Text } from '@onekeyhq/components';
 import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
 import { formatMarketValueForComma } from '../../../../../Market/utils';
@@ -27,6 +27,7 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
           goToCollectionDetail({
             contractAddress: item.contract_address as string,
             networkId: context?.selectedNetwork?.id as string,
+            title: item.contract_name,
           });
         }}
       >
@@ -36,7 +37,7 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
         <ListItem.Column
           text={{
             label: `${index + 1}`,
-            labelProps: { pb: '24px', typography: 'Body1Strong' },
+            labelProps: { pb: '24px', typography: 'Body1Mono' },
           }}
         />
         <ListItem.Column
@@ -97,6 +98,7 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
         keyExtractor={(item, index) =>
           `${item.contract_address as string}${index}`
         }
+        ItemSeparatorComponent={() => <Box h="4px" />}
       />
     </MotiView>
   );

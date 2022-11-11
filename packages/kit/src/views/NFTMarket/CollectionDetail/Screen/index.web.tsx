@@ -5,9 +5,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Divider,
+  Center,
   Pressable,
   Text,
+  useIsVerticalLayout,
   useThemeValue,
 } from '@onekeyhq/components';
 
@@ -17,8 +18,12 @@ import { HomeRoutesParams } from '../../../../routes/types';
 import AssetsList from '../AssetsList';
 import CollectionInfo from '../CollectionInfo';
 import { useCollectionDetailContext } from '../context';
-import TransactionList from '../TransactionList';
+import TransactionList, {
+  ListHeader as TransactionListHeader,
+} from '../TransactionList';
 import { TabEnum } from '../type';
+
+const MemoCollectionInfo = React.memo(CollectionInfo);
 
 type TabBarProps = {
   items: { title: string; label: string }[];
@@ -53,17 +58,19 @@ const TabBar: FC<TabBarProps> = ({
           >
             <Box justifyContent="center" flexDirection="column" height="100%">
               <Box height="full">
-                <Text
-                  typography="Body2Strong"
-                  textAlign="center"
-                  color={isActive ? activeColor : inactiveColor}
-                >
-                  {item.title}
-                </Text>
+                <Center height="full">
+                  <Text
+                    typography="Body2Strong"
+                    textAlign="center"
+                    color={isActive ? activeColor : inactiveColor}
+                  >
+                    {item.title}
+                  </Text>
+                </Center>
+                {isActive ? (
+                  <Box height="2px" bgColor={indicatorColor} />
+                ) : null}
               </Box>
-              {isActive ? (
-                <Box width={itemWidth} height="2px" bgColor={indicatorColor} />
-              ) : null}
             </Box>
           </Pressable>
         );
@@ -72,15 +79,79 @@ const TabBar: FC<TabBarProps> = ({
   );
 };
 
-const Screen = () => {
+const AssetHeader = () => {
   const intl = useIntl();
+  const isSmallScreen = useIsVerticalLayout();
+
+  const context = useCollectionDetailContext()?.context;
+  const setContext = useCollectionDetailContext()?.setContext;
+  return (
+    <Box flexDirection="column" alignItems="flex-start">
+      <MemoCollectionInfo />
+      <TabBar
+        mb={isSmallScreen ? '24px' : '32px'}
+        height="54px"
+        itemWidth="54px"
+        selectedIndex={context?.selectedIndex}
+        onChange={(index) => {
+          if (setContext) {
+            setContext((ctx) => ({ ...ctx, selectedIndex: index }));
+          }
+        }}
+        items={[
+          {
+            title: intl.formatMessage({ id: 'content__items' }),
+            label: TabEnum.Items,
+          },
+          {
+            title: intl.formatMessage({ id: 'content__sales' }),
+            label: TabEnum.Sales,
+          },
+        ]}
+      />
+    </Box>
+  );
+};
+
+const TransactionHeader = () => {
+  const intl = useIntl();
+  const context = useCollectionDetailContext()?.context;
+  const setContext = useCollectionDetailContext()?.setContext;
+  return (
+    <Box flexDirection="column" alignItems="flex-start">
+      <MemoCollectionInfo />
+      <TabBar
+        height="54px"
+        itemWidth="54px"
+        selectedIndex={context?.selectedIndex}
+        onChange={(index) => {
+          if (setContext) {
+            setContext((ctx) => ({ ...ctx, selectedIndex: index }));
+          }
+        }}
+        items={[
+          {
+            title: intl.formatMessage({ id: 'content__items' }),
+            label: TabEnum.Items,
+          },
+          {
+            title: intl.formatMessage({ id: 'content__sales' }),
+            label: TabEnum.Sales,
+          },
+        ]}
+      />
+      <TransactionListHeader />
+    </Box>
+  );
+};
+
+const Screen = () => {
   const route =
     useRoute<
       RouteProp<HomeRoutesParams, HomeRoutes.NFTMarketCollectionScreen>
     >();
   const { networkId, contractAddress } = route.params;
   const context = useCollectionDetailContext()?.context;
-  const setContext = useCollectionDetailContext()?.setContext;
 
   return (
     <Box flexDirection="row" justifyContent="center" flex={1}>
@@ -90,45 +161,19 @@ const Screen = () => {
         flexDirection="column"
         maxW={MAX_PAGE_CONTAINER_WIDTH}
       >
-        <CollectionInfo />
-        <TabBar
-          paddingX="51px"
-          mt="32px"
-          height="54px"
-          itemWidth="54px"
-          selectedIndex={context?.selectedIndex}
-          onChange={(index) => {
-            if (setContext) {
-              setContext((ctx) => ({ ...ctx, selectedIndex: index }));
-            }
-          }}
-          items={[
-            {
-              title: intl.formatMessage({ id: 'content__items' }),
-              label: TabEnum.Items,
-            },
-            {
-              title: intl.formatMessage({ id: 'content__sales' }),
-              label: TabEnum.Sales,
-            },
-          ]}
-        />
-        <Box paddingX="51px">
-          <Divider />
-        </Box>
-        <Box flex={1}>
-          {context?.selectedIndex === 0 ? (
-            <AssetsList
-              contractAddress={contractAddress}
-              networkId={networkId}
-            />
-          ) : (
-            <TransactionList
-              contractAddress={contractAddress}
-              networkId={networkId}
-            />
-          )}
-        </Box>
+        {context?.selectedIndex === 0 ? (
+          <AssetsList
+            contractAddress={contractAddress}
+            networkId={networkId}
+            ListHeaderComponent={() => <AssetHeader />}
+          />
+        ) : (
+          <TransactionList
+            contractAddress={contractAddress}
+            networkId={networkId}
+            ListHeaderComponent={() => <TransactionHeader />}
+          />
+        )}
       </Box>
     </Box>
   );

@@ -3,7 +3,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { ScrollView } from '@onekeyhq/components';
+import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import { HomeRoutes } from '../../../routes/routesEnum';
@@ -13,6 +13,7 @@ import { StatsList } from '../Home/Stats';
 import { StatsListContext, StatsListContextValue } from '../Home/Stats/context';
 
 const StatsListScreen = () => {
+  const { bottom } = useSafeAreaInsets();
   const navigation = useNavigation();
   const intl = useIntl();
   const route =
@@ -31,6 +32,7 @@ const StatsListScreen = () => {
       title: 'Stats',
       headerRight: () => (
         <ChainSelector
+          triggerSize="lg"
           selectedNetwork={selectedNetwork}
           onChange={(n) => {
             setSelectedNetwork(n);
@@ -55,6 +57,7 @@ const StatsListScreen = () => {
           width: '100%',
           maxWidth: 992,
           marginHorizontal: 'auto',
+          paddingBottom: bottom,
         }}
       >
         <StatsList />

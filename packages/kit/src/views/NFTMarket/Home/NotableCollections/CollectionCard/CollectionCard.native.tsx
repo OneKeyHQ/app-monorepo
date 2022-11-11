@@ -2,7 +2,13 @@ import { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, NetImage, Pressable, Text } from '@onekeyhq/components';
+import {
+  Box,
+  NetImage,
+  Pressable,
+  Text,
+  useUserDevice,
+} from '@onekeyhq/components';
 
 import PriceText from '../../../PriceText';
 
@@ -19,13 +25,18 @@ const CollectionCard: FC<CollectionCardProps> = ({
   ...rest
 }) => {
   const intl = useIntl();
+  const { screenWidth } = useUserDevice();
 
   return (
     <Pressable {...rest}>
       <Box borderRadius="12px" overflow="hidden">
-        <NetImage width="280px" height="280px" {...netImageProps} />
+        <NetImage
+          width={`${screenWidth - 48}px`}
+          height={`${screenWidth - 48}px`}
+          {...netImageProps}
+        />
       </Box>
-      <Box width="280px">
+      <Box width={`${screenWidth - 48}px`}>
         <Text mt="8px" typography="Body1Strong" isTruncated>
           {contractName}
         </Text>

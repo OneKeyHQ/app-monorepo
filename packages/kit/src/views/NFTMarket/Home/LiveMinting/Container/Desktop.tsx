@@ -1,60 +1,69 @@
 import React, { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { MotiView } from 'moti';
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import { Box, Divider, FlatList, Text } from '@onekeyhq/components';
+import { Box, List, ListItem } from '@onekeyhq/components';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import CollectionLogo from '../../../CollectionLogo';
-import PriceText from '../../../PriceText';
+import { PriceString } from '../../../PriceText';
 import { useCollectionDetail } from '../../hook';
 import EmptyView from '../../Stats/EmptyView';
-import StatsItemCell from '../../Stats/StatsItemCell';
 import { useLiveMintContext } from '../context';
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
 
   return (
-    <Box>
-      <StatsItemCell
-        mb="8px"
-        height="16px"
-        leftComponent={
-          <Text color="text-subdued" typography="Subheading">
-            {intl.formatMessage({
+    <>
+      <ListItem>
+        <ListItem.Column
+          p={2}
+          flex={3}
+          text={{
+            label: intl.formatMessage({
               id: 'content__collection',
-            })}
-          </Text>
-        }
-        rightComponents={[
-          <Text
-            textAlign="right"
-            numberOfLines={1}
-            typography="Subheading"
-            color="text-subdued"
-          >
-            {intl.formatMessage({
+            }),
+            labelProps: {
+              typography: 'Subheading',
+              color: 'text-subdued',
+            },
+          }}
+        />
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: intl.formatMessage({
               id: 'content__price',
-            })}
-          </Text>,
-          <Text
-            textAlign="right"
-            numberOfLines={1}
-            typography="Subheading"
-            color="text-subdued"
-          >
-            {intl.formatMessage({
+            }),
+            labelProps: {
+              typography: 'Subheading',
+              color: 'text-subdued',
+              textAlign: 'right',
+            },
+          }}
+        />
+        <ListItem.Column
+          flex={2}
+          text={{
+            label: intl.formatMessage({
               id: 'content__time',
-            })}
-          </Text>,
-        ]}
-      />
-      <Divider />
-    </Box>
+            }),
+            labelProps: {
+              typography: 'Subheading',
+              color: 'text-subdued',
+              textAlign: 'right',
+            },
+          }}
+        />
+      </ListItem>
+      <Box mx="8px" borderBottomWidth={1} borderColor="divider" />
+    </>
   );
 };
 
@@ -65,38 +74,54 @@ const Desktop = () => {
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
     ({ item }) => (
-      <StatsItemCell
+      <ListItem
         onPress={() => {
           goToCollectionDetail({
             contractAddress: item.contractAddress as string,
             networkId: context?.selectedNetwork?.id as string,
+            title: item.contractName,
           });
         }}
-        height="64px"
-        title={item.collection.contractName}
-        subTitle={item.tokenId ? `ID ${item.tokenId}` : ''}
-        rightComponents={[
-          <PriceText
-            price={new BigNumber(item.mintPrice ?? '0')
-              .decimalPlaces(2)
-              .toString()}
-            networkId={context?.selectedNetwork?.id}
-            textAlign="right"
-            numberOfLines={1}
-            typography="Body1"
-          />,
-          <Text textAlign="right" numberOfLines={1} typography="Body1Strong">
-            {item.mintTimestamp ? formatDistance(item.mintTimestamp) : ''}
-          </Text>,
-        ]}
-        logoComponent={
+      >
+        <Row flex={3} space="12px">
           <CollectionLogo
             src={item.collection.logoUrl}
             width="40px"
             height="40px"
           />
-        }
-      />
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.collection.contractName,
+              labelProps: { isTruncated: true },
+              description: item.tokenId ? `ID ${item.tokenId}` : '–',
+              descriptionProps: { numberOfLines: 1 },
+            }}
+          />
+        </Row>
+
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: PriceString({
+              price: new BigNumber(item.mintPrice ?? '0')
+                .decimalPlaces(2)
+                .toString(),
+              networkId: context?.selectedNetwork?.id,
+            }),
+            labelProps: { textAlign: 'right' },
+          }}
+        />
+        <ListItem.Column
+          flex={2}
+          text={{
+            label: item.mintTimestamp
+              ? formatDistance(item.mintTimestamp)
+              : '_',
+            labelProps: { textAlign: 'right' },
+          }}
+        />
+      </ListItem>
     ),
     [context?.selectedNetwork?.id, formatDistance, goToCollectionDetail],
   );
@@ -108,7 +133,7 @@ const Desktop = () => {
   ) {
     return (
       <EmptyView
-        ListHeaderComponent={ListHeaderComponent}
+        ListHeaderComponent={() => ListHeaderComponent()}
         isTab={context?.isTab}
         numberOfData={context?.isTab ? 5 : 10}
       />
@@ -116,15 +141,17 @@ const Desktop = () => {
   }
 
   return (
-    <FlatList
-      ListHeaderComponent={ListHeaderComponent}
-      data={context?.liveMintList}
-      renderItem={renderItem}
-      ItemSeparatorComponent={() => <Divider />}
-      keyExtractor={(item) =>
-        `${item.contractAddress as string}${item.tokenId as string}`
-      }
-    />
+    <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
+      <List
+        ListHeaderComponent={() => ListHeaderComponent()}
+        data={context?.liveMintList}
+        renderItem={renderItem}
+        showDivider
+        keyExtractor={(item) =>
+          `${item.contractAddress as string}${item.tokenId as string}`
+        }
+      />
+    </MotiView>
   );
 };
 export default Desktop;

@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,13 +18,7 @@ const Desktop: FC<Props> = ({ collection }) => {
   const intl = useIntl();
 
   return (
-    <Box
-      width="full"
-      h="216px"
-      flexDirection="column"
-      paddingX="51px"
-      mt="32px"
-    >
+    <Box width="full" h="216px" flexDirection="column" mt="32px">
       <Box flexDirection="row">
         <CollectionLogo src={collection?.logoUrl} width="64px" height="64px" />
         <Box flexDirection="column" ml="21px" justifyContent="center" flex={1}>
@@ -187,14 +181,18 @@ const Mobile: FC<Props> = ({ collection }) => {
   );
 };
 
-const CollectionInfo: FC = () => {
+const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
   const isSmallScreen = useIsVerticalLayout();
   const context = useCollectionDetailContext()?.context;
 
-  return isSmallScreen ? (
-    <Mobile collection={context?.collection} />
-  ) : (
-    <Desktop collection={context?.collection} />
+  return (
+    <Box {...props}>
+      {isSmallScreen ? (
+        <Mobile collection={context?.collection} />
+      ) : (
+        <Desktop collection={context?.collection} />
+      )}
+    </Box>
   );
 };
 

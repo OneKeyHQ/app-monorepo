@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { Column, Row } from 'native-base';
 import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  CustomSkeleton,
   Pressable,
   Text,
   useIsVerticalLayout,
@@ -30,21 +32,118 @@ import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { useGridListLayout } from '../../Wallet/NFT/SendNFTList';
 
 import { useCollectionDetailContext } from './context';
+import { ListProps } from './type';
 
+export function getRequestLimit(numberColumn: number) {
+  switch (numberColumn) {
+    case 3:
+      return 45;
+    case 4:
+      return 48;
+    default:
+      return 50;
+  }
+}
+type FooterProps = {
+  margin: number;
+  cardWidth: number;
+  numColumns: number;
+  marginBottom: number;
+};
+const Footer: FC<FooterProps> = ({
+  numColumns,
+  margin,
+  cardWidth,
+  marginBottom,
+}) => {
+  const numRows = 4;
+
+  const rowArray = new Array(numRows).fill(0);
+  const colArray = new Array(numColumns).fill(0);
+  return (
+    <Column width="full" space={`${marginBottom}px`} paddingBottom="16px">
+      {rowArray.map((col, rowIndex) => (
+        <Row
+          key={`col${rowIndex}`}
+          width="full"
+          space={`${margin}px`}
+          marginBottom="20px"
+        >
+          {colArray.map((row, colIndex) => (
+            <Box key={`row${colIndex}${rowIndex}`} flexDirection="column">
+              <CustomSkeleton
+                width={cardWidth}
+                height={cardWidth}
+                borderRadius="12px"
+              />
+              <CustomSkeleton
+                mt="8px"
+                width="50px"
+                height="10px"
+                borderRadius="5px"
+              />
+              <CustomSkeleton
+                mt="4px"
+                width="70px"
+                height="10px"
+                borderRadius="5px"
+              />
+            </Box>
+          ))}
+        </Row>
+      ))}
+    </Column>
+  );
+};
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
+
+export const AssetListCell: FC<{
+  onPress: () => void;
+  asset: NFTAsset;
+  cardWidth: number;
+  margin: number;
+  marginBottom: number;
+}> = ({ asset, cardWidth, margin, marginBottom, ...props }) => {
+  let name = '';
+  if (asset.name && asset.name.length > 0) {
+    name = asset.name;
+  } else {
+    name = `#${asset.tokenId as string}`;
+  }
+  let price = '';
+  if (asset.latestTradePrice && typeof asset.latestTradePrice === 'number') {
+    price = `${asset.latestTradePrice} ${asset.latestTradeSymbol as string}`;
+  }
+  const { onPress } = props;
+  return (
+    <Pressable
+      onPress={onPress}
+      flexDirection="column"
+      height={cardWidth + 52}
+      width={cardWidth}
+      marginRight={`${margin}px`}
+      marginBottom={`${marginBottom}px`}
+    >
+      <NFTListImage asset={asset} borderRadius="6px" size={cardWidth} />
+      <Text typography="Body2Strong" mt="8px" numberOfLines={1}>
+        {name}
+      </Text>
+      <Text typography="Body2" mt="4px" color="text-subdued" numberOfLines={1}>
+        {price}
+      </Text>
+    </Pressable>
+  );
+};
 const AssetsList = ({
   contractAddress,
   networkId,
-}: {
-  contractAddress: string;
-  networkId: string;
-}) => {
+  ListHeaderComponent,
+}: ListProps) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const isMounted = useIsMounted();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const [listData, updateListData] = useState<NFTAsset[]>([]);
   const context = useCollectionDetailContext()?.context;
   const setContext = useCollectionDetailContext()?.setContext;
   const cursor = useRef<string | undefined>();
@@ -68,19 +167,22 @@ const AssetsList = ({
       chain: string;
       contractAddress: string;
       cursor?: string;
+      limit?: number;
     }) => {
       const data = await serviceNFT.getCollectionAssets(param);
       if (data?.content) {
         cursor.current = data.next;
-        updateListData((prev) => {
-          if (context?.refreshing) {
-            return data.content;
-          }
-          return prev.concat(data?.content);
-        });
+        if (setContext) {
+          setContext((ctx) => {
+            if (context?.refreshing) {
+              return { ...ctx, assetList: data.content };
+            }
+            return { ...ctx, assetList: ctx.assetList.concat(data?.content) };
+          });
+        }
       }
     },
-    [context?.refreshing, serviceNFT],
+    [context?.refreshing, serviceNFT, setContext],
   );
 
   useEffect(() => {
@@ -89,15 +191,18 @@ const AssetsList = ({
         if (context?.refreshing) {
           cursor.current = undefined;
         }
-        getData({
-          chain: networkId,
-          contractAddress,
-          cursor: cursor.current,
-        }).then(() => {
-          if (setContext) {
-            setContext((ctx) => ({ ...ctx, refreshing: false }));
-          }
-        });
+        if (cursor.current !== null) {
+          getData({
+            chain: networkId,
+            contractAddress,
+            cursor: cursor.current,
+            limit: getRequestLimit(numColumns),
+          }).then(() => {
+            if (setContext) {
+              setContext((ctx) => ({ ...ctx, refreshing: false }));
+            }
+          });
+        }
       }
     })();
   }, [
@@ -107,6 +212,7 @@ const AssetsList = ({
     getData,
     isMounted,
     networkId,
+    numColumns,
     setContext,
   ]);
   const { networks } = useRuntime();
@@ -132,64 +238,54 @@ const AssetsList = ({
   );
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
-    ({ item }) => {
-      let name = '';
-      if (item.name && item.name.length > 0) {
-        name = item.name;
-      } else {
-        name = `#${item.tokenId as string}`;
-      }
-
-      return (
-        <Pressable
-          onPress={() => {
-            handleSelectAsset(item);
-          }}
-          flexDirection="column"
-          height={cardWidth + 52}
-          width={cardWidth}
-          marginRight={`${margin}px`}
-          marginBottom={`${marginBottom}px`}
-        >
-          <NFTListImage asset={item} borderRadius="6px" size={cardWidth} />
-          <Text typography="Body2Strong" mt="8px" numberOfLines={1}>
-            {name}
-          </Text>
-          {item.latestTradePrice && (
-            <Text
-              typography="Body2"
-              mt="4px"
-              color="text-subdued"
-              numberOfLines={1}
-            >
-              {`${item.latestTradePrice} ${item.latestTradeSymbol as string}`}
-            </Text>
-          )}
-        </Pressable>
-      );
-    },
-    [cardWidth, margin, marginBottom],
+    ({ item }) => (
+      <AssetListCell
+        onPress={() => {
+          handleSelectAsset(item);
+        }}
+        asset={item}
+        cardWidth={cardWidth}
+        margin={margin}
+        marginBottom={marginBottom}
+      />
+    ),
+    [cardWidth, handleSelectAsset, margin, marginBottom],
   );
 
   const paddingX = isSmallScreen ? 16 : 51;
   return (
-    <Tabs.FlatList<NFTAsset>
+    <Tabs.FlatList
       contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       key={numColumns}
       numColumns={numColumns}
-      ListHeaderComponent={() => (
-        <Box height={isSmallScreen ? '24px' : '32px'} />
-      )}
-      // ListFooterComponent={() => <Box height="44px" bgColor="amber.400" />}
-      data={listData}
+      ListHeaderComponent={
+        ListHeaderComponent ?? <Box height={isSmallScreen ? '24px' : '32px'} />
+      }
+      ListFooterComponent={() => {
+        if (cursor.current !== null) {
+          return (
+            <Footer
+              numColumns={numColumns}
+              cardWidth={cardWidth}
+              margin={margin}
+              marginBottom={marginBottom}
+            />
+          );
+        }
+        return <Box />;
+      }}
+      data={context?.assetList}
       renderItem={renderItem}
       keyExtractor={(item: NFTAsset) => `${item.tokenId as string}`}
       onEndReached={() => {
-        getData({
-          chain: networkId,
-          contractAddress,
-          cursor: cursor.current,
-        });
+        if (cursor.current !== null) {
+          getData({
+            chain: networkId,
+            contractAddress,
+            cursor: cursor.current,
+            limit: getRequestLimit(numColumns),
+          });
+        }
       }}
     />
   );

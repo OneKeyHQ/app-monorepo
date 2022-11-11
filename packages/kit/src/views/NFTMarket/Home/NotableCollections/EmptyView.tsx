@@ -4,11 +4,13 @@ import {
   FlatList,
   Skeleton,
   useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const EmptyView = () => {
   const isVerticalLayout = useIsVerticalLayout();
+  const { screenWidth } = useUserDevice();
 
   const data = isVerticalLayout ? [1, 2] : [1, 2, 3, 4, 5];
 
@@ -20,8 +22,8 @@ const EmptyView = () => {
       renderItem={() => (
         <Box mr="16px" flexDirection="column">
           <CustomSkeleton
-            width={platformEnv.isNative ? '280px' : '220px'}
-            height={platformEnv.isNative ? '280px' : '147px'}
+            width={platformEnv.isNative ? `${screenWidth - 48}px` : '220px'}
+            height={platformEnv.isNative ? `${screenWidth - 48}px` : '147px'}
             borderRadius="12px"
           />
           <Box mt="8px">

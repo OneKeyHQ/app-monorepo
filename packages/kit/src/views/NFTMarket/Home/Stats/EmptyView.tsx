@@ -23,6 +23,20 @@ const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
     return arr;
   }, [numberOfData]);
 
+  const SeparatorConfig = useMemo(() => {
+    if (isVerticalLayout)
+      return {
+        ItemSeparatorComponent: () => (
+          <>
+            <Box h="4px" />
+          </>
+        ),
+      };
+    return {
+      showDivider: true,
+    };
+  }, [isVerticalLayout]);
+
   return (
     <List
       data={listData}
@@ -34,11 +48,6 @@ const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
               height={isVerticalLayout ? '56px' : '40px'}
               borderRadius="12px"
             />
-          </ListItem.Column>
-          <ListItem.Column>
-            <Box pb="24px" w="16px">
-              <Skeleton shape="Body1" width={16} />
-            </Box>
           </ListItem.Column>
           <ListItem.Column
             flex={1}
@@ -55,6 +64,7 @@ const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
         </ListItem>
       )}
       keyExtractor={(item, index) => `${index}`}
+      {...SeparatorConfig}
       {...rest}
     />
   );

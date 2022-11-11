@@ -37,10 +37,11 @@ const PageHeader = () => {
       params: {
         screen: SearchNFTCollectionRoutes.SearchModal,
         params: {
-          onSelectCollection: ({ networkId, contractAddress }) => {
+          onSelectCollection: ({ networkId, contractAddress, collection }) => {
             goToCollectionDetail({
               networkId,
               contractAddress,
+              collection,
             });
           },
         },
