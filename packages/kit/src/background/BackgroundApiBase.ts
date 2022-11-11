@@ -42,6 +42,7 @@ const PRIVATE_WHITE_LIST_ORIGIN = [
     ? [
         // origin allowed in DEV
         'http://192.168.31.215:3008',
+        'http://192.168.31.96:3008',
       ]
     : []),
 ].filter(Boolean);
