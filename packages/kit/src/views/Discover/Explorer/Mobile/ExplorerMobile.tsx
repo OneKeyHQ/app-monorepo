@@ -62,7 +62,7 @@ const ExplorerMobile: FC = () => {
       <Box flex={1} bg="background-default">
         <Freeze freeze={!showHome}>
           <ExplorerBar onSearch={onSearch} />
-          <WebHomeContainer />
+          <WebHomeContainer alwaysOpenNewWindow />
         </Freeze>
       </Box>
       <FloatingContainer

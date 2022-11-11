@@ -23,10 +23,11 @@ export interface HistoryItem {
 
 export interface MatchDAppItemType {
   id: string;
-  dapp?: DAppItemType | undefined;
-  webSite?: WebSiteHistory | undefined;
-  clicks?: number | undefined;
-  timestamp?: number | undefined;
+  dapp?: DAppItemType;
+  webSite?: WebSiteHistory;
+  clicks?: number;
+  timestamp?: number;
+  isNewWindow?: boolean;
 }
 
 export interface WebControllerBarProps {

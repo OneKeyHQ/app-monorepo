@@ -1,15 +1,25 @@
+import { FC } from 'react';
+
 import DiscoverHome from '../../Home';
 import { useWebController } from '../Controller/useWebController';
 
-const WebHomeContainer = () => {
+const WebHomeContainer: FC<{ alwaysOpenNewWindow?: boolean }> = ({
+  alwaysOpenNewWindow,
+}) => {
   const { openMatchDApp } = useWebController();
 
   return (
     <DiscoverHome
       onItemSelect={(dapp) => {
-        openMatchDApp({ id: dapp._id, dapp });
+        openMatchDApp({
+          id: dapp._id,
+          dapp,
+          isNewWindow: alwaysOpenNewWindow,
+        });
       }}
-      onItemSelectHistory={openMatchDApp}
+      onItemSelectHistory={(item) =>
+        openMatchDApp({ ...item, isNewWindow: alwaysOpenNewWindow })
+      }
     />
   );
 };

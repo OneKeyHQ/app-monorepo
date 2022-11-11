@@ -62,12 +62,13 @@ export const useWebController = ({
     id: curId,
   });
   const openMatchDApp = useCallback(
-    async ({ dapp, webSite }: MatchDAppItemType) => {
+    async ({ dapp, webSite, isNewWindow }: MatchDAppItemType) => {
       if (webSite) {
         return gotoSite({
           url: webSite.url,
           title: webSite.title,
           favicon: webSite.favicon,
+          isNewWindow,
         });
       }
 
@@ -104,6 +105,7 @@ export const useWebController = ({
           title: dapp.name,
           dAppId: dapp._id,
           favicon: dapp.logoURL,
+          isNewWindow,
         });
       }
     },
