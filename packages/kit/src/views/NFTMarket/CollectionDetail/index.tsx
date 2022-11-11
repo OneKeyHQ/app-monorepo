@@ -30,7 +30,7 @@ const CollectionDetail = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: title ?? collection?.contractName ?? collection?.name,
+      title: '',
     });
   }, [collection?.contractName, collection?.name, navigation, title]);
 

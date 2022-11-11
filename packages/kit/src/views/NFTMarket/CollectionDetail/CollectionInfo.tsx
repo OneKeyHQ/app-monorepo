@@ -79,19 +79,21 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
           <Text typography="PageHeading" mb="4px" numberOfLines={1}>
             {name}
           </Text>
-          <Hidden from="base" till="md">
-            {Description}
-          </Hidden>
-          <Hidden from="md">
-            <Text typography="Body2" color="text-subdued">
-              {intl.formatMessage(
-                {
-                  id: 'content__int_items',
-                },
-                { 0: collection?.itemsTotal },
-              )}
-            </Text>
-          </Hidden>
+          <Box mt="4px">
+            <Hidden from="base" till="md">
+              {Description}
+            </Hidden>
+            <Hidden from="md">
+              <Text typography="Body2" color="text-subdued">
+                {intl.formatMessage(
+                  {
+                    id: 'content__int_items',
+                  },
+                  { 0: collection?.itemsTotal },
+                )}
+              </Text>
+            </Hidden>
+          </Box>
         </Box>
       </Box>
 
