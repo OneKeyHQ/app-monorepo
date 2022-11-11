@@ -90,8 +90,8 @@ export const AssetListCell: FC<{
   onPress: () => void;
   asset: NFTAsset;
   cardWidth: number;
-  margin: number;
-  marginBottom: number;
+  margin?: number;
+  marginBottom?: number;
 }> = ({ asset, cardWidth, margin, marginBottom, ...props }) => {
   let name = '';
   if (asset.name && asset.name.length > 0) {
