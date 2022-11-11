@@ -27,12 +27,14 @@ type NavigationProps = RouteProp<
   ManageTokenRoutes.TokenRiskDetail
 >;
 
+type LocaleType = LocaleIds | [LocaleIds, any];
+
 // @ts-ignore
 const localeMaps: Record<
   keyof GoPlusTokenSecurity,
   {
-    safe?: [LocaleIds, LocaleIds];
-    danger?: [LocaleIds, LocaleIds];
+    safe?: [LocaleType, LocaleType];
+    danger?: [LocaleType, LocaleType];
   }
 > = {
   'trust_list': {
@@ -155,10 +157,16 @@ const localeMaps: Record<
     danger: ['form__airdrop_scam', 'form__airdrop_scam_desc'],
   },
   'buy_tax': {
-    danger: ['form__too_much_buy_tax', 'form__too_much_buy_tax_desc'],
+    danger: [
+      'form__too_much_buy_tax',
+      ['form__too_much_buy_tax_desc', { 0: '50%' }],
+    ],
   },
   'sell_tax': {
-    danger: ['form__too_much_sell_tax', 'form__too_much_sell_tax_desc'],
+    danger: [
+      'form__too_much_sell_tax',
+      ['form__too_much_sell_tax_desc', { 0: '50%' }],
+    ],
   },
 } as const;
 
@@ -239,14 +247,26 @@ const RiskDetail: FC = () => {
           )}
           <VStack ml="3" flex="1">
             <Typography.Body1Strong>
-              {intl.formatMessage({
-                id: locale?.[0],
-              })}
+              {intl.formatMessage(
+                {
+                  id:
+                    typeof locale?.[0] === 'string'
+                      ? locale?.[0]
+                      : locale?.[0]?.[0],
+                },
+                locale?.[0]?.[1] ?? {},
+              )}
             </Typography.Body1Strong>
             <Typography.Body2>
-              {intl.formatMessage({
-                id: locale?.[1],
-              })}
+              {intl.formatMessage(
+                {
+                  id:
+                    typeof locale?.[1] === 'string'
+                      ? locale?.[1]
+                      : locale?.[1][0],
+                },
+                locale?.[1]?.[1] ?? {},
+              )}
             </Typography.Body2>
           </VStack>
         </HStack>

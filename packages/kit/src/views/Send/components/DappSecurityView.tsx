@@ -34,37 +34,39 @@ export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
 
   return (
     <>
-      <HStack
-        pb="4"
-        borderBottomWidth="1px"
-        borderBottomColor="divider"
-        alignItems="center"
-        mt="-2"
-      >
+      <HStack pb="4" alignItems="center" mt="-2">
         {dappIcon}
         <VStack ml="3">
-          <Typography.Body1Strong>
+          <Typography.Body1Strong textTransform="capitalize">
             {hostname?.split('.')?.reverse?.()?.[1] ?? 'N/A'}
           </Typography.Body1Strong>
           <Typography.Body2>{hostname}</Typography.Body2>
         </VStack>
       </HStack>
-      <HStack alignItems="center" flexWrap="wrap" pt="4">
-        {securityItems?.map((item) => (
-          <Box
-            bg="surface-critical-subdued"
-            py="2px"
-            px="2"
-            mr="2"
-            mb="2"
-            borderRadius="6px"
-          >
-            <Typography.Body2Strong color="text-critical">
-              {item}
-            </Typography.Body2Strong>
-          </Box>
-        ))}
-      </HStack>
+      {securityItems?.length > 0 ? (
+        <HStack
+          borderTopWidth="1px"
+          borderTopColor="divider"
+          alignItems="center"
+          flexWrap="wrap"
+          pt="4"
+        >
+          {securityItems?.map((item) => (
+            <Box
+              bg="surface-critical-subdued"
+              py="2px"
+              px="2"
+              mr="2"
+              mb="2"
+              borderRadius="6px"
+            >
+              <Typography.Body2Strong color="text-critical">
+                {item}
+              </Typography.Body2Strong>
+            </Box>
+          ))}
+        </HStack>
+      ) : null}
     </>
   );
 };
