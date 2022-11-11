@@ -3,7 +3,6 @@ import { PayloadAction, createSlice, nanoid } from '@reduxjs/toolkit';
 import { ToastManager } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// eslint-disable-next-line import/no-cycle
 import { webviewRefs } from '../../views/Discover/Explorer/explorerUtils';
 
 export interface WebTab {

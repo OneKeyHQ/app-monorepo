@@ -88,13 +88,7 @@ const WebTabCard: FC<
           }}
         />
       </Box>
-      <Image
-        flex={1}
-        borderColor="red.300"
-        borderWidth={2}
-        resizeMode="cover"
-        src={thumbnail}
-      />
+      <Image flex={1} resizeMode="cover" src={thumbnail} />
     </Pressable>
   );
 };

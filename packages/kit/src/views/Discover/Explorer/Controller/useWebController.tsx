@@ -19,12 +19,18 @@ import DappOpenHintDialog from '../DappOpenHintDialog';
 import {
   MatchDAppItemType,
   OnWebviewNavigation,
-  getCurrentTab,
   webviewRefs,
 } from '../explorerUtils';
 
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
+
+function getCurrentTab(id: string) {
+  const {
+    webTabs: { tabs },
+  } = appSelector((s) => s);
+  return tabs.find((t) => t.id === id);
+}
 
 export const useWebController = ({
   id,
