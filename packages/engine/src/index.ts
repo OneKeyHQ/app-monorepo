@@ -753,6 +753,7 @@ class Engine {
       '2': OnekeyNetwork.ltc,
       '145': OnekeyNetwork.bch,
       '283': OnekeyNetwork.algo,
+      '144': OnekeyNetwork.xrp,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');

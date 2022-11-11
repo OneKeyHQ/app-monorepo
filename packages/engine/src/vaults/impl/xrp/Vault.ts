@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
@@ -8,8 +9,9 @@ import * as XRPL from 'xrpl';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { InvalidAddress } from '../../../errors';
+import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import { DBSimpleAccount } from '../../../types/account';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IDecodedTx,
   IDecodedTxActionType,
@@ -110,6 +112,22 @@ export default class Vault extends VaultBase {
       // ignore
     }
     return Promise.resolve(ret);
+  }
+
+  override async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const [encryptedPrivateKey] = Object.values(
+        await keyring.getPrivateKeys(password),
+      );
+      return `00${decrypt(password, encryptedPrivateKey)
+        .toString('hex')
+        .toUpperCase()}`;
+    }
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
   }
 
   override async decodeTx(
