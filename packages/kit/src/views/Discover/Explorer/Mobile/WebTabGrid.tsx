@@ -118,6 +118,7 @@ const WebTabGrid = () => {
         },
         useAnimatedStyle(() => ({
           zIndex: showTabGridAnim.value === MAX_OR_SHOW ? 1 : -1,
+          opacity: showTabGridAnim.value,
         })),
       ]}
       showsVerticalScrollIndicator={false}
@@ -127,7 +128,7 @@ const WebTabGrid = () => {
         justifyContent: 'flex-start',
         flexWrap: 'wrap',
         alignItems: 'flex-start',
-        paddingTop: CELL_GAP,
+        paddingVertical: CELL_GAP,
         paddingRight: CELL_GAP,
       }}
     >

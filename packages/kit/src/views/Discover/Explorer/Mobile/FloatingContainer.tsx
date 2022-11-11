@@ -14,6 +14,8 @@ import {
   MIN_OR_HIDE,
   expandAnim,
   expandFloatingWindow,
+  hideTabGrid,
+  minimizeFloatingWindow,
   toggleFloatingWindow,
 } from '../explorerAnimation';
 
@@ -29,7 +31,7 @@ const FloatingContainer: FC<{
 }> = ({ onMaximize, onMinimize, onSearch }) => {
   const { tabs, currentTab } = useWebController();
   const hasTabs = tabs.length > 1;
-  const lastTabLength = useRef(tabs.length);
+  const lastTabLength = useRef(hasTabs ? tabs.length : 1);
   const [containerHeight, setContainerHeight] = useState(0);
 
   useEffect(() => {
@@ -39,6 +41,9 @@ const FloatingContainer: FC<{
       setTimeout(() => {
         expandFloatingWindow(onMaximize);
       }, 100);
+    } else if (tabs.length === 1) {
+      hideTabGrid();
+      minimizeFloatingWindow(onMinimize);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length]);
