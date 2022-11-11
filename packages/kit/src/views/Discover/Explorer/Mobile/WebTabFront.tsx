@@ -4,14 +4,12 @@ import { Freeze } from 'react-freeze';
 import { View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
-import { Box } from '@onekeyhq/components';
-
 import { homeTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebController } from '../Controller/useWebController';
-import { tabViewShotRef } from '../explorerAnimation';
+import { setThumbnailRatio, tabViewShotRef } from '../explorerAnimation';
 
 const WebTabFront = memo(() => {
   useNotifyChanges();
@@ -29,7 +27,17 @@ const WebTabFront = memo(() => {
   );
 
   return (
-    <ViewShot style={{ flex: 1 }} ref={tabViewShotRef}>
+    <ViewShot
+      style={{ flex: 1 }}
+      ref={tabViewShotRef}
+      onLayout={({
+        nativeEvent: {
+          layout: { width, height },
+        },
+      }) => {
+        setThumbnailRatio(height / width);
+      }}
+    >
       {content}
       <View
         style={{

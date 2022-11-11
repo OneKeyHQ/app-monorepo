@@ -1,6 +1,5 @@
 import { createRef } from 'react';
 
-import { FlipType, SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 
@@ -16,9 +15,19 @@ export const expandAnim = makeMutable(MIN_OR_HIDE);
 export const showTabGridAnim = makeMutable(MIN_OR_HIDE);
 export const tabViewShotRef = createRef<ViewShot>();
 
+let thumbnailRatio = 0.8;
+export const setThumbnailRatio = (ratio: number) => {
+  thumbnailRatio = ratio;
+};
+const thumbnailWidth = 340;
 export const showTabGrid = () => {
   if (platformEnv.isNative) {
-    captureRef(tabViewShotRef, {}).then((uri) => {
+    captureRef(tabViewShotRef, {
+      format: 'jpg',
+      width: thumbnailWidth,
+      height: thumbnailWidth * thumbnailRatio,
+      quality: 0.6,
+    }).then((uri) => {
       const { currentTabId } = appSelector((s) => s.webTabs);
       backgroundApiProxy.dispatch(
         setWebTabData({
