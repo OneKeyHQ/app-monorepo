@@ -1,4 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { TokenSource } from '@onekeyhq/engine/src/managers/token';
+import {
+  GoPlusSupportApis,
+  GoPlusTokenSecurity,
+} from '@onekeyhq/engine/src/types/goplus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { setAccountTokensBalances } from '../../store/reducers/tokens';
@@ -51,5 +57,54 @@ export const useSearchTokens = (
   return {
     loading,
     searchedTokens,
+  };
+};
+
+export const useTokenSourceList = () => {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<TokenSource[]>([]);
+  useEffect(() => {
+    setLoading(true);
+    backgroundApiProxy.serviceToken
+      .fetchTokenSource()
+      .then((list) => {
+        setData(list.filter((l) => l.count > 0));
+      })
+      .finally(() => setLoading(false));
+  }, []);
+  return {
+    loading,
+    data: data ?? [],
+  };
+};
+
+export const useTokenSecurityInfo = (networkId?: string, address?: string) => {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<(keyof GoPlusTokenSecurity)[][]>([]);
+
+  const fetch = useCallback(() => {
+    if (!networkId || !address) {
+      return;
+    }
+    setLoading(true);
+    backgroundApiProxy.serviceToken
+      .getTokenRiskyItems({
+        networkId,
+        address,
+        apiName: GoPlusSupportApis.token_security,
+      })
+      .then(setData)
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [networkId, address]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return {
+    loading,
+    data,
   };
 };

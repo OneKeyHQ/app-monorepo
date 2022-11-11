@@ -13,6 +13,7 @@ import {
 } from '../constants';
 import { getFiatEndpoint } from '../endpoint';
 import { OneKeyInternalError } from '../errors';
+import { Tool } from '../types/token';
 
 export type TokenQuery = {
   // for all chain search
@@ -87,7 +88,7 @@ async function doFetch<T>(url: string, fallback: T) {
   }
 }
 
-async function fetchData<T>(
+export async function fetchData<T>(
   path: string,
   query: Record<string, unknown> = {},
   fallback: T,
@@ -151,6 +152,17 @@ export const fetchTokenDetail = async (
     },
     undefined,
   );
+};
+
+export const fetchTools = async (networkId: string): Promise<Tool[]> => {
+  const res = await fetchData<{ data: Tool[] }>(
+    '/config/tools',
+    {
+      networkId,
+    },
+    { data: [] },
+  );
+  return res.data ?? [];
 };
 
 export { getNetworkIdFromTokenId };
