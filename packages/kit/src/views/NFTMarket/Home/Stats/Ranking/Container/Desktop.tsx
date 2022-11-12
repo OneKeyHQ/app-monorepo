@@ -196,7 +196,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
             });
           }}
         >
-          <Row flex={1.9} space="12px">
+          <Row flex={1.9} space="12px" alignItems="center">
             <CollectionLogo src={item.logo_url} width="40px" height="40px" />
             <ListItem.Column
               text={{

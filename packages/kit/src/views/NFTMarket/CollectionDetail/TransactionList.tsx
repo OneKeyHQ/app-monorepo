@@ -6,10 +6,12 @@ import { ListRenderItem } from 'react-native';
 
 import {
   Box,
+  CustomSkeleton,
   FlatList,
   Icon,
   ListItem,
   Pressable,
+  Skeleton,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -26,19 +28,39 @@ import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { useCollectionDetailContext } from './context';
 import { ListProps } from './type';
 
-// TODO:laoding view
-const Footer: FC = () => <Box />;
+const Footer: FC = () => (
+  <>
+    {[1, 2, 3, 4, 5].map(() => (
+      <ListItem px={0}>
+        <ListItem.Column>
+          <CustomSkeleton width="40px" height="40px" borderRadius="12px" />
+        </ListItem.Column>
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: <Skeleton shape="Body1" />,
+            description: <Skeleton shape="Body2" />,
+          }}
+        />
+        <ListItem.Column
+          text={{
+            label: <Skeleton shape="Body1" />,
+          }}
+        />
+      </ListItem>
+    ))}
+  </>
+);
 
 export const ListHeader = () => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
   if (isSmallScreen) {
-    return <Box height="24px" />;
+    return null;
   }
   return (
-    <ListItem width="full">
+    <ListItem width="full" px={0}>
       <ListItem.Column
-        p={2}
         flex={2.7}
         text={{
           label: intl.formatMessage({
@@ -98,7 +120,7 @@ const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
     name = item.asset?.name;
   }
   return (
-    <ListItem width="full">
+    <ListItem width="full" px={0}>
       {item.asset && (
         <NFTListImage asset={item.asset} borderRadius="6px" size={40} />
       )}
@@ -121,6 +143,7 @@ const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
           labelProps: {
             typography: 'Body1Strong',
             textAlign: 'right',
+            mb: '24px',
           },
         }}
       />
@@ -140,8 +163,8 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
   const { openAddressDetails } = useOpenBlockBrowser(network);
 
   return (
-    <ListItem width="full">
-      <Row flex={2.7} space="12px">
+    <ListItem width="full" px={0}>
+      <Row flex={2.7} space="12px" alignItems="center">
         {item.asset && (
           <NFTListImage asset={item.asset} borderRadius="6px" size={40} />
         )}
@@ -301,11 +324,9 @@ const TransactionList: FC<ListProps> = ({
     },
     [currentNetwork, isSmallScreen],
   );
-  const paddingX = isSmallScreen ? 16 : 51;
 
   return (
     <FlatList<NFTTransaction>
-      contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       ListHeaderComponent={ListHeaderComponent ?? ListHeader}
       data={context?.txList}
       renderItem={renderItem}
@@ -314,6 +335,14 @@ const TransactionList: FC<ListProps> = ({
           return <Footer />;
         }
         return <Box />;
+      }}
+      style={{
+        padding: isSmallScreen ? 16 : 32,
+      }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992,
+        alignSelf: 'center',
       }}
       onEndReached={() => {
         if (cursor.current !== null) {

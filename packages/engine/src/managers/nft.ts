@@ -12,7 +12,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { getFiatEndpoint } from '../endpoint';
-import { OnekeyNetwork } from '../presets/networkIds';
 import {
   Erc1155MethodSelectors,
   Erc721MethodSelectors,
