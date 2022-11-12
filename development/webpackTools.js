@@ -48,6 +48,7 @@ const resolveExtensions = [
 async function modifyExpoEnv({ env, platform }) {
   const locations = await getPathsAsync(env.projectRoot);
 
+  // packages/shared/src/web/index.html.ejs
   const indexHtmlFile = path.resolve(
     __dirname,
     '../packages/shared/src/web/index.html',
