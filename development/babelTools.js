@@ -36,6 +36,13 @@ function normalizeConfig({ platform, config }) {
       },
     };
   }
+  if (platform === developmentConsts.platforms.webEmbed) {
+    moduleResolver = {
+      alias: {
+        ...moduleResolverAliasForAllWebPlatform,
+      },
+    };
+  }
   if (platform === developmentConsts.platforms.desktop) {
     moduleResolver = {
       alias: {
