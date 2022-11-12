@@ -1,5 +1,6 @@
 import { FC } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
@@ -8,6 +9,7 @@ import Animated, {
 
 import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
 import useFloatingBottomTabBarHeight from '@onekeyhq/components/src/Layout/BottomTabs/utils/useBottomTabBarHeight';
+import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
@@ -15,6 +17,8 @@ import {
   closeAllWebTabs,
   homeTab,
 } from '../../../../store/reducers/webTabs';
+import { showOverlay } from '../../../../utils/overlayUtils';
+import { OverlayPanel } from '../../../Overlay/OverlayPanel';
 import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
 import {
@@ -29,6 +33,7 @@ import { showWebMoreMenu } from '../MoreMenu';
 
 export const ControllerBarMobile: FC = () => {
   const { currentTab, goBack, goForward, tabs } = useWebController();
+  const intl = useIntl();
   const tabBarHeight = useFloatingBottomTabBarHeight();
   const { canGoForward } = currentTab;
   const { dispatch } = backgroundApiProxy;
@@ -130,8 +135,32 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         onPress={() => {
-          // TODO confirm
-          dispatch(closeAllWebTabs());
+          showOverlay((closeOverlay) => (
+            <OverlayPanel
+              closeOverlay={closeOverlay}
+              modalProps={{ headerShown: false }}
+            >
+              <PressableItem
+                flexDirection="row"
+                alignItems="center"
+                py={{ base: '12px', sm: '8px' }}
+                px={{ base: '16px', sm: '8px' }}
+                bg="transparent"
+                borderRadius="12px"
+                onPress={() => {
+                  closeOverlay();
+                  dispatch(closeAllWebTabs());
+                }}
+              >
+                <Icon color="text-critical" size={24} name="CloseSolid" />
+                <Typography.Body1Strong ml="12px" color="text-critical">
+                  {intl.formatMessage({
+                    id: 'action__close_all_tabs',
+                  })}
+                </Typography.Body1Strong>
+              </PressableItem>
+            </OverlayPanel>
+          ));
         }}
       >
         <Icon color="icon-pressed" name="TrashSolid" />
