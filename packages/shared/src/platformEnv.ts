@@ -105,7 +105,7 @@ const isNativeAndroidGooglePlay =
 // for platform building by file extension
 const getPlatformSymbol = (): IPlatform | undefined => {
   if (isWeb) return 'web';
-  if (isWebEmbed) return 'web';
+  if (isWebEmbed) return 'webEmbed';
   if (isDesktop) return 'desktop';
   if (isExtension) return 'ext';
   if (isNative) return 'native';
