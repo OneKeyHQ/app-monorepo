@@ -8,6 +8,7 @@ import {
   Box,
   CustomSkeleton,
   Pressable,
+  Skeleton,
   Text,
   useIsVerticalLayout,
   useUserDevice,
@@ -60,15 +61,11 @@ const Footer: FC<FooterProps> = ({
 
   const rowArray = new Array(numRows).fill(0);
   const colArray = new Array(numColumns).fill(0);
+  const isSmallScreen = useIsVerticalLayout();
   return (
-    <Column width="full" space={`${marginBottom}px`} paddingBottom="16px">
+    <Column width="full" space={`${marginBottom}px`}>
       {rowArray.map((col, rowIndex) => (
-        <Row
-          key={`col${rowIndex}`}
-          width="full"
-          space={`${margin}px`}
-          marginBottom="20px"
-        >
+        <Row key={`col${rowIndex}`} width="full" space={`${margin}px`}>
           {colArray.map((row, colIndex) => (
             <Box key={`row${colIndex}${rowIndex}`} flexDirection="column">
               <CustomSkeleton
@@ -76,18 +73,9 @@ const Footer: FC<FooterProps> = ({
                 height={cardWidth}
                 borderRadius="12px"
               />
-              <CustomSkeleton
-                mt="8px"
-                width="50px"
-                height="10px"
-                borderRadius="5px"
-              />
-              <CustomSkeleton
-                mt="4px"
-                width="70px"
-                height="10px"
-                borderRadius="5px"
-              />
+              <Box mt="8px">
+                <Skeleton shape={isSmallScreen ? 'Body2' : 'Body1'} />
+              </Box>
             </Box>
           ))}
         </Row>
@@ -101,8 +89,8 @@ export const AssetListCell: FC<{
   onPress: () => void;
   asset: NFTAsset;
   cardWidth: number;
-  margin: number;
-  marginBottom: number;
+  margin?: number;
+  marginBottom?: number;
 }> = ({ asset, cardWidth, margin, marginBottom, ...props }) => {
   let name = '';
   if (asset.name && asset.name.length > 0) {
@@ -115,23 +103,38 @@ export const AssetListCell: FC<{
     price = `${asset.latestTradePrice} ${asset.latestTradeSymbol as string}`;
   }
   const { onPress } = props;
+  const isSmallScreen = useIsVerticalLayout();
+
   return (
-    <Pressable
-      onPress={onPress}
-      flexDirection="column"
-      height={cardWidth + 52}
-      width={cardWidth}
-      marginRight={`${margin}px`}
-      marginBottom={`${marginBottom}px`}
-    >
-      <NFTListImage asset={asset} borderRadius="6px" size={cardWidth} />
-      <Text typography="Body2Strong" mt="8px" numberOfLines={1}>
-        {name}
-      </Text>
-      <Text typography="Body2" mt="4px" color="text-subdued" numberOfLines={1}>
-        {price}
-      </Text>
-    </Pressable>
+    <>
+      <Pressable
+        style={{
+          marginHorizontal: isSmallScreen ? 4 : 12,
+          width: cardWidth,
+        }}
+        onPress={onPress}
+      >
+        <NFTListImage asset={asset} borderRadius="12px" size={cardWidth} />
+        <Box mt="8px" alignSelf="stretch">
+          <Text
+            typography={{ sm: 'Body2Strong', md: 'Body1Strong' }}
+            isTruncated
+          >
+            {name}
+          </Text>
+          {price ? (
+            <Text
+              typography="Body2"
+              mt="4px"
+              color="text-subdued"
+              numberOfLines={1}
+            >
+              {price}
+            </Text>
+          ) : null}
+        </Box>
+      </Pressable>
+    </>
   );
 };
 const AssetsList = ({
@@ -245,22 +248,28 @@ const AssetsList = ({
         }}
         asset={item}
         cardWidth={cardWidth}
-        margin={margin}
-        marginBottom={marginBottom}
       />
     ),
-    [cardWidth, handleSelectAsset, margin, marginBottom],
+    [cardWidth, handleSelectAsset],
   );
 
-  const paddingX = isSmallScreen ? 16 : 51;
   return (
     <Tabs.FlatList
-      contentContainerStyle={{ paddingLeft: paddingX, paddingRight: paddingX }}
       key={numColumns}
       numColumns={numColumns}
-      ListHeaderComponent={
-        ListHeaderComponent ?? <Box height={isSmallScreen ? '24px' : '32px'} />
-      }
+      ListHeaderComponent={ListHeaderComponent}
+      style={{
+        padding: isSmallScreen ? 16 : 32,
+      }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992,
+        alignSelf: 'center',
+      }}
+      columnWrapperStyle={{
+        marginHorizontal: isSmallScreen ? -4 : -12,
+        paddingBottom: isSmallScreen ? 16 : 24,
+      }}
       ListFooterComponent={() => {
         if (cursor.current !== null) {
           return (
