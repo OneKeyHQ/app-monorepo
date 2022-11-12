@@ -2,12 +2,11 @@ import React, { FC, useCallback, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { Column, Row } from 'native-base';
-import { ListRenderItem } from 'react-native';
+import { ListRenderItem, TouchableOpacity } from 'react-native';
 
 import {
   Box,
   CustomSkeleton,
-  Pressable,
   Skeleton,
   Text,
   useIsVerticalLayout,
@@ -107,7 +106,7 @@ export const AssetListCell: FC<{
 
   return (
     <>
-      <Pressable
+      <TouchableOpacity
         style={{
           marginHorizontal: isSmallScreen ? 4 : 12,
           width: cardWidth,
@@ -133,7 +132,7 @@ export const AssetListCell: FC<{
             </Text>
           ) : null}
         </Box>
-      </Pressable>
+      </TouchableOpacity>
     </>
   );
 };
