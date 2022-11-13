@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { Radio as BaseRadio, IBoxProps, IRadioProps } from 'native-base';
 
@@ -71,7 +71,6 @@ const Radio: FC<RadioProps> = ({
           borderRadius="full"
           borderColor="border-default"
           bg="surface-default"
-          // @ts-expect-error
           _hover={{
             _interactionBox: {
               bg: 'surface-hovered',
@@ -89,6 +88,7 @@ const Radio: FC<RadioProps> = ({
               bg: 'action-primary-focus',
             },
           }}
+          // @ts-expect-error
           _focusVisible={{
             _interactionBox: {
               bg: 'action-primary-focus',
