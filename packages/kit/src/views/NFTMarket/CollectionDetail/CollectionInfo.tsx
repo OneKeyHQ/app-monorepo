@@ -77,7 +77,7 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
         <CollectionLogo src={collection?.logoUrl} width="64px" height="64px" />
         <Box ml={{ base: '16px', md: '24px' }} maxW="576px">
           <Text typography="PageHeading" mb="4px" numberOfLines={1}>
-            {name}
+            {name || '–'}
           </Text>
           <Box mt="4px">
             <Hidden from="base" till="md">

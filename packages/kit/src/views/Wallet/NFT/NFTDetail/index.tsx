@@ -163,7 +163,10 @@ const NFTDetailModal: FC = () => {
         {platformEnv.isExtension || platformEnv.isNativeIOSPad ? (
           <Box overflow="hidden" mt="-16px" mr="-16px" ml="-16px">
             <Center position="absolute" top={0} right={0} bottom={0} left={0}>
-              <CollectibleContent asset={asset} size={360} />
+              <CollectibleContent
+                asset={asset}
+                size={platformEnv.isExtension ? 360 : 680}
+              />
             </Center>
             <BlurView
               tint={themeVariant === 'light' ? 'light' : 'dark'}
