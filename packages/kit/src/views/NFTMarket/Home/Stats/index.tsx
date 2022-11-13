@@ -39,7 +39,6 @@ const ListHeader: FC = () => {
   const defaultNetwork = useDefaultNetWork();
   const [selectedNetwork, setSelectedNetwork] =
     useState<Network>(defaultNetwork);
-  const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const setContext = useStatsListContext()?.setContext;
   const context = useStatsListContext()?.context;

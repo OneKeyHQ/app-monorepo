@@ -142,7 +142,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
   return (
     <Box
       position="relative"
-      w={{ base: 56, lg: 64 }}
+      w="224px"
       h="full"
       bg="surface-subdued"
       px={4}

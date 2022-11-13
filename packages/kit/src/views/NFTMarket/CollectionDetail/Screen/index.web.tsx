@@ -5,12 +5,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   HStack,
   Pressable,
   Text,
   useIsVerticalLayout,
-  useThemeValue,
 } from '@onekeyhq/components';
 
 import { HomeRoutes } from '../../../../routes/routesEnum';
@@ -38,52 +36,51 @@ const TabBar: FC<TabBarProps> = ({
   selectedIndex,
   onChange,
   ...ContainerProps
-}) => {
-  const activeColor = useThemeValue('text-default');
-  const inactiveColor = useThemeValue('text-subdued');
-
-  return (
-    <Box {...ContainerProps} w="100%" mt={{ base: '24px', md: '32px' }}>
-      <Box
-        h="1px"
-        position="absolute"
-        left={0}
-        bottom={0}
-        right={0}
-        bgColor="divider"
-      />
-      <HStack space="32px">
-        {items.map((item, index) => {
-          const isActive = index === selectedIndex;
-          return (
-            <Pressable
-              alignItems="center"
-              pt="16px"
-              pb="14px"
-              borderBottomWidth={2}
-              borderBottomColor={
-                isActive ? 'interactive-default' : 'transparent'
-              }
-              key={`${item.label}${index}`}
-              width={itemWidth}
-              onPress={() => {
-                onChange(index);
-              }}
-            >
+}) => (
+  <Box {...ContainerProps} w="100%" mt={{ base: '24px', md: '32px' }}>
+    <Box
+      h="1px"
+      position="absolute"
+      left={0}
+      bottom={0}
+      right={0}
+      bgColor="divider"
+    />
+    <HStack space="32px">
+      {items.map((item, index) => {
+        const isActive = index === selectedIndex;
+        return (
+          <Pressable
+            alignItems="center"
+            pt="16px"
+            pb="14px"
+            borderBottomWidth={2}
+            borderBottomColor={isActive ? 'interactive-default' : 'transparent'}
+            key={`${item.label}${index}`}
+            width={itemWidth}
+            onPress={() => {
+              onChange(index);
+            }}
+          >
+            {({ isHovered, isPressed }) => (
               <Text
                 typography="Body2Strong"
                 textAlign="center"
-                color={isActive ? activeColor : inactiveColor}
+                color={
+                  isActive || isHovered || isPressed
+                    ? 'text-default'
+                    : 'text-subdued'
+                }
               >
                 {item.title}
               </Text>
-            </Pressable>
-          );
-        })}
-      </HStack>
-    </Box>
-  );
-};
+            )}
+          </Pressable>
+        );
+      })}
+    </HStack>
+  </Box>
+);
 
 const AssetHeader = () => {
   const intl = useIntl();
