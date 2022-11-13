@@ -31,13 +31,13 @@ const FloatingContainer: FC<{
 }> = ({ onMaximize, onMinimize, onSearch }) => {
   const { tabs, currentTab } = useWebController();
   const hasTabs = tabs.length > 1;
-  const lastTabLength = useRef(hasTabs ? tabs.length : 1);
+  const lastTabsLength = useRef(tabs.length);
   const [containerHeight, setContainerHeight] = useState(0);
 
   useEffect(() => {
-    const newTabAdded = tabs.length > lastTabLength.current;
+    const newTabAdded = tabs.length > lastTabsLength.current;
+    lastTabsLength.current = tabs.length;
     if (newTabAdded && expandAnim.value === MIN_OR_HIDE) {
-      lastTabLength.current = tabs.length;
       setTimeout(() => {
         expandFloatingWindow(onMaximize);
       }, 100);

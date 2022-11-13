@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
 import { homeTab } from '../../../../store/reducers/webTabs';
@@ -10,6 +10,12 @@ import WebContent from '../Content/WebContent';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebController } from '../Controller/useWebController';
 import { setThumbnailRatio, tabViewShotRef } from '../explorerAnimation';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
 
 const WebTabFront = memo(() => {
   useNotifyChanges();
@@ -28,7 +34,7 @@ const WebTabFront = memo(() => {
 
   return (
     <ViewShot
-      style={{ flex: 1 }}
+      style={styles.container}
       ref={tabViewShotRef}
       onLayout={({
         nativeEvent: {
@@ -40,14 +46,12 @@ const WebTabFront = memo(() => {
     >
       {content}
       <View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          right: 0,
-          zIndex: showHome ? 1 : -1,
-        }}
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            zIndex: showHome ? 1 : -1,
+          },
+        ]}
       >
         <DiscoverHome
           onItemSelect={(dapp) => {
