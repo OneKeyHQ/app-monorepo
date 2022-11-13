@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
@@ -17,9 +17,10 @@ import { useWebController } from '../Controller/useWebController';
 const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
   const intl = useIntl();
 
+  const isProcessing = useRef(false);
   const { currentTab, stopLoading, reload } = useWebController();
   const getCurrentUrl = () => currentTab?.url ?? '';
-  const options: SelectItem<() => void>[] = [
+  const options = [
     {
       label: intl.formatMessage({
         id: 'action__refresh',
@@ -32,15 +33,17 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
         id: 'action__share',
       }),
       value: () => {
-        Share.share(
-          Platform.OS === 'ios'
-            ? {
-                url: getCurrentUrl(),
-              }
-            : {
-                message: getCurrentUrl(),
-              },
-        ).catch();
+        setTimeout(() => {
+          Share.share(
+            Platform.OS === 'ios'
+              ? {
+                  url: getCurrentUrl(),
+                }
+              : {
+                  message: getCurrentUrl(),
+                },
+          ).catch();
+        }, 100);
       },
       iconProps: { name: 'ShareOutline' },
     },
@@ -92,7 +95,16 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
       },
       iconProps: { name: 'HomeOutline' },
     },
-  ];
+  ].map((item) => ({
+    ...item,
+    value: () => {
+      if (isProcessing.current) return;
+      isProcessing.current = true;
+      item.value();
+      isProcessing.current = false;
+      onClose();
+    },
+  })) as SelectItem<() => void>[];
 
   return (
     <Select
@@ -100,10 +112,6 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
       dropdownPosition="right"
       title={intl.formatMessage({ id: 'select__options' })}
       onVisibleChange={onClose}
-      onChange={(v) => {
-        onClose();
-        setTimeout(v);
-      }}
       footer={null}
       activatable={false}
       triggerProps={{
