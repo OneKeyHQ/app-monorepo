@@ -102,7 +102,6 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
       isProcessing.current = true;
       item.value();
       isProcessing.current = false;
-      onClose();
     },
   })) as SelectItem<() => void>[];
 

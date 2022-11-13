@@ -1,13 +1,13 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import Box from '../Box';
 import { Text } from '../Typography';
 
-type Props = ComponentProps<typeof Text> & {
+interface Props extends ComponentProps<typeof Text> {
   text: string;
   startColor?: string;
   endColor?: string;
-};
+}
 const BalanceText: FC<Props> = ({
   text,
   startColor = 'text-default',
