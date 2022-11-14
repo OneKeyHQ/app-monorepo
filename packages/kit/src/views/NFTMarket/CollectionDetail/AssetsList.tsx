@@ -160,8 +160,6 @@ const AssetsList = ({
     ? screenWidth - 16 * 2
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224 - padding * 2);
 
-  console.log('pageWidth = ', pageWidth);
-
   const { cardWidth, numColumns } = useGridListLayout({
     maxCardWidth: 145,
     numColumns: 3,

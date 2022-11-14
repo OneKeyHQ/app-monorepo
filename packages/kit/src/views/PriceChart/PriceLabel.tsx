@@ -4,9 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Box, Icon, Typography } from '@onekeyhq/components';
 
-import { useSettings } from '../../hooks';
+import { FormatCurrencyNumber } from '../../components/Format';
 import { calculateGains } from '../../utils/priceUtils';
-import { formatMarketValueForInfo, getFiatCodeUnit } from '../Market/utils';
 
 type PriceLabelProps = {
   price: number | null;
@@ -47,17 +46,17 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
       </>
     );
   }
-  const { selectedFiatMoneySymbol } = useSettings();
+  // const { selectedFiatMoneySymbol } = useSettings();
   return (
     <Box flexDirection="column">
       <Typography.Subheading color="text-subdued">
         {priceLabel}
       </Typography.Subheading>
       <Typography.DisplayXLarge mt="4px" mb="4px">
-        {/* <FormatCurrencyNumber value={price || 0} /> */}
-        {`${getFiatCodeUnit(selectedFiatMoneySymbol)}${formatMarketValueForInfo(
+        <FormatCurrencyNumber value={price || 0} />
+        {/* {`${getFiatCodeUnit(selectedFiatMoneySymbol)}${formatMarketValueForInfo(
           price || 0,
-        )}`}
+        )}`} */}
       </Typography.DisplayXLarge>
       <Box flexDirection="row" alignItems="center">
         {displayInfo}

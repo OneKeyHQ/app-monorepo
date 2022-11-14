@@ -1,4 +1,7 @@
 import B from 'bignumber.js';
+import { uniq } from 'lodash';
+
+import { LocaleIds } from '@onekeyhq/components/src/locale';
 
 import {
   GoPlusAddressSecurity,
@@ -12,6 +15,159 @@ import {
 import { fetchData } from './token';
 
 type CheckItemFunc = (item: any) => boolean;
+
+type LocaleType = LocaleIds | [LocaleIds, any];
+
+// @ts-ignore
+export const tokenSecurityRiskItems: Record<
+  keyof GoPlusTokenSecurity,
+  {
+    safe?: [LocaleType, LocaleType];
+    warn?: [LocaleType, LocaleType];
+    danger?: [LocaleType, LocaleType];
+  }
+> = {
+  'trust_list': {
+    safe: ['form__trusted_token', 'form__trusted_token_desc'],
+  },
+  'is_open_source': {
+    safe: ['form__source_code_verified', 'form__source_code_verified_desc'],
+    danger: [
+      'form__source_code_not_verified',
+      'form__source_code_not_verified_desc',
+    ],
+  },
+  'is_proxy': {
+    safe: ['form__no_proxy', 'form__no_proxy_desc'],
+    danger: ['form__proxy_contract_found', 'form__proxy_contract_found_desc'],
+  },
+  'can_take_back_ownership': {
+    safe: [
+      'form__ownership_cannot_be_taken_back',
+      'form__ownership_cannot_be_taken_back_desc',
+    ],
+    danger: [
+      'form__ownership_can_be_taken_back',
+      'form__ownership_can_be_taken_back_desc',
+    ],
+  },
+  'owner_change_balance': {
+    safe: [
+      'form__owner_cant_change_balance',
+      'form__owner_cant_change_balance_desc',
+    ],
+    danger: [
+      'form__owner_can_change_balance',
+      'form__owner_can_change_balance_desc',
+    ],
+  },
+  'hidden_owner': {
+    safe: ['form__no_hidden_owner', 'form__no_hidden_owner_desc'],
+    danger: ['form__hidden_owner', 'form__hidden_owner_desc'],
+  },
+  'selfdestruct': {
+    safe: ['form__can_not_self_destruct', 'form__can_not_self_destruct_desc'],
+    danger: ['form__can_self_destruct', 'form__can_self_destruct_desc'],
+  },
+  'external_call': {
+    safe: [
+      'form__no_external_call_risk_found',
+      'form__no_external_call_risk_found_desc',
+    ],
+    danger: ['form__external_call_risk', 'form__external_call_risk_desc'],
+  },
+  'is_honeypot': {
+    safe: [
+      'form__not_appear_to_be_a_honeypot',
+      'form__not_appear_to_be_a_honeypot_desc',
+    ],
+    danger: ['form__honeypot', 'form__honeypot_desc'],
+  },
+  'transfer_pausable': {
+    safe: [
+      'form__no_codes_found_to_suspend_trading',
+      'form__no_codes_found_to_suspend_trading_desc',
+    ],
+    danger: ['form__pausable_transfer', 'form__pausable_transfer_desc'],
+  },
+  'cannot_sell_all': {
+    safe: [
+      'form__can_sell_all_of_the_token',
+      'form__can_sell_all_of_the_token_desc',
+    ],
+    danger: ['form__can_not_sell_all', 'form__can_not_sell_all_desc'],
+  },
+  'cannot_buy': {
+    safe: ['form__can_be_bought', 'form__can_be_bought_desc'],
+    danger: ['form__can_not_be_bought', 'form__can_not_be_bought_desc'],
+  },
+  'trading_cooldown': {
+    safe: [
+      'form__no_trading_cooldown_function',
+      'form__no_trading_cooldown_function_desc',
+    ],
+    danger: [
+      'form__trading_with_cooldown_time',
+      'form__trading_with_cooldown_time_desc',
+    ],
+  },
+  'is_anti_whale': {
+    safe: ['form__no_anti_whale', 'form__no_anti_whale_desc'],
+    danger: ['form__anti_whale', 'form__anti_whale_desc'],
+  },
+  'slippage_modifiable': {
+    safe: [
+      'form__tax_can_not_be_modified',
+      'form__tax_can_not_be_modified_desc',
+    ],
+    danger: ['form__modifiable_tax', 'form__modifiable_tax_desc'],
+  },
+  'is_blacklisted': {
+    safe: ['form__no_blacklist', 'form__no_blacklist_desc'],
+    danger: ['form__blacklist_included', 'form__blacklist_included_desc'],
+  },
+  'is_whitelisted': {
+    safe: ['form__no_whitelist', 'form__no_whitelist_desc'],
+    danger: ['form__whitelist_included', 'form__whitelist_included_desc'],
+  },
+  'personal_slippage_modifiable': {
+    safe: [
+      'form__no_tax_changes_found_for_personal_addresses',
+      'form__no_tax_changes_found_for_personal_addresses_desc',
+    ],
+    danger: [
+      'form__assinged_address_slippage_is_modifiable',
+      'form__assinged_address_slippage_is_modifiable_desc',
+    ],
+  },
+  'is_true_token': {
+    danger: ['form__airdrop_scam', 'form__airdrop_scam_desc'],
+  },
+  'is_airdrop_scam': {
+    danger: ['form__airdrop_scam', 'form__airdrop_scam_desc'],
+  },
+  'buy_tax': {
+    danger: [
+      'form__too_much_buy_tax',
+      ['form__too_much_buy_tax_desc', { 0: '50%' }],
+    ],
+    warn: ['form__high_buy_tax', ['form__high_buy_tax_desc', { 0: '10%' }]],
+  },
+  'sell_tax': {
+    danger: [
+      'form__too_much_sell_tax',
+      ['form__too_much_sell_tax_desc', { 0: '50%' }],
+    ],
+    warn: ['form__high_sell_tax', ['form__high_sell_tax_desc', { 0: '10%' }]],
+  },
+  'is_mintable': {
+    warn: [
+      'form__token_can_be_issued_additionall',
+      'form__token_can_be_issued_additionall_desc',
+    ],
+    safe: ['form__no_additional_issuance', 'form__no_additional_issuance_desc'],
+  },
+} as const;
 
 export type CheckParams = {
   networkId: string;
@@ -34,7 +190,6 @@ export const warnItems: [keyof GoPlusTokenSecurity, CheckItemFunc][] = [
   ['is_proxy', (data) => data === '1'],
   ['is_mintable', (data) => data === '1'],
   ['can_take_back_ownership', (data) => data === '1'],
-  ['owner_change_balance', (data) => data === '1'],
   ['hidden_owner', (data) => data === '1'],
   ['external_call', (data) => data === '1'],
   [
@@ -63,14 +218,14 @@ export const warnItems: [keyof GoPlusTokenSecurity, CheckItemFunc][] = [
 ];
 
 export const safeItems: [keyof GoPlusTokenSecurity, CheckItemFunc][] = [
-  ['trust_list', (data) => data !== '0'],
-  ['is_open_source', (data) => data !== '0'],
-  ['is_proxy', (data) => data !== '0'],
-  ['can_take_back_ownership', (data) => data !== '0'],
-  ['owner_change_balance', (data) => data !== '0'],
-  ['hidden_owner', (data) => data !== '0'],
-  ['external_call', (data) => data !== '0'],
-  ['selfdestruct', (data) => data !== '0'],
+  ['trust_list', (data) => data === '1'],
+  ['is_open_source', (data) => data === '1'],
+  ['is_proxy', (data) => data === '0'],
+  ['can_take_back_ownership', (data) => data === '0'],
+  ['owner_change_balance', (data) => data === '0'],
+  ['hidden_owner', (data) => data === '0'],
+  ['external_call', (data) => data === '0'],
+  ['selfdestruct', (data) => data === '0'],
   ...warnItems.map(
     ([k, v]) =>
       [k, (data) => !v(data)] as [keyof GoPlusTokenSecurity, CheckItemFunc],
@@ -128,8 +283,18 @@ export const getTokenRiskyItems = async (params: CheckParams) => {
       hasSecurity: false,
     };
   }
-  const res = [safeItems, dangerItems, warnItems].map((items) =>
-    items.filter(([k, func]) => func(info?.[k])).map(([k]) => k),
+  const res = [
+    {
+      localeKey: 'safe',
+      items: safeItems,
+    },
+    { localeKey: 'danger', items: dangerItems },
+    { localeKey: 'warn', items: warnItems },
+  ].map(({ localeKey, items }) =>
+    uniq(items.filter(([k, func]) => func(info?.[k])).map(([k]) => k)).filter(
+      // @ts-ignore
+      (item) => localeKey !== 'safe' || tokenSecurityRiskItems[item][localeKey],
+    ),
   );
 
   if (isTrustToken(info)) {
@@ -153,7 +318,9 @@ export const getAddressRiskyItems = async (params: CheckParams) => {
   if (!info) {
     return [];
   }
-  return addressItems.filter(([k, func]) => func(info?.[k])).map(([k]) => k);
+  return uniq(
+    addressItems.filter(([k, func]) => func(info?.[k])).map(([k]) => k),
+  );
 };
 
 export const getSiteRiskyItems = (
@@ -162,7 +329,9 @@ export const getSiteRiskyItems = (
   if (!info) {
     return [];
   }
-  return dappDangerItems.filter(([k, func]) => func(info?.[k])).map(([k]) => k);
+  return uniq(
+    dappDangerItems.filter(([k, func]) => func(info?.[k])).map(([k]) => k),
+  );
 };
 
 export const checkSite = async (

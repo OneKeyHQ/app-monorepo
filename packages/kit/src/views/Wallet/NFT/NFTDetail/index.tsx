@@ -8,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import {
   Box,
   Button,
+  Center,
   CustomSkeleton,
   HStack,
   Icon,
@@ -60,6 +61,17 @@ type Props = {
   content: JSX.Element | null;
 };
 
+function isImage(contentType?: string | null) {
+  if (
+    contentType === 'image/jpeg' ||
+    contentType === 'image/jpg' ||
+    contentType === 'image/png'
+  ) {
+    return true;
+  }
+  return false;
+}
+
 const NFTDetailModal: FC = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -82,6 +94,9 @@ const NFTDetailModal: FC = () => {
   const [asset, updateAsset] = useState(outerAsset);
   const { serviceNFT } = backgroundApiProxy;
 
+  const hasBlurViewBG =
+    isImage(asset.contentType) ||
+    (asset.nftscanUri && asset.nftscanUri?.length > 0);
   useEffect(() => {
     (async () => {
       if (network.id) {
@@ -159,14 +174,17 @@ const NFTDetailModal: FC = () => {
     imageContent: (
       <>
         {/* eslint-disable-next-line no-nested-ternary */}
-        {platformEnv.isExtension || platformEnv.isNativeIOSPad ? (
+        {(isSmallScreen && platformEnv.isExtension) ||
+        platformEnv.isNativeIOSPad ? (
           <Box overflow="hidden" mt="-16px" mr="-16px" ml="-16px">
-            {/* <Center position="absolute" top={0} right={0} bottom={0} left={0}>
-              <CollectibleContent
-                asset={asset}
-                size={platformEnv.isExtension ? 360 : 680}
-              />
-            </Center> */}
+            {hasBlurViewBG && (
+              <Center position="absolute" top={0} right={0} bottom={0} left={0}>
+                <CollectibleContent
+                  asset={asset}
+                  size={platformEnv.isExtension ? 360 : 680}
+                />
+              </Center>
+            )}
             <BlurView
               tint={themeVariant === 'light' ? 'light' : 'dark'}
               intensity={100}
@@ -187,9 +205,14 @@ const NFTDetailModal: FC = () => {
             mr="24px"
             overflow="hidden"
           >
-            {/* <Center position="absolute" top={0} right={0} bottom={0} left={0}>
-              <CollectibleContent asset={asset} size={592} />
-            </Center> */}
+            {hasBlurViewBG && (
+              <Center position="absolute" top={0} right={0} bottom={0} left={0}>
+                <CollectibleContent
+                  asset={asset}
+                  size={platformEnv.isExtension ? 360 : 680}
+                />
+              </Center>
+            )}
             <BlurView
               tint={themeVariant === 'light' ? 'light' : 'dark'}
               intensity={100}

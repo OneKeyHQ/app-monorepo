@@ -32,6 +32,7 @@ import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import { ListHeadTagType } from '../../types';
 import {
+  formatDecimalZero,
   formatMarketValueForComma,
   formatMarketValueForInfo,
   formatMarketVolatility,
@@ -235,7 +236,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                 text={{
                   label: `${getFiatCodeUnit(selectedFiatMoneySymbol)}${
                     marketTokenItem.price <= 1
-                      ? formatMarketValueForInfo(marketTokenItem.price)
+                      ? formatDecimalZero(marketTokenItem.price)
                       : formatMarketValueForComma(marketTokenItem.price)
                   }`,
                   labelProps: { textAlign: tag.textAlign },
