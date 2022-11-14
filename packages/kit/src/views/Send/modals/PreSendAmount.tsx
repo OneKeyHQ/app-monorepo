@@ -1,8 +1,14 @@
-import React, { isValidElement, useCallback, useMemo, useState } from 'react';
+import React, {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { MessageDescriptor, useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -18,6 +24,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { Message } from '@onekeyhq/engine/src/types/message';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -178,8 +185,41 @@ function PreSendAmount() {
     return [true, false];
   }, [minAmountBN, amount]);
 
+  const [invalidAmountError, setInvalidAmountError] = useState<{
+    key: MessageDescriptor['id'];
+    info: any;
+  } | null>(null);
+  const validateAmount = useCallback(async () => {
+    if (!minAmountValidationPassed) {
+      return {
+        result: true,
+        errorInfo: null,
+      };
+    }
+    console.log('useCallback validateAmount call');
+    try {
+      await engine.validateSendAmount(accountId, networkId, amount);
+      return { result: true, errorInfo: null };
+    } catch (error: any) {
+      const { key, info } = error;
+      return {
+        result: false,
+        errorInfo: { key: key as MessageDescriptor['id'], info },
+      };
+    }
+  }, [accountId, networkId, amount, engine, minAmountValidationPassed]);
+  useEffect(() => {
+    console.log('useEffect validFunc call 222222');
+    const validFunc = async () => {
+      const { result, errorInfo } = await validateAmount();
+      setInvalidAmountError(result ? null : errorInfo);
+    };
+    validFunc();
+  }, [validateAmount]);
+
   const desc = useMemo(
     () =>
+      // eslint-disable-next-line no-nested-ternary
       minAmountNoticeNeeded ? (
         <Typography.Body1Strong color="text-critical">
           {intl.formatMessage(
@@ -187,8 +227,21 @@ function PreSendAmount() {
             { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
           )}
         </Typography.Body1Strong>
+      ) : invalidAmountError ? (
+        <Typography.Body1Strong color="text-critical">
+          {intl.formatMessage(
+            { id: invalidAmountError.key },
+            { ...invalidAmountError.info },
+          )}
+        </Typography.Body1Strong>
       ) : undefined,
-    [intl, minAmountBN, minAmountNoticeNeeded, tokenInfo?.symbol],
+    [
+      intl,
+      minAmountBN,
+      minAmountNoticeNeeded,
+      tokenInfo?.symbol,
+      invalidAmountError,
+    ],
   );
 
   const {

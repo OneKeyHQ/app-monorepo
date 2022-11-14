@@ -9,7 +9,11 @@ import * as XRPL from 'xrpl';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { InvalidAddress, OneKeyInternalError } from '../../../errors';
+import {
+  InvalidAddress,
+  InvalidTransferValue,
+  OneKeyInternalError,
+} from '../../../errors';
 import { DBSimpleAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
@@ -410,5 +414,12 @@ export default class Vault extends VaultBase {
     );
 
     return result;
+  }
+
+  override validateSendAmount(amount: string): Promise<boolean> {
+    throw new InvalidTransferValue('form__amount_recipient_activate', {
+      amount: '10',
+      unit: 'XRP',
+    });
   }
 }

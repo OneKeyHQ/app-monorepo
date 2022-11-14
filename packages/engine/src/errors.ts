@@ -244,6 +244,11 @@ export class InvalidTokenAddress extends OneKeyError {
 
 export class InvalidTransferValue extends OneKeyError {
   override key = 'msg__engine__incorrect_transfer_value';
+
+  constructor(key?: string, info?: IOneKeyErrorInfo) {
+    super('Invalid Transfer Value', info);
+    this.key = key ?? 'msg__engine__incorrect_transfer_value';
+  }
 }
 
 export class InsufficientBalance extends OneKeyError {

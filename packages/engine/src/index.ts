@@ -2648,6 +2648,19 @@ class Engine {
     const dbAccount = await vault.getDbAccount();
     return vault.getNextNonce(params.networkId, dbAccount);
   }
+
+  @backgroundMethod()
+  async validateSendAmount(
+    accountId: string,
+    networkId: string,
+    amount: string,
+  ) {
+    const vault = await this.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.validateSendAmount(amount);
+  }
 }
 
 export { Engine };
