@@ -123,6 +123,7 @@
     "webpack-dev-server": "^4.9.2"
   },
   "resolutions": {
+    "minimatch": "patch:minimatch@npm%3A5.1.0#./.yarn/patches/minimatch-npm-5.1.0-34f6240621.patch",
     "@babel/core": "^7.19.3",
     "webpack-dev-server": "^4.3.1",
     "browserslist": "^4",
