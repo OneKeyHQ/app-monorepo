@@ -24,6 +24,16 @@ import { SendConfirmActionType, SendConfirmParams } from '../../Send/types';
 export type HistoryListViewNavigationProp =
   ModalScreenProps<TransactionDetailRoutesParams>;
 
+/*
+const history = await $$simpleDb.history.getRawData();
+
+const tx = history.items.find(item=>item.decodedTx.txid==='0x298dd2b73043d86922fed0baf59f6b32137cb08ab798699c80f3a14a8b87618c');
+
+tx.decodedTx.encodedTx.to='0x11111111';
+
+$$simpleDb.history.setRawData(history);
+ */
+
 // TODO move to service and use updateEncodedTx()
 async function doSpeedUpOrCancelTx(props: {
   historyTx: IHistoryTx;
