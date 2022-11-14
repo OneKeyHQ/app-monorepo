@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
 import { useRuntime } from '../../../hooks/redux';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
@@ -50,13 +49,16 @@ type FooterProps = {
   numColumns: number;
   marginBottom: number;
 };
+
+const MAX_PAGE_CONTAINER_WIDTH = 992;
+
 const Footer: FC<FooterProps> = ({
   numColumns,
   margin,
   cardWidth,
   marginBottom,
 }) => {
-  const numRows = 4;
+  const numRows = 2;
 
   const rowArray = new Array(numRows).fill(0);
   const colArray = new Array(numColumns).fill(0);
@@ -151,11 +153,14 @@ const AssetsList = ({
   const cursor = useRef<string | undefined>();
   const { serviceNFT } = backgroundApiProxy;
 
+  const padding = isSmallScreen ? 16 : 32;
   const marginBottom = isSmallScreen ? 16 : 24;
   const margin = isSmallScreen ? 8 : 24;
   const pageWidth = isSmallScreen
     ? screenWidth - 16 * 2
-    : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224) - 51 * 2;
+    : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224 - padding * 2);
+
+  console.log('pageWidth = ', pageWidth);
 
   const { cardWidth, numColumns } = useGridListLayout({
     maxCardWidth: 145,
@@ -258,11 +263,11 @@ const AssetsList = ({
       numColumns={numColumns}
       ListHeaderComponent={ListHeaderComponent}
       style={{
-        padding: isSmallScreen ? 16 : 32,
+        padding,
       }}
       contentContainerStyle={{
         width: '100%',
-        maxWidth: 992,
+        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         alignSelf: 'center',
       }}
       columnWrapperStyle={{

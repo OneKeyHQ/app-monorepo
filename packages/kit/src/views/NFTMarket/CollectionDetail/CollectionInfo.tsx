@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Box, Hidden, Text, useIsVerticalLayout } from '@onekeyhq/components';
 
 import CollectionLogo from '../CollectionLogo';
+import { PriceString } from '../PriceText';
 
 import { useCollectionDetailContext } from './context';
 
@@ -35,7 +36,11 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
         key: intl.formatMessage({
           id: 'content__floor',
         }),
-        value: collection?.floorPrice,
+        value: PriceString({
+          price: collection?.floorPrice,
+          symbol: collection?.priceSymbol,
+          networkId: context?.networkId,
+        }),
       },
       {
         key: intl.formatMessage({
@@ -50,7 +55,11 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
           },
           { 0: 24 },
         ),
-        value: collection?.volume24h,
+        value: PriceString({
+          price: collection?.volume24h,
+          symbol: collection?.priceSymbol,
+          networkId: context?.networkId,
+        }),
       },
     ],
     [
@@ -58,7 +67,9 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
       collection?.floorPrice,
       collection?.itemsTotal,
       collection?.ownersTotal,
+      collection?.priceSymbol,
       collection?.volume24h,
+      context?.networkId,
       intl,
       isVerticalLayout,
     ],

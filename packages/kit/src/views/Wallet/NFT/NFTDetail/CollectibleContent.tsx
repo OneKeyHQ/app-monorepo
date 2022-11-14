@@ -26,7 +26,6 @@ export type Props = {
 };
 
 const CollectibleContent: FC<Props> = ({ asset, size }) => {
-  const { componentType } = useUniqueToken(asset);
   const { screenWidth } = useUserDevice();
   const isSmallScreen = useIsVerticalLayout();
 
@@ -36,6 +35,20 @@ const CollectibleContent: FC<Props> = ({ asset, size }) => {
       ? 176
       : screenWidth - 32
     : 288;
+
+  if (asset.nftscanUri && asset.nftscanUri.length > 0) {
+    <NFTListImage
+      url={asset.nftscanUri}
+      asset={asset}
+      thumbnail={false}
+      size={size || imageWidth}
+      skeleton
+      borderRadius="12px"
+      resizeMode="cover"
+      shadow="depth.5"
+    />;
+  }
+  const { componentType } = useUniqueToken(asset);
   const uri = getContentWithAsset(asset);
 
   if (uri) {
