@@ -7,6 +7,9 @@ export interface IEncodedTxXrp {
   Amount: string;
   Destination: string;
   DestinationTag?: number;
+  Flags?: number;
+  Sequence?: number;
+  LastLedgerSequence?: number;
 }
 
 interface ResponseOnlyTxInfo {

@@ -1,3 +1,9 @@
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { hashes } from 'xrpl';
+
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -9,6 +15,8 @@ import {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
+
+import { IEncodedTxXrp } from './types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
@@ -45,7 +53,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of response.payload) {
       const { address, path, publicKey } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `APT #${indexes[index] + 1}`;
+        const name = (names || [])[index] || `XRP #${indexes[index] + 1}`;
         ret.push({
           id: `${this.walletId}--${path}`,
           name,
@@ -76,6 +84,45 @@ export class KeyringHardware extends KeyringHardwareBase {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return response.payload.address;
     }
+    throw deviceUtils.convertDeviceError(response.payload);
+  }
+
+  override async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+    debugLogger.common.info('signTransaction', unsignedTx);
+    const { payload } = unsignedTx;
+    const encodedTx = payload.encodedTx as IEncodedTxXrp;
+    const dbAccount = await this.getDbAccount();
+    const params = {
+      path: dbAccount.path,
+      transaction: {
+        fee: encodedTx.Fee,
+        flags: encodedTx.Flags,
+        sequence: encodedTx.Sequence,
+        maxLedgerVersion: encodedTx.LastLedgerSequence,
+        payment: {
+          amount: +encodedTx.Amount,
+          destination: encodedTx.Destination,
+        },
+      },
+    };
+
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const response = await HardwareSDK.xrpSignTransaction(connectId, deviceId, {
+      ...passphraseState,
+      ...(params as unknown as any),
+    });
+
+    if (response.success) {
+      const { serializedTx } = response.payload;
+      return {
+        txid: hashes.hashSignedTx(serializedTx),
+        rawTx: serializedTx,
+      };
+    }
+
     throw deviceUtils.convertDeviceError(response.payload);
   }
 }

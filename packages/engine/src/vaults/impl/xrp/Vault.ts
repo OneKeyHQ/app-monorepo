@@ -189,11 +189,13 @@ export default class Vault extends VaultBase {
     const { to, amount } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const client = await this.getClient();
+    const currentLedgerIndex = await client.getLedgerIndex();
     const prepared = await client.autofill({
       TransactionType: 'Payment',
       Account: dbAccount.address,
       Amount: XRPL.xrpToDrops(amount),
       Destination: to,
+      LastLedgerSequence: currentLedgerIndex + 50,
     });
     return {
       ...prepared,
