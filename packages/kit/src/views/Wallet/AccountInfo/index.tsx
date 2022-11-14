@@ -59,6 +59,7 @@ const AccountAmountInfo: FC = () => {
     accountId: account?.address,
     networkId: network?.id,
   });
+
   const { accountTokens, prices, balances, charts } = useManageTokens({
     pollingInterval: 15000,
   });
@@ -82,9 +83,8 @@ const AccountAmountInfo: FC = () => {
           <Typography.Display2XLarge>
             <FormatCurrencyNumber
               decimals={2}
-              value={
-                includeNFTsInTotal ? displayValue + nftPrice : displayValue
-              }
+              value={displayValue}
+              convertValue={includeNFTsInTotal ? nftPrice : null}
             />
           </Typography.Display2XLarge>
           <IconButton
