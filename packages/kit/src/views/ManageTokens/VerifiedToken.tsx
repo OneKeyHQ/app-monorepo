@@ -18,7 +18,6 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { safeItems } from '@onekeyhq/engine/src/managers/goplus';
 import { TokenSource } from '@onekeyhq/engine/src/managers/token';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 
