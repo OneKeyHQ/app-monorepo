@@ -419,6 +419,7 @@ export type IDecodedTx = {
   extraInfo: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
 
   encodedTx?: IEncodedTx;
+  encodedTxEncrypted?: string;
   payload?: any;
 
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
