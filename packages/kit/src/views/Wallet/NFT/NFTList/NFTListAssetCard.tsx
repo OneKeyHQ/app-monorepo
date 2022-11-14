@@ -80,7 +80,11 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         </Text>
         {latestTradePrice ? (
           <Text typography="Body2" height="20px" color="text-subdued">
-            <FormatCurrencyNumber decimals={2} value={value > 0 ? value : ''} />
+            <FormatCurrencyNumber
+              value={0}
+              decimals={2}
+              convertValue={value > 0 ? value : ''}
+            />
           </Text>
         ) : (
           <Box height="20px" />
