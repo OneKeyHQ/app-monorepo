@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 تم استلام {assets}",
   "msg__received_a_nft": "🤑 حصل على NFT",
   "msg__received_desc": "من {address}",
-  "msg__recipient_cannot_send_to_myself": "لا أستطيع أن أرسل إلى نفسي",
   "msg__recipient_hasnt_activated_str": "فشل إرسال. لم ينشط المستلم {0}",
   "msg__recover_account_progress": "{0} تم استرداد الحسابات. {1} الإجماليات",
   "msg__recover_account_stopping": "جاري إيقاف الاسترداد ، يرجى الانتظار ...",

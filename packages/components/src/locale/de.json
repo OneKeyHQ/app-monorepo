@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 {assets} erhalten",
   "msg__received_a_nft": "🤑 NFT erhalten",
   "msg__received_desc": "Von {address}",
-  "msg__recipient_cannot_send_to_myself": "Kann nicht an mich selbst senden",
   "msg__recipient_hasnt_activated_str": "Senden fehlgeschlagen. Der Empfänger hat {0} nicht aktiviert",
   "msg__recover_account_progress": "{0} Konten wurden wiederhergestellt. {1} Summen",
   "msg__recover_account_stopping": "Wiederherstellung wird gestoppt, bitte warten...",

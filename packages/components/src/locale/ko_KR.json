@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 {assets} 을 받았습니다.",
   "msg__received_a_nft": "🤑 NFT 접수",
   "msg__received_desc": "{address} 에서",
-  "msg__recipient_cannot_send_to_myself": "나 자신에게 보낼 수 없음",
   "msg__recipient_hasnt_activated_str": "보내기에 실패했습니다. 받는 사람이 {0} 을(를) 활성화하지 않았습니다.",
   "msg__recover_account_progress": "{0} 계정이 복구되었습니다. 총계 {1}",
   "msg__recover_account_stopping": "복구를 중지하는 중입니다. 잠시만 기다려 주십시오...",

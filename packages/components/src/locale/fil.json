@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 Nakatanggap ng {assets}",
   "msg__received_a_nft": "🤑 Nakatanggap ng NFT",
   "msg__received_desc": "Mula {address}",
-  "msg__recipient_cannot_send_to_myself": "Hindi maipadala sa sarili ko",
   "msg__recipient_hasnt_activated_str": "Nabigo ang Pagpapadala. Hindi pa na-activate ng tatanggap ang {0}",
   "msg__recover_account_progress": "{0} Nabawi ang mga account. {1} mga kabuuan",
   "msg__recover_account_stopping": "Huminto sa pagbawi, mangyaring maghintay...",

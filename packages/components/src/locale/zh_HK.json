@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 收到{assets}",
   "msg__received_a_nft": "🤑 收到 NFT",
   "msg__received_desc": "來自{address}",
-  "msg__recipient_cannot_send_to_myself": "無法發送給自己",
   "msg__recipient_hasnt_activated_str": "發送失敗。收款方尚未激活 {0}",
   "msg__recover_account_progress": "{0} 帳戶已恢復。 {1} 總計",
   "msg__recover_account_stopping": "正在停止恢復，請稍候...",

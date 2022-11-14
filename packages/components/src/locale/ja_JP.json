@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 {assets}受信済み",
   "msg__received_a_nft": "🤑NFTを受け取りました",
   "msg__received_desc": "{address}から",
-  "msg__recipient_cannot_send_to_myself": "自分宛に送信できない",
   "msg__recipient_hasnt_activated_str": "送信失敗。受信者はアクティブ化されていない{0}",
   "msg__recover_account_progress": "{0}アカウントが復元された。合計で {1}",
   "msg__recover_account_stopping": "回復を停止している。お待ちください...",

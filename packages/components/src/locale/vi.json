@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 Đã nhận {assets}",
   "msg__received_a_nft": "🤑 Đã nhận được một NFT",
   "msg__received_desc": "Từ {address}",
-  "msg__recipient_cannot_send_to_myself": "Không thể gửi cho chính tôi",
   "msg__recipient_hasnt_activated_str": "Gửi thất bại. Người nhận chưa kích hoạt {0}",
   "msg__recover_account_progress": "{0} Các tài khoản đã được phục hồi. {1} tổng số",
   "msg__recover_account_stopping": "Đang dừng khôi phục, vui lòng đợi ...",

@@ -1338,7 +1338,6 @@
   "msg__received": "🤑 Отримано {assets}",
   "msg__received_a_nft": "🤑 Отримав NFT",
   "msg__received_desc": "З {address}",
-  "msg__recipient_cannot_send_to_myself": "Не можу надіслати собі",
   "msg__recipient_hasnt_activated_str": "Не вдалося надіслати. Одержувач не активував {0}",
   "msg__recover_account_progress": "Облікові записи {0} ) відновлено. {1}",
   "msg__recover_account_stopping": "Припинення відновлення, зачекайте...",
