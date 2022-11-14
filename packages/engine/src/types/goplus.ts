@@ -220,3 +220,60 @@ export enum GoPlusSupportApis {
   input_decode = 'input_decode',
   nft_security = 'nft_security',
 }
+
+export interface GoPlusDappSecurity {
+  chainId: string;
+  phishing: GoPlusPhishing;
+  dappSecurity: DappSecurity;
+}
+
+interface DappSecurity {
+  project_name: string;
+  url: string;
+  is_audit: number;
+  audit_info: Auditinfo[];
+  contracts_security: ContractSecurity[];
+}
+interface Auditinfo {
+  audit_time: string;
+  audit_link: string;
+  audit_firm: string;
+}
+export interface GoPlusPhishing {
+  phishing_site: number;
+  website_contract_security: Websitecontractsecurity[];
+}
+interface Websitecontractsecurity {
+  contract: string;
+  standard?: string;
+  is_contract: number;
+  is_open_source: number;
+  nft_risk?: Nftrisk;
+  address_risk: any[];
+}
+interface Nftrisk {
+  nft_open_source: number;
+  privileged_minting: Privilegedminting;
+  oversupply_minting?: any;
+  nft_proxy: number;
+  restricted_approval: number;
+  transfer_without_approval: Privilegedminting;
+  privileged_burn: Privilegedminting;
+  self_destruct: Privilegedminting;
+}
+
+interface ContractSecurity {
+  chain_id: number;
+  contracts: GoPlusDappContract[];
+}
+
+export interface GoPlusDappContract {
+  contract_address: string;
+  is_open_source: number;
+  creator_address: string;
+  malicious_contract: number;
+  malicious_behavior: any[];
+  deployment_time: number;
+  malicious_creator: number;
+  malicious_creator_behavior: any[];
+}
