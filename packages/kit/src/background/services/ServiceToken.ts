@@ -393,8 +393,8 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getSiteSecurityInfo(url: string) {
-    return checkSite(url);
+  async getSiteSecurityInfo(url: string, chainId: string) {
+    return checkSite(url, chainId);
   }
 
   @backgroundMethod()

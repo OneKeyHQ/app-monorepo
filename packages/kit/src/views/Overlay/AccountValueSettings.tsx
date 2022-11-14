@@ -16,6 +16,7 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import {
+  setHideRiskTokens,
   setHideSmallBalance,
   setIncludeNFTsInTotal,
 } from '../../store/reducers/settings';
@@ -80,7 +81,14 @@ const SettingRow: FC<{
   borderTopRadius?: number | string;
   borderBottomRadius?: number | string;
   borderTopWidth?: number | string;
-}> = ({ children, borderTopRadius, borderBottomRadius, borderTopWidth }) => {
+  mt?: number | string;
+}> = ({
+  children,
+  borderTopRadius,
+  borderBottomRadius,
+  borderTopWidth,
+  mt,
+}) => {
   const { themeVariant } = useTheme();
   return (
     <Box
@@ -95,6 +103,7 @@ const SettingRow: FC<{
       justifyContent="space-between"
       flexDirection="row"
       alignItems="center"
+      mt={mt}
     >
       {children}
     </Box>
@@ -104,19 +113,34 @@ const SettingRow: FC<{
 const HomeBalanceSettings: FC = () => {
   const intl = useIntl();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
   return (
-    <SettingRow>
-      <Typography.Body1Strong>
-        {intl.formatMessage({ id: 'form__hide_small_balance' })}
-      </Typography.Body1Strong>
-      <Switch
-        labelType="false"
-        isChecked={hideSmallBalance}
-        onToggle={() =>
-          backgroundApiProxy.dispatch(setHideSmallBalance(!hideSmallBalance))
-        }
-      />
-    </SettingRow>
+    <>
+      <SettingRow>
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'form__hide_small_balance' })}
+        </Typography.Body1Strong>
+        <Switch
+          labelType="false"
+          isChecked={hideSmallBalance}
+          onToggle={() =>
+            backgroundApiProxy.dispatch(setHideSmallBalance(!hideSmallBalance))
+          }
+        />
+      </SettingRow>
+      <SettingRow mt="4">
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'form__hide_risk_tokens' })}
+        </Typography.Body1Strong>
+        <Switch
+          labelType="false"
+          isChecked={hideRiskTokens}
+          onToggle={() =>
+            backgroundApiProxy.dispatch(setHideRiskTokens(!hideRiskTokens))
+          }
+        />
+      </SettingRow>
+    </>
   );
 };
 export const showHomeBalanceSettings = () =>

@@ -8,7 +8,6 @@ import { StyleSheet } from 'react-native';
 import {
   Box,
   Button,
-  Center,
   CustomSkeleton,
   HStack,
   Icon,
@@ -162,12 +161,12 @@ const NFTDetailModal: FC = () => {
         {/* eslint-disable-next-line no-nested-ternary */}
         {platformEnv.isExtension || platformEnv.isNativeIOSPad ? (
           <Box overflow="hidden" mt="-16px" mr="-16px" ml="-16px">
-            <Center position="absolute" top={0} right={0} bottom={0} left={0}>
+            {/* <Center position="absolute" top={0} right={0} bottom={0} left={0}>
               <CollectibleContent
                 asset={asset}
                 size={platformEnv.isExtension ? 360 : 680}
               />
-            </Center>
+            </Center> */}
             <BlurView
               tint={themeVariant === 'light' ? 'light' : 'dark'}
               intensity={100}
@@ -188,9 +187,9 @@ const NFTDetailModal: FC = () => {
             mr="24px"
             overflow="hidden"
           >
-            <Center position="absolute" top={0} right={0} bottom={0} left={0}>
+            {/* <Center position="absolute" top={0} right={0} bottom={0} left={0}>
               <CollectibleContent asset={asset} size={592} />
-            </Center>
+            </Center> */}
             <BlurView
               tint={themeVariant === 'light' ? 'light' : 'dark'}
               intensity={100}
@@ -432,6 +431,27 @@ const NFTDetailModal: FC = () => {
                 >
                   <Typography.Body2Strong mr="8px">
                     {shortenAddress(asset.contractAddress, 6)}
+                  </Typography.Body2Strong>
+                  <Icon name="DuplicateSolid" size={20} />
+                </Pressable>
+              </HStack>
+            )}
+            {!!asset.tokenAddress && (
+              <HStack space="12px">
+                <Typography.Body2Strong color="text-subdued" flex={1}>
+                  NFT ID
+                </Typography.Body2Strong>
+                <Pressable
+                  flexDirection="row"
+                  onPress={() => {
+                    copyToClipboard(asset.tokenId ?? '');
+                    toast.show({
+                      title: intl.formatMessage({ id: 'msg__copied' }),
+                    });
+                  }}
+                >
+                  <Typography.Body2Strong mr="8px" isTruncated maxW="160px">
+                    {asset.tokenAddress}
                   </Typography.Body2Strong>
                   <Icon name="DuplicateSolid" size={20} />
                 </Pressable>

@@ -6,9 +6,11 @@ import { useIntl } from 'react-intl';
 import {
   Center,
   Divider,
+  GroupingList,
   HStack,
   Icon,
   Image,
+  List,
   Modal,
   Spinner,
   Typography,
@@ -27,12 +29,15 @@ type NavigationProps = RouteProp<
   ManageTokenRoutes.TokenRiskDetail
 >;
 
+type LocaleType = LocaleIds | [LocaleIds, any];
+
 // @ts-ignore
 const localeMaps: Record<
   keyof GoPlusTokenSecurity,
   {
-    safe?: [LocaleIds, LocaleIds];
-    danger?: [LocaleIds, LocaleIds];
+    safe?: [LocaleType, LocaleType];
+    warn?: [LocaleType, LocaleType];
+    danger?: [LocaleType, LocaleType];
   }
 > = {
   'trust_list': {
@@ -155,10 +160,25 @@ const localeMaps: Record<
     danger: ['form__airdrop_scam', 'form__airdrop_scam_desc'],
   },
   'buy_tax': {
-    danger: ['form__too_much_buy_tax', 'form__too_much_buy_tax_desc'],
+    danger: [
+      'form__too_much_buy_tax',
+      ['form__too_much_buy_tax_desc', { 0: '50%' }],
+    ],
+    warn: ['form__high_buy_tax', ['form__high_buy_tax_desc', { 0: '10%' }]],
   },
   'sell_tax': {
-    danger: ['form__too_much_sell_tax', 'form__too_much_sell_tax_desc'],
+    danger: [
+      'form__too_much_sell_tax',
+      ['form__too_much_sell_tax_desc', { 0: '50%' }],
+    ],
+    warn: ['form__high_sell_tax', ['form__high_sell_tax_desc', { 0: '10%' }]],
+  },
+  'is_mintable': {
+    warn: [
+      'form__token_can_be_issued_additionall',
+      'form__token_can_be_issued_additionall_desc',
+    ],
+    safe: ['form__no_additional_issuance', 'form__no_additional_issuance_desc'],
   },
 } as const;
 
@@ -170,12 +190,10 @@ const RiskDetail: FC = () => {
   } = route.params;
   const { loading, data } = useTokenSecurityInfo(networkId, address);
 
-  const [safe, danger] = data;
-
-  const isDanger = useMemo(() => !!danger?.length, [danger]);
+  const { safe, danger, hasSecurity, warn } = data;
 
   const header = useMemo(() => {
-    if (isDanger) {
+    if (hasSecurity) {
       return (
         <Center mt="6" mb="8">
           <Icon name="ShieldExclamationSolid" color="icon-critical" size={44} />
@@ -200,7 +218,7 @@ const RiskDetail: FC = () => {
         </Typography.Body1>
       </Center>
     );
-  }, [isDanger, intl, safe]);
+  }, [hasSecurity, intl, safe]);
 
   const footer = useMemo(
     () => (
@@ -222,37 +240,90 @@ const RiskDetail: FC = () => {
 
   const renderItem = useCallback(
     ({ item }: { item: keyof GoPlusTokenSecurity }) => {
-      const locale = localeMaps[item]?.[isDanger ? 'danger' : 'safe'];
+      const isWarnItem = warn.includes(item);
+      let locale = localeMaps[item]?.[hasSecurity ? 'danger' : 'safe'];
+      const warnLocale = localeMaps[item]?.warn;
+      if (isWarnItem && warnLocale) {
+        locale = warnLocale;
+      }
       if (!locale) {
         return null;
       }
-      return (
-        <HStack mb="4" alignItems="flex-start" w="full">
-          {isDanger ? (
+      let icon = <Icon size={20} name="BadgeCheckSolid" color="icon-success" />;
+      if (hasSecurity) {
+        if (isWarnItem) {
+          icon = (
+            <Icon size={20} name="ExclamationSolid" color="icon-warning" />
+          );
+        } else {
+          icon = (
             <Icon
               size={20}
               name="ShieldExclamationSolid"
               color="icon-critical"
             />
-          ) : (
-            <Icon size={20} name="BadgeCheckSolid" color="icon-success" />
-          )}
+          );
+        }
+      }
+      return (
+        <HStack
+          mt={hasSecurity ? 4 : 0}
+          mb={hasSecurity ? 0 : 4}
+          alignItems="flex-start"
+          w="full"
+        >
+          {icon}
           <VStack ml="3" flex="1">
             <Typography.Body1Strong>
-              {intl.formatMessage({
-                id: locale?.[0],
-              })}
+              {intl.formatMessage(
+                {
+                  id:
+                    typeof locale?.[0] === 'string'
+                      ? locale?.[0]
+                      : locale?.[0]?.[0],
+                },
+                locale?.[0]?.[1] ?? {},
+              )}
             </Typography.Body1Strong>
             <Typography.Body2>
-              {intl.formatMessage({
-                id: locale?.[1],
-              })}
+              {intl.formatMessage(
+                {
+                  id:
+                    typeof locale?.[1] === 'string'
+                      ? locale?.[1]
+                      : locale?.[1][0],
+                },
+                locale?.[1]?.[1] ?? {},
+              )}
             </Typography.Body2>
           </VStack>
         </HStack>
       );
     },
-    [intl, isDanger],
+    [intl, hasSecurity, warn],
+  );
+  const GroupingListData = useMemo(
+    () => [
+      {
+        headerProps: {
+          title: intl.formatMessage(
+            { id: 'form__str_risky_item_uppercase' },
+            { 0: danger?.length ?? 0 },
+          ),
+        },
+        data: danger,
+      },
+      {
+        headerProps: {
+          title: intl.formatMessage(
+            { id: 'form__str_attention_item_uppercase' },
+            { 0: warn?.length ?? 0 },
+          ),
+        },
+        data: warn,
+      },
+    ],
+    [danger, intl, warn],
   );
 
   if (loading) {
@@ -264,22 +335,29 @@ const RiskDetail: FC = () => {
       </Modal>
     );
   }
+
   return (
-    <Modal
-      height="560px"
-      hidePrimaryAction
-      hideSecondaryAction
-      footer={footer}
-      flatListProps={{
-        data: danger?.length ? danger : safe,
-        // @ts-ignore
-        renderItem,
-        ItemSeparatorComponent: Divider,
-        keyExtractor: (item, index) => `${item as string}-${index}`,
-        showsVerticalScrollIndicator: false,
-        ListHeaderComponent: header,
-      }}
-    />
+    <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={footer}>
+      {hasSecurity ? (
+        <GroupingList
+          ListHeaderComponent={() => header}
+          stickySectionHeadersEnabled={false}
+          ItemSeparatorComponent={Divider}
+          sections={GroupingListData}
+          // @ts-ignore
+          renderItem={renderItem}
+          keyExtractor={(item: string, index) => `${item}_${index}`}
+        />
+      ) : (
+        <List
+          ListHeaderComponent={() => header}
+          ItemSeparatorComponent={Divider}
+          data={safe}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => `${item as string}_${index}`}
+        />
+      )}
+    </Modal>
   );
 };
 

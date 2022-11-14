@@ -11,6 +11,7 @@ import {
   Image,
   Modal,
   Pressable,
+  Skeleton,
   Spinner,
   Text,
   Token as TokenImage,
@@ -24,7 +25,7 @@ import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 import { useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
-import { useTokenSourceList } from './hooks';
+import { useTokenSecurityInfo, useTokenSourceList } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 type NavigationProps = RouteProp<
@@ -41,6 +42,14 @@ const VerifiedTokens: React.FC = () => {
     token,
     token: { source },
   } = route.params;
+
+  const {
+    loading: checkLoading,
+    data: { safe },
+  } = useTokenSecurityInfo(
+    token.networkId,
+    token.tokenIdOnNetwork ?? token.address ?? '',
+  );
 
   const goRiskDetail = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -71,14 +80,18 @@ const VerifiedTokens: React.FC = () => {
               <Typography.Body1Strong mb="1">
                 {intl.formatMessage({ id: 'form__no_risks' })}
               </Typography.Body1Strong>
-              <Typography.Body2>
-                {intl.formatMessage(
-                  { id: 'form__no_risks_desc' },
-                  {
-                    0: safeItems.length,
-                  },
-                )}
-              </Typography.Body2>
+              {checkLoading ? (
+                <Skeleton shape="Body2" />
+              ) : (
+                <Typography.Body2>
+                  {intl.formatMessage(
+                    { id: 'form__no_risks_desc' },
+                    {
+                      0: safe?.length ?? 0,
+                    },
+                  )}
+                </Typography.Body2>
+              )}
             </VStack>
             <Icon name="ChevronRightSolid" size={20} />
           </HStack>
@@ -88,7 +101,7 @@ const VerifiedTokens: React.FC = () => {
         </Typography.Subheading>
       </Box>
     ),
-    [intl, goRiskDetail],
+    [intl, goRiskDetail, safe, checkLoading],
   );
 
   const renderItem = useCallback(

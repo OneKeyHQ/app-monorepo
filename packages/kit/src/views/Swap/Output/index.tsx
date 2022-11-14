@@ -12,8 +12,15 @@ const Output = () => {
 
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
-    outputToken?.networkId,
+    () => {
+      const networkIds = (tokenList ?? []).map((item) => item.networkId);
+      if (outputToken && networkIds.includes(outputToken.networkId)) {
+        return outputToken.networkId;
+      }
+      return undefined;
+    },
   );
 
   const onSelect = useCallback(

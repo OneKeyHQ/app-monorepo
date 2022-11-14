@@ -213,13 +213,16 @@ export const ERC20TokenList: FC<{
               w="200px"
               alignSelf="flex-start"
               infoBoxProps={{ flex: 1 }}
+              nameProps={{
+                fontSize: 16,
+              }}
             />
           </ListItem.Column>
           <ListItem.Column>
             <VStack w="200px" alignSelf="flex-start" textAlign="right">
-              <Typography.Body1Strong>
+              <Typography.Body2Strong>
                 {`${toFloat(Number(balance), decimals)} ${symbol}`}
-              </Typography.Body1Strong>
+              </Typography.Body2Strong>
               <Typography.Body2>
                 {priceMulBalance ? (
                   <FormatCurrencyNumber value={priceMulBalance.toNumber()} />
@@ -289,15 +292,16 @@ export const ERC20TokenList: FC<{
                   showDescription={false}
                   flex="1"
                   infoBoxProps={{ flex: 1 }}
+                  nameProps={{ fontSize: 16 }}
                 />
                 <VStack
                   alignSelf="flex-start"
                   textAlign="right"
                   alignItems="flex-end"
                 >
-                  <Typography.Body1Strong>
+                  <Typography.Body2Strong>
                     {`${toFloat(Number(balance), decimals)} ${symbol}`}
-                  </Typography.Body1Strong>
+                  </Typography.Body2Strong>
                   <Typography.Body2>
                     {priceMulBalance ? (
                       <FormatCurrencyNumber
