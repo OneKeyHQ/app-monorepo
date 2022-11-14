@@ -155,7 +155,12 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                       },
                     )}
                   </Typography.PageHeading>
-                  <TokenVerifiedIcon token={token} />
+                  <TokenVerifiedIcon
+                    token={{
+                      ...token,
+                      networkId: activeNetwork?.id ?? '',
+                    }}
+                  />
                 </Box>
 
                 <HStack justifyContent="center" alignItems="center" mt="16px">

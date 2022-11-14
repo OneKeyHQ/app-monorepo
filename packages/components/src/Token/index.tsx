@@ -87,10 +87,10 @@ export const TokenVerifiedIcon: React.FC<{
 
   return (
     <Pressable p="6px" onPress={toVerifiedTokenPage}>
-      {token.verified ? (
-        <Icon size={size} name="BadgeCheckSolid" color="icon-success" />
-      ) : (
+      {token.security ? (
         <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
+      ) : (
+        <Icon size={size} name="BadgeCheckSolid" color="icon-success" />
       )}
     </Pressable>
   );
