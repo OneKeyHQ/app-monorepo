@@ -1445,6 +1445,10 @@ export default class Vault extends VaultBase {
         // pending tx rpc return null
         let encodedTx = rpcTxList.find((item) => item?.hash === hash);
         const isRpcTx = Boolean(encodedTx);
+        // *** update rpcTx tx.data from tx.input
+        if (encodedTx && isRpcTx && encodedTx.input) {
+          encodedTx.data = encodedTx.input;
+        }
 
         const historyTx = localHistory.find(
           (item) => item.decodedTx.txid === hash,
@@ -1457,9 +1461,7 @@ export default class Vault extends VaultBase {
           encodedTx ||
           (historyTx?.decodedTx?.encodedTx as IEncodedTxEvm | undefined);
         if (encodedTx) {
-          if (isRpcTx && encodedTx.input) {
-            encodedTx.data = encodedTx.input;
-          }
+          // *** update tx.nonce
           // convert 0x string to number, chain-libs need number type
           if (isString(encodedTx.nonce)) {
             encodedTx.nonce = new BigNumber(encodedTx.nonce).toNumber() ?? 0;
