@@ -3,6 +3,7 @@ import React, {
   FC,
   createElement,
   isValidElement,
+  useCallback,
   useMemo,
 } from 'react';
 
@@ -64,34 +65,43 @@ export const TokenVerifiedIcon: React.FC<{
   size?: number;
 }> = ({ token, size = 16 }) => {
   const navigation = useNavigation();
-  if (!token || (!token.verified && !token.security)) {
-    return null;
-  }
 
-  const toVerifiedTokenPage = () => {
+  const icon = useMemo(() => {
+    if (String(token?.security) === 'true') {
+      return (
+        <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
+      );
+    }
+    if (String(token?.verified) === 'true') {
+      return <Icon size={size} name="BadgeCheckSolid" color="icon-success" />;
+    }
+    return null;
+  }, [token?.security, token?.verified, size]);
+
+  const toVerifiedTokenPage = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageToken,
       params: {
-        screen: token.security
+        screen: token?.security
           ? ManageTokenRoutes.TokenRiskDetail
           : ManageTokenRoutes.VerifiedToken,
         params: {
           token: {
             ...token,
-            ...parseNetworkId(token.networkId ?? ''),
+            ...parseNetworkId(token?.networkId ?? ''),
           },
         },
       },
     });
-  };
+  }, [navigation, token]);
+
+  if (!token || (!token.verified && !token.security)) {
+    return null;
+  }
 
   return (
     <Pressable p="6px" onPress={toVerifiedTokenPage}>
-      {token.security ? (
-        <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
-      ) : (
-        <Icon size={size} name="BadgeCheckSolid" color="icon-success" />
-      )}
+      {icon}
     </Pressable>
   );
 };
