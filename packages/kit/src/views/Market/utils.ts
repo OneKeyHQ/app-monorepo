@@ -53,7 +53,7 @@ export function formatMarketVolatility(
 }
 
 export function formatDecimalZero(value: number) {
-  if (value > 1) return value;
+  if (value >= 1) return formatMarketValueForFiexd(value);
   const noRexponentail = parseExponential(value);
   const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
   const zeroCount = effectIndex - 2;
