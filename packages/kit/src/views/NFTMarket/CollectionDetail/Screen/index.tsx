@@ -41,7 +41,12 @@ const Screen = () => {
         }
       }}
       initialTabName="items"
-      renderHeader={() => <CollectionInfo p={{ base: '16px', md: '32px' }} />}
+      renderHeader={() => (
+        <CollectionInfo
+          p={{ base: '16px', md: '32px' }}
+          bgColor="background-default"
+        />
+      )}
       pagerProps={{ scrollEnabled: false }}
       onIndexChange={(index) => {
         if (setContext) {
