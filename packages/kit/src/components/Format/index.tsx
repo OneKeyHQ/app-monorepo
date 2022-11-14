@@ -16,10 +16,7 @@ import {
 } from '../../hooks';
 import { Token } from '../../store/typings';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
-import {
-  formatMarketValueForInfo,
-  getFiatCodeUnit,
-} from '../../views/Market/utils';
+import { formatDecimalZero, getFiatCodeUnit } from '../../views/Market/utils';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */
@@ -382,37 +379,52 @@ export function FormatCurrencyNumber({
   decimals,
   value,
   onlyNumber,
+  convertValue,
 }: {
   value: number | BigNumber | '' | null | undefined;
   decimals?: number;
   onlyNumber?: boolean;
+  convertValue?: number | BigNumber | '' | null | undefined;
 }) {
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-  // const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
   if (typeof value !== 'number' && !(value instanceof BigNumber)) {
     return null;
   }
-  // const fiat = fiatMap[selectedFiatMoneySymbol] || 0;
+  const fiat = fiatMap[selectedFiatMoneySymbol] || 0;
   const maxDecimals =
     decimals ??
     getSuggestedDecimals(value instanceof BigNumber ? value.toNumber() : value);
   const isBTCCurrency = selectedFiatMoneySymbol === 'btc';
   const numberValue = value instanceof BigNumber ? value.toNumber() : value;
-  return isBTCCurrency ? (
+  const numberConvertValue = convertValue
+    ? new BigNumber(fiat).multipliedBy(convertValue).toNumber()
+    : 0;
+  const resNumber = numberValue + numberConvertValue;
+  return (
     <>
       {`${
-        !onlyNumber ? getFiatCodeUnit(selectedFiatMoneySymbol) : ''
-      }${formatMarketValueForInfo(numberValue)}`}
+        isBTCCurrency && !onlyNumber
+          ? getFiatCodeUnit(selectedFiatMoneySymbol)
+          : ''
+      }`}
+      {resNumber < 0.01 ? (
+        `${
+          !isBTCCurrency && !onlyNumber
+            ? getFiatCodeUnit(selectedFiatMoneySymbol)
+            : ''
+        }${formatDecimalZero(resNumber)}`
+      ) : (
+        <FormattedNumber
+          value={resNumber ?? 0}
+          currencyDisplay="narrowSymbol"
+          // eslint-disable-next-line react/style-prop-object
+          style={onlyNumber || isBTCCurrency ? 'decimal' : 'currency'}
+          minimumFractionDigits={2}
+          maximumFractionDigits={maxDecimals}
+          currency={selectedFiatMoneySymbol}
+        />
+      )}
     </>
-  ) : (
-    <FormattedNumber
-      value={numberValue ?? 0}
-      currencyDisplay="narrowSymbol"
-      // eslint-disable-next-line react/style-prop-object
-      style={onlyNumber ? 'decimal' : 'currency'}
-      minimumFractionDigits={2}
-      maximumFractionDigits={maxDecimals}
-      currency={selectedFiatMoneySymbol}
-    />
   );
 }
