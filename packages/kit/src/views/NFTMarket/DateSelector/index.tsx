@@ -1,14 +1,9 @@
 import React, { FC } from 'react';
 
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Icon,
-  Select,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, Icon, Select, Text } from '@onekeyhq/components';
 
 type Props = {
   title?: string;
@@ -16,7 +11,6 @@ type Props = {
 };
 const DateSelector: FC<Props> = ({ title, onChange }) => {
   const intl = useIntl();
-  const isSmallScreen = useIsVerticalLayout();
 
   const options = [
     {
@@ -37,24 +31,37 @@ const DateSelector: FC<Props> = ({ title, onChange }) => {
   ];
 
   return (
-    <Box>
+    <Box m="-8px">
       <Select
         title={intl.formatMessage({ id: 'content__duration' })}
         dropdownPosition="left"
-        dropdownProps={isSmallScreen ? {} : { minW: '240px' }}
         headerShown={false}
         options={options}
         isTriggerPlain
         footer={null}
         activatable={false}
         onChange={onChange}
-        renderTrigger={() => (
-          <Box position="absolute" right="0px" top="8px" flexDirection="row">
-            <Text color="text-subdued" paddingX="2px">
+        renderTrigger={({ isHovered, isPressed }) => (
+          <Row
+            alignItems="center"
+            p="8px"
+            bgColor={
+              // eslint-disable-next-line no-nested-ternary
+              isPressed
+                ? 'surface-pressed'
+                : isHovered
+                ? 'surface-hovered'
+                : 'transparent'
+            }
+            borderRadius="xl"
+          >
+            <Text color="text-subdued" typography="Body2Strong">
               {title}
             </Text>
-            <Icon size={20} name="ChevronDownSolid" />
-          </Box>
+            <Box ml="4px">
+              <Icon size={20} name="ChevronDownSolid" />
+            </Box>
+          </Row>
         )}
       />
     </Box>

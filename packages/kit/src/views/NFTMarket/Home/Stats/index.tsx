@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
+  HStack,
+  Icon,
+  Pressable,
   SegmentedControl,
   Text,
   ToggleButtonGroup,
@@ -37,24 +39,19 @@ const ListHeader: FC = () => {
   const defaultNetwork = useDefaultNetWork();
   const [selectedNetwork, setSelectedNetwork] =
     useState<Network>(defaultNetwork);
-  const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const setContext = useStatsListContext()?.setContext;
   const context = useStatsListContext()?.context;
   const intl = useIntl();
 
   return (
-    <Box
-      paddingX={isSmallScreen ? '16px' : 0}
-      flexDirection="row"
-      justifyContent="space-between"
-    >
+    <Box flexDirection="row" justifyContent="space-between" mb="12px">
       <Text typography="Heading">
         {intl.formatMessage({
           id: 'content__stats',
         })}
       </Text>
-      <Box flexDirection="row" alignItems="center">
+      <HStack alignItems="center" space="20px">
         <ChainSelector
           selectedNetwork={selectedNetwork}
           onChange={(n) => {
@@ -67,23 +64,34 @@ const ListHeader: FC = () => {
             }
           }}
         />
-        <Button
-          onPress={() => {
-            navigation.navigate(HomeRoutes.NFTMarketStatsList, {
-              network: selectedNetwork,
-              selectedIndex: context?.selectedIndex,
-            });
-          }}
-          height="32px"
-          type="plain"
-          size="sm"
-          textProps={{ color: 'text-subdued' }}
-        >
-          {intl.formatMessage({
-            id: 'action__view_all',
-          })}
-        </Button>
-      </Box>
+        <Box m="-8px" mr="-12px">
+          <Pressable
+            onPress={() => {
+              navigation.navigate(HomeRoutes.NFTMarketStatsList, {
+                network: selectedNetwork,
+                selectedIndex: context?.selectedIndex,
+              });
+            }}
+            p="8px"
+            rounded="xl"
+            flexDirection="row"
+            alignItems="center"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+          >
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              color="text-subdued"
+              mr="4px"
+            >
+              {intl.formatMessage({
+                id: 'action__see_all',
+              })}
+            </Text>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+        </Box>
+      </HStack>
     </Box>
   );
 };
@@ -129,11 +137,9 @@ export const StatsList = () => {
   return (
     <>
       <Box
-        paddingX={isSmallScreen ? '16px' : 0}
         flexDirection="row"
         justifyContent="space-between"
-        height="36px"
-        mt="12px"
+        alignItems="center"
         mb="16px"
       >
         <ToggleButtonGroup
@@ -151,7 +157,7 @@ export const StatsList = () => {
           ]}
           size="lg"
           selectedIndex={selectedIndex}
-          bg="background-default"
+          bg="transparent"
           onButtonPress={(index) => {
             setSelectedIndex(index);
             if (setContext) {
@@ -161,15 +167,10 @@ export const StatsList = () => {
               }));
             }
           }}
+          flex={1}
         />
         {context?.isTab && isSmallScreen && (
-          <Text
-            position="absolute"
-            right="16px"
-            top="8px"
-            typography="Body2"
-            color="text-subdued"
-          >
+          <Text typography="Body2" color="text-subdued" textAlign="right">
             {selectedIndex === 0
               ? intl.formatMessage(
                   {
@@ -195,7 +196,7 @@ export const StatsList = () => {
           />
         )}
         {!context?.isTab && context?.selectedIndex === 0 && !isSmallScreen && (
-          <Box width="160px" height="36px" position="absolute" right="16px">
+          <Box width="160px">
             <SegmentedControl
               values={['6H', '12H', '1D']}
               selectedIndex={selectedTime}

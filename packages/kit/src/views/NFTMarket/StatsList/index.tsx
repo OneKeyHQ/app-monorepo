@@ -3,7 +3,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import { HomeRoutes } from '../../../routes/routesEnum';
@@ -13,8 +13,7 @@ import { StatsList } from '../Home/Stats';
 import { StatsListContext, StatsListContextValue } from '../Home/Stats/context';
 
 const StatsListScreen = () => {
-  const isSmallScreen = useIsVerticalLayout();
-  const paddingX = isSmallScreen ? 0 : '51px';
+  const { bottom } = useSafeAreaInsets();
   const navigation = useNavigation();
   const intl = useIntl();
   const route =
@@ -33,6 +32,7 @@ const StatsListScreen = () => {
       title: 'Stats',
       headerRight: () => (
         <ChainSelector
+          triggerSize="lg"
           selectedNetwork={selectedNetwork}
           onChange={(n) => {
             setSelectedNetwork(n);
@@ -51,9 +51,17 @@ const StatsListScreen = () => {
 
   return (
     <StatsListContext.Provider value={{ context, setContext }}>
-      <Box paddingX={paddingX} flex={1}>
+      <ScrollView
+        p={{ base: '16px', md: '32px' }}
+        contentContainerStyle={{
+          width: '100%',
+          maxWidth: 992,
+          paddingBottom: bottom,
+          alignSelf: 'center',
+        }}
+      >
         <StatsList />
-      </Box>
+      </ScrollView>
     </StatsListContext.Provider>
   );
 };

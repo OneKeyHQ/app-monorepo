@@ -21,10 +21,13 @@ export type TypographyStyle =
   | 'Caption'
   | 'Body1Strong'
   | 'Body1Underline'
+  | 'Body1Mono'
   | 'Body2Strong'
   | 'Body2Underline'
+  | 'Body2Mono'
   | 'CaptionStrong'
-  | 'CaptionUnderline';
+  | 'CaptionUnderline'
+  | 'CaptionMono';
 
 export type FontProps = ComponentProps<typeof NBText>;
 
@@ -124,6 +127,12 @@ export const Body1UnderlineProps = {
   underline: true,
 };
 
+export const Body1MonoProps = {
+  fontFamily: 'Roboto-Mono',
+  fontSize: 16,
+  lineHeight: 24,
+};
+
 export const Body2StrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
@@ -139,6 +148,12 @@ export const Body2UnderlineProps = {
   underline: true,
 };
 
+export const Body2MonoProps = {
+  fontFamily: 'Roboto-Mono',
+  fontSize: 14,
+  lineHeight: 20,
+};
+
 export const CaptionStrongProps = {
   fontFamily: 'PlusJakartaSans-SemiBold',
   fontWeight: '600',
@@ -152,6 +167,12 @@ export const CaptionUnderlineProps = {
   fontSize: 12,
   lineHeight: 16,
   underline: true,
+};
+
+export const CaptionMonoProps = {
+  fontFamily: 'Roboto-Mono',
+  fontSize: 12,
+  lineHeight: 16,
 };
 
 export const getTypographyStyleProps = (style: TypographyStyle): FontProps => {
@@ -171,10 +192,13 @@ export const getTypographyStyleProps = (style: TypographyStyle): FontProps => {
     'Caption': CaptionProps,
     'Body1Strong': Body1StrongProps,
     'Body1Underline': Body1UnderlineProps,
+    'Body1Mono': Body1MonoProps,
     'Body2Strong': Body2StrongProps,
     'Body2Underline': Body2UnderlineProps,
+    'Body2Mono': Body2MonoProps,
     'CaptionStrong': CaptionStrongProps,
     'CaptionUnderline': CaptionUnderlineProps,
+    'CaptionMono': CaptionMonoProps,
   };
   return propsMap[style];
 };
@@ -258,6 +282,12 @@ export const Body1Underline: FC<FontProps> = ({ children, ...rest }) => (
   </NBText>
 );
 
+export const Body1Mono: FC<FontProps> = ({ children, ...rest }) => (
+  <NBText color="text-default" {...Body1MonoProps} {...rest}>
+    {children}
+  </NBText>
+);
+
 export const Body2Strong: FC<FontProps> = ({ children, ...rest }) => (
   <NBText color="text-default" {...Body2StrongProps} {...rest}>
     {children}
@@ -270,6 +300,12 @@ export const Body2Underline: FC<FontProps> = ({ children, ...rest }) => (
   </NBText>
 );
 
+export const Body2Mono: FC<FontProps> = ({ children, ...rest }) => (
+  <NBText color="text-default" {...Body2MonoProps} {...rest}>
+    {children}
+  </NBText>
+);
+
 export const CaptionStrong: FC<FontProps> = ({ children, ...rest }) => (
   <NBText color="text-default" {...CaptionStrongProps} {...rest}>
     {children}
@@ -278,6 +314,12 @@ export const CaptionStrong: FC<FontProps> = ({ children, ...rest }) => (
 
 export const CaptionUnderline: FC<FontProps> = ({ children, ...rest }) => (
   <NBText color="text-default" {...CaptionUnderlineProps} {...rest}>
+    {children}
+  </NBText>
+);
+
+export const CaptionMono: FC<FontProps> = ({ children, ...rest }) => (
+  <NBText color="text-default" {...CaptionMonoProps} {...rest}>
     {children}
   </NBText>
 );
@@ -321,12 +363,15 @@ const Typography = {
   Body1,
   Body1Strong,
   Body1Underline,
+  Body1Mono,
   Body2,
   Body2Strong,
   Body2Underline,
+  Body2Mono,
   Caption,
   CaptionStrong,
   CaptionUnderline,
+  CaptionMono,
   Text,
 };
 

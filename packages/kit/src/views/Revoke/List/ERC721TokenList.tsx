@@ -68,6 +68,7 @@ export const ERC721TokenList: FC<{
               w="200px"
               alignSelf="flex-start"
               infoBoxProps={{ flex: 1 }}
+              nameProps={{ fontSize: 16 }}
             />
           </ListItem.Column>
           <ListItem.Column>

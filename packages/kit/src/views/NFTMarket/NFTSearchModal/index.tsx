@@ -1,34 +1,37 @@
-import React, { FC, useCallback, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
-import { Row } from 'native-base';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
+import { ListRenderItem, StyleSheet } from 'react-native';
 
 import {
   Box,
   Center,
-  Divider,
   Empty,
-  FlatList,
+  HStack,
   IconButton,
+  KeyboardAvoidingView,
+  List,
+  ListItem,
   Modal,
+  ScrollView,
   Searchbar,
   Spinner,
   Text,
-  useIsVerticalLayout,
   useSafeAreaInsets,
-  useUserDevice,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import { Collection, NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks';
 import ChainSelector from '../ChainSelector';
 import CollectionLogo from '../CollectionLogo';
 import { useDefaultNetWork } from '../Home/hook';
-import StatsItemCell from '../Home/Stats/StatsItemCell';
+import RankingList from '../Home/Stats/Ranking/Container/Mobile';
 
 import {
   SearchNFTCollectionRoutes,
@@ -44,65 +47,116 @@ const Header: FC<{
 }> = ({ keyword, setKeyword, selectNetwork, onSelectNetWork }) => {
   const intl = useIntl();
   const modalClose = useModalClose();
-  const isSmallScreen = useIsVerticalLayout();
-  const { screenWidth } = useUserDevice();
-
-  const width = isSmallScreen ? screenWidth : 480;
   return (
-    <Box width={`${width}px`} height="57px" position="absolute">
+    <HStack
+      alignItems="center"
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      borderBottomColor="border-subdued"
+      pl={{ base: '4px', md: '12px' }}
+      pr={{ base: '16px', md: '24px' }}
+      h="57px"
+    >
+      <Searchbar
+        autoFocus
+        flex={1}
+        w="auto"
+        bgColor="transparent"
+        borderWidth={0}
+        placeholder={`${intl.formatMessage({
+          id: 'form__nft_search_placeholder',
+        })}...`}
+        value={keyword}
+        onClear={() => {
+          setKeyword('');
+        }}
+        onChangeText={(text) => {
+          setKeyword(text);
+        }}
+      />
       <Box
-        borderTopRadius="24px"
-        flexDirection="row"
-        alignItems="center"
-        paddingX="16px"
-        bgColor="surface-subdued"
-        height="57px"
-      >
-        <Searchbar
-          bgColor="surface-subdued"
-          w="full"
-          borderWidth={0}
-          rightElement={
-            <Row alignItems="center">
-              <ChainSelector
-                tiggerProps={{ paddingRight: '16px' }}
-                selectedNetwork={selectNetwork}
-                onChange={(n) => {
-                  onSelectNetWork(n);
-                }}
-              />
-              {!isSmallScreen && (
-                <IconButton
-                  size="base"
-                  name="CloseSolid"
-                  type="plain"
-                  circle
-                  onPress={modalClose}
-                />
-              )}
-            </Row>
-          }
-          height="57px"
-          placeholder={intl.formatMessage({
-            id: 'form__nft_search_placeholder',
-          })}
-          value={keyword}
-          onClear={() => {
-            setKeyword('');
-          }}
-          onChangeText={(text) => {
-            setKeyword(text);
+        h="20px"
+        borderLeftWidth={StyleSheet.hairlineWidth}
+        borderLeftColor="border-subdued"
+        mr="12px"
+      />
+      <HStack space="20px">
+        <ChainSelector
+          selectedNetwork={selectNetwork}
+          onChange={(n) => {
+            onSelectNetWork(n);
           }}
         />
-      </Box>
-      <Divider />
-    </Box>
+        {!platformEnv.isNativeIOS && (
+          <Box m="-6px">
+            <IconButton
+              size="sm"
+              name="CloseSolid"
+              type="plain"
+              circle
+              onPress={modalClose}
+            />
+          </Box>
+        )}
+      </HStack>
+    </HStack>
   );
 };
 
-const NFTSearchModal: FC = () => {
+type Props = {
+  isLoading?: boolean;
+  listData?: Collection[];
+  selectNetwork: Network;
+};
+
+const DefaultList: FC<Props> = ({ selectNetwork }) => {
+  const { serviceNFT } = backgroundApiProxy;
   const intl = useIntl();
 
+  const [listData, updateListData] = useState<NFTMarketRanking[]>([]);
+  useEffect(() => {
+    (async () => {
+      const data = await serviceNFT.getMarketRanking({
+        chain: selectNetwork?.id,
+        time: '1d',
+      });
+      if (data) {
+        updateListData(data.slice(0, 10));
+      }
+    })();
+  }, [selectNetwork?.id, serviceNFT]);
+
+  return (
+    <>
+      <RankingList
+        selectNetwork={selectNetwork}
+        headerProps={{
+          title: intl.formatMessage({
+            id: 'content__ranking',
+          }),
+          actions: [
+            {
+              label: intl.formatMessage(
+                {
+                  id: 'content__int_day_volume',
+                },
+                { 0: 1 },
+              ),
+              onPress: () => {},
+            },
+          ],
+        }}
+        listData={listData}
+      />
+    </>
+  );
+};
+
+const SearchResultList: FC<Props> = ({
+  isLoading,
+  listData,
+  selectNetwork,
+}) => {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<
@@ -111,8 +165,96 @@ const NFTSearchModal: FC = () => {
       >
     >();
   const { onSelectCollection } = route.params;
+  const renderItem: ListRenderItem<Collection> = useCallback(
+    ({ item }) => {
+      const items = item?.itemsTotal ?? 0;
+      const floorPrice = item?.floorPrice
+        ? `${item?.floorPrice} ${item.priceSymbol ?? ''}`
+        : undefined;
+      return (
+        <>
+          <ListItem
+            onPress={() => {
+              onSelectCollection({
+                networkId: selectNetwork.id,
+                contractAddress: item.contractAddress as string,
+              });
+            }}
+          >
+            <ListItem.Column>
+              <CollectionLogo src={item.logoUrl} width="56px" height="56px" />
+            </ListItem.Column>
+            <ListItem.Column
+              flex={1}
+              text={{
+                label: item.name,
+                labelProps: { numberOfLines: 1 },
+                description: (
+                  <>
+                    <HStack space="8px" alignItems="center">
+                      <Text typography="Body2" color="text-subdued">
+                        {intl.formatMessage(
+                          {
+                            id: 'content__int_items',
+                          },
+                          {
+                            0: items || '–',
+                          },
+                        )}
+                      </Text>
+                      <Box bgColor="text-subdued" size="4px" rounded="full" />
+                      <Text typography="Body2" color="text-subdued">
+                        {intl.formatMessage({
+                          id: 'content__floor',
+                        })}{' '}
+                        {floorPrice || '–'}
+                      </Text>
+                    </HStack>
+                  </>
+                ),
+              }}
+            />
+          </ListItem>
+        </>
+      );
+    },
+    [intl, onSelectCollection, selectNetwork.id],
+  );
+  return (
+    <>
+      {isLoading ? (
+        <Center flex={1}>
+          <Spinner size="lg" />
+        </Center>
+      ) : (
+        <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <List
+            headerProps={{
+              title: intl.formatMessage({
+                id: 'content__collection',
+              }),
+            }}
+            ListEmptyComponent={() => (
+              <Empty
+                title={intl.formatMessage({
+                  id: 'content__no_results',
+                })}
+                emoji="🔍"
+              />
+            )}
+            data={listData}
+            renderItem={renderItem}
+            ItemSeparatorComponent={() => <Box h="4px" />}
+          />
+        </MotiView>
+      )}
+    </>
+  );
+};
 
+const NFTSearchModal: FC = () => {
   const defaultNetwork = useDefaultNetWork();
+  const { bottom } = useSafeAreaInsets();
 
   const [selectNetwork, updateSearchNetwork] = useState(defaultNetwork);
   const [keyword, setKeyword] = useState<string>('');
@@ -120,40 +262,9 @@ const NFTSearchModal: FC = () => {
 
   const { loading, result: collectonList } = useCollectionSearch(
     terms,
-    selectNetwork.id,
+    selectNetwork?.id,
   );
   const isLoading = loading || keyword !== terms;
-  const { bottom } = useSafeAreaInsets();
-
-  const renderItem: ListRenderItem<Collection> = useCallback(
-    ({ item }) => {
-      console.log();
-      const items = `${item?.itemsTotal ?? 0} Items`;
-      const floorPrice = item?.floorPrice
-        ? `${intl.formatMessage({
-            id: 'content__floor',
-          })} ${item?.floorPrice} ${item.priceSymbol ?? ''}`
-        : undefined;
-      const subTitle = `${items || ''} • ${floorPrice || ''}`;
-      return (
-        <StatsItemCell
-          onPress={() => {
-            onSelectCollection({
-              networkId: selectNetwork.id,
-              contractAddress: item.contractAddress as string,
-            });
-          }}
-          height="56px"
-          logoComponent={
-            <CollectionLogo src={item.logoUrl} width="56px" height="56px" />
-          }
-          title={item.name}
-          subTitle={subTitle}
-        />
-      );
-    },
-    [intl, onSelectCollection, selectNetwork.id],
-  );
 
   return (
     <Modal
@@ -163,59 +274,32 @@ const NFTSearchModal: FC = () => {
       headerShown={false}
       staticChildrenProps={{
         flex: 1,
+        overflow: 'hidden',
       }}
     >
-      <Box paddingX="16px" flex={1}>
-        <FlatList
-          ListHeaderComponent={() => (
-            <Box height="117px" width="full" paddingTop="57px">
-              <Box
-                flexDirection="column"
-                justifyContent="center"
-                width="full"
-                height="60px"
-              >
-                {collectonList.length > 0 ? (
-                  <Text typography="Heading">
-                    {intl.formatMessage({
-                      id: 'content__collection',
-                    })}
-                  </Text>
-                ) : null}
-              </Box>
-            </Box>
-          )}
-          ListFooterComponent={() => <Box height={`${bottom}px`} />}
-          ListEmptyComponent={() => {
-            if (isLoading) {
-              return (
-                <Center w="full" h="20">
-                  <Spinner size="lg" />
-                </Center>
-              );
-            }
-            return (
-              <Empty
-                title={intl.formatMessage({
-                  id: 'content__no_results',
-                })}
-                emoji="🔍"
-              />
-            );
-          }}
-          data={collectonList}
-          renderItem={renderItem}
-          ItemSeparatorComponent={() => (
-            <Divider height="20px" bgColor="surface-subdued" />
-          )}
-        />
-      </Box>
       <Header
         keyword={keyword}
         setKeyword={setKeyword}
         selectNetwork={selectNetwork}
         onSelectNetWork={updateSearchNetwork}
       />
+      <KeyboardAvoidingView flex={1}>
+        <ScrollView
+          flex={1}
+          p={{ base: '16px', md: '24px' }}
+          contentContainerStyle={{ flex: 1, paddingBottom: bottom }}
+        >
+          {terms.length > 0 ? (
+            <SearchResultList
+              isLoading={isLoading}
+              selectNetwork={selectNetwork}
+              listData={collectonList}
+            />
+          ) : (
+            <DefaultList selectNetwork={selectNetwork} />
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

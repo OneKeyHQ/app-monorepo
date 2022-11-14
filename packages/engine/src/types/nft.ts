@@ -176,4 +176,7 @@ export type NFTMarketRanking = {
   mint_average_price?: number;
   volume_7d?: string;
   price_7d?: string;
+  blueChip?: {
+    next_blue_chip_probability: string | null;
+  } | null;
 };

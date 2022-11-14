@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import { getAsset, getNFTSymbolPrice } from '@onekeyhq/engine/src/managers/nft';
+import { getNFTSymbolPrice } from '@onekeyhq/engine/src/managers/nft';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import {
   Collection,
@@ -56,6 +56,39 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchAsset({
+    chain,
+    contractAddress,
+    tokenId,
+    showAttribute,
+  }: {
+    chain: string;
+    contractAddress?: string;
+    tokenId: string;
+    showAttribute?: boolean;
+  }) {
+    let apiUrl;
+    if (OnekeyNetwork.sol === chain) {
+      apiUrl = `${this.baseUrl}/asset?chain=${chain}&tokenId=${tokenId}`;
+    } else {
+      apiUrl = `${this.baseUrl}/asset?chain=${chain}&contractAddress=${
+        contractAddress as string
+      }&tokenId=${tokenId}`;
+      if (showAttribute) {
+        apiUrl += '&showAttribute=true';
+      }
+    }
+    const { data, success } = await axios
+      .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: undefined }));
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
   async getCollection({
     chain,
     contractAddress,
@@ -65,11 +98,11 @@ class ServiceNFT extends ServiceBase {
     contractAddress: string;
     showStatistics?: boolean;
   }) {
-    const url = `${
-      this.baseUrl
-    }/collection?chain=${chain}&contractAddress=${contractAddress}&showStatistics=${
-      showStatistics === true ? 'true' : 'false'
-    }`;
+    const urlParams = new URLSearchParams({ chain, contractAddress });
+    if (showStatistics) {
+      urlParams.append('showStatistics', 'true');
+    }
+    const url = `${this.baseUrl}/collection?${urlParams.toString()}`;
 
     const { data, success } = await this.client
       .get<NFTServiceResp<Collection>>(url)
@@ -340,14 +373,18 @@ class ServiceNFT extends ServiceBase {
     tokenId: string;
     local: boolean;
   }) {
-    const { local } = params;
+    const { local, networkId, contractAddress, tokenId } = params;
     const localAsset = await this.getAssetFromLocal(params);
     if (localAsset && local) {
       return localAsset;
     }
-    const resp = await getAsset(params);
+    const resp = await this.fetchAsset({
+      chain: networkId,
+      contractAddress,
+      tokenId,
+    });
     if (resp) {
-      return resp.data;
+      return resp;
     }
   }
 

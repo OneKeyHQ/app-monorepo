@@ -1,17 +1,17 @@
 import React, { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { MotiView } from 'moti';
 import { ListRenderItem } from 'react-native';
 
-import { Box, FlatList, Text } from '@onekeyhq/components';
+import { Box, List, ListItem } from '@onekeyhq/components';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import CollectionLogo from '../../../CollectionLogo';
-import PriceText from '../../../PriceText';
+import { PriceString } from '../../../PriceText';
 import { useCollectionDetail } from '../../hook';
 import EmptyView from '../../Stats/EmptyView';
-import StatsItemCell from '../../Stats/StatsItemCell';
 import { useLiveMintContext } from '../context';
 
 const Mobile = () => {
@@ -21,46 +21,52 @@ const Mobile = () => {
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
     ({ item }) => (
-      <StatsItemCell
-        onPress={() => {
-          goToCollectionDetail({
-            contractAddress: item.contractAddress as string,
-            networkId: context?.selectedNetwork?.id as string,
-          });
-        }}
-        height="56px"
-        paddingX="16px"
-        title={item.collection.contractName}
-        subTitle={item.tokenId ? `ID ${item.tokenId}` : ''}
-        logoComponent={
-          <CollectionLogo
-            src={item.collection.logoUrl}
-            width="56px"
-            height="56px"
-          />
-        }
-        rightComponents={[
-          <Box flexDirection="column">
-            <PriceText
-              price={new BigNumber(item.mintPrice ?? '0')
-                .decimalPlaces(2)
-                .toString()}
-              networkId={context?.selectedNetwork?.id}
-              textAlign="right"
-              numberOfLines={1}
-              typography="Body1Strong"
+      <>
+        <ListItem
+          onPress={() => {
+            goToCollectionDetail({
+              contractAddress: item.contractAddress as string,
+              networkId: context?.selectedNetwork?.id as string,
+              title: item.contractName,
+            });
+          }}
+        >
+          <ListItem.Column>
+            <CollectionLogo
+              src={item.collection.logoUrl}
+              width="56px"
+              height="56px"
             />
-            <Text
-              textAlign="right"
-              numberOfLines={1}
-              typography="Body2"
-              color="text-subdued"
-            >
-              {item.mintTimestamp ? formatDistance(item.mintTimestamp) : ''}
-            </Text>
-          </Box>,
-        ]}
-      />
+          </ListItem.Column>
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.collection.contractName,
+              labelProps: { isTruncated: true },
+              description: item.tokenId ? `ID ${item.tokenId}` : '–',
+              descriptionProps: { numberOfLines: 1 },
+            }}
+          />
+          <ListItem.Column
+            text={{
+              label: PriceString({
+                price: new BigNumber(item.mintPrice ?? '0')
+                  .decimalPlaces(2)
+                  .toString(),
+                networkId: context?.selectedNetwork?.id,
+              }),
+              labelProps: { textAlign: 'right', numberOfLines: 1 },
+              description: item.mintTimestamp
+                ? formatDistance(item.mintTimestamp)
+                : '–',
+              descriptionProps: {
+                textAlign: 'right',
+                numberOfLines: 1,
+              },
+            }}
+          />
+        </ListItem>
+      </>
     ),
     [context?.selectedNetwork?.id, formatDistance, goToCollectionDetail],
   );
@@ -79,14 +85,20 @@ const Mobile = () => {
   }
 
   return (
-    <FlatList
-      data={context?.liveMintList}
-      renderItem={renderItem}
-      ItemSeparatorComponent={() => <Box height="20px" />}
-      keyExtractor={(item) =>
-        `${item.contractAddress as string}${item.tokenId as string}`
-      }
-    />
+    <MotiView
+      style={{ flex: 1 }}
+      from={{ opacity: 0.5 }}
+      animate={{ opacity: 1 }}
+    >
+      <List
+        data={context?.liveMintList}
+        renderItem={renderItem}
+        keyExtractor={(item) =>
+          `${item.contractAddress as string}${item.tokenId as string}`
+        }
+        ItemSeparatorComponent={() => <Box h="4px" />}
+      />
+    </MotiView>
   );
 };
 export default Mobile;

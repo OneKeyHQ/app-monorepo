@@ -1,3 +1,5 @@
+import { LocaleIds } from '@onekeyhq/components/src/locale';
+
 import { HasName } from './base';
 
 export type ServerToken = {
@@ -36,4 +38,12 @@ export type Token = HasName & {
   security?: boolean;
   addToIndex?: boolean;
   autoDetected?: boolean;
+};
+
+export type Tool = {
+  networkId: string;
+  title: LocaleIds;
+  desc: LocaleIds;
+  logoURI: string;
+  link: string;
 };

@@ -78,17 +78,9 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.RevokeRedirect,
         component: RevokeRedirectPage,
       },
-    ],
-  },
-  {
-    name: TabRoutes.Swap,
-    component: SwapScreen,
-    tabBarIcon: () => 'SwitchHorizontalSolid',
-    translationId: 'title__swap',
-    children: [
       {
-        name: HomeRoutes.SwapHistory,
-        component: SwapHistory,
+        name: HomeRoutes.NFTMarketCollectionScreen,
+        component: NFTMarketCollectionScreen,
       },
     ],
   },
@@ -105,26 +97,38 @@ export const tabRoutes: TabRouteConfig[] = [
       },
     ],
   },
-  // {
-  //   name: TabRoutes.NFT,
-  //   component: NFTMarket,
-  //   tabBarIcon: () => 'Square3Stack3Doutline',
-  //   translationId: 'title__nft',
-  //   children: [
-  //     {
-  //       name: HomeRoutes.NFTMarketStatsList,
-  //       component: NFTMarketStatsList,
-  //     },
-  //     {
-  //       name: HomeRoutes.NFTMarketLiveMintingList,
-  //       component: NFTMarketLiveMintingList,
-  //     },
-  //     {
-  //       name: HomeRoutes.NFTMarketCollectionScreen,
-  //       component: NFTMarketCollectionScreen,
-  //     },
-  //   ],
-  // },
+  {
+    name: TabRoutes.Swap,
+    component: SwapScreen,
+    tabBarIcon: () => 'SwitchHorizontalSolid',
+    translationId: 'title__swap',
+    children: [
+      {
+        name: HomeRoutes.SwapHistory,
+        component: SwapHistory,
+      },
+    ],
+  },
+  {
+    name: TabRoutes.NFT,
+    component: NFTMarket,
+    tabBarIcon: () => 'Square3Stack3Doutline',
+    translationId: 'title__nft',
+    children: [
+      {
+        name: HomeRoutes.NFTMarketStatsList,
+        component: NFTMarketStatsList,
+      },
+      {
+        name: HomeRoutes.NFTMarketLiveMintingList,
+        component: NFTMarketLiveMintingList,
+      },
+      {
+        name: HomeRoutes.NFTMarketCollectionScreen,
+        component: NFTMarketCollectionScreen,
+      },
+    ],
+  },
   {
     name: TabRoutes.Discover,
     component: DiscoverScreen,

@@ -33,17 +33,14 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
           text: c.name ?? '',
         };
         if (c.categoryId === MARKET_FAVORITES_CATEGORYID) {
-          buttonData.leftComponentRender = () => (
-            <Icon name="StarSolid" color="icon-warning" size={20} />
-          );
+          buttonData.leftIcon = 'StarSolid';
+          buttonData.leftIconSelectedColor = 'icon-warning';
           buttonData.text = '';
         }
         return buttonData;
       }),
     [categorys],
   );
-
-  console.log('categorys = ', categorys);
 
   const [toggleIndex, setToggleIndex] = useState(() => defaultSelectedIndex);
 
@@ -79,7 +76,7 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
               <Box
                 mr="6"
                 w="10"
-                h="4"
+                h="8"
                 borderRadius="9999px"
                 overflow="hidden"
                 key={i}

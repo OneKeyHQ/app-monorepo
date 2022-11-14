@@ -9,7 +9,6 @@ import React, {
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -20,7 +19,6 @@ import {
   Modal,
   Spinner,
   Text,
-  Token,
   Typography,
   VStack,
   useToast,
@@ -40,6 +38,7 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { useEffectOnUpdate } from '../../hooks/useEffectOnUpdate';
 import { refreshConnectedSites } from '../../store/reducers/refresher';
+import { DappSecurityView } from '../Send/components/DappSecurityView';
 
 import RugConfirmDialog from './RugConfirmDialog';
 import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
@@ -77,18 +76,17 @@ function ConnectionContent({
   isWalletConnectPreloading,
   walletConnectError,
   getWalletConnectBridge,
-  hostname,
   account,
-  network,
   origin,
+  hostname,
 }: {
-  hostname: string;
   account: IAccount | null;
   network: INetwork | null;
   isWalletConnectPreloading: boolean;
   walletConnectError: string;
   getWalletConnectBridge: () => string;
   origin: string;
+  hostname: string;
 }) {
   const intl = useIntl();
   if (isWalletConnectPreloading) {
@@ -134,15 +132,21 @@ function ConnectionContent({
 
   return (
     // Add padding to escape the footer
-    <VStack flex="1" space={6}>
-      <Center mt="12px">
+    <VStack
+      flex="1"
+      space="20px"
+      bg="surface-default"
+      p="4"
+      borderRadius="12px"
+    >
+      <HStack alignItems="center">
         <HStack alignItems="center">
           <Box
-            size="44px"
+            size="32px"
             borderWidth={2}
             borderColor="surface-subdued"
             mr="-8px"
-            zIndex={2}
+            zIndex={1}
             rounded="full"
           >
             <Image
@@ -153,50 +157,50 @@ function ConnectionContent({
               source={Logo}
             />
           </Box>
-          <Box size="40px" overflow="hidden" rounded="full">
+          <Box
+            size="32px"
+            overflow="hidden"
+            rounded="full"
+            borderWidth={2}
+            zIndex={2}
+            borderColor="surface-subdued"
+            bg="surface-subdued"
+          >
             <Image
               w="full"
               h="full"
               source={{ uri: `${origin}/favicon.ico` }}
-              fallbackElement={<Token size="40px" />}
+              fallbackElement={
+                <Center
+                  width="full"
+                  height="full"
+                  borderRadius="full"
+                  bg="background-selected"
+                >
+                  <Icon name="QuestionMarkOutline" />
+                </Center>
+              }
             />
           </Box>
         </HStack>
-        <Typography.DisplayXLarge mt="16px">
+        <Typography.Body1Strong ml="2">
           {intl.formatMessage({
             id: 'title__connect_to_website',
           })}
-        </Typography.DisplayXLarge>
-        <Box w="80%" justifyContent="center">
-          <Typography.Body2
-            flex="1"
-            flexWrap="wrap"
-            textAlign="center"
-            color="text-subdued"
-            mt={1}
-          >
-            {hostname ?? 'DApp'}
-          </Typography.Body2>
-        </Box>
-      </Center>
-      <VStack space={6} mx="8px" mt="40px">
-        <HStack
-          alignItems="center"
-          borderBottomWidth={StyleSheet.hairlineWidth}
-          borderColor="border-subdued"
-          pb={6}
-        >
-          <Typography.Body1Strong color="text-subdued" flex={1}>
-            {intl.formatMessage({ id: 'form__account' })}
-          </Typography.Body1Strong>
-          <HStack alignItems="center">
-            <Image src={network?.logoURI} size="24px" borderRadius="full" />
-            <Typography.Body1 ml="12px">{account?.name}</Typography.Body1>
-          </HStack>
-        </HStack>
+        </Typography.Body1Strong>
+      </HStack>
+      <VStack pt="4" borderTopColor="divider" borderTopWidth="1px">
         {MockData.permissions.map((permission, index) => (
-          <HStack key={index}>
-            <Icon size={24} name={permission.icon} color="icon-success" />
+          <HStack key={index} mb="4">
+            <Box
+              borderRadius="full"
+              bg="rgba(2, 190, 50, .1)"
+              size="9"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon size={24} name={permission.icon} color="icon-success" />
+            </Box>
             <Typography.Body1 ml="12px" alignSelf="center" flex={1}>
               {intl.formatMessage({
                 id: permission.text,
@@ -205,6 +209,19 @@ function ConnectionContent({
           </HStack>
         ))}
       </VStack>
+      <VStack borderBottomWidth="1px" borderBottomColor="divider" pb="4">
+        <HStack alignItems="center">
+          <Typography.Body2Strong color="text-subdued" flex={1}>
+            {intl.formatMessage({ id: 'form__account' })}
+          </Typography.Body2Strong>
+          <HStack alignItems="center">
+            <Typography.Body2Strong ml="12px">
+              {account?.name}({account?.address?.slice(-4) ?? ''})
+            </Typography.Body2Strong>
+          </HStack>
+        </HStack>
+      </VStack>
+      <DappSecurityView origin={origin} hostname={hostname} />
     </VStack>
   );
 }
@@ -381,10 +398,13 @@ const Connection = () => {
         header={
           isWalletConnectPreloading
             ? intl.formatMessage({ id: 'content__connecting' })
-            : ''
+            : intl.formatMessage({ id: 'title__dapp_connection' })
         }
-        headerDescription={isWalletConnectPreloading ? 'WalletConnect' : ''}
+        headerDescription={
+          isWalletConnectPreloading ? 'WalletConnect' : network?.shortName ?? ''
+        }
         hidePrimaryAction={isWalletConnectPreloading || !account?.id}
+        hideSecondaryAction
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__cancel"
         onPrimaryActionPress={async ({ close }) => {

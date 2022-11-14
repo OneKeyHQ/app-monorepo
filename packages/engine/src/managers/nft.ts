@@ -12,7 +12,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { getFiatEndpoint } from '../endpoint';
-import { OnekeyNetwork } from '../presets/networkIds';
 import {
   Erc1155MethodSelectors,
   Erc721MethodSelectors,
@@ -120,34 +119,6 @@ export const getNFTSymbolPrice = async (networkId: string) => {
     tokenIds: [tokenId],
   });
   return prices?.[tokenId];
-};
-
-export const getAsset = async (params: {
-  networkId: string;
-  contractAddress?: string;
-  tokenId: string;
-}): Promise<NFTServiceResp<NFTAsset | undefined> | undefined> => {
-  const { networkId, contractAddress, tokenId } = params;
-  const endpoint = getFiatEndpoint();
-  const urlParams = new URLSearchParams({
-    chain: networkId,
-    tokenId,
-  });
-  let apiUrl;
-  if (contractAddress) {
-    apiUrl = `${endpoint}/NFT/asset?contractAddress=${contractAddress}&${urlParams.toString()}`;
-  }
-  if (OnekeyNetwork.sol === networkId) {
-    apiUrl = `${endpoint}/NFT/asset?${urlParams.toString()}`;
-  }
-  if (!apiUrl) {
-    return;
-  }
-  const data = await axios
-    .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
-    .then((resp) => resp.data)
-    .catch(() => ({ data: undefined }));
-  return data;
 };
 
 function mergeLocalAsset({

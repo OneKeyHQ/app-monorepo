@@ -37,11 +37,14 @@ class EVMTxDecoder {
 
   private erc1155Iface: ethers.utils.Interface;
 
+  private batchTransferIface: ethers.utils.Interface;
+
   private constructor(engine: Engine) {
     this.engine = engine;
     this.erc20Iface = new ethers.utils.Interface(ABI.ERC20);
     this.erc721Iface = new ethers.utils.Interface(ABI.ERC721);
     this.erc1155Iface = new ethers.utils.Interface(ABI.ERC1155);
+    this.batchTransferIface = new ethers.utils.Interface(ABI.BATCH_TRANSFER);
   }
 
   public static getDecoder(engine: Engine): EVMTxDecoder {
@@ -415,6 +418,19 @@ class EVMTxDecoder {
       default: {
         txType = EVMDecodedTxType.TRANSACTION;
       }
+    }
+    return [txDesc, txType];
+  }
+
+  public parseBatchTransfer(
+    tx: ethers.Transaction,
+  ): [ethers.utils.TransactionDescription | null, EVMDecodedTxType] {
+    let txDesc: ethers.utils.TransactionDescription | null;
+    const txType = EVMDecodedTxType.TRANSACTION;
+    try {
+      txDesc = this.batchTransferIface.parseTransaction(tx);
+    } catch (error) {
+      return [null, txType];
     }
     return [txDesc, txType];
   }

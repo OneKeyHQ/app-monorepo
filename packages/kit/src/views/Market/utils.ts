@@ -22,7 +22,7 @@ export function formatMarketValueForComma(value?: number) {
     if (decimals) resValue = `${resValue}.${decimals}`;
     return resValue;
   }
-  return 0;
+  return '0.00';
 }
 
 export function formatMarketValueForFiexd(
@@ -30,15 +30,13 @@ export function formatMarketValueForFiexd(
   fractionDigits?: number,
 ) {
   if (value) {
-    const resValue = fractionDigits
-      ? value.toFixed(fractionDigits).replace(/0+$/g, '')
-      : value.toFixed(2).replace(/0+$/g, '');
+    // const resValue = fractionDigits
+    //   ? value.toFixed(fractionDigits).replace(/0+$/g, '')
+    //   : value.toFixed(2).replace(/0+$/g, '');
 
-    return resValue.endsWith('.')
-      ? resValue.substring(-1, resValue.length - 1)
-      : resValue;
+    return fractionDigits ? value.toFixed(fractionDigits) : value.toFixed(2);
   }
-  return 0;
+  return '0.00';
 }
 
 export function formatMarketVolatility(
@@ -51,7 +49,7 @@ export function formatMarketVolatility(
       fractionDigits,
     )}`;
   }
-  return '0';
+  return '0.00';
 }
 
 const BILLION = 1000000000;
@@ -81,8 +79,9 @@ export function formatMarketValueForInfo(value?: number | string) {
     if (parseValue >= 1) {
       return formatMarketValueForFiexd(parseValue);
     }
+
     const noRexponentail = parseExponential(parseValue);
-    const effectIndex = noRexponentail.toString().search(/[^.0]/g);
+    const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
     const zeroCount = effectIndex - 2;
     const fiexdValue = formatMarketValueForFiexd(parseValue, 3 + zeroCount);
     if (zeroCount >= 3) {
@@ -90,7 +89,7 @@ export function formatMarketValueForInfo(value?: number | string) {
     }
     return fiexdValue;
   }
-  return 0;
+  return '0.00';
 }
 
 export function formatLocalDate(date?: string, locale?: string) {
@@ -105,7 +104,7 @@ const fiatUnitMap: Record<string, string> = {
   'cny': '￥',
   'hkd': '$',
   'jpy': '￥',
-  'btc': 'BTC',
+  'btc': '₿',
 };
 
 export function getFiatCodeUnit(currentCode: string) {

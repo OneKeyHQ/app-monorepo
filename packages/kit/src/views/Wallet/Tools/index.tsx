@@ -1,4 +1,11 @@
-import React, { ComponentProps, FC, useCallback, useMemo } from 'react';
+import React, {
+  ComponentProps,
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,10 +16,13 @@ import {
   HStack,
   Icon,
   Pressable,
+  Token,
   Typography,
   VStack,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { Tool } from '@onekeyhq/engine/src/types/token';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -20,17 +30,20 @@ import {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+import { openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type DataItem = {
   key: string;
-  icon: ComponentProps<typeof Icon>;
+  icon: ComponentProps<typeof Icon> | string;
   title: LocaleIds;
   description: LocaleIds;
+  link?: string;
 };
 
 const data: DataItem[] = [
@@ -64,17 +77,34 @@ type NavigationProps = NativeStackNavigationProp<
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
+  const { size } = useUserDevice();
+  const [tools, setTools] = useState<Tool[]>([]);
   const { network, accountAddress } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
+
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
+  const responsivePadding = useMemo(() => {
+    if (['NORMAL', 'LARGE'].includes(size)) return 32;
+    return 16;
+  }, [size]);
+
   const items = useMemo(() => {
+    let allItems = data;
     if (!hasAvailable || !accountAddress) {
-      return data.filter((d) => d.key !== 'explorer');
+      allItems = data.filter((d) => d.key !== 'explorer');
     }
-    return data;
-  }, [hasAvailable, accountAddress]);
+    return allItems.concat(
+      tools.map((t) => ({
+        key: t.title,
+        icon: t.logoURI,
+        title: t.title,
+        description: t.desc,
+        link: t.link,
+      })),
+    );
+  }, [hasAvailable, accountAddress, tools]);
 
   const handlePress = useCallback(
     (key: string) => {
@@ -85,10 +115,27 @@ const ToolsPage: FC = () => {
           accountAddress,
           intl.formatMessage({ id: 'title__blockchain_explorer' }),
         );
+      } else {
+        const item = tools?.find((t) => t.title === key);
+        if (item) {
+          openUrl(item?.link, item?.title, {
+            modalMode: true,
+          });
+        }
       }
     },
-    [navigation, openAddressDetails, accountAddress, intl],
+    [tools, navigation, openAddressDetails, accountAddress, intl],
   );
+
+  const fetchData = useCallback(() => {
+    backgroundApiProxy.serviceToken
+      .fetchTools(network?.id ?? '')
+      .then((ts) => setTools(ts ?? []));
+  }, [network?.id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: typeof data[0]; index: number }) => (
@@ -110,7 +157,11 @@ const ToolsPage: FC = () => {
           alignItems="center"
         >
           <Center w="8" h="8">
-            <Icon {...item.icon} size={32} />
+            {typeof item.icon === 'string' ? (
+              <Token token={{ logoURI: item.icon }} size={8} />
+            ) : (
+              <Icon {...item.icon} size={32} />
+            )}
           </Center>
           <VStack ml="4" flex="1">
             <Typography.Body1Strong numberOfLines={1} isTruncated>
@@ -133,6 +184,7 @@ const ToolsPage: FC = () => {
         key={String(isVertical)}
         contentContainerStyle={{
           marginTop: 32,
+          paddingHorizontal: responsivePadding,
         }}
         numColumns={isVertical ? undefined : 2}
         showsHorizontalScrollIndicator={false}
@@ -141,7 +193,7 @@ const ToolsPage: FC = () => {
         keyExtractor={(item) => item.title}
       />
     ),
-    [isVertical, renderItem, items],
+    [isVertical, renderItem, items, responsivePadding],
   );
 
   return container;

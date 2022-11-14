@@ -13,16 +13,20 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import ScrollableButtonGroup from '../ScrollableButtonGroup/ScrollableButtonGroup';
+import { ThemeToken } from '../Provider/theme';
+import ScrollableButtonGroup, {
+  ScrollableButtonGroupProps,
+} from '../ScrollableButtonGroup/ScrollableButtonGroup';
 
 export interface ToggleButtonProps {
   text: string;
   leftIcon?: ICON_NAMES;
+  leftIconSelectedColor?: ThemeToken;
   leftImage?: string;
   leftComponentRender?: () => ReactElement;
 }
 
-interface ToggleButtonGroupProps {
+interface ToggleButtonGroupProps extends ScrollableButtonGroupProps {
   buttons: ToggleButtonProps[];
   selectedIndex: number;
   onButtonPress: (index: number) => void;
@@ -51,9 +55,11 @@ const ToggleButton: FC<
   onLayout,
   size,
   maxTextWidth,
+  leftIconSelectedColor,
 }) => {
   const isSmall = size === 'sm';
   const iconSize = leftIconSize || (isSmall ? '16px' : '20px');
+  const selectedIconColor = leftIconSelectedColor || 'icon-hovered';
   return (
     <Pressable mr="8px" onPress={onPress} onLayout={onLayout}>
       {({ isHovered, isPressed }) => {
@@ -83,7 +89,7 @@ const ToggleButton: FC<
                 {!!leftIcon && (
                   <Icon
                     name={leftIcon}
-                    color={isCurrent ? 'icon-hovered' : 'icon-default'}
+                    color={isCurrent ? selectedIconColor : 'icon-default'}
                   />
                 )}
                 {!!leftImage && (
@@ -96,13 +102,15 @@ const ToggleButton: FC<
               </Center>
             )}
             {leftComponentRender?.()}
-            <Typography.Body2Strong
-              maxW={maxTextWidth}
-              isTruncated
-              color={isCurrent ? 'text-default' : 'text-subdued'}
-            >
-              {text}
-            </Typography.Body2Strong>
+            {text.length > 0 ? (
+              <Typography.Body2Strong
+                maxW={maxTextWidth}
+                isTruncated
+                color={isCurrent ? 'text-default' : 'text-subdued'}
+              >
+                {text}
+              </Typography.Body2Strong>
+            ) : null}
           </HStack>
         );
       }}
@@ -117,6 +125,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
   size = 'sm',
   bg = 'surface-default',
   maxTextWidth,
+  ...rest
 }) => (
   <ScrollableButtonGroup
     bg={bg}
@@ -126,6 +135,7 @@ const ToggleButtonGroup: FC<ToggleButtonGroupProps> = ({
     alignItems="center"
     position="relative"
     selectedIndex={selectedIndex}
+    {...rest}
   >
     {buttons.map((btn, index) => (
       <ToggleButton

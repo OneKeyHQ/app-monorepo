@@ -72,6 +72,7 @@ import {
   getWatchingAccountUUID,
 } from './managers/backup';
 import { getDefaultPurpose } from './managers/derivation';
+import { getTokenRiskyItems } from './managers/goplus';
 import { implToCoinTypes } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
@@ -100,6 +101,7 @@ import {
 } from './types/account';
 import { CredentialType } from './types/credential';
 import { DevicePayload } from './types/device';
+import { GoPlusSupportApis } from './types/goplus';
 import {
   HistoryEntry,
   HistoryEntryMeta,
@@ -1220,6 +1222,7 @@ class Engine {
       let tokenInfo:
         | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
             logoURI?: string;
+            security?: boolean;
           })
         | undefined;
       const { impl, chainId } = parseNetworkId(networkId);
@@ -1244,6 +1247,17 @@ class Engine {
       }
       if (!tokenInfo) {
         throw new Error('findToken ERROR: token not found.');
+      }
+      const { hasSecurity } = await getTokenRiskyItems({
+        apiName: GoPlusSupportApis.token_security,
+        networkId,
+        address: tokenIdOnNetwork,
+      });
+      if (hasSecurity) {
+        tokenInfo = {
+          ...tokenInfo,
+          security: true,
+        };
       }
       return {
         id: tokenId,
@@ -1572,6 +1586,7 @@ class Engine {
   async searchTokens(
     networkId: string | undefined,
     searchTerm: string,
+    includeNativeToken?: 0 | 1,
   ): Promise<Array<Token>> {
     if (searchTerm.length === 0) {
       return [];
@@ -1579,6 +1594,7 @@ class Engine {
     if (!networkId) {
       const result = await fetchOnlineTokens({
         query: searchTerm,
+        includeNativeToken,
       });
       return result.map((t) => formatServerToken(t));
     }
@@ -1871,6 +1887,31 @@ class Engine {
     debugLogger.sendTx.info(
       'buildEncodedTxFromTransfer: ',
       transferInfoNew,
+      result,
+      {
+        networkId,
+        accountId,
+      },
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return result;
+  }
+
+  @backgroundMethod()
+  async buildEncodedTxFromBatchTransfer({
+    networkId,
+    accountId,
+    transferInfos,
+  }: {
+    networkId: string;
+    accountId: string;
+    transferInfos: ITransferInfo[];
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    const result = await vault.buildEncodedTxFromBatchTransfer(transferInfos);
+    debugLogger.sendTx.info(
+      'buildEncodedTxFromBatchTransfer: ',
+      transferInfos,
       result,
       {
         networkId,
@@ -2325,6 +2366,7 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
+    vsCurrency?: string,
   ): Promise<[Record<string, BigNumber>, Record<string, TokenChartData>]> {
     // Get price info
     const [prices, charts] = await this.priceManager.getPricesAndCharts(
@@ -2333,6 +2375,7 @@ class Engine {
         (tokenIdOnNetwork) => tokenIdOnNetwork.length > 0,
       ),
       withMain,
+      vsCurrency,
     );
     return [prices, charts];
   }

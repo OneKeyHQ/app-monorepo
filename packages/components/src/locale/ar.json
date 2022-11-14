@@ -96,6 +96,7 @@
   "action__dismiss": "رفض",
   "action__done": "منتهي",
   "action__dont_have_device": "جهازي ليس معي",
+  "action__dont_show_again": "لا تظهر مرة أخرى",
   "action__download": "تحميل",
   "action__edit": "تعديل",
   "action__edit_fee": "تحرير الرسوم",
@@ -202,7 +203,7 @@
   "action__switch": "يُحوّل",
   "action__sync": "مزامنة",
   "action__sync_service": "خدمة المزامنة",
-  "action__test_onekey_service": "OneKey Test Service (Need to restart)",
+  "action__test_onekey_service": "خدمة اختبار OneKey (تحتاج إلى إعادة التشغيل)",
   "action__test_update_ble_firmware": "اختبار ترقية بلي البرامج الثابتة",
   "action__test_update_firmware": "اختبار البرامج الثابتة للترقية",
   "action__test_update_resource": "اختبار مورد التحديث",
@@ -267,9 +268,13 @@
   "badge__fake_kyc": "🎭 وهمية KYC",
   "badge__financial_crime": "🚓 الجرائم المالية",
   "badge__honeypot_related": "🍯 المصيدة ذات الصلة",
+  "badge__malicious_contract": "☠️ عقد ضار",
+  "badge__malicious_contract_creator": "👹 منشئ العقد الضار",
   "badge__malicious_mining": "⛏ التعدين الضار",
   "badge__money_laudering": "💰 غسيل أموال",
+  "badge__not_open_source": "🧑‍💻 ليست مفتوحة المصدر",
   "badge__phishing": "🎣 التصيد",
+  "badge__phishing_site": "🎣 موقع التصيد",
   "badge__stealing_attack": "🔫 سرقة الهجوم",
   "checkbox__i_have_written_down_phrase": "لقد كتبت عبارة الاسترداد.",
   "checkbox__i_have_written_down_phrase_desc": "أتفهم أنني لن أتمكن من استرداد المحفظة بدونها.",
@@ -426,6 +431,7 @@
   "content__keyboard_shortcut": "اختصار لوحة المفاتيح",
   "content__keychain": "سلسلة مفاتيح",
   "content__keychain_desc": "يتم تخزين مفاتيح إعادة الإعادة الخاصة بك بشكل آمن على هذا الجهاز باستخدام Apple Keychain. إذا حذفت التطبيق وأعدت تثبيته ، فلا يزال بإمكانك الوصول إلى حساباتك.",
+  "content__last_sale": "آخر بيع",
   "content__likely_less_than_15s": "من المحتمل أن يكون عمره < من 15 ثانية",
   "content__log_in_icloud_to_enable_backup": "يرجى تسجيل الدخول إلى حساب Apple الخاص بك لتمكين النسخ الاحتياطي على iCloud.",
   "content__manage_your_token_allowances_and_protect_yourself_from_scams_on_30_chains": "إدارة مخصصات الرموز المميزة الخاصة بك وحماية نفسك من عمليات الاحتيال على أكثر من 30 سلسلة.",
@@ -443,6 +449,7 @@
   "content__native_metamask_tutorials_5": "انسخ والصق عبارة الاسترداد في الحقل الموجود على اليسار.",
   "content__nft_standard": "معيار NFT",
   "content__no_charge": "لا تهمة",
+  "content__no_description": "بدون وصف",
   "content__no_need_to_enter_a_password_for_each_transaction": "لا توجد كلمة مرور مطلوبة.",
   "content__no_need_to_enter_a_password_for_each_transaction_desc": "ومع ذلك ، لا ينبغي تمكين هذه الميزة للأصول الرئيسية أو الهواتف العامة.",
   "content__no_password_until_next_locking": "حتى القفل التالي ، لا يلزم إدخال كلمة مرور",
@@ -759,6 +766,7 @@
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
   "form__download_when_available": "قم بتنزيل التحديثات الجديدة عند توفرها",
+  "form__enable_onekey": "تمكين OneKey",
   "form__english": "إنجليزي",
   "form__ens_name": "اسم ENS",
   "form__enter_address": "أدخل العنوان",
@@ -810,6 +818,10 @@
   "form__hide_balance": "إخفاء الرصيد",
   "form__hide_risk_tokens": "إخفاء رموز المخاطرة",
   "form__hide_small_balance": "إخفاء الرصيد الصغير",
+  "form__high_buy_tax": "ضريبة شراء عالية",
+  "form__high_buy_tax_desc": "معدل ضريبة الشراء الحالي هو {0} ، وهو أعلى من المعدل الطبيعي.",
+  "form__high_sell_tax": "ضريبة البيع المرتفعة",
+  "form__high_sell_tax_desc": "معدل ضريبة البيع الحالي هو {0} ، وهو أعلى من المعدل الطبيعي.",
   "form__hint_optional": "اختياري",
   "form__honeypot": "وعاء العسل",
   "form__honeypot_desc": "\"HoneyPot\" تعني أن وظيفة عقد الرمز المميز قد تمنع المبيعات.",
@@ -870,6 +882,8 @@
   "form__new": "جديد",
   "form__nft": "NFT",
   "form__nft_search_placeholder": "ابحث عن مجموعات",
+  "form__no_additional_issuance": "لا يوجد إصدار إضافي",
+  "form__no_additional_issuance_desc": "وظيفة النعناع شفافة أو غير موجودة.",
   "form__no_allowance": "لا تخويل",
   "form__no_anti_whale": "لا مضاد للحوت",
   "form__no_anti_whale_desc": "لا يحد العقد من المعاملات أو مقتنيات العملات المعدنية.",
@@ -936,6 +950,7 @@
   "form__proxy_contract_found_desc": "يسمح عقد الوكيل للمالك بتغيير وظيفة الرمز المميز وسعره.",
   "form__quests": "أسئلة",
   "form__rate": "معدل",
+  "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
   "form__receiving_address": "عنوان الاستلام",
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
@@ -985,6 +1000,7 @@
   "form__staking_reward": "مكافأة الرهان",
   "form__start_with_wc_or_https_placeholder": "ابدأ بـ \"wc:\" أو \"https: //\"",
   "form__str_accounts": "{count} حسابات",
+  "form__str_attention_item_uppercase": "{0} عنصر تنبيه",
   "form__str_chain_uppercase": "سلسلة {0}",
   "form__str_d": "{0} د",
   "form__str_day": "{0} أيام",
@@ -999,6 +1015,7 @@
   "form__str_minimum_transfer": "{0} الحد الأدنى لمبلغ التحويل",
   "form__str_minute": "{0} دقيقة",
   "form__str_of_the_rewards": "{0} من المكافآت",
+  "form__str_risky_item_uppercase": "{0} عنصر خطر",
   "form__str_used": "{0} مستخدمة",
   "form__str_y": "{0} ص",
   "form__submit_a_request": "تقديم طلب",
@@ -1017,8 +1034,14 @@
   "form__theme": "سمة",
   "form__third_party_provider": "مزود الطرف الثالث",
   "form__token": "رمز",
+  "form__token_can_be_issued_additionall": "يمكن إصدار الرمز المميز بالإضافة إلى كل شيء",
+  "form__token_can_be_issued_additionall_desc": "يحتوي العقد على وظائف إصدار إضافية ، والتي يمكن أن تولد رموزًا ، مما يؤدي إلى تقلبات كبيرة في أسعار الرموز.",
   "form__token_lists__uppercase": "قوائم رمزية",
   "form__token_symbol": "رمز الرمز",
+  "form__too_much_buy_tax": "الكثير من ضريبة الشراء",
+  "form__too_much_buy_tax_desc": "معدل ضريبة الشراء الحالي هو {0} ، مما قد يؤدي إلى فشل المعاملة.",
+  "form__too_much_sell_tax": "الكثير من ضريبة البيع",
+  "form__too_much_sell_tax_desc": "معدل ضريبة البيع الحالي هو {0} ، مما قد يؤدي إلى فشل المعاملة.",
   "form__tools": "أدوات",
   "form__top_50_tokens": "أفضل 50 توكينز",
   "form__top_searched": "الأكثر بحثا",
@@ -1435,6 +1458,7 @@
   "title__continuing_to_oneKey": "جارٍ المتابعة إلى OneKey ...",
   "title__contract_approvals": "موافقات العقد",
   "title__cryptos": "التشفير",
+  "title__dapp_connection": "اتصال dApp",
   "title__decrypt_message": "فك تشفير الرسالة",
   "title__disconnect_from_this_Site": "قطع الاتصال بهذا الموقع",
   "title__edit_address": "تعديل العنوان",
@@ -1447,6 +1471,10 @@
   "title__explore": "يستكشف",
   "title__explore_dapps": "اكتشف DApps",
   "title__export_public_key": "تصدير المفتاح العام",
+  "title__extension_enabled": "التمديد ممكّن",
+  "title__extension_enabled_desc": "لقد قمت بتمكين OneKey كمحفظة افتراضية. قم بتحديث الموقع ليصبح ساري المفعول.",
+  "title__extension_paused": "تم إيقاف التمديد مؤقتًا",
+  "title__extension_paused_desc": "لقد قمت بإيقاف امتداد OneKey مؤقتًا واستخدمت محافظًا أخرى كمحفظتك الافتراضية.",
   "title__farm": "مزرعة",
   "title__favorite": "مفضل",
   "title__favorites": "المفضلة",

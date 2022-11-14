@@ -121,7 +121,7 @@ const RefreshButton = () => {
     onSwapQuote();
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
-      toValue: 1,
+      toValue: -1,
       duration: 1000,
       useNativeDriver: true,
     }).start();

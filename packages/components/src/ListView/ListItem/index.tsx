@@ -23,7 +23,7 @@ const ListItem: FC<ListItemProps> = ({
           px={2}
           py={1.5}
           my={0.5}
-          space={4}
+          space={3}
           alignItems="center"
           borderRadius="xl"
           bgColor={
@@ -40,7 +40,7 @@ const ListItem: FC<ListItemProps> = ({
       )}
     </Pressable>
   ) : (
-    <HStack alignItems="center" p={2} space={4} {...rest}>
+    <HStack alignItems="center" p={2} space={3} {...rest}>
       {children}
     </HStack>
   );

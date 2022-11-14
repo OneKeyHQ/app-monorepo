@@ -27,6 +27,11 @@ const ERC1155 = [
   'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)',
 ];
 
+const BATCH_TRANSFER = [
+  'function disperseEther(address[] recipients, uint256[] values)',
+  'function disperseToken(address token, address[] recipients, uint256[] values)',
+];
+
 export enum Erc721MethodSelectors {
   safeTransferFrom = '0x42842e0e', // keccak256(Buffer.from('safeTransferFrom(address,address,uint256)')) => 0x42842e0eb38857a7775b4e7364b2775df7325074d088e7fb39590cd6281184ed
   setApprovalForAll = '0xa22cb465', // keccak256(Buffer.from('setApprovalForAll(address,bool)')).toString('hex') => 0xa22cb4651ab9570f89bb516380c40ce76762284fb1f21337ceaf6adab99e7d4a
@@ -38,10 +43,17 @@ export enum Erc1155MethodSelectors {
   setApprovalForAll = '0xa22cb465', // keccak256(Buffer.from('setApprovalForAll(address,bool)')).toString('hex') => 0xa22cb4651ab9570f89bb516380c40ce76762284fb1f21337ceaf6adab99e7d4a
 }
 
+export enum BatchTransferSelectors {
+  disperseEther = '0xe63d38ed',
+  disperseToken = '0xc73a2d60',
+  disperseTokenSimple = '0x51ba162c',
+}
+
 const ABI = {
   ERC20,
   ERC721,
   ERC1155,
+  BATCH_TRANSFER,
 };
 
 export const OPENSEA_REGISTRY_ABI = [

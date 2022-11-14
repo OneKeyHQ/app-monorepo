@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -8,17 +8,25 @@ import {
 } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
-import { networkSupportedTokens, swftOnlyNetwork } from '../config';
-import { useSwapState } from '../hooks/useSwap';
 
 import type { Token } from '../../../store/typings';
 
 const Input = () => {
   const navigation = useNavigation();
   const { network } = useActiveWalletAccount();
-  const { outputToken } = useSwapState();
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
+    () => {
+      const networkIds = (tokenList ?? []).map((item) => item.networkId);
+      if (inputToken && networkIds.includes(inputToken.networkId)) {
+        return inputToken.networkId;
+      }
+      return undefined;
+    },
+  );
 
-  const networkSelectorId = useAppSelector((s) => s.swap.networkSelectorId);
   const onSelect = useCallback(
     (token: Token) => {
       backgroundApiProxy.serviceSwap.setInputToken(token);
@@ -26,24 +34,6 @@ const Input = () => {
     },
     [navigation],
   );
-
-  const included = useMemo(() => {
-    if (
-      outputToken &&
-      networkSelectorId &&
-      networkSelectorId !== outputToken.networkId
-    ) {
-      return networkSupportedTokens[networkSelectorId];
-    }
-    if (networkSelectorId && swftOnlyNetwork.includes(networkSelectorId)) {
-      return networkSupportedTokens[networkSelectorId];
-    }
-    return undefined;
-  }, [networkSelectorId, outputToken]);
-
-  const onSelectNetworkId = useCallback((networkid?: string) => {
-    backgroundApiProxy.serviceSwap.setNetworkSelectorId(networkid);
-  }, []);
 
   const value = useMemo(
     () => ({
@@ -57,7 +47,7 @@ const Input = () => {
 
   return (
     <TokenSelectorContext.Provider value={value}>
-      <TokenSelector included={included} onSelect={onSelect} />
+      <TokenSelector onSelect={onSelect} />
     </TokenSelectorContext.Provider>
   );
 };

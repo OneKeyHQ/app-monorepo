@@ -5,33 +5,41 @@ import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 export const floorPriceSymbolMap: Record<string, string> = {
   [OnekeyNetwork.eth]: 'ETH',
-  [OnekeyNetwork.optimism]: 'AVAX',
+  [OnekeyNetwork.optimism]: 'ETH',
   [OnekeyNetwork.bsc]: 'BNB',
   [OnekeyNetwork.polygon]: 'MATIC',
   [OnekeyNetwork.arbitrum]: 'ETH',
   [OnekeyNetwork.sol]: 'SOL',
-  [OnekeyNetwork.avalanche]: 'ETH',
+  [OnekeyNetwork.avalanche]: 'AVAX',
 };
 type Props = {
   prefix?: string;
   price?: number | string | null;
+  symbol?: string;
   networkId?: string;
 } & ComponentProps<typeof Text>;
 
 const PriceText: FC<Props> = ({
   prefix = '',
-  price = 0,
+  price,
   networkId,
+  symbol,
   ...textProps
 }) => {
-  const symbol = floorPriceSymbolMap[networkId ?? ''];
-  return (
-    <Text {...textProps}>{`${prefix} ${price ?? 0} ${symbol ?? ''}`}</Text>
-  );
+  const innderSymbol = symbol ?? floorPriceSymbolMap[networkId ?? ''];
+  let value = '–';
+  if (price && price !== null) {
+    value = `${price} ${innderSymbol ?? ''}`;
+  }
+  return <Text {...textProps}>{`${prefix} ${value}`}</Text>;
 };
 
-export function PriceString({ prefix = '', price = 0, networkId }: Props) {
-  const symbol = floorPriceSymbolMap[networkId ?? ''];
-  return `${prefix} ${price ?? 0} ${symbol ?? ''}`;
+export function PriceString({ prefix = '', price, networkId, symbol }: Props) {
+  const innderSymbol = symbol ?? floorPriceSymbolMap[networkId ?? ''];
+  let value = '–';
+  if (price && price !== null) {
+    value = `${price} ${innderSymbol ?? ''}`;
+  }
+  return `${prefix} ${value}`;
 }
 export default PriceText;

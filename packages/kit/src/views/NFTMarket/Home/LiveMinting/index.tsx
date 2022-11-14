@@ -1,9 +1,17 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
-import { Box, Button, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  Icon,
+  Pressable,
+  Text,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -27,7 +35,6 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 const ListHeader: FC = () => {
-  const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const defaultNetwork = useDefaultNetWork();
   const [selectedNetwork, setSelectedNetwork] =
@@ -36,14 +43,9 @@ const ListHeader: FC = () => {
   const intl = useIntl();
 
   return (
-    <Box
-      paddingX={isSmallScreen ? '16px' : 0}
-      flexDirection="row"
-      justifyContent="space-between"
-      mb="12px"
-    >
+    <Box flexDirection="row" justifyContent="space-between" mb="16px">
       <Text typography="Heading">Live Minting</Text>
-      <Box flexDirection="row" alignItems="center">
+      <HStack alignItems="center" space="20px">
         <ChainSelector
           selectedNetwork={selectedNetwork}
           onChange={(n) => {
@@ -56,22 +58,33 @@ const ListHeader: FC = () => {
             }
           }}
         />
-        <Button
-          onPress={() => {
-            navigation.navigate(HomeRoutes.NFTMarketLiveMintingList, {
-              network: selectedNetwork,
-            });
-          }}
-          height="32px"
-          type="plain"
-          size="sm"
-          textProps={{ color: 'text-subdued' }}
-        >
-          {intl.formatMessage({
-            id: 'action__view_all',
-          })}
-        </Button>
-      </Box>
+        <Box m="-8px" mr="-12px">
+          <Pressable
+            onPress={() => {
+              navigation.navigate(HomeRoutes.NFTMarketLiveMintingList, {
+                network: selectedNetwork,
+              });
+            }}
+            p="8px"
+            rounded="xl"
+            flexDirection="row"
+            alignItems="center"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+          >
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              color="text-subdued"
+              mr="4px"
+            >
+              {intl.formatMessage({
+                id: 'action__see_all',
+              })}
+            </Text>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Pressable>
+        </Box>
+      </HStack>
     </Box>
   );
 };
@@ -81,6 +94,60 @@ export const LiveMintingList = () => {
   const context = useLiveMintContext()?.context;
   const setContext = useLiveMintContext()?.setContext;
   const { serviceNFT } = backgroundApiProxy;
+
+  const isFocused = useIsFocused();
+
+  const shouldDoRefresh = useMemo((): boolean => {
+    if (!context?.selectedNetwork?.id) {
+      return false;
+    }
+    if (!isFocused) {
+      return false;
+    }
+    return true;
+  }, [context?.selectedNetwork?.id, isFocused]);
+
+  const fetchData = async () => {
+    if (setContext) {
+      setContext((ctx) => ({
+        ...ctx,
+        loading: true,
+      }));
+      const data = await serviceNFT.getLiveMinting({
+        chain: context?.selectedNetwork?.id,
+        limit: context?.isTab ? 5 : 20,
+      });
+      if (data) {
+        setContext((ctx) => {
+          const { isTab } = ctx;
+          return {
+            ...ctx,
+            liveMintList: isTab ? data.slice(0, 5) : data,
+            loading: false,
+          };
+        });
+      } else {
+        setContext((ctx) => ({
+          ...ctx,
+          liveMintList: [],
+          loading: false,
+        }));
+      }
+    }
+    return [];
+  };
+
+  const swrKey = 'liveMinting';
+  useSWR(swrKey, fetchData, {
+    refreshInterval: 30 * 1000,
+    revalidateOnMount: false,
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+    isPaused() {
+      return !shouldDoRefresh;
+    },
+  });
+
   useEffect(() => {
     (async () => {
       if (setContext) {

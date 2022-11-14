@@ -1,12 +1,19 @@
 import { createContext, useContext } from 'react';
 
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import {
+  Collection,
+  NFTAsset,
+  NFTTransaction,
+} from '@onekeyhq/engine/src/types/nft';
 
 export type CollectionDetailContextValue = {
   loading?: boolean;
   collection?: Collection;
   selectedIndex: number;
   refreshing?: boolean;
+  assetList: NFTAsset[];
+  txList: NFTTransaction[];
+  networkId: string;
 };
 
 export type ICollectionDetailContent = {

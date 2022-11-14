@@ -10,6 +10,7 @@ export enum ManageTokenRoutes {
   VerifiedToken = 'VerifiedToken',
   PriceAlertList = 'PriceAlertList',
   PriceAlertAdd = 'PriceAlertAdd',
+  TokenRiskDetail = 'TokenRiskDetail',
 }
 
 export type ManageTokenRoutesParams = {
@@ -22,6 +23,7 @@ export type ManageTokenRoutesParams = {
         decimal: number;
         logoURI: string;
         verified?: boolean;
+        security?: boolean;
         source: string[];
       }
     | { query: string };
@@ -41,15 +43,19 @@ export type ManageTokenRoutesParams = {
     logoURI: string;
     verified?: boolean;
     source: string[];
+    security?: boolean;
   };
   [ManageTokenRoutes.VerifiedToken]: {
-    source: string[];
+    token: Partial<Token>;
   };
   [ManageTokenRoutes.CustomToken]:
     | { address?: string; networkId?: string }
     | undefined;
   [ManageTokenRoutes.PriceAlertList]: {
     token: Token;
+  };
+  [ManageTokenRoutes.TokenRiskDetail]: {
+    token: Partial<Token>;
   };
   [ManageTokenRoutes.PriceAlertAdd]: {
     token: Token;

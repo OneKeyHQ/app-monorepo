@@ -11,7 +11,9 @@ import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
 
+// should upate AUTO_SWITCH_DEFAULT_RPC_AT_VERSION version first
 const defaultNetworkRpcs: Record<string, string> = {
+  'aptos--1': 'https://fullnode.mainnet.aptoslabs.com',
   'bch--0': 'https://fiat.onekeycn.com/book/bch',
   'btc--0': 'https://rpc.onekey.so/btc/',
   'evm--1': 'https://geth.mytokenpocket.vip',

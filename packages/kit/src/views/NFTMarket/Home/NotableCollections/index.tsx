@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import { Box, Text } from '@onekeyhq/components';
@@ -28,16 +29,21 @@ const ListView: FC<Props> = ({ listData, onSelectCollection }) => {
   const ref = useRef(null);
 
   const renderItem = useCallback(
-    (item: Collection) => {
-      const { bannerUrl, contractName, floorPrice, chain } = item;
+    (item: Collection, index: number) => {
+      const { bannerUrl, contractName, floorPrice, chain, priceSymbol } = item;
       return (
         <CollectionCard
+          key={`${item.contractAddress as string} ${index}`}
           onPress={() => {
             onSelectCollection(item);
           }}
           contractName={contractName}
           netImageProps={{ src: bannerUrl }}
-          priceTextProps={{ price: floorPrice, networkId: chain }}
+          priceTextProps={{
+            price: floorPrice,
+            networkId: chain,
+            symbol: priceSymbol,
+          }}
           style={{ marginRight: 16 }}
         />
       );
@@ -46,7 +52,7 @@ const ListView: FC<Props> = ({ listData, onSelectCollection }) => {
   );
 
   const Banners = useMemo(
-    () => listData.map((item) => renderItem(item)),
+    () => listData.map((item, index) => renderItem(item, index)),
     [listData, renderItem],
   );
 
@@ -106,14 +112,20 @@ const NotableCollection = () => {
         {listData.length === 0 ? (
           <EmptyView />
         ) : (
-          <ListView
-            listData={listData}
-            onSelectCollection={onSelectCollection}
-          />
+          <MotiView
+            style={{ flex: 1 }}
+            from={{ opacity: 0.5 }}
+            animate={{ opacity: 1 }}
+          >
+            <ListView
+              listData={listData}
+              onSelectCollection={onSelectCollection}
+            />
+          </MotiView>
         )}
       </Box>
     </Box>
   );
 };
 
-export default NotableCollection;
+export default React.memo(NotableCollection);

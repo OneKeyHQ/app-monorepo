@@ -1,5 +1,15 @@
 import { debounce } from 'lodash';
 
+import {
+  CheckParams,
+  checkSite,
+  getAddressRiskyItems,
+  getTokenRiskyItems,
+} from '@onekeyhq/engine/src/managers/goplus';
+import {
+  fetchTokenSource,
+  fetchTools,
+} from '@onekeyhq/engine/src/managers/token';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   AppEventBusNames,
@@ -12,7 +22,6 @@ import {
   setAccountTokens,
   setAccountTokensBalances,
   setCharts,
-  setEnabledNativeTokens,
   setNativeToken,
   setNetworkTokens,
   setPrices,
@@ -296,9 +305,12 @@ export default class ServiceToken extends ServiceBase {
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
       tokenIdsOnNetwork = Array.from(new Set(tokenIdsOnNetwork));
     }
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const [prices, charts] = await engine.getPricesAndCharts(
       activeNetworkId,
       tokenIdsOnNetwork,
+      true,
+      vsCurrency,
     );
     const fullPrices: Record<string, string | null> = {
       main: prices.main?.toFixed() || null,
@@ -366,27 +378,27 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEnabledNativeTokens(options?: {
-    forceUpdate: boolean;
-  }): Promise<Token[]> {
-    const { appSelector, dispatch } = this.backgroundApi;
-    const swappableNativeTokens = appSelector(
-      (s) => s.tokens.enabledNativeTokens,
-    );
-    if (
-      swappableNativeTokens &&
-      swappableNativeTokens.length > 0 &&
-      !options?.forceUpdate
-    ) {
-      return swappableNativeTokens;
-    }
-    const networks = appSelector((s) => s.runtime.networks);
-    const enabledNetworks = networks.filter(
-      (item) => !item.isTestnet && item.enabled,
-    );
-    const items = enabledNetworks.map((item) => this.getNativeToken(item.id));
-    const tokens = await Promise.all(items);
-    dispatch(setEnabledNativeTokens(tokens));
-    return tokens;
+  async fetchTokenSource() {
+    return fetchTokenSource();
+  }
+
+  @backgroundMethod()
+  async getTokenRiskyItems(params: CheckParams) {
+    return getTokenRiskyItems(params);
+  }
+
+  @backgroundMethod()
+  async getAddressRiskyItems(params: CheckParams) {
+    return getAddressRiskyItems(params);
+  }
+
+  @backgroundMethod()
+  async getSiteSecurityInfo(url: string, chainId: string) {
+    return checkSite(url, chainId);
+  }
+
+  @backgroundMethod()
+  async fetchTools(networkId: string) {
+    return fetchTools(networkId);
   }
 }
