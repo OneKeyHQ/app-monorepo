@@ -347,11 +347,14 @@ function PreSendAddress() {
                       if (isValidNameServiceName && !resolvedAddress)
                         return undefined;
 
-                      const { key } = error0;
+                      const { key, info } = error0;
                       if (key) {
-                        return intl.formatMessage({
-                          id: key,
-                        });
+                        return intl.formatMessage(
+                          {
+                            id: key,
+                          },
+                          info ?? {},
+                        );
                       }
                       return intl.formatMessage({
                         id: 'form__address_invalid',

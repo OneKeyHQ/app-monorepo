@@ -223,7 +223,7 @@ export class InvalidAddress extends OneKeyError {
 }
 
 export class InvalidSameAddress extends OneKeyError {
-  override key = 'msg__recipient_cannot_send_to_myself';
+  override key = 'form__address_cannot_send_to_myself';
 
   constructor(message?: string, info?: IOneKeyErrorInfo) {
     super(message || 'InvalidAddress.', info);

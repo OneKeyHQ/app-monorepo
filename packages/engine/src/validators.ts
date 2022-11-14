@@ -299,7 +299,15 @@ class Validators {
     if (vaultSettings.cannotSendToSelf) {
       const account = await this.dbApi.getAccount(accountId);
       if (account.address === address) {
-        throw new errors.InvalidSameAddress();
+        const [network] = await Promise.all([
+          this.engine.getNetwork(networkId),
+        ]);
+        throw new errors.InvalidSameAddress(
+          'form__address_cannot_send_to_myself',
+          {
+            0: network.name,
+          },
+        );
       }
     }
     return Promise.resolve();
