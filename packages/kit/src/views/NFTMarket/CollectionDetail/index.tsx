@@ -23,10 +23,9 @@ const CollectionDetail = () => {
     collection,
     assetList: [],
     txList: [],
+    networkId,
   });
   const navigation = useNavigation();
-
-  console.log('title = ', title);
 
   useLayoutEffect(() => {
     navigation.setOptions({

@@ -25,8 +25,8 @@ const NFTListImage: FC<Props> = ({
   skeleton = false,
   ...props
 }) => {
-  const imageUrl =
-    url ?? (thumbnail ? asset.image.thumbnail : asset.image.source);
+  const imageUrl = url ?? asset.nftscanUri;
+  const s3Url = thumbnail ? asset.image.thumbnail : asset.image.source;
   const source = getImageWithAsset(asset);
   const tokenId = asset.contractTokenId ?? asset.tokenAddress;
   if (source && tokenId) {
@@ -37,7 +37,8 @@ const NFTListImage: FC<Props> = ({
           resizeMode={resizeMode}
           width={`${size}px`}
           height={`${size}px`}
-          s3Url={imageUrl}
+          url={imageUrl}
+          s3Url={s3Url}
           nftSource={{
             contractAddress: asset.contractAddress,
             tokenId,
