@@ -72,29 +72,31 @@ const VerifiedTokens: React.FC = () => {
         <Text mt={2}>
           {intl.formatMessage({ id: 'title__verified_token_desc' })}
         </Text>
-        <Pressable w="full" onPress={goRiskDetail}>
-          <HStack mt="9" mb="8" w="full" alignItems="center">
-            <Image size="40px" source={NoRisks} />
-            <VStack flex="1" ml="3">
-              <Typography.Body1Strong mb="1">
-                {intl.formatMessage({ id: 'form__no_risks' })}
-              </Typography.Body1Strong>
-              {checkLoading ? (
-                <Skeleton shape="Body2" />
-              ) : (
-                <Typography.Body2>
-                  {intl.formatMessage(
-                    { id: 'form__no_risks_desc' },
-                    {
-                      0: safe?.length ?? 0,
-                    },
-                  )}
-                </Typography.Body2>
-              )}
-            </VStack>
-            <Icon name="ChevronRightSolid" size={20} />
-          </HStack>
-        </Pressable>
+        {safe?.length === 0 ? null : (
+          <Pressable w="full" onPress={goRiskDetail}>
+            <HStack mt="9" mb="8" w="full" alignItems="center">
+              <Image size="40px" source={NoRisks} />
+              <VStack flex="1" ml="3">
+                <Typography.Body1Strong mb="1">
+                  {intl.formatMessage({ id: 'form__no_risks' })}
+                </Typography.Body1Strong>
+                {checkLoading ? (
+                  <Skeleton shape="Body2" />
+                ) : (
+                  <Typography.Body2>
+                    {intl.formatMessage(
+                      { id: 'form__no_risks_desc' },
+                      {
+                        0: safe?.length ?? 0,
+                      },
+                    )}
+                  </Typography.Body2>
+                )}
+              </VStack>
+              <Icon name="ChevronRightSolid" size={20} />
+            </HStack>
+          </Pressable>
+        )}
         <Typography.Subheading w="full" mb="2">
           {intl.formatMessage({ id: 'form__token_lists__uppercase' })}
         </Typography.Subheading>
