@@ -16,7 +16,7 @@ import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
 import bs58 from 'bs58';
 import bs58check from 'bs58check';
-import { cloneDeep, uniqBy } from 'lodash';
+import { cloneDeep, isEmpty, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
@@ -62,6 +62,7 @@ import {
 import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
+  isAccountWithAddress,
 } from './managers/account';
 import {
   HDWALLET_BACKUP_VERSION,
@@ -649,7 +650,9 @@ class Engine {
             networkId,
             accountId: account.id,
           });
-          networkToAccounts[networkId].push(await vault.getOutputAccount());
+          const outputAccount = await vault.getOutputAccount();
+          if (!isEmpty(outputAccount.address))
+            networkToAccounts[networkId].push(outputAccount);
         }
       }
     }
@@ -670,7 +673,7 @@ class Engine {
     }
 
     const accounts = await this.dbApi.getAccounts(accountIds);
-    return Promise.all(
+    const outputAccounts = await Promise.all(
       accounts
         .filter(
           (a) =>
@@ -694,6 +697,7 @@ class Engine {
               ),
         ),
     );
+    return outputAccounts.filter((a) => isAccountWithAddress(a));
   }
 
   @backgroundMethod()
@@ -755,6 +759,7 @@ class Engine {
       '2': OnekeyNetwork.ltc,
       '145': OnekeyNetwork.bch,
       '283': OnekeyNetwork.algo,
+      '118': OnekeyNetwork.cosmoshub,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -895,31 +900,48 @@ class Engine {
       purpose,
     });
 
-    const addresses = accounts.map((a) => {
-      if (a.type === AccountType.UTXO) {
-        // TODO: utxo should use xpub instead of its first address
-        return (a as DBUTXOAccount).address;
-      }
-      if (a.type === AccountType.VARIANT) {
-        return (a as DBVariantAccount).addresses[networkId];
-      }
-      return a.address;
-    });
+    const addresses = await Promise.all(
+      accounts.map(async (a) => {
+        if (a.type === AccountType.UTXO) {
+          // TODO: utxo should use xpub instead of its first address
+          return (a as DBUTXOAccount).address;
+        }
+        if (a.type === AccountType.VARIANT) {
+          let address = (a as DBVariantAccount).addresses[networkId];
+          if (!address) {
+            address = await this.providerManager.addressFromBase(
+              networkId,
+              a.address,
+            );
+          }
+          return address;
+        }
+        return a.address;
+      }),
+    );
 
     let balances: Array<BigNumber | undefined>;
     try {
-      balances = await vault.getBalances(
-        accounts.map((a) => {
+      const balancesAddresss = await Promise.all(
+        accounts.map(async (a) => {
           if (a.type === AccountType.UTXO) {
             const { xpub } = a as DBUTXOAccount;
             return { address: xpub };
           }
           if (a.type === AccountType.VARIANT) {
-            return { address: (a as DBVariantAccount).addresses[networkId] };
+            let address = (a as DBVariantAccount).addresses[networkId];
+            if (!address) {
+              address = await this.providerManager.addressFromBase(
+                networkId,
+                a.address,
+              );
+            }
+            return { address };
           }
           return { address: a.address };
         }),
       );
+      balances = await vault.getBalances(balancesAddresss);
     } catch (e) {
       balances = accounts.map(() => undefined);
     }

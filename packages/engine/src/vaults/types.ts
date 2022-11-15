@@ -1,21 +1,21 @@
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
-import { NFTAsset } from '../types/nft';
 import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
-
-import { IEncodedTxAptos } from './impl/apt/types';
 
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
+import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
 import type { IEncodedTxAlgo } from './impl/algo/types';
+import type { IEncodedTxAptos } from './impl/apt/types';
 import type {
   IDecodedTxExtraBtc,
   IEncodedTxBtc,
   INativeTxBtc,
 } from './impl/btc/types';
 import type { IEncodedTxCfx } from './impl/cfx/types';
+import type { IEncodedTxCosmos } from './impl/cosmos/type';
 import type { EVMDecodedItem } from './impl/evm/decoder/types';
 import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -131,7 +131,8 @@ export type IEncodedTx =
   | IEncodedTxTron
   | IEncodedTxAptos
   | IEncodedTxCfx
-  | IEncodedTxAlgo;
+  | IEncodedTxAlgo
+  | IEncodedTxCosmos;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear

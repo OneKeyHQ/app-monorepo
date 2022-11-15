@@ -41,6 +41,7 @@ import {
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
+  IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
   IMPL_LTC,
@@ -62,6 +63,7 @@ import {
 import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
+import { baseAddressToAddress } from './vaults/impl/cosmos/sdk/address';
 
 // IMPL naming aren't necessarily the same.
 export const IMPL_MAPPINGS: Record<
@@ -420,11 +422,23 @@ class ProviderController extends BaseProviderController {
     );
   }
 
-  addressFromBase(networkId: string, baseAddress: string): Promise<string> {
+  async addressFromBase(
+    networkId: string,
+    baseAddress: string,
+  ): Promise<string> {
     const [impl, chainId] = networkId.split(SEPERATOR);
     switch (impl) {
       case IMPL_CFX:
         return Promise.resolve(toCfxAddress(baseAddress, parseInt(chainId)));
+      case IMPL_COSMOS:
+        // eslint-disable-next-line no-case-declarations
+        const chainInfo = await this.getChainInfoByNetworkId(networkId);
+        return Promise.resolve(
+          baseAddressToAddress(
+            chainInfo.implOptions?.addressPrefix ?? 'cosmos',
+            baseAddress,
+          ),
+        );
       default:
         throw new NotImplemented();
     }
@@ -446,6 +460,8 @@ class ProviderController extends BaseProviderController {
     networkId: string,
     dbAccount: DBAccount,
   ): Promise<string> {
+    const [impl] = networkId.split(SEPERATOR);
+
     let address;
     switch (dbAccount.type) {
       case AccountType.SIMPLE:
@@ -453,7 +469,7 @@ class ProviderController extends BaseProviderController {
         break;
       case AccountType.VARIANT:
         address = ((dbAccount as DBVariantAccount).addresses || {})[networkId];
-        if (typeof address === 'undefined') {
+        if (typeof address === 'undefined' || impl === IMPL_COSMOS) {
           address = await this.addressFromBase(networkId, dbAccount.address);
         }
         break;

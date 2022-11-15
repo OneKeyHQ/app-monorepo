@@ -4,6 +4,7 @@ import {
   COINTYPE_BCH,
   COINTYPE_BTC,
   COINTYPE_CFX,
+  COINTYPE_COSMOS,
   COINTYPE_DOGE,
   COINTYPE_ETH,
   COINTYPE_LTC,
@@ -16,6 +17,7 @@ import {
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
+  IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
   IMPL_LTC,
@@ -46,6 +48,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_DOGE]: COINTYPE_DOGE,
   [IMPL_LTC]: COINTYPE_LTC,
   [IMPL_BCH]: COINTYPE_BCH,
+  [IMPL_COSMOS]: COINTYPE_COSMOS,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -65,6 +68,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_DOGE]: AccountType.UTXO,
   [IMPL_LTC]: AccountType.UTXO,
   [IMPL_BCH]: AccountType.UTXO,
+  [IMPL_COSMOS]: AccountType.VARIANT,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -84,6 +88,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_DOGE]: Curve.SECP256K1,
   [IMPL_LTC]: Curve.SECP256K1,
   [IMPL_BCH]: Curve.SECP256K1,
+  [IMPL_COSMOS]: Curve.SECP256K1,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -165,6 +170,9 @@ const defaultAccountNameInfo: Record<
       category: `44'/${COINTYPE_BCH}'`,
       label: 'Legacy (P2PKH)',
     },
+  },
+  [IMPL_COSMOS]: {
+    default: { prefix: 'COSMOS', category: `44'/${COINTYPE_COSMOS}'` },
   },
 };
 
