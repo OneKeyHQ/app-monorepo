@@ -10,6 +10,7 @@ import { ITxConfirmViewProps, SendRoutes, SendRoutesParams } from '../../types';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
+// check TxResendButtons doSpeedUpOrCancelTx() logic
 function SendConfirmSpeedUpOrCancel(props: ITxConfirmViewProps) {
   const {
     feeInfoPayload,

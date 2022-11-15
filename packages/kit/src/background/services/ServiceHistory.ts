@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 
 import { refreshHistory } from '../../store/reducers/refresher';
+import { isEvmNetworkId } from '../../views/Swap/utils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -313,7 +314,7 @@ class ServiceHistory extends ServiceBase {
     resendActionInfo?: SendConfirmResendActionInfo;
     feeInfo?: IFeeInfoUnit | undefined;
   }) {
-    const { engine } = this.backgroundApi;
+    const { engine, servicePassword } = this.backgroundApi;
     if (!data || !data.decodedTx) {
       return;
     }
@@ -327,6 +328,17 @@ class ServiceHistory extends ServiceBase {
       isLocalCreated: true,
     });
     newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
+    if (isEvmNetworkId(networkId)) {
+      try {
+        newHistoryTx.decodedTx.encodedTxEncrypted =
+          newHistoryTx.decodedTx.encodedTxEncrypted ||
+          (await servicePassword.encryptByInstanceId(
+            JSON.stringify(encodedTx || decodedTx.encodedTx),
+          ));
+      } catch (error) {
+        console.error(error);
+      }
+    }
     let prevTx: IHistoryTx | undefined;
     if (resendActionInfo && resendActionInfo.replaceHistoryId) {
       prevTx = await simpleDb.history.getHistoryById({

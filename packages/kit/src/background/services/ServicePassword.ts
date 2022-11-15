@@ -34,6 +34,26 @@ export default class ServicePassword extends ServiceBase {
     return data;
   }
 
+  @backgroundMethod()
+  encryptByInstanceId(data: string): Promise<string> {
+    const { appSelector } = this.backgroundApi;
+    const { instanceId } = appSelector((s) => s.settings);
+    const text = encrypt(instanceId, Buffer.from(data, 'utf-8')).toString(
+      'hex',
+    );
+    return Promise.resolve(text);
+  }
+
+  @backgroundMethod()
+  decryptByInstanceId(text: string): Promise<string> {
+    const { appSelector } = this.backgroundApi;
+    const { instanceId } = appSelector((s) => s.settings);
+    const data = decrypt(instanceId, Buffer.from(text, 'hex')).toString(
+      'utf-8',
+    );
+    return Promise.resolve(data);
+  }
+
   async getData(ttl?: number): Promise<string | undefined> {
     if (!this.data) {
       return undefined;
