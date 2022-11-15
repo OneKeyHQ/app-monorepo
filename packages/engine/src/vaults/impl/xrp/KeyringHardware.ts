@@ -8,7 +8,7 @@ import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_XRP as COIN_TYPE } from '../../../constants';
-import { OneKeyHardwareError } from '../../../errors';
+import { NotImplemented, OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
@@ -20,7 +20,6 @@ import { IEncodedTxXrp } from './types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
-// @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -78,9 +77,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       showOnOneKey: params.showOnOneKey,
       ...passphraseState,
     });
-    // @ts-expect-error
     if (response.success && !!response.payload?.address) {
-      // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return response.payload.address;
     }
@@ -124,5 +121,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     throw deviceUtils.convertDeviceError(response.payload);
+  }
+
+  signMessage(): Promise<string[]> {
+    throw new NotImplemented();
   }
 }
