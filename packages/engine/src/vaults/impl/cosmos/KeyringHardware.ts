@@ -5,22 +5,26 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { HardwareError } from '@onekeyfe/hd-shared';
 
+import {
+  AccountType,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_COSMOS as COIN_TYPE } from '../../../constants';
 import { OneKeyHardwareError } from '../../../errors';
-import { AccountType, DBVariantAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import {
+import { stripHexPrefix } from '../../utils/hexUtils';
+
+import { pubkeyToBaseAddress } from './sdk/address';
+import { generateSignBytes, generateSignedTx } from './utils';
+
+import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
-import { stripHexPrefix } from '../../utils/hexUtils';
-
-import { pubkeyToAddress, pubkeyToBaseAddress } from './sdk/address';
-import { IEncodedTxCosmos } from './Types';
-import { generateSignBytes, generateSignedTx } from './utils';
+import type { IEncodedTxCosmos } from './type';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 // @ts-ignore

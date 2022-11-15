@@ -8,7 +8,6 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
-import { hexToBytes } from '@noble/hashes/utils';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
 import {
@@ -64,10 +63,7 @@ import {
 import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
-import {
-  baseAddressToAddress,
-  pubkeyToAddress,
-} from './vaults/impl/cosmos/sdk/address';
+import { baseAddressToAddress } from './vaults/impl/cosmos/sdk/address';
 
 // IMPL naming aren't necessarily the same.
 export const IMPL_MAPPINGS: Record<

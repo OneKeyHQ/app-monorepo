@@ -4900,23 +4900,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.3"
+"@onekeyfe/hd-ble-sdk@npm:0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.4"
   dependencies:
-    "@onekeyfe/hd-core": ^0.2.3
-    "@onekeyfe/hd-shared": ^0.2.3
-    "@onekeyfe/hd-transport-react-native": ^0.2.3
-  checksum: 2dbbfa13bf4101b8971842b91c5c0797026c8b091b83f514c22c95a16dd8ab0162307bbf7c171950ee7ecd43f98761c52a4590e1c4c53449cf95bb1ee9b7a098
+    "@onekeyfe/hd-core": ^0.2.4
+    "@onekeyfe/hd-shared": ^0.2.4
+    "@onekeyfe/hd-transport-react-native": ^0.2.4
+  checksum: 8716389ae5122949fae7315427bcbf74ee587d3399e8c3c4a95d971034cc51bf1ef519ca6c514f81fb06dc3b02ea1be5df16ead387711c963b35c0f554591cd7
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:0.2.3, @onekeyfe/hd-core@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-core@npm:0.2.3"
+"@onekeyfe/hd-core@npm:0.2.4, @onekeyfe/hd-core@npm:^0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-core@npm:0.2.4"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.3
-    "@onekeyfe/hd-transport": ^0.2.3
+    "@onekeyfe/hd-shared": ^0.2.4
+    "@onekeyfe/hd-transport": ^0.2.4
     axios: ^0.27.2
     bignumber.js: ^9.0.2
     jszip: ^3.10.1
@@ -4925,71 +4925,71 @@ __metadata:
   peerDependencies:
     "@noble/hashes": ^1.1.3
     ripple-keypairs: ^1.1.4
-  checksum: 745632a02f84335178bdf9fbff1f54aace22c1af5bcbfa8e78493841c81e76375801a93647de8ff663d5a326cdc419e9d1490868b2945b658535bbaf05acf39b
+  checksum: 234a4cecebd9691f72b0e49110446aa075f5b9ded944f6f408a649101f91c0265be2dd100e2af86fffa57dfc6ee21ef459791fa4e47a7156e374a1dd545697c7
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:0.2.3, @onekeyfe/hd-shared@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-shared@npm:0.2.3"
-  checksum: e319fb5923b7b2fcd1180eb21e0122f0d6eaabce2fab9267c641ee5c6d942d1a68de4a7b5128f061c6a91c9fea7c868cdab49b591635176f14831bdf22c287ca
+"@onekeyfe/hd-shared@npm:0.2.4, @onekeyfe/hd-shared@npm:^0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-shared@npm:0.2.4"
+  checksum: d5e13b891bb432031e656905764a8f1e0b606447fc67654981badbf504cf4772c5c69ca341ec8d9a044b2e974870598550408a46e018dffa4a3c5e7fa1ea6b87
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-transport-http@npm:0.2.3"
+"@onekeyfe/hd-transport-http@npm:^0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-transport-http@npm:0.2.4"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.3
-    "@onekeyfe/hd-transport": ^0.2.3
+    "@onekeyfe/hd-shared": ^0.2.4
+    "@onekeyfe/hd-transport": ^0.2.4
     axios: ^0.27.2
-  checksum: db5e7dcc73c7032e5a0913e0bb431835928c395c2a367b835dcfca86aa16085fbe2fd3de70bd604d6cd1fd3230a048c4ca4d2f52507f7ba4ef2a94c0ac8c8016
+  checksum: e66d5c74d84c5a10b78174e20a743143c35561d69dbaa025a6f5e9d4cd955360669f85d6c7ab5b930e59876d0b838dbbe5e18b9b3a2ca6cfd73e9c65471f0908
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.3"
+"@onekeyfe/hd-transport-react-native@npm:^0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.4"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.3
-    "@onekeyfe/hd-transport": ^0.2.3
+    "@onekeyfe/hd-shared": ^0.2.4
+    "@onekeyfe/hd-transport": ^0.2.4
     react-native-ble-manager: ^8.1.0
     react-native-ble-plx: ^2.0.3
-  checksum: 23f7fe22681bbbbe4f30a7c76a3137b4bc5ba4c96453bd9dd3aa815ce12d72ca30a233ce9e49ffa577f419af8a8a769f513226acd498f42fee78364b61e4535a
+  checksum: ab3764da21e001005adf6b4f6f25d2b1272b7a33a6984146583ca074fce9632650c2758405a19ae8824698217c856b26a4fb5b3bc95236ecf41739fb503676b4
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-webusb@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.3"
+"@onekeyfe/hd-transport-webusb@npm:^0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.4"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.3
-    "@onekeyfe/hd-transport": ^0.2.3
-  checksum: 44c5df483f88259ce148e26830f98b44c9763d443c04217981c5e40b78e560a195769c04a2db9aae2564da525896675004c739f6498a7aec2623876d83790ece
+    "@onekeyfe/hd-shared": ^0.2.4
+    "@onekeyfe/hd-transport": ^0.2.4
+  checksum: 07e9bc98259260f201c1a7eb1048fc211f541d2e2494199896bbf315cdee3547deb68d585fe255b70a4407f7cd39c83e31dca9665f08fcec447bc91de4d5de2b
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:^0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-transport@npm:0.2.3"
+"@onekeyfe/hd-transport@npm:^0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-transport@npm:0.2.4"
   dependencies:
     bytebuffer: ^5.0.1
     long: ^4.0.0
     protobufjs: ^6.11.2
-  checksum: 572b785f441029cca0f2b7903a260fc2a6c75142035b69ce74b3366cd769fcd87e0c82336f49b36486fb38d328f7fa56d19c2c4d9e93c533f7246c5f4ced748e
+  checksum: 46c0a92255a5dcf555c9c8ffc37dcd8245155d24752bf5d446ef01401280ff9e6af10a0eca14cacff33b273f7723ccd780b075ac34a6bc18322084c2323c6bfb
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.3"
+"@onekeyfe/hd-web-sdk@npm:0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.4"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": ^0.0.17
-    "@onekeyfe/hd-core": ^0.2.3
-    "@onekeyfe/hd-shared": ^0.2.3
-    "@onekeyfe/hd-transport-http": ^0.2.3
-    "@onekeyfe/hd-transport-webusb": ^0.2.3
-  checksum: e2ec84a8e1e9cd0073989ee662f4f901884c4f6ebea628543434a5295adf761a8fc5dfba54924ec0df035fc3c10a0ed859f07d66f16bd519b27a85edfd1fb0c0
+    "@onekeyfe/hd-core": ^0.2.4
+    "@onekeyfe/hd-shared": ^0.2.4
+    "@onekeyfe/hd-transport-http": ^0.2.4
+    "@onekeyfe/hd-transport-webusb": ^0.2.4
+  checksum: 72842b7a348fb7b1a95f64102a4614e406501b44479670ce8da809142ad2ff3575420e11f53a8a97ce71a86c027c8020edcffd624af072f0bdd439217a417d4c
   languageName: node
   linkType: hard
 
@@ -5511,10 +5511,10 @@ __metadata:
   dependencies:
     "@0xsequence/multicall": ^0.36.8
     "@gorhom/bottom-sheet": ^4
-    "@onekeyfe/hd-ble-sdk": 0.2.3
-    "@onekeyfe/hd-core": 0.2.3
-    "@onekeyfe/hd-shared": 0.2.3
-    "@onekeyfe/hd-web-sdk": 0.2.3
+    "@onekeyfe/hd-ble-sdk": 0.2.4
+    "@onekeyfe/hd-core": 0.2.4
+    "@onekeyfe/hd-shared": 0.2.4
+    "@onekeyfe/hd-web-sdk": 0.2.4
     "@onekeyhq/components": "*"
     "@openzeppelin/contracts": ^4.5.0
     "@reduxjs/toolkit": ^1.6.2

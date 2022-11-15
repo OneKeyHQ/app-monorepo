@@ -20,7 +20,7 @@ import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type { IEncodedTxCosmos } from './Types';
+import type { IEncodedTxCosmos } from './type';
 import type {
   SignedTx,
   UnsignedTx,

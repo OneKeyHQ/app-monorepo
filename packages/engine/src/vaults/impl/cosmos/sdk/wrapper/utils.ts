@@ -7,7 +7,7 @@ import Long from 'long';
 import { UnpackedMessage } from '../proto/protoDecode';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
-import type { SignDocHex, StdFee } from '../../Types';
+import type { SignDocHex, StdFee } from '../../type';
 
 export function getDirectSignDoc(signDoc: SignDocHex): ProtoSignDoc {
   return new ProtoSignDoc(signDoc);

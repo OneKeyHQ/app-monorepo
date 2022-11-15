@@ -10,7 +10,7 @@ import {
   defaultProtoDecodeRegistry,
 } from './protoDecode';
 
-import type { SignDocHex } from '../../Types';
+import type { SignDocHex } from '../../type';
 
 export class ProtoSignDoc {
   public static decode(bytes: Uint8Array): ProtoSignDoc {

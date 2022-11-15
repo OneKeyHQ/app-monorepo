@@ -10,7 +10,7 @@ import type {
   CosmosNodeInfo,
   GasInfo,
   TransactionResponseInfo,
-} from './Types';
+} from './type';
 
 export declare enum BroadcastMode {
   /** BROADCAST_MODE_UNSPECIFIED - zero-value for mode ordering */

@@ -3,7 +3,8 @@ import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/engine/src/constants';
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBVariantAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
-import { IPrepareWatchingAccountsParams } from '../../types';
+
+import type { IPrepareWatchingAccountsParams } from '../../types';
 
 // @ts-ignore
 export class KeyringWatching extends KeyringWatchingBase {

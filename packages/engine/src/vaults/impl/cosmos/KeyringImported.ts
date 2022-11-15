@@ -4,7 +4,10 @@ import {
   ed25519,
   secp256k1,
 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/engine/src/constants';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
@@ -16,15 +19,15 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import {
+
+import { pubkeyToBaseAddress } from './sdk/address';
+import { generateSignBytes, generateSignedTx } from './utils';
+
+import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import { UnsignedTx } from '../../utils/btcForkChain/types';
-
-import { pubkeyToBaseAddress } from './sdk/address';
-import { IEncodedTxCosmos } from './Types';
-import { generateSignBytes, generateSignedTx } from './utils';
+import type { IEncodedTxCosmos } from './type';
 
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {

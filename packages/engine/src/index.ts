@@ -38,13 +38,11 @@ import {
   IMPL_ALGO,
   IMPL_BCH,
   IMPL_BTC,
-  IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
-  SEPERATOR,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';

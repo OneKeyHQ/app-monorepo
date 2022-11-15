@@ -7,7 +7,7 @@ import { makeTxRawBytes } from './sdk/signing';
 import { getDirectSignDoc } from './sdk/wrapper/utils';
 
 import type { UnpackedMessage } from './sdk/proto/protoDecode';
-import type { IEncodedTxCosmos } from './Types';
+import type { IEncodedTxCosmos } from './type';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 export const getTransactionTypeByMessage = (
