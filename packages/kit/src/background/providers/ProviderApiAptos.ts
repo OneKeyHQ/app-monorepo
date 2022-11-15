@@ -200,9 +200,12 @@ class ProviderApiAptos extends ProviderApiBase {
   }
 
   private _decodeTnxToRawTransaction(txn: string) {
-    const bcsTxn = new Uint8Array(
-      txn.split(',').map((item) => parseInt(item, 10)),
-    );
+    let bcsTxn: Uint8Array;
+    if (txn.indexOf(',') !== -1) {
+      bcsTxn = new Uint8Array(txn.split(',').map((item) => parseInt(item, 10)));
+    } else {
+      bcsTxn = hexToBytes(txn);
+    }
 
     const deserializer = new BCS.Deserializer(bcsTxn);
     const rawTxn = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
@@ -296,28 +299,7 @@ class ProviderApiAptos extends ProviderApiBase {
       { encodedTx: encodeTx, signOnly: true },
     )) as string;
 
-    const txSignature = new TxnBuilderTypes.Ed25519Signature(
-      hexToBytes(result),
-    );
-
-    const publicKey = await vault._getPublicKey();
-
-    const authenticator = new TxnBuilderTypes.TransactionAuthenticatorEd25519(
-      new TxnBuilderTypes.Ed25519PublicKey(
-        hexToBytes(stripHexPrefix(publicKey)),
-      ),
-      txSignature,
-    );
-
-    const signedTn = new TxnBuilderTypes.SignedTransaction(
-      rawTxn,
-      authenticator,
-    );
-
-    const serialize = new BCS.Serializer();
-    signedTn.serialize(serialize);
-
-    return Promise.resolve(serialize.getBytes().toString());
+    return Promise.resolve(hexToBytes(stripHexPrefix(result)).toString());
   }
 
   @permissionRequired()

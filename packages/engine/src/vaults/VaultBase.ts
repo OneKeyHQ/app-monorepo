@@ -246,7 +246,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx: IEncodedTx,
   ): Promise<IUnsignedTxPro>;
 
-  abstract fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo>;
+  abstract fetchFeeInfo(
+    encodedTx: IEncodedTx,
+    signOnly?: boolean,
+  ): Promise<IFeeInfo>;
 
   // DO NOT override this method
   async signTransaction(
