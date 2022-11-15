@@ -452,13 +452,16 @@ export default class Vault extends VaultBase {
       console.log(err);
       if (
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        err?.message?.includes('Account not found') &&
-        amountBN.lt(10)
+        err?.message?.includes('Account not found')
       ) {
-        throw new InvalidTransferValue('form__amount_recipient_activate', {
-          amount: '10',
-          unit: 'XRP',
-        });
+        if (amountBN.lt(10)) {
+          throw new InvalidTransferValue('form__amount_recipient_activate', {
+            amount: '10',
+            unit: 'XRP',
+          });
+        } else {
+          return true;
+        }
       }
       throw err;
     }

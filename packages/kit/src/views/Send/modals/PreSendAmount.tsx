@@ -24,7 +24,6 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { Message } from '@onekeyhq/engine/src/types/message';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -286,7 +285,8 @@ function PreSendAmount() {
       primaryActionTranslationId="action__next"
       hideSecondaryAction
       primaryActionProps={{
-        isDisabled: !!errorMsg || !minAmountValidationPassed,
+        isDisabled:
+          !!errorMsg || !minAmountValidationPassed || !!invalidAmountError,
         isLoading,
       }}
       onPrimaryActionPress={async () => {
