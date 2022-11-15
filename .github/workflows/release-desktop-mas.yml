@@ -104,27 +104,25 @@ jobs:
       # - name: Setup Code Signing file
       #   run: |
       #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
-      - name: Install the Apple certificate for build mas
+      - name: Install the Apple certificate and provisioning profile for build mas
         env:
-          DEVELEPER_APPLICATION_P12_BASE64: ${{secrets.DEVELEPER_APPLICATION_CER_BASE64}}   
-          DEVELEPER_APPLICATION_P12_PASSWORD: ${{secrets.DEVELEPER_APPLICATION_P12_PASSWORD}}   
-          APPLE_DISTRIBUTION_P12_BASE64: ${{secrets.APPLE_DISTRIBUTION_P12_BASE64}}   
-          APPLE_DISTRIBUTION_P12_PASSWORD: ${{secrets.APPLE_DISTRIBUTION_P12_PASSWORD}}   
-          MAC_INSTALLER_P12_BASE64: ${{secrets.MAC_INSTALLER_P12_BASE64}}   
-          MAC_INSTALLER_P12_P12_PASSWORD: ${{secrets.MAC_INSTALLER_P12_P12_PASSWORD}}   
+          # DEVELEPER_APPLICATION_P12_BASE64: ${{secrets.DEVELEPER_APPLICATION_CER_BASE64}}
+          # DEVELEPER_APPLICATION_P12_PASSWORD: ${{secrets.DEVELEPER_APPLICATION_P12_PASSWORD}}
+          APPLE_DISTRIBUTION_P12_BASE64: ${{secrets.APPLE_DISTRIBUTION_P12_BASE64}}
+          APPLE_DISTRIBUTION_P12_PASSWORD: ${{secrets.APPLE_DISTRIBUTION_P12_PASSWORD}}
+          # MAC_INSTALLER_P12_BASE64: ${{secrets.MAC_INSTALLER_P12_BASE64}}
+          # MAC_INSTALLER_P12_P12_PASSWORD: ${{secrets.MAC_INSTALLER_P12_P12_PASSWORD}}
+          PROVISION_PROFILE_BASE64: ${{secrets.PROVISION_PROFILE_BASE64}}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           # create variables
-          DEVELEPER_APPLICATION_P12_PATH=$RUNNER_TEMP/develeper_application_certificate.p12
           APPLE_DISTRIBUTION_P12_PATH=$RUNNER_TEMP/apple_distribution_certificate.p12
-          MAC_INSTALLER_P12_PATH=$RUNNER_TEMP/mac_installer_certificate.p12
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          PP_PATH=$RUNNER_TEMP/OneKey_Mac_App.provisionprofile
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate from secrets
-          echo -n "$DEVELEPER_APPLICATION_P12_BASE64" | base64 --decode --output $DEVELEPER_APPLICATION_P12_PATH
           echo -n "$APPLE_DISTRIBUTION_P12_BASE64" | base64 --decode --output $APPLE_DISTRIBUTION_P12_PATH
-          echo -n "$MAC_INSTALLER_P12_BASE64" | base64 --decode --output $MAC_INSTALLER_P12_PATH
+          echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode --output $PP_PATH
 
           # create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -132,10 +130,12 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
           # import certificate to keychain
-          security import $DEVELEPER_APPLICATION_P12_PATH -P "$DEVELEPER_APPLICATION_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security import $APPLE_DISTRIBUTION_P12_PATH -P "$APPLE_DISTRIBUTION_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security import $MAC_INSTALLER_P12_PATH -P "$MAC_INSTALLER_P12_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
+
+          #apply provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
       - name: Build and Sign Static MAS
         env:
