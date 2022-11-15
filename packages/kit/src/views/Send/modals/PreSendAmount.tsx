@@ -127,7 +127,7 @@ function PreSendAmount() {
     tokenIdOnNetwork,
   });
 
-  const { getTokenBalance } = useManageTokensOfAccount({
+  const { balances, getTokenBalance } = useManageTokensOfAccount({
     fetchTokensOnMount: true,
     accountId,
     networkId,
@@ -195,13 +195,14 @@ function PreSendAmount() {
         errorInfo: null,
       };
     }
-    console.log('useCallback validateAmount call');
     try {
+      const key = tokenInfo?.tokenIdOnNetwork || 'main';
+      const balance = balances?.[key] as string;
       await engine.validateSendAmount({
         accountId,
         networkId,
         amount,
-        tokenBalance,
+        tokenBalance: balance,
         to: transferInfo.to,
       });
       return { result: true, errorInfo: null };
@@ -218,11 +219,11 @@ function PreSendAmount() {
     amount,
     engine,
     transferInfo,
-    tokenBalance,
+    tokenInfo,
+    balances,
     minAmountValidationPassed,
   ]);
   useEffect(() => {
-    console.log('useEffect validFunc call 222222');
     const validFunc = async () => {
       const { result, errorInfo } = await validateAmount();
       setInvalidAmountError(result ? null : errorInfo);

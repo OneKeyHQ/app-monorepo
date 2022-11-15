@@ -494,4 +494,8 @@ export default class Vault extends VaultBase {
       this.disconnect();
     }
   }
+
+  override getFrozenBalance(): number {
+    return 10;
+  }
 }

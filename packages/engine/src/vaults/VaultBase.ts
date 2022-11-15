@@ -154,6 +154,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     );
   }
 
+  getFrozenBalance() {
+    return 0;
+  }
+
   getTransactionStatuses(
     txids: Array<string>,
   ): Promise<Array<TransactionStatus | undefined>> {

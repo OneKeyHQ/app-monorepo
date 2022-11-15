@@ -2681,6 +2681,25 @@ class Engine {
     });
     vault.notifyChainChanged(currentNetworkId, previousNetworkId);
   }
+
+  @backgroundMethod()
+  async getFrozenBalance(networkId: string) {
+    if (!networkId) return 0;
+    return this._getFrozenBalance(networkId);
+  }
+
+  _getFrozenBalance = memoizee(
+    async (networkId: string) => {
+      const vault = await this.getChainOnlyVault(networkId);
+      return vault.getFrozenBalance();
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 }
 
 export { Engine };
