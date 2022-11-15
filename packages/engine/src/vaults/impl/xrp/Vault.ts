@@ -416,10 +416,59 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override validateSendAmount(amount: string): Promise<boolean> {
-    throw new InvalidTransferValue('form__amount_recipient_activate', {
-      amount: '10',
-      unit: 'XRP',
-    });
+  private getAccountInfo = memoizee(
+    async (address: string) => {
+      const client = await this.getClient();
+      try {
+        const response = await client.request({
+          'command': 'account_info',
+          'account': address,
+          'ledger_index': 'validated',
+        });
+
+        return response.result;
+      } catch (error) {
+        debugLogger.common.info('xrp vault getAccountInfo error: ', error);
+        throw error;
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
+
+  override async validateSendAmount(
+    amount: string,
+    tokenBalance: string,
+    to: string,
+  ): Promise<boolean> {
+    const amountBN = new BigNumber(amount);
+    const balanceBN = new BigNumber(tokenBalance);
+    try {
+      await this.getAccountInfo(to);
+    } catch (err: any) {
+      console.log(err);
+      if (
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        err?.message?.includes('Account not found') &&
+        amountBN.lt(10)
+      ) {
+        throw new InvalidTransferValue('form__amount_recipient_activate', {
+          amount: '10',
+          unit: 'XRP',
+        });
+      }
+      throw err;
+    }
+
+    if (balanceBN.minus(10).isLessThan(amountBN)) {
+      throw new InvalidTransferValue('form__amount_above_required_reserve', {
+        amount: '10',
+        unit: 'XRP',
+      });
+    }
+    return true;
   }
 }

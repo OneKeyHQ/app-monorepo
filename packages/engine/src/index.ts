@@ -2650,16 +2650,24 @@ class Engine {
   }
 
   @backgroundMethod()
-  async validateSendAmount(
-    accountId: string,
-    networkId: string,
-    amount: string,
-  ) {
+  async validateSendAmount({
+    accountId,
+    networkId,
+    amount,
+    tokenBalance,
+    to,
+  }: {
+    accountId: string;
+    networkId: string;
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }) {
     const vault = await this.getVault({
       networkId,
       accountId,
     });
-    return vault.validateSendAmount(amount);
+    return vault.validateSendAmount(amount, tokenBalance, to);
   }
 }
 

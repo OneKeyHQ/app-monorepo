@@ -565,7 +565,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return nextNonce;
   }
 
-  validateSendAmount(amount: string) {
+  validateSendAmount(amount: string, tokenBalance: string, to: string) {
     return Promise.resolve(true);
   }
 }

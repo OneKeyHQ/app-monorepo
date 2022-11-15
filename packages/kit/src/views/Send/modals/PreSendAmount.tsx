@@ -198,7 +198,13 @@ function PreSendAmount() {
     }
     console.log('useCallback validateAmount call');
     try {
-      await engine.validateSendAmount(accountId, networkId, amount);
+      await engine.validateSendAmount({
+        accountId,
+        networkId,
+        amount,
+        tokenBalance,
+        to: transferInfo.to,
+      });
       return { result: true, errorInfo: null };
     } catch (error: any) {
       const { key, info } = error;
@@ -207,7 +213,15 @@ function PreSendAmount() {
         errorInfo: { key: key as MessageDescriptor['id'], info },
       };
     }
-  }, [accountId, networkId, amount, engine, minAmountValidationPassed]);
+  }, [
+    accountId,
+    networkId,
+    amount,
+    engine,
+    transferInfo,
+    tokenBalance,
+    minAmountValidationPassed,
+  ]);
   useEffect(() => {
     console.log('useEffect validFunc call 222222');
     const validFunc = async () => {
