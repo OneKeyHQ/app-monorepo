@@ -4578,6 +4578,32 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mysten/bcs@npm:0.5.0":
+  version: 0.5.0
+  resolution: "@mysten/bcs@npm:0.5.0"
+  checksum: 3f92e1152ca08d8f95200d1909a12f8f16bc67e883f8379b8ffd783cfe8a6f10dfb3c028e61723dda4f25335f292535e1d4c4a465b26cceb1179ca1aa41d5a03
+  languageName: node
+  linkType: hard
+
+"@mysten/sui.js@npm:^0.16.0":
+  version: 0.16.0
+  resolution: "@mysten/sui.js@npm:0.16.0"
+  dependencies:
+    "@mysten/bcs": 0.5.0
+    "@noble/hashes": ^1.1.2
+    "@noble/secp256k1": ^1.6.3
+    "@scure/bip32": ^1.1.0
+    "@scure/bip39": ^1.1.0
+    cross-fetch: ^3.1.5
+    jayson: ^3.6.6
+    js-sha3: ^0.8.0
+    lossless-json: ^1.0.5
+    rpc-websockets: ^7.5.0
+    tweetnacl: ^1.0.3
+  checksum: f378a56d76459183bd6454ea317527a37bf4919834672c2e864f42962accad16d875cefc7c75c1f949581d8bce0f64ae33bfbcd509e2c55daf8bba80fc0e928f
+  languageName: node
+  linkType: hard
+
 "@napi-rs/triples@npm:^1.0.3":
   version: 1.1.0
   resolution: "@napi-rs/triples@npm:1.1.0"
@@ -4685,10 +4711,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.1.3, @noble/hashes@npm:~1.1.1":
+"@noble/hashes@npm:1.1.3, @noble/hashes@npm:^1.1.2, @noble/hashes@npm:~1.1.1, @noble/hashes@npm:~1.1.3":
   version: 1.1.3
   resolution: "@noble/hashes@npm:1.1.3"
   checksum: a6f9783d2a33fc528c8709532b1c26cc3f5866f79c66256e881b28c61a1585be3899b008aa4e5e2b4e01b95c713722f52591cbb18ec51aa0ec63e7eaece1b89c
+  languageName: node
+  linkType: hard
+
+"@noble/secp256k1@npm:^1.6.3, @noble/secp256k1@npm:~1.7.0":
+  version: 1.7.0
+  resolution: "@noble/secp256k1@npm:1.7.0"
+  checksum: 540a2b8e527ee1e5522af1c430e54945ad373883cac983b115136cd0950efa1f2c473ee6a36d8e69b6809b3ee586276de62f5fa705c77a9425721e81bada8116
   languageName: node
   linkType: hard
 
@@ -5499,6 +5532,7 @@ __metadata:
     "@ethersproject/keccak256": ^5.6.0
     "@ethersproject/transactions": ^5.6.0
     "@metamask/eth-sig-util": ^4.0.0
+    "@mysten/sui.js": ^0.16.0
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.46
     "@onekeyfe/js-sdk": 1.1.5
@@ -7246,7 +7280,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/bip39@npm:1.1.0":
+"@scure/bip32@npm:^1.1.0":
+  version: 1.1.1
+  resolution: "@scure/bip32@npm:1.1.1"
+  dependencies:
+    "@noble/hashes": ~1.1.3
+    "@noble/secp256k1": ~1.7.0
+    "@scure/base": ~1.1.0
+  checksum: b394a2c87f7b6c2d22ea245833188c314e79d30c93564343c14f806c8b35f1d22fa09bff9fc65d4d98c8aeb0724fee79ab02f0d5c8509856eec49e887d3fbbb9
+  languageName: node
+  linkType: hard
+
+"@scure/bip39@npm:1.1.0, @scure/bip39@npm:^1.1.0":
   version: 1.1.0
   resolution: "@scure/bip39@npm:1.1.0"
   dependencies:
@@ -19733,6 +19778,29 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"jayson@npm:^3.6.6":
+  version: 3.7.0
+  resolution: "jayson@npm:3.7.0"
+  dependencies:
+    "@types/connect": ^3.4.33
+    "@types/node": ^12.12.54
+    "@types/ws": ^7.4.4
+    JSONStream: ^1.3.5
+    commander: ^2.20.3
+    delay: ^5.0.0
+    es6-promisify: ^5.0.0
+    eyes: ^0.1.8
+    isomorphic-ws: ^4.0.1
+    json-stringify-safe: ^5.0.1
+    lodash: ^4.17.20
+    uuid: ^8.3.2
+    ws: ^7.4.5
+  bin:
+    jayson: bin/jayson.js
+  checksum: 4218a4829168a4927e657bde953ff9699f02af561ec72edcc7464446772b50a0c5c7e9f11d4ee5976e4794d0f1040c0f351a0fee51c542bf8492743d30b7a971
+  languageName: node
+  linkType: hard
+
 "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git":
   version: 2.0.3
   resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=2cadf288224242cec715a2e260f872235c58874c"
@@ -21351,6 +21419,13 @@ colour@latest:
   bin:
     loose-envify: cli.js
   checksum: 6517e24e0cad87ec9888f500c5b5947032cdfe6ef65e1c1936a0c48a524b81e65542c9c3edc91c97d5bddc806ee2a985dbc79be89215d613b1de5db6d1cfe6f4
+  languageName: node
+  linkType: hard
+
+"lossless-json@npm:^1.0.5":
+  version: 1.0.5
+  resolution: "lossless-json@npm:1.0.5"
+  checksum: c26a231aaaa334dda42ef74ccf01a8558d15de815fd72fd3e47c549da11e3f47ae8f57c5ea26a298473844f889d1645a8b7835d507db430887dd598e9b0a6648
   languageName: node
   linkType: hard
 

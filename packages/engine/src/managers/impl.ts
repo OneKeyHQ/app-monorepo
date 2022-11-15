@@ -11,6 +11,7 @@ import {
   COINTYPE_NEAR,
   COINTYPE_SOL,
   COINTYPE_STC,
+  COINTYPE_SUI,
   COINTYPE_TBTC,
   COINTYPE_TRON,
   COINTYPE_XRP,
@@ -26,6 +27,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -55,6 +57,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_BCH]: COINTYPE_BCH,
   [IMPL_XRP]: COINTYPE_XRP,
   [IMPL_COSMOS]: COINTYPE_COSMOS,
+  [IMPL_SUI]: COINTYPE_SUI,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -77,6 +80,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_BCH]: AccountType.UTXO,
   [IMPL_XRP]: AccountType.SIMPLE,
   [IMPL_COSMOS]: AccountType.VARIANT,
+  [IMPL_SUI]: AccountType.SIMPLE,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -99,6 +103,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_BCH]: Curve.SECP256K1,
   [IMPL_XRP]: Curve.SECP256K1,
   [IMPL_COSMOS]: Curve.SECP256K1,
+  [IMPL_SUI]: Curve.ED25519,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -201,6 +206,9 @@ const defaultAccountNameInfo: Record<
   [IMPL_XRP]: { default: { prefix: 'XRP', category: `44'/${COINTYPE_XRP}'` } },
   [IMPL_COSMOS]: {
     default: { prefix: 'COSMOS', category: `44'/${COINTYPE_COSMOS}'` },
+  },
+  [IMPL_SUI]: {
+    default: { prefix: 'SUI', category: `44'/${COINTYPE_SUI}'` },
   },
 };
 
