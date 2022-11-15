@@ -62,6 +62,7 @@ import {
   IFeeInfoUnit,
   IHistoryTx,
   IRawTx,
+  ISetApprovalForAll,
   ISignCredentialOptions,
   ITransferInfo,
   IUnsignedTxPro,
@@ -69,7 +70,12 @@ import {
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
-import { BatchTransferSelectors, Erc20MethodSelectors } from './decoder/abi';
+import {
+  BatchTransferSelectors,
+  Erc1155MethodSelectors,
+  Erc20MethodSelectors,
+  Erc721MethodSelectors,
+} from './decoder/abi';
 import {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
@@ -528,7 +534,7 @@ export default class Vault extends VaultBase {
           from: transferInfo.from,
           to: transferInfo.to,
           id: tokenId,
-          amount,
+          amount: amountBN.toFixed(),
         });
         return {
           from: transferInfo.from,
@@ -592,10 +598,32 @@ export default class Vault extends VaultBase {
 
     if (isTransferToken) {
       if (isNFT && type && tokenId) {
-        // TODO
-        batchMethod = '';
-        paramTypes = [];
-        ParamValues = [];
+        batchMethod = BatchTransferSelectors.disperseNFT;
+        paramTypes = [
+          'address',
+          'address[]',
+          'uint256[]',
+          'uint256[]',
+          'bytes',
+        ];
+        ParamValues = [
+          transferInfo.to,
+          ...reduce(
+            transferInfos,
+            (result: [string[], string[], string[]], info) => {
+              result[0].push(info.token || '');
+              result[1].push(info.tokenId || '');
+              result[2].push(
+                new BigNumber(
+                  info.type === 'erc1155' ? info.amount : 0,
+                ).toFixed(),
+              );
+              return result;
+            },
+            [[], [], []],
+          ),
+          '0x00',
+        ];
       } else {
         const token = await this.engine.ensureTokenInDB(
           this.networkId,
@@ -677,6 +705,31 @@ export default class Vault extends VaultBase {
       value: '0x0',
       data,
     };
+  }
+
+  override async buildEncodedTxsFromSetApproveForAll(
+    approveInfos: ISetApprovalForAll[],
+  ): Promise<IEncodedTxEvm[]> {
+    const network = await this.getNetwork();
+    const dbAccount = await this.getDbAccount();
+    const nextNonce: number = await this.getNextNonce(network.id, dbAccount);
+    const encodedTxs = approveInfos.map((approveInfo, index) => ({
+      from: approveInfo.from,
+      to: approveInfo.to,
+      data: `${
+        approveInfo.type === 'erc1155'
+          ? Erc1155MethodSelectors.setApprovalForAll
+          : Erc721MethodSelectors.setApprovalForAll
+      }${defaultAbiCoder
+        .encode(
+          ['address', 'bool'],
+          [approveInfo.spender, approveInfo.approved],
+        )
+        .slice(2)}`,
+      value: '0x0',
+      nonce: nextNonce + index,
+    }));
+    return Promise.resolve(encodedTxs);
   }
 
   async updateEncodedTx(

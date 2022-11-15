@@ -133,6 +133,7 @@ import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
+  IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,
@@ -141,6 +142,7 @@ import {
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
+  ISetApprovalForAll,
   IVaultSettings,
 } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1804,6 +1806,20 @@ class Engine {
       amount,
       from: address,
     });
+  }
+
+  @backgroundMethod()
+  async buildEncodedTxsFromSetApproveForAll({
+    networkId,
+    accountId,
+    approveInfos,
+  }: {
+    networkId: string;
+    accountId: string;
+    approveInfos: ISetApprovalForAll[];
+  }): Promise<IEncodedTx[]> {
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.buildEncodedTxsFromSetApproveForAll(approveInfos);
   }
 
   @backgroundMethod()

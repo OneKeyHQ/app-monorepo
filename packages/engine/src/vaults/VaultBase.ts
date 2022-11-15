@@ -42,6 +42,7 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  ISetApprovalForAll,
   ITransferInfo,
   IUnsignedTxPro,
 } from './types';
@@ -306,6 +307,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
   ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
+
+  async buildEncodedTxsFromSetApproveForAll(
+    approveInfos: ISetApprovalForAll[],
+  ): Promise<IEncodedTx[]> {
     throw new NotImplemented();
   }
 
