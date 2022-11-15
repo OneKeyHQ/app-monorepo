@@ -93,7 +93,7 @@ const CenteredLabel = ({
 const ExtremeLabels = React.memo(
   ({ color, width }: { color: string; width: number }) => {
     const { greatestX, greatestY, smallestX, smallestY } = useChartData();
-    const { selectedFiatMoneySymbol } = useSettings();
+    // const { selectedFiatMoneySymbol } = useSettings();
     if (!(greatestX && greatestY && smallestX && smallestY)) {
       return null;
     }
