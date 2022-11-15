@@ -5353,6 +5353,7 @@ __metadata:
     react-native-flipper: ^0.162.0
     react-native-gesture-handler: ^2.8.0
     react-native-get-random-values: ^1.8.0
+    react-native-in-app-review: ^4.2.1
     react-native-keyboard-manager: ^6.5.4-4
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
     react-native-pager-view: 5.4.25
@@ -25791,6 +25792,13 @@ optjs@latest:
   version: 0.0.6
   resolution: "react-native-gradle-plugin@npm:0.0.6"
   checksum: 185ad348931ef4f58065b50bbf80558af668b1ef11c31067aab7f1cd85b18809a62fcf0b7a18444726dacd098042771a570c0ac76bb8976c3ccbe7c86cff0e11
+  languageName: node
+  linkType: hard
+
+"react-native-in-app-review@npm:^4.2.1":
+  version: 4.2.1
+  resolution: "react-native-in-app-review@npm:4.2.1"
+  checksum: 3844c6f7b490d62288c8ea8220b40e06c6fcd96ecbbe14a3b3025146509e130fa09958b820b00ebfd1f8455fe8486c7dfaff74c2ad0e3defa89ce89d7c92fd60
   languageName: node
   linkType: hard
 

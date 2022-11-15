@@ -426,6 +426,8 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.8.0):
     - React-Core
+  - react-native-in-app-review (4.2.1):
+    - React-Core
   - react-native-netinfo (8.2.0):
     - React-Core
   - react-native-pager-view (5.4.25):
@@ -676,6 +678,7 @@ DEPENDENCIES:
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
+  - react-native-in-app-review (from `../../../node_modules/react-native-in-app-review`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
@@ -849,6 +852,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-config"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
+  react-native-in-app-review:
+    :path: "../../../node_modules/react-native-in-app-review"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
@@ -999,6 +1004,7 @@ SPEC CHECKSUMS:
   react-native-cloud-fs: 1e883ec82ff418d320c128f61971dd971b128ca0
   react-native-config: bcafda5b4c51491ee1b0e1d0c4e3905bc7b56c1b
   react-native-get-random-values: a6ea6a8a65dc93e96e24a11105b1a9c8cfe1d72a
+  react-native-in-app-review: a073f67c5f3392af6ea7fb383217cdb1aa2aa726
   react-native-netinfo: e922cb2e3eaf9ccdf16b8d4744a89657377aa4a1
   react-native-pager-view: da490aa1f902c9a5aeecf0909cc975ad0e92e53e
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
