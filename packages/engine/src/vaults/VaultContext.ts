@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SEPERATOR } from '../constants';
+import { IMPL_CFX, SEPERATOR } from '../constants';
 import { getWalletIdFromAccountId } from '../managers/account';
-import { DBAccount } from '../types/account';
+import { AccountType, DBAccount, DBVariantAccount } from '../types/account';
 import { Network } from '../types/network';
 
 import { IVaultFactoryOptions } from './types';
@@ -65,7 +65,33 @@ export class VaultContext extends VaultContextBase {
     if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {
       this._dbAccount = await this.engine.dbApi.getAccount(this.accountId);
     }
-    return this._dbAccount;
+
+    let { address, type } = this._dbAccount;
+    if (
+      type === AccountType.VARIANT &&
+      (await this.getNetworkImpl()) !== IMPL_CFX
+    ) {
+      const accountAddress = ((this._dbAccount as DBVariantAccount).addresses ||
+        {})[this.networkId];
+
+      if (accountAddress) {
+        address = accountAddress;
+      } else {
+        if (typeof address === 'undefined' || address.length === 0) {
+          return this._dbAccount;
+        }
+
+        address = await this.engine.providerManager.addressFromBase(
+          this.networkId,
+          address,
+        );
+      }
+    }
+
+    return {
+      ...this._dbAccount,
+      address,
+    };
   }
 
   async getAccountPath() {

@@ -41,6 +41,9 @@ const COINTYPE_BCH = '145';
 const IMPL_XRP = 'xrp';
 const COINTYPE_XRP = '144';
 
+const IMPL_COSMOS = 'cosmos';
+const COINTYPE_COSMOS = '118';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -55,6 +58,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_BCH,
   IMPL_ALGO,
   IMPL_XRP,
+  IMPL_COSMOS,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -71,6 +75,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_BCH,
   IMPL_ALGO,
   IMPL_XRP,
+  IMPL_COSMOS,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -128,6 +133,8 @@ export {
   COINTYPE_BCH,
   IMPL_XRP,
   COINTYPE_XRP,
+  IMPL_COSMOS,
+  COINTYPE_COSMOS,
   getSupportedImpls,
 };
 

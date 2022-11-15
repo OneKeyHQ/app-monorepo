@@ -5,6 +5,7 @@ import {
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
+  IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
   IMPL_LTC,
@@ -32,6 +33,8 @@ import VaultBtc from './impl/btc/Vault';
 import VaultHelperBtc from './impl/btc/VaultHelper';
 import VaultCfx from './impl/cfx/Vault';
 import VaultHelperCfx from './impl/cfx/VaultHelper';
+import VaultCosmos from './impl/cosmos/Vault';
+import VaultHelperCosmos from './impl/cosmos/VaultHelper';
 import VaultDoge from './impl/doge/Vault';
 import VaultHelperDoge from './impl/doge/VaultHelper';
 import VaultEvm from './impl/evm/Vault';
@@ -96,6 +99,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_XRP) {
     return new VaultHelperXrp(options);
+  }
+  if (impl === IMPL_COSMOS) {
+    return new VaultHelperCosmos(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -178,6 +184,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_XRP) {
     vault = new VaultXrp(options);
+  }
+  if (network.impl === IMPL_COSMOS) {
+    vault = new VaultCosmos(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

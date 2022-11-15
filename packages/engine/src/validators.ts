@@ -3,7 +3,9 @@ import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { isString } from 'lodash';
 
+import { IMPL_COSMOS } from '@onekeyhq/engine/src/constants';
 import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
+import { Network } from '@onekeyhq/kit/src/store/typings';
 
 import {
   COINTYPE_BTC,
@@ -45,6 +47,50 @@ class Validators {
     this._dbApi = dbApi;
   }
 
+  private async matchingInputType(
+    input: string,
+    networks: Network[],
+    filterCategories: Array<UserInputCategory> = [],
+    returnEarly = false,
+  ): Promise<UserInputCheckResult[]> {
+    const ret = [];
+
+    const networkId = networks[0].id;
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    const possibleNetworks = networks.map((network) => network.id);
+
+    let category = UserInputCategory.IMPORTED;
+    if (
+      filterCategories.includes(category) &&
+      (await vault.validateImportedCredential(input))
+    ) {
+      if (returnEarly) return [{ category, possibleNetworks }];
+      ret.push({ category, possibleNetworks });
+    }
+
+    category = UserInputCategory.WATCHING;
+    if (
+      filterCategories.includes(category) &&
+      (await vault.validateWatchingCredential(input))
+    ) {
+      if (returnEarly) return [{ category, possibleNetworks }];
+      ret.push({ category, possibleNetworks });
+    }
+
+    category = UserInputCategory.ADDRESS;
+    if (filterCategories.includes(category)) {
+      try {
+        await vault.validateAddress(input);
+        if (returnEarly) return [{ category, possibleNetworks }];
+        ret.push({ category, possibleNetworks });
+      } catch {
+        // pass
+      }
+    }
+
+    return ret;
+  }
+
   private async validateUserInput(
     input: string,
     forCategories: Array<UserInputCategory> = [],
@@ -84,35 +130,28 @@ class Validators {
     for (const [impl, networks] of Object.entries(
       await this.engine.listEnabledNetworksGroupedByVault(),
     )) {
-      const vault = await this.engine.getChainOnlyVault(networks[0].id);
-      const possibleNetworks = networks.map((network) => network.id);
+      if (impl === IMPL_COSMOS) {
+        for (const network of networks) {
+          const result = await this.matchingInputType(
+            input,
+            [network],
+            filterCategories,
+          );
 
-      let category = UserInputCategory.IMPORTED;
-      if (
-        filterCategories.includes(category) &&
-        (await vault.validateImportedCredential(input))
-      ) {
-        ret.push({ category, possibleNetworks });
-        if (returnEarly) return ret;
-      }
-
-      category = UserInputCategory.WATCHING;
-      if (
-        filterCategories.includes(category) &&
-        (await vault.validateWatchingCredential(input))
-      ) {
-        ret.push({ category, possibleNetworks });
-        if (returnEarly) return ret;
-      }
-
-      category = UserInputCategory.ADDRESS;
-      if (filterCategories.includes(category)) {
-        try {
-          await vault.validateAddress(input);
-          ret.push({ category, possibleNetworks });
-        } catch {
-          // pass
+          if (result.length > 0) {
+            ret.push(...result);
+            if (returnEarly) return ret;
+          }
         }
+      } else {
+        const result = await this.matchingInputType(
+          input,
+          networks,
+          filterCategories,
+        );
+
+        if (result) ret.push(...result);
+        if (result && returnEarly) return ret;
       }
     }
 

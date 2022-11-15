@@ -95,6 +95,7 @@ class ServiceHistory extends ServiceBase {
     const statusList = await vault.getTransactionStatuses(
       items.map((item) => item.decodedTx.txid),
     );
+
     const itemsToUpdate: IHistoryTx[] = [];
     const updateHistoryTxFields = (
       tx: IHistoryTx,

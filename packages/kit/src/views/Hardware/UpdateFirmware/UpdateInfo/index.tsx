@@ -3,7 +3,6 @@ import React, { FC, useEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import { useIntl } from 'react-intl';
-import semver from 'semver';
 
 import {
   Alert,
