@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { Text as NBText } from 'native-base';
 import { TextStyle } from 'react-native';

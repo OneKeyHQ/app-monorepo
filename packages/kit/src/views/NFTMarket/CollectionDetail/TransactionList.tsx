@@ -125,6 +125,7 @@ const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
         <NFTListImage asset={item.asset} borderRadius="6px" size={40} />
       )}
       <ListItem.Column
+        flex={1}
         text={{
           label: name,
           labelProps: { typography: 'Body1Strong', numberOfLines: 1 },
@@ -137,7 +138,6 @@ const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
         }}
       />
       <ListItem.Column
-        flex={1}
         text={{
           label: `${item.tradePrice ?? 0} ${item.tradeSymbol ?? ''}`,
           labelProps: {

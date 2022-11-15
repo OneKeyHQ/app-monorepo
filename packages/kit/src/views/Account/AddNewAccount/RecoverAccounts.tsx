@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, {
+import {
   ComponentProps,
   FC,
   useCallback,

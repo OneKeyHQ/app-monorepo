@@ -1446,7 +1446,7 @@ export default class Vault extends VaultBase {
         let encodedTx = rpcTxList.find((item) => item?.hash === hash);
         const isRpcTx = Boolean(encodedTx);
         // *** update rpcTx tx.data from tx.input
-        if (encodedTx && isRpcTx && encodedTx.input) {
+        if (encodedTx && isRpcTx && encodedTx.input && !encodedTx.data) {
           encodedTx.data = encodedTx.input;
         }
 

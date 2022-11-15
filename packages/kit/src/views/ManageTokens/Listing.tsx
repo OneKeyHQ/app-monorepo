@@ -365,6 +365,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       decimal: item.decimals,
       logoURI: item.logoURI,
       verified: item.verified,
+      security: item?.security,
       source: item.source || [],
     });
   }, [navigation, item, isOwned]);

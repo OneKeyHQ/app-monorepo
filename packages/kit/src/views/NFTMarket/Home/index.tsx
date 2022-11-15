@@ -30,8 +30,6 @@ const Content = () => {
   ];
 
   const renderItem: ListRenderItem<ModuleData> = useCallback(({ item }) => {
-    console.log('renderItem = ', item.id);
-
     const { id } = item;
     if (id === NFTModule.Collection) {
       return <NotableCollections />;

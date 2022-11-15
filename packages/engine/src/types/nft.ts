@@ -58,7 +58,9 @@ export type Collection = {
   ownersTotal?: number;
   amountsTotal?: number;
   volume24h?: number;
-  NBCP?: string;
+  blueChip?: {
+    next_blue_chip_probability: string | null;
+  } | null;
 };
 
 export type NFTAsset = {

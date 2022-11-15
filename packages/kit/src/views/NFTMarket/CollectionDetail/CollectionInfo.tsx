@@ -46,7 +46,7 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
         key: intl.formatMessage({
           id: 'content__blue_chip_rates',
         }),
-        value: collection?.NBCP,
+        value: collection?.blueChip?.next_blue_chip_probability,
       },
       {
         key: intl.formatMessage(
@@ -63,7 +63,7 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
       },
     ],
     [
-      collection?.NBCP,
+      collection?.blueChip?.next_blue_chip_probability,
       collection?.floorPrice,
       collection?.itemsTotal,
       collection?.ownersTotal,
@@ -86,7 +86,7 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
     <Box {...props}>
       <Box flexDirection="row">
         <CollectionLogo src={collection?.logoUrl} width="64px" height="64px" />
-        <Box ml={{ base: '16px', md: '24px' }} maxW="576px">
+        <Box ml={{ base: '16px', md: '24px' }} maxW="576px" flex={1}>
           <Text typography="PageHeading" mb="4px" numberOfLines={1}>
             {name || '–'}
           </Text>

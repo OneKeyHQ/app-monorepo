@@ -20,6 +20,7 @@ import { numberToString } from '../utils';
 
 import type { TypographyStyle } from '../Typography';
 
+// @ts-expect-error
 interface Props extends ComponentProps<typeof BaseInput> {
   value?: string | undefined;
   type?: 'text' | 'password' | 'number' | string;
@@ -265,6 +266,7 @@ const Input = forwardRef<typeof BaseInput, Props>(
         _disabled={{
           bg: 'action-secondary-disabled',
           borderColor: 'border-disabled',
+          // @ts-ignore
           cursor: 'not-allowed',
         }}
         _ios={{
@@ -287,6 +289,7 @@ const Input = forwardRef<typeof BaseInput, Props>(
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}
         value={inputValue}
+        // @ts-ignore
         type={type}
         fontSize={textProps.fontSize}
         fontWeight={textProps.fontWeight}

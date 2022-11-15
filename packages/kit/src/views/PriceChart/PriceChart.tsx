@@ -60,7 +60,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
       setSelectedTimeIndex(newTimeIndex);
       setIsFetching(false);
     },
-    [networkId, contract, points, dayData],
+    [contract, networkId, points, selectedFiatMoneySymbol, dayData],
   );
 
   useEffect(() => {
