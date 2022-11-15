@@ -2669,6 +2669,18 @@ class Engine {
     });
     return vault.validateSendAmount(amount, tokenBalance, to);
   }
+
+  @backgroundMethod()
+  async notifyChainChanged(
+    currentNetworkId: string,
+    previousNetworkId: string,
+  ) {
+    const vault = await this.getVault({
+      networkId: previousNetworkId,
+      accountId: '',
+    });
+    vault.notifyChainChanged(currentNetworkId, previousNetworkId);
+  }
 }
 
 export { Engine };

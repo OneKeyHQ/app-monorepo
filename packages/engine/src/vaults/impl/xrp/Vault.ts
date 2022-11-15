@@ -59,7 +59,7 @@ export default class Vault extends VaultBase {
     return this.getClientCache(rpcURL);
   }
 
-  getClientCache = memoizee(
+  private getClientCache = memoizee(
     async (rpcUrl) => {
       if (!clientInstance) {
         clientInstance = new XRPL.Client(rpcUrl);
@@ -73,6 +73,17 @@ export default class Vault extends VaultBase {
       promise: true,
       max: 1,
       maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  private disconnect = memoizee(
+    () => {
+      if (clientInstance && clientInstance.isConnected()) {
+        clientInstance.disconnect();
+      }
+    },
+    {
+      max: 1,
     },
   );
 
@@ -473,5 +484,14 @@ export default class Vault extends VaultBase {
       });
     }
     return true;
+  }
+
+  override notifyChainChanged(
+    currentNetworkId: string,
+    previousNetworkId: string,
+  ) {
+    if (currentNetworkId !== this.networkId) {
+      this.disconnect();
+    }
   }
 }

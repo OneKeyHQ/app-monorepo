@@ -568,4 +568,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   validateSendAmount(amount: string, tokenBalance: string, to: string) {
     return Promise.resolve(true);
   }
+
+  notifyChainChanged(currentNetworkId: string, previousNetworkId: string) {}
 }
