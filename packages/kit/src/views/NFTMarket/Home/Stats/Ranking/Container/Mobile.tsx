@@ -95,6 +95,7 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
                   paddingY="2px"
                 >
                   <Text
+                    typography="CaptionStrong"
                     color={volumeTextColor}
                     textAlign="right"
                     numberOfLines={1}

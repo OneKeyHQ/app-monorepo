@@ -1,13 +1,17 @@
 import React from 'react';
 
 import { NavigationProp } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, useToast } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components/src/Toast/useToast';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
 import { SendRoutes, TransactionDetailRoutesParams } from '../../../routes';
 import {
@@ -20,14 +24,44 @@ import { SendConfirmActionType, SendConfirmParams } from '../../Send/types';
 export type HistoryListViewNavigationProp =
   ModalScreenProps<TransactionDetailRoutesParams>;
 
+/*
+const history = await $$simpleDb.history.getRawData();
+
+const tx = history.items.find(item=>item.decodedTx.txid==='0x298dd2b73043d86922fed0baf59f6b32137cb08ab798699c80f3a14a8b87618c');
+
+tx.decodedTx.encodedTx.to='0x11111111';
+
+$$simpleDb.history.setRawData(history);
+ */
+
 // TODO move to service and use updateEncodedTx()
-function doSpeedUpOrCancelTx(props: {
+async function doSpeedUpOrCancelTx(props: {
   historyTx: IHistoryTx;
   actionType: SendConfirmActionType;
   navigation: NavigationProp<any>;
+  toast: typeof Toast;
 }) {
   const { historyTx, actionType, navigation } = props;
   const encodedTx = (historyTx.decodedTx?.encodedTx ?? {}) as IEncodedTxEvm;
+  const encodedTxEncrypted = historyTx?.decodedTx?.encodedTxEncrypted;
+  let encodedTxOrigin: IEncodedTxEvm | undefined;
+  if (encodedTxEncrypted) {
+    try {
+      encodedTxOrigin = JSON.parse(
+        await backgroundApiProxy.servicePassword.decryptByInstanceId(
+          encodedTxEncrypted,
+        ),
+      );
+    } catch (error) {
+      console.error(error);
+      encodedTxOrigin = {
+        from: '-',
+        to: '-',
+        value: '-',
+        data: '-',
+      };
+    }
+  }
   const { nonce, accountId, networkId } = historyTx.decodedTx;
   if (isNil(nonce) || !isNumber(nonce) || nonce < 0) {
     console.error('speedUpOrCancelTx ERROR: nonce is missing!');
@@ -41,7 +75,7 @@ function doSpeedUpOrCancelTx(props: {
     value: encodedTx.value,
     data: encodedTx.data,
     // must be number, 0x string will send new tx
-    nonce: historyTx.decodedTx.nonce,
+    nonce,
 
     // keep origin fee info
     gas: encodedTx.gas,
@@ -56,7 +90,29 @@ function doSpeedUpOrCancelTx(props: {
     encodedTxEvm.data = '0x';
   }
   if (actionType === 'speedUp') {
-    //
+    if (
+      encodedTxOrigin &&
+      (encodedTxOrigin.from !== encodedTxEvm.from ||
+        encodedTxOrigin.to !== encodedTxEvm.to ||
+        encodedTxOrigin.value !== encodedTxEvm.value ||
+        encodedTxOrigin.data !== encodedTxEvm.data ||
+        !new BigNumber(encodedTxEvm.nonce || '0').eq(
+          encodedTxOrigin.nonce || '0',
+        ))
+    ) {
+      Toast.show(
+        { title: 'Speedup failed. History transaction data not matched' },
+        { type: 'error' },
+      );
+      debugLogger.sendTx.info(
+        'Speedup failed. History transaction data not matched',
+        {
+          encodedTxOrigin,
+          encodedTxEvm,
+        },
+      );
+      return;
+    }
   }
 
   const params: SendConfirmParams = {
@@ -86,7 +142,7 @@ export function TxResendButtons(props: { historyTx: IHistoryTx }) {
   const navigation =
     useNavigation<HistoryListViewNavigationProp['navigation']>();
   const intl = useIntl();
-
+  const toast = useToast();
   const isCancel = historyTx.replacedType === 'cancel';
 
   return (
@@ -100,6 +156,7 @@ export function TxResendButtons(props: { historyTx: IHistoryTx }) {
               historyTx,
               actionType: 'cancel',
               navigation,
+              toast,
             });
           }}
         >
@@ -117,12 +174,14 @@ export function TxResendButtons(props: { historyTx: IHistoryTx }) {
               historyTx,
               actionType: 'cancel',
               navigation,
+              toast,
             });
           } else {
             doSpeedUpOrCancelTx({
               historyTx,
               actionType: 'speedUp',
               navigation,
+              toast,
             });
           }
         }}

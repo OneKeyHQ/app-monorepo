@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 import { Token } from '@onekeyhq/engine/src/types/token';
 
 import { TokenBalanceValue } from '../store/reducers/tokens';
-import { formatMarketValueForInfo } from '../views/Market/utils';
+import { formatDecimalZero } from '../views/Market/utils';
 
 export function calculateGains({
   basePrice,
@@ -27,25 +27,24 @@ export function calculateGains({
   const priceNum = new BigNumber(typeof price === 'string' ? +price : price);
 
   const gain = priceNum.minus(basePrice ?? 0);
-  const isPositive = gain.toNumber() > 0;
+  const gainNumber = gain.toNumber();
+  const isPositive = gainNumber > 0;
   let percentageGain: number | string = basePrice
     ? gain.dividedBy(basePrice).multipliedBy(100).toNumber()
     : 0;
   const gainText = isPositive
-    ? `+${formatMarketValueForInfo(gain.toNumber())}`
-    : formatMarketValueForInfo(gain.toNumber());
+    ? `+${formatDecimalZero(gainNumber)}`
+    : formatDecimalZero(gainNumber);
   percentageGain = isPositive
     ? `+${percentageGain.toFixed(2)}%`
     : `${percentageGain.toFixed(2)}%`;
 
-  if (typeof gain === 'number') {
-    if (gain < 0) {
-      gainTextColor = 'text-critical';
-      gainTextBg = 'surface-critical-subdued';
-    } else if (gain > 0) {
-      gainTextColor = 'text-success';
-      gainTextBg = 'surface-success-subdued';
-    }
+  if (gainNumber < 0) {
+    gainTextColor = 'text-critical';
+    gainTextBg = 'surface-critical-subdued';
+  } else if (gainNumber > 0) {
+    gainTextColor = 'text-success';
+    gainTextBg = 'surface-success-subdued';
   }
 
   return {

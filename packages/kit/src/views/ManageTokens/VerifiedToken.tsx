@@ -11,20 +11,20 @@ import {
   Image,
   Modal,
   Pressable,
+  Skeleton,
   Spinner,
   Text,
   Token as TokenImage,
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { safeItems } from '@onekeyhq/engine/src/managers/goplus';
 import { TokenSource } from '@onekeyhq/engine/src/managers/token';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 
 import { useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
-import { useTokenSourceList } from './hooks';
+import { useTokenSecurityInfo, useTokenSourceList } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 type NavigationProps = RouteProp<
@@ -41,6 +41,14 @@ const VerifiedTokens: React.FC = () => {
     token,
     token: { source },
   } = route.params;
+
+  const {
+    loading: checkLoading,
+    data: { safe },
+  } = useTokenSecurityInfo(
+    token.networkId,
+    token.tokenIdOnNetwork ?? token.address ?? '',
+  );
 
   const goRiskDetail = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -64,31 +72,37 @@ const VerifiedTokens: React.FC = () => {
         <Text mt={2}>
           {intl.formatMessage({ id: 'title__verified_token_desc' })}
         </Text>
-        <Pressable w="full" onPress={goRiskDetail}>
-          <HStack mt="9" mb="8" w="full" alignItems="center">
-            <Image size="40px" source={NoRisks} />
-            <VStack flex="1" ml="3">
-              <Typography.Body1Strong mb="1">
-                {intl.formatMessage({ id: 'form__no_risks' })}
-              </Typography.Body1Strong>
-              <Typography.Body2>
-                {intl.formatMessage(
-                  { id: 'form__no_risks_desc' },
-                  {
-                    0: safeItems.length,
-                  },
+        {safe?.length === 0 ? null : (
+          <Pressable w="full" onPress={goRiskDetail}>
+            <HStack mt="9" mb="8" w="full" alignItems="center">
+              <Image size="40px" source={NoRisks} />
+              <VStack flex="1" ml="3">
+                <Typography.Body1Strong mb="1">
+                  {intl.formatMessage({ id: 'form__no_risks' })}
+                </Typography.Body1Strong>
+                {checkLoading ? (
+                  <Skeleton shape="Body2" />
+                ) : (
+                  <Typography.Body2>
+                    {intl.formatMessage(
+                      { id: 'form__no_risks_desc' },
+                      {
+                        0: safe?.length ?? 0,
+                      },
+                    )}
+                  </Typography.Body2>
                 )}
-              </Typography.Body2>
-            </VStack>
-            <Icon name="ChevronRightSolid" size={20} />
-          </HStack>
-        </Pressable>
+              </VStack>
+              <Icon name="ChevronRightSolid" size={20} />
+            </HStack>
+          </Pressable>
+        )}
         <Typography.Subheading w="full" mb="2">
           {intl.formatMessage({ id: 'form__token_lists__uppercase' })}
         </Typography.Subheading>
       </Box>
     ),
-    [intl, goRiskDetail],
+    [intl, goRiskDetail, safe, checkLoading],
   );
 
   const renderItem = useCallback(

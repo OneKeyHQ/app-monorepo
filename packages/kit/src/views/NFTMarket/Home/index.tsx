@@ -30,8 +30,6 @@ const Content = () => {
   ];
 
   const renderItem: ListRenderItem<ModuleData> = useCallback(({ item }) => {
-    console.log('renderItem = ', item.id);
-
     const { id } = item;
     if (id === NFTModule.Collection) {
       return <NotableCollections />;
@@ -56,8 +54,8 @@ const Content = () => {
       contentContainerStyle={{
         width: '100%',
         maxWidth: 992,
-        marginHorizontal: 'auto',
         paddingBottom: bottom,
+        alignSelf: 'center',
       }}
     />
   );

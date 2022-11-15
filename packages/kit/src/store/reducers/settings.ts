@@ -67,6 +67,7 @@ export type SettingsState = {
     [ValidationFields.Wallet]?: boolean;
   };
   hideSmallBalance?: boolean;
+  hideRiskTokens?: boolean;
   includeNFTsInTotal?: boolean;
   hideBalance?: boolean;
   updateSetting?: {
@@ -120,6 +121,7 @@ const initialState: SettingsState = {
     [ValidationFields.Wallet]: false,
   },
   hideSmallBalance: false,
+  hideRiskTokens: true,
   includeNFTsInTotal: true,
   hideBalance: false,
   updateSetting: {
@@ -143,12 +145,14 @@ export function setThemePreloadToLocalStorage(
         localStorage.setItem(key, value);
       }
 
-      // same to theme-preload.js
-      if (value === 'dark') {
-        document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
-      }
-      if (value === 'light' || value === 'system') {
-        document.documentElement.style.backgroundColor = 'white';
+      if (!platformEnv.isWebEmbed) {
+        // same to theme-preload.js
+        if (value === 'dark') {
+          document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
+        }
+        if (value === 'light' || value === 'system') {
+          document.documentElement.style.backgroundColor = 'white';
+        }
       }
     }
   } catch (error) {
@@ -303,6 +307,9 @@ export const settingsSlice = createSlice({
     setHideSmallBalance(state, action: PayloadAction<boolean>) {
       state.hideSmallBalance = action.payload;
     },
+    setHideRiskTokens(state, action: PayloadAction<boolean>) {
+      state.hideRiskTokens = action.payload;
+    },
     setHideBalance(state, action: PayloadAction<boolean>) {
       state.hideBalance = action.payload;
     },
@@ -396,6 +403,7 @@ export const {
   setUpdateSetting,
   setDisableSwapExactApproveAmount,
   updateCustomNetworkRpc,
+  setHideRiskTokens,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

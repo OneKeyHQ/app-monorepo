@@ -13,6 +13,7 @@ export type CollectionDetailContextValue = {
   refreshing?: boolean;
   assetList: NFTAsset[];
   txList: NFTTransaction[];
+  networkId: string;
 };
 
 export type ICollectionDetailContent = {

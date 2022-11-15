@@ -1247,14 +1247,12 @@ class Engine {
       if (!tokenInfo) {
         throw new Error('findToken ERROR: token not found.');
       }
-      const dangerItems = (
-        await getTokenRiskyItems({
-          apiName: GoPlusSupportApis.token_security,
-          networkId,
-          address: tokenIdOnNetwork,
-        })
-      )?.[1];
-      if (dangerItems?.length > 0) {
+      const { hasSecurity } = await getTokenRiskyItems({
+        apiName: GoPlusSupportApis.token_security,
+        networkId,
+        address: tokenIdOnNetwork,
+      });
+      if (hasSecurity) {
         tokenInfo = {
           ...tokenInfo,
           security: true,
@@ -1888,6 +1886,31 @@ class Engine {
     debugLogger.sendTx.info(
       'buildEncodedTxFromTransfer: ',
       transferInfoNew,
+      result,
+      {
+        networkId,
+        accountId,
+      },
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return result;
+  }
+
+  @backgroundMethod()
+  async buildEncodedTxFromBatchTransfer({
+    networkId,
+    accountId,
+    transferInfos,
+  }: {
+    networkId: string;
+    accountId: string;
+    transferInfos: ITransferInfo[];
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    const result = await vault.buildEncodedTxFromBatchTransfer(transferInfos);
+    debugLogger.sendTx.info(
+      'buildEncodedTxFromBatchTransfer: ',
+      transferInfos,
       result,
       {
         networkId,

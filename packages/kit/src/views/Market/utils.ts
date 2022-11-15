@@ -52,6 +52,18 @@ export function formatMarketVolatility(
   return '0.00';
 }
 
+export function formatDecimalZero(value: number) {
+  if (value > 1) return value;
+  const noRexponentail = parseExponential(value);
+  const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
+  const zeroCount = effectIndex - 2;
+  const fiexdValue = formatMarketValueForFiexd(value, 3 + zeroCount);
+  if (zeroCount >= 3) {
+    return `0.{${zeroCount}}${fiexdValue.toString().substring(effectIndex)}`;
+  }
+  return fiexdValue;
+}
+
 const BILLION = 1000000000;
 const MILLION = 1000000;
 const THOUSAND = 1000;
@@ -80,14 +92,7 @@ export function formatMarketValueForInfo(value?: number | string) {
       return formatMarketValueForFiexd(parseValue);
     }
 
-    const noRexponentail = parseExponential(parseValue);
-    const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
-    const zeroCount = effectIndex - 2;
-    const fiexdValue = formatMarketValueForFiexd(parseValue, 3 + zeroCount);
-    if (zeroCount >= 3) {
-      return `0.{${zeroCount}}${fiexdValue.toString().substring(effectIndex)}`;
-    }
-    return fiexdValue;
+    return formatDecimalZero(parseValue);
   }
   return '0.00';
 }

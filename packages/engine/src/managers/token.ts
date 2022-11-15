@@ -155,6 +155,9 @@ export const fetchTokenDetail = async (
 };
 
 export const fetchTools = async (networkId: string): Promise<Tool[]> => {
+  if (!networkId) {
+    return [];
+  }
   const res = await fetchData<{ data: Tool[] }>(
     '/config/tools',
     {

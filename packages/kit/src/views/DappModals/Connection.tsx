@@ -19,7 +19,6 @@ import {
   Modal,
   Spinner,
   Text,
-  Token,
   Typography,
   VStack,
   useToast,
@@ -133,15 +132,21 @@ function ConnectionContent({
 
   return (
     // Add padding to escape the footer
-    <VStack flex="1" space={6} bg="surface-default" p="4" borderRadius="12px">
+    <VStack
+      flex="1"
+      space="20px"
+      bg="surface-default"
+      p="4"
+      borderRadius="12px"
+    >
       <HStack alignItems="center">
         <HStack alignItems="center">
           <Box
-            size="44px"
+            size="32px"
             borderWidth={2}
             borderColor="surface-subdued"
             mr="-8px"
-            zIndex={2}
+            zIndex={1}
             rounded="full"
           >
             <Image
@@ -152,12 +157,29 @@ function ConnectionContent({
               source={Logo}
             />
           </Box>
-          <Box size="40px" overflow="hidden" rounded="full">
+          <Box
+            size="32px"
+            overflow="hidden"
+            rounded="full"
+            borderWidth={2}
+            zIndex={2}
+            borderColor="surface-subdued"
+            bg="surface-subdued"
+          >
             <Image
               w="full"
               h="full"
               source={{ uri: `${origin}/favicon.ico` }}
-              fallbackElement={<Token size="40px" />}
+              fallbackElement={
+                <Center
+                  width="full"
+                  height="full"
+                  borderRadius="full"
+                  bg="background-selected"
+                >
+                  <Icon name="QuestionMarkOutline" />
+                </Center>
+              }
             />
           </Box>
         </HStack>
@@ -170,7 +192,15 @@ function ConnectionContent({
       <VStack pt="4" borderTopColor="divider" borderTopWidth="1px">
         {MockData.permissions.map((permission, index) => (
           <HStack key={index} mb="4">
-            <Icon size={24} name={permission.icon} color="icon-success" />
+            <Box
+              borderRadius="full"
+              bg="rgba(2, 190, 50, .1)"
+              size="9"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon size={24} name={permission.icon} color="icon-success" />
+            </Box>
             <Typography.Body1 ml="12px" alignSelf="center" flex={1}>
               {intl.formatMessage({
                 id: permission.text,
@@ -368,10 +398,13 @@ const Connection = () => {
         header={
           isWalletConnectPreloading
             ? intl.formatMessage({ id: 'content__connecting' })
-            : ''
+            : intl.formatMessage({ id: 'title__dapp_connection' })
         }
-        headerDescription={isWalletConnectPreloading ? 'WalletConnect' : ''}
+        headerDescription={
+          isWalletConnectPreloading ? 'WalletConnect' : network?.shortName ?? ''
+        }
         hidePrimaryAction={isWalletConnectPreloading || !account?.id}
+        hideSecondaryAction
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__cancel"
         onPrimaryActionPress={async ({ close }) => {

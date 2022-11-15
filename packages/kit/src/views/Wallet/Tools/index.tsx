@@ -19,6 +19,7 @@ import {
   Token,
   Typography,
   VStack,
+  useUserDevice,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { Tool } from '@onekeyhq/engine/src/types/token';
@@ -76,11 +77,18 @@ type NavigationProps = NativeStackNavigationProp<
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
+  const { size } = useUserDevice();
   const [tools, setTools] = useState<Tool[]>([]);
   const { network, accountAddress } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
+
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+
+  const responsivePadding = useMemo(() => {
+    if (['NORMAL', 'LARGE'].includes(size)) return 32;
+    return 16;
+  }, [size]);
 
   const items = useMemo(() => {
     let allItems = data;
@@ -176,6 +184,7 @@ const ToolsPage: FC = () => {
         key={String(isVertical)}
         contentContainerStyle={{
           marginTop: 32,
+          paddingHorizontal: responsivePadding,
         }}
         numColumns={isVertical ? undefined : 2}
         showsHorizontalScrollIndicator={false}
@@ -184,7 +193,7 @@ const ToolsPage: FC = () => {
         keyExtractor={(item) => item.title}
       />
     ),
-    [isVertical, renderItem, items],
+    [isVertical, renderItem, items, responsivePadding],
   );
 
   return container;

@@ -197,14 +197,18 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  openConnectionModal(request: CommonRequestParams['request']) {
-    return this.openModal({
+  async openConnectionModal(request: CommonRequestParams['request']) {
+    const result = await this.openModal({
       request,
       screens: [
         ModalRoutes.DappConnectionModal,
         DappConnectionModalRoutes.ConnectionModal,
       ],
     });
+    await wait(200);
+    this.backgroundApi.serviceAccount.notifyAccountsChanged();
+    await wait(200);
+    return result;
   }
 
   // TODO support dapp accountId & networkId

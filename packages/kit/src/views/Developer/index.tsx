@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
@@ -17,6 +17,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getActiveWalletAccount,
@@ -50,6 +51,8 @@ type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<StackBasicRoutesParams, StackRoutes.Developer>
 >;
 
+const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
+const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
@@ -59,7 +62,7 @@ export const Debug = () => {
   console.log('Developer Debug page render >>>>>>>');
   const { width, height } = useWindowDimensions();
   const { network, account, wallet } = useActiveWalletAccount();
-  const { serviceAccount } = backgroundApiProxy;
+  const { serviceAccount, engine } = backgroundApiProxy;
   const toast = useToast();
   const pressableProps = {
     p: '4',
@@ -78,6 +81,122 @@ export const Debug = () => {
       }),
     });
   }, [navigation, intl]);
+
+  const handleApproveToken = useCallback(
+    async ({
+      networkId,
+      accountId,
+      token,
+      spender,
+      amount,
+    }: {
+      networkId: string;
+      accountId: string;
+      token: string;
+      amount: string;
+      spender: string;
+    }) => {
+      const encodedApproveTx =
+        await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+          amount,
+          networkId,
+          spender,
+          accountId,
+          token,
+        });
+
+      return new Promise((resolve) => {
+        // @ts-ignore
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendConfirm,
+            params: {
+              accountId,
+              networkId,
+              feeInfoEditable: true,
+              feeInfoUseFeeInTx: false,
+              skipSaveHistory: false,
+              encodedTx: encodedApproveTx,
+              onSuccess: () => {
+                resolve('');
+              },
+            },
+          },
+        });
+      });
+    },
+    [],
+  );
+
+  const handleBatchTransfer = useCallback(
+    async (token?: string) => {
+      const { networkId, accountId, accountAddress } = getActiveWalletAccount();
+      let transferInfos;
+      if (token) {
+        transferInfos = [
+          {
+            from: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_1,
+            token,
+            amount: '1',
+          },
+          {
+            from: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_2,
+            token,
+            amount: '1',
+          },
+        ];
+      } else {
+        transferInfos = [
+          {
+            from: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_1,
+            amount: '0.001',
+          },
+          {
+            from: accountAddress,
+            to: DEFAULT_TEST_EVM_ADDRESS_2,
+            amount: '0.001',
+          },
+        ];
+      }
+
+      if (token) {
+        await handleApproveToken({
+          networkId,
+          accountId,
+          spender: batchTransferContractAddress[networkId],
+          token,
+          amount: '2',
+        });
+      }
+
+      const encodedTx = await engine.buildEncodedTxFromBatchTransfer({
+        networkId,
+        accountId,
+        transferInfos,
+      });
+
+      // @ts-ignore
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendConfirm,
+          params: {
+            accountId,
+            networkId,
+            encodedTx,
+            feeInfoUseFeeInTx: false,
+            feeInfoEditable: true,
+            backRouteName: SendRoutes.PreSendAddress,
+          },
+        },
+      });
+    },
+    [engine, navigation],
+  );
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -431,6 +550,22 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>PersonalSign</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => handleBatchTransfer()}
+            >
+              <Typography.Body1>Batch Transfer ETH</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() =>
+                handleBatchTransfer(
+                  '0xdc31ee1784292379fbb2964b3b9c4124d8f89c60',
+                )
+              }
+            >
+              <Typography.Body1>Batch Transfer DAI</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>

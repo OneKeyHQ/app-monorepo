@@ -83,7 +83,7 @@ const Desktop = () => {
           });
         }}
       >
-        <Row flex={3} space="12px">
+        <Row flex={3} space="12px" alignItems="center">
           <CollectionLogo
             src={item.collection.logoUrl}
             width="40px"

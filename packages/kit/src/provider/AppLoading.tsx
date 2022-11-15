@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 import React, { FC, useEffect, useState } from 'react';
 
 import * as SplashScreen from 'expo-splash-screen';
@@ -65,10 +66,17 @@ const AppLoading: FC = ({ children }) => {
         SplashScreen.hideAsync();
       }, 50);
     }
+
     main();
   }, []);
 
   const bg = useThemeValue('background-default');
+  useEffect(() => {
+    if (initDataReady && platformEnv.isRuntimeBrowser) {
+      const img = document.querySelector('.onekey-index-html-preload-image');
+      setTimeout(() => img?.remove(), 10);
+    }
+  }, [initDataReady]);
 
   return (
     <Box flex={1} bg={bg}>
@@ -79,11 +87,16 @@ const AppLoading: FC = ({ children }) => {
         // imageBackgroundSource
         translucent={!platformEnv.isNativeAndroid}
         isLoaded={initDataReady}
-        // eslint-disable-next-line global-require
-        logoImage={require('../../assets/splash.png')}
+        logoImage={
+          platformEnv.isRuntimeBrowser
+            ? require('../../assets/splash.svg')
+            : require('../../assets/splash.png')
+        }
         backgroundColor={bgColor}
-        logoHeight="100%"
-        logoWidth="100%"
+        // same size to onekey-index-html-preload-image at index.html.ejs
+        //      background img not working
+        logoHeight={platformEnv.isRuntimeBrowser ? '80px' : '100%'}
+        logoWidth={platformEnv.isRuntimeBrowser ? '80px' : '100%'}
       >
         {children}
       </AnimatedSplash>

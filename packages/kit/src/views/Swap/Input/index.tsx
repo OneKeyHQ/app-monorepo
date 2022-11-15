@@ -8,18 +8,23 @@ import {
 } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
-import { useSwapState } from '../hooks/useSwap';
 
 import type { Token } from '../../../store/typings';
 
 const Input = () => {
   const navigation = useNavigation();
   const { network } = useActiveWalletAccount();
-  const { outputToken } = useSwapState();
-
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
   const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
-    inputToken?.networkId,
+    () => {
+      const networkIds = (tokenList ?? []).map((item) => item.networkId);
+      if (inputToken && networkIds.includes(inputToken.networkId)) {
+        return inputToken.networkId;
+      }
+      return undefined;
+    },
   );
 
   const onSelect = useCallback(

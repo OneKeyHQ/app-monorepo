@@ -27,7 +27,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
-import { useActiveSideAccount } from '../../../hooks';
+import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
@@ -72,6 +72,7 @@ function AssetsList({
   hideSmallBalance,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
   const { accountTokens, balances, prices, loading } = useManageTokensOfAccount(
     { accountId, networkId },
   );
@@ -103,6 +104,7 @@ function AssetsList({
         tokenValues.set(t, v);
         return true;
       })
+      .filter((t) => !hideRiskTokens || !t.security)
       .sort(
         (a, b) =>
           // By value
@@ -120,7 +122,14 @@ function AssetsList({
       );
 
     return limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens;
-  }, [accountTokens, balances, hideSmallBalance, limitSize, prices]);
+  }, [
+    accountTokens,
+    balances,
+    hideSmallBalance,
+    hideRiskTokens,
+    limitSize,
+    prices,
+  ]);
 
   const { size } = useUserDevice();
   const responsivePadding = () => {

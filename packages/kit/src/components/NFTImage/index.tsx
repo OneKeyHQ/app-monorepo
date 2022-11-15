@@ -4,7 +4,8 @@ import NetImage from '@onekeyhq/components/src/NetImage';
 import { syncImage } from '@onekeyhq/engine/src/managers/nft';
 
 type Props = {
-  s3Url: string;
+  url?: string | null;
+  s3Url?: string;
   nftSource: {
     contractAddress?: string;
     tokenId: string;
@@ -13,7 +14,7 @@ type Props = {
 } & ComponentProps<typeof NetImage>;
 
 const NFTImage: FC<Props> = ({ nftSource, ...rest }) => {
-  const { s3Url } = rest;
+  const url = rest.url ?? rest.s3Url;
   const uploadImage = useCallback(
     async () =>
       syncImage({
@@ -24,6 +25,12 @@ const NFTImage: FC<Props> = ({ nftSource, ...rest }) => {
     [nftSource],
   );
 
-  return <NetImage {...rest} src={s3Url} onErrorWithTask={uploadImage} />;
+  return (
+    <NetImage
+      {...rest}
+      src={url}
+      onErrorWithTask={rest.s3Url ? uploadImage : undefined}
+    />
+  );
 };
 export default NFTImage;

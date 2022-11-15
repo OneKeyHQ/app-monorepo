@@ -5,14 +5,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
+  HStack,
   Pressable,
   Text,
   useIsVerticalLayout,
-  useThemeValue,
 } from '@onekeyhq/components';
 
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { HomeRoutes } from '../../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../../routes/types';
 import AssetsList from '../AssetsList';
@@ -38,46 +36,51 @@ const TabBar: FC<TabBarProps> = ({
   selectedIndex,
   onChange,
   ...ContainerProps
-}) => {
-  const activeColor = useThemeValue('text-default');
-  const inactiveColor = useThemeValue('text-subdued');
-  const indicatorColor = useThemeValue('action-primary-default');
-
-  return (
-    <Box flexDirection="row" {...ContainerProps}>
+}) => (
+  <Box {...ContainerProps} w="100%" mt={{ base: '24px', md: '32px' }}>
+    <Box
+      h="1px"
+      position="absolute"
+      left={0}
+      bottom={0}
+      right={0}
+      bgColor="divider"
+    />
+    <HStack space="32px">
       {items.map((item, index) => {
         const isActive = index === selectedIndex;
         return (
           <Pressable
             alignItems="center"
+            pt="16px"
+            pb="14px"
+            borderBottomWidth={2}
+            borderBottomColor={isActive ? 'interactive-default' : 'transparent'}
             key={`${item.label}${index}`}
             width={itemWidth}
             onPress={() => {
               onChange(index);
             }}
           >
-            <Box justifyContent="center" flexDirection="column" height="100%">
-              <Box height="full">
-                <Center height="full">
-                  <Text
-                    typography="Body2Strong"
-                    textAlign="center"
-                    color={isActive ? activeColor : inactiveColor}
-                  >
-                    {item.title}
-                  </Text>
-                </Center>
-                {isActive ? (
-                  <Box height="2px" bgColor={indicatorColor} />
-                ) : null}
-              </Box>
-            </Box>
+            {({ isHovered, isPressed }) => (
+              <Text
+                typography="Body2Strong"
+                textAlign="center"
+                color={
+                  isActive || isHovered || isPressed
+                    ? 'text-default'
+                    : 'text-subdued'
+                }
+              >
+                {item.title}
+              </Text>
+            )}
           </Pressable>
         );
       })}
-    </Box>
-  );
-};
+    </HStack>
+  </Box>
+);
 
 const AssetHeader = () => {
   const intl = useIntl();
@@ -90,8 +93,6 @@ const AssetHeader = () => {
       <MemoCollectionInfo />
       <TabBar
         mb={isSmallScreen ? '24px' : '32px'}
-        height="54px"
-        itemWidth="54px"
         selectedIndex={context?.selectedIndex}
         onChange={(index) => {
           if (setContext) {
@@ -121,8 +122,7 @@ const TransactionHeader = () => {
     <Box flexDirection="column" alignItems="flex-start">
       <MemoCollectionInfo />
       <TabBar
-        height="54px"
-        itemWidth="54px"
+        mb={{ md: '8px' }}
         selectedIndex={context?.selectedIndex}
         onChange={(index) => {
           if (setContext) {
@@ -154,28 +154,21 @@ const Screen = () => {
   const context = useCollectionDetailContext()?.context;
 
   return (
-    <Box flexDirection="row" justifyContent="center" flex={1}>
-      <Box
-        width="full"
-        height="full"
-        flexDirection="column"
-        maxW={MAX_PAGE_CONTAINER_WIDTH}
-      >
-        {context?.selectedIndex === 0 ? (
-          <AssetsList
-            contractAddress={contractAddress}
-            networkId={networkId}
-            ListHeaderComponent={() => <AssetHeader />}
-          />
-        ) : (
-          <TransactionList
-            contractAddress={contractAddress}
-            networkId={networkId}
-            ListHeaderComponent={() => <TransactionHeader />}
-          />
-        )}
-      </Box>
-    </Box>
+    <>
+      {context?.selectedIndex === 0 ? (
+        <AssetsList
+          contractAddress={contractAddress}
+          networkId={networkId}
+          ListHeaderComponent={() => <AssetHeader />}
+        />
+      ) : (
+        <TransactionList
+          contractAddress={contractAddress}
+          networkId={networkId}
+          ListHeaderComponent={() => <TransactionHeader />}
+        />
+      )}
+    </>
   );
 };
 

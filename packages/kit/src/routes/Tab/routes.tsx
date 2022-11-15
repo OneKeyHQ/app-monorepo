@@ -78,6 +78,10 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.RevokeRedirect,
         component: RevokeRedirectPage,
       },
+      {
+        name: HomeRoutes.NFTMarketCollectionScreen,
+        component: NFTMarketCollectionScreen,
+      },
     ],
   },
   {

@@ -4,6 +4,7 @@ const platforms = {
   desktop: 'desktop',
   ext: 'ext',
   web: 'web',
+  webEmbed: 'webEmbed',
 };
 module.exports = {
   platforms,
