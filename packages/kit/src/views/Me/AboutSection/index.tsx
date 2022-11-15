@@ -136,7 +136,7 @@ export const AboutSection = () => {
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
           </Text>
         </Pressable>
-        <AutoUpdateSectionItem />
+        {!platformEnv.isMas ? <AutoUpdateSectionItem /> : null}
         <Pressable
           display="flex"
           flexDirection="row"

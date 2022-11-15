@@ -39,7 +39,9 @@ export const restartBridge = async () => {
 
 const init = async ({ mainWindow, store }: Dependencies) => {
   await launchBridge();
-  autoUpdateInit({ mainWindow, store });
+  if (!process.mas) {
+    autoUpdateInit({ mainWindow, store });
+  }
 };
 
 export default init;

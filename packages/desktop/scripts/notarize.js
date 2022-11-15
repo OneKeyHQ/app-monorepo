@@ -3,7 +3,6 @@ const build = require('../electron-builder.config');
 
 exports.default = async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;
-
   if (electronPlatformName !== 'darwin') {
     return;
   }
