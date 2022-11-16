@@ -12,7 +12,7 @@
         }
       },
       "ios": {
-        "image": "macos-monterey-12.3-xcode-13.3",
+        "image": "macos-monterey-12.6-xcode-14.0",
         "env": {
           "PLATFORM": "ios"
         }
