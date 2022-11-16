@@ -38,6 +38,9 @@ import {
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -66,7 +69,13 @@ import {
   makeMsgSend,
   makeTxRawBytes,
 } from './sdk/signing';
-import { getFee, getMsgs, getSequence, setFee } from './sdk/wrapper/utils';
+import {
+  getFee,
+  getMsgs,
+  getSequence,
+  setFee,
+  setSendAmount,
+} from './sdk/wrapper/utils';
 import settings from './settings';
 import { getTransactionTypeByProtoMessage } from './utils';
 
@@ -645,6 +654,30 @@ export default class Vault extends VaultBase {
     }
   }
 
+  async updateEncodedTx(
+    encodedTx: IEncodedTxCosmos,
+    payload: IEncodedTxUpdatePayloadTransfer,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTx> {
+    const msgs = getMsgs(encodedTx);
+
+    if (
+      options.type === IEncodedTxUpdateType.transfer &&
+      msgs.length > 0 &&
+      msgs[0].typeUrl === MessageType.SEND
+    ) {
+      const network = await this.getNetwork();
+
+      return Promise.resolve(
+        setSendAmount(
+          encodedTx,
+          new BigNumber(payload.amount).shiftedBy(network.decimals).toFixed(),
+        ),
+      );
+    }
+    return Promise.resolve(encodedTx);
+  }
+
   async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
@@ -669,7 +702,6 @@ export default class Vault extends VaultBase {
       return Promise.resolve([]);
     }
 
-    const client = await this.getClient();
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
     const chainInfo = await this.getChainInfo();
