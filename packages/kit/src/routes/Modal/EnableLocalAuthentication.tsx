@@ -6,6 +6,7 @@ import {
   EnableLocalAuthenticationRoutes,
   EnableLocalAuthenticationRoutesParams,
 } from '@onekeyhq/kit/src/views/EnableLocalAuthentication/types';
+import EnableWebAuthn from '@onekeyhq/kit/src/views/EnableWebAuthn';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -16,6 +17,10 @@ const modalRoutes = [
   {
     name: EnableLocalAuthenticationRoutes.EnableLocalAuthenticationModal,
     component: EnableLocalAuthentication,
+  },
+  {
+    name: EnableLocalAuthenticationRoutes.EnableWebAuthn,
+    component: EnableWebAuthn,
   },
 ];
 
