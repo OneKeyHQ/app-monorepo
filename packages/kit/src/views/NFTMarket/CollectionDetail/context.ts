@@ -7,7 +7,6 @@ import {
 } from '@onekeyhq/engine/src/types/nft';
 
 export type CollectionDetailContextValue = {
-  loading?: boolean;
   collection?: Collection;
   selectedIndex: number;
   refreshing?: boolean;

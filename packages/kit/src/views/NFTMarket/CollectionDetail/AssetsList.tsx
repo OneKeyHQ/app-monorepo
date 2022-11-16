@@ -39,8 +39,10 @@ export function getRequestLimit(numberColumn: number) {
       return 45;
     case 4:
       return 48;
-    default:
+    case 5:
       return 50;
+    default: // 6
+      return 48;
   }
 }
 type FooterProps = {

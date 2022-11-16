@@ -25,7 +25,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { wait } from '../../utils/helper';
 import { showSplashScreen } from '../../views/Overlay/showSplashScreen';
-import LocalAuthenticationButton from '../LocalAuthenticationButton';
+
+import AppStateUnlockButton from './AppStateUnlockButton';
 
 const ForgetPasswordButton = () => {
   const intl = useIntl();
@@ -185,7 +186,7 @@ export const AppStateUnlock = () => {
               </Button>
             </Box>
             <Center mt="8">
-              <LocalAuthenticationButton onOk={onOk} />
+              <AppStateUnlockButton onOk={onOk} />
             </Center>
           </Box>
           <Center position={isSmall ? 'relative' : 'absolute'} bottom="0">
