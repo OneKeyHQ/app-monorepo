@@ -1,16 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { bytesToHex } from '@noble/hashes/utils';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient, BCS } from 'aptos';
+import { JsonRpcProvider } from '@mysten/sui.js';
+import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_SUI as COIN_TYPE } from '../../../constants';
-import { OneKeyHardwareError } from '../../../errors';
+import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { AptosMessage } from '../../../types/message';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
@@ -18,11 +16,11 @@ import {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
+  SignedTxResult,
 } from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
 
-import { SignMessageRequest } from './types';
-import { buildSignedTx, generateUnsignedTransaction } from './utils';
+import { toTransaction } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
@@ -101,7 +99,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of addressesResponse.payload) {
       const { address, path, publicKey } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `APT #${indexes[index] + 1}`;
+        const name = (names || [])[index] || `SUI #${indexes[index] + 1}`;
         ret.push({
           id: `${this.walletId}--${path}`,
           name,
@@ -135,33 +133,41 @@ export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
+  ): Promise<SignedTxResult> {
     debugLogger.common.info('signTransaction', unsignedTx);
     const dbAccount = await this.getDbAccount();
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    const aptosClient = new AptosClient(rpcURL);
+    const client = new JsonRpcProvider(rpcURL);
+    const sender = dbAccount.address;
 
-    const rawTx = await generateUnsignedTransaction(aptosClient, unsignedTx);
-    const serialize = new BCS.Serializer();
-    rawTx.serialize(serialize);
+    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+    if (!senderPublicKey) {
+      throw new OneKeyInternalError('Unable to get sender public key.');
+    }
+
+    const { encodedTx } = unsignedTx.payload;
+    const txnBytes = await toTransaction(client, sender, encodedTx);
 
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
     const HardwareSDK = await this.getHardwareSDKInstance();
-    const response = await HardwareSDK.aptosSignTransaction(
-      connectId,
-      deviceId,
-      {
-        path: dbAccount.path,
-        rawTx: bytesToHex(serialize.getBytes()),
-        ...passphraseState,
-      },
-    );
+    // @ts-expect-error
+    const response = await HardwareSDK.suiSignTransaction(connectId, deviceId, {
+      path: dbAccount.path,
+      rawTx: txnBytes,
+      ...passphraseState,
+    });
 
     if (response.success) {
-      const { signature, public_key: senderPublicKey } = response.payload;
-      return buildSignedTx(rawTx, senderPublicKey, signature);
+      const { signature } = response.payload;
+      return {
+        txid: '',
+        rawTx: txnBytes,
+        signatureScheme: 'ed25519',
+        signature: addHexPrefix(signature.toString('hex')),
+        publicKey: addHexPrefix(senderPublicKey),
+      };
     }
 
     throw deviceUtils.convertDeviceError(response.payload);
@@ -172,37 +178,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     options: ISignCredentialOptions,
   ): Promise<string[]> {
     debugLogger.common.info('signMessage', messages);
-    const dbAccount = await this.getDbAccount();
-
-    const { connectId, deviceId } = await this.getHardwareInfo();
-    const passphraseState = await this.getWalletPassphraseState();
-    const HardwareSDK = await this.getHardwareSDKInstance();
-
-    return Promise.all(
-      messages.map(async (message) => {
-        const messageRequest: SignMessageRequest = JSON.parse(message.message);
-        const response = await HardwareSDK.aptosSignMessage(
-          connectId,
-          deviceId,
-          {
-            path: dbAccount.path,
-            payload: {
-              message: messageRequest.message,
-              address: messageRequest.address,
-              application: messageRequest.application,
-              chainId: messageRequest?.chainId?.toString(),
-              nonce: messageRequest?.nonce?.toString(),
-            },
-            ...passphraseState,
-          },
-        );
-
-        if (!response.success) {
-          throw deviceUtils.convertDeviceError(response.payload);
-        }
-
-        return addHexPrefix(response.payload.signature);
-      }),
-    );
+    return Promise.reject(new Error('Not implemented'));
   }
 }

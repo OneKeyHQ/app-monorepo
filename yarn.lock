@@ -4585,9 +4585,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mysten/sui.js@npm:^0.16.0":
-  version: 0.16.0
-  resolution: "@mysten/sui.js@npm:0.16.0"
+"@mysten/sui.js@npm:^0.17.1":
+  version: 0.17.1
+  resolution: "@mysten/sui.js@npm:0.17.1"
   dependencies:
     "@mysten/bcs": 0.5.0
     "@noble/hashes": ^1.1.2
@@ -4600,7 +4600,7 @@ __metadata:
     lossless-json: ^1.0.5
     rpc-websockets: ^7.5.0
     tweetnacl: ^1.0.3
-  checksum: f378a56d76459183bd6454ea317527a37bf4919834672c2e864f42962accad16d875cefc7c75c1f949581d8bce0f64ae33bfbcd509e2c55daf8bba80fc0e928f
+  checksum: 5c9af99d65f0980bb0185c0b743c275afb8542a54c902076e4d54ba3ea95edef012879955f15a821d26a2e7139a30d62d569d0c429eb4775c379f43f11f744ed
   languageName: node
   linkType: hard
 
@@ -5532,7 +5532,7 @@ __metadata:
     "@ethersproject/keccak256": ^5.6.0
     "@ethersproject/transactions": ^5.6.0
     "@metamask/eth-sig-util": ^4.0.0
-    "@mysten/sui.js": ^0.16.0
+    "@mysten/sui.js": ^0.17.1
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.46
     "@onekeyfe/js-sdk": 1.1.5

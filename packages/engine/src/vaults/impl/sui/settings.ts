@@ -11,11 +11,11 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
-  activateAccountRequired: true,
-  activateTokenRequired: true,
+  activateAccountRequired: false,
+  activateTokenRequired: false,
 
   feeInfoEditable: true,
-  minGasLimit: 1000,
+  minGasLimit: 50,
 };
 
 export default settings;

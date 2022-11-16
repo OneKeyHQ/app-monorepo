@@ -2,16 +2,39 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import {
+  Coin,
+  GetObjectDataResponse,
+  SignatureScheme,
+  SuiMoveObject,
+  SuiObject,
+  getCertifiedTransaction,
+  getExecutionStatus,
+  getMoveCallTransaction,
+  getObjectExistsResponse,
+  getObjectId,
+  getPayAllSuiTransaction,
+  getPaySuiTransaction,
+  getPayTransaction,
+  getPublishTransaction,
+  getTimestampFromTransactionResponse,
+  getTotalGasUsed,
+  getTransactionData,
+  getTransactionDigest,
+  getTransactionSender,
+  getTransactions,
+  getTransferObjectTransaction,
+  getTransferSuiTransaction,
+  isValidSuiAddress,
+} from '@mysten/sui.js';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
   PartialTokenInfo,
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient, BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
-import { get, groupBy, isEmpty, isNil } from 'lodash';
+import { get, groupBy, isEmpty, isNil, map } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
@@ -20,7 +43,6 @@ import {
   getTimeStamp,
   isHexString,
 } from '@onekeyhq/kit/src/utils/helper';
-import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -63,25 +85,22 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
 import settings from './settings';
-import { IEncodedTxAptos } from './types';
+import { IEncodedTxSUI } from './types';
 import {
-  APTOS_COINSTORE,
-  APTOS_NATIVE_COIN,
-  APTOS_NATIVE_TRANSFER_FUNC,
-  APTOS_TRANSFER_FUNC,
-  DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
-  DEFAULT_GAS_LIMIT_TRANSFER,
-  buildSignedTx,
-  generateRegisterToken,
-  generateTransferCoin,
-  generateUnsignedTransaction,
-  getAccountCoinResource,
-  getAccountResource,
-  getTokenInfo,
-  getTransactionType,
-  getTransactionTypeByPayload,
-  waitPendingTransaction,
+  DEFAULT_GAS_BUDGET_FOR_PAY,
+  GAS_TYPE_ARG,
+  SUI_NATIVE_COIN,
+  computeGasBudget,
+  computeGasBudgetForPay,
+  decodeAction,
+  decodeActionAllPay,
+  decodeActionPay,
+  deduplicate,
+  getTxnAmount,
+  moveCallTxnName,
+  toTransaction,
 } from './utils';
 
 // @ts-ignore
@@ -96,7 +115,7 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
-  getClientCache = memoizee(async (rpcUrl) => this.getAptosClient(rpcUrl), {
+  getClientCache = memoizee(async (rpcUrl) => this.getSuiClient(rpcUrl), {
     promise: true,
     max: 1,
     maxAge: getTimeDurationMs({ minute: 3 }),
@@ -107,8 +126,10 @@ export default class Vault extends VaultBase {
     return this.getClientCache(rpcURL);
   }
 
-  getAptosClient(url: string) {
-    return new AptosClient(url);
+  getSuiClient(url: string) {
+    return new QueryJsonRpcProvider(url, {
+      faucetURL: 'https://faucet.testnet.sui.io/gas',
+    });
   }
 
   // Chain only methods
@@ -121,12 +142,14 @@ export default class Vault extends VaultBase {
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const client = this.getAptosClient(url);
+    const client = this.getSuiClient(url);
 
     const start = performance.now();
-    const { block_height: blockNumber } = await client.getLedgerInfo();
-    const latestBlock = parseInt(blockNumber);
-    return { responseTime: Math.floor(performance.now() - start), latestBlock };
+    const latestBlock = await client.getTotalTransactionNumber();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      latestBlock,
+    };
   }
 
   async _getPublicKey({
@@ -143,18 +166,10 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string) {
-    if (!isHexString(address) || stripHexPrefix(address).length !== 64) {
+    if (!isValidSuiAddress(address)) {
       return Promise.reject(new InvalidAddress());
     }
     return Promise.resolve(address);
-    // try {
-    //   const exists = await this.checkAccountExistence(address);
-    //   if (!exists) return await Promise.reject(new InvalidAccount());
-    //   return await Promise.resolve(address);
-    // } catch (e: any) {
-    //   if (e instanceof InvalidAccount) return Promise.reject(e);
-    //   return Promise.reject(new InvalidAddress());
-    // }
   }
 
   override validateWatchingCredential(input: string) {
@@ -166,17 +181,41 @@ export default class Vault extends VaultBase {
   override async checkAccountExistence(address: string): Promise<boolean> {
     const client = await this.getClient();
 
-    try {
-      const accountData = await client.getAccount(stripHexPrefix(address));
-      const authKey = get(accountData, 'authentication_key', null);
-      return !isNil(authKey);
-    } catch (error) {
-      const errorCode = get(error, 'errorCode', null);
-      if (errorCode === 'resource_not_found') {
-        return false;
+    const accountData = await client.getObject(stripHexPrefix(address));
+    return accountData.status === 'Exists';
+  }
+
+  async getObjectsOwnedByAddress(
+    address: string,
+    typeArg?: string,
+  ): Promise<Record<string, bigint>> {
+    const client = await this.getClient();
+
+    const allObjRes = await client.getCoinBalancesOwnedByAddress(
+      address,
+      typeArg,
+    );
+
+    const allSuiObjects: SuiObject[] = [];
+    for (const objRes of allObjRes) {
+      const suiObj = getObjectExistsResponse(objRes);
+      if (suiObj) {
+        allSuiObjects.push(suiObj);
       }
-      throw error;
     }
+
+    return allSuiObjects
+      .map((aCoin) => aCoin.data as SuiMoveObject)
+      .reduce((acc, aCoin) => {
+        const coinType = Coin.getCoinTypeArg(aCoin);
+        if (coinType) {
+          if (typeof acc[coinType] === 'undefined') {
+            acc[coinType] = BigInt(0);
+          }
+          acc[coinType] += Coin.getBalance(aCoin) ?? BigInt(0);
+        }
+        return acc;
+      }, {} as Record<string, bigint>);
   }
 
   override async getBalances(
@@ -190,15 +229,13 @@ export default class Vault extends VaultBase {
     await Promise.all(
       Object.entries(requestAddress).map(async ([address, tokens]) => {
         try {
-          const resources = await getAccountResource(client, address);
+          const resources = await this.getObjectsOwnedByAddress(address);
+
           tokens.forEach((req) => {
             const { tokenAddress } = req;
-            const typeTag = `${APTOS_COINSTORE}<${
-              tokenAddress ?? APTOS_NATIVE_COIN
-            }>`;
-            const accountResource = resources?.find((r) => r.type === typeTag);
-            const balance = get(accountResource, 'data.coin.value', 0);
-            const key = `${address}-${tokenAddress ?? APTOS_NATIVE_COIN}`;
+            const typeTag = tokenAddress ?? SUI_NATIVE_COIN;
+            const balance = resources[typeTag]?.toString() ?? '0';
+            const key = `${address}-${typeTag}`;
             try {
               balances.set(key, new BigNumber(balance));
             } catch (e) {
@@ -213,9 +250,14 @@ export default class Vault extends VaultBase {
 
     return requests.map((req) => {
       const { address, tokenAddress } = req;
-      const key = `${address}-${tokenAddress ?? APTOS_NATIVE_COIN}`;
+      const key = `${address}-${tokenAddress ?? SUI_NATIVE_COIN}`;
       return balances.get(key) ?? new BigNumber(0);
     });
+  }
+
+  override async activateAccount() {
+    const client = await this.getClient();
+    await client.requestSuiFromFaucet(await this.getAccountAddress());
   }
 
   async fetchTokenInfos(
@@ -226,50 +268,19 @@ export default class Vault extends VaultBase {
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          return await getTokenInfo(client, tokenAddress);
+          const [address, moduleName, structName] = tokenAddress.split('::');
+          await client.getNormalizedMoveStruct(address, moduleName, structName);
+
+          return await Promise.resolve({
+            name: structName,
+            symbol: structName,
+            decimals: 1,
+          });
         } catch (e) {
           // pass
         }
       }),
     );
-  }
-
-  override async activateAccount() {
-    openDapp('https://aptoslabs.com/testnet-faucet');
-  }
-
-  override async activateToken(
-    tokenAddress: string,
-    password: string,
-  ): Promise<boolean> {
-    const { address } = (await this.getDbAccount()) as DBSimpleAccount;
-
-    const resource = await getAccountCoinResource(
-      await this.getClient(),
-      address,
-      tokenAddress,
-    );
-
-    if (resource) return Promise.resolve(true);
-
-    const encodedTx: IEncodedTxAptos = generateRegisterToken(tokenAddress);
-    encodedTx.sender = address;
-
-    const unsignedTx = await this.buildUnsignedTxFromEncodedTx(encodedTx);
-    unsignedTx.payload = {
-      ...unsignedTx.payload,
-      encodedTx,
-    };
-
-    const tx = await this.signAndSendTransaction(
-      unsignedTx,
-      {
-        password,
-      },
-      false,
-    );
-
-    return !!tx.txid;
   }
 
   override async validateTokenAddress(tokenAddress: string): Promise<string> {
@@ -287,9 +298,9 @@ export default class Vault extends VaultBase {
   }
 
   override async attachFeeInfoToEncodedTx(params: {
-    encodedTx: IEncodedTxAptos;
+    encodedTx: IEncodedTxSUI;
     feeInfoValue: IFeeInfoUnit;
-  }): Promise<IEncodedTxAptos> {
+  }): Promise<IEncodedTxSUI> {
     const { price, limit } = params.feeInfoValue;
     if (typeof price !== 'undefined' && typeof price !== 'string') {
       throw new OneKeyInternalError('Invalid gas price.');
@@ -297,39 +308,13 @@ export default class Vault extends VaultBase {
     if (typeof limit !== 'string') {
       throw new OneKeyInternalError('Invalid fee limit');
     }
-    const network = await this.getNetwork();
 
-    const txPrice = convertFeeGweiToValue({
-      value: price || '0.000000001',
-      network,
-    });
-
-    let { bscTxn } = params.encodedTx;
-    if (!isNil(bscTxn) && !isEmpty(bscTxn)) {
-      const deserializer = new BCS.Deserializer(hexToBytes(bscTxn));
-      const rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
-      const newRawTx = new TxnBuilderTypes.RawTransaction(
-        rawTx.sender,
-        rawTx.sequence_number,
-        rawTx.payload,
-        BigInt(limit),
-        BigInt(txPrice),
-        rawTx.expiration_timestamp_secs,
-        rawTx.chain_id,
-      );
-
-      const serializer = new BCS.Serializer();
-      newRawTx.serialize(serializer);
-      bscTxn = bytesToHex(serializer.getBytes());
+    const { data } = params.encodedTx;
+    if (data && 'gasBudget' in data) {
+      data.gasBudget = parseInt(limit);
     }
 
-    const encodedTxWithFee = {
-      ...params.encodedTx,
-      gas_unit_price: txPrice,
-      max_gas_amount: limit,
-      bscTxn,
-    };
-    return Promise.resolve(encodedTxWithFee);
+    return Promise.resolve(params.encodedTx);
   }
 
   override decodedTxToLegacy(
@@ -339,7 +324,7 @@ export default class Vault extends VaultBase {
   }
 
   override async decodeTx(
-    encodedTx: IEncodedTxAptos,
+    encodedTx: IEncodedTxSUI,
     _payload?: any,
   ): Promise<IDecodedTx> {
     const network = await this.engine.getNetwork(this.networkId);
@@ -347,73 +332,132 @@ export default class Vault extends VaultBase {
     let token: Token | undefined = await this.engine.getNativeTokenInfo(
       this.networkId,
     );
-    const { type, function: fun, type_arguments } = encodedTx;
-    if (!encodedTx?.sender) {
-      encodedTx.sender = dbAccount.address;
+    const client = await this.getClient();
+
+    const sender = await this.getAccountAddress();
+
+    const { kind, data } = encodedTx;
+    const actions: IDecodedTxAction[] = [];
+    let gasLimit = 0;
+    if (data && 'gasBudget' in data) {
+      gasLimit = data.gasBudget;
     }
-    let action: IDecodedTxAction | null = null;
-    const actionType = getTransactionTypeByPayload({
-      type,
-      function_name: fun,
-      type_arguments,
-    });
-    if (
-      actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
-      actionType === IDecodedTxActionType.TOKEN_TRANSFER
-    ) {
-      const isToken = actionType === IDecodedTxActionType.TOKEN_TRANSFER;
 
-      // Native token transfer
-      const { sender } = encodedTx;
-      const [coinType] = encodedTx.type_arguments || [];
-      const [to, amount] = encodedTx.arguments || [];
-      let actionKey = 'nativeTransfer';
+    switch (kind) {
+      case 'pay':
+        // eslint-disable-next-line no-case-declarations
+        const action = await decodeAction(client, data);
+        if (action) {
+          let actionKey = 'nativeTransfer';
+          if (!action.isNative) {
+            actionKey = 'tokenTransfer';
+            if (!action.coinType)
+              throw new OneKeyInternalError('Invalid coin type');
+            token = await this.engine.ensureTokenInDB(
+              this.networkId,
+              action.coinType,
+            );
 
-      if (isToken) {
-        actionKey = 'tokenTransfer';
-        token = await this.engine.ensureTokenInDB(this.networkId, coinType);
-        if (!token) {
-          const [remoteToken] = await this.fetchTokenInfos([coinType]);
-          if (remoteToken) {
-            token = {
-              id: '1',
-              isNative: false,
-              networkId: this.networkId,
-              tokenIdOnNetwork: coinType,
-              name: remoteToken.name,
-              symbol: remoteToken.symbol,
-              decimals: remoteToken.decimals,
-              logoURI: '',
-            };
+            if (!token) throw new OneKeyInternalError('Invalid coin type');
           }
-
-          if (!token) {
-            throw new Error('Invalid token address');
-          }
+          actions.push({
+            type: action.type,
+            [actionKey]: {
+              tokenInfo: token,
+              from: sender,
+              to: action.recipient,
+              amount: new BigNumber(action.amount ?? '0')
+                .shiftedBy(-token.decimals)
+                .toFixed(),
+              amountValue: action.amount?.toString() ?? '0',
+              extraInfo: null,
+            },
+          });
         }
-      }
+        break;
 
-      const transferAction: IDecodedTxActionTokenTransfer = {
-        tokenInfo: token,
-        from: sender ?? '',
-        to,
-        amount: new BigNumber(amount).shiftedBy(-token.decimals).toFixed(),
-        amountValue: amount,
-        extraInfo: null,
-      };
+      case 'transferSui':
+        actions.push({
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          'nativeTransfer': {
+            tokenInfo: token,
+            from: sender,
+            to: data.recipient,
+            amount: new BigNumber(data.amount ?? '0')
+              .shiftedBy(-token.decimals)
+              .toFixed(),
+            amountValue: data.amount?.toString() ?? '0',
+            extraInfo: null,
+          },
+        });
+        break;
 
-      action = {
-        type: actionType,
-        [actionKey]: transferAction,
-      };
-    } else {
-      action = {
-        type: IDecodedTxActionType.UNKNOWN,
-        direction: IDecodedTxDirection.OTHER,
-        unknownAction: {
-          extraInfo: {},
-        },
-      };
+      case 'paySui':
+        // eslint-disable-next-line no-case-declarations
+        const toAddress = new Map<string, BigNumber>();
+        for (let i = 0; i < data.recipients.length; i += 1) {
+          const recipient = data.recipients[i];
+          const amount = data.amounts[i];
+
+          toAddress.set(
+            recipient,
+            (toAddress.get(recipient) ?? new BigNumber(0)).plus(
+              new BigNumber(amount),
+            ),
+          );
+        }
+
+        for (const [recipient, amount] of toAddress.entries()) {
+          actions.push({
+            type: IDecodedTxActionType.NATIVE_TRANSFER,
+            'nativeTransfer': {
+              tokenInfo: token,
+              from: sender,
+              to: recipient,
+              amount: amount.shiftedBy(-token.decimals).toFixed(),
+              amountValue: amount.toString(),
+              extraInfo: null,
+            },
+          });
+        }
+        break;
+
+      case 'payAllSui':
+        actions.push({
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          'nativeTransfer': {
+            tokenInfo: token,
+            from: sender,
+            to: data.recipient,
+            // Todo get balance
+            amount: 'All',
+            amountValue: 'All',
+            extraInfo: null,
+          },
+        });
+        break;
+
+      case 'moveCall':
+        actions.push({
+          type: IDecodedTxActionType.FUNCTION_CALL,
+          'functionCall': {
+            target: moveCallTxnName(data.function),
+            functionName: data.packageObjectId ?? '',
+            args: data.arguments ?? [],
+            extraInfo: null,
+          },
+        });
+        break;
+
+      default:
+        actions.push({
+          type: IDecodedTxActionType.UNKNOWN,
+          direction: IDecodedTxDirection.OTHER,
+          unknownAction: {
+            extraInfo: {},
+          },
+        });
+        break;
     }
 
     const result: IDecodedTx = {
@@ -421,16 +465,16 @@ export default class Vault extends VaultBase {
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [action],
-      status: IDecodedTxStatus.Pending, // TODO
+      actions,
+      status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       feeInfo: {
         price: convertFeeValueToGwei({
-          value: encodedTx.gas_unit_price ?? '1',
+          value: '1',
           network,
         }),
-        limit: encodedTx.max_gas_amount,
+        limit: gasLimit?.toString(),
       },
       extraInfo: null,
       encodedTx,
@@ -441,13 +485,20 @@ export default class Vault extends VaultBase {
 
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
-  ): Promise<IEncodedTxAptos> {
+  ): Promise<IEncodedTxSUI> {
     const { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
 
-    let amountValue;
+    let amountValue: string;
 
-    if (tokenAddress && tokenAddress !== '') {
+    const recipient = addHexPrefix(to);
+    const sender = addHexPrefix(from);
+    const isSuiTransfer = tokenAddress == null || isEmpty(tokenAddress);
+
+    if (isSuiTransfer) {
+      const network = await this.getNetwork();
+      amountValue = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
+    } else {
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
         tokenAddress,
@@ -458,15 +509,72 @@ export default class Vault extends VaultBase {
       }
 
       amountValue = new BigNumber(amount).shiftedBy(token.decimals).toFixed();
-    } else {
-      const network = await this.getNetwork();
-      amountValue = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
     }
 
-    const encodedTx: IEncodedTxAptos = {
-      ...generateTransferCoin(to, amountValue, tokenAddress),
-      sender: from,
+    const client = await this.getClient();
+
+    const typeArg = isSuiTransfer ? SUI_NATIVE_COIN : tokenAddress;
+    const readyCoins = await client.getCoinBalancesOwnedByAddress(
+      sender,
+      typeArg,
+    );
+    const totalBalance = Coin.totalBalance(readyCoins);
+    const gasBudget = computeGasBudgetForPay(readyCoins, amountValue);
+
+    let amountAndGasBudget = isSuiTransfer
+      ? BigInt(amountValue) + BigInt(gasBudget)
+      : BigInt(amountValue);
+    if (amountAndGasBudget > totalBalance) {
+      amountAndGasBudget = totalBalance;
+    }
+
+    const inputCoins = Coin.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+      readyCoins,
+      amountAndGasBudget,
+    ) as GetObjectDataResponse[];
+
+    const selectCoinIds = inputCoins.map((object) => getObjectId(object));
+
+    const txCommon = {
+      inputCoins: selectCoinIds,
+      recipients: [recipient],
+      amounts: [parseInt(amountValue)],
+      gasBudget,
     };
+
+    let encodedTx: IEncodedTxSUI;
+    if (isSuiTransfer) {
+      encodedTx = {
+        kind: 'paySui',
+        data: {
+          ...txCommon,
+        },
+      };
+    } else {
+      // Get native coin objects
+      const gasFeeCoins = await client.selectCoinsWithBalanceGreaterThanOrEqual(
+        sender,
+        BigInt(gasBudget),
+        GAS_TYPE_ARG,
+      );
+
+      const gasCoin = Coin.selectCoinWithBalanceGreaterThanOrEqual(
+        gasFeeCoins,
+        BigInt(gasBudget),
+      ) as GetObjectDataResponse | undefined;
+
+      if (!gasCoin) {
+        throw new OneKeyInternalError('Failed to get gas coin.');
+      }
+
+      encodedTx = {
+        kind: 'pay',
+        data: {
+          ...txCommon,
+          gasPayment: getObjectId(gasCoin),
+        },
+      };
+    }
 
     return encodedTx;
   }
@@ -487,62 +595,33 @@ export default class Vault extends VaultBase {
   }
 
   override async updateEncodedTx(
-    uncastedEncodedTx: IEncodedTx,
+    encodedTx: IEncodedTxSUI,
     payload: any,
     options: IEncodedTxUpdateOptions,
-  ): Promise<IEncodedTx> {
-    const encodedTx: IEncodedTxAptos = uncastedEncodedTx as IEncodedTxAptos;
-
+  ): Promise<IEncodedTxSUI> {
     // max native token transfer update
-    if (
-      options.type === 'transfer' &&
-      [APTOS_NATIVE_TRANSFER_FUNC, APTOS_TRANSFER_FUNC].includes(
-        encodedTx?.function ?? '',
-      )
-    ) {
-      const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
-      const { amount } = payload as IEncodedTxUpdatePayloadTransfer;
-
-      const [to] = encodedTx.arguments || [];
-      encodedTx.arguments = [
-        to,
-        new BigNumber(amount).shiftedBy(decimals).toFixed(),
-      ];
+    if (options.type === 'transfer' && encodedTx.kind === 'paySui') {
+      const { data } = encodedTx;
+      // Multiple transfers don't count
+      if (data.recipients.length === 1) {
+        return Promise.resolve({
+          kind: 'payAllSui',
+          data: {
+            inputCoins: data.inputCoins,
+            recipient: data.recipients[0],
+            gasBudget: data.gasBudget,
+          },
+        });
+      }
     }
 
     return Promise.resolve(encodedTx);
   }
 
   override async buildUnsignedTxFromEncodedTx(
-    encodedTx: IEncodedTxAptos,
+    encodedTx: IEncodedTxSUI,
   ): Promise<IUnsignedTxPro> {
     const newEncodedTx = encodedTx;
-
-    const expect = BigInt(Math.floor(Date.now() / 1000) + 100);
-    if (!isNil(encodedTx.bscTxn) && !isEmpty(encodedTx.bscTxn)) {
-      const deserializer = new BCS.Deserializer(hexToBytes(encodedTx.bscTxn));
-      const rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
-      const newRawTx = new TxnBuilderTypes.RawTransaction(
-        rawTx.sender,
-        rawTx.sequence_number,
-        rawTx.payload,
-        rawTx.max_gas_amount,
-        rawTx.gas_unit_price,
-        rawTx.expiration_timestamp_secs > expect
-          ? rawTx.expiration_timestamp_secs
-          : expect,
-        rawTx.chain_id,
-      );
-
-      const serializer = new BCS.Serializer();
-      newRawTx.serialize(serializer);
-      newEncodedTx.bscTxn = bytesToHex(serializer.getBytes());
-    } else if (
-      encodedTx.expiration_timestamp_secs &&
-      BigInt(encodedTx.expiration_timestamp_secs) < expect
-    ) {
-      newEncodedTx.expiration_timestamp_secs = expect.toString();
-    }
 
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     return Promise.resolve({
@@ -559,96 +638,54 @@ export default class Vault extends VaultBase {
     });
   }
 
-  async fetchFeeInfo(encodedTx: IEncodedTxAptos): Promise<IFeeInfo> {
-    const { max_gas_amount: gasLimit, ...encodedTxWithFakePriceAndNonce } = {
-      ...encodedTx,
-      gas_unit_price: '1',
-    };
-
+  async fetchFeeInfo(encodedTx: IEncodedTxSUI): Promise<IFeeInfo> {
     const client = await this.getClient();
 
-    const [network, gasPrice, unsignedTx] = await Promise.all([
+    const [network, unsignedTx] = await Promise.all([
       this.getNetwork(),
-      client.client.transactions.estimateGasPrice(),
-      this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
+      this.buildUnsignedTxFromEncodedTx(encodedTx),
     ]);
 
+    // https://github.com/MystenLabs/sui/blob/f32877f2e40d35a008710c232e49b57aab886462/crates/sui-types/src/messages.rs#L338
+    // see objectid 0x5 reference_gas_price
+    const price = convertFeeValueToGwei({ value: '1', network });
     let limit: string;
-    let price: string;
 
+    const txnBytes = await toTransaction(
+      client,
+      await this.getAccountAddress(),
+      unsignedTx.encodedTx as IEncodedTxSUI,
+    );
+
+    const newEncodedTx = unsignedTx.encodedTx as IEncodedTxSUI;
     try {
-      let rawTx: TxnBuilderTypes.RawTransaction;
-      const unSignedEncodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
-      if (unSignedEncodedTx.bscTxn && unSignedEncodedTx.bscTxn?.length > 0) {
-        const deserializer = new BCS.Deserializer(
-          hexToBytes(unSignedEncodedTx.bscTxn),
+      const simulationTx = await client.dryRunTransaction(txnBytes);
+
+      if (simulationTx) {
+        const computationCost = simulationTx?.gasUsed?.computationCost || 0;
+        const storageCost = simulationTx.gasUsed?.storageCost || 0;
+        const storageRebate = simulationTx.gasUsed?.storageRebate || 0;
+
+        const gasUsed = new BigNumber(
+          computationCost + storageCost - storageRebate,
         );
-        rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
-      } else {
-        rawTx = await generateUnsignedTransaction(client, unsignedTx);
-      }
-
-      const invalidSigBytes = new Uint8Array(64);
-      const { rawTx: rawSignTx } = await buildSignedTx(
-        rawTx,
-        unsignedTx.inputs?.[0].publicKey ?? '',
-        bytesToHex(invalidSigBytes),
-      );
-
-      const tx = await (
-        await this.getClient()
-      ).submitBCSSimulation(hexToBytes(rawSignTx), {
-        estimateGasUnitPrice: true,
-        estimateMaxGasAmount: true,
-      });
-
-      // https://github.com/aptos-labs/aptos-core/blob/a1062d9ce2bb76990a84d068adb809f5932aeacb/developer-docs-site/docs/concepts/basics-gas-txn-fee.md#simulating-the-transaction-to-estimate-the-gas
-      if (tx && tx.length !== 0) {
-        const simulationTx = tx?.[0];
-
-        const isOnekeyNativeTransfer =
-          encodedTx.function === APTOS_NATIVE_TRANSFER_FUNC;
-
-        const gasUsed = new BigNumber(simulationTx.gas_used);
         // Only onekey max send can pass, other cases must be simulated successfully
-        if (
-          gasUsed.isEqualTo(0) ||
-          (!isOnekeyNativeTransfer && !simulationTx.success)
-        ) {
+        if (gasUsed.isEqualTo(0)) {
           // Exec failure
           throw new OneKeyError();
         }
 
-        limit = BigNumber.min(
-          gasUsed.multipliedBy(2),
-          new BigNumber(simulationTx.max_gas_amount),
-        ).toFixed(0);
-
-        price = convertFeeValueToGwei({
-          value: simulationTx.gas_unit_price,
-          network,
-        });
+        limit = gasUsed.multipliedBy(2).toFixed();
       } else {
-        throw new Error();
+        throw new OneKeyError();
       }
     } catch (error) {
-      if (error instanceof OneKeyError) {
-        throw error;
-      }
-
-      if (
-        encodedTx.function === APTOS_NATIVE_TRANSFER_FUNC ||
-        encodedTx.function === APTOS_TRANSFER_FUNC
-      ) {
-        // Native transfer, give a default limit.
-        limit = DEFAULT_GAS_LIMIT_NATIVE_TRANSFER;
+      if (newEncodedTx.kind === 'paySui') {
+        const { data } = newEncodedTx;
+        limit = computeGasBudget(data.inputCoins.length).toString();
       } else {
-        limit = DEFAULT_GAS_LIMIT_TRANSFER;
+        throw new OneKeyError();
       }
-      price = convertFeeValueToGwei({
-        value: gasPrice.gas_estimate.toString(),
-        network,
-      });
     }
 
     return {
@@ -670,22 +707,42 @@ export default class Vault extends VaultBase {
       rawTx: signedTx.rawTx,
     });
     try {
-      const { hash: txid } = await client.submitSignedBCSTransaction(
-        hexToBytes(signedTx.rawTx),
+      const { signature, signatureScheme, publicKey } = signedTx;
+
+      let scheme: SignatureScheme = 'ED25519';
+      switch (signatureScheme) {
+        case 'ed25519':
+          scheme = 'ED25519';
+          break;
+        case 'secp256k1':
+          scheme = 'Secp256k1';
+          break;
+        default:
+          throw new OneKeyInternalError('Unsupported signature scheme');
+      }
+
+      if (!signature) {
+        throw new Error('signature is empty');
+      }
+      if (!publicKey) {
+        throw new Error('publicKey is empty');
+      }
+
+      const transactionResponse = await client.executeTransaction(
+        signedTx.rawTx,
+        scheme,
+        Buffer.from(stripHexPrefix(signature), 'hex').toString('base64'),
+        Buffer.from(stripHexPrefix(publicKey), 'hex').toString('base64'),
       );
+
+      const txid = getTransactionDigest(transactionResponse);
 
       debugLogger.engine.info('broadcastTransaction Done:', {
         txid,
         rawTx: signedTx.rawTx,
+        transactionResponse,
       });
 
-      // wait error or success
-      await waitPendingTransaction(client, txid);
-
-      debugLogger.engine.info('broadcastTransaction wait Pending END:', {
-        txid,
-        rawTx: signedTx.rawTx,
-      });
       return {
         ...signedTx,
         txid,
@@ -725,11 +782,20 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
 
-    const explorerTxs = await client.getAccountTransactions(dbAccount.address);
+    const transactions = await client.getTransactionsForAddress(
+      dbAccount.address,
+    );
+    if (!transactions || !transactions.length) {
+      return [];
+    }
+
+    const explorerTxs = await client.getTransactionWithEffectsBatch(
+      deduplicate(transactions),
+    );
 
     const promises = explorerTxs.map(async (tx) => {
       const historyTxToMerge = localHistory.find(
-        (item) => item.decodedTx.txid === tx.hash,
+        (item) => item.decodedTx.txid === getTransactionDigest(tx),
       );
       if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
         // No need to update.
@@ -737,127 +803,212 @@ export default class Vault extends VaultBase {
       }
 
       try {
-        const {
-          arguments: args,
-          type_arguments: types,
-          function: func,
-          code,
-          // @ts-expect-error
-        } = tx?.payload || {};
+        const nativeToken: Token | undefined =
+          await this.engine.getNativeTokenInfo(this.networkId);
 
-        // @ts-expect-error
-        if (!tx?.payload) return await Promise.resolve(null);
+        console.log('=====>>>> isSuccess', tx);
+        const executionStatus = getExecutionStatus(tx);
+        const isSuccess = executionStatus?.status === 'success';
+        const isFailure = executionStatus?.status === 'failure';
 
-        const [coinType] = types;
+        const transaction = getCertifiedTransaction(tx);
+        if (!transaction)
+          throw new Error('current transaction is empty, continue');
 
-        const from = get(tx, 'sender', undefined);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        const [moveAddr] = func?.split('::');
+        const timestamp = getTimestampFromTransactionResponse(tx);
+        const transactionData = getTransactionData(transaction);
+        const transactionActions = getTransactions(transaction);
+        const from = getTransactionSender(transaction);
 
-        const actionType = getTransactionType(tx);
+        const actions: IDecodedTxAction[] = [];
+
+        let to = '';
+
+        await Promise.all(
+          transactionActions.map(async (action) => {
+            const amountByRecipient = getTxnAmount(action);
+            const amount: bigint =
+              typeof amountByRecipient === 'bigint'
+                ? amountByRecipient
+                : Object.values(amountByRecipient || {})[0];
+
+            const transferObject = getTransferObjectTransaction(action);
+            if (transferObject) {
+              // NFT and more types of transfer
+            }
+
+            const publish = getPublishTransaction(action);
+            if (publish) {
+              // publish contract
+            }
+
+            const moveCall = getMoveCallTransaction(action);
+            if (moveCall) {
+              actions.push({
+                type: IDecodedTxActionType.FUNCTION_CALL,
+                'functionCall': {
+                  target: moveCallTxnName(moveCall.function),
+                  functionName: moveCall.package?.objectId ?? '',
+                  args: moveCall.arguments ?? [],
+                  extraInfo: null,
+                },
+              });
+              return true; // continue
+            }
+
+            const transferSui = getTransferSuiTransaction(action);
+            if (transferSui) {
+              to = transferSui.recipient;
+              actions.push({
+                type: IDecodedTxActionType.NATIVE_TRANSFER,
+                'nativeTransfer': {
+                  tokenInfo: nativeToken,
+                  from,
+                  to,
+                  amount: new BigNumber(amount.toString())
+                    .shiftedBy(-nativeToken.decimals)
+                    .toFixed(),
+                  amountValue: amount.toString(),
+                  extraInfo: null,
+                },
+              });
+              return true; // continue
+            }
+
+            const pay = getPayTransaction(action);
+            const actionPay = await decodeActionPay(client, pay);
+            if (pay && actionPay) {
+              console.log('=====>>>> actionPay', actionPay);
+              if (actionPay) {
+                to = actionPay.recipient;
+                let actionKey = 'nativeTransfer';
+                let tokenInfo: Token | undefined = nativeToken;
+                if (!actionPay.isNative) {
+                  actionKey = 'tokenTransfer';
+                  if (!actionPay.coinType)
+                    throw new OneKeyInternalError('Invalid coin type');
+                  tokenInfo = await this.engine.ensureTokenInDB(
+                    this.networkId,
+                    actionPay.coinType,
+                  );
+
+                  if (!tokenInfo)
+                    throw new OneKeyInternalError('Invalid coin type');
+                }
+                actions.push({
+                  type: actionPay.type,
+                  [actionKey]: {
+                    tokenInfo,
+                    from,
+                    to,
+                    amount: new BigNumber(actionPay.amount ?? '0')
+                      .shiftedBy(-tokenInfo.decimals)
+                      .toFixed(),
+                    amountValue: actionPay.amount?.toString() ?? '0',
+                    extraInfo: null,
+                  },
+                });
+              }
+              return true; // continue
+            }
+
+            const paySui = getPaySuiTransaction(action);
+            if (paySui) {
+              to = paySui.recipients[0] ?? '';
+
+              if (typeof amountByRecipient === 'bigint') {
+                actions.push({
+                  type: IDecodedTxActionType.NATIVE_TRANSFER,
+                  'nativeTransfer': {
+                    tokenInfo: nativeToken,
+                    from,
+                    to,
+                    amount: new BigNumber(amount.toString())
+                      .shiftedBy(-nativeToken.decimals)
+                      .toFixed(),
+                    amountValue: amount.toString(),
+                    extraInfo: null,
+                  },
+                });
+              } else {
+                const keys = Object.keys(amountByRecipient || {});
+
+                keys.forEach((key) => {
+                  const value = amountByRecipient[key];
+                  if (!value) return true;
+                  actions.push({
+                    type: IDecodedTxActionType.NATIVE_TRANSFER,
+                    'nativeTransfer': {
+                      tokenInfo: nativeToken,
+                      from,
+                      to,
+                      amount: new BigNumber(value.toString())
+                        .shiftedBy(-nativeToken.decimals)
+                        .toFixed(),
+                      amountValue: value.toString(),
+                      extraInfo: null,
+                    },
+                  });
+                });
+              }
+
+              return true; // continue
+            }
+
+            const paySuiAll = getPayAllSuiTransaction(action);
+            const decodePaySuiAll = await decodeActionAllPay(client, paySuiAll);
+            if (paySuiAll && decodePaySuiAll) {
+              to = paySuiAll.recipient;
+
+              actions.push({
+                type: IDecodedTxActionType.NATIVE_TRANSFER,
+                'nativeTransfer': {
+                  tokenInfo: nativeToken,
+                  from,
+                  to,
+                  amount: new BigNumber(decodePaySuiAll.amount.toString())
+                    .shiftedBy(-nativeToken.decimals)
+                    .toFixed(),
+                  amountValue: decodePaySuiAll.amount.toString(),
+                  extraInfo: null,
+                },
+              });
+              return true; // continue
+            }
+
+            actions.push({
+              type: IDecodedTxActionType.UNKNOWN,
+              direction: IDecodedTxDirection.OTHER,
+              unknownAction: {
+                extraInfo: {},
+              },
+            });
+          }),
+        );
 
         const encodedTx = {
           from,
-          to: moveAddr,
+          to,
           value: '',
         };
 
-        let action: IDecodedTxAction = {
-          type: IDecodedTxActionType.UNKNOWN,
-        };
+        const feeValue = getTotalGasUsed(tx) ?? '0';
 
-        if (
-          actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
-          actionType === IDecodedTxActionType.TOKEN_TRANSFER
-        ) {
-          const [to, amountValue] = args || [];
-          const isToken = actionType === IDecodedTxActionType.TOKEN_TRANSFER;
-
-          let direction = IDecodedTxDirection.IN;
-          if (from === dbAccount.address) {
-            direction =
-              to === dbAccount.address
-                ? IDecodedTxDirection.SELF
-                : IDecodedTxDirection.OUT;
-          }
-
-          let token: Token | undefined = await this.engine.getNativeTokenInfo(
-            this.networkId,
-          );
-          let actionKey = 'nativeTransfer';
-          if (isToken) {
-            actionKey = 'tokenTransfer';
-            token = await this.engine.ensureTokenInDB(this.networkId, coinType);
-            if (typeof token === 'undefined') {
-              throw new OneKeyInternalError('Failed to get token info.');
-            }
-          } else {
-            encodedTx.to = to;
-            encodedTx.value = amountValue;
-          }
-
-          action = {
-            type: actionType,
-            direction,
-            [actionKey]: {
-              tokenInfo: token,
-              from,
-              to,
-              amount: new BigNumber(amountValue)
-                .shiftedBy(-token.decimals)
-                .toFixed(),
-              amountValue,
-              extraInfo: null,
-            },
-          };
-        } else if (actionType === IDecodedTxActionType.TOKEN_ACTIVATE) {
-          const token = await this.engine.ensureTokenInDB(
-            this.networkId,
-            coinType,
-          );
-          let tokenInfo = {
-            name: token?.name ?? '',
-            symbol: token?.symbol ?? '',
-            decimals: token?.decimals ?? 6,
-            logoURI: token?.logoURI ?? '',
-          };
-
-          if (typeof token === 'undefined') {
-            tokenInfo = {
-              ...(await getTokenInfo(client, coinType)),
-              logoURI: '',
-            };
-          }
-
-          action = {
-            type: actionType,
-            tokenActivate: {
-              ...tokenInfo,
-              tokenAddress: coinType,
-
-              extraInfo: null,
-            },
-          };
-        }
-
-        const feeValue = new BigNumber(get(tx, 'gas_used', 0)).multipliedBy(
-          get(tx, 'gas_unit_price', 0),
-        );
-
-        const success = get(tx, 'success', undefined);
         let status = IDecodedTxStatus.Pending;
-        if (success === false) {
+        if (isFailure) {
           status = IDecodedTxStatus.Failed;
-        } else if (success === true) {
+        } else if (isSuccess) {
           status = IDecodedTxStatus.Confirmed;
         }
 
+        const txid = getTransactionDigest(tx);
+
         const decodedTx: IDecodedTx = {
-          txid: tx.hash,
+          txid,
           owner: dbAccount.address,
           signer: from,
           nonce: 0,
-          actions: [action],
+          actions,
           status,
           networkId: this.networkId,
           accountId: this.accountId,
@@ -867,7 +1018,7 @@ export default class Vault extends VaultBase {
             .shiftedBy(-decimals)
             .toFixed(),
         };
-        decodedTx.updatedAt = get(tx, 'timestamp', getTimeStamp()) / 1000;
+        decodedTx.updatedAt = timestamp;
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
@@ -890,30 +1041,34 @@ export default class Vault extends VaultBase {
   ): Promise<Array<TransactionStatus | undefined>> {
     const client = await this.getClient();
 
-    return Promise.all(
-      txids.map(async (txid) => {
-        try {
-          const tx = await client.getTransactionByHash(txid);
-          const success = get(tx, 'success', undefined);
-          let status = TransactionStatus.PENDING;
-          if (success === false) {
-            status = TransactionStatus.CONFIRM_BUT_FAILED;
-          } else if (success === true) {
-            status = TransactionStatus.CONFIRM_AND_SUCCESS;
-          }
-          return await Promise.resolve(status);
-        } catch (error: any) {
-          const { errorCode } = error;
-          if (errorCode === 'transaction_not_found') {
-            return Promise.resolve(TransactionStatus.NOT_FOUND);
-          }
-        }
-      }),
-    );
-  }
+    const txs = await client.getTransactionWithEffectsBatch(txids);
 
-  async getTransactionByHash(txId: string) {
-    const client = await this.getClient();
-    return client.getTransactionByHash(txId);
+    const txStatuses = new Map<string, TransactionStatus>();
+
+    txs.forEach(async (tx) => {
+      const txid = getTransactionDigest(tx);
+      try {
+        const executionStatus = getExecutionStatus(tx);
+        const isSuccess = executionStatus?.status === 'success';
+        const isFailure = executionStatus?.status === 'failure';
+
+        let status = TransactionStatus.PENDING;
+        if (isFailure) {
+          status = TransactionStatus.CONFIRM_BUT_FAILED;
+        } else if (isSuccess) {
+          status = TransactionStatus.CONFIRM_AND_SUCCESS;
+        }
+        txStatuses.set(txid, status);
+      } catch (error: any) {
+        const { message }: { message: string } = error;
+        if (
+          message.indexOf('Could not find the referenced transaction') !== -1
+        ) {
+          txStatuses.set(txid, TransactionStatus.NOT_FOUND);
+        }
+      }
+    });
+
+    return txids.map((txid) => txStatuses.get(txid));
   }
 }

@@ -1,12 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { SIGNATURE_SCHEME_TO_FLAG } from '@mysten/sui.js';
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { AptosClient } from 'aptos';
-import * as SHA3 from 'js-sha3';
+  Base64DataBuffer,
+  Ed25519PublicKey,
+  JsonRpcProvider,
+} from '@mysten/sui.js';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -20,14 +19,11 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
+  SignedTxResult,
 } from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
 
-import {
-  ED25519_PUBLIC_KEY_SIZE,
-  generateUnsignedTransaction,
-  signRawTransaction,
-} from './utils';
+import { toTransaction } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
@@ -82,11 +78,8 @@ export class KeyringHd extends KeyringHdBase {
         extendedKey: { key: pubkey },
       } = info;
       const pub = pubkey.toString('hex');
-
-      const tmp = new Uint8Array(ED25519_PUBLIC_KEY_SIZE + 1);
-      tmp.set([SIGNATURE_SCHEME_TO_FLAG.ED25519]);
-      tmp.set(pubkey, 1);
-      const address = addHexPrefix(SHA3.sha3_256(tmp).slice(0, 40));
+      const publicKey = new Ed25519PublicKey(pubkey);
+      const address = addHexPrefix(publicKey.toSuiAddress());
 
       const name = (names || [])[index] || `SUI #${indexes[index] + 1}`;
       ret.push({
@@ -106,43 +99,39 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
+  ): Promise<SignedTxResult> {
     debugLogger.common.info('signTransaction result', unsignedTx);
     const dbAccount = await this.getDbAccount();
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    const aptosClient = new AptosClient(rpcURL);
+    const client = new JsonRpcProvider(rpcURL);
+    const sender = dbAccount.address;
+    const signers = await this.getSigners(options.password || '', [sender]);
 
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-
-    const signer = signers[dbAccount.address];
+    const signer = signers[sender];
 
     const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
     if (!senderPublicKey) {
       throw new OneKeyInternalError('Unable to get sender public key.');
     }
 
-    const rawTx = await generateUnsignedTransaction(aptosClient, unsignedTx);
-    return signRawTransaction(signer, senderPublicKey, rawTx);
+    const { encodedTx } = unsignedTx.payload;
+    const txnBytes = await toTransaction(client, sender, encodedTx);
+    const dataBuffer = new Base64DataBuffer(txnBytes);
+    const [signature] = await signer.sign(Buffer.from(dataBuffer.getData()));
+
+    return {
+      txid: '',
+      rawTx: txnBytes,
+      signatureScheme: 'ed25519',
+      signature: addHexPrefix(signature.toString('hex')),
+      publicKey: addHexPrefix(senderPublicKey),
+    };
   }
 
   override async signMessage(
     messages: AptosMessage[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    const dbAccount = await this.getDbAccount();
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-    const signer = signers[dbAccount.address];
-
-    return Promise.all(
-      messages.map(async (message) => {
-        const { fullMessage } = JSON.parse(message.message);
-        const [signature] = await signer.sign(Buffer.from(fullMessage));
-        return addHexPrefix(signature.toString('hex'));
-      }),
-    );
+    return Promise.reject(new Error('Not implemented'));
   }
 }
