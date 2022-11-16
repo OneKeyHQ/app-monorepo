@@ -5329,6 +5329,7 @@ __metadata:
     expo-media-library: ^14.1.0
     expo-splash-screen: ^0.15.1
     expo-yarn-workspaces: 2.0.3
+    https-browserify: ^1.0.0
     jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git"
     lottie-ios: 3.2.3
@@ -5364,6 +5365,7 @@ __metadata:
     react-native-screens: 3.17.0
     react-native-share: ^7.6.6
     react-native-svg: ^12.3.0
+    react-native-tcp-socket: ^6.0.2
     react-native-toast-message: 2.1.5
     react-native-v8: ^1.5.3
     react-native-view-shot: ^3.5.0
@@ -26053,6 +26055,18 @@ optjs@latest:
     react-native: "*"
     react-native-pager-view: "*"
   checksum: 44d876cfb600c6e88658c210ef3220cd38fc758c902b653416f509f78d9a8d2683e912c36a0d55644e142d2ba1f6b9c58a5306537ff7c09f2e9fb57cd09731c2
+  languageName: node
+  linkType: hard
+
+"react-native-tcp-socket@npm:^6.0.2":
+  version: 6.0.2
+  resolution: "react-native-tcp-socket@npm:6.0.2"
+  dependencies:
+    buffer: ^5.4.3
+    eventemitter3: ^4.0.7
+  peerDependencies:
+    react-native: ">=0.60.0"
+  checksum: 99e7b6bc5ea6b1c21976237dc8309d9ed7df52f1f70d9d810a49581c5d4a31f48ff6e46cbe617c9003cbf0ea6b4d8acf6aaa119355c00ca41fd32463415b9c68
   languageName: node
   linkType: hard
 
