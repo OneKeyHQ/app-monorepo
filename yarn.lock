@@ -5365,7 +5365,7 @@ __metadata:
     react-native-share: ^7.6.6
     react-native-svg: ^12.3.0
     react-native-toast-message: 2.1.5
-    react-native-v8: ^1.5.2
+    react-native-v8: ^1.5.3
     react-native-view-shot: ^3.5.0
     react-native-vision-camera: ^2.14.1
     react-native-web: 0.18.10
@@ -26094,15 +26094,15 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-v8@npm:^1.5.2":
-  version: 1.5.2
-  resolution: "react-native-v8@npm:1.5.2"
+"react-native-v8@npm:^1.5.3":
+  version: 1.5.3
+  resolution: "react-native-v8@npm:1.5.3"
   peerDependencies:
     expo: "*"
   peerDependenciesMeta:
     expo:
       optional: true
-  checksum: c27f5f28a7e1a03f4d2c58bb67a5a2a31bd7b94afb067fc4d80b61b5e2fea1b23db2e074a4baf0f0575677c0a847f68818c88e6ba095e828e8aa61072a8fc024
+  checksum: 16bf0d7ad978e72174dad1098be388c57985acc955ee59a8654ba371f3fc954463df6c45f1c6d147116300ceab8f84ea016ed217bc894fb74a2b8b503a27c2e4
   languageName: node
   linkType: hard
 
