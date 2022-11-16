@@ -108,7 +108,7 @@ export type SendConfirmPayloadInfo = {
   transferInfo?: ITransferInfo;
   swapInfo?: ISwapInfo;
   stakeInfo?: IStakeInfo;
-  nftInfo?: INFTInfo;
+  nftInfos?: INFTInfo[];
 };
 export type SendConfirmSharedParams = {
   networkId: string;

@@ -325,15 +325,21 @@ export default class Vault extends VaultBase {
         },
       ];
     }
-    if (payload?.type === 'Transfer' && payload?.nftInfo) {
+    if (
+      payload?.type === 'Transfer' &&
+      payload?.nftInfos &&
+      payload.nftInfos[0]
+    ) {
+      const nftInfo = payload.nftInfos[0];
+
       actions = [
         {
           type: IDecodedTxActionType.NFT_TRANSFER,
           nftTransfer: {
-            asset: payload.nftInfo.asset,
-            amount: payload.nftInfo.amount,
-            send: payload.nftInfo.from,
-            receive: payload.nftInfo.to,
+            asset: nftInfo.asset,
+            amount: nftInfo.amount,
+            send: nftInfo.from,
+            receive: nftInfo.to,
             extraInfo: null,
           },
         },

@@ -9,7 +9,10 @@ import {
   GoPlusSupportApis,
 } from '@onekeyhq/engine/src/types/goplus';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  INFTInfo,
+  ITransferInfo,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { makeTimeoutPromise } from '../../../background/utils';
@@ -190,6 +193,8 @@ function PreSendAddress() {
         return;
       }
 
+      const nftInfos: INFTInfo[] = [];
+
       let encodedTx = null;
 
       if (transferInfo) {
@@ -210,7 +215,29 @@ function PreSendAddress() {
           accountId,
           transferInfos,
         });
+
+        for (let i = 0; i < transferInfos.length; i += 1) {
+          const asset = await serviceNFT.getAsset({
+            accountId: account?.address ?? '',
+            networkId,
+            contractAddress: transferInfos[i].token,
+            tokenId: transferInfos[i].tokenId ?? '',
+            local: true,
+          });
+          nftInfos.push({
+            asset: asset || ({} as NFTAsset),
+            amount: transferInfo.amount,
+            from: account.address,
+            to: toVal,
+          });
+        }
       } else {
+        nftInfos.push({
+          asset: nftInfo,
+          amount: transferInfo.amount,
+          from: account.address,
+          to: toVal,
+        });
         encodedTx = await engine.buildEncodedTxFromTransfer({
           networkId,
           accountId,
@@ -228,12 +255,7 @@ function PreSendAddress() {
         backRouteName: SendRoutes.PreSendAddress,
         payloadInfo: {
           type: 'Transfer',
-          nftInfo: {
-            asset: nftInfo,
-            amount: transferInfo.amount,
-            from: account.address,
-            to: toVal,
-          },
+          nftInfos,
         },
         onModalClose: closeModal,
       });

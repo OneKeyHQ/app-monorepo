@@ -61,6 +61,7 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  INFTInfo,
   IRawTx,
   ISetApprovalForAll,
   ISignCredentialOptions,
@@ -200,7 +201,7 @@ export default class Vault extends VaultBase {
 
   async decodeBatchTransferTx(
     encodedTx: IEncodedTxEvm,
-    payload?: any,
+    payload?: SendConfirmPayloadInfo,
   ): Promise<IDecodedTx | null> {
     const decoder = EVMTxDecoder.getDecoder(this.engine);
     const ethersTx = (await this.helper.parseToNativeTx(
@@ -209,7 +210,6 @@ export default class Vault extends VaultBase {
     if (!Number.isFinite(ethersTx.chainId)) {
       ethersTx.chainId = Number(await this.getNetworkChainId());
     }
-
     const [txDesc] = decoder.parseBatchTransfer(ethersTx);
     if (!txDesc) return null;
 
@@ -278,28 +278,38 @@ export default class Vault extends VaultBase {
         }
         break;
       }
+      case 'disperseNFT': {
+        const recipient = txDesc.args[0];
+        const amounts: string[] = txDesc.args[3];
+        if (!payload?.nftInfos) break;
+        for (let i = 0; i < amounts.length; i += 1) {
+          extraActions.push({
+            type: IDecodedTxActionType.NFT_TRANSFER,
+            direction: await this.buildTxActionDirection({
+              from: encodedTx.from,
+              to: recipient,
+              address,
+            }),
+            nftTransfer: await this.buildNFTTransferAcion({
+              asset: payload.nftInfos[i].asset,
+              amount: new BigNumber(amounts[i].toString()).toFixed(),
+              from: encodedTx.from,
+              to: recipient,
+            }),
+          });
+        }
+        break;
+      }
       default:
         return null;
     }
-
-    const mainAction: IDecodedTxAction = {
-      type: IDecodedTxActionType.UNKNOWN,
-      direction: await this.buildTxActionDirection({
-        from: encodedTx.from,
-        to: encodedTx.to,
-        address,
-      }),
-      unknownAction: {
-        extraInfo: {},
-      },
-    };
 
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: address,
       signer: encodedTx.from || address,
       nonce: new BigNumber(encodedTx.nonce ?? 0).toNumber(),
-      actions: [mainAction, ...extraActions],
+      actions: [...extraActions],
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -427,16 +437,13 @@ export default class Vault extends VaultBase {
     if (
       (decodedTxLegacy.txType === EVMDecodedTxType.ERC721_TRANSFER ||
         decodedTxLegacy.txType === EVMDecodedTxType.ERC1155_TRANSFER) &&
-      payload?.nftInfo
+      payload?.nftInfos &&
+      payload.nftInfos[0]
     ) {
       action.type = IDecodedTxActionType.NFT_TRANSFER;
-      action.nftTransfer = {
-        asset: payload.nftInfo.asset,
-        amount: payload.nftInfo.amount,
-        send: payload.nftInfo.from,
-        receive: payload.nftInfo.to,
-        extraInfo: null,
-      };
+      action.nftTransfer = await this.buildNFTTransferAcion(
+        payload.nftInfos[0],
+      );
       extraNativeTransferAction = undefined;
     }
     if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
@@ -1188,6 +1195,16 @@ export default class Vault extends VaultBase {
       amountValue: info.value,
       extraInfo: null,
     };
+  }
+
+  async buildNFTTransferAcion(nftInfo: INFTInfo) {
+    return Promise.resolve({
+      asset: nftInfo.asset,
+      amount: nftInfo.amount,
+      send: nftInfo.from,
+      receive: nftInfo.to,
+      extraInfo: null,
+    });
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
