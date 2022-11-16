@@ -23,6 +23,10 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
@@ -124,7 +128,11 @@ export function makeStore() {
   });
   const persistor = persistStore(store, null, () => {
     debugLogger.common.info(`receive: store persisted`);
-    appEventBus.emit(AppEventBusNames.StoreInitedFromPersistor);
+    if (platformEnv.isExtensionUi) {
+      appUIEventBus.emit(AppUIEventBusNames.StoreInitedFromPersistor);
+    } else {
+      appEventBus.emit(AppEventBusNames.StoreInitedFromPersistor);
+    }
   });
   return { store, persistor };
 }
