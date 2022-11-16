@@ -98,7 +98,7 @@ const buildData = debounce(
     });
 
     debugLogger.accountSelector.info('rebuild WalletSelector walletList data');
-    const d = [
+    const d: IWalletDataSection[] = [
       {
         type: EWalletDataSectionType.hd,
         data: hdData,

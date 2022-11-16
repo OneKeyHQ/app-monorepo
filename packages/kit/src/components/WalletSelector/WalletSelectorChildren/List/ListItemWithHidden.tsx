@@ -7,6 +7,7 @@ import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
 import { useIsPassphraseMode } from '../../hooks/useIsPassphraseMode';
+import { IWalletDataSection } from '../../hooks/useWalletSelectorSectionData';
 
 import ListItem from './ListItem';
 
@@ -16,9 +17,11 @@ import type { IWalletDataBase } from './index';
 function ListItemWithHidden({
   deviceStatus,
   item,
+  section,
   onLastItemRender,
 }: {
   item: IWalletDataBase;
+  section: IWalletDataSection;
   deviceStatus: IHardwareDeviceStatusMap | undefined;
   onLastItemRender?: () => void;
 }) {
@@ -34,6 +37,10 @@ function ListItemWithHidden({
       />
     ));
   }, []);
+
+  if (section.type === 'other' && !item.wallet?.accounts?.length) {
+    return null;
+  }
 
   return (
     <>
