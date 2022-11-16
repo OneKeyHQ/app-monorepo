@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 /*
 DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
  */
-export type IPlatform = 'native' | 'desktop' | 'ext' | 'web';
+export type IPlatform = 'native' | 'desktop' | 'ext' | 'web' | 'webEmbed';
 export type IDistributionChannel =
   | 'ext-chrome'
   | 'ext-firefox'
@@ -28,6 +28,7 @@ export type IPlatformEnv = {
 
   /** running in the browsers */
   isWeb?: boolean;
+  isWebEmbed?: boolean;
   /** running in the desktop system APP */
   isDesktop?: boolean;
   /** running in the browser extension */
@@ -82,6 +83,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 const isProduction = process.env.NODE_ENV === 'production';
 
 const isWeb = process.env.ONEKEY_PLATFORM === 'web';
+const isWebEmbed = process.env.ONEKEY_PLATFORM === 'webEmbed';
 const isDesktop = process.env.ONEKEY_PLATFORM === 'desktop';
 const isExtension = process.env.ONEKEY_PLATFORM === 'ext';
 const isNative = process.env.ONEKEY_PLATFORM === 'app';
@@ -103,8 +105,10 @@ const isNativeAndroidGooglePlay =
   isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
 const isMas = isDesktop && window?.desktopApi?.isMas;
 
+// for platform building by file extension
 const getPlatformSymbol = (): IPlatform | undefined => {
   if (isWeb) return 'web';
+  if (isWebEmbed) return 'webEmbed';
   if (isDesktop) return 'desktop';
   if (isExtension) return 'ext';
   if (isNative) return 'native';
@@ -217,6 +221,7 @@ const platformEnv: IPlatformEnv = {
   isProduction,
 
   isWeb,
+  isWebEmbed,
   isDesktop,
   isExtension,
   isNative,
