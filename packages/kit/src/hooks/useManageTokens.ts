@@ -39,7 +39,7 @@ export const useManageTokensOfAccount = ({
   const prices = useNetworkTokensPrice(networkId);
   const charts = useNetworkTokensChart(networkId);
   const nativeToken = useNativeToken(networkId, accountId);
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  // const fiatMap = useAppSelector((s) => s.fiatMoney.map);
 
   const accountTokensMap = useMemo(() => {
     const map = new Map<string, Token>();
@@ -121,7 +121,7 @@ export const useManageTokensOfAccount = ({
       tokenIdOnNetwork?: string;
       fiatSymbol?: string;
     }) => {
-      const { token, defaultValue, tokenIdOnNetwork, fiatSymbol } = merge(
+      const { token, defaultValue, tokenIdOnNetwork } = merge(
         {
           token: null,
           defaultValue: '',
@@ -132,12 +132,14 @@ export const useManageTokensOfAccount = ({
       );
       const tokenInfo = token as Token | null;
       const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
-      const fiatPrice = fiatMap[fiatSymbol] ?? '1';
+      // Because token prices are pulled with fiat parameters, the local fiat conversion is removed
+      // const fiatPrice = fiatMap[fiatSymbol] ?? '1';
       let priceValue = prices?.[key] ?? defaultValue;
-      priceValue = new BigNumber(fiatPrice).times(priceValue).toFixed();
+      // priceValue = new BigNumber(fiatPrice).times(priceValue).toFixed();
+      priceValue = new BigNumber(priceValue).toFixed();
       return priceValue;
     },
-    [fiatMap, prices],
+    [prices],
   );
 
   return {
