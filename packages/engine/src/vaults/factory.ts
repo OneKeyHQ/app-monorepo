@@ -12,6 +12,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TBTC,
   IMPL_TRON,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
@@ -46,6 +47,8 @@ import VaultSol from './impl/sol/Vault';
 import VauleHelperSol from './impl/sol/VaultHelper';
 import VaultStc from './impl/stc/Vault';
 import VaultHelperStc from './impl/stc/VaultHelper';
+import VaultTbtc from './impl/tbtc/Vault';
+import VaultHelperTbtc from './impl/tbtc/VaultHelper';
 import VaultTron from './impl/tron/Vault';
 import VaultHelperTron from './impl/tron/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
@@ -69,6 +72,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_BTC) {
     return new VaultHelperBtc(options);
+  }
+  if (impl === IMPL_TBTC) {
+    return new VaultHelperTbtc(options);
   }
   if (impl === IMPL_STC) {
     return new VaultHelperStc(options);
@@ -151,6 +157,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_BTC) {
     vault = new VaultBtc(options);
+  }
+  if (network.impl === IMPL_TBTC) {
+    vault = new VaultTbtc(options);
   }
   if (network.impl === IMPL_STC) {
     vault = new VaultStc(options);
