@@ -304,7 +304,7 @@ export type BottomTabNavigationConfig = {
   sceneContainerStyle?: StyleProp<ViewStyle>;
 };
 
-export type BottomTabHeaderProps = {
+export interface BottomTabHeaderProps {
   /**
    * Layout of the screen.
    */
@@ -321,23 +321,20 @@ export type BottomTabHeaderProps = {
    * Navigation prop for the header.
    */
   navigation: BottomTabNavigationProp<ParamListBase>;
-};
+}
 
-export type BottomTabBarProps = {
+export interface BottomTabBarProps {
   state: TabNavigationState<ParamListBase>;
   descriptors: BottomTabDescriptorMap;
   navigation: NavigationHelpers<ParamListBase, BottomTabNavigationEventMap>;
-  insets: EdgeInsets;
   foldableList: TBottomBarFoldableItem[];
-};
+}
 
-export type BottomTabBarButtonProps = Omit<
-  TouchableWithoutFeedbackProps,
-  'onPress'
-> & {
+export interface BottomTabBarButtonProps
+  extends Omit<TouchableWithoutFeedbackProps, 'onPress'> {
   to?: string;
   children: React.ReactNode;
   onPress?: (
     e: React.MouseEvent<HTMLAnchorElement, MouseEvent> | GestureResponderEvent,
   ) => void;
-};
+}

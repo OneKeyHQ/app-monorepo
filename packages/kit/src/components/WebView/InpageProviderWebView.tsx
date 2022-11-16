@@ -61,6 +61,7 @@ export type InpageProviderWebViewProps = InpageWebViewProps & {
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
+  onOpenWindow?: (event: any) => void;
 };
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
@@ -76,6 +77,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       nativeInjectedJavaScriptBeforeContentLoaded,
       isSpinnerLoading,
       onContentLoaded,
+      onOpenWindow,
     }: InpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -183,9 +185,13 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         props.source = nativeWebviewSource;
       }
+      if (onOpenWindow) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        props.onOpenWindow = onOpenWindow;
+      }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return props;
-    }, [nativeWebviewSource]);
+    }, [nativeWebviewSource, onOpenWindow]);
     const nativeInjectedJsCode = useMemo(() => {
       let code: string = injectedNativeCode || '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {

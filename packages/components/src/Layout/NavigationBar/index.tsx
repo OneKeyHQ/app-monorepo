@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '../../Provider/hooks';
 
 import Desktop from './Desktop';
