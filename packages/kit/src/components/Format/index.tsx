@@ -132,9 +132,11 @@ export function useFormatAmount() {
     numbers: (BigNumber.Value | string | undefined)[],
     formatOptions?: FormatOptions,
   ) => {
+    // Because token prices are pulled with fiat parameters, the local fiat conversion is removed
     const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-    const map = useAppSelector((s) => s.fiatMoney.map);
-    const fiat = map[selectedFiatMoneySymbol];
+    // const map = useAppSelector((s) => s.fiatMoney.map);
+    // const fiat = map[selectedFiatMoneySymbol];
+    const fiat = 1;
 
     const balance = useMemo(() => {
       const fiatBN = new BigNumber(fiat);

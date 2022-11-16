@@ -25,6 +25,13 @@ import {
 import { useGotoSite } from './useGotoSite';
 import { useWebviewRef } from './useWebviewRef';
 
+function getCurrentTab(id: string) {
+  const {
+    webTabs: { tabs },
+  } = appSelector((s) => s);
+  return tabs.find((t) => t.id === id);
+}
+
 export const useWebController = ({
   id,
   navigationStateChangeEvent,
@@ -52,15 +59,16 @@ export const useWebController = ({
     [dispatch],
   );
   const gotoSite = useGotoSite({
-    tab,
+    id: curId,
   });
   const openMatchDApp = useCallback(
-    async ({ dapp, webSite }: MatchDAppItemType) => {
+    async ({ dapp, webSite, isNewWindow }: MatchDAppItemType) => {
       if (webSite) {
         return gotoSite({
           url: webSite.url,
           title: webSite.title,
           favicon: webSite.favicon,
+          isNewWindow,
         });
       }
 
@@ -96,6 +104,8 @@ export const useWebController = ({
           url: dapp.url,
           title: dapp.name,
           dAppId: dapp._id,
+          favicon: dapp.logoURL,
+          isNewWindow,
         });
       }
     },
@@ -113,10 +123,11 @@ export const useWebController = ({
       loading,
     }) => {
       const now = Date.now();
-      const isValidNewUrl = typeof url === 'string' && url !== tab.url;
-
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const curTab = getCurrentTab(curId)!;
+      const isValidNewUrl = typeof url === 'string' && url !== curTab.url;
       if (isValidNewUrl) {
-        if (tab.timestamp && now - tab.timestamp < 500) {
+        if (curTab.timestamp && now - curTab.timestamp < 500) {
           // ignore url change if it's too fast to avoid back & forth loop
           return;
         }
@@ -141,7 +152,7 @@ export const useWebController = ({
         }),
       );
     },
-    [curId, dispatch, gotoSite, tab],
+    [curId, dispatch, gotoSite],
   );
 
   const { goBack, goForward, stopLoading, reload } = useWebviewRef({

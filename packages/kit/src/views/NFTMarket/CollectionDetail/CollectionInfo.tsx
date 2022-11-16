@@ -2,7 +2,7 @@ import React, { ComponentProps, FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Hidden, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Text, useIsVerticalLayout } from '@onekeyhq/components';
 
 import CollectionLogo from '../CollectionLogo';
 import { PriceString } from '../PriceText';
@@ -91,10 +91,7 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
             {name || '–'}
           </Text>
           <Box mt="4px">
-            <Hidden from="base" till="md">
-              {Description}
-            </Hidden>
-            <Hidden from="md">
+            {isVerticalLayout ? (
               <Text typography="Body2" color="text-subdued">
                 {intl.formatMessage(
                   {
@@ -103,14 +100,14 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
                   { 0: collection?.itemsTotal },
                 )}
               </Text>
-            </Hidden>
+            ) : (
+              Description
+            )}
           </Box>
         </Box>
       </Box>
 
-      <Hidden from="md">
-        <Box mt="16px">{Description}</Box>
-      </Hidden>
+      {isVerticalLayout ? Description : null}
 
       <Box
         flexDirection="row"
@@ -123,7 +120,7 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
             <Box
               mr={{ md: '32px' }}
               mb={{ base: '16px', md: 0 }}
-              width={{ base: '50%', md: 'auto' }}
+              width={{ base: '50%', sm: '33.33%', md: 'auto' }}
             >
               <Text typography="Body2" color="text-subdued">
                 {item.key}

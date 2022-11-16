@@ -64,7 +64,7 @@ const Header: FC<HeaderProps> = ({
       <Searchbar
         w="full"
         placeholder={intl.formatMessage({
-          id: 'content__search_or_enter_dapp_url',
+          id: 'content__search_dapps_or_type_url',
         })}
         mb="6"
         autoFocus

@@ -3,8 +3,13 @@ import React from 'react';
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import {
+  useIsVerticalLayout,
+  useThemeValue,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeRoutes } from '../../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../../routes/types';
@@ -23,6 +28,7 @@ const Screen = () => {
     >();
   const { networkId, contractAddress } = route.params;
   const isVerticalLayout = useIsVerticalLayout();
+  const { screenWidth, screenHeight } = useUserDevice();
 
   const context = useCollectionDetailContext()?.context;
   const setContext = useCollectionDetailContext()?.setContext;
@@ -31,6 +37,10 @@ const Screen = () => {
     'border-subdued',
   ]);
 
+  let headerHeight = isVerticalLayout ? 296 : 216;
+  if (platformEnv.isNativeIOSPad) {
+    headerHeight = screenWidth < screenHeight ? 296 : 216;
+  }
   return (
     <Tabs.Container
       // @ts-ignore
@@ -43,6 +53,7 @@ const Screen = () => {
       initialTabName="items"
       renderHeader={() => (
         <CollectionInfo
+          height={headerHeight ? 296 : 216}
           p={{ base: '16px', md: '32px' }}
           bgColor="background-default"
         />
@@ -53,7 +64,7 @@ const Screen = () => {
           setContext((ctx) => ({ ...ctx, selectedIndex: index }));
         }
       }}
-      headerHeight={isVerticalLayout ? 296 : 216}
+      headerHeight={headerHeight}
       containerStyle={{
         // width: '100%',
         backgroundColor: tabbarBgColor,

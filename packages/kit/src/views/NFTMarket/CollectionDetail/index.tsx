@@ -37,10 +37,6 @@ const CollectionDetail = () => {
 
   useEffect(() => {
     (async () => {
-      setContext((ctx) => ({
-        ...ctx,
-        loading: true,
-      }));
       const data = await serviceNFT.getCollection({
         chain: networkId,
         contractAddress,
@@ -50,7 +46,6 @@ const CollectionDetail = () => {
         setContext((ctx) => ({
           ...ctx,
           collection: data,
-          loading: false,
         }));
       }
     })();

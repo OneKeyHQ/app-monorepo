@@ -1,14 +1,14 @@
-import React from 'react';
+import { ReactNode, RefObject } from 'react';
 
 import { StyleProp, ViewStyle } from 'react-native';
 
 export type ContainerProps = {
-  ref?: React.RefObject<any>;
+  ref?: RefObject<any>;
   disableRefresh?: boolean;
   refreshing?: boolean;
   headerHeight: number;
   initialTabName: string;
-  renderHeader?: () => React.ReactNode;
+  renderHeader?: () => ReactNode;
   onTabChange?: (options: { tabName: string; index: number | string }) => void;
   onIndexChange?: (index: number | string) => void;
   onRefresh?: () => void;

@@ -41,7 +41,8 @@ function FeeInfoInput({
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
 
-  const disabled = loading || !editable || !encodedTx;
+  const disabled =
+    loading || !editable || !encodedTx || sendConfirmParams.signOnly;
   const navigateToEdit = useCallback(
     ({ replace = false }: { replace?: boolean } = {}) => {
       if (disabled) {
@@ -391,7 +392,7 @@ function FeeInfoInputForConfirmLite({
 
   // edit and loading icon
   const icon: React.ReactElement | null = useMemo(() => {
-    if (!encodedTx) {
+    if (!encodedTx || sendConfirmParams.signOnly) {
       return null;
     }
     if (loading) {
@@ -401,7 +402,14 @@ function FeeInfoInputForConfirmLite({
       return <Icon size={20} name="PencilSolid" />;
     }
     return null;
-  }, [editable, encodedTx, feeInfoPayload, loading, networkFeeInfoEditable]);
+  }, [
+    editable,
+    encodedTx,
+    feeInfoPayload,
+    loading,
+    networkFeeInfoEditable,
+    sendConfirmParams.signOnly,
+  ]);
 
   const title = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {

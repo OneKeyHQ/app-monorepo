@@ -4,6 +4,12 @@ on:
   pull_request:
     branches: [onekey]
 
+# Cancel a currently running workflow from the same PR/branch/tag
+# when a new workflow is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Build current and upload stats.json
   # You may replace this with your own build method. All that
