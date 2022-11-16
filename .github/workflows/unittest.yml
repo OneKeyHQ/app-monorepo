@@ -1,11 +1,11 @@
-name: lint
+name: unittest
 
 on:
   pull_request:
     branches: [onekey]
 
 jobs:
-  lint:
+  unittest:
     runs-on: ubuntu-latest
 
     strategy:
@@ -42,4 +42,4 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm i -g expo-cli && yarn
-          yarn lint
+          yarn test
