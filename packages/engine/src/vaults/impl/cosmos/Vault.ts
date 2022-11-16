@@ -10,7 +10,7 @@ import {
 import { getTimeStamp } from '@onekeyfe/hd-core';
 import BigNumber from 'bignumber.js';
 import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
-import { find, get } from 'lodash';
+import { get } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -62,7 +62,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { CosmosNodeClient } from './NodeClient';
 import { isValidAddress, isValidContractAddress } from './sdk/address';
-import { MessageType, SendMessage } from './sdk/message';
+import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
 import {
   fastMakeSignDoc,
@@ -78,10 +78,7 @@ import {
   setSendAmount,
 } from './sdk/wrapper/utils';
 import settings from './settings';
-import {
-  getTransactionTypeByMessage,
-  getTransactionTypeByProtoMessage,
-} from './utils';
+import { getTransactionTypeByProtoMessage } from './utils';
 
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
@@ -663,6 +660,10 @@ export default class Vault extends VaultBase {
         txid,
       };
     } catch (error: any) {
+      if (error instanceof OneKeyInternalError) {
+        throw error;
+      }
+
       const { errorCode, message } = error || {};
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new OneKeyInternalError(`${errorCode ?? ''} ${message}`);
