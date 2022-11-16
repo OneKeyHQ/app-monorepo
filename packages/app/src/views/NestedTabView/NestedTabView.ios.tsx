@@ -1,6 +1,6 @@
-import React from 'react';
+import { Component, ReactNode, createRef } from 'react';
 
-import ReactNative, { UIManager } from 'react-native';
+import { UIManager, findNodeHandle } from 'react-native';
 
 import NativeNestedTabView, {
   getViewManagerConfig,
@@ -8,15 +8,15 @@ import NativeNestedTabView, {
 import { NativeNestedTabViewProps } from './types';
 
 type NestedTabViewProps = {
-  renderHeader?: () => React.ReactNode;
+  renderHeader?: () => ReactNode;
 } & NativeNestedTabViewProps;
 
-export class NestedTabView extends React.Component<NestedTabViewProps> {
-  private _nativeRef = React.createRef<typeof NativeNestedTabView>();
+export class NestedTabView extends Component<NestedTabViewProps> {
+  private _nativeRef = createRef<typeof NativeNestedTabView>();
 
   public setPageIndex = (selectedPage: number) => {
     UIManager.dispatchViewManagerCommand(
-      ReactNative.findNodeHandle(this),
+      findNodeHandle(this),
       getViewManagerConfig().Commands.setPageIndex,
       [selectedPage],
     );

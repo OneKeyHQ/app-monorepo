@@ -1,5 +1,3 @@
-// FIX: Uncaught ReferenceError: global is not defined
-import 'core-js/es7/global';
 import { format as fnsFormat } from 'date-fns';
 import * as FileSystem from 'expo-file-system';
 import { isArray, isNil } from 'lodash';

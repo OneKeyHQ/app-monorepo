@@ -1760,16 +1760,18 @@ class Engine {
     networkId,
     accountId,
     encodedTx,
+    signOnly,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: any;
+    signOnly?: boolean;
   }) {
     const vault = await this.getVault({ networkId, accountId });
     // throw new Error('test fetch fee info error');
     // TODO move to vault.fetchFeeInfo and _fetchFeeInfo
     // clone encodedTx to avoid side effects
-    return vault.fetchFeeInfo(cloneDeep(encodedTx));
+    return vault.fetchFeeInfo(cloneDeep(encodedTx), signOnly);
   }
 
   @backgroundMethod()

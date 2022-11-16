@@ -164,6 +164,7 @@ export type SendFeedbackReceiptParams = {
   networkId: string;
   accountId: string;
   txid: string;
+  type: 'Send' | 'Sign' | 'SendUnconfirmed';
   closeModal?: () => any;
   onDetail?: (txid: string) => any;
 };

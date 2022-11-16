@@ -1,5 +1,3 @@
-import React from 'react';
-
 import RNSvg, { PathProps, Path as RNPath, SvgProps } from 'react-native-svg';
 
 export type { SvgProps, PathProps };

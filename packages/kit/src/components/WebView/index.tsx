@@ -4,6 +4,7 @@ import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import {
   WebViewNavigation,
+  WebViewOpenWindowEvent,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
@@ -29,6 +30,7 @@ function WebView({
   nativeInjectedJavaScriptBeforeContentLoaded,
   isSpinnerLoading,
   onContentLoaded,
+  onOpenWindow,
 }: {
   id?: string;
   src?: string;
@@ -43,6 +45,7 @@ function WebView({
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
+  onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
 }): JSX.Element {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
@@ -89,6 +92,7 @@ function WebView({
         }
         // currently works in NativeWebView only
         onContentLoaded={onContentLoaded}
+        onOpenWindow={onOpenWindow}
       />
     </Box>
   );

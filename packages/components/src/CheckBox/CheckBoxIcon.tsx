@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-import React from 'react';
-
 import { Icon } from 'native-base';
 
 import SvgCheckBoxIconChecked from '../Icon/react/solid/CheckBoxIconChecked';

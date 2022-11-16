@@ -18,6 +18,7 @@ import { Token } from '@onekeyhq/kit/src/store/typings';
 import {
   getTimeDurationMs,
   getTimeStamp,
+  hexlify,
   isHexString,
 } from '@onekeyhq/kit/src/utils/helper';
 import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
@@ -406,13 +407,40 @@ export default class Vault extends VaultBase {
         type: actionType,
         [actionKey]: transferAction,
       };
+    } else if (actionType === IDecodedTxActionType.FUNCTION_CALL) {
+      action = {
+        type: IDecodedTxActionType.FUNCTION_CALL,
+        direction: IDecodedTxDirection.OTHER,
+        functionCall: {
+          target: encodedTx.sender,
+          functionName: fun ?? '',
+          args:
+            encodedTx.arguments?.map((a) => {
+              if (
+                typeof a === 'string' ||
+                typeof a === 'number' ||
+                typeof a === 'boolean' ||
+                typeof a === 'bigint'
+              ) {
+                return a.toString();
+              }
+              if (a instanceof Array) {
+                try {
+                  return hexlify(a);
+                } catch (e) {
+                  return JSON.stringify(a);
+                }
+              }
+              return '';
+            }) ?? [],
+          extraInfo: {},
+        },
+      };
     } else {
       action = {
         type: IDecodedTxActionType.UNKNOWN,
         direction: IDecodedTxDirection.OTHER,
-        unknownAction: {
-          extraInfo: {},
-        },
+        unknownAction: { extraInfo: {} },
       };
     }
 
@@ -559,22 +587,55 @@ export default class Vault extends VaultBase {
     });
   }
 
-  async fetchFeeInfo(encodedTx: IEncodedTxAptos): Promise<IFeeInfo> {
+  async fetchFeeInfo(
+    encodedTx: IEncodedTxAptos,
+    signOnly?: boolean,
+  ): Promise<IFeeInfo> {
     const { max_gas_amount: gasLimit, ...encodedTxWithFakePriceAndNonce } = {
       ...encodedTx,
-      gas_unit_price: '1',
+      gas_unit_price: '100',
     };
 
     const client = await this.getClient();
-
-    const [network, gasPrice, unsignedTx] = await Promise.all([
-      this.getNetwork(),
-      client.client.transactions.estimateGasPrice(),
-      this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
-    ]);
+    const network = await this.getNetwork();
 
     let limit: string;
     let price: string;
+
+    if (signOnly) {
+      if (encodedTx.bscTxn && encodedTx.bscTxn?.length > 0) {
+        const deserializer = new BCS.Deserializer(hexToBytes(encodedTx.bscTxn));
+        const rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+
+        limit = rawTx.max_gas_amount.toString();
+        price = rawTx.gas_unit_price.toString();
+      } else {
+        // Sign only, Not necessarily accurate
+        limit = encodedTx.gas_unit_price ?? DEFAULT_GAS_LIMIT_NATIVE_TRANSFER;
+        price = encodedTx.gas_unit_price ?? '100';
+      }
+
+      return {
+        nativeSymbol: network.symbol,
+        nativeDecimals: network.decimals,
+        feeSymbol: network.feeSymbol,
+        feeDecimals: network.feeDecimals,
+
+        limit,
+        prices: [
+          convertFeeValueToGwei({
+            value: price,
+            network,
+          }),
+        ],
+        defaultPresetIndex: '0',
+      };
+    }
+
+    const [gasPrice, unsignedTx] = await Promise.all([
+      client.client.transactions.estimateGasPrice(),
+      this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
+    ]);
 
     try {
       let rawTx: TxnBuilderTypes.RawTransaction;

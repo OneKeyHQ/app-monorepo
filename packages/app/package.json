@@ -85,7 +85,7 @@
     "react-native-svg": "^12.3.0",
     "react-native-toast-message": "2.1.5",
     "react-native-v8": "^1.5.2",
-    "react-native-view-shot": "^3.3.0",
+    "react-native-view-shot": "^3.5.0",
     "react-native-vision-camera": "^2.14.1",
     "react-native-web": "0.18.10",
     "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview",

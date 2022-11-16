@@ -38,6 +38,7 @@ export function useFeeInfoPayload({
   fetchAnyway = false,
   networkId,
   accountId,
+  signOnly,
 }: {
   encodedTx: IEncodedTx | null;
   useFeeInTx?: boolean;
@@ -45,6 +46,7 @@ export function useFeeInfoPayload({
   fetchAnyway?: boolean;
   accountId: string;
   networkId: string;
+  signOnly?: boolean;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -119,6 +121,7 @@ export function useFeeInfoPayload({
             accountId,
             networkId,
             encodedTx,
+            signOnly,
           });
           setFeeInfoError(null);
         } catch (error: any) {
@@ -207,6 +210,7 @@ export function useFeeInfoPayload({
       networkId,
       useFeeInTx,
       defaultFeePresetIndex,
+      signOnly,
     ]);
 
   useEffect(() => {
