@@ -167,7 +167,7 @@ export const SecuritySection = () => {
                 numberOfLines={1}
                 mx={3}
               >
-                {intl.formatMessage({ id: 'title_use_touchid_unlock' })}
+                {intl.formatMessage({ id: 'form__touch_id' })}
               </Text>
               <Box>
                 <Switch
