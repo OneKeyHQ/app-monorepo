@@ -27,6 +27,7 @@ import {
 import { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { OnekeyNetwork } from '../../../presets/networkIds';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
@@ -61,7 +62,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { CosmosNodeClient } from './NodeClient';
 import { isValidAddress, isValidContractAddress } from './sdk/address';
-import { MessageType } from './sdk/message';
+import { MessageType, SendMessage } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
 import {
   fastMakeSignDoc,
@@ -77,14 +78,20 @@ import {
   setSendAmount,
 } from './sdk/wrapper/utils';
 import settings from './settings';
-import { getTransactionTypeByProtoMessage } from './utils';
+import {
+  getTransactionTypeByMessage,
+  getTransactionTypeByProtoMessage,
+} from './utils';
 
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 const GAS_STEP_MULTIPLIER = 10000;
-const GAS_ADJUSTMENT = 1.3;
+const GAS_ADJUSTMENT: Record<string, string> = {
+  [OnekeyNetwork.terra]: '2',
+  default: '1.3',
+};
 const GAS_PRICE = ['0.01', '0.025', '0.04'];
 
 // @ts-ignore
@@ -384,19 +391,27 @@ export default class Vault extends VaultBase {
     }
 
     const fee = getFee(encodedTx);
+    const sequence = getSequence(encodedTx);
+
+    let feePrice = GAS_PRICE[0];
+    if (fee?.gas_limit) {
+      feePrice = new BigNumber(fee?.amount[0]?.amount ?? '1')
+        .div(fee?.gas_limit)
+        .toFixed(6);
+    }
 
     const result: IDecodedTx = {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
-      nonce: 0,
+      nonce: sequence.toNumber(),
       actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       feeInfo: {
         price: convertFeeValueToGwei({
-          value: fee?.amount[0]?.amount ?? '1',
+          value: feePrice,
           network,
         }),
         limit: fee?.gas_limit ?? undefined,
@@ -580,7 +595,7 @@ export default class Vault extends VaultBase {
       if (!txSimulation) throw new Error('Failed to get tx simulation');
 
       limit = new BigNumber(txSimulation.gas_used)
-        .multipliedBy(GAS_ADJUSTMENT)
+        .multipliedBy(GAS_ADJUSTMENT[this.networkId] ?? GAS_ADJUSTMENT.default)
         .toFixed(0);
     } catch (error) {
       const msgs = getMsgs(newEncodedTx);
@@ -703,9 +718,7 @@ export default class Vault extends VaultBase {
     }
 
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
     const chainInfo = await this.getChainInfo();
-
     let token: Token | undefined = await this.engine.getNativeTokenInfo(
       this.networkId,
     );
@@ -791,10 +804,10 @@ export default class Vault extends VaultBase {
             encodedTx,
             extraInfo: null,
             totalFeeInNative: new BigNumber(feeValue)
-              .shiftedBy(-decimals)
+              .shiftedBy(-(token?.decimals ?? 6))
               .toFixed(),
           };
-          decodedTx.updatedAt = getTimeStamp() / 1000;
+          decodedTx.updatedAt = getTimeStamp();
           decodedTx.createdAt =
             item?.decodedTx.createdAt ?? decodedTx.updatedAt;
           decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
