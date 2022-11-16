@@ -34,7 +34,7 @@ jobs:
         uses: OneKeyHQ/actions/expo-server@main
         with:
           expo-version: 5.x
-          eas-version: 0.53.x
+          eas-version: 2.7.x
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Setup ENV BUILD_NUMBER to 1
@@ -79,7 +79,6 @@ jobs:
         run: |
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
-
 
       - name: Inject Environment Variables
         env:
