@@ -1,6 +1,5 @@
 import { FC, useCallback, useEffect, useMemo } from 'react';
 
-import { nanoid } from '@reduxjs/toolkit';
 import { LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
@@ -82,7 +81,6 @@ const addNewTab = () => {
   dispatch(
     addWebTab({
       ...homeTab,
-      id: nanoid(),
     }),
   );
 };

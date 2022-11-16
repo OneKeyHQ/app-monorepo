@@ -1,6 +1,5 @@
 import { FC, useMemo, useState } from 'react';
 
-import { View } from 'react-native';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -11,21 +10,19 @@ import {
   homeTab,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
-import DiscoverHome from '../../Home';
 import { useWebController } from '../Controller/useWebController';
-import { webHandler, webviewRefs } from '../explorerUtils';
+import { webviewRefs } from '../explorerUtils';
 
 const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  const { openMatchDApp } = useWebController({
+  const { gotoSite } = useWebController({
     id,
     navigationStateChangeEvent,
   });
 
-  const showHome =
-    (id === 'home' && webHandler === 'tabbedWebview') || url === homeTab.url;
+  const showHome = url === homeTab.url;
 
   const webview = useMemo(
     () => (
@@ -35,44 +32,26 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
         onWebViewRef={(ref) => {
           const { dispatch } = backgroundApiProxy;
           if (ref && ref.innerRef) {
-            dispatch(setWebTabData({ id, refReady: true }));
+            if (!webviewRefs[id]) {
+              dispatch(setWebTabData({ id, refReady: true }));
+            }
             webviewRefs[id] = ref;
           }
         }}
         onNavigationStateChange={
           showHome ? undefined : setNavigationStateChangeEvent
         }
+        onOpenWindow={(e) => {
+          gotoSite({ url: e.nativeEvent.targetUrl });
+        }}
         allowpopups
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome],
+    [id, showHome, gotoSite],
   );
 
-  return (
-    <>
-      {webview}
-      {showHome && (
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: 0,
-            zIndex: 1,
-          }}
-        >
-          <DiscoverHome
-            onItemSelect={(dapp) => {
-              openMatchDApp({ id: dapp._id, dapp });
-            }}
-            onItemSelectHistory={openMatchDApp}
-          />
-        </View>
-      )}
-    </>
-  );
+  return webview;
 };
 
 WebContent.displayName = 'WebContent';

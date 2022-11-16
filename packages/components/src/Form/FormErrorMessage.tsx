@@ -1,11 +1,9 @@
-import React from 'react';
-
 import Alert from '../Alert';
 import Box from '../Box';
 import Icon from '../Icon';
 import Typography from '../Typography';
 
-function FormErrorMessage({
+export function FormErrorMessage({
   message,
   isAlertStyle,
 }: {
@@ -33,5 +31,3 @@ function FormErrorMessage({
     </Box>
   );
 }
-
-export { FormErrorMessage };

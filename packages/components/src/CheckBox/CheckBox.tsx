@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useMemo } from 'react';
+import { ComponentProps, FC, useMemo } from 'react';
 
 import { Checkbox as BaseCheckBox, IBoxProps } from 'native-base';
 

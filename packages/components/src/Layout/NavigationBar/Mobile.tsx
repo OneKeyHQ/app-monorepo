@@ -1,10 +1,12 @@
 /* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
+
+import { PortalExit } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 
 import Box from '../../Box';
 import Icon from '../../Icon';
@@ -107,23 +109,22 @@ export default function BottomTabBar({
   );
 
   return (
-    <>
-      <Box
-        borderTopWidth={StyleSheet.hairlineWidth}
-        left="0"
-        right="0"
-        bottom="0"
-        bg="background-default"
-        zIndex={99999}
-        borderTopColor="divider"
-        paddingBottom={`${paddingBottom}px`}
-        height={tabBarHeight}
-        py={Math.max(insets.left ?? 0, insets.right ?? 0)}
-      >
-        <Box accessibilityRole="tablist" flex="1" flexDirection="row">
-          {tabs}
-        </Box>
+    <Box
+      borderTopWidth={StyleSheet.hairlineWidth}
+      left="0"
+      right="0"
+      bottom="0"
+      bg="background-default"
+      zIndex={99999}
+      borderTopColor="divider"
+      paddingBottom={`${paddingBottom}px`}
+      height={tabBarHeight}
+      py={Math.max(insets.left ?? 0, insets.right ?? 0)}
+    >
+      <Box accessibilityRole="tablist" flex="1" flexDirection="row">
+        {tabs}
       </Box>
-    </>
+      <PortalExit name="BottomTab-Overlay" />
+    </Box>
   );
 }
