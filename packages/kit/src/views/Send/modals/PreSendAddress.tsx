@@ -383,6 +383,16 @@ function PreSendAddress() {
                 />
               </Form.Item>
             </Form>
+            <Box
+              height={
+                warningMessage?.length > 0 ||
+                successMessage?.length > 0 ||
+                // @ts-ignore
+                formState?.errors?.to?.message?.length > 0
+                  ? 0
+                  : '28px'
+              }
+            />
             <GoPlusSecurityItems items={securityItems} />
           </Box>
         ),

@@ -40,6 +40,6 @@ export function PriceString({ prefix = '', price, networkId, symbol }: Props) {
   if (price && price !== null) {
     value = `${price} ${innderSymbol ?? ''}`;
   }
-  return `${prefix} ${value}`;
+  return `${`${prefix} `}${value}`;
 }
 export default PriceText;
