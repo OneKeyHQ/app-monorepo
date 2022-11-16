@@ -14,6 +14,7 @@ import {
   IMPL_STC,
   IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XRP,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getNetworkImpl } from '../managers/network';
@@ -51,6 +52,8 @@ import VaultTbtc from './impl/tbtc/Vault';
 import VaultHelperTbtc from './impl/tbtc/VaultHelper';
 import VaultTron from './impl/tron/Vault';
 import VaultHelperTron from './impl/tron/VaultHelper';
+import VaultXrp from './impl/xrp/Vault';
+import VaultHelperXrp from './impl/xrp/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
 import type { KeyringBase } from './keyring/KeyringBase';
@@ -99,6 +102,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_BCH) {
     return new VaultHelperBch(options);
+  }
+  if (impl === IMPL_XRP) {
+    return new VaultHelperXrp(options);
   }
   if (impl === IMPL_COSMOS) {
     return new VaultHelperCosmos(options);
@@ -184,6 +190,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_BCH) {
     vault = new VaultBch(options);
+  }
+  if (network.impl === IMPL_XRP) {
+    vault = new VaultXrp(options);
   }
   if (network.impl === IMPL_COSMOS) {
     vault = new VaultCosmos(options);

@@ -37,6 +37,10 @@ class ServiceNetwork extends ServiceBase {
     );
     const newNetwork = networks.find((network) => network.id === networkId);
 
+    this.backgroundApi.engine.notifyChainChanged(
+      networkId,
+      activeNetworkId ?? '',
+    );
     this.backgroundApi.dispatch(changeActiveNetwork(networkId));
     this.notifyChainChanged();
 

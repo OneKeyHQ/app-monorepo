@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -9,7 +9,6 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useActiveWalletAccount } from './redux';
-import { useAppSelector } from './useAppSelector';
 import {
   useAccountTokenLoading,
   useAccountTokens,
@@ -40,6 +39,7 @@ export const useManageTokensOfAccount = ({
   const charts = useNetworkTokensChart(networkId);
   const nativeToken = useNativeToken(networkId, accountId);
   // const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  const [frozenBalance, setFrozenBalance] = useState(0);
 
   const accountTokensMap = useMemo(() => {
     const map = new Map<string, Token>();
@@ -90,6 +90,14 @@ export const useManageTokensOfAccount = ({
     // eslint-disable-next-line
   }, []);
 
+  useEffect(() => {
+    backgroundApiProxy.engine.getFrozenBalance(networkId).then((value) => {
+      if (+value > 0) {
+        setFrozenBalance(value);
+      }
+    });
+  }, [networkId]);
+
   const getTokenBalance = useCallback(
     (
       options: {
@@ -109,9 +117,12 @@ export const useManageTokensOfAccount = ({
       const tokenInfo = token as Token | null;
       const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
       const balance = balances?.[key] ?? defaultValue;
-      return balance;
+      const frozenBN = new BigNumber(frozenBalance ?? 0);
+      const balanceBN = new BigNumber(balance);
+      const realBalance = balanceBN.minus(frozenBN).toFixed();
+      return realBalance;
     },
-    [balances],
+    [balances, frozenBalance],
   );
 
   const getTokenPrice = useCallback(
