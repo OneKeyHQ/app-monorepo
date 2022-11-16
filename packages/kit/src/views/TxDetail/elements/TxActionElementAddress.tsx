@@ -90,7 +90,7 @@ export function TxActionElementAddress(
           </Text>
         </HStack>
       </TxActionElementPressable>
-      {shouldCheckSecurity && !loading ? (
+      {shouldCheckSecurity && !loading && securityInfo?.length ? (
         <VStack mt="2">
           <GoPlusSecurityItems items={securityInfo ?? []} />
           <Divider mt="2" />

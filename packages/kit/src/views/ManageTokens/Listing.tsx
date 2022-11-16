@@ -348,7 +348,8 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     }
     setLoading(true);
     await checkIfShouldActiveToken();
-    notifyIfRiskToken(item, onAddToken).finally(() => {
+    onAddToken().finally(() => {
+      notifyIfRiskToken(item);
       setTimeout(() => {
         setLoading(false);
       }, 1000);
