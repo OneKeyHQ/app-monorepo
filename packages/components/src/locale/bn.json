@@ -414,6 +414,7 @@
   "content__import_a_single_chain_wallet": "একটি একক-চেইন ওয়ালেট আমদানি করুন",
   "content__import_a_single_chain_wallet_desc": "ব্যক্তিগত কী বা একটি কীস্টোর ফাইল ব্যবহার করে আপনার একক-চেইন ওয়ালেট আমদানি করুন।",
   "content__import_address_as_watched_account": "একটি দেখা অ্যাকাউন্ট হিসাবে সর্বজনীন ঠিকানা আমদানি করুন",
+  "content__import_existing_recovery_phrase": "বিদ্যমান পুনরুদ্ধার বাক্যাংশ আমদানি করুন",
   "content__import_or_watch_an_account": "একটি অ্যাকাউন্ট {import} বা {watch}",
   "content__import_private_key_as_imported_account": "একটি আমদানি করা অ্যাকাউন্ট হিসাবে ব্যক্তিগত কী আমদানি করুন",
   "content__import_wallet_desc": "বিদ্যমান পুনরুদ্ধার বাক্যাংশ, ব্যক্তিগত কী আমদানি করুন বা একটি ঠিকানা দেখুন",

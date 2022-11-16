@@ -414,6 +414,7 @@
   "content__import_a_single_chain_wallet": "Nhập một ví chuỗi đơn",
   "content__import_a_single_chain_wallet_desc": "Nhập ví chuỗi đơn của bạn bằng cách sử dụng khóa cá nhân hoặc tệp kho khóa.",
   "content__import_address_as_watched_account": "Nhập địa chỉ công khai làm tài khoản đã theo dõi",
+  "content__import_existing_recovery_phrase": "Nhập cụm từ khôi phục hiện có",
   "content__import_or_watch_an_account": "{import} hoặc {watch} một tài khoản",
   "content__import_private_key_as_imported_account": "Nhập khóa cá nhân làm tài khoản đã nhập",
   "content__import_wallet_desc": "Nhập cụm từ khôi phục hiện có, khóa riêng tư hoặc xem địa chỉ",

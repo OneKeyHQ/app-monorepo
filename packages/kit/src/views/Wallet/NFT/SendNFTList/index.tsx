@@ -180,38 +180,20 @@ function SendButton({
   const selectNFTs = listData.filter((item) => item.selected === true);
   const isDisabled = selectNFTs.length === 0;
   const sendAction = () => {
-    if (multiSelect === false) {
-      const asset = listData.find((item) => item.selected === true);
-      if (asset) {
-        const params: PreSendParams = {
-          accountId,
-          networkId,
-          isNFT: true,
-          from: '',
-          to: '',
-          amount: asset.amount ?? '1',
-          token: asset.contractAddress ?? asset.tokenAddress,
-          tokenId: asset.tokenId ?? asset.tokenAddress,
-          type: asset.ercType,
-        };
-        navigation.navigate(SendRoutes.PreSendAddress, params);
-      }
-    } else {
-      const params: PreSendParams = {
-        accountId,
-        networkId,
-        transferInfos: selectNFTs.map((item) => ({
-          from: '',
-          to: '',
-          isNFT: true,
-          amount: item.amount ?? '1',
-          token: item.contractAddress ?? item.tokenAddress,
-          tokenId: item.tokenId ?? item.tokenAddress,
-          type: item.ercType,
-        })),
-      };
-      navigation.navigate(SendRoutes.PreSendAddress, params);
-    }
+    const params: PreSendParams = {
+      accountId,
+      networkId,
+      transferInfos: selectNFTs.map((item) => ({
+        from: '',
+        to: '',
+        isNFT: true,
+        amount: item.amount ?? '1',
+        token: item.contractAddress ?? item.tokenAddress,
+        tokenId: item.tokenId ?? item.tokenAddress,
+        type: item.ercType,
+      })),
+    };
+    navigation.navigate(SendRoutes.PreSendAddress, params);
   };
 
   return (

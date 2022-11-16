@@ -37,13 +37,26 @@ type FormValues = {
   to: string;
 };
 
-function NFTView({ asset }: { asset?: NFTAsset }) {
+function NFTView({ asset, total }: { asset?: NFTAsset; total: number }) {
+  const intl = useIntl();
+
   if (asset) {
     return (
       <Box flexDirection="row" alignItems="center">
         <NFTListImage asset={asset} borderRadius="6px" size={40} />
         <Typography.Body1Strong ml={3} numberOfLines={2} flex={1}>
-          {asset.name ?? asset.contractName}
+          {total === 1 && (asset.name ?? asset.contractName)}
+
+          {total > 1 &&
+            intl.formatMessage(
+              {
+                id: 'content__str_and_others_int_nfts',
+              },
+              {
+                firstNFT: asset.name ?? asset.contractName,
+                otherNFTs: total - 1,
+              },
+            )}
         </Typography.Body1Strong>
       </Box>
     );
@@ -57,13 +70,14 @@ function PreSendAddress() {
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusAddressSecurity)[]
   >([]);
-  const { serviceNFT, engine } = backgroundApiProxy;
+  const { serviceNFT, serviceBatchTransfer, engine } = backgroundApiProxy;
   const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
-  const { transferInfos, accountId, networkId, ...reset } = routeParams;
-  const isBatchTransfer = transferInfos && transferInfos.length > 0;
-  const transferInfo = isBatchTransfer
-    ? transferInfos[0]
-    : (reset as ITransferInfo);
+  const { transferInfos, accountId, networkId, closeModal, ...reset } =
+    routeParams;
+  const transferInfo =
+    transferInfos && transferInfos.length > 0
+      ? transferInfos[0]
+      : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
   const { account, network } = useActiveSideAccount(routeParams);
   const useFormReturn = useForm<FormValues>({
@@ -175,16 +189,35 @@ function PreSendAddress() {
       if (!account || !network || !nftInfo) {
         return;
       }
+
+      let encodedTx = null;
+
       if (transferInfo) {
         transferInfo.from = account.address;
         transferInfo.to = toVal;
       }
-      const { closeModal } = routeParams;
-      const encodedTx = await engine.buildEncodedTxFromTransfer({
-        networkId,
-        accountId,
-        transferInfo,
-      });
+
+      if (transferInfos && transferInfos.length > 1) {
+        // TODO handle multi approve tx
+        // const encodedApproveTxs =
+        //   await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
+        //     networkId,
+        //     accountId,
+        //     transferInfos,
+        //   });
+        encodedTx = await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
+          networkId,
+          accountId,
+          transferInfos,
+        });
+      } else {
+        encodedTx = await engine.buildEncodedTxFromTransfer({
+          networkId,
+          accountId,
+          transferInfo,
+        });
+      }
+
       navigation.navigate(SendRoutes.SendConfirm, {
         ...transferInfo,
         networkId,
@@ -206,7 +239,7 @@ function PreSendAddress() {
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigation, nftInfo, transferInfo],
+    [navigation, nftInfo, transferInfo, transferInfos, closeModal],
   );
 
   const onSubmit = useCallback(
@@ -249,7 +282,7 @@ function PreSendAddress() {
           <Box>
             <Form>
               {isNFT ? (
-                <NFTView asset={nftInfo} />
+                <NFTView asset={nftInfo} total={transferInfos?.length || 1} />
               ) : (
                 <Box flexDirection="row" alignItems="center">
                   <Token size={8} token={tokenInfo} />

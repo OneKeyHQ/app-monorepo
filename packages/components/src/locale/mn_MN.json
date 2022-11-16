@@ -414,6 +414,7 @@
   "content__import_a_single_chain_wallet": "Нэг хэлхээтэй түрийвч импортлох",
   "content__import_a_single_chain_wallet_desc": "Хувийн түлхүүр эсвэл түлхүүр хадгалах файл ашиглан нэг хэлхээтэй түрийвчээ импортлох.",
   "content__import_address_as_watched_account": "Нийтийн хаягийг үзсэн бүртгэлээр импортлох",
+  "content__import_existing_recovery_phrase": "Одоо байгаа сэргээх хэллэгийг импортлох",
   "content__import_or_watch_an_account": "Бүртгэлийг {import} эсвэл {watch}",
   "content__import_private_key_as_imported_account": "Хувийн түлхүүрийг импортын данс болгон импортлох",
   "content__import_wallet_desc": "Одоо байгаа сэргээх хэллэг, хувийн түлхүүрийг импортлох эсвэл хаяг үзэх",

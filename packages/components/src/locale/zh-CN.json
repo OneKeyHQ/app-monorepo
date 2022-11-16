@@ -414,6 +414,7 @@
   "content__import_a_single_chain_wallet": "导入单币种钱包",
   "content__import_a_single_chain_wallet_desc": "使用私钥或 Keystore 文件导入单币种钱包。",
   "content__import_address_as_watched_account": "导入地址为「观察账户」",
+  "content__import_existing_recovery_phrase": "导入已有助记词",
   "content__import_or_watch_an_account": "{import} 或 {watch} 账户",
   "content__import_private_key_as_imported_account": "导入私钥为「导入钱包」",
   "content__import_wallet_desc": "导入已有助记词、私钥或观察一个地址",

@@ -414,6 +414,7 @@
   "content__import_a_single_chain_wallet": "सिंगल-चेन वॉलेट आयात करें",
   "content__import_a_single_chain_wallet_desc": "निजी कुंजी या कीस्टोर फ़ाइल का उपयोग करके अपना सिंगल-चेन वॉलेट आयात करें।",
   "content__import_address_as_watched_account": "सार्वजनिक पते को देखे गए खाते के रूप में आयात करें",
+  "content__import_existing_recovery_phrase": "मौजूदा पुनर्प्राप्ति वाक्यांश आयात करें",
   "content__import_or_watch_an_account": "{import} या {watch} एक खाता",
   "content__import_private_key_as_imported_account": "निजी कुंजी को आयातित खाते के रूप में आयात करें",
   "content__import_wallet_desc": "मौजूदा पुनर्प्राप्ति वाक्यांश, निजी कुंजी आयात करें या कोई पता देखें",

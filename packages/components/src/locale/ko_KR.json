@@ -414,6 +414,7 @@
   "content__import_a_single_chain_wallet": "단일 체인 지갑 가져오기",
   "content__import_a_single_chain_wallet_desc": "개인 키 또는 키 저장소 파일을 사용하여 단일 체인 지갑을 가져옵니다.",
   "content__import_address_as_watched_account": "공개 주소를 감시 계정으로 가져오기",
+  "content__import_existing_recovery_phrase": "기존 복구 문구 가져오기",
   "content__import_or_watch_an_account": "계정 {import} 또는 {watch}",
   "content__import_private_key_as_imported_account": "가져온 계정으로 개인 키 가져오기",
   "content__import_wallet_desc": "기존 복구 문구, 개인 키 가져오기 또는 주소 보기",
