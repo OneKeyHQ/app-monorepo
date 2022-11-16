@@ -9,6 +9,7 @@ import {
   GoPlusSupportApis,
 } from '@onekeyhq/engine/src/types/goplus';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { makeTimeoutPromise } from '../../../background/utils';
@@ -57,10 +58,14 @@ function PreSendAddress() {
     (keyof GoPlusAddressSecurity)[]
   >([]);
   const { serviceNFT, engine } = backgroundApiProxy;
-  const transferInfo = useMemo(() => ({ ...route.params }), [route.params]);
+  const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
+  const { transferInfos, accountId, networkId, ...reset } = routeParams;
+  const isBatchTransfer = transferInfos && transferInfos.length > 0;
+  const transferInfo = isBatchTransfer
+    ? transferInfos[0]
+    : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
-  const { networkId, account, accountId, network } =
-    useActiveSideAccount(transferInfo);
+  const { account, network } = useActiveSideAccount(routeParams);
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -174,11 +179,11 @@ function PreSendAddress() {
         transferInfo.from = account.address;
         transferInfo.to = toVal;
       }
-      const { closeModal, ...info } = transferInfo;
+      const { closeModal } = routeParams;
       const encodedTx = await engine.buildEncodedTxFromTransfer({
         networkId,
         accountId,
-        transferInfo: info,
+        transferInfo,
       });
       navigation.navigate(SendRoutes.SendConfirm, {
         ...transferInfo,

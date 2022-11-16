@@ -58,7 +58,8 @@ export type PreSendParams = {
   networkId: string;
   accountId: string;
   closeModal?: () => any;
-} & ITransferInfo;
+  transferInfos?: ITransferInfo[];
+} & Partial<ITransferInfo>;
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;

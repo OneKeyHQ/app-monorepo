@@ -7,15 +7,17 @@ import {
   Box,
   Button,
   FlatList,
+  Icon,
   Text,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../../hooks';
+import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { SendRoutes } from '../../../../routes/routesEnum';
 import { PreSendParams } from '../../../Send/types';
@@ -79,8 +81,12 @@ function List({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isSmallScreen = useIsVerticalLayout();
 
+  const { network } = useNetwork({ networkId });
+
+  const intl = useIntl();
   const content = useSendNFTContent();
   const { listData } = content?.context ?? { listData: [] };
+  const multiSelect = content?.context.multiSelect;
   const [pageWidth, setPageWidth] = useState<number>(0);
   const { cardWidth, numColumns } = useGridListLayout({
     maxCardWidth: 112,
@@ -118,6 +124,35 @@ function List({
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
       py="24px"
+      ListHeaderComponent={
+        multiSelect ? (
+          <Box
+            mb="16px"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+            }}
+          >
+            <Icon size={12} name="DocumentDuplicateSolid" />
+            <Text
+              typography="CaptionStrong"
+              textAlign="center"
+              position="relative"
+              color="text-subdued"
+              ml="10px"
+            >
+              {intl.formatMessage(
+                {
+                  id: 'form__supports_multi_send_nfts_on_network_name',
+                },
+                { network_name: network?.name },
+              )}
+            </Text>
+          </Box>
+        ) : null
+      }
     />
   );
 }
@@ -161,6 +196,21 @@ function SendButton({
         };
         navigation.navigate(SendRoutes.PreSendAddress, params);
       }
+    } else {
+      const params: PreSendParams = {
+        accountId,
+        networkId,
+        transferInfos: selectNFTs.map((item) => ({
+          from: '',
+          to: '',
+          isNFT: true,
+          amount: item.amount ?? '1',
+          token: item.contractAddress ?? item.tokenAddress,
+          tokenId: item.tokenId ?? item.tokenAddress,
+          type: item.ercType,
+        })),
+      };
+      navigation.navigate(SendRoutes.PreSendAddress, params);
     }
   };
 
@@ -197,6 +247,10 @@ function SendNFTList({
   const [collectibles, updateListData] = useState<Collection[]>([]);
   const intl = useIntl();
   const { account } = useActiveSideAccount({ accountId, networkId });
+  const { network } = useNetwork({ networkId });
+  const multiSelect = Boolean(
+    network && batchTransferContractAddress[network.id],
+  );
 
   const allAssets = useMemo(
     () =>
@@ -238,7 +292,7 @@ function SendNFTList({
   }, [account, fetchData, isMountedRef, networkId, serviceNFT]);
 
   return allAssets.length > 0 ? (
-    <SendNFTContentProvider listData={allAssets} multiSelect={false}>
+    <SendNFTContentProvider listData={allAssets} multiSelect={multiSelect}>
       <List accountId={accountId} networkId={networkId} />
       <SendButton accountId={accountId} networkId={networkId} />
     </SendNFTContentProvider>
