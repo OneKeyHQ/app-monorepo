@@ -1,6 +1,11 @@
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
 import {
+  TxActionFunctionCall,
+  TxActionFunctionCallT0,
+  getTxActionFunctionCallInfo,
+} from '../TxAction/TxActionFunctionCall';
+import {
   TxActionNFTTransfer,
   TxActionNFTTransferT0,
   getTxActionNFTTransferInfo,
@@ -140,6 +145,15 @@ export function getTxActionMeta(
       T0: TxActionNFTTransferT0,
       T1: TxActionNFTTransfer,
       T2: TxActionNFTTransfer,
+    };
+  }
+  if (action.type === IDecodedTxActionType.FUNCTION_CALL) {
+    const info = getTxActionFunctionCallInfo(props);
+    titleInfo = info.titleInfo;
+    components = {
+      T0: TxActionFunctionCallT0,
+      T1: TxActionFunctionCall,
+      T2: TxActionFunctionCall,
     };
   }
   return {
