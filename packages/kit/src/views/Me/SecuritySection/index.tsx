@@ -167,7 +167,7 @@ export const SecuritySection = () => {
                 numberOfLines={1}
                 mx={3}
               >
-                Use TouchID Unlock
+                {intl.formatMessage({ id: 'title_use_touchid_unlock' })}
               </Text>
               <Box>
                 <Switch

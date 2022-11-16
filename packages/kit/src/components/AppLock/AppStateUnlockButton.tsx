@@ -6,7 +6,7 @@ import { IconButton, useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
-import { isSupportWebAuthn } from '../../utils/webauthn';
+import { isSupportWebAuthn, webAuthenticate } from '../../utils/webauthn';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 const WebAuthnButton = () => {
@@ -14,7 +14,7 @@ const WebAuthnButton = () => {
   const intl = useIntl();
   const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
   const onPress = useCallback(async () => {
-    const isOk = await backgroundApiProxy.serviceSetting.webAuthenticate();
+    const isOk = await webAuthenticate();
     if (isOk) {
       toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
       backgroundApiProxy.serviceApp.webPureUnlock();

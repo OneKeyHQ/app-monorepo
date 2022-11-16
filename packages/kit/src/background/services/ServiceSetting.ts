@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-import { setEnableWebAuthn } from '../../store/reducers/settings';
-import { getCredential, registerCredential } from '../../utils/webauthn';
+/* eslint-disable @typescript-eslint/require-await  */
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -14,32 +14,12 @@ export default class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  async enableWebAuthn() {
-    const { dispatch } = this.backgroundApi;
-    const cred = await getCredential();
-    if (!cred) {
-      const instanceId = await this.getInstanceId();
-      const credRegister = await registerCredential({
-        userName: instanceId,
-        userDisplayName: instanceId,
-      });
-      dispatch(setEnableWebAuthn(!credRegister));
-      return !!cred;
-    }
-    dispatch(setEnableWebAuthn(true));
-    return true;
+  async getWebAuthnCredentialID() {
+    return simpleDb.setting.getWebAuthnCredentialID();
   }
 
   @backgroundMethod()
-  async disableWebAuthn() {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setEnableWebAuthn(false));
-    return true;
-  }
-
-  @backgroundMethod()
-  async webAuthenticate(): Promise<boolean> {
-    const cred = await getCredential();
-    return !!cred;
+  async setWebAuthnCredentialID(webAuthnCredentialID: string) {
+    return simpleDb.setting.setWebAuthnCredentialID(webAuthnCredentialID);
   }
 }

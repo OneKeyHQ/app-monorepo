@@ -1,8 +1,9 @@
-/* eslint-disable no-plusplus, no-bitwise, @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable no-plusplus, no-bitwise, @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call  */
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { setEnableWebAuthn } from '../store/reducers/settings';
 
 const chars =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -57,8 +58,10 @@ export const decode = function (base64: string): ArrayBuffer {
 
 const replyPartyName = 'onekey.so';
 
+export const isSupportedPlatform = platformEnv.isExtChrome;
+
 export const isSupportWebAuthn = Boolean(
-  platformEnv.isWeb && global?.navigator?.credentials,
+  isSupportedPlatform && global?.navigator?.credentials,
 );
 
 type RegisterCredentialParams = {
@@ -66,15 +69,16 @@ type RegisterCredentialParams = {
   userDisplayName: string;
 };
 
-export const registerCredential = async (params: RegisterCredentialParams) => {
-  if (!platformEnv.isWeb) {
+const registerCredential = async (params: RegisterCredentialParams) => {
+  if (!isSupportedPlatform) {
     throw new Error('Web Auth only supports web platforms');
   }
   if (!navigator.credentials) {
     throw new Error('navigator.credentials API is not available');
   }
   let challenge = global.crypto.getRandomValues(new Uint8Array(32));
-  const credentialID = await simpleDb.setting.getWebAuthnCredentialID();
+  const credentialID =
+    await backgroundApiProxy.serviceSetting.getWebAuthnCredentialID();
   if (credentialID) {
     const cred = await navigator.credentials.get({
       publicKey: {
@@ -112,23 +116,28 @@ export const registerCredential = async (params: RegisterCredentialParams) => {
       timeout: 60000,
       attestation: 'direct',
       challenge: challenge.buffer,
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+      },
     },
   };
+
   const cred = await navigator.credentials.create(createCredentialDefaultArgs);
   if (cred) {
-    await simpleDb.setting.setWebAuthnCredentialID(cred?.id);
+    await backgroundApiProxy.serviceSetting.setWebAuthnCredentialID(cred.id);
   }
   return cred;
 };
 
-export const getCredential = async () => {
-  if (!platformEnv.isWeb) {
+const getCredential = async () => {
+  if (!isSupportedPlatform) {
     throw new Error('Web Auth only supports web platforms');
   }
   if (!navigator.credentials) {
     throw new Error('navigator.credentials API is not available');
   }
-  const credentialID = await simpleDb.setting.getWebAuthnCredentialID();
+  const credentialID =
+    await backgroundApiProxy.serviceSetting.getWebAuthnCredentialID();
   if (!credentialID) {
     return null;
   }
@@ -145,12 +154,28 @@ export const getCredential = async () => {
       ],
     },
   };
-  let credential: Credential | null = null;
-  try {
-    credential = await navigator.credentials.get(getCredentialDefaultArgs);
-  } catch (e: any) {
-    debugLogger.common.error(e.message);
-  }
-  console.log('credential', credential);
+  const credential = await navigator.credentials.get(getCredentialDefaultArgs);
   return credential;
+};
+
+export const enableWebAuthn = async () => {
+  const cred = await getCredential();
+  if (!cred) {
+    const instanceId = await backgroundApiProxy.serviceSetting.getInstanceId();
+    await registerCredential({
+      userName: instanceId,
+      userDisplayName: instanceId,
+    });
+    backgroundApiProxy.dispatch(setEnableWebAuthn(true));
+  }
+  backgroundApiProxy.dispatch(setEnableWebAuthn(true));
+};
+
+export const disableWebAuthn = () => {
+  backgroundApiProxy.dispatch(setEnableWebAuthn(false));
+};
+
+export const webAuthenticate = async (): Promise<boolean> => {
+  const cred = await getCredential();
+  return !!cred;
 };

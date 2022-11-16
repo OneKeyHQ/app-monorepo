@@ -20,7 +20,6 @@
   "action__add_app_wallet": "أضف محافظ APP",
   "action__add_custom_chain": "أضف سلسلة مخصصة",
   "action__add_custom_tokens": "أضف رمز مخصص",
-  "action__add_hardware_wallet": "أضف محافظ الأجهزة",
   "action__add_hidden_wallet": "أضف المحفظة المخفية",
   "action__add_network": "إضافة شبكة EVM",
   "action__add_new": "اضف جديد",
@@ -60,6 +59,7 @@
   "action__confirm": "يتأكد",
   "action__connect": "الاتصال",
   "action__connect_device": "قم بتوصيل الجهاز",
+  "action__connect_hardware_wallet": "ربط محافظ الأجهزة",
   "action__connect_onekey": "قم بتوصيل OneKey",
   "action__connect_onekey_extension": "ربط ملحق OneKey",
   "action__connect_str": "اتصال {0}",
@@ -393,6 +393,7 @@
   "content__gas_limit": "حد الغاز",
   "content__gas_price": "سعر الغاز",
   "content__gas_used": "الغاز المستخدم",
+  "content__generate_new_recovery_phrase": "قم بإنشاء عبارة استرداد جديدة",
   "content__generating_your_accounts": "<a> إنشاء </a> <b> حساباتك </b>",
   "content__get_your_public_encryption_key": "احصل على مفتاح التشفير العام الخاص بك.",
   "content__hardware_wallet_desc": "تخزين الأصول الخاصة بك في وضع عدم الاتصال. التأكيد على الجهاز عند إجراء التحويلات والتوقيع.",
@@ -410,12 +411,13 @@
   "content__import_a_single_chain_wallet": "قم باستيراد محفظة أحادية السلسلة",
   "content__import_a_single_chain_wallet_desc": "قم باستيراد محفظتك ذات السلسلة الواحدة باستخدام مفتاح خاص أو ملف تخزين المفاتيح.",
   "content__import_address_as_watched_account": "استيراد العنوان العام كحساب مراقب",
+  "content__import_existing_recovery_phrase": "استيراد عبارة الاسترداد الموجودة",
   "content__import_or_watch_an_account": "{import} أو {watch} حساب",
   "content__import_private_key_as_imported_account": "استيراد المفتاح الخاص كحساب مستورد",
   "content__import_wallet_from_str": "استيراد المحفظة من {0}",
   "content__in_progress": "في تَقَدم",
   "content__in_the_rare_event_staked_eth_will_be_lost": "في حدث نادر ، سيتم فقد ETH المكدس.",
-  "content__in_the_rare_event_staked_eth_will_be_lost_desc": "مخاطر القطع المرتبطة بالمخاطرة والتحقق من صحة في شبكة إثبات الحصة مثل Ethereum. في الحالات النادرة التي يتم فيها خفض المدققين ، لن يكون OneKey مسؤولاً عن أي عقوبات مخفضة لإيداع الـ Staking الخاص بي.",
+  "content__in_the_rare_event_staked_eth_will_be_lost_desc": "ينطوي التراص والتحقق من صحة شبكات إثبات الحصة مثل Ethereum على خفض المخاطر. OneKey / Kele Pool غير مسؤول عن عقوبات تخفيض المدقق.",
   "content__info": "معلومات",
   "content__installing_str": "تثبيت {0}",
   "content__int_contacts": "{0} جهات اتصال",
@@ -532,6 +534,7 @@
   "content__state_logs": "سجلات الدولة",
   "content__state_logs_desc": "سيساعد هذا OneKey في دعم تصحيح أي مشكلة قد تواجهها. الرجاء الإرسال إلى {0} أو دعم OneKey فقط.",
   "content__stats": "احصائيات",
+  "content__str_and_others_int_nfts": "{firstNFT} و {otherNFTs} NFTs أخرى",
   "content__str_chain_is_unsupprted": "سلسلة {0} غير معتمدة حتى الآن",
   "content__str_failed": "فشل {0} !",
   "content__str_mins": "{content__str_mins, plural, zero {} one {# دقيقة} two {} few {} many {} other {# دقيقة}}",
@@ -564,6 +567,7 @@
   "content__try_searching_with_contract_address_or_submit_a_new_token_to_us": "حاول تغيير كلمة البحث الرئيسية أو أرسل رمزًا جديدًا إلينا.",
   "content__type": "يكتب",
   "content__uique_owner": "أصحاب فريد",
+  "content__unlimited_authorization_puts_all_approved_tokens_at_risk": "التفويض غير المحدود يعرض جميع الرموز المميزة المعتمدة للخطر.",
   "content__up_to_100_accounts": "ما يصل إلى 100 حساب",
   "content__update_ready_to_install": "التحديث جاهز للتثبيت",
   "content__uploading_encrypted_backup": "تحميل نسخة احتياطية مشفرة",
@@ -680,6 +684,7 @@
   "form__add_to_address_book": "أضف إلى دفتر العناوين",
   "form__address": "عنوان",
   "form__address_btc_as_wachted_account": "عنوان استيراد BTC كحساب مراقب غير مدعوم حتى الآن.",
+  "form__address_cannot_send_to_myself": "لا يمكن إرسال {0} إلى نفسي",
   "form__address_ens_hasnt_bind": "هذا الاسم {0} لم يربط أي عنوان.",
   "form__address_helperText": "يمكنك \"مشاهدة\" أي عنوان عام دون الكشف عن مفتاحك الخاص. يتيح لك هذا عرض الرصيد والمعاملات ، ولكن لا يتيح لك إرسال المعاملات.",
   "form__address_invalid": "عنوان غير صحيح.",
@@ -699,8 +704,10 @@
   "form__allow_this_site_to_uppercase": "السماح لهذا الموقع بـ:",
   "form__allowance": "الإذن",
   "form__always": "دائماً",
+  "form__amount_above_required_reserve": "المبلغ أعلى من الاحتياطي المطلوب {amount} {unit}",
   "form__amount_invalid": "رصيد {0} غير كافٍ",
   "form__amount_max_amount": "الحد الأقصى للمبلغ",
+  "form__amount_recipient_activate": "المستلم يتطلب حجز {amount} {unit} للتفعيل",
   "form__anti_whale": "مكافحة الحوت",
   "form__anti_whale_desc": "يحتوي العقد على وظيفة تحديد الحد الأقصى لمقدار المعاملات أو الحد الأقصى لمقدار العملات المعدنية المحتفظ بها.",
   "form__app_lock": "القفل التلقائي للتطبيق",
@@ -969,7 +976,7 @@
   "form__rpc_url_invalid": "عنوان URL غير صالح لـ RPC.",
   "form__rpc_url_invalid_exist": "يتم استخدام عنوان URL هذا حاليًا بواسطة شبكة {name} .",
   "form__rpc_url_spped": "سرعة RPC: {value} مللي ثانية",
-  "form__rpc_url_wrong_format": "يتطلب URL البادئة http أو https.",
+  "form__rpc_url_wrong_format": "يتطلب عنوان URL البادئة http أو https أو wss.",
   "form__rule_at_least_int_digits": "على الأقل {0} من الأحرف",
   "form__s_request_history": "طلب التاريخ",
   "form__se_version": "إصدار SE",
@@ -1034,7 +1041,7 @@
   "form__theme": "سمة",
   "form__third_party_provider": "مزود الطرف الثالث",
   "form__token": "رمز",
-  "form__token_can_be_issued_additionall": "يمكن إصدار الرمز المميز بالإضافة إلى كل شيء",
+  "form__token_can_be_issued_additionall": "يمكن إصدار رمز إضافي",
   "form__token_can_be_issued_additionall_desc": "يحتوي العقد على وظائف إصدار إضافية ، والتي يمكن أن تولد رموزًا ، مما يؤدي إلى تقلبات كبيرة في أسعار الرموز.",
   "form__token_lists__uppercase": "قوائم رمزية",
   "form__token_symbol": "رمز الرمز",
@@ -1337,7 +1344,6 @@
   "msg__received": "🤑 تم استلام {assets}",
   "msg__received_a_nft": "🤑 حصل على NFT",
   "msg__received_desc": "من {address}",
-  "msg__recipient_cannot_send_to_myself": "لا أستطيع أن أرسل إلى نفسي",
   "msg__recipient_hasnt_activated_str": "فشل إرسال. لم ينشط المستلم {0}",
   "msg__recover_account_progress": "{0} تم استرداد الحسابات. {1} الإجماليات",
   "msg__recover_account_stopping": "جاري إيقاف الاسترداد ، يرجى الانتظار ...",
@@ -1347,6 +1353,7 @@
   "msg__sent": "💸 تم إرسال {assets}",
   "msg__sent_a_nft": "💸 أرسل NFT",
   "msg__sent_desc": "إلى {address}",
+  "msg__signature_done": "استكمال التوقيع",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
   "msg__str_data_reset": "{0} إعادة تعيين البيانات",
   "msg__str_is_staking_in_progress": "{0} قيد التقدم",
@@ -1438,6 +1445,7 @@
   "title__arrival_time": "وقت الوصول",
   "title__asset__display": "عرض الأصول",
   "title__assets": "أصول",
+  "title__attention_token": "رمز الانتباه",
   "title__backup_completed": "اكتمل النسخ الاحتياطي!",
   "title__backup_completed_desc": "يمكنك استرداد محفظتك باستخدام هذه البطاقة ورقم التعريف الشخصي في جميع الأوقات.",
   "title__backup_details": "تفاصيل النسخ الاحتياطي",
@@ -1592,6 +1600,7 @@
   "title__welcome_desc": "كل ما تحتاج لمعرفته حول استكشاف عالم Web3 الجديد من خلال OneKey",
   "title__whats_new": "ما هو الجديد",
   "title_select_wallet": "حدد Wallet",
+  "title_use_touchid_unlock": "استخدم TouchID Unlock",
   "transaction__approve_token_spend_limit": "الموافقة على حد الإنفاق {token}",
   "transaction__contract_address": "عنوان العقد",
   "transaction__contract_interaction": "تفاعل العقد",
