@@ -38,6 +38,7 @@ import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
 
+import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -347,12 +348,12 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     }
     setLoading(true);
     await checkIfShouldActiveToken();
-    onAddToken().finally(() => {
+    notifyIfRiskToken(item, onAddToken).finally(() => {
       setTimeout(() => {
         setLoading(false);
       }, 1000);
     });
-  }, [accountId, networkId, onAddToken, checkIfShouldActiveToken]);
+  }, [item, accountId, networkId, onAddToken, checkIfShouldActiveToken]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned

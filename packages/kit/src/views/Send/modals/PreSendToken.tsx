@@ -14,6 +14,7 @@ import { SendRoutes, SendRoutesParams } from '../types';
 import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { notifyIfRiskToken } from '../../ManageTokens/helpers/TokenSecurityModalWrapper';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -92,6 +93,7 @@ function PreSendTokenScreen() {
                           },
                         ),
                       );
+                      notifyIfRiskToken(token);
                     }}
                   />
                 );

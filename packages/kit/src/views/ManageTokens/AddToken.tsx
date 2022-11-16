@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
+import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -27,6 +28,7 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { wait } from '../../utils/helper';
 
+import { useTokenSecurityInfo } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -48,6 +50,26 @@ export type IViewTokenModalProps = ModalProps;
 const useRouteParams = () => {
   const routeProps = useRoute<RouteProps>();
   const { params } = routeProps;
+  const { network } = useActiveWalletAccount();
+  let token: Partial<TokenType>;
+  if ('query' in params) {
+    const query: WatchAssetParameters = JSON.parse(params.query);
+    const { address, symbol, decimals, image } = query.options;
+    token = {
+      name: symbol ?? '',
+      address,
+      symbol: symbol ?? '',
+      // @ts-ignore
+      decimal: decimals ?? 0,
+      logoURI: image ?? '',
+    };
+  } else {
+    token = params;
+  }
+  const { data } = useTokenSecurityInfo(
+    network?.id ?? '',
+    token.tokenIdOnNetwork ?? token?.address ?? '',
+  );
   if ('query' in params) {
     const query: WatchAssetParameters = JSON.parse(params.query);
     const { address, symbol, decimals, image } = query.options;
@@ -57,6 +79,8 @@ const useRouteParams = () => {
       symbol: symbol ?? '',
       decimal: decimals ?? 0,
       logoURI: image ?? '',
+      security: data?.hasSecurity,
+      verified: data?.hasSecurity === false,
     };
   }
   return params;
@@ -233,8 +257,10 @@ function AddTokenModal() {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const { address, logoURI } = useRouteParams();
+  const token = useRouteParams();
   const queryInfo = useDappParams();
+
+  const { address, logoURI } = token;
 
   const dappApprove = useDappApproveAction({
     id: queryInfo.sourceInfo?.id ?? '',

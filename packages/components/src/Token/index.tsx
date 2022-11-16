@@ -9,18 +9,21 @@ import React, {
 
 import { Box, Center } from 'native-base';
 import { ResponsiveValue } from 'native-base/lib/typescript/components/types';
+import { useIntl } from 'react-intl';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { useTokenSecurityInfo } from '@onekeyhq/kit/src/views/ManageTokens/hooks';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
+import { useToast } from '../Toast/useToast';
 import { Body2, Text } from '../Typography';
 import { shortenAddress } from '../utils';
 
@@ -61,25 +64,61 @@ const getScaleRate = (size: ResponsiveValue<string | number>) => {
   return (defaultIconSize * rate) / 32;
 };
 
+export const SecurityIcon: FC<{ token: Partial<IToken>; size: number }> = ({
+  token,
+  size,
+}) => {
+  const { security, networkId, tokenIdOnNetwork, address } = token;
+  const { data } = useTokenSecurityInfo(
+    networkId ?? '',
+    tokenIdOnNetwork ?? address ?? '',
+  );
+  if (!security || !data?.hasSecurity) {
+    return null;
+  }
+  if (data?.danger?.length) {
+    return (
+      <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
+    );
+  }
+  if (data?.warn?.length) {
+    return <Icon size={size} name="ExclamationSolid" color="icon-warning" />;
+  }
+  return null;
+};
+
 export const TokenVerifiedIcon: React.FC<{
   token?: Partial<IToken>;
   size?: number;
 }> = ({ token, size = 16 }) => {
+  const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation();
 
   const icon = useMemo(() => {
-    if (String(token?.security) === 'true') {
-      return (
-        <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
-      );
+    if (token && String(token?.security) === 'true') {
+      return <SecurityIcon token={token} size={size} />;
     }
-    if (String(token?.verified) === 'true') {
+    if (String(token?.verified) === 'true' || token?.isNative) {
       return <Icon size={size} name="BadgeCheckSolid" color="icon-success" />;
     }
     return null;
-  }, [token?.security, token?.verified, size]);
+  }, [token, size]);
 
   const toVerifiedTokenPage = useCallback(() => {
+    if (token?.isNative) {
+      toast.show(
+        {
+          title: intl.formatMessage({
+            id: 'msg__this_is_the_native_token_of_the_mainnet',
+          }),
+        },
+        {
+          type: 'default',
+        },
+      );
+      return;
+    }
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageToken,
       params: {
@@ -94,9 +133,9 @@ export const TokenVerifiedIcon: React.FC<{
         },
       },
     });
-  }, [navigation, token]);
+  }, [navigation, token, toast, intl]);
 
-  if (!token || (!token.verified && !token.security)) {
+  if (!token || (!token.verified && !token.security && !token?.isNative)) {
     return null;
   }
 
@@ -269,7 +308,10 @@ const Token: FC<TokenProps> = ({
       numberOfLines: 1,
       ...nameProps,
     });
-    if (!showTokenVerifiedIcon || (!token?.verified && !token?.security)) {
+    if (
+      !showTokenVerifiedIcon ||
+      (!token?.verified && !token?.security && !token?.isNative)
+    ) {
       return dom;
     }
     return (
