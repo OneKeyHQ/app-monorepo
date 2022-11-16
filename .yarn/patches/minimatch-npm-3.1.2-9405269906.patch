@@ -1,0 +1,13 @@
+diff --git a/minimatch.js b/minimatch.js
+index fda45ade7cfc351fbcd76877d50b4b5f643c37a3..4b4186e75cc9dbe9bf2b38271fcbd87ecd6c17c6 100644
+--- a/minimatch.js
++++ b/minimatch.js
+@@ -269,7 +269,7 @@ function braceExpand (pattern, options) {
+   return expand(pattern)
+ }
+ 
+-var MAX_PATTERN_LENGTH = 1024 * 64
++var MAX_PATTERN_LENGTH = 1024 * 64 * 1024
+ var assertValidPattern = function (pattern) {
+   if (typeof pattern !== 'string') {
+     throw new TypeError('invalid pattern')

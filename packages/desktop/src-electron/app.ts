@@ -383,8 +383,6 @@ function quitOrMinimizeApp(event?: Event) {
   }
 }
 
-console.log('process-mas--main', process.mas);
-
 if (!singleInstance && !process.mas) {
   quitOrMinimizeApp();
 } else {

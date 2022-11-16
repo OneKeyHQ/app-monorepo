@@ -123,7 +123,6 @@
     "webpack-dev-server": "^4.9.2"
   },
   "resolutions": {
-    "minimatch": "patch:minimatch@npm%3A5.1.0#./.yarn/patches/minimatch-npm-5.1.0-34f6240621.patch",
     "@babel/core": "^7.19.3",
     "webpack-dev-server": "^4.3.1",
     "browserslist": "^4",
@@ -143,7 +142,8 @@
     "dmg-builder": "23.6.0",
     "keccak": "^3",
     "rimraf": "^3.0.2",
-    "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz"
+    "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz",
+    "minimatch": "patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch"
   },
   "packageManager": "yarn@3.2.4"
 }

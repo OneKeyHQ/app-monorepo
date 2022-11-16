@@ -5257,7 +5257,6 @@ __metadata:
     lint-staged: ^11.2.6
     memoizee: ^0.4.15
     metro-minify-terser: ^0.72.3
-    minimatch: 5.1.0
     node-notifier: ^10.0.0
     patch-package: ^6.5.0
     prettier: ^2.3.2
@@ -10978,12 +10977,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"brace-expansion@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "brace-expansion@npm:2.0.1"
+"brace-expansion@npm:^1.1.7":
+  version: 1.1.11
+  resolution: "brace-expansion@npm:1.1.11"
   dependencies:
     balanced-match: ^1.0.0
-  checksum: a61e7cd2e8a8505e9f0036b3b6108ba5e926b4b55089eeb5550cd04a471fe216c96d4fe7e4c7f995c728c554ae20ddfc4244cad10aef255e72b62930afd233d1
+    concat-map: 0.0.1
+  checksum: faf34a7bb0c3fcf4b59c7808bc5d2a96a40988addf2e7e09dfbb67a2251800e0d14cd2bfc1aa79174f2f5095c54ff27f46fb1289fe2d77dac755b5eb3434cc07
   languageName: node
   linkType: hard
 
@@ -12317,6 +12317,13 @@ colour@latest:
     safe-buffer: 5.1.2
     vary: ~1.1.2
   checksum: 35c0f2eb1f28418978615dc1bc02075b34b1568f7f56c62d60f4214d4b7cc00d0f6d282b5f8a954f59872396bd770b6b15ffd8aa94c67d4bce9b8887b906999b
+  languageName: node
+  linkType: hard
+
+"concat-map@npm:0.0.1":
+  version: 0.0.1
+  resolution: "concat-map@npm:0.0.1"
+  checksum: 902a9f5d8967a3e2faf138d5cb784b9979bad2e6db5357c5b21c568df4ebe62bcb15108af1b2253744844eb964fc023fbd9afbbbb6ddd0bcc204c6fb5b7bf3af
   languageName: node
   linkType: hard
 
@@ -21974,21 +21981,21 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"minimatch@npm:5.1.0":
-  version: 5.1.0
-  resolution: "minimatch@npm:5.1.0"
+"minimatch@npm:3.1.2":
+  version: 3.1.2
+  resolution: "minimatch@npm:3.1.2"
   dependencies:
-    brace-expansion: ^2.0.1
-  checksum: 15ce53d31a06361e8b7a629501b5c75491bc2b59712d53e802b1987121d91b433d73fcc5be92974fde66b2b51d8fb28d75a9ae900d249feb792bb1ba2a4f0a90
+    brace-expansion: ^1.1.7
+  checksum: c154e566406683e7bcb746e000b84d74465b3a832c45d59912b9b55cd50dee66e5c4b1e5566dba26154040e51672f9aa450a9aef0c97cfc7336b78b7afb9540a
   languageName: node
   linkType: hard
 
-"minimatch@patch:minimatch@npm%3A5.1.0#./.yarn/patches/minimatch-npm-5.1.0-34f6240621.patch::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
-  version: 5.1.0
-  resolution: "minimatch@patch:minimatch@npm%3A5.1.0#./.yarn/patches/minimatch-npm-5.1.0-34f6240621.patch::version=5.1.0&hash=77d155&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+"minimatch@patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
+  version: 3.1.2
+  resolution: "minimatch@patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch::version=3.1.2&hash=b31274&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
   dependencies:
-    brace-expansion: ^2.0.1
-  checksum: b1de122e43ba08bbb927574e656212b55bd34d70f1cc3a2debc4bea8704bdfb9d2bf5f36885fb2abc37d11a64ac148e5f1de1adece1e36bb2b21887943a5354d
+    brace-expansion: ^1.1.7
+  checksum: fdcdaf35b94021a1d23556942572e725e04d891b9de673190e60a426f20b6e065338ee357271c3c9d4672dcfacf1d8e4966c708d8b44397b24beabadaa6101f0
   languageName: node
   linkType: hard
 

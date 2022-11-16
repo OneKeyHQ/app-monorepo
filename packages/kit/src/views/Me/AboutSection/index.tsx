@@ -85,7 +85,6 @@ export const AboutSection = () => {
     },
     [toast, intl],
   );
-
   return (
     <Box w="full" mb="6">
       <Box pb="2">
