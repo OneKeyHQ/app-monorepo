@@ -5,6 +5,12 @@ on:
     branches:
       - onekey
 
+# Cancel a currently running workflow from the same PR/branch/tag
+# when a new workflow is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-web:
     runs-on: ubuntu-latest
