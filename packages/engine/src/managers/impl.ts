@@ -87,6 +87,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_STC]: Curve.ED25519,
   [IMPL_CFX]: Curve.SECP256K1,
   [IMPL_BTC]: Curve.SECP256K1,
+  [IMPL_TBTC]: Curve.SECP256K1,
   [IMPL_TRON]: Curve.SECP256K1,
   [IMPL_APTOS]: Curve.ED25519,
   [IMPL_DOGE]: Curve.SECP256K1,

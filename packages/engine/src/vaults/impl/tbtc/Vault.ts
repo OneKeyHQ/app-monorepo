@@ -24,7 +24,7 @@ export default class Vault extends VaultBtcFork {
   }
 
   override getCoinName() {
-    return 'TBTC';
+    return 'TEST';
   }
 
   override getCoinType() {

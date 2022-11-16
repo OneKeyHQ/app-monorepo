@@ -462,13 +462,11 @@ export default class VaultBtcFork extends VaultBase {
 
   async fetchFeeInfo(encodedTx: IEncodedTxBtc): Promise<IFeeInfo> {
     const network = await this.engine.getNetwork(this.networkId);
-    const { feeLimit } = await this.engine.providerManager.buildUnsignedTx(
-      this.networkId,
-      {
-        ...(await this.buildUnsignedTxFromEncodedTx(encodedTx)),
-        feePricePerUnit: new BigNumber(1),
-      },
-    );
+    const provider = await this.getProvider();
+    const { feeLimit } = await provider.buildUnsignedTx({
+      ...(await this.buildUnsignedTxFromEncodedTx(encodedTx)),
+      feePricePerUnit: new BigNumber(1),
+    });
     // Prices are in sats/byte, convert it to BTC/byte for UI.
     const prices = (await this.getFeeRate()).map((price) =>
       new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
