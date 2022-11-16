@@ -71,18 +71,12 @@ export default function BottomTabView(props: Props) {
 
   const tabBar = React.useMemo(
     () => (
-      <SafeAreaInsetsContext.Consumer>
-        {(insets) => (
-          <NavigationBar
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            insets={insets!}
-            navigation={navigation}
-            state={state}
-            descriptors={descriptors}
-            foldableList={props.foldableList}
-          />
-        )}
-      </SafeAreaInsetsContext.Consumer>
+      <NavigationBar
+        navigation={navigation}
+        state={state}
+        descriptors={descriptors}
+        foldableList={props.foldableList}
+      />
     ),
     [descriptors, navigation, state, props.foldableList],
   );

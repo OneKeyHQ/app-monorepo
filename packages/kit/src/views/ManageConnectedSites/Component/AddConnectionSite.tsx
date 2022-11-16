@@ -43,7 +43,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
             }
             try {
               const { hostname, origin } = new URL(inputText);
-              if (hostname.includes('.')) {
+              if (hostname.includes('.') || hostname.includes('localhost')) {
                 const existsAccounts =
                   await backgroundApiProxy.serviceDapp.getActiveConnectedAccountsAsync(
                     {

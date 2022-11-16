@@ -1,5 +1,5 @@
 /* eslint-disable global-require */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';
@@ -21,7 +21,7 @@ export function SendFeedbackReceipt() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const closeModal = useModalClose();
-  const { networkId, accountId } = route.params;
+  const { networkId, accountId, type } = route.params;
   const { network } = useActiveSideAccount(route.params);
   const openBlockBrowser = useOpenBlockBrowser(network);
   const [count, setCount] = useState(3);
@@ -73,6 +73,14 @@ export function SendFeedbackReceipt() {
       return newNum;
     });
   }, 1000);
+
+  const message = useMemo(() => {
+    if (type === 'Send') {
+      return intl.formatMessage({ id: 'modal__transaction_submitted' });
+    }
+    return intl.formatMessage({ id: 'msg__signature_done' });
+  }, [intl, type]);
+
   return (
     <BaseSendModal
       networkId={networkId}
@@ -91,7 +99,7 @@ export function SendFeedbackReceipt() {
         !(
           openBlockBrowser.hasAvailable ||
           typeof route.params.onDetail === 'function'
-        )
+        ) || type === 'Sign'
       }
       secondaryActionTranslationId="action__view_details"
       onSecondaryActionPress={() => {
@@ -120,9 +128,7 @@ export function SendFeedbackReceipt() {
             loop={false}
           />
         </Box>
-        <Text typography="DisplayMedium">
-          {intl.formatMessage({ id: 'modal__transaction_submitted' })}
-        </Text>
+        <Text typography="DisplayMedium">{message}</Text>
         <Box h={8} />
       </VStack>
     </BaseSendModal>

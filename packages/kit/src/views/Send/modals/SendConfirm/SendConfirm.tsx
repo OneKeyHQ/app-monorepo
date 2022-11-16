@@ -107,6 +107,7 @@ function SendConfirm({
     encodedTx,
     useFeeInTx: feeInfoUseFeeInTx,
     pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
+    signOnly: routeParams.signOnly,
   });
 
   useWalletConnectPrepareConnection({
@@ -175,10 +176,12 @@ function SendConfirm({
           };
           navigation.navigate(SendRoutes.HardwareSwapContinue, params);
         } else {
+          const type = routeParams.signOnly ? 'Sign' : 'Send';
           const params: SendFeedbackReceiptParams = {
             networkId,
             accountId,
             txid: tx.txid ?? 'unknown_txid',
+            type,
             closeModal: close,
             onDetail: routeParams.onDetail,
           };

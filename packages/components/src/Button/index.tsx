@@ -1,10 +1,4 @@
-import React, {
-  ComponentProps,
-  FC,
-  useCallback,
-  useEffect,
-  useState,
-} from 'react';
+import { ComponentProps, FC, useCallback, useEffect, useState } from 'react';
 
 import { Text } from 'native-base';
 import { StyleSheet } from 'react-native';

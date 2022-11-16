@@ -1,5 +1,6 @@
 import { find, flatten } from 'lodash';
 
+import { IMPL_COSMOS } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -7,6 +8,7 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import {
   generateNetworkIdByChainId,
   getCoinTypeFromNetworkId,
+  parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
@@ -54,6 +56,8 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$setBoardingCompleted = setBoardingCompleted;
 }
 
+const REFRESH_ACCOUNT_IMPL = [IMPL_COSMOS];
+
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
   constructor(props: IServiceBaseProps) {
@@ -61,6 +65,11 @@ class ServiceAccount extends ServiceBase {
     appEventBus.on(AppEventBusNames.AccountNameChanged, () => {
       this.addressLabelCache = {};
     });
+  }
+
+  forceRefreshAccount(networkId: string | null): boolean {
+    if (!networkId) return false;
+    return REFRESH_ACCOUNT_IMPL.includes(parseNetworkId(networkId).impl ?? '');
   }
 
   @backgroundMethod()
@@ -74,7 +83,10 @@ class ServiceAccount extends ServiceBase {
     const { dispatch, appSelector } = this.backgroundApi;
     const { activeNetworkId, activeWalletId } = appSelector((s) => s.general);
     // await this.initWallets();
-    if (activeWalletId !== walletId) {
+    if (
+      activeWalletId !== walletId ||
+      this.forceRefreshAccount(activeNetworkId)
+    ) {
       await this.reloadAccountsByWalletIdNetworkId(walletId, activeNetworkId);
     }
     dispatch(

@@ -3,7 +3,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Box,
   CustomSkeleton,
-  Icon,
   ToggleButtonGroup,
 } from '@onekeyhq/components/src';
 import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';

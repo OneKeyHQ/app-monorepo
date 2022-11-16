@@ -1,5 +1,3 @@
-import { ReactNode } from 'react';
-
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import { WebView } from 'react-native-webview';
@@ -25,10 +23,11 @@ export interface HistoryItem {
 
 export interface MatchDAppItemType {
   id: string;
-  dapp?: DAppItemType | undefined;
-  webSite?: WebSiteHistory | undefined;
-  clicks?: number | undefined;
-  timestamp?: number | undefined;
+  dapp?: DAppItemType;
+  webSite?: WebSiteHistory;
+  clicks?: number;
+  timestamp?: number;
+  isNewWindow?: boolean;
 }
 
 export interface WebControllerBarProps {
@@ -43,10 +42,6 @@ export interface WebControllerBarProps {
   showExplorerBar?: boolean;
   onMore?: (value: boolean) => void;
   moreView?: React.ReactNode;
-}
-
-export interface ExplorerViewProps extends WebControllerBarProps {
-  explorerContent: ReactNode;
 }
 
 export type SearchViewKeyEventType = 'ArrowUp' | 'ArrowDown' | 'Enter';
@@ -66,13 +61,10 @@ export interface SearchViewProps {
 
 export type WebHandler = 'browser' | 'webview' | 'tabbedWebview';
 export const webHandler: WebHandler = (() => {
-  if (platformEnv.isWeb || platformEnv.isExtension) {
-    return 'browser';
-  }
-  if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
+  if (platformEnv.isDesktop || platformEnv.isNative) {
     return 'tabbedWebview';
   }
-  return 'webview';
+  return 'browser';
 })();
 
 export const isValidWebUrl = (url: string) =>
