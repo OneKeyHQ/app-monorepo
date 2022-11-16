@@ -8,7 +8,6 @@ import {
   Icon,
   NumberInput,
   Pressable,
-  Token as TokenImage,
   Typography,
   useToast,
 } from '@onekeyhq/components';
@@ -30,6 +29,7 @@ import { useSwapQuoteCallback } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
+import { TokenImage } from '../TokenImage';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -194,14 +194,7 @@ const TokenInput: FC<TokenInputProps> = ({
             p="2"
           >
             {token && tokenNetwork ? (
-              <TokenImage
-                size={8}
-                token={token}
-                showInfo
-                name={token.symbol.toUpperCase()}
-                description={tokenNetwork.name}
-                showTokenVerifiedIcon={false}
-              />
+              <TokenImage token={token} />
             ) : (
               <Box>
                 <Typography.DisplayMedium fontWeight={600}>
@@ -227,7 +220,8 @@ const TokenInput: FC<TokenInputProps> = ({
                 borderWidth={0}
                 placeholder="0.00"
                 fontSize={24}
-                fontWeight="bold"
+                fontWeight="600"
+                fontFamily="PlusJakartaSans-SemiBold"
                 bg="transparent"
                 _disabled={{ bg: 'transparent' }}
                 _hover={{ bg: 'transparent' }}
@@ -237,6 +231,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 onChangeText={onChange}
                 pt="3"
                 pb="12"
+                focusOutlineColor="transparent"
                 // py="1"
                 pr="2"
                 textAlign="right"
