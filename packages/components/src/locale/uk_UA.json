@@ -1356,6 +1356,8 @@
   "msg__signature_done": "Завершення підпису",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "Підписання цього повідомлення може бути небезпечним. Підпишіть це повідомлення, лише якщо ви повністю довіряєте цьому сайту та розумієте потенційні ризики.",
   "msg__str_data_reset": "{0} Скидання даних",
+  "msg__str_is_a_risky_token_be_careful": "❗ {0} — ризикований маркер, будьте обережні!",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
   "msg__str_is_staking_in_progress": "{0} виконує ставку",
   "msg__str_maximum_amount": "{0} Максимальна сума",
   "msg__str_minimum_amount": "{0} Мінімальна сума",

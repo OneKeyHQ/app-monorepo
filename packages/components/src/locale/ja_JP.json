@@ -1356,6 +1356,8 @@
   "msg__signature_done": "署名の完了",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "このメッセーに署名する行為が危ない、このサイトを完全に信頼し、潜在的なリスクを理解した前提で署名してください。",
   "msg__str_data_reset": "{0}データのリセット",
+  "msg__str_is_a_risky_token_be_careful": "❗ {0}は危険なトークンです。注意してください!",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
   "msg__str_is_staking_in_progress": "{0}はステーキング中",
   "msg__str_maximum_amount": "最大引き換え量は{0}です",
   "msg__str_minimum_amount": "最小スワップ数は {0}です。",

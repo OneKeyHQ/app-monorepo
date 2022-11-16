@@ -1356,6 +1356,8 @@
   "msg__signature_done": "স্বাক্ষর সমাপ্তি",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "এই বার্তা স্বাক্ষর করা বিপজ্জনক হতে পারে. আপনি যদি এই সাইটটিকে সম্পূর্ণরূপে বিশ্বাস করেন এবং সম্ভাব্য ঝুঁকিগুলি বোঝেন তবেই কেবলমাত্র এই বার্তাটিতে স্বাক্ষর করুন৷",
   "msg__str_data_reset": "{0} ডেটা রিসেট",
+  "msg__str_is_a_risky_token_be_careful": "❗ {0} একটি ঝুঁকিপূর্ণ টোকেন, সাবধান!",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
   "msg__str_is_staking_in_progress": "{0} কাজ চলছে",
   "msg__str_maximum_amount": "{0} সর্বাধিক পরিমাণ",
   "msg__str_minimum_amount": "{0} সর্বনিম্ন পরিমাণ",

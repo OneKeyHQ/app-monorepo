@@ -1356,6 +1356,8 @@
   "msg__signature_done": "Pagkumpleto ng lagda",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "Ang pagpirma sa mensaheng ito ay maaaring mapanganib. Lagdaan lamang ang mensaheng ito kung lubos mong pinagkakatiwalaan ang site na ito at nauunawaan ang mga potensyal na panganib.",
   "msg__str_data_reset": "{0} Pag-reset ng Data",
+  "msg__str_is_a_risky_token_be_careful": "❗ {0} ay isang mapanganib na token, mag-ingat!",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
   "msg__str_is_staking_in_progress": "{0} ay Staking in Progress",
   "msg__str_maximum_amount": "{0} Pinakamataas na Halaga",
   "msg__str_minimum_amount": "{0} Minimum na Halaga",

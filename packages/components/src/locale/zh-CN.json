@@ -1356,6 +1356,8 @@
   "msg__signature_done": "签署完成",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "签署此消息可能会产生危险后果。只有在您完全信任此网站并了解潜在风险的前提下再签署此消息。",
   "msg__str_data_reset": "{0} 数据已重置",
+  "msg__str_is_a_risky_token_be_careful": "❗{0}是一个风险代币，多加小心！",
+  "msg__str_is_an_attention_token_be_careful": "⚠️{0}是一个需要注意的代币，多加小心！",
   "msg__str_is_staking_in_progress": "{0} 正在质押确认中",
   "msg__str_maximum_amount": "最多兑换数量为 {0}",
   "msg__str_minimum_amount": "最少兑换数量为 {0}",

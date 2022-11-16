@@ -1356,6 +1356,8 @@
   "msg__signature_done": "Achèvement de la signature",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "Signer ce message peut être dangereux. Ne signez ce message que si vous faites entièrement confiance à ce site et comprenez les risques potentiels.",
   "msg__str_data_reset": "{0} Réinitialisation des données",
+  "msg__str_is_a_risky_token_be_careful": "❗ {0} est un jeton risqué, soyez prudent !",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
   "msg__str_is_staking_in_progress": "{0} est en train de jalonner",
   "msg__str_maximum_amount": "{0} Montant maximal",
   "msg__str_minimum_amount": "{0} Montant minimal",

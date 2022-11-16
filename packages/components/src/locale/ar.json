@@ -1356,6 +1356,8 @@
   "msg__signature_done": "استكمال التوقيع",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
   "msg__str_data_reset": "{0} إعادة تعيين البيانات",
+  "msg__str_is_a_risky_token_be_careful": "❗ {0} هو رمز محفوف بالمخاطر ، انتبه!",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
   "msg__str_is_staking_in_progress": "{0} قيد التقدم",
   "msg__str_maximum_amount": "{0} الحد الأقصى للمبلغ",
   "msg__str_minimum_amount": "{0} الحد الأدنى للمبلغ",

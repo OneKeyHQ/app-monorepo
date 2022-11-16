@@ -1356,6 +1356,8 @@
   "msg__signature_done": "Conclusão da assinatura",
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "Assinar esta mensagem pode ser perigoso. Assine esta mensagem apenas se você confiar totalmente neste site e entender os riscos potenciais.",
   "msg__str_data_reset": "{0} Redefinição de dados",
+  "msg__str_is_a_risky_token_be_careful": "❗ {0} é um token arriscado, cuidado!",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
   "msg__str_is_staking_in_progress": "{0} está apostando em andamento",
   "msg__str_maximum_amount": "{0} Valor Máximo",
   "msg__str_minimum_amount": "{0} Valor Mínimo",
