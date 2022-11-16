@@ -52,7 +52,7 @@ export const useLocale = () => {
 };
 export const useUserDevice = () => {
   const context = useContext(Context);
-  return useMemo(() => context.device, [context.device]);
+  return useMemo(() => context.device || {}, [context.device]);
 };
 
 export const useIsVerticalLayout = () => {
