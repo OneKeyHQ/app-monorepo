@@ -38,6 +38,7 @@ export type SettingsState = {
   swapSlippagePercent: string;
   disableSwapExactApproveAmount?: boolean;
   enableHaptics: boolean;
+  enableWebAuthn?: boolean;
   deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
@@ -370,6 +371,9 @@ export const settingsSlice = createSlice({
       }
       state.customNetworkRpcMap = map;
     },
+    setEnableWebAuthn(state, action: PayloadAction<boolean>) {
+      state.enableWebAuthn = action.payload;
+    },
   },
 });
 
@@ -404,6 +408,7 @@ export const {
   setDisableSwapExactApproveAmount,
   updateCustomNetworkRpc,
   setHideRiskTokens,
+  setEnableWebAuthn,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
