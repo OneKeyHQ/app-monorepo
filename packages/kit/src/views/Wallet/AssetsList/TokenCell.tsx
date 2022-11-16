@@ -100,7 +100,6 @@ const TokenCell: FC<TokenCellProps> = ({
         showInfo
         token={token}
         showExtra={false}
-        showVerifiedIcon={false}
         description={
           balance ? (
             <FormatBalance
