@@ -40,7 +40,7 @@ jobs:
         uses: OneKeyHQ/actions/expo-server@main
         with:
           expo-version: 5.x
-          eas-version: 0.53.x
+          eas-version: 2.7.x
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Setup ENV BUILD_NUMBER to 1
@@ -86,7 +86,6 @@ jobs:
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
 
-
       - name: Inject Environment Variables
         env:
           CLOUNDINARY_NAME: ${{ secrets.CLOUNDINARY_NAME }}
@@ -98,7 +97,6 @@ jobs:
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
           echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
-
 
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
