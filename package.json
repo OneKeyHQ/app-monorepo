@@ -146,9 +146,7 @@
     "dmg-builder": "23.6.0",
     "keccak": "^3",
     "rimraf": "^3.0.2",
-    "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz",
-    "react-native-reanimated@2.12.0": "patch:react-native-reanimated@npm%3A2.12.0#./.yarn/patches/react-native-reanimated-npm-2.12.0-079a224d00.patch",
-    "react-native-reanimated@^2.4.1": "patch:react-native-reanimated@npm%3A2.12.0#./.yarn/patches/react-native-reanimated-npm-2.12.0-079a224d00.patch"
+    "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz"
   },
-  "packageManager": "yarn@3.2.4"
+  "packageManager": "yarn@3.3.0"
 }
