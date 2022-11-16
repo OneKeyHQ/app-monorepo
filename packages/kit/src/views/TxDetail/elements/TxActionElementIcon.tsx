@@ -22,6 +22,7 @@ export function TxActionElementIcon(
   const singleIcon = iconInfo?.icon ?? {};
   const defaultIcon = (
     <Token
+      showIconBorder
       size={sizePx}
       token={{
         name,

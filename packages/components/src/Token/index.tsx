@@ -43,6 +43,7 @@ export type TokenProps = {
   showDescription?: boolean;
   showNetworkIcon?: boolean;
   showTokenVerifiedIcon?: boolean;
+  showIconBorder?: boolean;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {
@@ -105,11 +106,22 @@ export const TokenVerifiedIcon: React.FC<{
     </Pressable>
   );
 };
+
+const borderProps = {
+  borderRadius: 'full',
+  borderWidth: '2px',
+  borderColor: 'surface-subdued',
+};
+
 const TokenIcon = ({
   size,
   token,
   showNetworkIcon,
-}: Pick<TokenProps, 'size' | 'token' | 'showNetworkIcon'>) => {
+  showIconBorder,
+}: Pick<
+  TokenProps,
+  'size' | 'token' | 'showNetworkIcon' | 'showIconBorder'
+>) => {
   const { network } = useNetwork({ networkId: token?.networkId });
   const src = token?.logoURI;
   const letter = (token?.symbol || token?.name || '').slice(0, 4);
@@ -172,22 +184,25 @@ const TokenIcon = ({
         height="18px"
         src={network.logoURI}
         alt={network.logoURI}
-        borderRadius="full"
-        borderWidth="2px"
-        borderColor="surface-subdued"
         position="absolute"
         top="-4px"
         right="-4px"
+        {...borderProps}
       />
     );
   }, [network, showNetworkIcon]);
 
   return (
-    <Box width={size} height={size} position="relative">
+    <Box
+      width={size}
+      height={size}
+      position="relative"
+      {...(showIconBorder ? borderProps : {})}
+    >
       {src ? (
         <Image
-          width={size}
-          height={size}
+          width={showIconBorder ? 'full' : size}
+          height={showIconBorder ? 'full' : size}
           src={src}
           key={src}
           fallbackElement={fallbackElement}
@@ -233,6 +248,7 @@ const Token: FC<TokenProps> = ({
   showExtra = false,
   showDescription = true,
   showNetworkIcon = false,
+  showIconBorder = false,
   showTokenVerifiedIcon = true,
 
   ...boxProps
@@ -292,9 +308,15 @@ const Token: FC<TokenProps> = ({
       ...addressProps,
     });
   }, [address, addressProps, extra, showExtra]);
+
   return (
     <Box display="flex" flexDirection="row" alignItems="center" {...boxProps}>
-      <TokenIcon size={size} token={token} showNetworkIcon={showNetworkIcon} />
+      <TokenIcon
+        size={size}
+        token={token}
+        showIconBorder={showIconBorder}
+        showNetworkIcon={showNetworkIcon}
+      />
       {showInfo && (
         <Box display="flex" ml="3" {...infoBoxProps}>
           {nameView}

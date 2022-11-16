@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/engine/src/types/goplus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks';
 
 // @ts-ignore
 const localeMaps: Record<
@@ -23,12 +22,12 @@ const localeMaps: Record<
   phishing_site: 'badge__phishing_site',
 };
 
-export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
-  hostname,
-  origin,
-}) => {
+export const DappSecurityView: FC<{
+  hostname: string;
+  origin: string;
+  networkId: string;
+}> = ({ hostname, origin, networkId }) => {
   const intl = useIntl();
-  const { networkId } = useActiveWalletAccount();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusDappContract | keyof GoPlusPhishing)[] | undefined
   >();
@@ -57,7 +56,7 @@ export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
 
   return (
     <>
-      <HStack pb="4" alignItems="center" mt="-2">
+      <HStack alignItems="center" mt="-2">
         {dappIcon}
         <VStack ml="3">
           <Typography.Body1Strong textTransform="capitalize">

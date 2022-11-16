@@ -5,12 +5,11 @@ import { useIntl } from 'react-intl';
 import { Alert, Box } from '@onekeyhq/components';
 
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
-import { TxDetailTopHeader } from './components/TxDetailTopHeader';
+import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
 import { ITxActionListViewProps } from './types';
-import { getDisplayedActions } from './utils/utilsTxDetail';
 
 export function TxDetailView(props: ITxActionListViewProps) {
   const {
@@ -22,8 +21,9 @@ export function TxDetailView(props: ITxActionListViewProps) {
   } = props;
   const replacedTxTextKeys = getReplacedTxAlertTextKeys({ historyTx });
   const intl = useIntl();
-  const actions = getDisplayedActions({ decodedTx });
-  const isMultipleActions = actions.length > 1;
+  // const actions = getDisplayedActions({ decodedTx });
+  // const isMultipleActions = actions.length > 1;
+  const isMultipleActions = true;
   return (
     <>
       {replacedTxTextKeys && replacedTxTextKeys.length ? (
@@ -36,15 +36,19 @@ export function TxDetailView(props: ITxActionListViewProps) {
         </Box>
       ) : null}
 
-      {isMultipleActions ? (
-        <Box testID="TxDetailTopHeader" mb={6}>
-          <TxDetailTopHeader
-            showSubTitle={!!isHistoryDetail}
-            decodedTx={decodedTx}
-          />
-        </Box>
-      ) : null}
+      {/* {isMultipleActions ? ( */}
+      {/*   <Box testID="TxDetailTopHeader" mb={6}> */}
+      {/*     <TxDetailTopHeader */}
+      {/*       showSubTitle={!!isHistoryDetail} */}
+      {/*       decodedTx={decodedTx} */}
+      {/*     /> */}
+      {/*   </Box> */}
+      {/* ) : null} */}
 
+      <TxInteractInfo
+        origin={decodedTx?.interactInfo?.url ?? ''}
+        networkId={decodedTx?.networkId ?? ''}
+      />
       <TxDetailContextProvider
         isMultipleActions={isMultipleActions}
         isHistoryDetail={isHistoryDetail}
