@@ -365,6 +365,13 @@ class ServiceApp extends ServiceBase {
     }
     return isOk;
   }
+
+  @backgroundMethod()
+  webPureUnlock() {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setHandOperatedLock(false), unlock(), release());
+    appEventBus.emit(AppEventBusNames.Unlocked);
+  }
 }
 
 export default ServiceApp;

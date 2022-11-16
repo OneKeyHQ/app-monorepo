@@ -13,7 +13,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { useData, useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,
   setEnableAppLock,
@@ -31,6 +31,7 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../../routes/types';
+import { isSupportWebAuthn } from '../../../utils/webauthn';
 import { SelectTrigger } from '../SelectTrigger';
 
 import ResetButton from './ResetButton';
@@ -46,10 +47,15 @@ type NavigationProps = CompositeNavigationProp<
 export const SecuritySection = () => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const { enableAppLock, appLockDuration, enableLocalAuthentication } =
-    useSettings();
-  const { isPasswordSet } = useData();
-  const { authenticationType } = useStatus();
+  const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
+  const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
+  const appLockDuration = useAppSelector((s) => s.settings.appLockDuration);
+  const enableLocalAuthentication = useAppSelector(
+    (s) => s.settings.enableLocalAuthentication,
+  );
+  const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
+  const authenticationType = useAppSelector((s) => s.status.authenticationType);
+
   const { isOk } = useLocalAuthentication();
   const navigation = useNavigation<NavigationProps>();
   const { themeVariant } = useTheme();
@@ -137,6 +143,45 @@ export const SecuritySection = () => {
               </Text>
               <Box>
                 <Icon name="ChevronRightSolid" size={20} />
+              </Box>
+            </Pressable>
+          ) : undefined}
+          {isSupportWebAuthn ? (
+            <Pressable
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              borderBottomWidth="1"
+              borderBottomColor="divider"
+              onPress={() => {
+                // navigation.navigate(HomeRoutes.CloudBackup);
+              }}
+            >
+              <Icon name="FingerPrintIllus" />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mx={3}
+              >
+                {intl.formatMessage({ id: 'title_use_touchid_unlock' })}
+              </Text>
+              <Box>
+                <Switch
+                  labelType="false"
+                  isChecked={enableWebAuthn}
+                  onToggle={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.EnableLocalAuthentication,
+                      params: {
+                        screen: EnableLocalAuthenticationRoutes.EnableWebAuthn,
+                      },
+                    });
+                  }}
+                />
               </Box>
             </Pressable>
           ) : undefined}
