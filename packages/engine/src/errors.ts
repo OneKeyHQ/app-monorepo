@@ -222,6 +222,14 @@ export class InvalidAddress extends OneKeyError {
   }
 }
 
+export class InvalidSameAddress extends OneKeyError {
+  override key = 'form__address_cannot_send_to_myself';
+
+  constructor(message?: string, info?: IOneKeyErrorInfo) {
+    super(message || 'InvalidAddress.', info);
+  }
+}
+
 export class InvalidAccount extends OneKeyError {
   override key = 'msg__engine__account_not_activated';
 
@@ -236,6 +244,11 @@ export class InvalidTokenAddress extends OneKeyError {
 
 export class InvalidTransferValue extends OneKeyError {
   override key = 'msg__engine__incorrect_transfer_value';
+
+  constructor(key?: string, info?: IOneKeyErrorInfo) {
+    super('Invalid Transfer Value', info);
+    this.key = key ?? 'msg__engine__incorrect_transfer_value';
+  }
 }
 
 export class InsufficientBalance extends OneKeyError {

@@ -14,6 +14,9 @@ config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
   stream: require.resolve('readable-stream'),
   crypto: require.resolve('react-native-crypto'),
+  https: require.resolve('https-browserify'),
+  net: require.resolve('react-native-tcp-socket'),
+  tls: require.resolve('react-native-tcp-socket'),
 };
 
 config.transformer.minifierPath = 'metro-minify-terser';
