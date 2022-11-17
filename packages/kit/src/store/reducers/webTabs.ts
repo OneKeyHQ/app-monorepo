@@ -59,14 +59,19 @@ export const webtabsSlice = createSlice({
   reducers: {
     addWebTab: (state, { payload }: PayloadAction<Partial<WebTab>>) => {
       if (hasTabLimits && state.tabs.length === MAX_WEB_TABS) {
-        ToastManager.show({
-          title: formatMessage(
-            { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
-            {
-              0: MAX_WEB_TABS,
-            },
-          ),
-        });
+        ToastManager.show(
+          {
+            title: formatMessage(
+              { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+              {
+                0: MAX_WEB_TABS,
+              },
+            ),
+          },
+          {
+            type: 'error',
+          },
+        );
         return;
       }
       if (!payload.id || payload.id === homeTab.id) {
