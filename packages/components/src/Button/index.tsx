@@ -1,4 +1,11 @@
-import { ComponentProps, FC, useCallback, useEffect, useState } from 'react';
+import {
+  ComponentProps,
+  FC,
+  memo,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
 
 import { Text } from 'native-base';
 import { StyleSheet } from 'react-native';
@@ -399,54 +406,55 @@ const OutlineButton: FC<ButtonPropsWithoutType> = ({
   );
 };
 
-const Button: FC<
-  Omit<ComponentProps<typeof NativeBaseButton>, 'size'> & ButtonProps
-> = ({
-  type = 'basic',
-  size,
-  iconSize,
-  leftIconName,
-  rightIconName,
-  ...props
-}) => {
-  const components: Record<ButtonType, FC<ButtonPropsWithoutType>> = {
-    'basic': BasicButton,
-    'destructive': DestructiveButton,
-    'outline': OutlineButton,
-    'plain': PlainButton,
-    'primary': PrimaryButton,
-  };
-  let [pt, pr, pb, pl] = getPadding(size);
-  const buttonIconSize = iconSize ?? getIconSize(size);
-  const Component = components[type];
-  let textProps: FontProps | undefined;
-  if (leftIconName) {
-    pl = getPaddingWithIcon(size);
-    if (size === 'xl' || size === 'lg') {
-      textProps = { pl: '1' };
-    }
-  }
-  if (rightIconName) {
-    pr = getPaddingWithIcon(size);
-    if (size === 'xl' || size === 'lg') {
-      textProps = { pr: '1' };
-    }
-  }
-  return (
-    <Component
-      pt={pt}
-      pr={pr}
-      pb={pb}
-      pl={pl}
-      textProps={textProps}
-      iconSize={buttonIconSize}
-      size={size}
-      leftIconName={leftIconName}
-      rightIconName={rightIconName}
-      {...props}
-    />
-  );
+const components: Record<ButtonType, FC<ButtonPropsWithoutType>> = {
+  'basic': BasicButton,
+  'destructive': DestructiveButton,
+  'outline': OutlineButton,
+  'plain': PlainButton,
+  'primary': PrimaryButton,
 };
+const Button = memo(
+  ({
+    type = 'basic',
+    size,
+    iconSize,
+    leftIconName,
+    rightIconName,
+    ...props
+  }: Omit<ComponentProps<typeof NativeBaseButton>, 'size'> & ButtonProps) => {
+    let [pt, pr, pb, pl] = getPadding(size);
+    const buttonIconSize = iconSize ?? getIconSize(size);
+    const Component = components[type];
+    let textProps: FontProps | undefined;
+    if (leftIconName) {
+      pl = getPaddingWithIcon(size);
+      if (size === 'xl' || size === 'lg') {
+        textProps = { pl: '1' };
+      }
+    }
+    if (rightIconName) {
+      pr = getPaddingWithIcon(size);
+      if (size === 'xl' || size === 'lg') {
+        textProps = { pr: '1' };
+      }
+    }
+    return (
+      <Component
+        pt={pt}
+        pr={pr}
+        pb={pb}
+        pl={pl}
+        textProps={textProps}
+        iconSize={buttonIconSize}
+        size={size}
+        leftIconName={leftIconName}
+        rightIconName={rightIconName}
+        {...props}
+      />
+    );
+  },
+);
+Button.displayName = 'Button';
 
 type OkButtonProps = {
   onPromise?: () => Promise<any>;
@@ -485,4 +493,4 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
   return <Button {...props} onPress={handlePress} isLoading={loading} />;
 };
 
-export default OkButton;
+export default memo(OkButton);

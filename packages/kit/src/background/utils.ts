@@ -248,8 +248,8 @@ export async function waitForDataLoaded({
       while (true) {
         let isAllLoaded = true;
 
-        if (logName) {
-          console.log(`waitForDataLoaded: ${logName}`);
+        // eslint-disable-next-line no-undef
+        if (logName && __DEV__) {
         }
 
         await Promise.all(
