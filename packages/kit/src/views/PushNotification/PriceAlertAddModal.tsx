@@ -54,11 +54,11 @@ export const PriceAlertAddModal: FC = () => {
   const { pushNotification } = useSettings();
   const navigation = useNavigation<NavigationProps>();
   const { getTokenPrice } = useManageTokens();
-  const map = useAppSelector((s) => s.fiatMoney.map);
+  // const map = useAppSelector((s) => s.fiatMoney.map);
   const { selectedFiatMoneySymbol } = useSettings();
-  const fiat = map[selectedFiatMoneySymbol];
+  // const fiat = map[selectedFiatMoneySymbol];
   const originalPrice = getTokenPrice(token) || 0;
-  const price = new B(originalPrice).multipliedBy(fiat).toNumber();
+  const price = new B(originalPrice).toNumber();
 
   const { serviceNotification } = backgroundApiProxy;
 
