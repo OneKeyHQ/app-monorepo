@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
 
+import { notifyIfRiskToken } from '../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import AssetsList from '../../Wallet/AssetsList';
 import SendNFTList from '../../Wallet/NFT/SendNFTList';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -92,6 +93,7 @@ function PreSendTokenScreen() {
                           },
                         ),
                       );
+                      notifyIfRiskToken(token);
                     }}
                   />
                 );

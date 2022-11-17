@@ -9,18 +9,21 @@ import React, {
 
 import { Box, Center } from 'native-base';
 import { ResponsiveValue } from 'native-base/lib/typescript/components/types';
+import { useIntl } from 'react-intl';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { useTokenSecurityInfo } from '@onekeyhq/kit/src/views/ManageTokens/hooks';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
+import { useToast } from '../Toast/useToast';
 import { Body2, Text } from '../Typography';
 import { shortenAddress } from '../utils';
 
@@ -43,6 +46,7 @@ export type TokenProps = {
   showDescription?: boolean;
   showNetworkIcon?: boolean;
   showTokenVerifiedIcon?: boolean;
+  showIconBorder?: boolean;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {
@@ -60,25 +64,61 @@ const getScaleRate = (size: ResponsiveValue<string | number>) => {
   return (defaultIconSize * rate) / 32;
 };
 
+export const SecurityIcon: FC<{ token: Partial<IToken>; size: number }> = ({
+  token,
+  size,
+}) => {
+  const { security, networkId, tokenIdOnNetwork, address } = token;
+  const { data } = useTokenSecurityInfo(
+    networkId ?? '',
+    tokenIdOnNetwork ?? address ?? '',
+  );
+  if (!security || !data?.hasSecurity) {
+    return null;
+  }
+  if (data?.danger?.length) {
+    return (
+      <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
+    );
+  }
+  if (data?.warn?.length) {
+    return <Icon size={size} name="ExclamationSolid" color="icon-warning" />;
+  }
+  return null;
+};
+
 export const TokenVerifiedIcon: React.FC<{
   token?: Partial<IToken>;
   size?: number;
 }> = ({ token, size = 16 }) => {
+  const intl = useIntl();
+  const toast = useToast();
   const navigation = useNavigation();
 
   const icon = useMemo(() => {
-    if (String(token?.security) === 'true') {
-      return (
-        <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
-      );
+    if (token && String(token?.security) === 'true') {
+      return <SecurityIcon token={token} size={size} />;
     }
-    if (String(token?.verified) === 'true') {
+    if (String(token?.verified) === 'true' || token?.isNative) {
       return <Icon size={size} name="BadgeCheckSolid" color="icon-success" />;
     }
     return null;
-  }, [token?.security, token?.verified, size]);
+  }, [token, size]);
 
   const toVerifiedTokenPage = useCallback(() => {
+    if (token?.isNative) {
+      toast.show(
+        {
+          title: intl.formatMessage({
+            id: 'msg__this_is_the_native_token_of_the_mainnet',
+          }),
+        },
+        {
+          type: 'default',
+        },
+      );
+      return;
+    }
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageToken,
       params: {
@@ -93,9 +133,9 @@ export const TokenVerifiedIcon: React.FC<{
         },
       },
     });
-  }, [navigation, token]);
+  }, [navigation, token, toast, intl]);
 
-  if (!token || (!token.verified && !token.security)) {
+  if (!token || (!token.verified && !token.security && !token?.isNative)) {
     return null;
   }
 
@@ -105,11 +145,22 @@ export const TokenVerifiedIcon: React.FC<{
     </Pressable>
   );
 };
+
+const borderProps = {
+  borderRadius: 'full',
+  borderWidth: '2px',
+  borderColor: 'surface-subdued',
+};
+
 const TokenIcon = ({
   size,
   token,
   showNetworkIcon,
-}: Pick<TokenProps, 'size' | 'token' | 'showNetworkIcon'>) => {
+  showIconBorder,
+}: Pick<
+  TokenProps,
+  'size' | 'token' | 'showNetworkIcon' | 'showIconBorder'
+>) => {
   const { network } = useNetwork({ networkId: token?.networkId });
   const src = token?.logoURI;
   const letter = (token?.symbol || token?.name || '').slice(0, 4);
@@ -172,22 +223,25 @@ const TokenIcon = ({
         height="18px"
         src={network.logoURI}
         alt={network.logoURI}
-        borderRadius="full"
-        borderWidth="2px"
-        borderColor="surface-subdued"
         position="absolute"
         top="-4px"
         right="-4px"
+        {...borderProps}
       />
     );
   }, [network, showNetworkIcon]);
 
   return (
-    <Box width={size} height={size} position="relative">
+    <Box
+      width={size}
+      height={size}
+      position="relative"
+      {...(showIconBorder ? borderProps : {})}
+    >
       {src ? (
         <Image
-          width={size}
-          height={size}
+          width={showIconBorder ? 'full' : size}
+          height={showIconBorder ? 'full' : size}
           src={src}
           key={src}
           fallbackElement={fallbackElement}
@@ -233,6 +287,7 @@ const Token: FC<TokenProps> = ({
   showExtra = false,
   showDescription = true,
   showNetworkIcon = false,
+  showIconBorder = false,
   showTokenVerifiedIcon = true,
 
   ...boxProps
@@ -253,7 +308,10 @@ const Token: FC<TokenProps> = ({
       numberOfLines: 1,
       ...nameProps,
     });
-    if (!showTokenVerifiedIcon || (!token?.verified && !token?.security)) {
+    if (
+      !showTokenVerifiedIcon ||
+      (!token?.verified && !token?.security && !token?.isNative)
+    ) {
       return dom;
     }
     return (
@@ -292,9 +350,15 @@ const Token: FC<TokenProps> = ({
       ...addressProps,
     });
   }, [address, addressProps, extra, showExtra]);
+
   return (
     <Box display="flex" flexDirection="row" alignItems="center" {...boxProps}>
-      <TokenIcon size={size} token={token} showNetworkIcon={showNetworkIcon} />
+      <TokenIcon
+        size={size}
+        token={token}
+        showIconBorder={showIconBorder}
+        showNetworkIcon={showNetworkIcon}
+      />
       {showInfo && (
         <Box display="flex" ml="3" {...infoBoxProps}>
           {nameView}

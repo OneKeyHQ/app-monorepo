@@ -25,6 +25,7 @@ import {
   useDebounce,
   useNetworkSimple,
 } from '../../../../hooks';
+import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import {
   useSwapTokenList,
   useTokenSearch,
@@ -159,6 +160,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
 
   const onPress = useCallback(() => {
     onSelect?.(token);
+    notifyIfRiskToken(token);
   }, [onSelect, token]);
   const isSelected =
     token.networkId === selectedToken?.networkId &&

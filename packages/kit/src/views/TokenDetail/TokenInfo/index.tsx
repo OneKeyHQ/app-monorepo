@@ -80,6 +80,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       >
         <Token
           size={12}
+          showTokenVerifiedIcon
           token={{ ...token, logoURI: token?.logoURI || network?.logoURI }}
         />
         <Box
