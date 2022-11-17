@@ -9,7 +9,10 @@ import { useNetwork } from '../../../hooks/useNetwork';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
+import {
+  TxActionElementAddressNormal,
+  getTxActionElementAddressWithSecurityInfo,
+} from '../elements/TxActionElementAddress';
 import {
   TxActionElementAmountLarge,
   TxActionElementAmountNormal,
@@ -56,7 +59,7 @@ export function getTxActionSwapInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionSwap(props: ITxActionCardProps) {
-  const { meta, decodedTx } = props;
+  const { meta, decodedTx, network } = props;
   const intl = useIntl();
   const { swapInfo } = getTxActionSwapInfo(props);
   const { send, receive, accountAddress, receivingAddress } = swapInfo;
@@ -123,7 +126,11 @@ export function TxActionSwap(props: ITxActionCardProps) {
     });
     details.push({
       title: intl.formatMessage({ id: 'content__to' }),
-      content: <TxActionElementAddressNormal address={receivingAddress} />,
+      content: getTxActionElementAddressWithSecurityInfo({
+        address: receivingAddress || '',
+        networkId: network?.id,
+        withSecurityInfo: true,
+      }),
     });
   } else {
     details.push({

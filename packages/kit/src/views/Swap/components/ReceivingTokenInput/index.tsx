@@ -8,7 +8,6 @@ import {
   Icon,
   NumberInput,
   Pressable,
-  Token as TokenImage,
   Typography,
   utils,
 } from '@onekeyhq/components';
@@ -21,6 +20,7 @@ import { setRecipient } from '../../../../store/reducers/swap';
 import { Token as TokenType } from '../../../../store/typings';
 import { useSwapQuoteCallback, useSwapRecipient } from '../../hooks/useSwap';
 import { SwapRoutes } from '../../typings';
+import { TokenImage } from '../TokenImage';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -157,14 +157,7 @@ const TokenInput: FC<TokenInputProps> = ({
             p="2"
           >
             {token && tokenNetwork ? (
-              <TokenImage
-                size={8}
-                token={token}
-                showInfo
-                name={token.symbol.toUpperCase()}
-                description={tokenNetwork.name}
-                showTokenVerifiedIcon={false}
-              />
+              <TokenImage token={token} />
             ) : (
               <Box>
                 <Typography.DisplayMedium fontWeight={600}>
@@ -190,7 +183,8 @@ const TokenInput: FC<TokenInputProps> = ({
                 borderWidth={0}
                 placeholder="0.00"
                 fontSize={24}
-                fontWeight="bold"
+                fontWeight="600"
+                fontFamily="PlusJakartaSans-SemiBold"
                 bg="transparent"
                 _disabled={{ bg: 'transparent' }}
                 _hover={{ bg: 'transparent' }}
@@ -204,6 +198,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 textAlign="right"
                 isDisabled={isDisabled}
                 rightCustomElement={null}
+                focusOutlineColor="transparent"
               />
             </Box>
           </Box>

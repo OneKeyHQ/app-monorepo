@@ -10,7 +10,7 @@ import {
 import { getTimeStamp } from '@onekeyfe/hd-core';
 import BigNumber from 'bignumber.js';
 import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
-import { find, get } from 'lodash';
+import { get } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -27,6 +27,7 @@ import {
 import { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { OnekeyNetwork } from '../../../presets/networkIds';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,
@@ -38,6 +39,9 @@ import {
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -66,7 +70,13 @@ import {
   makeMsgSend,
   makeTxRawBytes,
 } from './sdk/signing';
-import { getFee, getMsgs, getSequence, setFee } from './sdk/wrapper/utils';
+import {
+  getFee,
+  getMsgs,
+  getSequence,
+  setFee,
+  setSendAmount,
+} from './sdk/wrapper/utils';
 import settings from './settings';
 import { getTransactionTypeByProtoMessage } from './utils';
 
@@ -75,7 +85,10 @@ import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 const GAS_STEP_MULTIPLIER = 10000;
-const GAS_ADJUSTMENT = 1.3;
+const GAS_ADJUSTMENT: Record<string, string> = {
+  [OnekeyNetwork.terra]: '2',
+  default: '1.3',
+};
 const GAS_PRICE = ['0.01', '0.025', '0.04'];
 
 // @ts-ignore
@@ -375,19 +388,27 @@ export default class Vault extends VaultBase {
     }
 
     const fee = getFee(encodedTx);
+    const sequence = getSequence(encodedTx);
+
+    let feePrice = GAS_PRICE[0];
+    if (fee?.gas_limit) {
+      feePrice = new BigNumber(fee?.amount[0]?.amount ?? '1')
+        .div(fee?.gas_limit)
+        .toFixed(6);
+    }
 
     const result: IDecodedTx = {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
-      nonce: 0,
+      nonce: sequence.toNumber(),
       actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       feeInfo: {
         price: convertFeeValueToGwei({
-          value: fee?.amount[0]?.amount ?? '1',
+          value: feePrice,
           network,
         }),
         limit: fee?.gas_limit ?? undefined,
@@ -571,7 +592,7 @@ export default class Vault extends VaultBase {
       if (!txSimulation) throw new Error('Failed to get tx simulation');
 
       limit = new BigNumber(txSimulation.gas_used)
-        .multipliedBy(GAS_ADJUSTMENT)
+        .multipliedBy(GAS_ADJUSTMENT[this.networkId] ?? GAS_ADJUSTMENT.default)
         .toFixed(0);
     } catch (error) {
       const msgs = getMsgs(newEncodedTx);
@@ -639,10 +660,38 @@ export default class Vault extends VaultBase {
         txid,
       };
     } catch (error: any) {
+      if (error instanceof OneKeyInternalError) {
+        throw error;
+      }
+
       const { errorCode, message } = error || {};
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new OneKeyInternalError(`${errorCode ?? ''} ${message}`);
     }
+  }
+
+  async updateEncodedTx(
+    encodedTx: IEncodedTxCosmos,
+    payload: IEncodedTxUpdatePayloadTransfer,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTx> {
+    const msgs = getMsgs(encodedTx);
+
+    if (
+      options.type === IEncodedTxUpdateType.transfer &&
+      msgs.length > 0 &&
+      msgs[0].typeUrl === MessageType.SEND
+    ) {
+      const network = await this.getNetwork();
+
+      return Promise.resolve(
+        setSendAmount(
+          encodedTx,
+          new BigNumber(payload.amount).shiftedBy(network.decimals).toFixed(),
+        ),
+      );
+    }
+    return Promise.resolve(encodedTx);
   }
 
   async getExportedCredential(password: string): Promise<string> {
@@ -669,11 +718,8 @@ export default class Vault extends VaultBase {
       return Promise.resolve([]);
     }
 
-    const client = await this.getClient();
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
     const chainInfo = await this.getChainInfo();
-
     let token: Token | undefined = await this.engine.getNativeTokenInfo(
       this.networkId,
     );
@@ -759,10 +805,10 @@ export default class Vault extends VaultBase {
             encodedTx,
             extraInfo: null,
             totalFeeInNative: new BigNumber(feeValue)
-              .shiftedBy(-decimals)
+              .shiftedBy(-(token?.decimals ?? 6))
               .toFixed(),
           };
-          decodedTx.updatedAt = getTimeStamp() / 1000;
+          decodedTx.updatedAt = getTimeStamp();
           decodedTx.createdAt =
             item?.decodedTx.createdAt ?? decodedTx.updatedAt;
           decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;

@@ -5111,10 +5111,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.20":
-  version: 1.6.20
-  resolution: "@onekeyfe/network-list@npm:1.6.20"
-  checksum: 91fa1d039b0d2432418c5e85834f9a620d0c77e31ad64fd37773bf91e9275f33134272236f68aa04f927ab909299264db6900b9205cfa354d3f994580b056748
+"@onekeyfe/network-list@npm:1.6.22":
+  version: 1.6.22
+  resolution: "@onekeyfe/network-list@npm:1.6.22"
+  checksum: e968c2d3ec22ff3e3b66940ea1af4438872d2c49a0bf61693b58e37c09e07860806f248887db19be90aabc9d51045c2efa79d818f280a4246cededdfa4104ebb
   languageName: node
   linkType: hard
 
@@ -5421,6 +5421,7 @@ __metadata:
     realm: 11.0.0-rc.0
     redux-flipper: ^2.0.2
     rimraf: ^3.0.2
+    stream-http: ^3.2.0
     text-encoding: ^0.7.0
     v8-android-jit: ^10.100.1
     vision-camera-code-scanner: ^0.2.0
@@ -5502,7 +5503,7 @@ __metadata:
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.46
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.20
+    "@onekeyfe/network-list": 1.6.22
     "@solana/spl-token": ^0.3.0
     "@solana/web3.js": ^1.53.0
     "@types/bchaddrjs": ^0.4.0
@@ -28556,6 +28557,18 @@ optjs@latest:
     to-arraybuffer: ^1.0.0
     xtend: ^4.0.0
   checksum: f57dfaa21a015f72e6ce6b199cf1762074cfe8acf0047bba8f005593754f1743ad0a91788f95308d9f3829ad55742399ad27b4624432f2752a08e62ef4346e05
+  languageName: node
+  linkType: hard
+
+"stream-http@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "stream-http@npm:3.2.0"
+  dependencies:
+    builtin-status-codes: ^3.0.0
+    inherits: ^2.0.4
+    readable-stream: ^3.6.0
+    xtend: ^4.0.2
+  checksum: c9b78453aeb0c84fcc59555518ac62bacab9fa98e323e7b7666e5f9f58af8f3155e34481078509b02929bd1268427f664d186604cdccee95abc446099b339f83
   languageName: node
   linkType: hard
 

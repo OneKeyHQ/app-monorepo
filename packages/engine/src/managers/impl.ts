@@ -11,6 +11,7 @@ import {
   COINTYPE_NEAR,
   COINTYPE_SOL,
   COINTYPE_STC,
+  COINTYPE_TBTC,
   COINTYPE_TRON,
   COINTYPE_XRP,
   IMPL_ALGO,
@@ -25,6 +26,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
 } from '../constants';
@@ -45,6 +47,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_STC]: COINTYPE_STC,
   [IMPL_CFX]: COINTYPE_CFX,
   [IMPL_BTC]: COINTYPE_BTC,
+  [IMPL_TBTC]: COINTYPE_TBTC,
   [IMPL_TRON]: COINTYPE_TRON,
   [IMPL_APTOS]: COINTYPE_APTOS,
   [IMPL_DOGE]: COINTYPE_DOGE,
@@ -66,6 +69,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_STC]: AccountType.SIMPLE,
   [IMPL_CFX]: AccountType.VARIANT,
   [IMPL_BTC]: AccountType.UTXO,
+  [IMPL_TBTC]: AccountType.UTXO,
   [IMPL_TRON]: AccountType.SIMPLE,
   [IMPL_APTOS]: AccountType.SIMPLE,
   [IMPL_DOGE]: AccountType.UTXO,
@@ -87,6 +91,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_STC]: Curve.ED25519,
   [IMPL_CFX]: Curve.SECP256K1,
   [IMPL_BTC]: Curve.SECP256K1,
+  [IMPL_TBTC]: Curve.SECP256K1,
   [IMPL_TRON]: Curve.SECP256K1,
   [IMPL_APTOS]: Curve.ED25519,
   [IMPL_DOGE]: Curve.SECP256K1,
@@ -136,6 +141,23 @@ const defaultAccountNameInfo: Record<
     BIP84: {
       prefix: 'BTC Native SegWit',
       category: `84'/${COINTYPE_BTC}'`,
+      label: 'Native SegWit',
+    },
+  },
+  [IMPL_TBTC]: {
+    default: {
+      prefix: 'TBTC Nested SegWit',
+      category: `49'/${COINTYPE_TBTC}'`,
+      label: 'Nested SegWit (P2SH)',
+    },
+    BIP44: {
+      prefix: 'TBTC Legacy',
+      category: `44'/${COINTYPE_TBTC}'`,
+      label: 'Legacy (P2PKH)',
+    },
+    BIP84: {
+      prefix: 'TBTC Native SegWit',
+      category: `84'/${COINTYPE_TBTC}'`,
       label: 'Native SegWit',
     },
   },

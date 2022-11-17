@@ -53,6 +53,7 @@ export type ITxActionAmountProps = ComponentProps<typeof Text> & {
   symbol?: string;
   decimals?: number;
   onPress?: (() => void) | null;
+  subText?: string | JSX.Element;
 };
 
 export type ITxActionElementDetail = {

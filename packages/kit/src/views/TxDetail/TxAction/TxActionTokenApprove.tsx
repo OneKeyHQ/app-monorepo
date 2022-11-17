@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/core';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
+import { Typography } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import {
@@ -15,7 +16,10 @@ import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/utils/sendConfirmConsts
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
+import {
+  TxActionElementAddressNormal,
+  getTxActionElementAddressWithSecurityInfo,
+} from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import { useTxDetailContext } from '../TxDetailContext';
 import {
@@ -64,7 +68,7 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionTokenApprove(props: ITxActionCardProps) {
-  const { action, decodedTx, meta } = props;
+  const { action, decodedTx, meta, network } = props;
   const { accountId, networkId } = decodedTx;
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
@@ -111,6 +115,15 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
             }
           : undefined
       }
+      subText={
+        tokenApprove?.isMax ? (
+          <Typography.Body2Strong color="text-warning" mt="1">
+            {intl.formatMessage({
+              id: 'content__unlimited_authorization_puts_all_approved_tokens_at_risk',
+            })}
+          </Typography.Body2Strong>
+        ) : undefined
+      }
     />
   );
 
@@ -127,17 +140,13 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
     },
     {
       title: intl.formatMessage({ id: 'content__token_approve_spender' }),
-      content: (
-        <TxActionElementAddressNormal address={tokenApprove?.spender ?? ''} />
-      ),
+      content: getTxActionElementAddressWithSecurityInfo({
+        address: tokenApprove?.spender || '',
+        networkId: network?.id,
+        withSecurityInfo: true,
+      }),
     },
   ].filter(Boolean);
-  if (sourceInfo?.origin) {
-    details.push({
-      title: intl.formatMessage({ id: 'content__interact_with' }),
-      content: sourceInfo?.origin ?? '-',
-    });
-  }
 
   return (
     <TxDetailActionBoxAutoTransform

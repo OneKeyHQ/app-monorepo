@@ -13,7 +13,7 @@ import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
+import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import { TxActionElementNFT } from '../elements/TxActionElementNFT';
 import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
@@ -128,19 +128,27 @@ export function getTxActionNFTTransferInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionNFTTransfer(props: ITxActionCardProps) {
-  const { action, meta } = props;
+  const { action, meta, network } = props;
   const intl = useIntl();
   const { nftTransfer } = action;
-  const { symbol, send, receive } = getTxActionNFTTransferInfo(props);
+  const { symbol, send, receive, isOut } = getTxActionNFTTransferInfo(props);
 
   const details: ITxActionElementDetail[] = [
     {
       title: intl.formatMessage({ id: 'content__from' }),
-      content: <TxActionElementAddressNormal address={send} />,
+      content: getTxActionElementAddressWithSecurityInfo({
+        address: send,
+        networkId: network?.id,
+        withSecurityInfo: !isOut,
+      }),
     },
     {
       title: intl.formatMessage({ id: 'content__to' }),
-      content: <TxActionElementAddressNormal address={receive} />,
+      content: getTxActionElementAddressWithSecurityInfo({
+        address: receive,
+        networkId: network?.id,
+        withSecurityInfo: isOut,
+      }),
     },
   ];
 

@@ -1,7 +1,8 @@
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export type ISimpleDbEntitySettings = {
-  appReviewsLastOpenedAt: number;
+  appReviewsLastOpenedAt?: number;
+  webAuthnCredentialID?: string;
 };
 
 export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySettings> {
@@ -15,5 +16,15 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
   async setAppReviewsLastOpenedAt(appReviewsLastOpenedAt: number) {
     const rawData = await this.getRawData();
     return this.setRawData({ ...rawData, appReviewsLastOpenedAt });
+  }
+
+  async getWebAuthnCredentialID() {
+    const data = await this.getRawData();
+    return data?.webAuthnCredentialID;
+  }
+
+  async setWebAuthnCredentialID(webAuthnCredentialID: string) {
+    const rawData = await this.getRawData();
+    return this.setRawData({ ...rawData, webAuthnCredentialID });
   }
 }

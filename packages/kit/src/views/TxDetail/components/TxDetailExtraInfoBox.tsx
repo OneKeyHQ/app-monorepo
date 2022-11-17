@@ -1,9 +1,9 @@
-import React, { useRef } from 'react';
+import React from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Icon, Pressable } from '@onekeyhq/components';
+import { Icon } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -12,11 +12,9 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useClipboard } from '../../../hooks/useClipboard';
 import { useNetwork } from '../../../hooks/useNetwork';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
-import { TxActionElementDetailCellTitleText } from '../elements/TxActionElementDetailCell';
 import { TxActionElementPressable } from '../elements/TxActionElementPressable';
 import { ITxActionElementDetail, ITxActionListViewProps } from '../types';
 
@@ -54,43 +52,12 @@ function getFeeInNativeText(options: {
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput } = props;
+  const { decodedTx, feeInput } = props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
   const openBlockBrowser = useOpenBlockBrowser(network);
-  const { copyText } = useClipboard();
-  const clickTimes = useRef(0);
 
-  details.push({
-    title: (
-      <Pressable
-        cursor="default" // not working
-        style={{
-          // @ts-ignore
-          cursor: 'default',
-        }}
-        onPress={() => {
-          clickTimes.current += 1;
-          if (clickTimes.current > 5) {
-            clickTimes.current = 0;
-            copyText(JSON.stringify(historyTx ?? decodedTx, null, 2));
-          }
-        }}
-      >
-        <TxActionElementDetailCellTitleText>
-          {intl.formatMessage({ id: 'network__network' })}
-        </TxActionElementDetailCellTitleText>
-      </Pressable>
-    ),
-    content: network?.name ?? '',
-  });
-  if (decodedTx.interactInfo?.url) {
-    details.push({
-      title: intl.formatMessage({ id: 'content__interact_with' }),
-      content: decodedTx.interactInfo?.url ?? '',
-    });
-  }
   if (platformEnv.isDev && decodedTx.nonce && decodedTx.nonce >= 0) {
     details.push({
       title: 'Nonce',
