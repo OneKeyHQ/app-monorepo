@@ -50,8 +50,8 @@ export function usePreSendAmountInfo({
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
-
-  const textInputDecimals = isFiatMode ? 2 : amountInputDecimals;
+  const fiatModeDecimal = selectedFiatMoneySymbol === 'btc' ? 8 : 2;
+  const textInputDecimals = isFiatMode ? fiatModeDecimal : amountInputDecimals;
   const validTextRegex = useMemo(() => {
     const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${textInputDecimals}})?$`;
     return new RegExp(pattern);
@@ -75,11 +75,13 @@ export function usePreSendAmountInfo({
         if (!amount0) {
           return '';
         }
-        return tokenPriceBN.times(amount0 || '0').toFixed(2, roundMode);
+        return tokenPriceBN
+          .times(amount0 || '0')
+          .toFixed(textInputDecimals, roundMode);
       }
       return amount0;
     },
-    [tokenPriceBN],
+    [textInputDecimals, tokenPriceBN],
   );
   const setTextByAmount = useCallback(
     (amount0: string) => {
@@ -89,6 +91,7 @@ export function usePreSendAmountInfo({
     [getInputText, isFiatMode],
   );
   const onTextChange = (text0: string) => {
+    console.log('text---', text0);
     const normalizedText = text0.replace(/。/g, '.');
     // delete action
     if (normalizedText.length < text.length) {
