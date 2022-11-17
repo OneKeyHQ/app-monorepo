@@ -46,7 +46,7 @@ function ListItemWithHidden({
     <>
       {/* Grouping wallet items if they have nested hidden wallets */}
       {isPassphraseMode ? (
-        <Box>
+        <Box my="4px">
           <Box
             position="absolute"
             left="8px"
