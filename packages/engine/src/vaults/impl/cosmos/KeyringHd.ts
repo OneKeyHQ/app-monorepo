@@ -98,7 +98,7 @@ export class KeyringHd extends KeyringHdBase {
 
       const address = pubkeyToBaseAddress(curve, pubkey);
 
-      const name = (names || [])[index] || `Cosmos #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `COSMOS #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,

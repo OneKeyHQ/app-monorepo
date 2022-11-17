@@ -756,7 +756,7 @@ class Engine {
       '101010': OnekeyNetwork.stc,
       '501': OnekeyNetwork.sol,
       '195': OnekeyNetwork.trx,
-      '637': OnekeyNetwork.tapt, // TODO temp
+      '637': OnekeyNetwork.apt,
       '3': OnekeyNetwork.doge,
       '2': OnekeyNetwork.ltc,
       '145': OnekeyNetwork.bch,

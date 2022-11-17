@@ -1,9 +1,11 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { BigNumber } from 'bignumber.js';
+import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
-import { AuthInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import Long from 'long';
 
+import { MessageType } from '../message';
 import { UnpackedMessage } from '../proto/protoDecode';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
@@ -67,6 +69,35 @@ export function setFee(signDoc: SignDocHex, fee: StdFee) {
   signDoc.authInfoBytes = bytesToHex(
     AuthInfo.encode(directSignDoc.authInfo).finish(),
   );
+}
+
+export function setSendAmount(signDoc: SignDocHex, amount: string) {
+  const directSignDoc = getDirectSignDoc(signDoc);
+  const msg = directSignDoc.txMsgs[0];
+  if (msg.typeUrl !== MessageType.SEND) {
+    throw new Error('Invalid message type');
+  }
+  const sendMsg = MsgSend.decode(msg.value);
+  directSignDoc.txBody = {
+    ...directSignDoc.txBody,
+    messages: [
+      {
+        typeUrl: MessageType.SEND,
+        value: MsgSend.encode({
+          ...sendMsg,
+          amount: [
+            {
+              denom: sendMsg.amount[0].denom,
+              amount: new BigNumber(amount).toFixed(),
+            },
+          ],
+        }).finish(),
+      },
+    ],
+  };
+
+  signDoc.bodyBytes = bytesToHex(TxBody.encode(directSignDoc.txBody).finish());
+  return signDoc;
 }
 
 export function getGas(signDoc: SignDocHex): number {
