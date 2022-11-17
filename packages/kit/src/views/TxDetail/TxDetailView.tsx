@@ -46,7 +46,11 @@ export function TxDetailView(props: ITxActionListViewProps) {
       {/* ) : null} */}
 
       <TxInteractInfo
-        origin={decodedTx?.interactInfo?.url ?? ''}
+        origin={
+          decodedTx?.interactInfo?.url ??
+          sendConfirmParamsParsed?.sourceInfo?.origin ??
+          ''
+        }
         networkId={decodedTx?.networkId ?? ''}
       />
       <TxDetailContextProvider

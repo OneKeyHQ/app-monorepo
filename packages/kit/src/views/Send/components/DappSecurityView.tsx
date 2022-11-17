@@ -56,13 +56,15 @@ export const DappSecurityView: FC<{
 
   return (
     <>
-      <HStack alignItems="center" mt="-2">
+      <HStack alignItems="center" mt="-2" w="full">
         {dappIcon}
-        <VStack ml="3">
+        <VStack ml="3" flex="1">
           <Typography.Body1Strong textTransform="capitalize">
             {hostname?.split('.')?.reverse?.()?.[1] ?? 'N/A'}
           </Typography.Body1Strong>
-          <Typography.Body2>{hostname}</Typography.Body2>
+          <Typography.Body2 isTruncated maxW="300px">
+            {hostname}
+          </Typography.Body2>
         </VStack>
       </HStack>
       {securityItems && securityItems?.length > 0 ? (

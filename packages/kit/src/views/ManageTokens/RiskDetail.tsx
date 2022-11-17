@@ -21,8 +21,6 @@ import { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
 import goPlus from '@onekeyhq/kit/assets/goPlus.png';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 
-import { useNavigation } from '../../hooks';
-
 import { useTokenSecurityInfo } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -33,7 +31,6 @@ type NavigationProps = RouteProp<
 
 const RiskDetail: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
   const route = useRoute<NavigationProps>();
   const {
     token: { networkId, address },
@@ -220,18 +217,7 @@ const RiskDetail: FC = () => {
   }
 
   return (
-    <Modal
-      height="560px"
-      hideSecondaryAction
-      primaryActionTranslationId="action__i_got_it"
-      onPrimaryActionPress={({ close }) => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        } else {
-          close?.();
-        }
-      }}
-    >
+    <Modal height="560px" hidePrimaryAction hideSecondaryAction>
       {!isSingleList ? (
         <GroupingList
           ListHeaderComponent={() => header}
