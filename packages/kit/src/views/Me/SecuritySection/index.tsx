@@ -146,45 +146,6 @@ export const SecuritySection = () => {
               </Box>
             </Pressable>
           ) : undefined}
-          {isSupportWebAuthn ? (
-            <Pressable
-              display="flex"
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-              py={4}
-              px={{ base: 4, md: 6 }}
-              borderBottomWidth="1"
-              borderBottomColor="divider"
-              onPress={() => {
-                // navigation.navigate(HomeRoutes.CloudBackup);
-              }}
-            >
-              <Icon name="FingerPrintIllus" />
-              <Text
-                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                flex="1"
-                numberOfLines={1}
-                mx={3}
-              >
-                {intl.formatMessage({ id: 'title_use_touchid_unlock' })}
-              </Text>
-              <Box>
-                <Switch
-                  labelType="false"
-                  isChecked={enableWebAuthn}
-                  onToggle={() => {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.EnableLocalAuthentication,
-                      params: {
-                        screen: EnableLocalAuthenticationRoutes.EnableWebAuthn,
-                      },
-                    });
-                  }}
-                />
-              </Box>
-            </Pressable>
-          ) : undefined}
           <Pressable
             display="flex"
             flexDirection="row"
@@ -218,6 +179,45 @@ export const SecuritySection = () => {
               <Icon name="ChevronRightSolid" size={20} />
             </Box>
           </Pressable>
+          {isSupportWebAuthn ? (
+            <Pressable
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              borderBottomWidth="1"
+              borderBottomColor="divider"
+              onPress={() => {
+                // navigation.navigate(HomeRoutes.CloudBackup);
+              }}
+            >
+              <Icon name="FingerPrintIllus" />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mx={3}
+              >
+                {intl.formatMessage({ id: 'form__touch_id' })}
+              </Text>
+              <Box>
+                <Switch
+                  labelType="false"
+                  isChecked={enableWebAuthn}
+                  onToggle={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.EnableLocalAuthentication,
+                      params: {
+                        screen: EnableLocalAuthenticationRoutes.EnableWebAuthn,
+                      },
+                    });
+                  }}
+                />
+              </Box>
+            </Pressable>
+          ) : undefined}
           {isOk && isPasswordSet ? (
             <Pressable
               display="flex"
