@@ -87,7 +87,7 @@ export const ControllerBarMobile: FC = () => {
           borderWidth="2px"
           borderColor="icon-pressed"
         >
-          <Typography.CaptionStrong textAlign="center" size="12px" mb="4px">
+          <Typography.CaptionStrong textAlign="center" size="13px" mb="4px">
             {tabs.length - 1}
           </Typography.CaptionStrong>
         </Center>
