@@ -13,6 +13,7 @@ import {
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_LTC,
+  IMPL_TBTC,
   SEPERATOR,
 } from './constants';
 import { DBAPI } from './dbs/base';
@@ -580,7 +581,11 @@ class Validators {
       this.engine.getWallet(walletId),
       this.engine.getNetwork(networkId),
     ]);
-    if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(network.impl)) {
+    if (
+      [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(
+        network.impl,
+      )
+    ) {
       const coinType = implToCoinTypes[network.impl] ?? COINTYPE_BTC;
       const accountPathPrefix = `${purpose}'/${coinType}'`;
       const nextAccountId = wallet.nextAccountIds[accountPathPrefix];
