@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
 
+import { notifyIfRiskToken } from '../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import AssetsList from '../../Wallet/AssetsList';
 import SendNFTList from '../../Wallet/NFT/SendNFTList';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -14,7 +15,6 @@ import { SendRoutes, SendRoutesParams } from '../types';
 import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { notifyIfRiskToken } from '../../ManageTokens/helpers/TokenSecurityModalWrapper';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
