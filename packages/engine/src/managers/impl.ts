@@ -13,7 +13,6 @@ import {
   COINTYPE_STC,
   COINTYPE_TBTC,
   COINTYPE_TRON,
-  COINTYPE_XRP,
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_BCH,
@@ -28,7 +27,6 @@ import {
   IMPL_STC,
   IMPL_TBTC,
   IMPL_TRON,
-  IMPL_XRP,
 } from '../constants';
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
@@ -53,7 +51,6 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_DOGE]: COINTYPE_DOGE,
   [IMPL_LTC]: COINTYPE_LTC,
   [IMPL_BCH]: COINTYPE_BCH,
-  [IMPL_XRP]: COINTYPE_XRP,
   [IMPL_COSMOS]: COINTYPE_COSMOS,
 };
 
@@ -75,7 +72,6 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_DOGE]: AccountType.UTXO,
   [IMPL_LTC]: AccountType.UTXO,
   [IMPL_BCH]: AccountType.UTXO,
-  [IMPL_XRP]: AccountType.SIMPLE,
   [IMPL_COSMOS]: AccountType.VARIANT,
 };
 
@@ -97,7 +93,6 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_DOGE]: Curve.SECP256K1,
   [IMPL_LTC]: Curve.SECP256K1,
   [IMPL_BCH]: Curve.SECP256K1,
-  [IMPL_XRP]: Curve.SECP256K1,
   [IMPL_COSMOS]: Curve.SECP256K1,
 };
 
@@ -198,7 +193,6 @@ const defaultAccountNameInfo: Record<
       label: 'Legacy (P2PKH)',
     },
   },
-  [IMPL_XRP]: { default: { prefix: 'XRP', category: `44'/${COINTYPE_XRP}'` } },
   [IMPL_COSMOS]: {
     default: { prefix: 'COSMOS', category: `44'/${COINTYPE_COSMOS}'` },
   },

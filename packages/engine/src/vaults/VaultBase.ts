@@ -154,10 +154,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     );
   }
 
-  getFrozenBalance() {
-    return 0;
-  }
-
   getTransactionStatuses(
     txids: Array<string>,
   ): Promise<Array<TransactionStatus | undefined>> {
@@ -571,10 +567,4 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     return nextNonce;
   }
-
-  validateSendAmount(amount: string, tokenBalance: string, to: string) {
-    return Promise.resolve(true);
-  }
-
-  notifyChainChanged(currentNetworkId: string, previousNetworkId: string) {}
 }
