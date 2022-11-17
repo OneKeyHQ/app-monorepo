@@ -204,45 +204,45 @@ const DesktopWebView = forwardRef(
         if (event.channel === consts.JS_BRIDGE_MESSAGE_IPC_CHANNEL) {
           const data: string = event?.args?.[0];
           let originInRequest = '';
+          let origin = '';
           try {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             originInRequest = JSON.parse(data)?.origin as string;
+            await waitForDataLoaded({
+              wait: 600,
+              logName: 'DesktopWebView waitForDataLoaded if origin matched',
+              timeout: 5000,
+              data: () => {
+                let originInUrl = '';
+                // url initial value is empty after webview mounted first time
+                const url1 = event.target.getURL(); // url won't update immediately when goForward or goBack
+                const url2 = event.target.src;
+                const url3 = src;
+                const url = url1 || url2 || url3;
+                if (url) {
+                  try {
+                    const uri = new URL(url);
+                    originInUrl = uri?.origin || '';
+                  } catch {
+                    // noop
+                  }
+                }
+                if (
+                  originInUrl &&
+                  originInRequest &&
+                  originInUrl === originInRequest
+                ) {
+                  origin = originInRequest;
+                  return true;
+                }
+                return false;
+              },
+            });
           } catch (error) {
             // noop
           } finally {
             // noop
           }
-          let origin = '';
-          await waitForDataLoaded({
-            wait: 600,
-            logName: 'DesktopWebView waitForDataLoaded if origin matched',
-            timeout: 5000,
-            data: () => {
-              let originInUrl = '';
-              // url initial value is empty after webview mounted first time
-              const url1 = event.target.getURL(); // url won't update immediately when goForward or goBack
-              const url2 = event.target.src;
-              const url3 = src;
-              const url = url1 || url2 || url3;
-              if (url) {
-                try {
-                  const uri = new URL(url);
-                  originInUrl = uri?.origin || '';
-                } catch {
-                  // noop
-                }
-              }
-              if (
-                originInUrl &&
-                originInRequest &&
-                originInUrl === originInRequest
-              ) {
-                origin = originInRequest;
-                return true;
-              }
-              return false;
-            },
-          }).catch();
           if (origin) {
             // - receive
             jsBridgeHost.receive(data, { origin });
