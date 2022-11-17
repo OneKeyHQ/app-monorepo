@@ -43,6 +43,7 @@ import {
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
+  IMPL_TBTC,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
@@ -751,6 +752,7 @@ class Engine {
       '503': OnekeyNetwork.cfx,
       '397': OnekeyNetwork.near,
       '0': OnekeyNetwork.btc,
+      '1': OnekeyNetwork.tbtc,
       '101010': OnekeyNetwork.stc,
       '501': OnekeyNetwork.sol,
       '195': OnekeyNetwork.trx,
@@ -1046,6 +1048,7 @@ class Engine {
     try {
       switch (impl) {
         case IMPL_BTC:
+        case IMPL_TBTC:
         case IMPL_DOGE:
         case IMPL_LTC:
         case IMPL_BCH:
