@@ -14,7 +14,6 @@ import DialogCommon from '@onekeyhq/components/src/Dialog/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { updateCustomNetworkRpc } from '../../../store/reducers/settings';
-import { RpcNodePattern } from '../constants';
 import { measureRpc, useRPCUrls } from '../hooks';
 
 type Props = {
@@ -104,7 +103,7 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
               }),
             },
             pattern: {
-              value: RpcNodePattern,
+              value: /^https?:\/\//,
               message: intl.formatMessage({
                 id: 'form__rpc_url_wrong_format',
               }),
