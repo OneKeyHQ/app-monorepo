@@ -5111,10 +5111,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.19":
-  version: 1.6.19
-  resolution: "@onekeyfe/network-list@npm:1.6.19"
-  checksum: 440150b10efceb5c8c2f30e80786edbff0e2a826124b187ac85f7e11fd6fa506935f98ff64a776619ada9823ce16bfe96cf5cb8d9acc92308fca419e76e273fd
+"@onekeyfe/network-list@npm:1.6.22":
+  version: 1.6.22
+  resolution: "@onekeyfe/network-list@npm:1.6.22"
+  checksum: e968c2d3ec22ff3e3b66940ea1af4438872d2c49a0bf61693b58e37c09e07860806f248887db19be90aabc9d51045c2efa79d818f280a4246cededdfa4104ebb
   languageName: node
   linkType: hard
 
@@ -5501,7 +5501,7 @@ __metadata:
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.46
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.19
+    "@onekeyfe/network-list": 1.6.22
     "@solana/spl-token": ^0.3.0
     "@solana/web3.js": ^1.53.0
     "@types/bchaddrjs": ^0.4.0
