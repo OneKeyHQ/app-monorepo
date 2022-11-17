@@ -459,7 +459,11 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
   ...props
 }) => {
   const [loading, setLoading] = useState(isLoading);
+  const { hapticsEnabled } = useProviderValue();
   const handlePress = useCallback(() => {
+    if (hapticsEnabled) {
+      enableHaptics();
+    }
     if (onPromise && typeof isLoading === 'undefined') {
       setLoading(true);
       setTimeout(() => {
@@ -472,26 +476,13 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
     } else if (onPress) {
       onPress?.();
     }
-  }, [onPress, onPromise, setLoading, isLoading]);
-  const { hapticsEnabled } = useProviderValue();
+  }, [hapticsEnabled, onPromise, isLoading, onPress]);
   useEffect(() => {
     if (typeof isLoading !== 'undefined') {
       setLoading(isLoading);
     }
   }, [isLoading]);
-  return (
-    <Button
-      {...props}
-      onPress={() => {
-        if (hapticsEnabled) {
-          enableHaptics();
-        }
-
-        handlePress();
-      }}
-      isLoading={loading}
-    />
-  );
+  return <Button {...props} onPress={handlePress} isLoading={loading} />;
 };
 
 export default OkButton;
