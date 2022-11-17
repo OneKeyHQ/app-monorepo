@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -10,28 +10,48 @@ import {
   useThrottle,
 } from '../../../hooks';
 
+type TokenSearchRef = {
+  keyword: string;
+  count: number;
+  networkId?: string | null;
+};
+
 export const useTokenSearch = (keyword: string, networkId?: string | null) => {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<Token[]>([]);
+  const [result, setResult] = useState<Token[] | undefined>();
+  const ref = useRef<TokenSearchRef>({ keyword: '', count: 0 });
+
   useEffect(() => {
-    async function main() {
-      if (keyword.length === 0) {
+    ref.current.keyword = keyword;
+    ref.current.networkId = networkId;
+    async function search(pKeyword: string, pNetworkId?: string | null) {
+      if (pKeyword.length === 0) {
+        setResult(undefined);
         return;
       }
       setLoading(true);
       setResult([]);
       let tokens: Token[] = [];
       try {
+        ref.current.count += 1;
         tokens = await backgroundApiProxy.serviceSwap.searchTokens({
-          networkId: networkId ?? undefined,
+          networkId: pNetworkId ?? undefined,
           keyword,
         });
-        setResult(tokens);
+        if (
+          pKeyword === ref.current.keyword &&
+          pNetworkId === ref.current.networkId
+        ) {
+          setResult(tokens);
+        }
       } finally {
-        setLoading(false);
+        ref.current.count -= 1;
+        if (ref.current.count === 0) {
+          setLoading(false);
+        }
       }
     }
-    main();
+    search(keyword, networkId);
   }, [keyword, networkId]);
   return {
     loading,
