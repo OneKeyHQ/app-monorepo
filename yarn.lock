@@ -5421,6 +5421,7 @@ __metadata:
     realm: 11.0.0-rc.0
     redux-flipper: ^2.0.2
     rimraf: ^3.0.2
+    stream-http: ^3.2.0
     text-encoding: ^0.7.0
     v8-android-jit: ^10.100.1
     vision-camera-code-scanner: ^0.2.0
@@ -19766,7 +19767,7 @@ colour@latest:
   resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=2cadf288224242cec715a2e260f872235c58874c"
   peerDependencies:
     react-native: ">= 0.60"
-  checksum: 1137e8771ff8d40268a40b786413ca27b4beed2da27707627433e50a04ed0fba91e1e200458d988bdc95605a99b1e157933887f683df3bfdfa45cba632beb098
+  checksum: 6a1feb9f66c55bed4a983e44a8865635f9b7a6e7b65b74aa1ddf28770f99adf0283bd9d4f6cbbbf0445abc55b3361beb0f2ecbc072b0a6a38afd190277f341ad
   languageName: node
   linkType: hard
 
@@ -28556,6 +28557,18 @@ optjs@latest:
     to-arraybuffer: ^1.0.0
     xtend: ^4.0.0
   checksum: f57dfaa21a015f72e6ce6b199cf1762074cfe8acf0047bba8f005593754f1743ad0a91788f95308d9f3829ad55742399ad27b4624432f2752a08e62ef4346e05
+  languageName: node
+  linkType: hard
+
+"stream-http@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "stream-http@npm:3.2.0"
+  dependencies:
+    builtin-status-codes: ^3.0.0
+    inherits: ^2.0.4
+    readable-stream: ^3.6.0
+    xtend: ^4.0.2
+  checksum: c9b78453aeb0c84fcc59555518ac62bacab9fa98e323e7b7666e5f9f58af8f3155e34481078509b02929bd1268427f664d186604cdccee95abc446099b339f83
   languageName: node
   linkType: hard
 
