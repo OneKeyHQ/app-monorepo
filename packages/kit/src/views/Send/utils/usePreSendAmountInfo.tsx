@@ -91,7 +91,6 @@ export function usePreSendAmountInfo({
     [getInputText, isFiatMode],
   );
   const onTextChange = (text0: string) => {
-    console.log('text---', text0);
     const normalizedText = text0.replace(/。/g, '.');
     // delete action
     if (normalizedText.length < text.length) {
