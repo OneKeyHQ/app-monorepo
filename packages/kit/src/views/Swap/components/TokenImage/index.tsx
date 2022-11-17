@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 
-import { Box, NetImage, Typography } from '@onekeyhq/components';
+import { Box, Image, Typography } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useNetwork } from '../../../../hooks';
@@ -17,10 +17,17 @@ export const TokenImage: FC<TokenImageProps> = ({ token }) => {
   }
   return (
     <Box flexDirection="row" alignItems="center">
-      <Box mr="2" borderRadius="full" overflow="hidden">
-        <NetImage
-          width={8}
-          height={8}
+      <Box
+        mr="2"
+        w="8"
+        h="8"
+        borderRadius="full"
+        overflow="hidden"
+        bgColor="surface-neutral-default"
+      >
+        <Image
+          width="8"
+          height="8"
           src={token.logoURI}
           bgColor="surface-neutral-default"
         />

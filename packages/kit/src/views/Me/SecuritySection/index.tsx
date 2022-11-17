@@ -146,6 +146,39 @@ export const SecuritySection = () => {
               </Box>
             </Pressable>
           ) : undefined}
+          <Pressable
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            py={4}
+            px={{ base: 4, md: 6 }}
+            borderBottomWidth="1"
+            borderBottomColor="divider"
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Password,
+                params: { screen: PasswordRoutes.PasswordRoutes },
+              });
+            }}
+          >
+            <Icon name="KeyOutline" />
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex="1"
+              numberOfLines={1}
+              mx={3}
+            >
+              {intl.formatMessage({
+                id: isPasswordSet
+                  ? 'form__change_password'
+                  : 'title__set_password',
+              })}
+            </Text>
+            <Box>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Box>
+          </Pressable>
           {isSupportWebAuthn ? (
             <Pressable
               display="flex"
@@ -185,39 +218,6 @@ export const SecuritySection = () => {
               </Box>
             </Pressable>
           ) : undefined}
-          <Pressable
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            py={4}
-            px={{ base: 4, md: 6 }}
-            borderBottomWidth="1"
-            borderBottomColor="divider"
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.Password,
-                params: { screen: PasswordRoutes.PasswordRoutes },
-              });
-            }}
-          >
-            <Icon name="KeyOutline" />
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              flex="1"
-              numberOfLines={1}
-              mx={3}
-            >
-              {intl.formatMessage({
-                id: isPasswordSet
-                  ? 'form__change_password'
-                  : 'title__set_password',
-              })}
-            </Text>
-            <Box>
-              <Icon name="ChevronRightSolid" size={20} />
-            </Box>
-          </Pressable>
           {isOk && isPasswordSet ? (
             <Pressable
               display="flex"
