@@ -1,5 +1,4 @@
 import Axios, { AxiosError, AxiosInstance } from 'axios';
-import { isEmpty } from 'lodash';
 
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 
@@ -106,7 +105,18 @@ export class CosmosNodeClient {
     const { code } = resp.data.tx_response;
 
     if (code != null && code !== 0) {
-      // account sequence mismatch, expected 5, got 4
+      if (rawLog.indexOf('account sequence mismatch') !== -1) {
+        throw new OneKeyInternalError(
+          rawLog,
+          'msg__broadcast_tx_sequence_number_error',
+        );
+      }
+      if (rawLog.indexOf('insufficient fees') !== -1) {
+        throw new OneKeyInternalError(
+          rawLog,
+          'msg__broadcast_tx_Insufficient_fee',
+        );
+      }
       throw new OneKeyInternalError(rawLog);
     }
 

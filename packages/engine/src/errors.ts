@@ -82,6 +82,13 @@ export class NotImplemented extends OneKeyError {
 
 export class OneKeyInternalError extends OneKeyError {
   override key = 'msg__engine__internal_error';
+
+  constructor(message?: string, key?: LocaleIds) {
+    super(message || 'OneKeyError: Internal error', {});
+    if (key) {
+      this.key = key;
+    }
+  }
 }
 
 export class OneKeyHardwareError<
