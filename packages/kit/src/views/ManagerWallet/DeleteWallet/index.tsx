@@ -6,6 +6,8 @@ import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroun
 import { CheckBox, Dialog, useToast } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
+import { useNavigationActions } from '../../../hooks';
+
 export type DeleteWalletProp = {
   walletId: string;
   password: string | undefined;
@@ -26,6 +28,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   const intl = useIntl();
   const toast = useToast();
   const { engine, serviceAccount } = backgroundApiProxy;
+  const { closeWalletSelector } = useNavigationActions();
 
   const { walletId, password, hardware } = deleteWallet ?? {};
   const [isLoading, setIsLoading] = React.useState(false);
@@ -93,6 +96,9 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
                 ),
               });
               onClose?.();
+              setTimeout(() => {
+                closeWalletSelector();
+              }, 600);
             })
             .catch((e) => {
               toast.show({

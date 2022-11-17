@@ -47,6 +47,11 @@ export class ProtoSignDoc {
     return this._txBody;
   }
 
+  set txBody(txBody: TxBody) {
+    this._txBody = txBody;
+    this.signDoc.bodyBytes = bytesToHex(TxBody.encode(txBody).finish());
+  }
+
   get txMsgs(): UnpackedMessage[] {
     const msgs: UnpackedMessage[] = [];
     for (const msg of this.txBody.messages) {

@@ -79,6 +79,7 @@ function ConnectionContent({
   account,
   origin,
   hostname,
+  network,
 }: {
   account: IAccount | null;
   network: INetwork | null;
@@ -221,7 +222,11 @@ function ConnectionContent({
           </HStack>
         </HStack>
       </VStack>
-      <DappSecurityView origin={origin} hostname={hostname} />
+      <DappSecurityView
+        origin={origin}
+        hostname={hostname}
+        networkId={network?.id ?? ''}
+      />
     </VStack>
   );
 }

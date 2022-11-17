@@ -271,6 +271,10 @@ export default async function showHardwarePopup({
     const result = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
     );
+    await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+    ]);
 
     if (
       result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||

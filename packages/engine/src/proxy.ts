@@ -48,6 +48,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TBTC,
   SEPERATOR,
 } from './constants';
 import { NotImplemented, OneKeyInternalError } from './errors';
@@ -104,7 +105,11 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
   implOptions = { ...implOptions, chainId };
 
   let code = dbNetwork.id;
-  if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(dbNetwork.impl)) {
+  if (
+    [IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH, IMPL_TBTC].includes(
+      dbNetwork.impl,
+    )
+  ) {
     code = dbNetwork.impl;
   }
 

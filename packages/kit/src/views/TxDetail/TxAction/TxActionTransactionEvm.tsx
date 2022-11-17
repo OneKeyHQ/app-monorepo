@@ -8,11 +8,14 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
+import {
+  TxActionElementAddressNormal,
+  getTxActionElementAddressWithSecurityInfo,
+} from '../elements/TxActionElementAddress';
 import { ITxActionCardProps, ITxActionElementDetail } from '../types';
 
 export function TxActionTransactionEvm(props: ITxActionCardProps) {
-  const { decodedTx, action, meta } = props;
+  const { decodedTx, action, meta, network } = props;
   const encodedTx =
     (decodedTx.encodedTx as IEncodedTxEvm | undefined) || action.evmInfo;
   const intl = useIntl();
@@ -21,17 +24,21 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
     encodedTx?.from
       ? {
           title: intl.formatMessage({ id: 'content__from' }),
-          content: (
-            <TxActionElementAddressNormal address={encodedTx?.from || ''} />
-          ),
+          content: getTxActionElementAddressWithSecurityInfo({
+            address: encodedTx.from || '',
+            networkId: network?.id,
+            withSecurityInfo: false,
+          }),
         }
       : null,
     encodedTx?.to
       ? {
           title: intl.formatMessage({ id: 'content__to' }),
-          content: (
-            <TxActionElementAddressNormal address={encodedTx?.to || ''} />
-          ),
+          content: getTxActionElementAddressWithSecurityInfo({
+            address: encodedTx.to || '',
+            networkId: network?.id,
+            withSecurityInfo: true,
+          }),
         }
       : null,
     encodedTx?.data

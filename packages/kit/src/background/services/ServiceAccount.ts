@@ -255,7 +255,7 @@ class ServiceAccount extends ServiceBase {
     //   - first non-empty wallet
     //   - first hd or hw wallet
     //   - first imported or watching wallet
-    const { id: walletId } =
+    const { id: walletId, accounts } =
       // wallet not empty?
       wallets.find(($wallet) => $wallet.accounts.length > 0) ??
         // HD or HW type?
@@ -263,9 +263,13 @@ class ServiceAccount extends ServiceBase {
         // imported or watching?
         wallets.find(($wallet) =>
           ['imported', 'watching'].includes($wallet.type),
-        ) ?? { id: null };
+        ) ?? { id: null, accounts: [] };
 
-    this.changeActiveAccount({ accountId: null, walletId });
+    if (walletId && accounts && accounts.length) {
+      this.changeActiveAccount({ accountId: null, walletId });
+    } else {
+      this.changeActiveAccount({ accountId: null, walletId: null });
+    }
   }
 
   @backgroundMethod()

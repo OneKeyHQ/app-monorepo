@@ -8,13 +8,13 @@ import { fallbackTextComponent } from '../utils/utilsTxDetail';
 export function TxActionElementDetailCellTitleText(
   props: ComponentProps<typeof Text>,
 ) {
-  return <Text typography="Body1Strong" color="text-subdued" {...props} />;
+  return <Text typography="Body2Strong" color="text-subdued" {...props} />;
 }
 
 export function TxActionElementDetailCellContentText(
   props: ComponentProps<typeof Text>,
 ) {
-  return <Text typography="Body1Strong" {...props} />;
+  return <Text typography="Body2Strong" {...props} />;
 }
 
 export function TxActionElementDetailCell(props: ITxActionElementDetail) {

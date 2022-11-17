@@ -190,6 +190,15 @@ class ServiceNetwork extends ServiceBase {
   }) {
     return fetchChainList(params);
   }
+
+  @backgroundMethod()
+  async getNetworkWithRuntime(networkId: string) {
+    const { appSelector } = this.backgroundApi;
+    const network = appSelector((s) =>
+      s.runtime.networks.find((n) => n.id === networkId),
+    );
+    return Promise.resolve(network);
+  }
 }
 
 export default ServiceNetwork;

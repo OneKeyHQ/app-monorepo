@@ -11,6 +11,7 @@ import {
   COINTYPE_NEAR,
   COINTYPE_SOL,
   COINTYPE_STC,
+  COINTYPE_TBTC,
   COINTYPE_TRON,
   IMPL_ALGO,
   IMPL_APTOS,
@@ -24,6 +25,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TBTC,
   IMPL_TRON,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
@@ -36,6 +38,7 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_STC]: [44],
   [IMPL_CFX]: [44],
   [IMPL_BTC]: [49, 44, 84],
+  [IMPL_TBTC]: [49, 44, 84],
   [IMPL_TRON]: [44],
   [IMPL_APTOS]: [44],
   [IMPL_DOGE]: [44],
@@ -57,6 +60,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_STC]: `m/44'/${COINTYPE_STC}'/0'/0'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_CFX]: `m/44'/${COINTYPE_CFX}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_BTC]: `m/${PURPOSE_TAG}'/${COINTYPE_BTC}'/${INCREMENT_LEVEL_TAG}'`,
+  [COINTYPE_TBTC]: `m/${PURPOSE_TAG}'/${COINTYPE_TBTC}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_TRON]: `m/44'/${COINTYPE_TRON}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_DOGE]: `m/44'/${COINTYPE_DOGE}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_LTC]: `m/${PURPOSE_TAG}'/${COINTYPE_LTC}'/${INCREMENT_LEVEL_TAG}'`,

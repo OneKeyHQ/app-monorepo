@@ -23,6 +23,9 @@ const COINTYPE_CFX = '503';
 const IMPL_BTC = 'btc';
 const COINTYPE_BTC = '0';
 
+const IMPL_TBTC = 'tbtc';
+const COINTYPE_TBTC = '1';
+
 const IMPL_TRON = 'tron';
 const COINTYPE_TRON = '195';
 
@@ -46,6 +49,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_NEAR,
   IMPL_CFX,
   IMPL_BTC,
+  IMPL_TBTC,
   IMPL_SOL,
   IMPL_STC,
   IMPL_TRON,
@@ -62,6 +66,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_NEAR,
   IMPL_CFX,
   IMPL_BTC,
+  IMPL_TBTC,
   IMPL_SOL,
   IMPL_STC,
   IMPL_TRON,
@@ -116,6 +121,8 @@ export {
   COINTYPE_CFX,
   IMPL_BTC,
   COINTYPE_BTC,
+  IMPL_TBTC,
+  COINTYPE_TBTC,
   IMPL_TRON,
   COINTYPE_TRON,
   IMPL_APTOS,
@@ -132,4 +139,4 @@ export {
 };
 
 // switch network default rpc to onekey rpc node
-export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.18.0';
+export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.19.0';
