@@ -74,7 +74,7 @@ const VerifiedTokens: React.FC = () => {
         </Text>
         {safe?.length === 0 ? null : (
           <Pressable w="full" onPress={goRiskDetail}>
-            <HStack mt="9" mb="8" w="full" alignItems="center">
+            <HStack mt="9" w="full" alignItems="center">
               <Image size="40px" source={NoRisks} />
               <VStack flex="1" ml="3">
                 <Typography.Body1Strong mb="1">
@@ -97,7 +97,7 @@ const VerifiedTokens: React.FC = () => {
             </HStack>
           </Pressable>
         )}
-        <Typography.Subheading w="full" mb="2">
+        <Typography.Subheading w="full" mb="2" mt="8">
           {intl.formatMessage({ id: 'form__token_lists__uppercase' })}
         </Typography.Subheading>
       </Box>
@@ -140,7 +140,7 @@ const VerifiedTokens: React.FC = () => {
     [source],
   );
 
-  if (loading) {
+  if (loading || checkLoading) {
     return (
       <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={null}>
         <Center flex={1}>

@@ -3,7 +3,7 @@ import React, { ComponentProps, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
-import { Text } from '@onekeyhq/components';
+import { Text, VStack } from '@onekeyhq/components';
 import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 
 import { formatBalanceDisplay } from '../../../components/Format';
@@ -12,7 +12,8 @@ import { ITxActionAmountProps } from '../types';
 import { TxActionElementPressable } from './TxActionElementPressable';
 
 export function TxActionElementAmount(props: ITxActionAmountProps) {
-  const { direction, amount, symbol, onPress, decimals, ...others } = props;
+  const { direction, amount, symbol, onPress, decimals, subText, ...others } =
+    props;
   const directionMeta = useMemo(() => {
     let sign = '';
     let color: string | undefined = 'text-default';
@@ -47,19 +48,22 @@ export function TxActionElementAmount(props: ITxActionAmountProps) {
   }, [amount, amountBN, decimals]);
 
   const content = (
-    <Text
-      testID="TxActionElementAmount"
-      numberOfLines={2}
-      isTruncated
-      color={directionMeta.color}
-      {...others}
-    >
-      {directionMeta.sign}
-      {amountText} {symbol}
-    </Text>
+    <VStack flex="1">
+      <Text
+        testID="TxActionElementAmount"
+        numberOfLines={2}
+        isTruncated
+        color={directionMeta.color}
+        {...others}
+      >
+        {directionMeta.sign}
+        {amountText} {symbol}
+      </Text>
+      {subText}
+    </VStack>
   );
   return onPress ? (
-    <TxActionElementPressable onPress={onPress}>
+    <TxActionElementPressable onPress={onPress} flex={1}>
       {content}
     </TxActionElementPressable>
   ) : (

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { TokenSource } from '@onekeyhq/engine/src/managers/token';
 import {
+  GoPlusAddressSecurity,
   GoPlusSupportApis,
   GoPlusTokenSecurity,
 } from '@onekeyhq/engine/src/types/goplus';
@@ -97,6 +98,37 @@ export const useTokenSecurityInfo = (networkId?: string, address?: string) => {
         networkId,
         address,
         apiName: GoPlusSupportApis.token_security,
+      })
+      .then(setData)
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [networkId, address]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return {
+    loading,
+    data,
+  };
+};
+
+export const useAddressSecurityInfo = (networkId: string, address: string) => {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<(keyof GoPlusAddressSecurity)[]>();
+
+  const fetch = useCallback(() => {
+    if (!networkId || !address) {
+      return;
+    }
+    setLoading(true);
+    backgroundApiProxy.serviceToken
+      .getAddressRiskyItems({
+        address,
+        networkId,
+        apiName: GoPlusSupportApis.address_security,
       })
       .then(setData)
       .finally(() => {

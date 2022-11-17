@@ -2,19 +2,13 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Text, Typography } from '@onekeyhq/components';
-import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { Box, Text } from '@onekeyhq/components';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
-import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
-import {
-  TxListActionBox,
-  TxListActionBoxExtraText,
-} from '../components/TxListActionBox';
+import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
-import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,
