@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect } from 'react';
+import React, { ComponentProps, useCallback, useLayoutEffect } from 'react';
 
 import {
   Box,
@@ -72,12 +72,14 @@ export function ListItemBase({
   text,
   onPress,
   isSelected,
+  labelProps,
 }: {
   text: string | undefined;
   leftView?: any;
   rightView?: any;
   onPress?: () => void;
   isSelected?: boolean;
+  labelProps?: ComponentProps<typeof Text>;
 }) {
   return (
     <Box px={2}>
@@ -97,6 +99,7 @@ export function ListItemBase({
           mx={3}
           typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
           isTruncated
+          {...labelProps}
         >
           {text}
         </Text>

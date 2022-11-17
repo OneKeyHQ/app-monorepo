@@ -2,8 +2,8 @@ import React, { ReactNode, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Select } from '@onekeyhq/components';
-import { SelectItem } from '@onekeyhq/components/src/Select';
+import { Box, Icon, Select, useIsVerticalLayout } from '@onekeyhq/components';
+import { IDropdownProps, SelectItem } from '@onekeyhq/components/src/Select';
 
 import { useNavigationActions } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -18,7 +18,9 @@ import { EWalletDataSectionType } from '../hooks/useWalletSelectorSectionData';
 export function WalletCreateSelectDropdown({
   renderTrigger,
   walletType,
+  dropdownProps,
 }: {
+  dropdownProps?: IDropdownProps;
   walletType: EWalletDataSectionType;
   renderTrigger?: (options: {
     activeOption: SelectItem;
@@ -30,19 +32,44 @@ export function WalletCreateSelectDropdown({
   }) => ReactNode;
 }) {
   const intl = useIntl();
+  const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();
   const { closeWalletSelector } = useNavigationActions();
   const options = useMemo(() => {
     if (walletType === 'hd') {
       return [
         {
+          leading: (
+            <Box alignSelf="flex-start">
+              <Icon
+                name={
+                  isVerticalLayout ? 'PlusCircleOutline' : 'PlusCircleSolid'
+                }
+                size={isVerticalLayout ? 24 : 20}
+              />
+            </Box>
+          ),
           label: intl.formatMessage({
+            id: 'action__create_wallet' as any,
+          }),
+          description: intl.formatMessage({
             id: 'content__generate_new_recovery_phrase' as any,
           }),
           value: 'create',
         },
         {
+          leading: (
+            <Box alignSelf="flex-start">
+              <Icon
+                name={isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid'}
+                size={isVerticalLayout ? 24 : 20}
+              />
+            </Box>
+          ),
           label: intl.formatMessage({
+            id: 'action__restore_wallet' as any,
+          }),
+          description: intl.formatMessage({
             id: 'content__import_existing_recovery_phrase' as any,
           }),
           value: 'import',
@@ -50,7 +77,7 @@ export function WalletCreateSelectDropdown({
       ];
     }
     return [];
-  }, [walletType, intl]);
+  }, [walletType, isVerticalLayout, intl]);
 
   return (
     <Select
@@ -78,14 +105,13 @@ export function WalletCreateSelectDropdown({
       dropdownPosition="right"
       footer={null}
       headerShown={false}
+      title={intl.formatMessage({ id: 'action__add_app_wallet' })}
       activatable={false}
       containerProps={{
         width: 'auto',
         zIndex: 5,
       }}
-      dropdownProps={{
-        width: 248,
-      }}
+      dropdownProps={dropdownProps}
       options={options}
       renderTrigger={({ onPress, ...others }) => {
         const onPressTrigger = () => {

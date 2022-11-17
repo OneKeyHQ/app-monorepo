@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   Icon,
   IconButton,
   SectionList,
@@ -83,22 +84,6 @@ function SectionHeader({
       <Typography.Subheading flex={1} color="text-subdued">
         {label}
       </Typography.Subheading>
-      <Box>
-        {showAddIconButton ? (
-          <WalletCreateSelectDropdown
-            walletType={type}
-            renderTrigger={({ onPress }) => (
-              <IconButton
-                onPress={onPress}
-                type="plain"
-                name="PlusSolid"
-                circle
-                hitSlop={8}
-              />
-            )}
-          />
-        ) : null}
-      </Box>
     </Box>
   );
 }
@@ -185,12 +170,8 @@ function Body() {
             />
           );
         }}
-        ItemSeparatorComponent={() => <Box h={1} />} // The spacing between items within a section
         renderSectionFooter={({ section }: { section: IWalletDataSection }) => {
-          console.log({ section });
-          const isEmptyData = !section?.data?.length;
-          if (isEmptyData) {
-            const createNewButton = null;
+          if (section.type !== EWalletDataSectionType.other) {
             const iconFontSizeMap: { [size: string]: number } = {
               'xs': 24,
               'sm': 32,
@@ -199,30 +180,50 @@ function Body() {
             };
             const iconSizeName = platformEnv.isNative ? 'lg' : 'sm';
             const iconSize = iconFontSizeMap[iconSizeName];
-            let leftView: JSX.Element | null = null;
             let text = '';
             if (section.type === EWalletDataSectionType.hd) {
               text = intl.formatMessage({ id: 'action__add_app_wallet' });
-              leftView = <Icon size={iconSize} name="PlusSolid" />;
             }
             if (section.type === EWalletDataSectionType.hw) {
               text = intl.formatMessage({
-                id: 'action__connect_hardware_wallet' as any,
+                id: 'action__add_hardware_wallet' as any,
               });
-              leftView = <Icon size={iconSize} name="ConnectOutline" />;
             }
             return (
               <>
-                <WalletCreateSelectDropdown
-                  walletType={section.type}
-                  renderTrigger={({ onPress }) => (
-                    <ListItemBase
-                      onPress={onPress}
-                      leftView={leftView}
-                      text={text}
-                    />
-                  )}
-                />
+                <Box px="8px">
+                  <WalletCreateSelectDropdown
+                    dropdownProps={{ width: '302px' }}
+                    walletType={section.type}
+                    renderTrigger={({ onPress }) => (
+                      <Box mx="-8px">
+                        <ListItemBase
+                          onPress={onPress}
+                          leftView={
+                            <Center
+                              size={`${iconSize}px`}
+                              borderWidth={1}
+                              borderColor="border-default"
+                              borderStyle="dashed"
+                              borderRadius="full"
+                            >
+                              <Icon
+                                size={platformEnv.isNative ? 24 : 20}
+                                name={
+                                  platformEnv.isNative
+                                    ? 'PlusSmOutline'
+                                    : 'PlusSmSolid'
+                                }
+                              />
+                            </Center>
+                          }
+                          text={text}
+                          labelProps={{ color: 'text-subdued' }}
+                        />
+                      </Box>
+                    )}
+                  />
+                </Box>
                 <Box h={6} />
               </>
             );

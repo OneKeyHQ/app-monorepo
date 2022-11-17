@@ -28,6 +28,7 @@ function Leading<T>({ option }: { option: SelectItem<T> }) {
   // hooks only available in React component
   return (
     <>
+      {!!option.leading && option.leading}
       {!!option.tokenProps && (
         <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
       )}
@@ -120,9 +121,9 @@ function RenderSingleOption<T>({
                 : undefined
             }
           >
-            {(!!option.tokenProps || !!option.iconProps) && (
-              <Leading option={option} />
-            )}
+            {(!!option.tokenProps ||
+              !!option.iconProps ||
+              !!option.leading) && <Leading option={option} />}
             <OptionText />
             {!!option.trailing && option.trailing}
             {!!isActive && !!activatable && <SelectedIndicator />}
