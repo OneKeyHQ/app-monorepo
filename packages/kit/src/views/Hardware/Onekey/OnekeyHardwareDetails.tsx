@@ -1,10 +1,6 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  SupportFeatureType,
-  getDeviceType,
-  getDeviceUUID,
-} from '@onekeyfe/hd-core';
+import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 

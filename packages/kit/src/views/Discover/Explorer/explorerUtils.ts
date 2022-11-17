@@ -98,6 +98,7 @@ export type OnWebviewNavigation = ({
   canGoBack,
   canGoForward,
   loading,
+  id,
 }: {
   url?: string;
   title?: string;
@@ -107,6 +108,7 @@ export type OnWebviewNavigation = ({
   canGoBack?: boolean;
   canGoForward?: boolean;
   loading?: boolean;
+  id?: string;
 }) => void;
 
 if (process.env.NODE_ENV !== 'production') {

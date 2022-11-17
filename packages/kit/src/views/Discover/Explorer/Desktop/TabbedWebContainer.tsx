@@ -9,35 +9,31 @@ import { Box } from '@onekeyhq/components';
 import { homeTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
+import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
+import { useIncomingUrl } from '../Controller/useIncomingUrl';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
-import { useWebController } from '../Controller/useWebController';
+import { useWebTabs } from '../Controller/useWebTabs';
 
 const TabbedWebContainer = memo(() => {
   useNotifyChanges();
-  const {
-    gotoSite,
-    tabs,
-    incomingUrl,
-    clearIncomingUrl,
-    currentTab,
-    openMatchDApp,
-  } = useWebController();
+  const { tabs, tab } = useWebTabs();
+  const { incomingUrl, clearIncomingUrl } = useIncomingUrl();
 
-  const showHome = currentTab.url === homeTab.url;
+  const showHome = tab?.url === homeTab.url;
   useFocusEffect(
     useCallback(() => {
       if (incomingUrl) {
         gotoSite({ url: incomingUrl, isNewWindow: true });
         clearIncomingUrl();
       }
-    }, [clearIncomingUrl, gotoSite, incomingUrl]),
+    }, [clearIncomingUrl, incomingUrl]),
   );
 
   return (
     <Box flex={1} zIndex={3}>
-      {tabs.map((tab) => (
-        <Freeze key={tab.id} freeze={!tab.isCurrent}>
-          <WebContent {...tab} />
+      {tabs.map((t) => (
+        <Freeze key={t.id} freeze={!t.isCurrent}>
+          <WebContent {...t} />
         </Freeze>
       ))}
       <View

@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -37,6 +37,9 @@ export const ControllerBarMobile: FC = () => {
   const tabBarHeight = useFloatingBottomTabBarHeight();
   const { canGoForward } = currentTab;
   const { dispatch } = backgroundApiProxy;
+  const addNewTab = useCallback(() => {
+    dispatch(addWebTab({ ...homeTab }));
+  }, [dispatch]);
 
   const pageController = (
     <Animated.View
@@ -70,13 +73,7 @@ export const ControllerBarMobile: FC = () => {
       >
         <Icon color="icon-pressed" name="ChevronRightSolid" />
       </Button>
-      <Button
-        flex={1}
-        type="plain"
-        onPress={() => {
-          dispatch(addWebTab({ ...homeTab }));
-        }}
-      >
+      <Button flex={1} type="plain" onPress={addNewTab}>
         <Icon color="icon-pressed" name="PlusCircleSolid" />
       </Button>
       <Button type="plain" flex={1} onPress={showTabGrid}>
@@ -121,13 +118,7 @@ export const ControllerBarMobile: FC = () => {
       <Button flex={1} type="plain" onPress={hideTabGrid}>
         <Icon color="icon-pressed" name="ChevronLeftSolid" />
       </Button>
-      <Button
-        flex={1}
-        type="plain"
-        onPress={() => {
-          dispatch(addWebTab({ ...homeTab }));
-        }}
-      >
+      <Button flex={1} type="plain" onPress={addNewTab}>
         <Icon color="icon-pressed" name="PlusCircleSolid" />
       </Button>
       <Button

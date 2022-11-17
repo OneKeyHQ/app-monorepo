@@ -100,7 +100,7 @@ const WebTabCard: FC<
   </Pressable>
 );
 const WebTabGrid = () => {
-  const tabs = useWebTabs();
+  const { tabs } = useWebTabs();
   const { width } = useWindowDimensions();
   const cellWidth = (width - CELL_GAP * 3) / 2;
 

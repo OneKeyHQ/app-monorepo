@@ -9,7 +9,6 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useActiveWalletAccount } from './redux';
-import { useAppSelector } from './useAppSelector';
 import {
   useAccountTokenLoading,
   useAccountTokens,

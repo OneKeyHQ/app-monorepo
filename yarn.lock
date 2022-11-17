@@ -5440,7 +5440,7 @@ __metadata:
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
     moti: ^0.20.0
-    native-base: 3.4.22
+    native-base: 3.4.21
     qrcode: ^1.5.0
     react-content-loader: ^6.1.0
     react-hook-form: ^7.22.1
@@ -22728,9 +22728,9 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"native-base@npm:3.4.22":
-  version: 3.4.22
-  resolution: "native-base@npm:3.4.22"
+"native-base@npm:3.4.21":
+  version: 3.4.21
+  resolution: "native-base@npm:3.4.21"
   dependencies:
     "@react-aria/focus": 3.2.3
     "@react-aria/utils": ^3.6.0
@@ -22779,7 +22779,7 @@ colour@latest:
     react-native: "*"
     react-native-safe-area-context: "*"
     react-native-svg: "*"
-  checksum: c50ac5d5d20123876acf8333cccaf692bc922e6e00fccf76e3ebcc9b5cd9612f94d227ec820ded1bbc7d3479ca88045d5b972561b8644efcd230092649c3867f
+  checksum: c179283b8512665bb6ee70e5e8bc1a79fb123754f24299bdbc5b88fea5f80c36e42bb3d54c7dbfdb74c3d57f0701a36d97ee5934ec464038960c0e46524dd19d
   languageName: node
   linkType: hard
 

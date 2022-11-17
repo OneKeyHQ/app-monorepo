@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable react/destructuring-assignment */
 /* eslint-disable @typescript-eslint/no-shadow */
-import * as React from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   Header,
@@ -10,7 +10,6 @@ import {
   getHeaderTitle,
 } from '@react-navigation/elements';
 import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import { useIsVerticalLayout, useThemeValue } from '../../../Provider/hooks';
 import NavigationBar from '../../NavigationBar';
@@ -53,14 +52,14 @@ export default function BottomTabView(props: Props) {
   } = props;
 
   const focusedRouteKey = state.routes[state.index].key;
-  const [loaded, setLoaded] = React.useState([focusedRouteKey]);
+  const [loaded, setLoaded] = useState([focusedRouteKey]);
 
   if (!loaded.includes(focusedRouteKey)) {
     setLoaded([...loaded, focusedRouteKey]);
   }
 
   const dimensions = SafeAreaProviderCompat.initialMetrics.frame;
-  const [tabBarHeight, setTabBarHeight] = React.useState(() =>
+  const [tabBarHeight, setTabBarHeight] = useState(() =>
     getTabBarHeight({
       insets: {
         ...SafeAreaProviderCompat.initialMetrics.insets,
@@ -69,7 +68,7 @@ export default function BottomTabView(props: Props) {
     }),
   );
 
-  const tabBar = React.useMemo(
+  const tabBar = useMemo(
     () => (
       <NavigationBar
         navigation={navigation}

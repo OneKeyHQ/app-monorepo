@@ -96,7 +96,7 @@ const AddTabButton: FC = () => (
 );
 
 const TabBarDesktop: FC = () => {
-  const { tabs } = useAppSelector((s) => s.webTabs);
+  const tabs = useAppSelector((s) => s.webTabs.tabs);
   const tabsExceptHome = useMemo(() => tabs.slice(1), [tabs]);
   const ref = useAnimatedRef<Animated.ScrollView>();
   useEffect(() => {

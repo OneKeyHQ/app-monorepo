@@ -250,6 +250,7 @@ export async function waitForDataLoaded({
 
         // eslint-disable-next-line no-undef
         if (logName && __DEV__) {
+          console.log(`waitForDataLoaded: ${logName}`);
         }
 
         await Promise.all(
