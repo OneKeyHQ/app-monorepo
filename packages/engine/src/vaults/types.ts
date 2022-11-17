@@ -27,7 +27,6 @@ import type {
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxTron } from './impl/tron/types';
-import type { IEncodedTxXrp } from './impl/xrp/types';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // Options ----------------------------------------------
@@ -49,8 +48,6 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
 
   minGasLimit?: number;
-
-  cannotSendToSelf?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -135,7 +132,6 @@ export type IEncodedTx =
   | IEncodedTxAptos
   | IEncodedTxCfx
   | IEncodedTxAlgo
-  | IEncodedTxXrp
   | IEncodedTxCosmos;
 export type INativeTx =
   | INativeTxEvm

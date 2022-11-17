@@ -37,6 +37,11 @@ const defaultNetworkRpcs: Record<string, string> = {
   'sol--101': 'https://solana-mainnet.phantom.tech/',
   'stc--1': 'https://main-seed.starcoin.org',
   'tron--0x2b6653dc': 'https://trx.mytokenpocket.vip',
+  'ltc--0': 'https://fiat.onekeycn.com/book/ltc',
+  'doge--0': 'https://fiat.onekeycn.com/book/doge',
+  'cfx--1029': 'https://main.confluxrpc.com',
+  'algo--4160': 'https://algosigner.api.purestake.io/mainnet/algod',
+  'evm--73927': 'https://geth.mvm.dev',
 };
 
 @backgroundClass()

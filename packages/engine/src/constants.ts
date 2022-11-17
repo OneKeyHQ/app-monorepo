@@ -41,9 +41,6 @@ const COINTYPE_LTC = '2';
 const IMPL_BCH = 'bch';
 const COINTYPE_BCH = '145';
 
-const IMPL_XRP = 'xrp';
-const COINTYPE_XRP = '144';
-
 const IMPL_COSMOS = 'cosmos';
 const COINTYPE_COSMOS = '118';
 
@@ -61,7 +58,6 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_LTC,
   IMPL_BCH,
   IMPL_ALGO,
-  IMPL_XRP,
   IMPL_COSMOS,
 ]);
 
@@ -79,7 +75,6 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_LTC,
   IMPL_BCH,
   IMPL_ALGO,
-  IMPL_XRP,
   IMPL_COSMOS,
 ]);
 
@@ -138,12 +133,10 @@ export {
   COINTYPE_LTC,
   IMPL_BCH,
   COINTYPE_BCH,
-  IMPL_XRP,
-  COINTYPE_XRP,
   IMPL_COSMOS,
   COINTYPE_COSMOS,
   getSupportedImpls,
 };
 
 // switch network default rpc to onekey rpc node
-export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.18.0';
+export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.19.0';
