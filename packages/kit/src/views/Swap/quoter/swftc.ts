@@ -358,7 +358,7 @@ export class SwftcQuoter implements Quoter {
         arrivalTime: 300,
         sellAmount: '',
         buyAmount: '',
-        percentageFee: data.rate.percentageFee
+        percentageFee: data.rate.percentageFee,
       };
       if (independentField === 'INPUT') {
         result.sellAmount = getTokenAmountString(tokenIn, typedValue);

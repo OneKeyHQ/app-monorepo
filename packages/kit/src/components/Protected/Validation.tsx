@@ -117,7 +117,7 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
               }),
             },
             maxLength: {
-              value: 24,
+              value: 128,
               message: intl.formatMessage({
                 id: 'msg__password_validation',
               }),
