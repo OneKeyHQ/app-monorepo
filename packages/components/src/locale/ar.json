@@ -17,7 +17,7 @@
   "action__add": "يضيف",
   "action__add_account": "إنشاء حساب",
   "action__add_alert": "إضافة تنبيه",
-  "action__add_app_wallet": "أضف محافظ APP",
+  "action__add_app_wallet": "أضف محفظة APP",
   "action__add_custom_chain": "أضف سلسلة مخصصة",
   "action__add_custom_tokens": "أضف رمز مخصص",
   "action__add_hidden_wallet": "أضف المحفظة المخفية",
@@ -58,8 +58,9 @@
   "action__close_all_tabs": "إغلاق كافة علامات التبويب",
   "action__confirm": "يتأكد",
   "action__connect": "الاتصال",
+  "action__connect_3rd_party_wallet": "قم بتوصيل محفظة الطرف الثالث",
   "action__connect_device": "قم بتوصيل الجهاز",
-  "action__connect_hardware_wallet": "ربط محافظ الأجهزة",
+  "action__connect_hardware_wallet": "ربط محفظة الأجهزة",
   "action__connect_onekey": "قم بتوصيل OneKey",
   "action__connect_onekey_extension": "ربط ملحق OneKey",
   "action__connect_str": "اتصال {0}",
@@ -334,6 +335,7 @@
   "content__collection": "مجموعة",
   "content__completed_lowercase": "منجز",
   "content__confirmed": "مؤكد",
+  "content__connect_3rd_party_wallet_desc": "MetaMask و Rainbow و Trust Wallet والمزيد ...",
   "content__connect_this_wallet_to_make_further_action": "قم بتوصيل هذه المحفظة للقيام بمزيد من الإجراءات.",
   "content__connect_wallet_as_external_account": "الاتصال بالمحفظة الثالثة كحساب خارجي",
   "content__connected": "متصل",
@@ -411,9 +413,9 @@
   "content__import_a_single_chain_wallet": "قم باستيراد محفظة أحادية السلسلة",
   "content__import_a_single_chain_wallet_desc": "قم باستيراد محفظتك ذات السلسلة الواحدة باستخدام مفتاح خاص أو ملف تخزين المفاتيح.",
   "content__import_address_as_watched_account": "استيراد العنوان العام كحساب مراقب",
-  "content__import_existing_recovery_phrase": "استيراد عبارة الاسترداد الموجودة",
   "content__import_or_watch_an_account": "{import} أو {watch} حساب",
   "content__import_private_key_as_imported_account": "استيراد المفتاح الخاص كحساب مستورد",
+  "content__import_wallet_desc": "استيراد عبارة الاسترداد الحالية أو المفتاح الخاص أو مشاهدة عنوان",
   "content__import_wallet_from_str": "استيراد المحفظة من {0}",
   "content__in_progress": "في تَقَدم",
   "content__in_the_rare_event_staked_eth_will_be_lost": "في حدث نادر ، سيتم فقد ETH المكدس.",
@@ -503,7 +505,7 @@
   "content__save_phrase_securely": "يرجى حفظ عبارة الاسترداد بشكل آمن",
   "content__search": "بحث...",
   "content__search_cryptos": "البحث في التشفير",
-  "content__search_dapps_or_type_url": "ابحث في dApps أو اكتب URL",
+  "content__search_dapps_or_type_url": "ابحث أو اكتب URL",
   "content__search_for_token_name_or_contract_address": "ابحث عن اسم الرمز أو عنوان العقد.",
   "content__search_or_enter_dapp_url": "ابحث أو أدخل عنوان URL لـ DApp ...",
   "content__search_token_or_contract_address": "ابحث عن رمز أو عنوان العقد",
@@ -1342,7 +1344,7 @@
   "msg__password_changed": "تم تغيير كلمة السر",
   "msg__password_has_been_set": "تم تعيين كلمة المرور",
   "msg__password_needs_to_be_the_same": "يجب أن تكون كلمة المرور هي نفسها لكلا الإدخالين.",
-  "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 24 حرفًا.",
+  "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 128 حرفًا.",
   "msg__price_alert_reached": "🔔 تنبيه السعر!",
   "msg__price_alert_reached_desc": "وصل {0} إلى القيمة المستهدفة {1}",
   "msg__received": "🤑 تم استلام {assets}",
@@ -1461,6 +1463,7 @@
   "title__best_channel": "أفضل قناة",
   "title__blockchain_explorer": "مستكشف Blockchain",
   "title__blockchain_explorer_desc": "ابحث عن عنوان أو عقد أو تجزئة txns أو الرموز المميزة.",
+  "title__browser": "المستعرض",
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
   "title__buy_str": "شراء {0}",
   "title__channel": "قناة",
@@ -1512,7 +1515,7 @@
   "title__market": "سوق",
   "title__me": "أنا",
   "title__menu": "قائمة",
-  "title__my_dapps": "dApps الخاصة بي",
+  "title__my_dapps": "مواقع الويب الخاصة بي",
   "title__newly_added": "مضاف حديثا",
   "title__news": "أخبار",
   "title__nfc_data_has_been_read": "الانتعاش جاهز",
@@ -1525,7 +1528,7 @@
   "title__no_connection": "لا يوجد اتصال",
   "title__no_connection_desc": "يرجى إعادة المحاولة أو التحقق من الشبكة",
   "title__no_favorite_dapp": "لا يوجد DApp مفضل",
-  "title__no_favorite_dapp_desc": "سيظهر DApp المفضل لديك هنا.",
+  "title__no_favorite_dapp_desc": "ستظهر مواقع الويب المفضلة لديك هنا.",
   "title__no_favorite_tokens": "لا توجد رموز مفضلة",
   "title__no_favorite_tokens_desc": "ستظهر الرموز المميزة المفضلة لديك هنا",
   "title__no_history": "لا تاريخ",
