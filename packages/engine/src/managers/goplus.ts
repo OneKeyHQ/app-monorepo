@@ -1,8 +1,10 @@
+import { networkList } from '@onekeyfe/network-list';
 import B from 'bignumber.js';
 import { uniq } from 'lodash';
 
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 
+import { OnekeyNetwork } from '../presets/networkIds';
 import {
   GoPlusAddressSecurity,
   GoPlusDappContract,
@@ -357,4 +359,22 @@ export const checkSite = async (
   const phishingItems = getSiteRiskyItems(phishing ?? {});
 
   return Array.from(new Set([...contractItems, ...phishingItems]));
+};
+
+export const fetchValidGoPlusChainId = async (
+  apiName: GoPlusSupportApis,
+  networkId: string,
+) => fetchData('/token/gp_valid_chain_id', { apiName, networkId }, undefined);
+
+export const getGpChainId = (networkId: string) => {
+  const network = networkList.networks.find((n) => n.id === networkId);
+  if (!network) {
+    return;
+  }
+  if (network.impl === 'evm') {
+    return network.chainId;
+  }
+  if (networkId === OnekeyNetwork.trx) {
+    return 'tron';
+  }
 };

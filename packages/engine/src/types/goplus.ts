@@ -277,3 +277,38 @@ export interface GoPlusDappContract {
   malicious_creator: number;
   malicious_creator_behavior: any[];
 }
+
+export interface GoPlusApproval {
+  token_address: string;
+  chain_id: string;
+  token_name: string;
+  token_symbol: string;
+  decimals: number;
+  balance: string;
+  is_open_source: number;
+  malicious_address: number;
+  malicious_behavior: string[];
+  approved_list: Approvedlist[];
+}
+
+interface Approvedlist {
+  approved_contract: string;
+  approved_amount: string;
+  approved_time: number;
+  hash: string;
+  address_info: Addressinfo;
+  approved_for_all?: number;
+  approved_token_id?: any;
+}
+
+export interface GoPlusNFTApproval {
+  nft_address: string;
+  chain_id: string;
+  nft_name: string;
+  nft_symbol: string;
+  is_open_source: number;
+  is_verified: number;
+  malicious_address: number;
+  malicious_behavior: string[];
+  approved_list: Approvedlist[];
+}

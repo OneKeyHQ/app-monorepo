@@ -1,8 +1,11 @@
+import { ok } from 'assert';
+
 import { providers as multicall } from '@0xsequence/multicall';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { Log } from '@ethersproject/abstract-provider';
 import ERC20Artifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
+import B from 'bignumber.js';
 import { Contract } from 'ethers';
 import {
   Interface,
@@ -12,13 +15,19 @@ import {
 } from 'ethers/lib/utils';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import {
+  fetchSecurityInfo,
+  fetchValidGoPlusChainId,
+} from '@onekeyhq/engine/src/managers/goplus';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import {
   BackendProvider,
   DUMMY_ADDRESS,
   DUMMY_ADDRESS_2,
+  ERC20TokenAllowance,
   ERC20TokenApproval,
   ERC721Allowance,
+  ERC721TokenAllowance,
   ERC721TokenApproval,
   Events,
   compareBN,
@@ -36,6 +45,11 @@ import {
   unpackResult,
   withFallback,
 } from '@onekeyhq/engine/src/managers/revoke';
+import {
+  GoPlusApproval,
+  GoPlusNFTApproval,
+  GoPlusSupportApis,
+} from '@onekeyhq/engine/src/types/goplus';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { Erc721MethodSelectors } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/abi';
@@ -47,6 +61,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appSelector } from '../../store';
+import { AssetType } from '../../views/Revoke/types';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -522,5 +537,180 @@ export default class ServiceRevoke extends ServiceBase {
       value: '0x0',
       data,
     });
+  }
+
+  @backgroundMethod()
+  async fetchGoPlusERC20TokenApproval(networkId: string, address: string) {
+    const { engine } = this.backgroundApi;
+    const readProvider = await this.getReadProvider(networkId);
+    if (!readProvider) {
+      return {
+        allowances: [],
+        prices: {},
+      };
+    }
+    const res = await fetchSecurityInfo<GoPlusApproval[]>({
+      networkId,
+      address,
+      apiName: GoPlusSupportApis.token_approval_security,
+    });
+
+    ok(!!res, 'fetch gp approval error');
+    const allowance = await Promise.all(
+      res.map(async (n) => {
+        const contract = new Contract(n.token_address, ERC20, readProvider);
+        const token = await engine.findToken({
+          networkId,
+          tokenIdOnNetwork: n.token_address,
+        });
+        const totalSupplyRes: any = await contract.functions.totalSupply();
+        // eslint-disable-next-line
+        const totalSupply = totalSupplyRes?.[0]?.toString?.();
+
+        return {
+          token,
+          balance: new B(n.balance)
+            .multipliedBy(10 ** (token?.decimals ?? 0))
+            .toString(),
+          totalSupply,
+          allowance: n.approved_list.map((a) => ({
+            spender: a.approved_contract,
+            allowance:
+              a.approved_amount === 'Unlimited'
+                ? new B(totalSupply).plus(1).toString()
+                : new B(a.approved_amount)
+                    .multipliedBy(10 ** (token?.decimals ?? 0))
+                    .toString(),
+          })),
+        };
+      }),
+    );
+
+    const addresses = allowance
+      .map((r) => r.token?.address?.toLowerCase())
+      .filter((a) => !!a) as string[];
+
+    const priceAndCharts = await engine.getPricesAndCharts(
+      networkId,
+      addresses,
+      false,
+    );
+    const prices: Record<string, string> = {};
+    for (const [id, price] of Object.entries(priceAndCharts[0])) {
+      prices[id] = price.toString();
+    }
+
+    return {
+      allowance,
+      prices,
+    };
+  }
+
+  async fetchGoPlusNFTApproval(networkId: string, address: string) {
+    const readProvider = await this.getReadProvider(networkId);
+    if (!readProvider) {
+      return {
+        allowances: [],
+        prices: {},
+      };
+    }
+    const erc721 = await fetchSecurityInfo<GoPlusNFTApproval[]>({
+      networkId,
+      address,
+      apiName: GoPlusSupportApis.nft721_approval_security,
+    });
+
+    ok(!!erc721, 'fetch gp erc721 nft approval error');
+    const erc1155 = await fetchSecurityInfo<GoPlusNFTApproval[]>({
+      networkId,
+      address,
+      apiName: GoPlusSupportApis.nft1155_approval_security,
+    });
+
+    ok(!!erc1155, 'fetch gp erc 1155 nft approval error');
+    const allowance = await Promise.all(
+      [...erc721, ...erc1155].map(async (n) => {
+        const contract = new Contract(
+          n.nft_address,
+          ERC721Metadata,
+          readProvider,
+        );
+
+        const balance = await withFallback(
+          convertString(unpackResult(contract.functions.balanceOf(address))),
+          'ERC1155',
+        );
+        return {
+          token: {
+            symbol: n.nft_symbol,
+            address: contract.address,
+            tokenIdOnNetwork: contract.address,
+            networkId,
+          },
+          balance,
+          allowance: n.approved_list.map((a) => ({
+            spender: a.approved_contract,
+            tokenId: a.approved_token_id,
+          })),
+        };
+      }),
+    );
+
+    return {
+      allowance,
+    };
+  }
+
+  @backgroundMethod()
+  async fetchTokenAllowance(
+    networkId: string,
+    addressOrName: string,
+    type: AssetType,
+  ): Promise<{
+    allowance: (ERC20TokenAllowance | ERC721TokenAllowance)[];
+    prices?: Record<string, string>;
+    address?: string;
+  }> {
+    const address = await this.getAddress(addressOrName);
+    const result = {
+      allowance: [],
+      prices: {},
+      address,
+    };
+    if (!address) {
+      return result;
+    }
+    try {
+      const chainId = await fetchValidGoPlusChainId(
+        type === AssetType.tokens
+          ? GoPlusSupportApis.token_approval_security
+          : GoPlusSupportApis.nft721_approval_security,
+        networkId,
+      );
+      if (chainId) {
+        if (type === AssetType.tokens) {
+          return Object.assign(result, {
+            ...(await this.fetchGoPlusERC20TokenApproval(networkId, address)),
+          });
+        }
+        return Object.assign(result, {
+          ...(await this.fetchGoPlusNFTApproval(networkId, address)),
+        });
+      }
+    } catch (e) {
+      // pass
+    }
+    if (type === AssetType.tokens) {
+      Object.assign(result, {
+        ...(await this.fetchERC20TokenAllowences(networkId, address)),
+      });
+    } else {
+      const res = await this.fetchERC721TokenAllowances(networkId, address);
+      Object.assign(result, {
+        allowance: res,
+      });
+    }
+
+    return result;
   }
 }

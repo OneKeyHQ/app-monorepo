@@ -69,7 +69,7 @@ const VerifiedTokens: React.FC = () => {
         <Text typography="DisplayXLarge" mt={3} mb="1">
           {intl.formatMessage({ id: 'title__verified_token' })}
         </Text>
-        <Text mt={2}>
+        <Text typography="Body1" mt={2}>
           {intl.formatMessage({ id: 'title__verified_token_desc' })}
         </Text>
         {safe?.length === 0 ? null : (
@@ -83,7 +83,7 @@ const VerifiedTokens: React.FC = () => {
                 {checkLoading ? (
                   <Skeleton shape="Body2" />
                 ) : (
-                  <Typography.Body2>
+                  <Typography.Body2 color="text-subdued">
                     {intl.formatMessage(
                       { id: 'form__no_risks_desc' },
                       {
@@ -97,7 +97,7 @@ const VerifiedTokens: React.FC = () => {
             </HStack>
           </Pressable>
         )}
-        <Typography.Subheading w="full" mb="2" mt="8">
+        <Typography.Subheading w="full" mb="2" mt="8" color="text-subdued">
           {intl.formatMessage({ id: 'form__token_lists__uppercase' })}
         </Typography.Subheading>
       </Box>
