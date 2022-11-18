@@ -8,7 +8,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
-import { get } from 'lodash';
+import { debounce, get } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -708,27 +708,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     return {};
   }
 
-  /**
-   * Add new chain to wallet and switch to it, we also need a request modal UI
-   * req: IJsBridgeMessagePayload,
-    {
-      chainId='0xf00',
-      chainName = null,
-      blockExplorerUrls = null,
-      nativeCurrency = null,
-      rpcUrls,
-    },
-   */
-  @providerApiMethod()
-  async wallet_addEthereumChain(
+  addEthereumChain = async (
     request: IJsBridgeMessagePayload,
     params: AddEthereumChainParameter,
-  ) {
+  ) => {
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
     const networkId = `evm--${parseInt(params.chainId)}`;
     const included = networks.some((network) => network.id === networkId);
     if (included) {
-      return this.wallet_switchEthereumChain(request, {
+      return this.switchEthereumChain(request, {
         chainId: params.chainId,
       });
     }
@@ -739,17 +727,16 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
     // Metamask return null
     return convertToEthereumChainResult(result as any);
-  }
+  };
+  addEthereumChainDebounced = debounce(this.addEthereumChain.bind(this), 800, {
+    leading: false,
+    trailing: true,
+  });
 
-  /**
-   * Add switch to a chain, we also need a request modal UI
-   * req: IJsBridgeMessagePayload, { chainId }
-   */
-  @providerApiMethod()
-  async wallet_switchEthereumChain(
+  switchEthereumChain = async (
     request: IJsBridgeMessagePayload,
     params: SwitchEthereumChainParameter,
-  ) {
+  ) => {
     // TODO debounced switch chain
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
     const networkId = `evm--${parseInt(params.chainId)}`;
@@ -772,6 +759,53 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
     // Metamask return null
     return convertToEthereumChainResult(result as any);
+  };
+  switchEthereumChainDebounced = debounce(
+    this.switchEthereumChain.bind(this),
+    800,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  /**
+   * Add new chain to wallet and switch to it, we also need a request modal UI
+   * req: IJsBridgeMessagePayload,
+   {
+      chainId='0xf00',
+      chainName = null,
+      blockExplorerUrls = null,
+      nativeCurrency = null,
+      rpcUrls,
+    },
+   */
+  @providerApiMethod()
+  async wallet_addEthereumChain(
+    request: IJsBridgeMessagePayload,
+    params: AddEthereumChainParameter,
+  ) {
+    // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
+    this.addEthereumChainDebounced(request, params);
+
+    // Metamask return null
+    return Promise.resolve(null);
+  }
+
+  /**
+   * Add switch to a chain, we also need a request modal UI
+   * req: IJsBridgeMessagePayload, { chainId }
+   */
+  @providerApiMethod()
+  async wallet_switchEthereumChain(
+    request: IJsBridgeMessagePayload,
+    params: SwitchEthereumChainParameter,
+  ) {
+    // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
+    this.switchEthereumChainDebounced(request, params);
+
+    // Metamask return null
+    return Promise.resolve(null);
   }
 
   // TODO metamask_unlockStateChanged
