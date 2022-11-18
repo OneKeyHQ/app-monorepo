@@ -13,10 +13,12 @@ const jsRules = {
   'react/function-component-definition': 'off',
   'react/jsx-props-no-spreading': 'off',
   'react/no-unused-prop-types': 'off',
+  'global-require': 'off',
   'import/no-unresolved': 'off', // tsc can check this
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
+  '@typescript-eslint/no-var-requires': 'off',
   '@typescript-eslint/no-unused-vars': [isDev ? 'warn' : 'error'],
   '@typescript-eslint/no-use-before-define': ['error'],
   '@typescript-eslint/no-shadow': ['error'],
