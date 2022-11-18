@@ -23,6 +23,8 @@ function nextWebpack(
       if (!isServer) {
         config.node = {
           fs: 'empty',
+          net: 'mock',
+          tls: 'mock',
         };
       }
 

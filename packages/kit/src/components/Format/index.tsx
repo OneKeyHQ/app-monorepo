@@ -331,7 +331,18 @@ export function FormatBalanceTokenOfAccount({
   accountId: string;
   networkId: string;
 }) {
-  const { balances } = useManageTokensOfAccount({ networkId, accountId });
+  const { getTokenBalance } = useManageTokensOfAccount({
+    networkId,
+    accountId,
+  });
+  const tokenBalance = useMemo(
+    () =>
+      getTokenBalance({
+        token,
+        defaultValue: '0',
+      }),
+    [getTokenBalance, token],
+  );
   const { network } = useActiveSideAccount({
     accountId,
     networkId,
@@ -343,7 +354,7 @@ export function FormatBalanceTokenOfAccount({
 
   return (
     <FormatBalance
-      balance={balances[token?.tokenIdOnNetwork || 'main']}
+      balance={tokenBalance}
       suffix={token?.symbol}
       formatOptions={{
         fixed: decimal ?? 4,

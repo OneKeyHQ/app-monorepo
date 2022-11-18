@@ -11,7 +11,7 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
-  minTransferAmount: '0.001',
+  minTransferAmount: '0.0099999',
 
   isUTXOModel: true,
 };
