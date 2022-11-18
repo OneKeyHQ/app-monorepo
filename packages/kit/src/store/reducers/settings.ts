@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { dequal as deepEqual } from 'dequal';
+import { debounce } from 'lodash';
 import uuid from 'react-native-uuid';
 
 import { LocaleSymbol } from '@onekeyhq/components/src/locale';
@@ -135,31 +136,35 @@ const initialState: SettingsState = {
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
-export function setThemePreloadToLocalStorage(
-  value: string,
-  forceUpdate = true,
-) {
-  try {
-    const key = THEME_PRELOAD_STORAGE_KEY;
-    if (platformEnv.isRuntimeBrowser) {
-      if (forceUpdate || !localStorage.getItem(key)) {
-        localStorage.setItem(key, value);
-      }
+export const setThemePreloadToLocalStorage = debounce(
+  (value: string, forceUpdate = true) => {
+    try {
+      const key = THEME_PRELOAD_STORAGE_KEY;
+      if (platformEnv.isRuntimeBrowser) {
+        if (forceUpdate || !localStorage.getItem(key)) {
+          localStorage.setItem(key, value);
+        }
 
-      if (!platformEnv.isWebEmbed) {
-        // same to theme-preload.js
-        if (value === 'dark') {
-          document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
-        }
-        if (value === 'light' || value === 'system') {
-          document.documentElement.style.backgroundColor = 'white';
+        if (!platformEnv.isWebEmbed) {
+          // same to theme-preload.js
+          if (value === 'dark') {
+            document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
+          }
+          if (value === 'light' || value === 'system') {
+            // document.documentElement.style.backgroundColor = 'white';
+          }
         }
       }
+    } catch (error) {
+      console.error(error);
     }
-  } catch (error) {
-    console.error(error);
-  }
-}
+  },
+  600,
+  {
+    leading: false,
+    trailing: true,
+  },
+);
 setThemePreloadToLocalStorage(initialState.theme, false);
 
 function equalFirmwareUpdate(a: any, b: any): boolean {

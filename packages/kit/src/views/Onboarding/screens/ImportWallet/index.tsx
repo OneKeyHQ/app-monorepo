@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
@@ -7,11 +8,18 @@ import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
 import { useAppSelector } from '../../../../hooks';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
 import Layout from '../../Layout';
+import { EOnboardingRoutes } from '../../routes/enums';
+import { IOnboardingRoutesParams } from '../../routes/types';
 
 import Drawer from './ImportWalletGuideDrawer';
 import SecondaryContent from './SecondaryContent';
 
 const defaultProps = {} as const;
+
+type RouteProps = RouteProp<
+  IOnboardingRoutesParams,
+  EOnboardingRoutes.ImportWallet
+>;
 
 const ImportWallet = () => {
   const intl = useIntl();
@@ -20,9 +28,11 @@ const ImportWallet = () => {
     (s) => s.runtime.onBoardingLoadingBehindModal,
   );
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const route = useRoute<RouteProps>();
   const onPressDrawerTrigger = useCallback(() => {
     setDrawerVisible(true);
   }, []);
+  const disableAnimation = route?.params?.disableAnimation;
 
   return (
     <>
@@ -33,6 +43,7 @@ const ImportWallet = () => {
       ) : (
         <>
           <Layout
+            disableAnimation={disableAnimation}
             title={intl.formatMessage({ id: 'action__import_wallet' })}
             secondaryContent={
               <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />

@@ -788,6 +788,7 @@ class Engine {
       this.getTokens(networkId, undefined, false),
     ]);
     const decimalsMap: Record<string, number> = {};
+    // TODO performance
     tokens.forEach((token) => {
       if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
         decimalsMap[token.tokenIdOnNetwork] = token.decimals;

@@ -150,7 +150,8 @@
     "dmg-builder": "23.6.0",
     "keccak": "^3",
     "rimraf": "^3.0.2",
-    "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz"
+    "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz",
+    "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch"
   },
   "packageManager": "yarn@3.3.0"
 }

@@ -98,10 +98,15 @@ const buildData = debounce(
     });
 
     debugLogger.accountSelector.info('rebuild WalletSelector walletList data');
-    const d = [
+    const d: IWalletDataSection[] = [
       {
         type: EWalletDataSectionType.hd,
-        data: hdData,
+        // data: hdData,
+        data: [
+          ...hdData,
+          // including other wallets which has accounts
+          ...otherData.filter((otherD) => otherD.wallet?.accounts?.length),
+        ],
         // data: [],
       },
       {
@@ -109,7 +114,8 @@ const buildData = debounce(
         data: hwData,
         // data: [],
       },
-      { type: EWalletDataSectionType.other, data: otherData },
+      // Do not show OTHER wallets group, move them to HD wallet group
+      // { type: EWalletDataSectionType.other, data: otherData },
     ];
     setData(d);
   },

@@ -76,6 +76,7 @@ const SetPassword = () => {
   const { isPasswordSet } = useData();
   const route = useRoute<RouteProps>();
   const mnemonic = route.params?.mnemonic;
+  const disableAnimation = route?.params?.disableAnimation;
 
   const title = useMemo(
     () =>
@@ -101,6 +102,7 @@ const SetPassword = () => {
       <Layout
         // make sure Spinner display
         fullHeight
+        disableAnimation={disableAnimation}
         title={title}
         subTitle={subTitle}
         secondaryContent={
