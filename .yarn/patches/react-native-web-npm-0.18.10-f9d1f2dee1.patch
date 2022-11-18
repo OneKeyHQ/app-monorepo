@@ -1,5 +1,5 @@
 diff --git a/dist/exports/Dimensions/index.js b/dist/exports/Dimensions/index.js
-index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..73aa038478068227720423964e8f8db206f63f78 100644
+index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..56f739df90cdeb7293af78e3e77fa6e0098cc8da 100644
 --- a/dist/exports/Dimensions/index.js
 +++ b/dist/exports/Dimensions/index.js
 @@ -9,6 +9,8 @@
@@ -15,7 +15,7 @@ index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..73aa038478068227720423964e8f8db2
      listeners['change'].forEach(handler => handler(dimensions));
    }
  }
-+const handleResizeThrottle = throttle(handleResize,300);
++const handleResizeThrottle = throttle(handleResize, 300);
  
  export default class Dimensions {
    static get(dimension) {
