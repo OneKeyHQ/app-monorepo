@@ -204,7 +204,7 @@ class Validators {
   @backgroundMethod()
   async validatePasswordStrength(password: string): Promise<string> {
     const p = password || '';
-    if (p.length >= 8 && p.length <= 24) {
+    if (p.length >= 8 && p.length <= 128) {
       return Promise.resolve(password);
     }
     throw new errors.PasswordStrengthValidationFailed();
