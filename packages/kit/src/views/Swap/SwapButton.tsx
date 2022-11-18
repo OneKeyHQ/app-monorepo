@@ -32,7 +32,6 @@ import {
   useSwapRecipient,
   useSwapState,
 } from './hooks/useSwap';
-import { useWalletsSwapTransactions } from './hooks/useTransactions';
 import { SwapQuoter } from './quoter';
 import { FetchQuoteParams, QuoteData, SwapError, SwapRoutes } from './typings';
 import { TokenAmount, getTokenAmountValue } from './utils';
@@ -98,7 +97,6 @@ const ExchangeButton = () => {
   const toast = useToast();
   const navigation = useNavigation();
   const { networks } = useRuntime();
-  const txs = useWalletsSwapTransactions();
   const { quote, sendingAccount } = useSwapState();
   const { inputAmount, outputAmount } = useDerivedSwapState();
   const recipient = useSwapRecipient();
@@ -225,10 +223,8 @@ const ExchangeButton = () => {
           outputAmount.token.tokenIdOnNetwork,
         );
       }
-      if (txs.length === 0) {
-        await wait(2000);
-        openAppReview();
-      }
+      await wait(2000);
+      openAppReview();
     };
 
     if (quote.needApproved && quote.allowanceTarget) {

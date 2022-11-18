@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -9,7 +9,6 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useActiveWalletAccount } from './redux';
-import { useAppSelector } from './useAppSelector';
 import {
   useAccountTokenLoading,
   useAccountTokens,
@@ -39,7 +38,8 @@ export const useManageTokensOfAccount = ({
   const prices = useNetworkTokensPrice(networkId);
   const charts = useNetworkTokensChart(networkId);
   const nativeToken = useNativeToken(networkId, accountId);
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  // const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  const [frozenBalance, setFrozenBalance] = useState(0);
 
   const accountTokensMap = useMemo(() => {
     const map = new Map<string, Token>();
@@ -90,6 +90,14 @@ export const useManageTokensOfAccount = ({
     // eslint-disable-next-line
   }, []);
 
+  useEffect(() => {
+    backgroundApiProxy.engine.getFrozenBalance(networkId).then((value) => {
+      if (+value > 0) {
+        setFrozenBalance(value);
+      }
+    });
+  }, [networkId]);
+
   const getTokenBalance = useCallback(
     (
       options: {
@@ -109,9 +117,12 @@ export const useManageTokensOfAccount = ({
       const tokenInfo = token as Token | null;
       const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
       const balance = balances?.[key] ?? defaultValue;
-      return balance;
+      const frozenBN = new BigNumber(frozenBalance ?? 0);
+      const balanceBN = new BigNumber(balance);
+      const realBalance = balanceBN.minus(frozenBN).toFixed();
+      return realBalance;
     },
-    [balances],
+    [balances, frozenBalance],
   );
 
   const getTokenPrice = useCallback(
@@ -121,7 +132,7 @@ export const useManageTokensOfAccount = ({
       tokenIdOnNetwork?: string;
       fiatSymbol?: string;
     }) => {
-      const { token, defaultValue, tokenIdOnNetwork, fiatSymbol } = merge(
+      const { token, defaultValue, tokenIdOnNetwork } = merge(
         {
           token: null,
           defaultValue: '',
@@ -132,12 +143,14 @@ export const useManageTokensOfAccount = ({
       );
       const tokenInfo = token as Token | null;
       const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
-      const fiatPrice = fiatMap[fiatSymbol] ?? '1';
+      // Because token prices are pulled with fiat parameters, the local fiat conversion is removed
+      // const fiatPrice = fiatMap[fiatSymbol] ?? '1';
       let priceValue = prices?.[key] ?? defaultValue;
-      priceValue = new BigNumber(fiatPrice).times(priceValue).toFixed();
+      // priceValue = new BigNumber(fiatPrice).times(priceValue).toFixed();
+      priceValue = new BigNumber(priceValue).toFixed();
       return priceValue;
     },
-    [fiatMap, prices],
+    [prices],
   );
 
   return {

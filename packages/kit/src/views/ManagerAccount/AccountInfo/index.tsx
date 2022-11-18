@@ -18,7 +18,6 @@ import {
   ManagerAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
-import { useActiveWalletAccount } from '../../../hooks';
 import { useWalletName } from '../../../hooks/useWalletName';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import AccountModifyNameDialog from '../ModifyAccount';
@@ -35,11 +34,12 @@ const ManagerAccountModal: FC = () => {
 
   const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const [modifyNameVisible, setModifyNameVisible] = useState(false);
+  const [canExportPrivateKey, setCanExportPrivateKey] = useState(false);
   const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
   const { walletId, accountId, networkId, refreshAccounts } =
     useRoute<RouteProps>().params;
-  const { network } = useActiveWalletAccount();
   const toast = useToast();
+  const { engine, serviceNetwork } = backgroundApiProxy;
 
   const [wallet, setWallet] = useState<Wallet>();
   const [account, setAccount] = useState<Account>();
@@ -47,15 +47,15 @@ const ManagerAccountModal: FC = () => {
   const refreshWallet = useCallback(() => {
     if (!walletId) return;
 
-    backgroundApiProxy.engine.getWallet(walletId).then(($wallet) => {
+    engine.getWallet(walletId).then(($wallet) => {
       setWallet($wallet);
     });
-  }, [walletId]);
+  }, [engine, walletId]);
 
   const refreshAccount = useCallback(() => {
     if (!accountId || !networkId) return;
 
-    backgroundApiProxy.engine
+    engine
       .getAccount(accountId, networkId)
       .then(($account) => {
         setAccount($account);
@@ -63,7 +63,7 @@ const ManagerAccountModal: FC = () => {
       .finally(() => {
         refreshAccounts?.();
       });
-  }, [accountId, networkId, refreshAccounts]);
+  }, [accountId, engine, networkId, refreshAccounts]);
 
   useEffect(() => {
     refreshWallet();
@@ -71,7 +71,13 @@ const ManagerAccountModal: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const canExportPrivateKey = !!network?.settings?.privateKeyExportEnabled;
+  useEffect(() => {
+    (async () => {
+      const network = await serviceNetwork.getNetworkWithRuntime(networkId);
+      setCanExportPrivateKey(!!network?.settings?.privateKeyExportEnabled);
+    })();
+  }, [networkId, serviceNetwork]);
+
   const name = useWalletName({ wallet });
   return (
     <>

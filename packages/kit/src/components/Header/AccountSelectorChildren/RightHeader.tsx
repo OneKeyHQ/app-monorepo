@@ -134,7 +134,7 @@ const RightHeader: FC<RightHeaderProps> = ({
   const [showBackupDialog, setShowBackupDialog] = useState(false);
   const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
   const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
-  const { isLoading } = useAppSelector((s) => s.accountSelector);
+  const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
 
   const hasAvailableUpdate = useMemo(
     () => deviceStatus?.hasUpgrade ?? false,

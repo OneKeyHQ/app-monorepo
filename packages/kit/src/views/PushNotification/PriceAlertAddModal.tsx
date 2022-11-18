@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
@@ -22,7 +22,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useManageTokens } from '../../hooks';
+import { useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import {
@@ -54,11 +54,11 @@ export const PriceAlertAddModal: FC = () => {
   const { pushNotification } = useSettings();
   const navigation = useNavigation<NavigationProps>();
   const { getTokenPrice } = useManageTokens();
-  const map = useAppSelector((s) => s.fiatMoney.map);
+  // const map = useAppSelector((s) => s.fiatMoney.map);
   const { selectedFiatMoneySymbol } = useSettings();
-  const fiat = map[selectedFiatMoneySymbol];
+  // const fiat = map[selectedFiatMoneySymbol];
   const originalPrice = getTokenPrice(token) || 0;
-  const price = new B(originalPrice).multipliedBy(fiat).toNumber();
+  const price = new B(originalPrice).toNumber();
 
   const { serviceNotification } = backgroundApiProxy;
 

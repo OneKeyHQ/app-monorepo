@@ -13,6 +13,7 @@ import {
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_LTC,
+  IMPL_TBTC,
   SEPERATOR,
 } from './constants';
 import { DBAPI } from './dbs/base';
@@ -150,8 +151,13 @@ class Validators {
           filterCategories,
         );
 
-        if (result) ret.push(...result);
-        if (result && returnEarly) return ret;
+        const hasResult = Array.isArray(result) && result.length > 0;
+        if (hasResult) {
+          ret.push(...result);
+        }
+        if (hasResult && returnEarly) {
+          return ret;
+        }
       }
     }
 
@@ -322,6 +328,34 @@ class Validators {
     const dbAccounts = await this.dbApi.getAccounts(accounts);
     const addresses = dbAccounts.map((acc) => acc.address?.toLowerCase());
     return addresses.includes(address.toLowerCase());
+  }
+
+  @backgroundMethod()
+  async validatePreSendAddress({
+    address,
+    networkId,
+    accountId,
+  }: {
+    address: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vaultSettings = await this.engine.getVaultSettings(networkId);
+    if (vaultSettings.cannotSendToSelf) {
+      const account = await this.dbApi.getAccount(accountId);
+      if (account.address === address) {
+        const [network] = await Promise.all([
+          this.engine.getNetwork(networkId),
+        ]);
+        throw new errors.InvalidSameAddress(
+          'form__address_cannot_send_to_myself',
+          {
+            0: network.name,
+          },
+        );
+      }
+    }
+    return Promise.resolve();
   }
 
   @backgroundMethod()
@@ -552,7 +586,11 @@ class Validators {
       this.engine.getWallet(walletId),
       this.engine.getNetwork(networkId),
     ]);
-    if ([IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(network.impl)) {
+    if (
+      [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(
+        network.impl,
+      )
+    ) {
       const coinType = implToCoinTypes[network.impl] ?? COINTYPE_BTC;
       const accountPathPrefix = `${purpose}'/${coinType}'`;
       const nextAccountId = wallet.nextAccountIds[accountPathPrefix];

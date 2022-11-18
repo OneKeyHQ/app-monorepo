@@ -23,7 +23,6 @@ const ListHeaderComponent = () => {
     <>
       <ListItem>
         <ListItem.Column
-          p={2}
           flex={3}
           text={{
             label: intl.formatMessage({

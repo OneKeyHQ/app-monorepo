@@ -8,10 +8,13 @@ import {
 
 import { TxActionElementAmountLarge } from '../elements/TxActionElementAmount';
 import {
-  TxActionElementIconNormal,
+  TxActionElementIconLarge,
   TxActionElementIconXLarge,
 } from '../elements/TxActionElementIcon';
-import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
+import {
+  TxActionElementTitleHeading,
+  TxActionElementTitleNormal,
+} from '../elements/TxActionElementTitle';
 import { useTxDetailContext } from '../TxDetailContext';
 import {
   ITxActionCardViewProps,
@@ -64,7 +67,7 @@ export function TxDetailActionBoxAutoTransform(
   let iconView = icon;
   if (!iconView) {
     iconView = (
-      <TxActionElementIconNormal
+      <TxActionElementIconLarge
         iconInfo={iconInfo}
         name={amountInfo?.symbol ?? ''}
       />
@@ -83,7 +86,7 @@ export function TxDetailActionBoxAutoTransform(
 
   let titleView = title;
   if (!titleView) {
-    titleView = <TxActionElementTitleHeading titleInfo={titleInfo} />;
+    titleView = <TxActionElementTitleNormal titleInfo={titleInfo} />;
     if (isSingleTransformMode) {
       titleView = <TxActionElementTitleHeading titleInfo={titleInfo} />;
     }

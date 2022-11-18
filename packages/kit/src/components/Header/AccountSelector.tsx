@@ -50,8 +50,8 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
 
   const triggerRef = useRef<HTMLElement>(null);
   const { serviceAccountSelector, dispatch } = backgroundApiProxy;
-  const { isDesktopWalletSelectorVisible } = useAppSelector(
-    (s) => s.accountSelector,
+  const isDesktopWalletSelectorVisible = useAppSelector(
+    (s) => s.accountSelector.isDesktopWalletSelectorVisible,
   );
   const { toggleWalletSelector } = useNavigationActions();
 

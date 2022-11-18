@@ -13,7 +13,8 @@ import {
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../../routes/types';
 import WebHomeContainer from '../Content/WebHomeContainer';
-import { useWebController } from '../Controller/useWebController';
+import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
+import { useIncomingUrl } from '../Controller/useIncomingUrl';
 import { MatchDAppItemType } from '../explorerUtils';
 
 import ExplorerBar from './ExplorerBarMobile';
@@ -23,8 +24,7 @@ type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 
 const ExplorerMobile: FC = () => {
   const { top } = useSafeAreaInsets();
-  const { openMatchDApp, gotoSite, incomingUrl, clearIncomingUrl } =
-    useWebController();
+  const { incomingUrl, clearIncomingUrl } = useIncomingUrl();
 
   useFocusEffect(
     useCallback(() => {
@@ -32,7 +32,7 @@ const ExplorerMobile: FC = () => {
         gotoSite({ url: incomingUrl, isNewWindow: true });
         clearIncomingUrl();
       }
-    }, [clearIncomingUrl, gotoSite, incomingUrl]),
+    }, [clearIncomingUrl, incomingUrl]),
   );
 
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -53,7 +53,7 @@ const ExplorerMobile: FC = () => {
         },
       },
     });
-  }, [gotoSite, navigation, openMatchDApp]);
+  }, [navigation]);
 
   const [showHome, setShowHome] = useState(true);
 

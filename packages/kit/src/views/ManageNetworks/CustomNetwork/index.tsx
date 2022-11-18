@@ -19,6 +19,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
+import { RpcNodePattern } from '../constants';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -211,7 +212,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                       }),
                     },
                     pattern: {
-                      value: /^https?:\/\//,
+                      value: RpcNodePattern,
                       message: intl.formatMessage({
                         id: 'form__rpc_url_wrong_format',
                       }),

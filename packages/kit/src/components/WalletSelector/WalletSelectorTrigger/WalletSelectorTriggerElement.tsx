@@ -42,7 +42,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { isLoading } = useAppSelector((s) => s.accountSelector);
+  const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
   const walletName = useWalletName({ wallet });
   const { deviceStatus } = useDeviceStatusOfHardwareWallet();

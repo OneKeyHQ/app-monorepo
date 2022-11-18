@@ -25,6 +25,7 @@ import {
   useDebounce,
   useNetworkSimple,
 } from '../../../../hooks';
+import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import {
   useSwapTokenList,
   useTokenSearch,
@@ -145,6 +146,7 @@ type ListRenderTokenProps = {
   isFirst?: boolean;
   isLast?: boolean;
   onSelect?: (item: Token) => void;
+  isSearchMode?: boolean;
 };
 
 const ListRenderToken: FC<ListRenderTokenProps> = ({
@@ -152,6 +154,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   isFirst,
   isLast,
   onSelect,
+  isSearchMode,
 }) => {
   const { selectedToken } = useContext(TokenSelectorContext);
 
@@ -159,6 +162,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
 
   const onPress = useCallback(() => {
     onSelect?.(token);
+    notifyIfRiskToken(token);
   }, [onSelect, token]);
   const isSelected =
     token.networkId === selectedToken?.networkId &&
@@ -167,6 +171,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   let description: string = token.name;
   if (token.tokenIdOnNetwork) {
     description = shortenAddress(token.tokenIdOnNetwork);
+    if (isSearchMode && tokenNetwork?.name) {
+      description = `${tokenNetwork.name} · ${description}`;
+    }
   } else if (tokenNetwork) {
     description = tokenNetwork?.name;
   }
@@ -208,32 +215,33 @@ type TokenSelectorProps = {
 const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
   const intl = useIntl();
   const { networkId: activeNetworkId } = useContext(TokenSelectorContext);
-  const tokenList = useSwapTokenList(activeNetworkId);
+  const listedTokens = useSwapTokenList(activeNetworkId);
 
   const [keyword, setKeyword] = useState<string>('');
-  const terms = useDebounce(keyword, 500);
+  const searchQuery = useDebounce(keyword.trim(), 300);
   const { loading, result: searchedTokens } = useTokenSearch(
-    terms,
+    searchQuery,
     activeNetworkId,
   );
-  const isLoading = loading || keyword !== terms;
 
-  const dataSources = useMemo(
-    () => (terms ? searchedTokens : tokenList),
-    [terms, searchedTokens, tokenList],
-  );
+  const isLoading = loading || keyword !== searchQuery;
 
-  const renderItem: ListRenderItem<Token> = useCallback(
-    ({ item, index }) => (
+  const { dataSources, renderItem } = useMemo(() => {
+    const tokens = searchedTokens ?? listedTokens;
+    const renderFn: ListRenderItem<Token> = ({ item, index }) => (
       <ListRenderToken
         token={item}
         onSelect={onSelect}
         isFirst={index === 0}
         isLast={index === dataSources.length - 1}
+        isSearchMode={!!searchedTokens}
       />
-    ),
-    [dataSources.length, onSelect],
-  );
+    );
+    return {
+      dataSources: tokens,
+      renderItem: renderFn,
+    };
+  }, [searchedTokens, listedTokens, onSelect]);
 
   const tokenSources = useAppSelector((s) => s.swapTransactions.tokenList);
   if (!tokenSources) {
@@ -267,7 +275,7 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
             }`,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
-            <ListEmptyComponent isLoading={isLoading} terms={terms} />
+            <ListEmptyComponent isLoading={isLoading} terms={searchQuery} />
           ),
           ListHeaderComponent: (
             <Header keyword={keyword} onChange={setKeyword} />

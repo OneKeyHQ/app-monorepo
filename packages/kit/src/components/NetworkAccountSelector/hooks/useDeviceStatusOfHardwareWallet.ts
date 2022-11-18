@@ -21,7 +21,7 @@ export type IHardwareDeviceStatusMap = {
 export function useDeviceStatusOfHardwareWallet() {
   const { hardwareWallets } = useRuntimeWallets();
   const { deviceUpdates } = useSettings();
-  const { connected } = useAppSelector((s) => s.hardware);
+  const connected = useAppSelector((s) => s.hardware.connected);
   const [deviceStatus, setDeviceStatus] = useState<IHardwareDeviceStatusMap>();
   const getStatus = useCallback(
     (connectId: string | undefined): DeviceStatusType | undefined => {

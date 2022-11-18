@@ -12,7 +12,9 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XRP,
 } from '../constants';
 import { OneKeyInternalError } from '../errors';
 import { getNetworkImpl } from '../managers/network';
@@ -46,8 +48,12 @@ import VaultSol from './impl/sol/Vault';
 import VauleHelperSol from './impl/sol/VaultHelper';
 import VaultStc from './impl/stc/Vault';
 import VaultHelperStc from './impl/stc/VaultHelper';
+import VaultTbtc from './impl/tbtc/Vault';
+import VaultHelperTbtc from './impl/tbtc/VaultHelper';
 import VaultTron from './impl/tron/Vault';
 import VaultHelperTron from './impl/tron/VaultHelper';
+import VaultXrp from './impl/xrp/Vault';
+import VaultHelperXrp from './impl/xrp/VaultHelper';
 import { VaultHelperBase } from './VaultHelperBase';
 
 import type { KeyringBase } from './keyring/KeyringBase';
@@ -69,6 +75,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_BTC) {
     return new VaultHelperBtc(options);
+  }
+  if (impl === IMPL_TBTC) {
+    return new VaultHelperTbtc(options);
   }
   if (impl === IMPL_STC) {
     return new VaultHelperStc(options);
@@ -93,6 +102,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_BCH) {
     return new VaultHelperBch(options);
+  }
+  if (impl === IMPL_XRP) {
+    return new VaultHelperXrp(options);
   }
   if (impl === IMPL_COSMOS) {
     return new VaultHelperCosmos(options);
@@ -152,6 +164,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_BTC) {
     vault = new VaultBtc(options);
   }
+  if (network.impl === IMPL_TBTC) {
+    vault = new VaultTbtc(options);
+  }
   if (network.impl === IMPL_STC) {
     vault = new VaultStc(options);
   }
@@ -175,6 +190,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_BCH) {
     vault = new VaultBch(options);
+  }
+  if (network.impl === IMPL_XRP) {
+    vault = new VaultXrp(options);
   }
   if (network.impl === IMPL_COSMOS) {
     vault = new VaultCosmos(options);

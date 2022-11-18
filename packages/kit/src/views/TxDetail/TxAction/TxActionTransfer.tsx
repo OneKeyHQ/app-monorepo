@@ -15,7 +15,7 @@ import {
   TxListActionBoxExtraText,
 } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
-import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
+import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import {
   ITxActionCardProps,
@@ -80,19 +80,27 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionTransfer(props: ITxActionCardProps) {
-  const { action, meta, decodedTx } = props;
+  const { action, meta, decodedTx, network } = props;
   const intl = useIntl();
 
-  const { amount, symbol, from, to } = getTxActionTransferInfo(props);
+  const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
 
   const details: ITxActionElementDetail[] = [
     {
       title: intl.formatMessage({ id: 'content__from' }),
-      content: <TxActionElementAddressNormal address={from} />,
+      content: getTxActionElementAddressWithSecurityInfo({
+        address: from,
+        networkId: network?.id,
+        withSecurityInfo: !isOut,
+      }),
     },
     {
       title: intl.formatMessage({ id: 'content__to' }),
-      content: <TxActionElementAddressNormal address={to} />,
+      content: getTxActionElementAddressWithSecurityInfo({
+        address: to,
+        networkId: network?.id,
+        withSecurityInfo: isOut,
+      }),
     },
   ];
 

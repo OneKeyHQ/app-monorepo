@@ -1,5 +1,6 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import {
   mnemonicFromEntropy,
@@ -43,6 +44,7 @@ import {
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
+  IMPL_TBTC,
   getSupportedImpls,
 } from './constants';
 import { DbApi } from './dbs';
@@ -132,6 +134,8 @@ import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
   IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IEncodedTx,
@@ -751,14 +755,16 @@ class Engine {
       '503': OnekeyNetwork.cfx,
       '397': OnekeyNetwork.near,
       '0': OnekeyNetwork.btc,
+      '1': OnekeyNetwork.tbtc,
       '101010': OnekeyNetwork.stc,
       '501': OnekeyNetwork.sol,
       '195': OnekeyNetwork.trx,
-      '637': OnekeyNetwork.tapt, // TODO temp
+      '637': OnekeyNetwork.apt,
       '3': OnekeyNetwork.doge,
       '2': OnekeyNetwork.ltc,
       '145': OnekeyNetwork.bch,
       '283': OnekeyNetwork.algo,
+      '144': OnekeyNetwork.xrp,
       '118': OnekeyNetwork.cosmoshub,
     }[coinType];
     if (typeof networkId === 'undefined') {
@@ -1046,6 +1052,7 @@ class Engine {
     try {
       switch (impl) {
         case IMPL_BTC:
+        case IMPL_TBTC:
         case IMPL_DOGE:
         case IMPL_LTC:
         case IMPL_BCH:
@@ -1851,6 +1858,20 @@ class Engine {
     // decodedTxLegacy.payload = payload;
     decodedTx.payload = decodedTx.payload ?? payload;
     decodedTx = await vault.fixDecodedTx(decodedTx);
+
+    if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
+      const action: IDecodedTxAction = {
+        type: IDecodedTxActionType.INTERNAL_SWAP,
+        internalSwap: {
+          ...payload.swapInfo,
+          extraInfo: null,
+        },
+        unknownAction: {
+          extraInfo: {},
+        },
+      };
+      decodedTx.actions = [action];
+    }
     return {
       decodedTx,
       decodedTxLegacy,
@@ -2672,6 +2693,58 @@ class Engine {
     const dbAccount = await vault.getDbAccount();
     return vault.getNextNonce(params.networkId, dbAccount);
   }
+
+  @backgroundMethod()
+  async validateSendAmount({
+    accountId,
+    networkId,
+    amount,
+    tokenBalance,
+    to,
+  }: {
+    accountId: string;
+    networkId: string;
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }) {
+    const vault = await this.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.validateSendAmount(amount, tokenBalance, to);
+  }
+
+  @backgroundMethod()
+  async notifyChainChanged(
+    currentNetworkId: string,
+    previousNetworkId: string,
+  ) {
+    const vault = await this.getVault({
+      networkId: previousNetworkId,
+      accountId: '',
+    });
+    vault.notifyChainChanged(currentNetworkId, previousNetworkId);
+  }
+
+  @backgroundMethod()
+  async getFrozenBalance(networkId: string) {
+    if (!networkId) return 0;
+    return this._getFrozenBalance(networkId);
+  }
+
+  _getFrozenBalance = memoizee(
+    async (networkId: string) => {
+      const vault = await this.getChainOnlyVault(networkId);
+      return vault.getFrozenBalance();
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 }
 
 export { Engine };

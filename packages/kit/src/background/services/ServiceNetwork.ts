@@ -37,6 +37,10 @@ class ServiceNetwork extends ServiceBase {
     );
     const newNetwork = networks.find((network) => network.id === networkId);
 
+    this.backgroundApi.engine.notifyChainChanged(
+      networkId,
+      activeNetworkId ?? '',
+    );
     this.backgroundApi.dispatch(changeActiveNetwork(networkId));
     this.notifyChainChanged();
 
@@ -189,6 +193,15 @@ class ServiceNetwork extends ServiceBase {
     pageSize: number;
   }) {
     return fetchChainList(params);
+  }
+
+  @backgroundMethod()
+  async getNetworkWithRuntime(networkId: string) {
+    const { appSelector } = this.backgroundApi;
+    const network = appSelector((s) =>
+      s.runtime.networks.find((n) => n.id === networkId),
+    );
+    return Promise.resolve(network);
   }
 }
 

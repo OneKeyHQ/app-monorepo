@@ -24,7 +24,9 @@ type RouteProps = RouteProp<
 const ImportWallet = () => {
   const intl = useIntl();
   const bgColor = useThemeValue('background-default');
-  const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
+  const onBoardingLoadingBehindModal = useAppSelector(
+    (s) => s.runtime.onBoardingLoadingBehindModal,
+  );
   const [drawerVisible, setDrawerVisible] = useState(false);
   const route = useRoute<RouteProps>();
   const onPressDrawerTrigger = useCallback(() => {

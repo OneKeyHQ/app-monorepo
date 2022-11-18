@@ -27,8 +27,8 @@ export function useNavigationActions() {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
   const { dispatch } = backgroundApiProxy;
-  const { isDesktopWalletSelectorVisible } = useAppSelector(
-    (s) => s.accountSelector,
+  const isDesktopWalletSelectorVisible = useAppSelector(
+    (s) => s.accountSelector.isDesktopWalletSelectorVisible,
   );
   const openAccountSelector = useCallback(
     ({ mode }: { mode?: EAccountSelectorMode }) => {

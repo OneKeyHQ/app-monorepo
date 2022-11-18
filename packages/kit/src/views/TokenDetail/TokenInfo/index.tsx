@@ -80,6 +80,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       >
         <Token
           size={12}
+          showTokenVerifiedIcon
           token={{ ...token, logoURI: token?.logoURI || network?.logoURI }}
         />
         <Box
@@ -114,10 +115,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
                 >
                   <Typography.DisplayXLarge
                     textAlign={isVertical ? 'center' : 'left'}
+                    mr="2"
                   >
                     {ele}
                   </Typography.DisplayXLarge>
-                  <TokenVerifiedIcon token={token || {}} />
+                  <TokenVerifiedIcon size={24} token={token || {}} />
                 </Box>
               )}
             />

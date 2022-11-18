@@ -166,7 +166,9 @@ type RouteProps = RouteProp<
 const ConnectWallet = () => {
   const intl = useIntl();
   const bgColor = useThemeValue('background-default');
-  const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
+  const onBoardingLoadingBehindModal = useAppSelector(
+    (s) => s.runtime.onBoardingLoadingBehindModal,
+  );
   const route = useRoute<RouteProps>();
   const disableAnimation = route?.params?.disableAnimation;
   return (

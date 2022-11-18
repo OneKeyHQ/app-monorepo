@@ -13,7 +13,7 @@ export const openAppReview = async () => {
     return;
   }
   const lastOpenedAt = await simpleDb.setting.getAppReviewsLastOpenedAt();
-  if (Date.now() - lastOpenedAt < 1000 * 60 * 60 * 24 * 60) {
+  if (lastOpenedAt > 0) {
     return;
   }
   let hasFlowFinishedSuccessfully = false;

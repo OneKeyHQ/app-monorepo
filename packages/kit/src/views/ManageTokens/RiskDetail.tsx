@@ -15,6 +15,7 @@ import {
   Spinner,
   Typography,
   VStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { tokenSecurityRiskItems } from '@onekeyhq/engine/src/managers/goplus';
 import { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
@@ -31,6 +32,7 @@ type NavigationProps = RouteProp<
 
 const RiskDetail: FC = () => {
   const intl = useIntl();
+  const insets = useSafeAreaInsets();
   const route = useRoute<NavigationProps>();
   const {
     token: { networkId, address },
@@ -39,13 +41,35 @@ const RiskDetail: FC = () => {
 
   const { safe, danger, hasSecurity, warn } = data;
 
+  const isSingleList = useMemo(() => {
+    if (!hasSecurity) {
+      return true;
+    }
+    return !danger?.length || !warn?.length;
+  }, [danger, warn, hasSecurity]);
+
   const header = useMemo(() => {
     if (hasSecurity) {
+      if (danger?.length) {
+        return (
+          <Center mt="6" mb="8">
+            <Icon
+              name="ShieldExclamationSolid"
+              color="icon-critical"
+              size={44}
+            />
+            <Typography.DisplayLarge mt="2">
+              {intl.formatMessage({ id: 'title__risky_token' })}
+            </Typography.DisplayLarge>
+          </Center>
+        );
+      }
+
       return (
         <Center mt="6" mb="8">
-          <Icon name="ShieldExclamationSolid" color="icon-critical" size={44} />
+          <Icon name="ExclamationSolid" color="icon-warning" size={44} />
           <Typography.DisplayLarge mt="2">
-            {intl.formatMessage({ id: 'title__risky_token' })}
+            {intl.formatMessage({ id: 'title__attention_token' })}
           </Typography.DisplayLarge>
         </Center>
       );
@@ -57,7 +81,7 @@ const RiskDetail: FC = () => {
         <Typography.DisplayLarge mb="2">
           {intl.formatMessage({ id: 'form__no_risks' })}
         </Typography.DisplayLarge>
-        <Typography.Body1>
+        <Typography.Body1 color="text-subdued">
           {intl.formatMessage(
             { id: 'form__no_risks_desc' },
             { 0: safe?.length ?? 0 },
@@ -65,24 +89,20 @@ const RiskDetail: FC = () => {
         </Typography.Body1>
       </Center>
     );
-  }, [hasSecurity, intl, safe]);
+  }, [hasSecurity, intl, safe, danger]);
 
   const footer = useMemo(
     () => (
-      <HStack
-        h="8"
-        pt="4"
-        mb="3"
-        alignItems="flex-end"
-        justifyContent="center"
-        mx="4"
-      >
-        <Typography.Body2 color="text-subdued">Powered By</Typography.Body2>
-        <Image size="20px" source={goPlus} ml="2" mr="1" />
-        <Typography.Body2>Go Plus</Typography.Body2>
-      </HStack>
+      <VStack pb={`${insets.bottom}px`}>
+        <Divider />
+        <HStack alignItems="center" justifyContent="center" mt="4">
+          <Typography.Body2 color="text-subdued">Powered By</Typography.Body2>
+          <Image size="20px" source={goPlus} ml="2" mr="1" />
+          <Typography.Body2>Go Plus</Typography.Body2>
+        </HStack>
+      </VStack>
     ),
-    [],
+    [insets],
   );
 
   const renderItem = useCallback(
@@ -133,7 +153,7 @@ const RiskDetail: FC = () => {
                 locale?.[0]?.[1] ?? {},
               )}
             </Typography.Body1Strong>
-            <Typography.Body2>
+            <Typography.Body2 color="text/subdued">
               {intl.formatMessage(
                 {
                   id:
@@ -150,7 +170,8 @@ const RiskDetail: FC = () => {
     },
     [intl, hasSecurity, warn],
   );
-  const GroupingListData = useMemo(
+
+  const groupListData = useMemo(
     () => [
       {
         headerProps: {
@@ -174,6 +195,19 @@ const RiskDetail: FC = () => {
     [danger, intl, warn],
   );
 
+  const items = useMemo(() => {
+    if (isSingleList) {
+      if (!hasSecurity) {
+        return safe;
+      }
+      if (!danger?.length) {
+        return warn;
+      }
+      return danger;
+    }
+    return groupListData;
+  }, [isSingleList, groupListData, safe, warn, danger, hasSecurity]);
+
   if (loading) {
     return (
       <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={null}>
@@ -185,24 +219,24 @@ const RiskDetail: FC = () => {
   }
 
   return (
-    <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={footer}>
-      {hasSecurity ? (
+    <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={null}>
+      {!isSingleList ? (
         <GroupingList
           ListHeaderComponent={() => header}
           stickySectionHeadersEnabled={false}
-          ItemSeparatorComponent={Divider}
-          sections={GroupingListData}
+          sections={items as typeof groupListData}
           // @ts-ignore
           renderItem={renderItem}
           keyExtractor={(item: string, index) => `${item}_${index}`}
+          ListFooterComponent={() => footer}
         />
       ) : (
         <List
           ListHeaderComponent={() => header}
-          ItemSeparatorComponent={Divider}
-          data={safe}
+          data={items as (keyof GoPlusTokenSecurity)[]}
           renderItem={renderItem}
           keyExtractor={(item, index) => `${item as string}_${index}`}
+          ListFooterComponent={() => footer}
         />
       )}
     </Modal>

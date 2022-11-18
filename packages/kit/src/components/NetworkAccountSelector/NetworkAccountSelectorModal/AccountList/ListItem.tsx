@@ -62,7 +62,9 @@ const ListItem: FC<ListItemProps> = ({
   const closeModal = useModalClose();
   const { closeWalletSelector } = useNavigationActions();
   const navigation = useAppNavigation();
-  const { accountSelectorMode } = useAppSelector((s) => s.accountSelector);
+  const accountSelectorMode = useAppSelector(
+    (s) => s.accountSelector.accountSelectorMode,
+  );
 
   // @ts-ignore
   const isLastItem = account?.$isLastItem;

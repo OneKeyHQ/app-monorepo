@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/engine/src/types/goplus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks';
 
 // @ts-ignore
 const localeMaps: Record<
@@ -23,12 +22,12 @@ const localeMaps: Record<
   phishing_site: 'badge__phishing_site',
 };
 
-export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
-  hostname,
-  origin,
-}) => {
+export const DappSecurityView: FC<{
+  hostname: string;
+  origin: string;
+  networkId: string;
+}> = ({ hostname, origin, networkId }) => {
   const intl = useIntl();
-  const { networkId } = useActiveWalletAccount();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusDappContract | keyof GoPlusPhishing)[] | undefined
   >();
@@ -57,13 +56,15 @@ export const DappSecurityView: FC<{ hostname: string; origin: string }> = ({
 
   return (
     <>
-      <HStack pb="4" alignItems="center" mt="-2">
+      <HStack alignItems="center" mt="-2" w="full">
         {dappIcon}
-        <VStack ml="3">
+        <VStack ml="3" flex="1">
           <Typography.Body1Strong textTransform="capitalize">
             {hostname?.split('.')?.reverse?.()?.[1] ?? 'N/A'}
           </Typography.Body1Strong>
-          <Typography.Body2>{hostname}</Typography.Body2>
+          <Typography.Body2 isTruncated maxW="300px">
+            {hostname}
+          </Typography.Body2>
         </VStack>
       </HStack>
       {securityItems && securityItems?.length > 0 ? (

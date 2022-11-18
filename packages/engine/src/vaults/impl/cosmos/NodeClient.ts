@@ -1,6 +1,6 @@
 import Axios, { AxiosError, AxiosInstance } from 'axios';
 
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { OneKeyError, OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 
 import type {
   AccountInfo,
@@ -100,6 +100,25 @@ export class CosmosNodeClient {
         'Content-Type': 'application/json',
       },
     });
+
+    const rawLog = resp.data.tx_response.raw_log;
+    const { code } = resp.data.tx_response;
+
+    if (code != null && code !== 0) {
+      if (rawLog.indexOf('account sequence mismatch') !== -1) {
+        throw new OneKeyInternalError(
+          rawLog,
+          'msg__broadcast_tx_sequence_number_error',
+        );
+      }
+      if (rawLog.indexOf('insufficient fees') !== -1) {
+        throw new OneKeyInternalError(
+          rawLog,
+          'msg__broadcast_tx_Insufficient_fee',
+        );
+      }
+      throw new OneKeyInternalError(rawLog);
+    }
 
     return resp.data.tx_response?.txhash ?? null;
   }

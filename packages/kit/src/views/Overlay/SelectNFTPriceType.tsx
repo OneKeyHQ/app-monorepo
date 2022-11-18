@@ -16,7 +16,7 @@ const SelectNFTPriceType: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
 }) => {
   const intl = useIntl();
-  const { disPlayPriceType } = useAppSelector((s) => s.nft);
+  const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);
 
   const { serviceNFT } = backgroundApiProxy;
 
