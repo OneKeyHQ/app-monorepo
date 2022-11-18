@@ -52,8 +52,10 @@
     "js-conflux-sdk": "^2.1.6",
     "natsort": "^2.0.3",
     "near-api-js": "^0.44.2",
+    "ripple-keypairs": "^1.1.4",
     "tiny-lru": "^8.0.2",
-    "tronweb": "^4.3.0"
+    "tronweb": "^4.3.0",
+    "xrpl": "^2.5.0"
   },
   "react-native": {
     "./src/dbs/indexed": "./src/dbs/realms",

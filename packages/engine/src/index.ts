@@ -1,5 +1,6 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import {
   mnemonicFromEntropy,
@@ -133,6 +134,8 @@ import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
   IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IEncodedTx,
@@ -761,6 +764,7 @@ class Engine {
       '2': OnekeyNetwork.ltc,
       '145': OnekeyNetwork.bch,
       '283': OnekeyNetwork.algo,
+      '144': OnekeyNetwork.xrp,
       '118': OnekeyNetwork.cosmoshub,
     }[coinType];
     if (typeof networkId === 'undefined') {
@@ -1853,6 +1857,20 @@ class Engine {
     // decodedTxLegacy.payload = payload;
     decodedTx.payload = decodedTx.payload ?? payload;
     decodedTx = await vault.fixDecodedTx(decodedTx);
+
+    if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
+      const action: IDecodedTxAction = {
+        type: IDecodedTxActionType.INTERNAL_SWAP,
+        internalSwap: {
+          ...payload.swapInfo,
+          extraInfo: null,
+        },
+        unknownAction: {
+          extraInfo: {},
+        },
+      };
+      decodedTx.actions = [action];
+    }
     return {
       decodedTx,
       decodedTxLegacy,
@@ -2674,6 +2692,58 @@ class Engine {
     const dbAccount = await vault.getDbAccount();
     return vault.getNextNonce(params.networkId, dbAccount);
   }
+
+  @backgroundMethod()
+  async validateSendAmount({
+    accountId,
+    networkId,
+    amount,
+    tokenBalance,
+    to,
+  }: {
+    accountId: string;
+    networkId: string;
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }) {
+    const vault = await this.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.validateSendAmount(amount, tokenBalance, to);
+  }
+
+  @backgroundMethod()
+  async notifyChainChanged(
+    currentNetworkId: string,
+    previousNetworkId: string,
+  ) {
+    const vault = await this.getVault({
+      networkId: previousNetworkId,
+      accountId: '',
+    });
+    vault.notifyChainChanged(currentNetworkId, previousNetworkId);
+  }
+
+  @backgroundMethod()
+  async getFrozenBalance(networkId: string) {
+    if (!networkId) return 0;
+    return this._getFrozenBalance(networkId);
+  }
+
+  _getFrozenBalance = memoizee(
+    async (networkId: string) => {
+      const vault = await this.getChainOnlyVault(networkId);
+      return vault.getFrozenBalance();
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 }
 
 export { Engine };
