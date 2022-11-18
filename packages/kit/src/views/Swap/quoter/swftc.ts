@@ -127,6 +127,7 @@ type CoinRate = {
   depositMax: string;
   depositMin: string;
   instantRate: string;
+  percentageFee: string;
 };
 
 type InternalRateResult = {
@@ -357,6 +358,7 @@ export class SwftcQuoter implements Quoter {
         arrivalTime: 300,
         sellAmount: '',
         buyAmount: '',
+        percentageFee: data.rate.percentageFee,
       };
       if (independentField === 'INPUT') {
         result.sellAmount = getTokenAmountString(tokenIn, typedValue);
@@ -364,7 +366,7 @@ export class SwftcQuoter implements Quoter {
           tokenOut,
           calcBuyAmount(
             typedValue,
-            plus(data.rate.depositCoinFeeRate, '0.00875'),
+            plus(data.rate.depositCoinFeeRate, '0'),
             data.rate.instantRate,
             data.rate.chainFee,
           ),
@@ -375,7 +377,7 @@ export class SwftcQuoter implements Quoter {
           tokenIn,
           calcSellAmount(
             typedValue,
-            plus(data.rate.depositCoinFeeRate, '0.00875'),
+            plus(data.rate.depositCoinFeeRate, '0'),
             data.rate.instantRate,
             data.rate.chainFee,
           ),

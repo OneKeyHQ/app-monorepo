@@ -268,7 +268,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
               }),
             },
             maxLength: {
-              value: 24,
+              value: 128,
               message: intl.formatMessage({
                 id: 'msg__password_validation',
               }),
@@ -302,7 +302,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
               }),
             },
             maxLength: {
-              value: 24,
+              value: 128,
               message: intl.formatMessage({
                 id: 'msg__password_validation',
               }),

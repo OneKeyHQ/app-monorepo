@@ -60,9 +60,20 @@ const replyPartyName = 'onekey.so';
 
 export const isSupportedPlatform = platformEnv.isExtChrome;
 
-export const isSupportWebAuthn = Boolean(
+export const isContextSupportWebAuthn = Boolean(
   isSupportedPlatform && global?.navigator?.credentials,
 );
+
+export const isUserVerifyingPlatformAuthenticatorAvailable = async () => {
+  let result = false;
+  try {
+    result =
+      await global.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable?.();
+  } catch {
+    console.log('isUserVerifyingPlatformAuthenticatorAvailable failure');
+  }
+  return result;
+};
 
 type RegisterCredentialParams = {
   userName: string;

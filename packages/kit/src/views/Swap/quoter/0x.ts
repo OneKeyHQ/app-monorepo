@@ -103,7 +103,7 @@ export class SimpleQuoter implements Quoter {
     const data = res.data.data as QuoteResponse; // eslint-disable-line
     const sources = data?.sources.filter((i) => Number(i.proportion) > 0);
     const providers = sources.map((item) => ({
-      name: item.name,
+      name: item.name.split('_').join(' '),
       logoUrl: this.getProviderLogo(item.name),
     }));
     return { providers, data };
