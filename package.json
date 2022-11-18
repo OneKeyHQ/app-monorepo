@@ -11,8 +11,8 @@
     "postinstall": "yarn setup:env && husky install && patch-package && yarn build:networklist && yarn copy:inject ",
     "copy:inject": "bash development/copy-injected.sh",
     "clean": "./clean_workspace.sh && yarn cache clean",
-    "lint-staged": "lint-staged",
-    "lint": "ultra -r lint",
+    "lint:project": "npx tsc --noEmit && npx eslint . --ext .ts,.tsx --cache",
+    "lint": "ultra lint:project && perl -pi -e s#\"$(pwd)\"/##g .eslintcache",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
     "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
@@ -46,6 +46,11 @@
     "stats:web": "yarn workspace @onekeyhq/web stats",
     "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json",
     "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
+  },
+  "ultra": {
+    "concurrent": [
+      "lint:project"
+    ]
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.1.6",
@@ -108,7 +113,6 @@
     "husky": "^7.0.4",
     "jest": "^29.3.1",
     "jest-environment-jsdom": "^29.3.1",
-    "lint-staged": "^11.2.6",
     "metro-minify-terser": "^0.72.3",
     "node-notifier": "^10.0.0",
     "patch-package": "^6.5.0",

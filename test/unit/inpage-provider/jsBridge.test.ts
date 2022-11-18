@@ -1,10 +1,6 @@
 // @ts-nocheck
-
 import { JsBridgeSimple } from '@onekeyfe/cross-inpage-provider-core';
 import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
-
-jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
 it('two bridge communication', async () => {
   let currentChainId = '0x3';
