@@ -17,6 +17,7 @@ import type { IWalletDataBase } from './index';
 function ListItemWithHidden({
   deviceStatus,
   item,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   section,
   onLastItemRender,
 }: {
