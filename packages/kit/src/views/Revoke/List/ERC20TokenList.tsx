@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -26,7 +26,18 @@ import { AssetType, Filter } from '../types';
 import { ERC20Allowance } from './ERC20Allowance';
 
 export const EmptyRecord = () => {
+  const [show, setShow] = useState(false);
   const intl = useIntl();
+
+  useEffect(() => {
+    setTimeout(() => {
+      setShow(false);
+    }, 600);
+  }, []);
+
+  if (!show) {
+    return null;
+  }
   return (
     <Empty
       emoji="👀"
