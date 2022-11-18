@@ -28,7 +28,17 @@ import {
 } from '../explorerAnimation';
 
 const CELL_GAP = 16;
-
+const styles = StyleSheet.create({
+  contentContainer: {
+    flexGrow: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    paddingVertical: CELL_GAP,
+    paddingRight: CELL_GAP,
+  },
+});
 const WebTabCard: FC<
   WebTab & {
     width: number;
@@ -86,11 +96,11 @@ const WebTabCard: FC<
         }}
       />
     </Box>
-    <NBImage key={thumbnail} flex={1} resizeMode="cover" src={thumbnail} />
+    <NBImage flex={1} resizeMode="cover" src={thumbnail} />
   </Pressable>
 );
 const WebTabGrid = () => {
-  const tabs = useWebTabs();
+  const { tabs } = useWebTabs();
   const { width } = useWindowDimensions();
   const cellWidth = (width - CELL_GAP * 3) / 2;
 
@@ -122,15 +132,7 @@ const WebTabGrid = () => {
         })),
       ]}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
-        flexGrow: 1,
-        flexDirection: 'row',
-        justifyContent: 'flex-start',
-        flexWrap: 'wrap',
-        alignItems: 'flex-start',
-        paddingVertical: CELL_GAP,
-        paddingRight: CELL_GAP,
-      }}
+      contentContainerStyle={styles.contentContainer}
     >
       {content}
     </Animated.ScrollView>

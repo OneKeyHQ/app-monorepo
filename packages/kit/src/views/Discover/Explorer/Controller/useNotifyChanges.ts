@@ -11,7 +11,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { getWebviewWrapperRef } from '../explorerUtils';
 
-import { useWebTab } from './useWebTabs';
+import { useWebTabs } from './useWebTabs';
 
 const notifyChanges = throttle(
   (url: string, fromScene?: string) => {
@@ -45,7 +45,7 @@ export const useNotifyChanges = () => {
   }, [isFocused, navigation]);
 
   const isMountedRef = useIsMounted();
-  const tab = useWebTab();
+  const { tab } = useWebTabs();
 
   const tabUrl = tab?.url;
   const tabId = tab?.id;

@@ -63,7 +63,9 @@ export function useAccountSelectorInfo() {
   const activeNetworkRef = useRef(activeNetwork);
   activeNetworkRef.current = activeNetwork;
 
-  const { refreshAccountSelectorTs } = useAppSelector((s) => s.refresher);
+  const refreshAccountSelectorTs = useAppSelector(
+    (s) => s.refresher.refreshAccountSelectorTs,
+  );
 
   const selectedNetworkId = networkId;
   const selectedWalletId = walletId;

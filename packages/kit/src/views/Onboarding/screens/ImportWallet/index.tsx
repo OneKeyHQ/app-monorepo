@@ -16,7 +16,9 @@ const defaultProps = {} as const;
 const ImportWallet = () => {
   const intl = useIntl();
   const bgColor = useThemeValue('background-default');
-  const { onBoardingLoadingBehindModal } = useAppSelector((s) => s.runtime);
+  const onBoardingLoadingBehindModal = useAppSelector(
+    (s) => s.runtime.onBoardingLoadingBehindModal,
+  );
   const [drawerVisible, setDrawerVisible] = useState(false);
   const onPressDrawerTrigger = useCallback(() => {
     setDrawerVisible(true);

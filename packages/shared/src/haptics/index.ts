@@ -12,7 +12,6 @@ export const supportedHaptics =
 /** native ios default is true, native android default is false */
 export const defaultHapticStatus = !!(isNativeIPhoneOnly && supportedHaptics);
 
-export const enableHaptics = () => {
-  if (!supportedHaptics) return;
-  Haptics.selectionAsync();
-};
+export const enableHaptics = supportedHaptics
+  ? Haptics.selectionAsync
+  : () => {};

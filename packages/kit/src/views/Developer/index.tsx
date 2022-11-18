@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
@@ -126,7 +126,7 @@ export const Debug = () => {
         });
       });
     },
-    [],
+    [navigation],
   );
 
   const handleBatchTransfer = useCallback(
@@ -195,7 +195,7 @@ export const Debug = () => {
         },
       });
     },
-    [engine, navigation],
+    [engine, handleApproveToken, navigation],
   );
 
   return (

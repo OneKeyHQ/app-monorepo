@@ -39,6 +39,7 @@ export type TokenProps = {
   descProps?: ComponentProps<typeof Body2>;
   extraProps?: ComponentProps<typeof Body2>;
   infoBoxProps?: ComponentProps<typeof Box>;
+  verifyIconSize?: number;
 
   showInfo?: boolean;
   showName?: boolean;
@@ -140,7 +141,7 @@ export const TokenVerifiedIcon: React.FC<{
   }
 
   return (
-    <Pressable p="6px" onPress={toVerifiedTokenPage}>
+    <Pressable p="6px" ml="-6px" onPress={toVerifiedTokenPage}>
       {icon}
     </Pressable>
   );
@@ -282,6 +283,7 @@ const Token: FC<TokenProps> = ({
   infoBoxProps,
   extraProps: addressProps,
 
+  verifyIconSize = 16,
   showName = true,
   showInfo = false,
   showExtra = false,
@@ -316,10 +318,10 @@ const Token: FC<TokenProps> = ({
     }
     return (
       <Box flexDirection="row" alignItems="center">
-        {dom} <TokenVerifiedIcon size={16} token={token} />
+        {dom} <TokenVerifiedIcon size={verifyIconSize ?? 16} token={token} />
       </Box>
     );
-  }, [name, token, nameProps, showName, showTokenVerifiedIcon]);
+  }, [name, token, nameProps, showName, showTokenVerifiedIcon, verifyIconSize]);
 
   const descView = useMemo(() => {
     if (!showDescription && !description) {

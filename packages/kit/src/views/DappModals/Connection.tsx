@@ -235,8 +235,8 @@ function ConnectionContent({
 const defaultSourceInfo = Object.freeze({}) as IDappSourceInfo;
 const Connection = () => {
   const { dispatch } = backgroundApiProxy;
-  const { closeDappConnectionPreloadingTs } = useAppSelector(
-    (s) => s.refresher,
+  const closeDappConnectionPreloadingTs = useAppSelector(
+    (s) => s.refresher.closeDappConnectionPreloadingTs,
   );
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();

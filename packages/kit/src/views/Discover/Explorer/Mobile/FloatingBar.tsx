@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/components';
 
 import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
-import { useWebTab } from '../Controller/useWebTabs';
+import { useWebTabs } from '../Controller/useWebTabs';
 import { MIN_OR_HIDE, expandAnim } from '../explorerAnimation';
 
 const InfoBar: FC<{
@@ -51,7 +51,7 @@ const InfoBar: FC<{
 );
 
 const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
-  const tab = useWebTab();
+  const { tab } = useWebTabs();
   return (
     <Box
       bg="surface-subdued"
