@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -26,7 +26,18 @@ import { AssetType, Filter } from '../types';
 import { ERC20Allowance } from './ERC20Allowance';
 
 export const EmptyRecord = () => {
+  const [show, setShow] = useState(false);
   const intl = useIntl();
+
+  useEffect(() => {
+    setTimeout(() => {
+      setShow(false);
+    }, 600);
+  }, []);
+
+  if (!show) {
+    return null;
+  }
   return (
     <Empty
       emoji="👀"
@@ -174,7 +185,9 @@ export const ERC20TokenList: FC<{
             item.allowance.length > 0 || filters.includeTokensWithoutAllowances,
         )
         ?.filter(
-          ({ token }) => filters.includeUnverifiedTokens || token.verified,
+          ({ token }) =>
+            filters.includeUnverifiedTokens ||
+            (token.verified && !token.security),
         )
         .filter(({ token, balance }) => {
           if (filters.includeZeroBalancesTokens) {
@@ -197,6 +210,7 @@ export const ERC20TokenList: FC<{
         allowance,
         totalSupply,
       } = item;
+      // @ts-ignore
       const price = prices[token.address?.toLowerCase?.() ?? ''];
       const balanceBN = new B(balance).div(10 ** decimals);
       const priceMulBalance =
@@ -275,6 +289,7 @@ export const ERC20TokenList: FC<{
         allowance,
         totalSupply,
       } = item;
+      // @ts-ignore
       const price = prices[token.address?.toLowerCase?.() ?? ''];
       const balanceBN = new B(balance).div(10 ** decimals);
       const priceMulBalance =

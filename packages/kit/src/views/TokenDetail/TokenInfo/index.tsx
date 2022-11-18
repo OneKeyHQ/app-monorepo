@@ -115,10 +115,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
                 >
                   <Typography.DisplayXLarge
                     textAlign={isVertical ? 'center' : 'left'}
+                    mr="2"
                   >
                     {ele}
                   </Typography.DisplayXLarge>
-                  <TokenVerifiedIcon token={token || {}} />
+                  <TokenVerifiedIcon size={24} token={token || {}} />
                 </Box>
               )}
             />

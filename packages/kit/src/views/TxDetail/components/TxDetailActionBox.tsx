@@ -32,7 +32,7 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
               {subTitle}
             </VStack>
           </HStack>
-          {showTitleDivider ? (
+          {showTitleDivider && details?.length && content ? (
             <Divider mb={4} ml={-4} mr={-4} w="auto" />
           ) : null}
         </>

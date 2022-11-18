@@ -15,13 +15,12 @@ import {
   Spinner,
   Typography,
   VStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { tokenSecurityRiskItems } from '@onekeyhq/engine/src/managers/goplus';
 import { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
 import goPlus from '@onekeyhq/kit/assets/goPlus.png';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
-
-import { useNavigation } from '../../hooks';
 
 import { useTokenSecurityInfo } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -33,7 +32,7 @@ type NavigationProps = RouteProp<
 
 const RiskDetail: FC = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const route = useRoute<NavigationProps>();
   const {
     token: { networkId, address },
@@ -82,7 +81,7 @@ const RiskDetail: FC = () => {
         <Typography.DisplayLarge mb="2">
           {intl.formatMessage({ id: 'form__no_risks' })}
         </Typography.DisplayLarge>
-        <Typography.Body1>
+        <Typography.Body1 color="text-subdued">
           {intl.formatMessage(
             { id: 'form__no_risks_desc' },
             { 0: safe?.length ?? 0 },
@@ -94,16 +93,16 @@ const RiskDetail: FC = () => {
 
   const footer = useMemo(
     () => (
-      <VStack mt="8">
+      <VStack pb={`${insets.bottom}px`}>
         <Divider />
-        <HStack pt="4" alignItems="flex-end" justifyContent="center">
+        <HStack alignItems="center" justifyContent="center" mt="4">
           <Typography.Body2 color="text-subdued">Powered By</Typography.Body2>
           <Image size="20px" source={goPlus} ml="2" mr="1" />
           <Typography.Body2>Go Plus</Typography.Body2>
         </HStack>
       </VStack>
     ),
-    [],
+    [insets],
   );
 
   const renderItem = useCallback(
@@ -154,7 +153,7 @@ const RiskDetail: FC = () => {
                 locale?.[0]?.[1] ?? {},
               )}
             </Typography.Body1Strong>
-            <Typography.Body2>
+            <Typography.Body2 color="text/subdued">
               {intl.formatMessage(
                 {
                   id:
@@ -220,23 +219,11 @@ const RiskDetail: FC = () => {
   }
 
   return (
-    <Modal
-      height="560px"
-      hideSecondaryAction
-      primaryActionTranslationId="action__i_got_it"
-      onPrimaryActionPress={({ close }) => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        } else {
-          close?.();
-        }
-      }}
-    >
+    <Modal height="560px" hidePrimaryAction hideSecondaryAction footer={null}>
       {!isSingleList ? (
         <GroupingList
           ListHeaderComponent={() => header}
           stickySectionHeadersEnabled={false}
-          ItemSeparatorComponent={Divider}
           sections={items as typeof groupListData}
           // @ts-ignore
           renderItem={renderItem}
@@ -246,7 +233,6 @@ const RiskDetail: FC = () => {
       ) : (
         <List
           ListHeaderComponent={() => header}
-          ItemSeparatorComponent={Divider}
           data={items as (keyof GoPlusTokenSecurity)[]}
           renderItem={renderItem}
           keyExtractor={(item, index) => `${item as string}_${index}`}

@@ -1,18 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useAsync } from 'react-async-hook';
 import { DeviceEventEmitter } from 'react-native';
 
 import { useUserDevice } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import {
-  ADDRESS_ZERO,
-  ERC20TokenAllowance,
-  ERC721TokenAllowance,
-} from '@onekeyhq/engine/src/managers/revoke';
+import { ADDRESS_ZERO } from '@onekeyhq/engine/src/managers/revoke';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks';
@@ -51,83 +47,38 @@ export const useTokenAllowances = (
   addressOrName: string,
   assetType: AssetType,
 ) => {
-  const conditionRef = useRef<{ address: string; networkId: string }>();
-  const [loading, setLoading] = useState(true);
-  const [allowances, setAllowances] =
-    useState<(ERC20TokenAllowance | ERC721TokenAllowance)[]>();
-  const [prices, setPrices] = useState<Record<string, string>>({});
-  const { address, loading: updateAddressLoading } =
-    useRevokeAddress(addressOrName);
-
-  useEffect(() => {
-    conditionRef.current = {
-      address,
-      networkId,
-    };
-  }, [address, networkId]);
-
-  const refresh = useCallback(
-    async (type: AssetType) => {
-      if (!address || !networkId) {
-        if (!updateAddressLoading) {
-          setAllowances([]);
-          setLoading(false);
-        }
-        return;
-      }
-      const isConditionChanged = () => {
-        const { current } = conditionRef;
-        return address !== current?.address || networkId !== current?.networkId;
-      };
-      try {
-        setLoading(true);
-        setAllowances([]);
-        if (type === AssetType.tokens) {
-          const { allowance, prices: p } =
-            await backgroundApiProxy.serviceRevoke.fetchERC20TokenAllowences(
-              networkId,
-              address,
-            );
-          if (isConditionChanged()) {
-            return;
-          }
-          setPrices(p);
-          setAllowances(allowance);
-        } else {
-          const res =
-            await backgroundApiProxy.serviceRevoke.fetchERC721TokenAllowances(
-              networkId,
-              address,
-            );
-          setAllowances(res);
-        }
-      } catch (error) {
-        debugLogger.http.error('getTransferEvents error', error);
-      }
-      if (isConditionChanged()) {
-        return;
-      }
-      setLoading(false);
-    },
-    [address, networkId, updateAddressLoading],
+  const { result, loading, error, execute } = useAsync(
+    () =>
+      backgroundApiProxy.serviceRevoke.fetchTokenAllowance(
+        networkId,
+        addressOrName,
+        assetType,
+      ),
+    [networkId, addressOrName, assetType],
   );
 
   useEffect(() => {
-    refresh(assetType);
-    DeviceEventEmitter.addListener('Revoke:refresh', (type: AssetType) =>
-      refresh(type),
-    );
+    DeviceEventEmitter.addListener('Revoke:refresh', execute);
     return () => {
       DeviceEventEmitter.removeAllListeners();
     };
-  }, [refresh, assetType]);
+  }, [execute]);
+
+  if (error) {
+    return {
+      address: '',
+      prices: {},
+      allowances: [],
+      loading,
+    };
+  }
 
   return {
-    address,
-    prices,
-    loading: loading || updateAddressLoading,
-    allowances,
-    refresh,
+    address: result?.address ?? '',
+    prices: result?.prices ?? {},
+    allowances: result?.allowance ?? [],
+    loading,
+    error,
   };
 };
 

@@ -61,7 +61,6 @@ export function TxActionElementAddress(
   return (
     <VStack flex={flex}>
       <TxActionElementPressable
-        flex={1}
         onPress={
           isCopy
             ? () => {
@@ -71,7 +70,7 @@ export function TxActionElementAddress(
         }
         icon={isCopy ? <Icon name="DuplicateOutline" size={20} /> : undefined}
       >
-        <HStack flex="1" alignItems="center">
+        <HStack alignItems="center">
           {securityInfo?.length ? (
             <Icon
               name="ShieldExclamationSolid"
