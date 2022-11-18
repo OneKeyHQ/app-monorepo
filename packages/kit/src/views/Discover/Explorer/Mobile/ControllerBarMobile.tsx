@@ -51,6 +51,7 @@ export const ControllerBarMobile: FC = () => {
         useAnimatedStyle(
           () => ({
             zIndex: showTabGridAnim.value === MAX_OR_SHOW ? -1 : 1,
+            display: showTabGridAnim.value === MAX_OR_SHOW ? 'none' : 'flex',
             opacity: 1 - showTabGridAnim.value,
           }),
           [],
@@ -109,6 +110,7 @@ export const ControllerBarMobile: FC = () => {
         useAnimatedStyle(
           () => ({
             zIndex: showTabGridAnim.value === MIN_OR_HIDE ? -1 : 1,
+            display: showTabGridAnim.value === MIN_OR_HIDE ? 'none' : 'flex',
             opacity: showTabGridAnim.value,
           }),
           [],
@@ -165,6 +167,7 @@ export const ControllerBarMobile: FC = () => {
           useAnimatedStyle(
             () => ({
               zIndex: expandAnim.value === MIN_OR_HIDE ? -1 : 1,
+              display: expandAnim.value === MIN_OR_HIDE ? 'none' : 'flex',
               translateY: interpolate(
                 expandAnim.value,
                 [MIN_OR_HIDE, MAX_OR_SHOW],

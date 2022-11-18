@@ -1,4 +1,4 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,14 +10,11 @@ import { Desktop } from './Desktop';
 import { Mobile } from './Mobile';
 import { DiscoverProps } from './type';
 
+const onActive = () => backgroundApiProxy.serviceDiscover.fetchData();
 const Updater = () => {
-  const onActive = useCallback(
-    () => backgroundApiProxy.serviceDiscover.fetchData(),
-    [],
-  );
   useEffect(() => {
     onActive();
-  }, [onActive]);
+  }, []);
   return <AppStatusActiveListener onActive={onActive} />;
 };
 

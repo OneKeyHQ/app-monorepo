@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
 
-import React, {
+import {
   FC,
   createContext,
   useCallback,
@@ -102,6 +102,8 @@ const ChainsSelector: FC<{ networkIds: string[] }> = ({ networkIds }) => {
     <FlatList
       data={data}
       renderItem={renderItem}
+      removeClippedSubviews
+      windowSize={5}
       showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item.networkId}
     />
@@ -153,6 +155,8 @@ const DappsContainer = () => {
     <FlatList
       data={data}
       renderItem={renderItem}
+      removeClippedSubviews
+      windowSize={5}
       showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item._id}
     />

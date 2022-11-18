@@ -88,6 +88,7 @@ export default function BottomTabView(props: Props) {
     >
       <MaybeScreenContainer
         enabled={detachInactiveScreens}
+        hasTwoStates
         style={styles.container}
       >
         {routes.map((route, index) => {
@@ -105,6 +106,7 @@ export default function BottomTabView(props: Props) {
           }
 
           const {
+            freezeOnBlur,
             header = ({ layout, options }: BottomTabHeaderProps) => (
               <Header
                 {...options}
@@ -120,6 +122,7 @@ export default function BottomTabView(props: Props) {
               style={[StyleSheet.absoluteFill, { zIndex: isFocused ? 0 : -1 }]}
               visible={isFocused}
               enabled={detachInactiveScreens}
+              freezeOnBlur={freezeOnBlur}
             >
               <BottomTabBarHeightContext.Provider value={tabBarHeight}>
                 <Screen

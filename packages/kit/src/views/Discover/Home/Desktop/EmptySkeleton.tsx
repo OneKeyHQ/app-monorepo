@@ -70,6 +70,8 @@ const ListEmptyComponentRenderItem = () => {
         data={data}
         renderItem={renderItem}
         numColumns={numColumns}
+        removeClippedSubviews
+        windowSize={5}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => `${item}`}
         key={`key${numColumns}`}

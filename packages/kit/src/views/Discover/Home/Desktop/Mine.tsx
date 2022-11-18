@@ -89,6 +89,8 @@ const ListHeaderFavorites = () => {
       horizontal
       data={favorites}
       renderItem={renderItem}
+      removeClippedSubviews
+      windowSize={5}
       showsHorizontalScrollIndicator={false}
       keyExtractor={(item, i) => `${item.id}${i}`}
       ListEmptyComponent={ListHeaderItemsEmptyComponent}

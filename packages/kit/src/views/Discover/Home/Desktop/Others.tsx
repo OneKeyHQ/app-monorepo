@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, {
+import {
   FC,
   createContext,
   useCallback,
@@ -186,6 +186,8 @@ const DappsContainer = () => {
       paddingLeft="24px"
       paddingRight="24px"
       data={data}
+      removeClippedSubviews
+      windowSize={5}
       renderItem={renderItem}
       numColumns={numColumns}
       key={`key${numColumns}`}
