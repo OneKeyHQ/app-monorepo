@@ -33,7 +33,7 @@ const OptionLeading: FC<{ iconName: ICON_NAMES }> = ({ iconName }) => {
           rounded="full"
           bgColor="surface-default"
           borderWidth={StyleSheet.hairlineWidth}
-          borderColor="border-default"
+          borderColor="divider"
         >
           <Icon color="interactive-default" name={iconName} size={24} />
         </Center>
