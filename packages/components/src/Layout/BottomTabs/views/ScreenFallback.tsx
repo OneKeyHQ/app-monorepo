@@ -1,5 +1,3 @@
-import * as React from 'react';
-
 import { ResourceSavingView } from '@react-navigation/elements';
 import { StyleProp, View, ViewProps, ViewStyle } from 'react-native';
 
@@ -7,6 +5,7 @@ type Props = {
   visible: boolean;
   children: React.ReactNode;
   enabled: boolean;
+  freezeOnBlur?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -24,6 +23,7 @@ export const MaybeScreenContainer = ({
   ...rest
 }: ViewProps & {
   enabled: boolean;
+  hasTwoStates: boolean;
   children: React.ReactNode;
 }) => {
   if (Screens?.screensEnabled?.()) {
