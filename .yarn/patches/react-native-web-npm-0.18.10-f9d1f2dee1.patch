@@ -1,0 +1,83 @@
+diff --git a/dist/exports/Dimensions/index.js b/dist/exports/Dimensions/index.js
+index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..56f739df90cdeb7293af78e3e77fa6e0098cc8da 100644
+--- a/dist/exports/Dimensions/index.js
++++ b/dist/exports/Dimensions/index.js
+@@ -9,6 +9,8 @@
+  */
+ import invariant from 'fbjs/lib/invariant';
+ import canUseDOM from '../../modules/canUseDom';
++import { throttle } from 'lodash';
++
+ var dimensions = {
+   window: {
+     fontScale: 1,
+@@ -54,6 +56,7 @@ function handleResize() {
+     listeners['change'].forEach(handler => handler(dimensions));
+   }
+ }
++const handleResizeThrottle = throttle(handleResize, 300);
+ 
+ export default class Dimensions {
+   static get(dimension) {
+@@ -101,5 +104,5 @@ export default class Dimensions {
+ }
+ 
+ if (canUseDOM) {
+-  window.addEventListener('resize', handleResize, false);
++  window.addEventListener('resize', handleResizeThrottle, false);
+ }
+\ No newline at end of file
+diff --git a/dist/exports/Image/index.js b/dist/exports/Image/index.js
+index 93c5f22f3b5c7625f3d428302033aae287a576f8..b06dbea0187ab4721133806a9c60f92bbfbcc037 100644
+--- a/dist/exports/Image/index.js
++++ b/dist/exports/Image/index.js
+@@ -179,6 +179,14 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
+     }
+   }
+ 
++  var isMountedRef = React.useRef(true);
++  React.useEffect(() => {
++    isMountedRef.current = true;
++    return () => {
++      isMountedRef.current = false;
++    };
++  }, []);
++
+   var _React$useState = React.useState(() => {
+     var uri = resolveAssetUri(source);
+ 
+@@ -247,7 +255,7 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
+     if (resizeMode === 'center' || resizeMode === 'repeat' || onLayout) {
+       var _layout = e.nativeEvent.layout;
+       onLayout && onLayout(e);
+-      updateLayout(_layout);
++      isMountedRef.current && updateLayout(_layout);
+     }
+   } // Image loading
+ 
+@@ -257,14 +265,14 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
+     abortPendingRequest();
+ 
+     if (uri != null) {
+-      updateState(LOADING);
++      isMountedRef.current && updateState(LOADING);
+ 
+       if (onLoadStart) {
+         onLoadStart();
+       }
+ 
+       requestRef.current = ImageLoader.load(uri, function load(e) {
+-        updateState(LOADED);
++        isMountedRef.current && updateState(LOADED);
+ 
+         if (onLoad) {
+           onLoad(e);
+@@ -274,7 +282,7 @@ var Image = /*#__PURE__*/React.forwardRef((props, ref) => {
+           onLoadEnd();
+         }
+       }, function error() {
+-        updateState(ERRORED);
++        isMountedRef.current && updateState(ERRORED);
+ 
+         if (onError) {
+           onError({

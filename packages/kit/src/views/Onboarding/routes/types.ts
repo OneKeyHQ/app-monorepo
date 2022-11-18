@@ -16,9 +16,13 @@ export type IOnboardingBehindTheSceneParams =
     };
   };
 export type IOnboardingSetPasswordParams = {
+  disableAnimation?: boolean;
   mnemonic?: string;
 };
 export type IOnboardingConnectWalletParams = {
+  disableAnimation?: boolean;
+};
+export type IOnboardingImportWalletParams = {
   disableAnimation?: boolean;
 };
 export type IOnboardingRoutesParams = {
@@ -27,7 +31,7 @@ export type IOnboardingRoutesParams = {
   [EOnboardingRoutes.ConnectWallet]: IOnboardingConnectWalletParams | undefined;
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;
 
-  [EOnboardingRoutes.ImportWallet]: undefined;
+  [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
 
   [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams | undefined;
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;

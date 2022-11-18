@@ -256,6 +256,7 @@ export function WalletConnectQrcodeModal() {
     },
     [onDismiss],
   );
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__connect_with' })}
@@ -273,7 +274,13 @@ export function WalletConnectQrcodeModal() {
           paddingTop: 0,
         },
         children: (
-          <Box flex={1}>
+          <Box
+            flex={1}
+            {...(platformEnv.isNativeIOSPad && {
+              flexDir: 'row',
+              flexWrap: 'wrap',
+            })}
+          >
             <ConnectWalletListView
               connectToWalletService={connectToWalletService}
               uri={uri}

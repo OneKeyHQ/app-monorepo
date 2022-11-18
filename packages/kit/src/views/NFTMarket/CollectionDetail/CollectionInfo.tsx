@@ -107,7 +107,7 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
         </Box>
       </Box>
 
-      {isVerticalLayout ? Description : null}
+      {isVerticalLayout ? <Box mt="16px">{Description}</Box> : null}
 
       <Box
         flexDirection="row"

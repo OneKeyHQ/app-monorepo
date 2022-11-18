@@ -87,12 +87,14 @@ const AppLoading: FC = ({ children }) => {
         // imageBackgroundSource
         translucent={!platformEnv.isNativeAndroid}
         isLoaded={initDataReady}
+        // isLoaded={false}
         logoImage={
           platformEnv.isRuntimeBrowser
             ? require('../../assets/splash.svg')
             : require('../../assets/splash.png')
         }
         backgroundColor={bgColor}
+        // backgroundColor={platformEnv.isExtension ? 'rbga(0,0,0,0)' : bgColor}
         // same size to onekey-index-html-preload-image at index.html.ejs
         //      background img not working
         logoHeight={platformEnv.isRuntimeBrowser ? '80px' : '100%'}

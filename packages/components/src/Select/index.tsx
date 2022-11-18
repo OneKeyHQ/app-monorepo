@@ -56,6 +56,7 @@ export type SelectItem<T = string> = {
   destructive?: boolean;
   color?: ColorType;
   badge?: string;
+  leading?: ReactNode;
   trailing?: ReactNode;
 };
 

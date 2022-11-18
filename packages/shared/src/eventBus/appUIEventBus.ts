@@ -10,6 +10,7 @@ enum AppUIEventBusNames {
   SwapError = 'SwapError',
   RemoveAccount = 'RemoveAccount',
   Unlocked = 'Unlocked',
+  StoreInitedFromPersistor = 'StoreInitedFromPersistor',
 }
 
 if (isExtensionBackground) {
