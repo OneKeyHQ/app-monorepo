@@ -12,6 +12,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IDropdownProps, SelectItem } from '@onekeyhq/components/src/Select';
+import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 
 import { useNavigationActions } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -21,6 +22,7 @@ import {
   RootRoutes,
 } from '../../../routes/routesEnum';
 import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
+import { useCreateAccountInWallet } from '../../NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import { EWalletDataSectionType } from '../hooks/useWalletSelectorSectionData';
 
 const OptionLeading: FC<{ iconName: ICON_NAMES }> = ({ iconName }) => {
@@ -63,6 +65,11 @@ export function WalletCreateSelectDropdown({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closeWalletSelector } = useNavigationActions();
+
+  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
+    networkId: '',
+    walletId: WALLET_TYPE_EXTERNAL,
+  });
 
   const options = useMemo(() => {
     if (walletType === 'hd') {
@@ -123,6 +130,11 @@ export function WalletCreateSelectDropdown({
               disableAnimation: true,
             },
           });
+        }
+        if (v === 'connect') {
+          if (isCreateAccountSupported) {
+            createAccount();
+          }
         }
       }}
       dropdownPosition="right"

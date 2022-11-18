@@ -38,7 +38,8 @@ function ListItemWithHidden({
     ));
   }, []);
 
-  if (section.type === 'other' && !item.wallet?.accounts?.length) {
+  // hide singleton wallet if no accounts
+  if (item.isSingleton && !item.wallet?.accounts?.length) {
     return null;
   }
 

@@ -1,4 +1,4 @@
-/* eslint-disable react/no-unused-prop-types */
+/* eslint-disable react/no-unused-prop-types, @typescript-eslint/no-unused-vars */
 import React, { useCallback, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
@@ -38,6 +38,36 @@ export type IWalletDataBase = {
   hiddenWallets?: IWallet[];
 };
 
+function shouldShowBigCreateButton({
+  section,
+}: {
+  section: IWalletDataSection;
+}) {
+  const isEmptyData = !section?.data?.length;
+
+  const showButton =
+    (section.type === EWalletDataSectionType.hd ||
+      section.type === EWalletDataSectionType.hw) &&
+    isEmptyData;
+
+  return showButton;
+}
+
+function shouldShowMiniCreateButton({
+  section,
+}: {
+  section: IWalletDataSection;
+}) {
+  const isEmptyData = !section?.data?.length;
+
+  const showButton =
+    (section.type === EWalletDataSectionType.hd ||
+      section.type === EWalletDataSectionType.hw) &&
+    !isEmptyData;
+
+  return showButton;
+}
+
 function SectionHeader({
   type,
   isEmptyData,
@@ -55,10 +85,7 @@ function SectionHeader({
     return intl.formatMessage({ id: 'content__other' });
   }, [intl, type]);
 
-  const showAddIconButton =
-    !isEmptyData &&
-    (type === EWalletDataSectionType.hd || type === EWalletDataSectionType.hw);
-  // const showAddIconButton = true;
+  const showAddIconButton = shouldShowMiniCreateButton({ section });
 
   if (type === EWalletDataSectionType.other) {
     let totalAccountsLength = 0;
@@ -188,9 +215,13 @@ function Body() {
           );
         }}
         renderSectionFooter={({ section }: { section: IWalletDataSection }) => {
-          console.log({ section });
           const isEmptyData = !section?.data?.length;
-          if (isEmptyData) {
+          const showCreateWalletButton = shouldShowBigCreateButton({ section });
+          if (showCreateWalletButton) {
+            const bottomMargin: JSX.Element | null = <Box h={6} />;
+            if (section.type === EWalletDataSectionType.hd) {
+              // bottomMargin = null;
+            }
             const createNewButton = null;
             const iconFontSizeMap: { [size: string]: number } = {
               'xs': 24,
@@ -255,7 +286,7 @@ function Body() {
                     )}
                   />
                 </Box>
-                <Box h={6} />
+                {bottomMargin}
               </>
             );
           }
