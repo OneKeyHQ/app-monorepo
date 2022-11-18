@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useContext,
-  useLayoutEffect,
-  useMemo,
-} from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -94,6 +89,8 @@ const ListHeaderFavorites = () => {
       horizontal
       data={favorites}
       renderItem={renderItem}
+      removeClippedSubviews
+      windowSize={5}
       showsHorizontalScrollIndicator={false}
       keyExtractor={(item, i) => `${item.id}${i}`}
       ListEmptyComponent={ListHeaderItemsEmptyComponent}
@@ -130,6 +127,8 @@ const ListHeaderHistories = () => {
     <FlatList
       horizontal
       data={histories}
+      removeClippedSubviews
+      windowSize={5}
       renderItem={renderItem}
       showsHorizontalScrollIndicator={false}
       keyExtractor={(item) => `${item.id}`}
@@ -246,6 +245,8 @@ export const Mine = () => {
           paddingTop: 12,
         }}
         data={data}
+        removeClippedSubviews
+        windowSize={5}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
         ListHeaderComponent={ListHeaderComponent}

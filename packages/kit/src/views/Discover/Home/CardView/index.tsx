@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { ListRenderItem, useWindowDimensions } from 'react-native';
 
@@ -98,6 +98,8 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
         contentContainerStyle={{
           paddingRight: 16,
         }}
+        removeClippedSubviews
+        windowSize={5}
         showsHorizontalScrollIndicator={false}
         horizontal
         data={items}
@@ -179,6 +181,8 @@ const CardViewDesktop: FC<SectionDataType> = ({
       <FlatList
         paddingLeft="24px"
         data={filterData}
+        removeClippedSubviews
+        windowSize={5}
         renderItem={renderItem}
         numColumns={numColumns}
         showsHorizontalScrollIndicator={false}
