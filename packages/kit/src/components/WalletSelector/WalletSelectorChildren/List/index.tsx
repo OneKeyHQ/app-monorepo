@@ -203,17 +203,14 @@ function Body() {
         }: {
           item: IWalletDataBase;
           section: IWalletDataSection;
-        }) => {
-          console.log(item);
-          return (
-            <ListItemWithHidden
-              item={item}
-              section={section}
-              deviceStatus={deviceStatus}
-              onLastItemRender={scrollToItemDebounced}
-            />
-          );
-        }}
+        }) => (
+          <ListItemWithHidden
+            item={item}
+            section={section}
+            deviceStatus={deviceStatus}
+            onLastItemRender={scrollToItemDebounced}
+          />
+        )}
         renderSectionFooter={({ section }: { section: IWalletDataSection }) => {
           const isEmptyData = !section?.data?.length;
           const showCreateWalletButton = shouldShowBigCreateButton({ section });
