@@ -79,11 +79,28 @@ function SectionHeader({
       alignItems="center"
       flexDirection="row"
       px={4}
-      mb={1}
+      mb={2}
     >
       <Typography.Subheading flex={1} color="text-subdued">
         {label}
       </Typography.Subheading>
+      <Center my="-8px">
+        {showAddIconButton ? (
+          <WalletCreateSelectDropdown
+            dropdownProps={{ width: '288px' }}
+            walletType={type}
+            renderTrigger={({ onPress }) => (
+              <IconButton
+                onPress={onPress}
+                type="plain"
+                name="PlusSolid"
+                circle
+                hitSlop={8}
+              />
+            )}
+          />
+        ) : null}
+      </Center>
     </Box>
   );
 }
@@ -171,7 +188,10 @@ function Body() {
           );
         }}
         renderSectionFooter={({ section }: { section: IWalletDataSection }) => {
-          if (section.type !== EWalletDataSectionType.other) {
+          console.log({ section });
+          const isEmptyData = !section?.data?.length;
+          if (isEmptyData) {
+            const createNewButton = null;
             const iconFontSizeMap: { [size: string]: number } = {
               'xs': 24,
               'sm': 32,
@@ -180,14 +200,43 @@ function Body() {
             };
             const iconSizeName = platformEnv.isNative ? 'lg' : 'sm';
             const iconSize = iconFontSizeMap[iconSizeName];
+            let leftView: JSX.Element | null = null;
             let text = '';
             if (section.type === EWalletDataSectionType.hd) {
               text = intl.formatMessage({ id: 'action__add_app_wallet' });
+              leftView = (
+                <Center
+                  size={`${iconSize}px`}
+                  borderWidth={2}
+                  borderColor="border-default"
+                  borderStyle="dashed"
+                  borderRadius="full"
+                >
+                  <Icon
+                    size={platformEnv.isNative ? 24 : 20}
+                    name={platformEnv.isNative ? 'PlusOutline' : 'PlusSolid'}
+                  />
+                </Center>
+              );
             }
             if (section.type === EWalletDataSectionType.hw) {
               text = intl.formatMessage({
-                id: 'action__add_hardware_wallet' as any,
+                id: 'action__connect_hardware_wallet' as any,
               });
+              leftView = (
+                <Center
+                  size={`${iconSize}px`}
+                  borderWidth={2}
+                  borderColor="border-default"
+                  borderStyle="dashed"
+                  borderRadius="full"
+                >
+                  <Icon
+                    size={platformEnv.isNative ? 24 : 20}
+                    name={platformEnv.isNative ? 'LinkOutline' : 'LinkSolid'}
+                  />
+                </Center>
+              );
             }
             return (
               <>
@@ -199,26 +248,8 @@ function Body() {
                       <Box mx="-8px">
                         <ListItemBase
                           onPress={onPress}
-                          leftView={
-                            <Center
-                              size={`${iconSize}px`}
-                              borderWidth={1}
-                              borderColor="border-default"
-                              borderStyle="dashed"
-                              borderRadius="full"
-                            >
-                              <Icon
-                                size={platformEnv.isNative ? 24 : 20}
-                                name={
-                                  platformEnv.isNative
-                                    ? 'PlusSmOutline'
-                                    : 'PlusSmSolid'
-                                }
-                              />
-                            </Center>
-                          }
+                          leftView={leftView}
                           text={text}
-                          labelProps={{ color: 'text-subdued' }}
                         />
                       </Box>
                     )}

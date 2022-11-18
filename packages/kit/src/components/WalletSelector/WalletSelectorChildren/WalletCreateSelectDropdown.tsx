@@ -1,8 +1,16 @@
-import React, { ReactNode, useMemo } from 'react';
+import React, { FC, ReactNode, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Box, Icon, Select, useIsVerticalLayout } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  ICON_NAMES,
+  Icon,
+  Select,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import { IDropdownProps, SelectItem } from '@onekeyhq/components/src/Select';
 
 import { useNavigationActions } from '../../../hooks';
@@ -14,6 +22,27 @@ import {
 } from '../../../routes/routesEnum';
 import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
 import { EWalletDataSectionType } from '../hooks/useWalletSelectorSectionData';
+
+const OptionLeading: FC<{ iconName: ICON_NAMES }> = ({ iconName }) => {
+  const isVerticalLayout = useIsVerticalLayout();
+  return (
+    <Box alignSelf="flex-start">
+      {isVerticalLayout ? (
+        <Center
+          size="48px"
+          rounded="full"
+          bgColor="surface-default"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="border-default"
+        >
+          <Icon color="interactive-default" name={iconName} size={24} />
+        </Center>
+      ) : (
+        <Icon name={iconName} size={20} />
+      )}
+    </Box>
+  );
+};
 
 export function WalletCreateSelectDropdown({
   renderTrigger,
@@ -32,23 +61,14 @@ export function WalletCreateSelectDropdown({
   }) => ReactNode;
 }) {
   const intl = useIntl();
-  const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();
   const { closeWalletSelector } = useNavigationActions();
+
   const options = useMemo(() => {
     if (walletType === 'hd') {
       return [
         {
-          leading: (
-            <Box alignSelf="flex-start">
-              <Icon
-                name={
-                  isVerticalLayout ? 'PlusCircleOutline' : 'PlusCircleSolid'
-                }
-                size={isVerticalLayout ? 24 : 20}
-              />
-            </Box>
-          ),
+          leading: <OptionLeading iconName="PlusCircleOutline" />,
           label: intl.formatMessage({
             id: 'action__create_wallet' as any,
           }),
@@ -58,26 +78,29 @@ export function WalletCreateSelectDropdown({
           value: 'create',
         },
         {
-          leading: (
-            <Box alignSelf="flex-start">
-              <Icon
-                name={isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid'}
-                size={isVerticalLayout ? 24 : 20}
-              />
-            </Box>
-          ),
+          leading: <OptionLeading iconName="SaveOutline" />,
           label: intl.formatMessage({
-            id: 'action__restore_wallet' as any,
+            id: 'action__import_wallet' as any,
           }),
           description: intl.formatMessage({
-            id: 'content__import_existing_recovery_phrase' as any,
+            id: 'content__import_wallet_desc' as any,
           }),
           value: 'import',
+        },
+        {
+          leading: <OptionLeading iconName="ConnectOutline" />,
+          label: intl.formatMessage({
+            id: 'action__connect_3rd_party_wallet' as any,
+          }),
+          description: intl.formatMessage({
+            id: 'content__connect_3rd_party_wallet_desc' as any,
+          }),
+          value: 'connect',
         },
       ];
     }
     return [];
-  }, [walletType, isVerticalLayout, intl]);
+  }, [walletType, intl]);
 
   return (
     <Select
