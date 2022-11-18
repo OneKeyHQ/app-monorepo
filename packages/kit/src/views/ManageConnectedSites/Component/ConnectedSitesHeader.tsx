@@ -33,7 +33,9 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
   const [walletConnectSessions, setSessions] = useState<
     IWalletConnectSession[]
   >(() => []);
-  const { refreshConnectedSitesTs } = useAppSelector((s) => s.refresher);
+  const refreshConnectedSitesTs = useAppSelector(
+    (s) => s.refresher.refreshConnectedSitesTs,
+  );
   useEffect(() => {
     const main = async (delay = 0) => {
       await wait(delay);

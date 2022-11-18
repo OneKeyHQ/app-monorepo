@@ -22,6 +22,7 @@ import {
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
 import { homeTab } from '../../../../store/reducers/webTabs';
+import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
 import {
   MatchDAppItemType,
@@ -92,15 +93,8 @@ function getHttpSafeState(searchContent?: string): ICON_NAMES {
 const ControllerBarDesktop: FC = () => {
   const intl = useIntl();
   const [historyVisible, setHistoryVisible] = useState(false);
-  const {
-    openMatchDApp,
-    gotoSite,
-    currentTab,
-    stopLoading,
-    goBack,
-    goForward,
-    reload,
-  } = useWebController();
+  const { currentTab, stopLoading, goBack, goForward, reload } =
+    useWebController();
   const { loading, canGoBack, canGoForward } = currentTab;
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {

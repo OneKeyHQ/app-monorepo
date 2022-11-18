@@ -4,7 +4,6 @@ import { useChartData } from '@onekeyfe/react-native-animated-charts';
 import { Text, View } from 'react-native';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
-import { useSettings } from '../../../hooks';
 
 function trim(val: number) {
   return Math.min(Math.max(val, 0.05), 0.95);

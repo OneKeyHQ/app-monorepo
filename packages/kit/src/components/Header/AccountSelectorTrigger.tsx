@@ -41,7 +41,7 @@ const AccountSelectorTrigger: FC<Props> = ({
   const intl = useIntl();
   const { engine } = backgroundApiProxy;
   const { deviceUpdates } = useSettings();
-  const { connected } = useAppSelector((s) => s.hardware);
+  const connected = useAppSelector((s) => s.hardware.connected);
   const isVerticalLayout = useIsVerticalLayout();
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();

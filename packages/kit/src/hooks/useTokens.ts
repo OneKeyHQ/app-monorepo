@@ -79,7 +79,7 @@ export const useNFTSymbolPrice = ({
 }: {
   networkId?: string | null;
 }) => {
-  const { nftSymbolPrice } = useAppSelector((s) => s.nft);
+  const nftSymbolPrice = useAppSelector((s) => s.nft.nftSymbolPrice);
   const symbolPrice = useMemo(() => {
     if (networkId) {
       return nftSymbolPrice[networkId] ?? 0;

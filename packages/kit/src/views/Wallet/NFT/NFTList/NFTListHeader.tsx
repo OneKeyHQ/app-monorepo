@@ -37,7 +37,7 @@ const NFTListHeader = ({
     accountId: account?.address,
     networkId: network?.id,
   });
-  const { disPlayPriceType } = useAppSelector((s) => s.nft);
+  const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);
   const subDesc =
     disPlayPriceType === 'lastSalePrice'
       ? intl.formatMessage({ id: 'form__last_price' })

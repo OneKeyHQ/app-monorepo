@@ -19,7 +19,6 @@ import type {
   TouchableWithoutFeedbackProps,
   ViewStyle,
 } from 'react-native';
-import type { EdgeInsets } from 'react-native-safe-area-context';
 
 export type TBottomBarFoldableItem<T = any> = {
   name: T;

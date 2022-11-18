@@ -40,7 +40,9 @@ const RightAccountSection: FC<AccountSectionProps> = ({
   activeAccount,
   refreshAccounts,
 }) => {
-  const { preloadingCreateAccount } = useAppSelector((s) => s.accountSelector);
+  const preloadingCreateAccount = useAppSelector(
+    (s) => s.accountSelector.preloadingCreateAccount,
+  );
   const preloadingSkeleton = useMemo(
     () => (
       <AccountSectionLoadingSkeleton

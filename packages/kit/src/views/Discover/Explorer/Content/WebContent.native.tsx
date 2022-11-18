@@ -10,6 +10,7 @@ import {
   homeTab,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
+import { gotoSite } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
 import { webviewRefs } from '../explorerUtils';
 
@@ -17,7 +18,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
   const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
     useState<WebViewNavigation>();
 
-  const { gotoSite } = useWebController({
+  useWebController({
     id,
     navigationStateChangeEvent,
   });
@@ -48,7 +49,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome, gotoSite],
+    [id, showHome],
   );
 
   return webview;
