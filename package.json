@@ -12,7 +12,7 @@
     "copy:inject": "bash development/copy-injected.sh",
     "clean": "./clean_workspace.sh && yarn cache clean",
     "lint:project": "npx tsc --noEmit && npx eslint . --ext .ts,.tsx --cache",
-    "lint": "ultra lint:project && sed -i '' \"s#`pwd`/##g\" .eslintcache",
+    "lint": "ultra lint:project && perl -pi -e s#\"$(pwd)\"/##g .eslintcache",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
     "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
