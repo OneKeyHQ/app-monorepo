@@ -151,8 +151,13 @@ class Validators {
           filterCategories,
         );
 
-        if (result) ret.push(...result);
-        if (result && returnEarly) return ret;
+        const hasResult = Array.isArray(result) && result.length > 0;
+        if (hasResult) {
+          ret.push(...result);
+        }
+        if (hasResult && returnEarly) {
+          return ret;
+        }
       }
     }
 

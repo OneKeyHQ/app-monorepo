@@ -417,7 +417,11 @@ export default class Vault extends VaultBase {
           });
 
           return new BigNumber(response.result?.account_data?.Balance);
-        } catch (error) {
+        } catch (error: any) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          if (error?.message?.includes?.('Account not found')) {
+            return new BigNumber(0);
+          }
           console.error(error);
           throw error;
         }
