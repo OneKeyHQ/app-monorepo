@@ -764,6 +764,7 @@ class Engine {
       '2': OnekeyNetwork.ltc,
       '145': OnekeyNetwork.bch,
       '283': OnekeyNetwork.algo,
+      '144': OnekeyNetwork.xrp,
       '118': OnekeyNetwork.cosmoshub,
     }[coinType];
     if (typeof networkId === 'undefined') {
@@ -2691,6 +2692,58 @@ class Engine {
     const dbAccount = await vault.getDbAccount();
     return vault.getNextNonce(params.networkId, dbAccount);
   }
+
+  @backgroundMethod()
+  async validateSendAmount({
+    accountId,
+    networkId,
+    amount,
+    tokenBalance,
+    to,
+  }: {
+    accountId: string;
+    networkId: string;
+    amount: string;
+    tokenBalance: string;
+    to: string;
+  }) {
+    const vault = await this.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.validateSendAmount(amount, tokenBalance, to);
+  }
+
+  @backgroundMethod()
+  async notifyChainChanged(
+    currentNetworkId: string,
+    previousNetworkId: string,
+  ) {
+    const vault = await this.getVault({
+      networkId: previousNetworkId,
+      accountId: '',
+    });
+    vault.notifyChainChanged(currentNetworkId, previousNetworkId);
+  }
+
+  @backgroundMethod()
+  async getFrozenBalance(networkId: string) {
+    if (!networkId) return 0;
+    return this._getFrozenBalance(networkId);
+  }
+
+  _getFrozenBalance = memoizee(
+    async (networkId: string) => {
+      const vault = await this.getChainOnlyVault(networkId);
+      return vault.getFrozenBalance();
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
 }
 
 export { Engine };

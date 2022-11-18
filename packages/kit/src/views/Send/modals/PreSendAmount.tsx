@@ -1,8 +1,14 @@
-import React, { isValidElement, useCallback, useMemo, useState } from 'react';
+import React, {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { MessageDescriptor, useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -121,7 +127,7 @@ function PreSendAmount() {
     tokenIdOnNetwork,
   });
 
-  const { getTokenBalance } = useManageTokensOfAccount({
+  const { balances, getTokenBalance } = useManageTokensOfAccount({
     fetchTokensOnMount: true,
     accountId,
     networkId,
@@ -178,8 +184,56 @@ function PreSendAmount() {
     return [true, false];
   }, [minAmountBN, amount]);
 
+  const [invalidAmountError, setInvalidAmountError] = useState<{
+    key: MessageDescriptor['id'];
+    info: any;
+  } | null>(null);
+  const validateAmount = useCallback(async () => {
+    if (!minAmountValidationPassed) {
+      return {
+        result: true,
+        errorInfo: null,
+      };
+    }
+    try {
+      const key = tokenInfo?.tokenIdOnNetwork || 'main';
+      const balance = balances?.[key] as string;
+      await engine.validateSendAmount({
+        accountId,
+        networkId,
+        amount,
+        tokenBalance: balance,
+        to: transferInfo.to,
+      });
+      return { result: true, errorInfo: null };
+    } catch (error: any) {
+      const { key, info } = error;
+      return {
+        result: false,
+        errorInfo: { key: key as MessageDescriptor['id'], info },
+      };
+    }
+  }, [
+    accountId,
+    networkId,
+    amount,
+    engine,
+    transferInfo,
+    tokenInfo,
+    balances,
+    minAmountValidationPassed,
+  ]);
+  useEffect(() => {
+    const validFunc = async () => {
+      const { result, errorInfo } = await validateAmount();
+      setInvalidAmountError(result ? null : errorInfo);
+    };
+    validFunc();
+  }, [validateAmount]);
+
   const desc = useMemo(
     () =>
+      // eslint-disable-next-line no-nested-ternary
       minAmountNoticeNeeded ? (
         <Typography.Body1Strong color="text-critical">
           {intl.formatMessage(
@@ -187,8 +241,21 @@ function PreSendAmount() {
             { 0: minAmountBN.toFixed(), 1: tokenInfo?.symbol },
           )}
         </Typography.Body1Strong>
+      ) : invalidAmountError ? (
+        <Typography.Body1Strong color="text-critical">
+          {intl.formatMessage(
+            { id: invalidAmountError.key },
+            { ...invalidAmountError.info },
+          )}
+        </Typography.Body1Strong>
       ) : undefined,
-    [intl, minAmountBN, minAmountNoticeNeeded, tokenInfo?.symbol],
+    [
+      intl,
+      minAmountBN,
+      minAmountNoticeNeeded,
+      tokenInfo?.symbol,
+      invalidAmountError,
+    ],
   );
 
   const {
@@ -219,7 +286,8 @@ function PreSendAmount() {
       primaryActionTranslationId="action__next"
       hideSecondaryAction
       primaryActionProps={{
-        isDisabled: !!errorMsg || !minAmountValidationPassed,
+        isDisabled:
+          !!errorMsg || !minAmountValidationPassed || !!invalidAmountError,
         isLoading,
       }}
       onPrimaryActionPress={async () => {

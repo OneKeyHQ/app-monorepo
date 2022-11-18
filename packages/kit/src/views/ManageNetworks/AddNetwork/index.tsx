@@ -23,6 +23,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useDebounce } from '../../../hooks';
+import { RpcNodePattern } from '../constants';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -293,7 +294,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                         }),
                       },
                       pattern: {
-                        value: /^https?:\/\//,
+                        value: RpcNodePattern,
                         message: intl.formatMessage({
                           id: 'form__rpc_url_wrong_format',
                         }),
