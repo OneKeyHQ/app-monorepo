@@ -1,5 +1,6 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import {
   mnemonicFromEntropy,
@@ -133,6 +134,8 @@ import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
   IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionType,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IEncodedTx,
@@ -1853,6 +1856,20 @@ class Engine {
     // decodedTxLegacy.payload = payload;
     decodedTx.payload = decodedTx.payload ?? payload;
     decodedTx = await vault.fixDecodedTx(decodedTx);
+
+    if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
+      const action: IDecodedTxAction = {
+        type: IDecodedTxActionType.INTERNAL_SWAP,
+        internalSwap: {
+          ...payload.swapInfo,
+          extraInfo: null,
+        },
+        unknownAction: {
+          extraInfo: {},
+        },
+      };
+      decodedTx.actions = [action];
+    }
     return {
       decodedTx,
       decodedTxLegacy,
