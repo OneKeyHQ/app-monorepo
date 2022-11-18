@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "incremental": true,
     "noImplicitOverride": true,
     "allowSyntheticDefaultImports": true,
     "jsx": "preserve",
