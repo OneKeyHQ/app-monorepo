@@ -789,7 +789,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     this.addEthereumChainDebounced(request, params);
 
     // Metamask return null
-    return null;
+    return Promise.resolve(null);
   }
 
   /**
@@ -805,7 +805,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     this.switchEthereumChainDebounced(request, params);
 
     // Metamask return null
-    return null;
+    return Promise.resolve(null);
   }
 
   // TODO metamask_unlockStateChanged
