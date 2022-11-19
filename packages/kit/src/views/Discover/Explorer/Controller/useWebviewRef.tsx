@@ -10,8 +10,6 @@ import {
   getWebviewWrapperRef,
 } from '../explorerUtils';
 
-import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
-
 export const useWebviewRef = ({
   ref,
   onNavigation,
@@ -20,7 +18,6 @@ export const useWebviewRef = ({
   ref?: IElectronWebView;
   onNavigation: OnWebviewNavigation;
   tabId: string;
-  navigationStateChangeEvent?: WebViewNavigation;
 }) => {
   const isDomReady = useRef(false);
   useEffect(() => {

@@ -8,7 +8,7 @@ import Animated, {
 
 import { Box, Pressable } from '@onekeyhq/components';
 
-import { useWebController } from '../Controller/useWebController';
+import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
   MIN_OR_HIDE,
@@ -30,7 +30,7 @@ const FloatingContainer: FC<{
   beforeMinimize: () => void;
   onSearch: () => void;
 }> = ({ beforeMaximize, afterMaximize, beforeMinimize, onSearch }) => {
-  const { tabs, currentTab } = useWebController();
+  const { tabs, tab: currentTab } = useWebTabs();
   const hasTabs = tabs.length > 1;
   const lastTabsLength = useRef(tabs.length);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -91,8 +91,8 @@ const FloatingContainer: FC<{
             }
           >
             <FloatingBar
-              favicon={currentTab.favicon}
-              text={currentTab.title}
+              favicon={currentTab?.favicon}
+              text={currentTab?.title}
               onSearch={onSearch}
             />
           </Pressable>
