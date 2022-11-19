@@ -1,8 +1,8 @@
-import { useCallback, useContext, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
+import { ListRenderItem, StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -30,13 +30,20 @@ import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
-import type { SectionDataType } from '../../type';
+import type { DAppItemType, SectionDataType } from '../../type';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
   HomeRoutes.DAppListScreen
 >;
+
+const styles = StyleSheet.create({
+  listContentContainer: {
+    paddingBottom: 12,
+    paddingTop: 12,
+  },
+});
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
@@ -198,10 +205,10 @@ const ListHeaderComponent = () => {
     return null;
   }
   return (
-    <Box>
+    <>
       <DAppCategories />
       {platformEnv.isWeb ? null : <ListHeaderItems />}
-    </Box>
+    </>
   );
 };
 
@@ -214,7 +221,10 @@ const ListEmptyComponent = () => {
 export const Mine = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const dapps = useTaggedDapps();
+  const fullDapps = useTaggedDapps();
+  const [dapps, setDapps] = useState<
+    { label: string; id: string; items: DAppItemType[] }[]
+  >([]);
   const { onItemSelect } = useContext(DiscoverContext);
 
   const data = useMemo(
@@ -222,7 +232,7 @@ export const Mine = () => {
     [dapps],
   );
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (platformEnv.isNative) {
       navigation.setOptions({
         title: intl.formatMessage({
@@ -230,7 +240,10 @@ export const Mine = () => {
         }),
       });
     }
-  }, [navigation, intl]);
+    setTimeout(() => {
+      setDapps(fullDapps);
+    });
+  }, [navigation, intl, fullDapps]);
 
   const renderItem: ListRenderItem<SectionDataType> = useCallback(
     ({ item }) => <CardView {...item} onItemSelect={onItemSelect} />,
@@ -240,10 +253,7 @@ export const Mine = () => {
   return (
     <Box flex="1" bg="background-default">
       <FlatList
-        contentContainerStyle={{
-          paddingBottom: 12,
-          paddingTop: 12,
-        }}
+        contentContainerStyle={styles.listContentContainer}
         data={data}
         removeClippedSubviews
         windowSize={5}

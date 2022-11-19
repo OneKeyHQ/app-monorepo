@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -25,28 +25,36 @@ import WebTabFront from './WebTabFront';
 import WebTabGrid from './WebTabGrid';
 
 const FloatingContainer: FC<{
-  onMaximize: () => void;
-  onMinimize: () => void;
+  beforeMaximize?: () => void;
+  afterMaximize: () => void;
+  beforeMinimize: () => void;
   onSearch: () => void;
-}> = ({ onMaximize, onMinimize, onSearch }) => {
+}> = ({ beforeMaximize, afterMaximize, beforeMinimize, onSearch }) => {
   const { tabs, currentTab } = useWebController();
   const hasTabs = tabs.length > 1;
   const lastTabsLength = useRef(tabs.length);
   const [containerHeight, setContainerHeight] = useState(0);
+  const [showContent, setShowContent] = useState(false);
+
+  const innerBeforeMaximize = useCallback(() => {
+    setShowContent(true);
+    beforeMaximize?.();
+  }, [beforeMaximize]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;
     lastTabsLength.current = tabs.length;
     if (newTabAdded && expandAnim.value === MIN_OR_HIDE) {
+      innerBeforeMaximize();
       setTimeout(() => {
-        expandFloatingWindow(onMaximize);
+        expandFloatingWindow(afterMaximize);
       }, 100);
     } else if (tabs.length === 1) {
       hideTabGrid();
-      minimizeFloatingWindow(onMinimize);
+      minimizeFloatingWindow(beforeMinimize);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs.length]);
+  }, [tabs.length, innerBeforeMaximize]);
 
   return (
     <>
@@ -74,7 +82,13 @@ const FloatingContainer: FC<{
         <Box flex={1} bg="background-default">
           <Pressable
             h="48px"
-            onPress={() => toggleFloatingWindow({ onMaximize, onMinimize })}
+            onPress={() =>
+              toggleFloatingWindow({
+                beforeMinimize,
+                afterMaximize,
+                beforeMaximize: innerBeforeMaximize,
+              })
+            }
           >
             <FloatingBar
               favicon={currentTab.favicon}
@@ -82,8 +96,12 @@ const FloatingContainer: FC<{
               onSearch={onSearch}
             />
           </Pressable>
-          <WebTabFront />
-          <WebTabGrid />
+          {showContent && (
+            <>
+              <WebTabFront />
+              <WebTabGrid />
+            </>
+          )}
         </Box>
       </Animated.View>
       <ControllerBarMobile />

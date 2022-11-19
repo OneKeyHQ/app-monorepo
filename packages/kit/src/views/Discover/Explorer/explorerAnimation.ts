@@ -44,25 +44,28 @@ export const hideTabGrid = () => {
   showTabGridAnim.value = withTiming(MIN_OR_HIDE);
 };
 
-export const expandFloatingWindow = (onMaximize: () => void = () => {}) => {
+export const expandFloatingWindow = (afterMaximize: () => void = () => {}) => {
   expandAnim.value = withTiming(MAX_OR_SHOW, { duration: 300 }, () =>
-    runOnJS(onMaximize),
+    runOnJS(afterMaximize),
   );
 };
-export const minimizeFloatingWindow = (onMinimize?: () => void) => {
-  onMinimize?.();
+export const minimizeFloatingWindow = (beforeMinimize?: () => void) => {
+  beforeMinimize?.();
   expandAnim.value = withTiming(MIN_OR_HIDE, { duration: 300 });
 };
 export const toggleFloatingWindow = ({
-  onMinimize,
-  onMaximize,
+  beforeMinimize,
+  beforeMaximize,
+  afterMaximize,
 }: {
-  onMinimize?: () => void;
-  onMaximize?: () => void;
+  beforeMinimize?: () => void;
+  beforeMaximize?: () => void;
+  afterMaximize?: () => void;
 }) => {
   if (expandAnim.value === MIN_OR_HIDE) {
-    expandFloatingWindow(onMaximize);
+    beforeMaximize?.();
+    expandFloatingWindow(afterMaximize);
   } else {
-    minimizeFloatingWindow(onMinimize);
+    minimizeFloatingWindow(beforeMinimize);
   }
 };
