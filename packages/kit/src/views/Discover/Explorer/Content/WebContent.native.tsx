@@ -1,5 +1,6 @@
-import { FC, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useRef } from 'react';
 
+import * as Linking from 'expo-linking';
 import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -11,19 +12,49 @@ import {
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
 import { gotoSite } from '../Controller/gotoSite';
-import { useWebController } from '../Controller/useWebController';
+import { onNavigation } from '../Controller/useWebController';
 import { webviewRefs } from '../explorerUtils';
 
 const WebContent: FC<WebTab> = ({ id, url }) => {
-  const [navigationStateChangeEvent, setNavigationStateChangeEvent] =
-    useState<WebViewNavigation>();
-
-  useWebController({
-    id,
-    navigationStateChangeEvent,
-  });
-
+  const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
+
+  const onNavigationStateChange = useCallback(
+    (navigationStateChangeEvent: WebViewNavigation) => {
+      if (showHome) {
+        return;
+      }
+      const snapshot = JSON.stringify(navigationStateChangeEvent);
+      if (snapshot === lastNavEventSnapshot.current) {
+        return;
+      }
+      lastNavEventSnapshot.current = snapshot;
+      const {
+        canGoBack,
+        canGoForward,
+        loading,
+        title,
+        url: navUrl,
+      } = navigationStateChangeEvent;
+      const isDeepLink = !navUrl.startsWith('http') && navUrl !== 'about:blank';
+      if (isDeepLink) {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        webviewRefs[id]?.innerRef?.stopLoading();
+        // canOpenURL may need additional config on android 11+
+        // https://github.com/facebook/react-native/issues/32311#issuecomment-933568611
+        // so just try open directly
+        Linking.openURL(navUrl).catch();
+        return;
+      }
+      if (loading) {
+        onNavigation({ url: navUrl, title, canGoBack, canGoForward, loading });
+      } else {
+        onNavigation({ title, canGoBack, canGoForward, loading });
+      }
+    },
+    [id, showHome],
+  );
 
   const webview = useMemo(
     () => (
@@ -39,9 +70,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
             webviewRefs[id] = ref;
           }
         }}
-        onNavigationStateChange={
-          showHome ? undefined : setNavigationStateChangeEvent
-        }
+        onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
           gotoSite({ url: e.nativeEvent.targetUrl });
         }}
