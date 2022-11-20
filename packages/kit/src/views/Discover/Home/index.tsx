@@ -5,19 +5,16 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { AppStatusActiveListener } from '../../../components/AppStatusActiveListener';
-
 import { DiscoverContext, ItemSource } from './context';
 // import { Desktop } from './Desktop';
 // import { Mobile } from './Mobile';
 import { DiscoverProps } from './type';
 
-const onActive = () => backgroundApiProxy.serviceDiscover.fetchData();
 const Updater = () => {
   useEffect(() => {
-    onActive();
+    backgroundApiProxy.serviceDiscover.fetchData();
   }, []);
-  return <AppStatusActiveListener onActive={onActive} />;
+  return null;
 };
 
 let Mobile: any;

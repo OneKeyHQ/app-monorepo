@@ -3,6 +3,8 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 export type ISimpleDbEntitySettings = {
   appReviewsLastOpenedAt?: number;
   webAuthnCredentialID?: string;
+  enableAppRatings?: boolean;
+  swapMaintain?: boolean;
 };
 
 export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySettings> {
@@ -26,5 +28,25 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
   async setWebAuthnCredentialID(webAuthnCredentialID: string) {
     const rawData = await this.getRawData();
     return this.setRawData({ ...rawData, webAuthnCredentialID });
+  }
+
+  async setEnableAppRatings(enableAppRatings: boolean) {
+    const rawData = await this.getRawData();
+    return this.setRawData({ ...rawData, enableAppRatings });
+  }
+
+  async getEnableAppRatings() {
+    const data = await this.getRawData();
+    return Boolean(data?.enableAppRatings);
+  }
+
+  async setSwapMaintain(swapMaintain: boolean) {
+    const rawData = await this.getRawData();
+    return this.setRawData({ ...rawData, swapMaintain });
+  }
+
+  async getSwapMaintain() {
+    const data = await this.getRawData();
+    return Boolean(data?.swapMaintain);
   }
 }
