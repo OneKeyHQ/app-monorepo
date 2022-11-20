@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 
+import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
@@ -21,36 +23,56 @@ import SvgRevoke from './Svg';
 import { RevokeRoutes } from './types';
 
 type Props = {
-  onAddressChange: (address: string) => void;
-  onNetworkChange: (id: string) => void;
-  networkId: string;
+  onChange: (params: {
+    loading: boolean;
+    networkId?: string;
+    address?: string;
+  }) => void;
 };
 
-const RevokeHeader: FC<Props> = ({
-  onAddressChange,
-  onNetworkChange,
-  networkId,
-}) => {
+const RevokeHeader: FC<Props> = ({ onChange }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const [addressOrName, setAddressOrName] = useState('');
+  const [networkId, setNetworkId] = useState<string | undefined>();
+  const [addressOrName, setAddressOrName] = useState<string | undefined>();
   const { accountAddress, networkId: activeNetworkId } =
     useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
 
-  useEffect(() => {
-    onAddressChange?.(addressOrName);
-  }, [addressOrName, onAddressChange, activeNetworkId]);
+  const { loading, result: address } = useAsync(async () => {
+    const res = await backgroundApiProxy.serviceRevoke.getAddress(
+      addressOrName ?? '',
+      networkId,
+    );
+    return res;
+  }, [addressOrName, networkId]);
+
+  const { result: ens } = useAsync(async () => {
+    if (!address) {
+      return '';
+    }
+    return backgroundApiProxy.serviceRevoke.lookupEnsName(address);
+  }, [address]);
 
   useEffect(() => {
-    onNetworkChange?.(activeNetworkId);
-  }, [activeNetworkId, onNetworkChange]);
+    onChange({
+      networkId,
+      address,
+      loading,
+    });
+  }, [address, networkId, onChange, loading]);
 
   useEffect(() => {
     if (accountAddress) {
       setAddressOrName(accountAddress);
     }
-  }, [accountAddress, activeNetworkId]);
+  }, [accountAddress]);
+
+  useEffect(() => {
+    if (activeNetworkId) {
+      setNetworkId(activeNetworkId);
+    }
+  }, [activeNetworkId]);
 
   const share = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -91,7 +113,7 @@ const RevokeHeader: FC<Props> = ({
           <Input
             flex="1"
             maxW="480px"
-            value={addressOrName}
+            value={ens || addressOrName || ''}
             minWidth={isVertical ? undefined : '480px'}
             onChangeText={setAddressOrName}
             textAlign="center"
@@ -99,7 +121,10 @@ const RevokeHeader: FC<Props> = ({
               id: 'form__enter_address_ens_name',
             })}
           />
-          <RevokeChainSelector value={networkId} onChange={onNetworkChange} />
+          <RevokeChainSelector
+            value={networkId ?? ''}
+            onChange={setNetworkId}
+          />
         </HStack>
         {accountAddress !== addressOrName && (
           <HStack alignItems="center" justifyContent="center" mt="14">

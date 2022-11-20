@@ -153,7 +153,7 @@ const RiskDetail: FC = () => {
                 locale?.[0]?.[1] ?? {},
               )}
             </Typography.Body1Strong>
-            <Typography.Body2 color="text/subdued">
+            <Typography.Body2 color="text-subdued">
               {intl.formatMessage(
                 {
                   id:
