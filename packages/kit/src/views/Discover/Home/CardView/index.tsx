@@ -57,17 +57,15 @@ const CardBaseViewCard: FC<CardBaseViewCardProps> = ({
     </Box>
   </Pressable>
 );
-
+const chuckItems = (items: DAppItemType[]) => {
+  const result: DappTypeTuple[] = [];
+  for (let i = 0; i < items.length; i += 2) {
+    result.push([items[i], items[i + 1]]);
+  }
+  return result;
+};
 const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
-  const chuckItems = (items: DAppItemType[]) => {
-    const result: DappTypeTuple[] = [];
-    for (let i = 0; i < items.length; i += 2) {
-      result.push([items[i], items[i + 1]]);
-    }
-    return result;
-  };
-
-  const filterData = data.filter((item, index) => index < 8);
+  const filterData = data.slice(0, 8);
   const items = chuckItems(filterData);
 
   const renderItem: ListRenderItem<DappTypeTuple> = useCallback(
@@ -120,7 +118,7 @@ const CardViewDesktop: FC<SectionDataType> = ({
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
-  const filterData = data.filter((item, index) => index < 8);
+  const filterData = data.slice(0, 8);
 
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (

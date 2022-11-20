@@ -5318,7 +5318,6 @@ __metadata:
     patch-package: ^6.5.0
     prettier: ^2.3.2
     react-native: 0.68.3
-    react-native-bundle-visualizer: ^3.1.1
     react-test-renderer: 17.0.2
     rimraf: ^3.0.2
     style-loader: ^2.0.0
@@ -5386,6 +5385,7 @@ __metadata:
     react-native-auto-size-text: ^1.1.1
     react-native-ble-manager: ^8.1.0
     react-native-ble-plx: ^2.0.3
+    react-native-bundle-visualizer: ^3.1.1
     react-native-camera: 4.2.1
     react-native-canvas: ^0.1.38
     react-native-cloud-fs: "https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8"
@@ -5394,14 +5394,14 @@ __metadata:
     react-native-config: ^1.4.11
     react-native-confirmation-code-field: ^7.2.0
     react-native-crypto: ^2.2.0
-    react-native-fast-image: ^8.6.1
-    react-native-flipper: ^0.162.0
+    react-native-fast-image: ^8.6.3
+    react-native-flipper: ^0.174.0
     react-native-gesture-handler: ^2.8.0
     react-native-get-random-values: ^1.8.0
     react-native-in-app-review: ^4.2.1
     react-native-keyboard-manager: ^6.5.4-4
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
-    react-native-pager-view: 5.4.25
+    react-native-pager-view: 6.1.0
     react-native-randombytes: ^3.6.1
     react-native-reanimated: 2.13.0
     react-native-restart: 0.0.24
@@ -5411,9 +5411,9 @@ __metadata:
     react-native-svg: ^12.3.0
     react-native-tcp-socket: ^6.0.2
     react-native-toast-message: 2.1.5
-    react-native-v8: ^1.5.3
+    react-native-v8: ^1.6.0
     react-native-view-shot: ^3.5.0
-    react-native-vision-camera: ^2.14.1
+    react-native-vision-camera: ^2.15.2
     react-native-web: 0.18.10
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
     readable-stream: ^3.6.0
@@ -25733,13 +25733,13 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-fast-image@npm:^8.6.1":
-  version: 8.6.1
-  resolution: "react-native-fast-image@npm:8.6.1"
+"react-native-fast-image@npm:^8.6.3":
+  version: 8.6.3
+  resolution: "react-native-fast-image@npm:8.6.3"
   peerDependencies:
     react: ^17 || ^18
     react-native: ">=0.60.0"
-  checksum: 889916bed60309d0f063a757a78f6a73833d54a0eec1b9e4f0acf189b5a710ac00e1023d21c9b2736aeea5546c42f05e0c8c49bdcb05f93fa6983476faa28565
+  checksum: 29289cb6b2eae0983c8922b22e2d9de3be07322bb7991c5def19f95eadefaedb0e308ff0b38cc1d0444e8bd4fe94a7621a99a2d3d9298100bcb60b3144677234
   languageName: node
   linkType: hard
 
@@ -25752,13 +25752,13 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-flipper@npm:^0.162.0":
-  version: 0.162.0
-  resolution: "react-native-flipper@npm:0.162.0"
+"react-native-flipper@npm:^0.174.0":
+  version: 0.174.0
+  resolution: "react-native-flipper@npm:0.174.0"
   peerDependencies:
     react: ^16.8.0 || ^17.0.0 || ^18.0.0
     react-native: ">0.62.0"
-  checksum: d7a9206a165489c93aa0855c74d3a40ba43dcf3f219cb88b522c83beb69c2d02052bd6a4f2d9b5c6586d6dfb3bb3c44937ba9dc514acab5dc4e0dc6b74b1db6c
+  checksum: aa0e817493b0273cbc9c74da90cd570614792cbfad88c71b945a88d2f5e20458b6ac95489609639f2b33f3b30d78b177a35ac6232e20d0bfa7e100027d21bb7e
   languageName: node
   linkType: hard
 
@@ -25901,13 +25901,13 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:5.4.25":
-  version: 5.4.25
-  resolution: "react-native-pager-view@npm:5.4.25"
+"react-native-pager-view@npm:6.1.0":
+  version: 6.1.0
+  resolution: "react-native-pager-view@npm:6.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 2b5c8667b40897001d30ff2b19545cac34637c9dfa1ff54cad8e8ddedc3b3437a45af951b19f8e3c6a114cb6fdcff68f4ce18cf46752ed5fefde42d4e0461578
+  checksum: 9aabd8b0b95d354b7a2c9a4fec876ae483140a2444cbe0fb5641f902496720be365d1f2ce1713c149a41a16ee70bc1f4ef3447294a84b063f7774aa27a4ceeb9
   languageName: node
   linkType: hard
 
@@ -26106,15 +26106,15 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-v8@npm:^1.5.3":
-  version: 1.5.3
-  resolution: "react-native-v8@npm:1.5.3"
+"react-native-v8@npm:^1.6.0":
+  version: 1.6.0
+  resolution: "react-native-v8@npm:1.6.0"
   peerDependencies:
     expo: "*"
   peerDependenciesMeta:
     expo:
       optional: true
-  checksum: 16bf0d7ad978e72174dad1098be388c57985acc955ee59a8654ba371f3fc954463df6c45f1c6d147116300ceab8f84ea016ed217bc894fb74a2b8b503a27c2e4
+  checksum: 3d0d44d4cb6f7290a4a2f22c14d27bbe620f7679cd26e4256ebf57ba70c3369f93680ab4e1c84c82c80c9cbb6b7fb0d06d539c6b2ff712a08b2ef37d6d9f6a42
   languageName: node
   linkType: hard
 
@@ -26135,6 +26135,16 @@ optjs@latest:
     react: "*"
     react-native: "*"
   checksum: 813b250a5adc38e38588b2a060ef2f93cbfaf90b9d3b946ffe8e0955143c6384e1a0b529d0f9a80aeb88def8918d3144d8ecea4ba169926dd7a8c1be01cc3dd8
+  languageName: node
+  linkType: hard
+
+"react-native-vision-camera@npm:^2.15.2":
+  version: 2.15.2
+  resolution: "react-native-vision-camera@npm:2.15.2"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 02436b3ba7ba67bcddf7ac3d334ceac134c8cd9d809441d7f3c287af1916a94a1a6194c8988f756cf556d9b7b60061b60de3d2500c638fe41374df6597d79191
   languageName: node
   linkType: hard
 
