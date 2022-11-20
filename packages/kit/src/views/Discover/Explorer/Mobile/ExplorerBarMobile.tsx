@@ -11,6 +11,7 @@ const ExplorerBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
 
   return (
     <Box
+      mt="12px"
       mx="15px"
       h="42px"
       bg="action-secondary-default"
