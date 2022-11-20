@@ -10,12 +10,13 @@ import { AssetType, Filter } from '../types';
 
 type Props = {
   onChange: (filter: Filter) => void;
+  isFromRpc: boolean;
 } & Filter;
 
 const ExtraFilters: FC<Props> = (props) => {
   const intl = useIntl();
 
-  const { onChange, ...filters } = props;
+  const { onChange, isFromRpc, ...filters } = props;
 
   const handleChange = useCallback(
     (
@@ -53,15 +54,19 @@ const ExtraFilters: FC<Props> = (props) => {
         isFullMode
         onToggle={() => handleChange('includeZeroBalancesTokens')}
       />
-      <Box h="6" />
-      <Switch
-        isChecked={filters.includeTokensWithoutAllowances}
-        label={intl.formatMessage({
-          id: 'form__include_tokens_without_allowances',
-        })}
-        isFullMode
-        onToggle={() => handleChange('includeTokensWithoutAllowances')}
-      />
+      {isFromRpc ? (
+        <>
+          <Box h="6" />
+          <Switch
+            isChecked={filters.includeTokensWithoutAllowances}
+            label={intl.formatMessage({
+              id: 'form__include_tokens_without_allowances',
+            })}
+            isFullMode
+            onToggle={() => handleChange('includeTokensWithoutAllowances')}
+          />
+        </>
+      ) : null}
     </VStack>
   );
 };

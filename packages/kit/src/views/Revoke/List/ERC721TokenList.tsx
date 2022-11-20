@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,41 +12,20 @@ import {
 } from '@onekeyhq/components';
 import { ERC721TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
 
-import { useIsVerticalOrMiddleLayout, useTokenAllowances } from '../hooks';
-import { AssetType, Filter } from '../types';
+import { useIsVerticalOrMiddleLayout } from '../hooks';
+import { AssetType } from '../types';
 
 import { EmptyRecord, Header, ListLoading } from './ERC20TokenList';
 import { ERC721Allowance } from './ERC721Allowance';
 
 export const ERC721TokenList: FC<{
+  loading: boolean;
+  allowances: ERC721TokenAllowance[];
+  address?: string;
   networkId: string;
-  addressOrName: string;
-  filters: Filter;
-}> = ({ networkId, addressOrName, filters }) => {
+}> = ({ networkId, address, allowances: data, loading }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalOrMiddleLayout();
-
-  const {
-    loading,
-    allowances,
-    address: accountAddress,
-  } = useTokenAllowances(networkId, addressOrName, filters.assetType);
-
-  const data = useMemo(
-    () =>
-      (allowances
-        ?.filter(
-          (item) =>
-            item.allowance.length > 0 || filters.includeTokensWithoutAllowances,
-        )
-        ?.filter(({ balance }) => {
-          if (filters.includeZeroBalancesTokens) {
-            return true;
-          }
-          return balance !== '0';
-        }) ?? []) as ERC721TokenAllowance[],
-    [filters, allowances],
-  );
 
   const renderListItemDesktop = useCallback(
     ({ item }: { item: ERC721TokenAllowance }) => {
@@ -99,7 +78,7 @@ export const ERC721TokenList: FC<{
                   <ERC721Allowance
                     key={a.spender}
                     networkId={networkId}
-                    accountAddress={accountAddress}
+                    accountAddress={address ?? ''}
                     spender={a.spender}
                     token={token}
                   />
@@ -110,7 +89,7 @@ export const ERC721TokenList: FC<{
         </ListItem>
       );
     },
-    [intl, accountAddress, networkId],
+    [intl, address, networkId],
   );
 
   const renderListItemMobile = useCallback(
@@ -155,7 +134,7 @@ export const ERC721TokenList: FC<{
                     <ERC721Allowance
                       key={a.spender}
                       networkId={networkId}
-                      accountAddress={accountAddress}
+                      accountAddress={address ?? ''}
                       spender={a.spender}
                       token={token}
                     />
@@ -167,7 +146,7 @@ export const ERC721TokenList: FC<{
         </ListItem>
       );
     },
-    [intl, accountAddress, networkId],
+    [intl, address, networkId],
   );
 
   return (
