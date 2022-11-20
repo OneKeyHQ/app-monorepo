@@ -8,8 +8,6 @@ import { getFiatEndpoint } from '../endpoint';
 import { Token } from '../types/token';
 import { OPENSEA_REGISTRY_ABI } from '../vaults/impl/evm/decoder/abi';
 
-import { fetchData } from './token';
-
 export type Events = {
   transferEvents: Log[];
   approvalEvents: Log[];
