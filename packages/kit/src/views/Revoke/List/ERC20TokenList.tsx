@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -20,24 +20,14 @@ import {
 } from '@onekeyhq/engine/src/managers/revoke';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
-import { useIsVerticalOrMiddleLayout, useTokenAllowances } from '../hooks';
-import { AssetType, Filter } from '../types';
+import { useIsVerticalOrMiddleLayout } from '../hooks';
+import { AssetType } from '../types';
 
 import { ERC20Allowance } from './ERC20Allowance';
 
 export const EmptyRecord = () => {
-  const [show, setShow] = useState(false);
   const intl = useIntl();
 
-  useEffect(() => {
-    setTimeout(() => {
-      setShow(false);
-    }, 600);
-  }, []);
-
-  if (!show) {
-    return null;
-  }
   return (
     <Empty
       emoji="👀"
@@ -163,43 +153,14 @@ export const ListLoading = () => {
 };
 
 export const ERC20TokenList: FC<{
+  loading: boolean;
+  allowances: ERC20TokenAllowance[];
+  address?: string;
+  prices: Record<string, string>;
   networkId: string;
-  addressOrName: string;
-  filters: Filter;
-}> = ({ networkId, addressOrName, filters }) => {
+}> = ({ loading, allowances: data, prices, address, networkId }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalOrMiddleLayout();
-
-  const {
-    loading,
-    allowances,
-    prices,
-    address: accountAddress,
-  } = useTokenAllowances(networkId, addressOrName, filters.assetType);
-
-  const data = useMemo(
-    () =>
-      (allowances
-        ?.filter(
-          (item) =>
-            item.allowance.length > 0 || filters.includeTokensWithoutAllowances,
-        )
-        ?.filter(
-          ({ token }) =>
-            filters.includeUnverifiedTokens ||
-            (token.verified && !token.security),
-        )
-        .filter(({ token, balance }) => {
-          if (filters.includeZeroBalancesTokens) {
-            return true;
-          }
-          if (filters.assetType === AssetType.tokens) {
-            return !(toFloat(Number(balance), token.decimals) === '0.000');
-          }
-          return balance === '0';
-        }) ?? []) as ERC20TokenAllowance[],
-    [filters, allowances],
-  );
 
   const renderListItemDesktop = useCallback(
     ({ item }: { item: ERC20TokenAllowance }) => {
@@ -262,7 +223,7 @@ export const ERC20TokenList: FC<{
                   <ERC20Allowance
                     key={a.spender}
                     networkId={networkId}
-                    accountAddress={accountAddress}
+                    accountAddress={address ?? ''}
                     totalSupply={totalSupply}
                     allowance={a.allowance}
                     spender={a.spender}
@@ -277,7 +238,7 @@ export const ERC20TokenList: FC<{
         </ListItem>
       );
     },
-    [networkId, prices, intl, accountAddress],
+    [networkId, prices, intl, address],
   );
 
   const renderListItemMobile = useCallback(
@@ -338,7 +299,7 @@ export const ERC20TokenList: FC<{
                     <ERC20Allowance
                       key={a.spender}
                       networkId={networkId}
-                      accountAddress={accountAddress}
+                      accountAddress={address ?? ''}
                       totalSupply={totalSupply}
                       allowance={a.allowance}
                       spender={a.spender}
@@ -354,7 +315,7 @@ export const ERC20TokenList: FC<{
         </ListItem>
       );
     },
-    [networkId, prices, intl, accountAddress],
+    [networkId, prices, intl, address],
   );
   return (
     <List

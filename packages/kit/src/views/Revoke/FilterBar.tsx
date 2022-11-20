@@ -9,6 +9,7 @@ import { AssetType, Filter } from './types';
 
 export type Props = Filter & {
   onChange: (filter: Filter) => void;
+  isFromRpc: boolean;
 };
 
 const FilterBar: FC<Props> = (props) => {
