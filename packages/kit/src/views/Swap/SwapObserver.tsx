@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
@@ -7,7 +7,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { AppStatusActiveListener } from '../../components/AppStatusActiveListener';
 import { useAppSelector } from '../../hooks';
 
 const NetworkObserver = () => {
@@ -35,14 +34,10 @@ const AccountsObserver = () => {
 };
 
 const TokenUpdater = () => {
-  const onActive = useCallback(
-    () => backgroundApiProxy.serviceSwap.getSwapTokens(),
-    [],
-  );
   useEffect(() => {
-    onActive();
-  }, [onActive]);
-  return <AppStatusActiveListener onActive={onActive} />;
+    backgroundApiProxy.serviceSwap.getSwapTokens();
+  }, []);
+  return null;
 };
 
 const SwapListener = () => (

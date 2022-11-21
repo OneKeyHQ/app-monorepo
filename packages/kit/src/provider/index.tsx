@@ -17,6 +17,7 @@ import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
 import NotificationProvider from './NotificationProvider';
 import ThemeApp from './ThemeProvider';
+import { WhenAppActive } from './WhenAppActive';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -47,6 +48,7 @@ const KitProvider: FC = () => (
               <NotificationProvider>
                 <RootSiblingParent>
                   <NavigationApp />
+                  <WhenAppActive />
                   {platformEnv.isNativeIOS ? (
                     // FullWindowOverlay can render above native views
                     // but can not work with modal
