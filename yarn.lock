@@ -9511,15 +9511,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ansi-align@npm:^3.0.0":
-  version: 3.0.1
-  resolution: "ansi-align@npm:3.0.1"
-  dependencies:
-    string-width: ^4.1.0
-  checksum: 6abfa08f2141d231c257162b15292467081fa49a208593e055c866aa0455b57f3a86b5a678c190c618faa79b4c59e254493099cb700dd9cf2293c6be2c8f5d8d
-  languageName: node
-  linkType: hard
-
 "ansi-escapes@npm:^3.1.0":
   version: 3.2.0
   resolution: "ansi-escapes@npm:3.2.0"
@@ -21996,7 +21987,7 @@ colour@latest:
 
 "minimatch@patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
   version: 3.1.2
-  resolution: "minimatch@patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch::version=3.1.2&hash=b31274&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+  resolution: "minimatch@patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch::version=3.1.2&hash=fa9484&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
   dependencies:
     brace-expansion: ^1.1.7
   checksum: fdcdaf35b94021a1d23556942572e725e04d891b9de673190e60a426f20b6e065338ee357271c3c9d4672dcfacf1d8e4966c708d8b44397b24beabadaa6101f0
@@ -31231,18 +31222,6 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"write-file-atomic@npm:^3.0.0":
-  version: 3.0.3
-  resolution: "write-file-atomic@npm:3.0.3"
-  dependencies:
-    imurmurhash: ^0.1.4
-    is-typedarray: ^1.0.0
-    signal-exit: ^3.0.2
-    typedarray-to-buffer: ^3.1.5
-  checksum: c55b24617cc61c3a4379f425fc62a386cc51916a9b9d993f39734d005a09d5a4bb748bc251f1304e7abd71d0a26d339996c275955f527a131b1dcded67878280
-  languageName: node
-  linkType: hard
-
 "write-file-atomic@npm:^4.0.1":
   version: 4.0.2
   resolution: "write-file-atomic@npm:4.0.2"
@@ -31678,11 +31657,7 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-<<<<<<< HEAD
-"yargs@npm:^17.5.1":
-=======
-"yargs@npm:^17.0.1, yargs@npm:^17.3.1":
->>>>>>> onekey
+"yargs@npm:^17.3.1, yargs@npm:^17.5.1":
   version: 17.6.2
   resolution: "yargs@npm:17.6.2"
   dependencies:
