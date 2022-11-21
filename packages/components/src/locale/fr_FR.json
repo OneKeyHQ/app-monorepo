@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Tester la mise à niveau du micrologiciel ble",
   "action__test_update_firmware": "Tester la mise à niveau du micrologiciel",
   "action__test_update_resource": "Tester la ressource de mise à jour",
+  "action__under_maintaince": "En cours de maintenance",
   "action__unlock": "Déverrouiller",
   "action__unstake": "Décoller",
   "action__unsubscribe": "Se désabonner",

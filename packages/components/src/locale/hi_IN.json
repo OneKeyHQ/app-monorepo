@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "टेस्ट अपग्रेड ब्ली फर्मवेयर",
   "action__test_update_firmware": "टेस्ट अपग्रेड फर्मवेयर",
   "action__test_update_resource": "परीक्षण अद्यतन संसाधन",
+  "action__under_maintaince": "मेंटेनेंस के तहत",
   "action__unlock": "अनलॉक",
   "action__unstake": "अनस्टेक",
   "action__unsubscribe": "सदस्यता समाप्त",

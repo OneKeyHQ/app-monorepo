@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Prueba de actualización de firmware ble",
   "action__test_update_firmware": "Prueba de actualización de firmware",
   "action__test_update_resource": "Recurso de actualización de prueba",
+  "action__under_maintaince": "Bajo Mantenimiento",
   "action__unlock": "Desbloquear",
   "action__unstake": "Dejar de apostar",
   "action__unsubscribe": "Darse de baja",

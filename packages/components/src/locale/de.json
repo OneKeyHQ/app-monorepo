@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Testen Sie die aktualisierbare Firmware",
   "action__test_update_firmware": "Testen Sie die Upgrade-Firmware",
   "action__test_update_resource": "Update-Ressource testen",
+  "action__under_maintaince": "Unter Wartung",
   "action__unlock": "Freischalten",
   "action__unstake": "Abstecken",
   "action__unsubscribe": "Abmelden",

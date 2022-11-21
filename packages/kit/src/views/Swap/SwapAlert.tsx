@@ -4,7 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import { useInputLimitsError, useSwapState } from './hooks/useSwap';
+import { useAppSelector } from '../../hooks';
+
+import { useInputLimitsError } from './hooks/useSwap';
 import { SwapError } from './typings';
 
 const DepositLimitAlert = () => {
@@ -21,7 +23,7 @@ const DepositLimitAlert = () => {
 
 const ErrorAlert = () => {
   const intl = useIntl();
-  const { error } = useSwapState();
+  const error = useAppSelector((s) => s.swap.error);
   if (error === SwapError.NotSupport) {
     return (
       <Box mt="6">

@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Програм хангамжийн шинэчлэлтийг турших",
   "action__test_update_firmware": "Програм хангамжийн шинэчлэлтийг турших",
   "action__test_update_resource": "Туршилтын шинэчлэлтийн нөөц",
+  "action__under_maintaince": "Засвар үйлчилгээ дор",
   "action__unlock": "Түгжээг тайлах",
   "action__unstake": "Бодлогыг буулгах",
   "action__unsubscribe": "Бүртгэлээ цуцлах",
