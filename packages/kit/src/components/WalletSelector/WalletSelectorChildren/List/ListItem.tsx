@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from 'react';
+import React, { useCallback, useLayoutEffect } from 'react';
 
 import {
   Box,
@@ -66,6 +66,47 @@ function RightContent({
 const { updateIsRefreshDisabled, updateIsLoading } =
   reducerAccountSelector.actions;
 
+export function ListItemBase({
+  leftView,
+  rightView,
+  text,
+  onPress,
+  isSelected,
+}: {
+  text: string | undefined;
+  leftView?: any;
+  rightView?: any;
+  onPress?: () => void;
+  isSelected?: boolean;
+}) {
+  return (
+    <Box px={2}>
+      <Pressable
+        p={2}
+        flexDirection="row"
+        alignItems="center"
+        rounded="2xl"
+        // bgColor={selectedBgColor}
+        _hover={{ bgColor: 'surface-hovered' }}
+        _pressed={{ bgColor: 'surface-pressed' }}
+        onPress={onPress}
+      >
+        {leftView}
+        <Text
+          flex={1}
+          mx={3}
+          typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
+          isTruncated
+        >
+          {text}
+        </Text>
+        {rightView}
+      </Pressable>
+      {isSelected ? <SelectedIndicator /> : undefined}
+    </Box>
+  );
+}
+
 function ListItem({
   wallet,
   isSingleton,
@@ -96,67 +137,53 @@ function ListItem({
       onLastItemRender?.();
     }
   }, [isLastItem, onLastItemRender]);
+  const onPress = useCallback(() => {
+    closeWalletSelector();
 
+    setTimeout(async () => {
+      try {
+        dispatch(updateIsRefreshDisabled(true), updateIsLoading(true));
+
+        if (isVertical) {
+          await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
+        } else {
+          await wait(WALLET_SELECTOR_DESKTOP_ACTION_DELAY_AFTER_CLOSE);
+        }
+
+        // await serviceNetwork.changeActiveNetwork(section?.title?.id);
+        // TODO performance
+        await serviceAccount.autoChangeAccount({
+          walletId: wallet?.id ?? '',
+          skipIfSameWallet: true,
+        });
+        // await serviceAccountSelector.setSelectedWalletToActive();
+      } finally {
+        await wait(100);
+        dispatch(updateIsRefreshDisabled(false), updateIsLoading(false));
+      }
+    });
+  }, [closeWalletSelector, dispatch, isVertical, serviceAccount, wallet?.id]);
   return (
-    <Box px={2}>
-      <Pressable
-        p={2}
-        flexDirection="row"
-        alignItems="center"
-        rounded="2xl"
-        // bgColor={selectedBgColor}
-        _hover={{ bgColor: 'surface-hovered' }}
-        _pressed={{ bgColor: 'surface-pressed' }}
-        onPress={() => {
-          closeWalletSelector();
-
-          setTimeout(async () => {
-            try {
-              dispatch(updateIsRefreshDisabled(true), updateIsLoading(true));
-
-              if (isVertical) {
-                await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
-              } else {
-                await wait(WALLET_SELECTOR_DESKTOP_ACTION_DELAY_AFTER_CLOSE);
-              }
-
-              // await serviceNetwork.changeActiveNetwork(section?.title?.id);
-              // TODO performance
-              await serviceAccount.autoChangeAccount({
-                walletId: wallet?.id ?? '',
-                skipIfSameWallet: true,
-              });
-              // await serviceAccountSelector.setSelectedWalletToActive();
-            } finally {
-              await wait(100);
-              dispatch(updateIsRefreshDisabled(false), updateIsLoading(false));
-            }
-          });
-        }}
-      >
+    <ListItemBase
+      onPress={onPress}
+      leftView={
         <WalletAvatarPro
           size={platformEnv.isNative ? 'lg' : 'sm'}
           circular={circular}
           wallet={wallet}
           deviceStatus={deviceStatus}
         />
-
-        <Text
-          flex={1}
-          mx={3}
-          typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
-          isTruncated
-        >
-          {name}
-        </Text>
+      }
+      rightView={
         <RightContent
           wallet={wallet}
           isSingleton={isSingleton}
           deviceStatus={deviceStatus}
         />
-      </Pressable>
-      {isSelected ? <SelectedIndicator /> : undefined}
-    </Box>
+      }
+      text={name}
+      isSelected={isSelected}
+    />
   );
 }
 

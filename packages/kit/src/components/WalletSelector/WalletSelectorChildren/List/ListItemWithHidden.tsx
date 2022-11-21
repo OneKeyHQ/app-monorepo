@@ -7,6 +7,7 @@ import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
 import { useIsPassphraseMode } from '../../hooks/useIsPassphraseMode';
+import { IWalletDataSection } from '../../hooks/useWalletSelectorSectionData';
 
 import ListItem from './ListItem';
 
@@ -16,9 +17,12 @@ import type { IWalletDataBase } from './index';
 function ListItemWithHidden({
   deviceStatus,
   item,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  section,
   onLastItemRender,
 }: {
   item: IWalletDataBase;
+  section: IWalletDataSection;
   deviceStatus: IHardwareDeviceStatusMap | undefined;
   onLastItemRender?: () => void;
 }) {
@@ -35,11 +39,16 @@ function ListItemWithHidden({
     ));
   }, []);
 
+  // hide singleton wallet if no accounts
+  if (item.isSingleton && !item.wallet?.accounts?.length) {
+    return null;
+  }
+
   return (
     <>
       {/* Grouping wallet items if they have nested hidden wallets */}
       {isPassphraseMode ? (
-        <Box>
+        <Box my="4px">
           <Box
             position="absolute"
             left="8px"

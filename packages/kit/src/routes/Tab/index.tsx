@@ -162,6 +162,7 @@ const TabNavigator = () => {
             header: renderHeader,
             // @ts-expect-error
             foldableList,
+            freezeOnBlur: true,
           }}
         >
           {tabRoutesList}

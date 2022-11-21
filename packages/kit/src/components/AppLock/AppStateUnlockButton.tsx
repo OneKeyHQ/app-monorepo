@@ -6,7 +6,10 @@ import { IconButton, useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
-import { isSupportWebAuthn, webAuthenticate } from '../../utils/webauthn';
+import {
+  isContextSupportWebAuthn,
+  webAuthenticate,
+} from '../../utils/webauthn';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
 
 const WebAuthnButton = () => {
@@ -22,7 +25,7 @@ const WebAuthnButton = () => {
       toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
     }
   }, [intl, toast]);
-  return isSupportWebAuthn && enableWebAuthn ? (
+  return isContextSupportWebAuthn && enableWebAuthn ? (
     <IconButton size="xl" name="FingerPrintIllus" onPromise={onPress} />
   ) : null;
 };

@@ -12,8 +12,15 @@ export const openAppReview = async () => {
   if (!isAvailable) {
     return;
   }
+  const appRatingsEnabled = await simpleDb.setting.getEnableAppRatings();
   const lastOpenedAt = await simpleDb.setting.getAppReviewsLastOpenedAt();
-  if (lastOpenedAt > 0) {
+  debugLogger.common.info(
+    'appRatingsEnabled, ',
+    appRatingsEnabled,
+    'lastOpenedAt, ',
+    lastOpenedAt,
+  );
+  if (lastOpenedAt > 0 || !appRatingsEnabled) {
     return;
   }
   let hasFlowFinishedSuccessfully = false;

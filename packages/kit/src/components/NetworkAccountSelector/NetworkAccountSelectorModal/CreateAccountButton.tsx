@@ -82,6 +82,7 @@ export function CreateAccountButton({
       {initWalletServiceRef.current}
 
       <IconButton
+        testID="NetworkAccountSelectorModal-CreateAccountButton"
         isLoading={buttonIsLoading}
         onPress={buttonOnPress}
         type="plain"

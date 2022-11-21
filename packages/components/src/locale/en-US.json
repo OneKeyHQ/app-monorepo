@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Test upgrade ble firmware",
   "action__test_update_firmware": "Test upgrade firmware",
   "action__test_update_resource": "Test update resource",
+  "action__under_maintaince": "Under Maintaince",
   "action__unlock": "Unlock",
   "action__unstake": "Unstake",
   "action__unsubscribe": "Unsubscribe",

@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "اختبار ترقية بلي البرامج الثابتة",
   "action__test_update_firmware": "اختبار البرامج الثابتة للترقية",
   "action__test_update_resource": "اختبار مورد التحديث",
+  "action__under_maintaince": "تحت Maintaince",
   "action__unlock": "الغاء القفل",
   "action__unstake": "نزع",
   "action__unsubscribe": "إلغاء الاشتراك",

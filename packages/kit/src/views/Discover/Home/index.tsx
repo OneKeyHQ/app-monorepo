@@ -1,25 +1,30 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { FC, useEffect, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
-import { AppStatusActiveListener } from '../../../components/AppStatusActiveListener';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DiscoverContext, ItemSource } from './context';
-import { Desktop } from './Desktop';
-import { Mobile } from './Mobile';
+// import { Desktop } from './Desktop';
+// import { Mobile } from './Mobile';
 import { DiscoverProps } from './type';
 
 const Updater = () => {
-  const onActive = useCallback(
-    () => backgroundApiProxy.serviceDiscover.fetchData(),
-    [],
-  );
   useEffect(() => {
-    onActive();
-  }, [onActive]);
-  return <AppStatusActiveListener onActive={onActive} />;
+    backgroundApiProxy.serviceDiscover.fetchData();
+  }, []);
+  return null;
 };
+
+let Mobile: any;
+let Desktop: any;
+
+if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
+  Desktop = require('./Desktop').Desktop;
+} else if (platformEnv.isNative) {
+  Mobile = require('./Mobile').Mobile;
+}
 
 const DiscoverPage: FC<DiscoverProps> = ({
   onItemSelect,
@@ -27,6 +32,11 @@ const DiscoverPage: FC<DiscoverProps> = ({
 }) => {
   const [categoryId, setCategoryId] = useState('');
   const isSmall = useIsVerticalLayout();
+  if (isSmall && !Mobile) {
+    Mobile = require('./Mobile').Mobile;
+  } else if (!isSmall && !Desktop) {
+    Desktop = require('./Desktop').Desktop;
+  }
   const [itemSource, setItemSource] = useState<ItemSource>('Favorites');
 
   return (

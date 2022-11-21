@@ -31,6 +31,7 @@ const transpileModules = [
   'react-native-animated-splash-screen',
   'moti',
   'popmotion',
+  // '@mysten/sui.js',
 ];
 
 // load the secrets

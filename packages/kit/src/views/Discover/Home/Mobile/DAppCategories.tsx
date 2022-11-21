@@ -44,6 +44,8 @@ export const DAppCategories = () => {
       horizontal
       data={data}
       renderItem={renderItem}
+      removeClippedSubviews
+      windowSize={5}
       showsHorizontalScrollIndicator={platformEnv.isDesktop}
       keyExtractor={(item) => item._id}
       contentContainerStyle={{

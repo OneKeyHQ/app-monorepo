@@ -18,6 +18,7 @@ import {
   PresenceTransition,
   Pressable,
   TypeWriter,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -59,6 +60,7 @@ function ProcessAutoTyping({
   const emitter = useRef(new CrossEventEmitter());
   const isWalletCreatedRef = useRef(false);
   const [showLastAction, setIsShowLastAction] = useState(false);
+  const isVerticalLayout = useIsVerticalLayout();
   const { processInfoList, processDefaultStates } = useMemo(() => {
     const list: Array<IProcessInfo> = ONBOARDING_PROCESS_INFO_LIST;
     const defaultStates = list.reduce<IProcessStates>(
@@ -303,13 +305,16 @@ function ProcessAutoTyping({
           {processFinalTypingEnd ? <TypeWriter /> : undefined}
         </Box>
 
-        <Box mt={16} minH="50px">
+        <Box
+          mt={platformEnv.isExtension && isVerticalLayout ? 4 : 16}
+          minH="50px"
+        >
           {lastActionVisible ? finishButton : undefined}
         </Box>
       </Box>
 
       <OverlayContainer>
-        {lastActionVisible && platformEnv.isExtension ? (
+        {lastActionVisible && platformEnv.isExtension && !isVerticalLayout ? (
           <PinPanel visible={lastActionVisible} />
         ) : undefined}
       </OverlayContainer>

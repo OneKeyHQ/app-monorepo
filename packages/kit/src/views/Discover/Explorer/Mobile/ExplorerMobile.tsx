@@ -25,6 +25,7 @@ type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 const ExplorerMobile: FC = () => {
   const { top } = useSafeAreaInsets();
   const { incomingUrl, clearIncomingUrl } = useIncomingUrl();
+  const [showContent, setShowContent] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -32,7 +33,12 @@ const ExplorerMobile: FC = () => {
         gotoSite({ url: incomingUrl, isNewWindow: true });
         clearIncomingUrl();
       }
-    }, [clearIncomingUrl, incomingUrl]),
+      if (!showContent) {
+        setTimeout(() => {
+          setShowContent(true);
+        }, 100);
+      }
+    }, [clearIncomingUrl, incomingUrl, showContent]),
   );
 
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -65,11 +71,13 @@ const ExplorerMobile: FC = () => {
           <WebHomeContainer alwaysOpenNewWindow />
         </Freeze>
       </Box>
-      <FloatingContainer
-        onMaximize={() => setShowHome(false)}
-        onMinimize={() => setShowHome(true)}
-        onSearch={onSearch}
-      />
+      {showContent && (
+        <FloatingContainer
+          afterMaximize={() => setShowHome(false)}
+          beforeMinimize={() => setShowHome(true)}
+          onSearch={onSearch}
+        />
+      )}
     </Box>
   );
 };

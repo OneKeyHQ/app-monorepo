@@ -44,18 +44,20 @@ export const useRevokeAddress = (addressOrName = '') => {
 
 export const useTokenAllowances = (
   networkId: string,
-  addressOrName: string,
+  address: string,
   assetType: AssetType,
 ) => {
-  const { result, loading, error, execute } = useAsync(
-    () =>
-      backgroundApiProxy.serviceRevoke.fetchTokenAllowance(
-        networkId,
-        addressOrName,
-        assetType,
-      ),
-    [networkId, addressOrName, assetType],
-  );
+  const { result, loading, error, execute } = useAsync(async () => {
+    const { serviceRevoke } = backgroundApiProxy;
+    return serviceRevoke.fetchTokenAllowance(
+      networkId,
+      address,
+      assetType,
+      // disabled fetch data from goplus case it can not refresh token allowance
+      // TODO: change this to true, if gp fixed that
+      false,
+    );
+  }, [networkId, address, assetType]);
 
   useEffect(() => {
     DeviceEventEmitter.addListener('Revoke:refresh', execute);
@@ -69,7 +71,8 @@ export const useTokenAllowances = (
       address: '',
       prices: {},
       allowances: [],
-      loading,
+      loading: false,
+      isFromRpc: false,
     };
   }
 
@@ -77,6 +80,7 @@ export const useTokenAllowances = (
     address: result?.address ?? '',
     prices: result?.prices ?? {},
     allowances: result?.allowance ?? [],
+    isFromRpc: result?.isFromRpc ?? false,
     loading,
     error,
   };

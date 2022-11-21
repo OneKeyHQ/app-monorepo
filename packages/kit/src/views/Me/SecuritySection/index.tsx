@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -31,7 +31,10 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../../routes/types';
-import { isSupportWebAuthn } from '../../../utils/webauthn';
+import {
+  isContextSupportWebAuthn,
+  isUserVerifyingPlatformAuthenticatorAvailable,
+} from '../../../utils/webauthn';
 import { SelectTrigger } from '../SelectTrigger';
 
 import ResetButton from './ResetButton';
@@ -46,6 +49,13 @@ type NavigationProps = CompositeNavigationProp<
 
 export const SecuritySection = () => {
   const intl = useIntl();
+  const [isHardwareSupportWebAuthn, setHardwareSupportWebAuthn] =
+    useState<boolean>(false);
+  useEffect(() => {
+    isUserVerifyingPlatformAuthenticatorAvailable().then((result) =>
+      setHardwareSupportWebAuthn(result && isContextSupportWebAuthn),
+    );
+  });
   const { dispatch } = backgroundApiProxy;
   const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
   const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
@@ -179,7 +189,7 @@ export const SecuritySection = () => {
               <Icon name="ChevronRightSolid" size={20} />
             </Box>
           </Pressable>
-          {isSupportWebAuthn ? (
+          {isHardwareSupportWebAuthn && isContextSupportWebAuthn ? (
             <Pressable
               display="flex"
               flexDirection="row"

@@ -20,9 +20,8 @@ const Header: FC<HeaderProps> = ({ title }) => {
       <Box
         flexDirection="row"
         alignItems="center"
-        pt={platformEnv.isNative ? 4 : 3}
+        py={platformEnv.isNative ? 4 : 3}
         pr="15px"
-        pb={platformEnv.isNative ? 4 : 2}
         pl={4}
       >
         <Text

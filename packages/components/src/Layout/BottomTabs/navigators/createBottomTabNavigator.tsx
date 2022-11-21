@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import * as React from 'react';
-
 import {
   DefaultNavigatorOptions,
   ParamListBase,

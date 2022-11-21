@@ -8,6 +8,7 @@ export type DataInitialState = {
   isAppRenderReady: boolean;
   isUnlock: boolean;
   isPasswordSet: boolean;
+  isReduxReady?: boolean;
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
   cursorMap: Record<string, string>;
@@ -18,6 +19,7 @@ export type DataInitialState = {
 const initialState: DataInitialState = {
   isUnlock: !!platformEnv.isDev, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
   isPasswordSet: false,
+  isReduxReady: false,
   onekeySupportList: [],
   currencyList: [],
   isAppRenderReady: false,
@@ -30,6 +32,9 @@ export const dataSlice = createSlice({
   reducers: {
     setAppRenderReady(state) {
       state.isAppRenderReady = true;
+    },
+    setIsReduxReady(state) {
+      state.isReduxReady = true;
     },
     release(state) {
       state.isUnlock = true;
@@ -79,6 +84,7 @@ export const {
   passwordSet,
   currenciesSet,
   setAppRenderReady,
+  setIsReduxReady,
   cursorMapSet,
   lock,
   setHandOperatedLock,

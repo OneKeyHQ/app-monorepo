@@ -1,14 +1,10 @@
 import { Fragment } from 'react';
 
-import { Icon as NBIcon } from 'native-base';
-
 import Badge from '../../Badge';
 import Box from '../../Box';
 import Divider from '../../Divider';
 import HStack from '../../HStack';
 import Icon from '../../Icon';
-import { Check as CheckOUtline } from '../../Icon/react/outline';
-import { Check as CheckSolid } from '../../Icon/react/solid';
 import Pressable from '../../Pressable';
 import { useIsVerticalLayout } from '../../Provider/hooks';
 import Token from '../../Token';
@@ -28,6 +24,7 @@ function Leading<T>({ option }: { option: SelectItem<T> }) {
   // hooks only available in React component
   return (
     <>
+      {!!option.leading && option.leading}
       {!!option.tokenProps && (
         <Token size={{ base: '8', md: '6' }} {...option.tokenProps} />
       )}
@@ -86,10 +83,10 @@ function RenderSingleOption<T>({
     // hooks only available in React component
     const isSmallScreen = useIsVerticalLayout();
     return (
-      <NBIcon
-        as={isSmallScreen ? CheckOUtline : CheckSolid}
-        size={{ base: '6', md: '5' }}
+      <Icon
+        name={isSmallScreen ? 'CheckOutline' : 'CheckSolid'}
         color="interactive-default"
+        size={isSmallScreen ? 24 : 20}
       />
     );
   };
@@ -120,9 +117,9 @@ function RenderSingleOption<T>({
                 : undefined
             }
           >
-            {(!!option.tokenProps || !!option.iconProps) && (
-              <Leading option={option} />
-            )}
+            {(!!option.tokenProps ||
+              !!option.iconProps ||
+              !!option.leading) && <Leading option={option} />}
             <OptionText />
             {!!option.trailing && option.trailing}
             {!!isActive && !!activatable && <SelectedIndicator />}

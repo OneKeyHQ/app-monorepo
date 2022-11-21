@@ -1,10 +1,4 @@
-import React, {
-  FC,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { FC, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,15 +13,20 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+import {
+  ERC20TokenAllowance,
+  ERC721TokenAllowance,
+  toFloat,
+} from '@onekeyhq/engine/src/managers/revoke';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
-import { useActiveWalletAccount, useDebounce } from '../../hooks';
+import { useActiveWalletAccount } from '../../hooks';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
 import FilterBar from './FilterBar';
 import RevokeHeader from './Header';
+import { useTokenAllowances } from './hooks';
 import { ERC20TokenList } from './List/ERC20TokenList';
 import { ERC721TokenList } from './List/ERC721TokenList';
 import { AssetType } from './types';
@@ -42,22 +41,65 @@ const defaultFilter = {
 const RevokePage: FC = () => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
+  const [headerParams, setHeaderParams] = useState<
+    | {
+        address?: string;
+        networkId?: string;
+        loading: boolean;
+      }
+    | undefined
+  >();
   const [filters, setFilters] = useState(defaultFilter);
-  const [addressOrName, setAddressOrName] = useState<string>('');
-  const {
-    network,
-    account,
-    networkId: activeNetworkId,
-  } = useActiveWalletAccount();
-  const [networkId, setNetworkId] = useState<string>(
-    activeNetworkId ?? OnekeyNetwork.eth,
-  );
+  const { network, account } = useActiveWalletAccount();
+
   const { connectAndCreateExternalAccount } =
     useConnectAndCreateExternalAccount({
-      networkId,
+      networkId: headerParams?.networkId ?? '',
     });
 
-  const keyword = useDebounce(addressOrName, 600);
+  const { loading, allowances, prices, isFromRpc } = useTokenAllowances(
+    headerParams?.networkId ?? '',
+    headerParams?.address ?? '',
+    filters.assetType,
+  );
+
+  const isLoading = loading || !!headerParams?.loading;
+
+  const data = useMemo(() => {
+    if (filters.assetType === AssetType.tokens) {
+      return (allowances
+        ?.filter(
+          (item) =>
+            item.allowance.length > 0 || filters.includeTokensWithoutAllowances,
+        )
+        ?.filter(
+          ({ token }) =>
+            filters.includeUnverifiedTokens ||
+            (token.verified && !token.security),
+        )
+        .filter(({ token, balance }) => {
+          if (filters.includeZeroBalancesTokens) {
+            return true;
+          }
+          if (filters.assetType === AssetType.tokens) {
+            return !(toFloat(Number(balance), token.decimals) === '0.000');
+          }
+          return balance === '0';
+        }) ?? []) as ERC20TokenAllowance[];
+    }
+
+    return (allowances
+      ?.filter(
+        (item) =>
+          item.allowance.length > 0 || filters.includeTokensWithoutAllowances,
+      )
+      ?.filter(({ balance }) => {
+        if (filters.includeZeroBalancesTokens) {
+          return true;
+        }
+        return balance !== '0';
+      }) ?? []) as ERC721TokenAllowance[];
+  }, [filters, allowances]);
 
   const navigation = useNavigation();
 
@@ -71,10 +113,6 @@ const RevokePage: FC = () => {
       </Button>
     );
   }, [intl, connectAndCreateExternalAccount, account?.id]);
-
-  const handleNetworkChange = useCallback((id: string) => {
-    setNetworkId(id);
-  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -96,7 +134,7 @@ const RevokePage: FC = () => {
   }, [navigation, isVertical, account?.id, walletConnectButton]);
 
   const content = useMemo(() => {
-    if (!addressOrName) {
+    if (headerParams && !headerParams?.address && !isLoading) {
       return (
         <Empty
           emoji="💁‍♀️️"
@@ -109,7 +147,7 @@ const RevokePage: FC = () => {
         />
       );
     }
-    if (network?.impl !== IMPL_EVM) {
+    if (network && network?.impl !== IMPL_EVM && !isLoading) {
       return (
         <Empty
           emoji="🤷‍♀️"
@@ -130,18 +168,21 @@ const RevokePage: FC = () => {
 
     return filters.assetType === AssetType.tokens ? (
       <ERC20TokenList
-        networkId={networkId}
-        addressOrName={keyword}
-        filters={filters}
+        loading={isLoading}
+        allowances={data as ERC20TokenAllowance[]}
+        address={headerParams?.address ?? ''}
+        prices={prices}
+        networkId={headerParams?.networkId ?? ''}
       />
     ) : (
       <ERC721TokenList
-        networkId={networkId}
-        addressOrName={keyword}
-        filters={filters}
+        networkId={headerParams?.networkId ?? ''}
+        loading={isLoading}
+        allowances={data}
+        address={headerParams?.address ?? ''}
       />
     );
-  }, [networkId, filters, intl, network, keyword, addressOrName]);
+  }, [network, intl, data, isLoading, prices, filters.assetType, headerParams]);
 
   return (
     <ScrollView
@@ -151,13 +192,9 @@ const RevokePage: FC = () => {
       }}
     >
       <Center flex="1" pb="108px">
-        <RevokeHeader
-          networkId={networkId}
-          onAddressChange={setAddressOrName}
-          onNetworkChange={handleNetworkChange}
-        />
+        <RevokeHeader onChange={setHeaderParams} />
         <VStack maxW="1030px" w="100%">
-          <FilterBar {...filters} onChange={setFilters} />
+          <FilterBar {...filters} isFromRpc={isFromRpc} onChange={setFilters} />
           {content}
         </VStack>
       </Center>

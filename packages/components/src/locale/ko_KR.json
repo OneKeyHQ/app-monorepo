@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "테스트 업그레이드 ble 펌웨어",
   "action__test_update_firmware": "테스트 업그레이드 펌웨어",
   "action__test_update_resource": "테스트 업데이트 리소스",
+  "action__under_maintaince": "유지 관리 중",
   "action__unlock": "터놓다",
   "action__unstake": "언스테이킹",
   "action__unsubscribe": "구독 취소",

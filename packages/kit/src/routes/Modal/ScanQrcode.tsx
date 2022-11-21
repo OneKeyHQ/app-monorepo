@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import PreviewSend from '@onekeyhq/kit/src/views/ScanQrcode/PreviewSend';
 import ScanQrcode from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcode';
