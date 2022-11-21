@@ -94,7 +94,13 @@ export const ControllerBarMobile: FC = () => {
           </Typography.CaptionStrong>
         </Center>
       </Button>
-      <Button flex={1} type="plain" onPress={showWebMoreMenu}>
+      <Button
+        flex={1}
+        type="plain"
+        opacity={currentTab.url === homeTab.url ? 0.4 : 1}
+        disabled={currentTab.url === homeTab.url}
+        onPress={showWebMoreMenu}
+      >
         <Icon color="icon-pressed" name="DotsHorizontalSolid" />
       </Button>
     </Animated.View>
