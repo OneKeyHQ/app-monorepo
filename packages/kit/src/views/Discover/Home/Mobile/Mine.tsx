@@ -133,7 +133,7 @@ const ListHeaderHistories = () => {
   return histories.length ? (
     <FlatList
       horizontal
-      data={histories}
+      data={histories.slice(0, 8)}
       removeClippedSubviews
       windowSize={5}
       renderItem={renderItem}
@@ -225,12 +225,16 @@ export const Mine = () => {
   const [dapps, setDapps] = useState<
     { label: string; id: string; items: DAppItemType[] }[]
   >([]);
+  const [total, setTotal] = useState<number>(5);
   const { onItemSelect } = useContext(DiscoverContext);
 
-  const data = useMemo(
-    () => dapps.map((item) => ({ title: item.label, data: item.items })),
-    [dapps],
-  );
+  const data = useMemo(() => {
+    const items = dapps.map((item) => ({
+      title: item.label,
+      data: item.items,
+    }));
+    return total < items.length ? items.slice(0, total) : items;
+  }, [dapps, total]);
 
   useEffect(() => {
     if (platformEnv.isNative) {
@@ -250,6 +254,12 @@ export const Mine = () => {
     [onItemSelect],
   );
 
+  const onEndReached = useCallback(() => {
+    if (dapps.length >= total) {
+      setTotal(total * 2);
+    }
+  }, [dapps.length, total]);
+
   return (
     <Box flex="1" bg="background-default">
       <FlatList
@@ -262,6 +272,8 @@ export const Mine = () => {
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
         showsVerticalScrollIndicator={false}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.2}
       />
     </Box>
   );

@@ -99,22 +99,8 @@ class ServicDiscover extends ServiceBase {
 
   @backgroundMethod()
   async fetchData() {
-    const { appSelector } = this.backgroundApi;
-    const categoryDapps = appSelector((s) => s.discover.categoryDapps);
-    const tagDapps = appSelector((s) => s.discover.tagDapps);
-    if (
-      tagDapps &&
-      tagDapps.length > 0 &&
-      categoryDapps &&
-      categoryDapps.length > 0 &&
-      Date.now() - this.updatedAt < 60 * 1000
-    ) {
-      return;
-    }
     this.getCompactList();
     this.getFullList();
-
-    this.updatedAt = Date.now();
   }
 
   @backgroundMethod()

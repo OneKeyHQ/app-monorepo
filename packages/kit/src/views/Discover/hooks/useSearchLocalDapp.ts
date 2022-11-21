@@ -4,6 +4,9 @@ import { useAllDapps } from '.';
 
 import Fuse from 'fuse.js';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useAppSelector } from '../../../hooks';
 import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { DAppItemType } from '../type';
 
@@ -40,6 +43,9 @@ export const useSearchLocalDapp = (
 ): { loading: boolean; searchedDapps: MatchDAppItemType[] } => {
   const [loading, setLoading] = useState(false);
   const allDapps = useAllDapps();
+  const enableIOSDappSearch = useAppSelector(
+    (s) => s.discover.enableIOSDappSearch,
+  );
 
   useEffect(() => {
     if (terms !== keyword) {
@@ -54,11 +60,15 @@ export const useSearchLocalDapp = (
     }
     setLoading(true);
     try {
-      return searchDapps(allDapps, terms);
+      let items = allDapps;
+      if (platformEnv.isNativeIOS && !enableIOSDappSearch) {
+        items = [];
+      }
+      return searchDapps(items, terms);
     } finally {
       setLoading(false);
     }
-  }, [allDapps, terms]);
+  }, [allDapps, terms, enableIOSDappSearch]);
 
   return {
     loading,
