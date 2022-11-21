@@ -43,23 +43,26 @@ const ExplorerMobile: FC = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const onSearch = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Discover,
-      params: {
-        screen: DiscoverModalRoutes.SearchHistoryModal,
+  const onSearch = useCallback(
+    (isNewWindow: boolean) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Discover,
         params: {
-          url: '',
-          onSelectorItem: (item: MatchDAppItemType | string) => {
-            if (typeof item === 'string') {
-              return gotoSite({ url: item });
-            }
-            openMatchDApp(item);
+          screen: DiscoverModalRoutes.SearchHistoryModal,
+          params: {
+            url: '',
+            onSelectorItem: (item: MatchDAppItemType | string) => {
+              if (typeof item === 'string') {
+                return gotoSite({ url: item, isNewWindow });
+              }
+              openMatchDApp({ ...item, isNewWindow });
+            },
           },
         },
-      },
-    });
-  }, [navigation]);
+      });
+    },
+    [navigation],
+  );
 
   const [showHome, setShowHome] = useState(true);
 
@@ -67,7 +70,7 @@ const ExplorerMobile: FC = () => {
     <Box flex={1} bg="background-default" mt={`${top}px`}>
       <Box flex={1} bg="background-default">
         <Freeze freeze={!showHome}>
-          <ExplorerBar onSearch={onSearch} />
+          <ExplorerBar onSearch={() => onSearch(true)} />
           <WebHomeContainer alwaysOpenNewWindow />
         </Freeze>
       </Box>
@@ -75,7 +78,7 @@ const ExplorerMobile: FC = () => {
         <FloatingContainer
           afterMaximize={() => setShowHome(false)}
           beforeMinimize={() => setShowHome(true)}
-          onSearch={onSearch}
+          onSearch={() => onSearch(false)}
         />
       )}
     </Box>

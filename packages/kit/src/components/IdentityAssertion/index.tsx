@@ -12,7 +12,10 @@ import {
   useCreateAccountInWallet,
 } from '../NetworkAccountSelector/hooks/useCreateAccountInWallet';
 
-const IdentityAssertion: FC = ({ children }) => {
+const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
+  children,
+  checkCompatibleNetwork = true,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { walletId, accountId, networkId, isCompatibleNetwork, network } =
@@ -58,7 +61,7 @@ const IdentityAssertion: FC = ({ children }) => {
       </Box>
     );
   }
-  if (!accountId || !isCompatibleNetwork) {
+  if (!accountId || (checkCompatibleNetwork && !isCompatibleNetwork)) {
     return (
       <Box
         testID="IdentityAssertion-noAccount"
