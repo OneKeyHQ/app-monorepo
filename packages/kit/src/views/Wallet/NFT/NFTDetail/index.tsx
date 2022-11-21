@@ -160,7 +160,7 @@ const NFTDetailModal: FC = () => {
           isNFT: true,
           from: '',
           to: '',
-          amount: asset.amount ?? '1',
+          amount: outerAsset.amount ?? '1',
           token: asset.contractAddress ?? asset.tokenAddress,
           tokenId: asset.tokenId ?? asset.tokenAddress,
           type: asset.ercType,
