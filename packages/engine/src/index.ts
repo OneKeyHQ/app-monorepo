@@ -39,6 +39,7 @@ import {
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_FIL,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -1117,6 +1118,15 @@ class Engine {
         }
         case IMPL_ADA: {
           privateKey = decodePrivateKeyByXprv(credential);
+          break;
+        }
+        case IMPL_FIL: {
+          const temp = JSON.parse(
+            Buffer.from(credential, 'hex').toString(),
+          ) as { Type: string; PrivateKey: string };
+          if (temp.PrivateKey) {
+            privateKey = Buffer.from(temp.PrivateKey, 'base64');
+          }
           break;
         }
         default:

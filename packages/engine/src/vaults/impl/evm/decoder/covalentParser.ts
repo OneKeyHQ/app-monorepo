@@ -123,7 +123,6 @@ const paraseTokenInteraction: TypeParser = (covalentTx) => {
   );
 
   if (name === 'Transfer') {
-    debugger;
     return {
       type: EVMDecodedTxType.TOKEN_TRANSFER,
       info: {

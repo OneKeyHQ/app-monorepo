@@ -44,6 +44,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_FIL,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
