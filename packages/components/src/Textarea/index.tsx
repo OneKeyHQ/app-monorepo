@@ -78,6 +78,8 @@ const TextArea = forwardRef<
       _invalid={{
         borderColor: 'border-critical-default',
       }}
+      focusOutlineColor="interactive-default"
+      invalidOutlineColor="border-critical-default"
       shadow="depth.1"
       onChangeText={onChangeTrimText}
       {...props}
