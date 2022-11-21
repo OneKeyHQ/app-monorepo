@@ -75,12 +75,12 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
       return (
         <Box>
           {itemA ? (
-            <Box>
+            <Box key={itemA._id}>
               <CardBaseViewCard item={itemA} onItemSelect={onItemSelect} />
             </Box>
           ) : null}
           {itemB ? (
-            <Box mt="5">
+            <Box key={itemB._id} mt="5">
               <CardBaseViewCard item={itemB} onItemSelect={onItemSelect} />
             </Box>
           ) : null}
@@ -102,7 +102,7 @@ const CardViewMobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
         horizontal
         data={items}
         renderItem={renderItem}
-        keyExtractor={(item, index) => `${index}`}
+        keyExtractor={(item, index) => `${item[0]?._id ?? index}`}
       />
     </Box>
   );
