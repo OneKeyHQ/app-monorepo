@@ -33,6 +33,8 @@ import {
 } from '../../../routes/types';
 import {
   isContextSupportWebAuthn,
+  isMac,
+  isSupportedPlatform,
   isUserVerifyingPlatformAuthenticatorAvailable,
 } from '../../../utils/webauthn';
 import { SelectTrigger } from '../SelectTrigger';
@@ -52,10 +54,12 @@ export const SecuritySection = () => {
   const [isHardwareSupportWebAuthn, setHardwareSupportWebAuthn] =
     useState<boolean>(false);
   useEffect(() => {
-    isUserVerifyingPlatformAuthenticatorAvailable().then((result) =>
-      setHardwareSupportWebAuthn(result && isContextSupportWebAuthn),
-    );
-  });
+    if (isSupportedPlatform && isContextSupportWebAuthn && isMac()) {
+      isUserVerifyingPlatformAuthenticatorAvailable().then((result) =>
+        setHardwareSupportWebAuthn(result),
+      );
+    }
+  }, []);
   const { dispatch } = backgroundApiProxy;
   const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
   const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
