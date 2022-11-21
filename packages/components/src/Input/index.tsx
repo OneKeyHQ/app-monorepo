@@ -286,8 +286,6 @@ const Input = forwardRef<typeof BaseInput, Props>(
             borderColor: 'focused-default',
           },
         }}
-        focusOutlineColor="interactive-default"
-        invalidOutlineColor="border-critical-default"
         _invalid={{ borderColor: 'border-critical-default' }}
         placeholderTextColor={isDisabled ? 'text-disabled' : 'text-subdued'}
         value={inputValue}
