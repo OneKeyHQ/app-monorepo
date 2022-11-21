@@ -1,7 +1,5 @@
 import { Fragment } from 'react';
 
-import { Icon as NBIcon } from 'native-base';
-
 import Badge from '../../Badge';
 import Box from '../../Box';
 import Divider from '../../Divider';
@@ -87,10 +85,10 @@ function RenderSingleOption<T>({
     // hooks only available in React component
     const isSmallScreen = useIsVerticalLayout();
     return (
-      <NBIcon
-        as={isSmallScreen ? CheckOUtline : CheckSolid}
-        size={{ base: '6', md: '5' }}
+      <Icon
+        name={isSmallScreen ? 'CheckOutline' : 'CheckSolid'}
         color="interactive-default"
+        size={isSmallScreen ? 24 : 20}
       />
     );
   };
