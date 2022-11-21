@@ -13,11 +13,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useRuntime,
-} from '../../hooks/redux';
+import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { addTransaction } from '../../store/reducers/swapTransactions';
 import { wait } from '../../utils/helper';
@@ -30,7 +26,6 @@ import {
   useSwapQuoteCallback,
   useSwapQuoteRequestParams,
   useSwapRecipient,
-  useSwapState,
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import { FetchQuoteParams, QuoteData, SwapError, SwapRoutes } from './typings';
@@ -96,8 +91,9 @@ const ExchangeButton = () => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
-  const { networks } = useRuntime();
-  const { quote, sendingAccount } = useSwapState();
+  const networks = useAppSelector((s) => s.runtime.networks);
+  const quote = useAppSelector((s) => s.swap.quote);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const { inputAmount, outputAmount } = useDerivedSwapState();
   const recipient = useSwapRecipient();
   const params = useSwapQuoteRequestParams();
@@ -345,7 +341,8 @@ const ExchangeButton = () => {
 
 const SwapStateButton = () => {
   const intl = useIntl();
-  const { inputToken, loading } = useSwapState();
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const loading = useAppSelector((s) => s.swap.loading);
   const { error } = useDerivedSwapState();
   const limitsError = useInputLimitsError();
 
@@ -403,6 +400,7 @@ const SwapStateButton = () => {
 const SwapButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
+  const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { wallet } = useActiveWalletAccount();
 
   const onCreateWallet = useCallback(() => {
@@ -413,6 +411,14 @@ const SwapButton = () => {
     return (
       <Button size="xl" type="primary" onPress={onCreateWallet} key="addWallet">
         {intl.formatMessage({ id: 'action__create_wallet' })}
+      </Button>
+    );
+  }
+
+  if (swapMaintain) {
+    return (
+      <Button size="xl" type="primary" isDisabled key="swapMaintain">
+        {intl.formatMessage({ id: 'action__under_maintaince' })}
       </Button>
     );
   }

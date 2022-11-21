@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "ทดสอบอัพเกรดเฟิร์มแวร์ ble",
   "action__test_update_firmware": "ทดสอบอัพเกรดเฟิร์มแวร์",
   "action__test_update_resource": "ทดสอบการอัปเดตทรัพยากร",
+  "action__under_maintaince": "ภายใต้การบำรุงรักษา",
   "action__unlock": "ปลดล็อค",
   "action__unstake": "Unstake",
   "action__unsubscribe": "UnSubscribe",

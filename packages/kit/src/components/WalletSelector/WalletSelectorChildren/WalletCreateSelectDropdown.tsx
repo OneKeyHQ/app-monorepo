@@ -157,15 +157,12 @@ export function WalletCreateSelectDropdown({
       renderTrigger={({ onPress, ...others }) => {
         const onPressTrigger = () => {
           if (walletType === 'hw') {
-            setTimeout(() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.CreateWallet,
-                params: {
-                  screen: CreateWalletModalRoutes.ConnectHardwareModal,
-                },
-              });
-            }, 300);
-            closeWalletSelector();
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.CreateWallet,
+              params: {
+                screen: CreateWalletModalRoutes.ConnectHardwareModal,
+              },
+            });
           } else {
             onPress?.();
           }

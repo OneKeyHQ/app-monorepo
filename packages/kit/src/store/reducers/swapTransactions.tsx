@@ -14,6 +14,7 @@ type TokenListItem = {
 export type TransactionsState = {
   transactions: Record<string, Record<string, TransactionDetails[]>>;
   tokenList?: TokenListItem[];
+  swapMaintain?: boolean;
 };
 
 const initialState: TransactionsState = {
@@ -102,6 +103,9 @@ export const swapTransactionsSlice = createSlice({
     updateTokenList(state, action: PayloadAction<TokenListItem[]>) {
       state.tokenList = action.payload;
     },
+    setSwapMaintain(state, action: PayloadAction<boolean>) {
+      state.swapMaintain = action.payload;
+    },
   },
 });
 
@@ -112,6 +116,7 @@ export const {
   clearTransactions,
   clearAccountTransactions,
   updateTokenList,
+  setSwapMaintain,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

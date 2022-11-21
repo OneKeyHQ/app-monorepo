@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "পরীক্ষা আপগ্রেড ble ফার্মওয়্যার",
   "action__test_update_firmware": "আপগ্রেড ফার্মওয়্যার পরীক্ষা করুন",
   "action__test_update_resource": "পরীক্ষা আপডেট সম্পদ",
+  "action__under_maintaince": "রক্ষণাবেক্ষণের অধীনে",
   "action__unlock": "আনলক",
   "action__unstake": "আনস্টেক",
   "action__unsubscribe": "সদস্যতা ত্যাগ করুন",

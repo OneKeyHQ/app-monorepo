@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "测试升级 ble 固件",
   "action__test_update_firmware": "测试升级固件",
   "action__test_update_resource": "测试更新 Res",
+  "action__under_maintaince": "正在维护中",
   "action__unlock": "解锁",
   "action__unstake": "赎回",
   "action__unsubscribe": "取消订阅动态",
