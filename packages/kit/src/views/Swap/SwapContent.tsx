@@ -13,7 +13,7 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
-import { useActiveWalletAccount } from '../../hooks/redux';
+import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
 
 import ReceivingTokenInput from './components/ReceivingTokenInput';
 import TokenInput from './components/TokenInput';
@@ -39,8 +39,9 @@ const SwapContent = () => {
   } = useSwapState();
   const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
   const { wallet, network } = useActiveWalletAccount();
+  const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { formattedAmounts } = useDerivedSwapState();
-  const isDisabled = !wallet || !network;
+  const isDisabled = !wallet || !network || swapMaintain;
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {

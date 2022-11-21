@@ -12,7 +12,6 @@ import { setDisableSwapExactApproveAmount } from '../../store/reducers/settings'
 import SwappingVia from './components/SwappingVia';
 import TransactionFee from './components/TransactionFee';
 import TransactionRate from './components/TransactionRate';
-import { useSwapState } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
 
 const SwapArrivalTime = () => {
@@ -80,7 +79,10 @@ const SwapExactAmoutAllowance = () => {
 const SwapQuote = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { inputToken, outputToken, quote } = useSwapState();
+  const quote = useAppSelector((s) => s.swap.quote);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );

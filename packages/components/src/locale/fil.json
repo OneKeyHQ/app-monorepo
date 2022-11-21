@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Subukan ang pag-upgrade ng firmware",
   "action__test_update_firmware": "Subukan ang pag-upgrade ng firmware",
   "action__test_update_resource": "Subukan ang mapagkukunan ng pag-update",
+  "action__under_maintaince": "Sa ilalim ng Pagpapanatili",
   "action__unlock": "I-unlock",
   "action__unstake": "Unstake",
   "action__unsubscribe": "Mag-unsubscribe",

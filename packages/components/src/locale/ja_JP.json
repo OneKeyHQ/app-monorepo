@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "ble ファームウェアのアップグレードをテストする",
   "action__test_update_firmware": "ファームウェアのアップグレードをテストする",
   "action__test_update_resource": "更新リソースのテスト",
+  "action__under_maintaince": "メンテナンス中",
   "action__unlock": "ロック解除",
   "action__unstake": "ステーキング解除",
   "action__unsubscribe": "購読解除",
