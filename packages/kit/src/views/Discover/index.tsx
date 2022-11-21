@@ -11,7 +11,7 @@ export default function Discover() {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
   return (
-    <IdentityAssertion>
+    <IdentityAssertion checkCompatibleNetwork={false}>
       <Explorer />
     </IdentityAssertion>
   );
