@@ -456,7 +456,6 @@ const ConnectHardwareModal: FC = () => {
         children: content,
         contentContainerStyle: {
           height: '100%',
-          justifyContent: 'center',
           paddingBottom: 24,
         },
       }}

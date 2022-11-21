@@ -2,10 +2,10 @@ import React, { useCallback, useMemo, useRef } from 'react';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { useInterval } from '../../hooks';
+import { useAppSelector, useInterval } from '../../hooks';
 
 import PendingTransaction from './components/PendingTransaction';
-import { useSwapQuoteCallback, useSwapState } from './hooks/useSwap';
+import { useSwapQuoteCallback } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
 
 const TransactionsUpdater = () => {
@@ -24,7 +24,9 @@ const TransactionsUpdater = () => {
 };
 
 const QuoteUpdater = () => {
-  const { quoteTime, error, quoteLimited } = useSwapState();
+  const quoteTime = useAppSelector((s) => s.swap.quoteTime);
+  const error = useAppSelector((s) => s.swap.error);
+  const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
   const ref = useRef<boolean>(false);
   const onSwapQuote = useSwapQuoteCallback();
   const onInterval = useCallback(async () => {

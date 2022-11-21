@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Тестовое обновление прошивки",
   "action__test_update_firmware": "Тестовое обновление прошивки",
   "action__test_update_resource": "Ресурс тестового обновления",
+  "action__under_maintaince": "На обслуживании",
   "action__unlock": "Разблокировать",
   "action__unstake": "Отменить ставку",
   "action__unsubscribe": "Отписаться",

@@ -187,15 +187,13 @@ export const useSwapQuoteCallback = function (
 };
 
 export function useDerivedSwapState() {
-  const {
-    independentField,
-    typedValue,
-    inputToken,
-    outputToken,
-    quote: swapQuote,
-    error: swapError,
-    sendingAccount,
-  } = useSwapState();
+  const independentField = useAppSelector((s) => s.swap.independentField);
+  const typedValue = useAppSelector((s) => s.swap.typedValue);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const swapQuote = useAppSelector((s) => s.swap.quote);
+  const swapError = useAppSelector((s) => s.swap.error);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
 
   const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
 
@@ -241,7 +239,8 @@ export function useDerivedSwapState() {
 
 export function useInputLimitsError(): Error | undefined {
   const intl = useIntl();
-  const { inputToken, quoteLimited } = useSwapState();
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
   const { inputAmount } = useDerivedSwapState();
   const maxAmount = useTokenAmount(inputToken, quoteLimited?.max);
   const minAmount = useTokenAmount(inputToken, quoteLimited?.min);

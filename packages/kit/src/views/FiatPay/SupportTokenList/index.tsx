@@ -9,6 +9,7 @@ import {
   Box,
   Divider,
   Empty,
+  Icon,
   Modal,
   Pressable,
   Searchbar,
@@ -129,10 +130,8 @@ export const SupportTokenList: FC = () => {
         borderBottomRadius={index === flatListData.length - 1 ? '12px' : 0}
         flex={1}
         flexDirection="row"
-        justifyContent="space-between"
         alignItems="center"
         padding="16px"
-        shadow="depth.2"
         onPress={() => {
           navigation.navigate(FiatPayRoutes.AmountInputModal, {
             token: item,
@@ -140,7 +139,7 @@ export const SupportTokenList: FC = () => {
           });
         }}
       >
-        <Box flexDirection="row" alignItems="center">
+        <Box flex={1} flexDirection="row" alignItems="center">
           <TokenImage
             size={8}
             token={{ logoURI: item.logoURI }}
@@ -150,9 +149,10 @@ export const SupportTokenList: FC = () => {
             {item.symbol}
           </Text>
         </Box>
-        <Text typography="Body1Strong" color="text-subdued">
+        <Text typography="Body1Strong" color="text-subdued" mr="4px">
           {item.balance ?? 0}
         </Text>
+        <Icon name="ChevronRightSolid" size={20} />
       </Pressable>
     ),
     [flatListData.length, navigation, type],

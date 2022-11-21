@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Тестове оновлення вбудованого ПЗ",
   "action__test_update_firmware": "Тестове оновлення прошивки",
   "action__test_update_resource": "Тестовий ресурс оновлення",
+  "action__under_maintaince": "На обслуговуванні",
   "action__unlock": "Розблокувати",
   "action__unstake": "Зняти ставку",
   "action__unsubscribe": "Відписатися",
