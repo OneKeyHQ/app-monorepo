@@ -45,6 +45,7 @@ import {
   unpackResult,
   withFallback,
 } from '@onekeyhq/engine/src/managers/revoke';
+import { fetchData } from '@onekeyhq/engine/src/managers/token';
 import {
   GoPlusApproval,
   GoPlusNFTApproval,
@@ -664,42 +665,46 @@ export default class ServiceRevoke extends ServiceBase {
   @backgroundMethod()
   async fetchTokenAllowance(
     networkId: string,
-    addressOrName: string,
+    address: string,
     type: AssetType,
+    useGoPlusApi = true,
   ): Promise<{
     allowance: (ERC20TokenAllowance | ERC721TokenAllowance)[];
     prices?: Record<string, string>;
     address?: string;
+    isFromRpc: boolean;
   }> {
-    const address = await this.getAddress(addressOrName);
     const result = {
       allowance: [],
       prices: {},
-      address,
+      isFromRpc: false,
     };
     if (!address) {
       return result;
     }
-    try {
-      const chainId = await fetchValidGoPlusChainId(
-        type === AssetType.tokens
-          ? GoPlusSupportApis.token_approval_security
-          : GoPlusSupportApis.nft721_approval_security,
-        networkId,
-      );
-      if (chainId) {
-        if (type === AssetType.tokens) {
+    if (useGoPlusApi) {
+      try {
+        const chainId = await fetchValidGoPlusChainId(
+          type === AssetType.tokens
+            ? GoPlusSupportApis.token_approval_security
+            : GoPlusSupportApis.nft721_approval_security,
+          networkId,
+        );
+        if (chainId) {
+          if (type === AssetType.tokens) {
+            return Object.assign(result, {
+              ...(await this.fetchGoPlusERC20TokenApproval(networkId, address)),
+            });
+          }
           return Object.assign(result, {
-            ...(await this.fetchGoPlusERC20TokenApproval(networkId, address)),
+            ...(await this.fetchGoPlusNFTApproval(networkId, address)),
           });
         }
-        return Object.assign(result, {
-          ...(await this.fetchGoPlusNFTApproval(networkId, address)),
-        });
+      } catch (e) {
+        // pass
       }
-    } catch (e) {
-      // pass
     }
+    Object.assign(result, { isFromRpc: true });
     if (type === AssetType.tokens) {
       Object.assign(result, {
         ...(await this.fetchERC20TokenAllowences(networkId, address)),
@@ -712,5 +717,10 @@ export default class ServiceRevoke extends ServiceBase {
     }
 
     return result;
+  }
+
+  @backgroundMethod()
+  async lookupEnsName(address: string) {
+    return fetchData('/network/lookup_ens_name', { address }, '');
   }
 }

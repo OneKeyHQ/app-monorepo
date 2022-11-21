@@ -9,8 +9,6 @@ import useSWR from 'swr';
 
 import { Box, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { waitForDataLoaded } from '@onekeyhq/kit/src/background/utils';
-import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { fetchCurrencies } from '../views/FiatPay/Service';
@@ -33,30 +31,15 @@ const AppLoading: FC = ({ children }) => {
   const bgColor = useThemeValue('background-default');
 
   useEffect(() => {
-    async function main() {
+    function main() {
       // TODO initApp too slow, maybe do not need waiting for initApp in UI
       // await Promise.all([
       //   serviceApp.waitForAppInited({
       //     logName: 'AppLoading',
       //   }),
       // ]);
-      await waitForDataLoaded({
-        logName: 'WaitBackgroundReady @ AppLoading',
-        wait: 300,
-        data: async () => {
-          const result = await backgroundApiProxy.getState();
-          if (result && result.bootstrapped) {
-            store.dispatch({
-              // TODO use consts
-              type: 'REPLACE_WHOLE_STATE',
-              payload: result.state,
-              $isDispatchFromBackground: true,
-            });
-            return true;
-          }
-          return false;
-        },
-      });
+
+      // redux ready check move to ThemeApp
 
       // serviceApp.initApp();
       setInitDataReady(true);

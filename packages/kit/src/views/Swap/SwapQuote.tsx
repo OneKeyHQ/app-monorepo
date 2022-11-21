@@ -66,7 +66,7 @@ const SwapExactAmoutAllowance = () => {
       <Box flex="1" flexDirection="row" justifyContent="flex-end">
         <Box maxW="full">
           <Switch
-            size="sm"
+            size="mini"
             labelType="false"
             isChecked={!disableSwapExactApproveAmount}
             onToggle={onToggle}

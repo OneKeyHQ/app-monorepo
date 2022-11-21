@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../Box';
 import Typography from '../Typography';
 
-export type SwitchSize = 'sm' | 'lg';
+export type SwitchSize = 'sm' | 'lg' | 'mini';
 export type LabelType = 'false' | 'after' | 'before';
 
 export type SwitchProps = {
@@ -51,6 +51,7 @@ const getRectSize = (size: SwitchSize = 'sm'): ISizes => {
   const sizeMap: Record<SwitchSize, ISizes> = {
     'sm': 'md',
     'lg': 'lg',
+    'mini': 'sm',
   };
   return sizeMap[size];
 };
