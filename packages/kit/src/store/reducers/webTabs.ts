@@ -64,7 +64,7 @@ export const webtabsSlice = createSlice({
             title: formatMessage(
               { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
               {
-                0: MAX_WEB_TABS,
+                0: MAX_WEB_TABS - 1,
               },
             ),
           },
