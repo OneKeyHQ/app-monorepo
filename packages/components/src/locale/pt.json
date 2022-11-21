@@ -208,6 +208,7 @@
   "action__test_update_ble_firmware": "Testar firmware de atualização",
   "action__test_update_firmware": "Testar firmware de atualização",
   "action__test_update_resource": "Recurso de atualização de teste",
+  "action__under_maintaince": "Em manutenção",
   "action__unlock": "Desbloquear",
   "action__unstake": "Retirar",
   "action__unsubscribe": "Cancelar subscrição",

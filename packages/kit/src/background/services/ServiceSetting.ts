@@ -4,6 +4,7 @@ import axios from 'axios';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
+import { setSwapMaintain } from '../../store/reducers/swapTransactions';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -29,6 +30,7 @@ export default class ServiceSetting extends ServiceBase {
     const data = res.data as RemoteSetting;
     await simpleDb.setting.setEnableAppRatings(data.enableAppRatings);
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
+    this.backgroundApi.dispatch(setSwapMaintain(data.swapMaintain));
   }
 
   @backgroundMethod()
