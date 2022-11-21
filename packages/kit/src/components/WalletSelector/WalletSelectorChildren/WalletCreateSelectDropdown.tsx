@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { IDropdownProps, SelectItem } from '@onekeyhq/components/src/Select';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigationActions } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -64,6 +65,7 @@ export function WalletCreateSelectDropdown({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isVerticalLayout = useIsVerticalLayout();
   const { closeWalletSelector } = useNavigationActions();
 
   const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
@@ -112,9 +114,13 @@ export function WalletCreateSelectDropdown({
   return (
     <Select
       onChange={(v) => {
-        setTimeout(() => {
+        if (isVerticalLayout && platformEnv.isNative) {
           closeWalletSelector();
-        }, 300);
+        } else {
+          setTimeout(() => {
+            closeWalletSelector();
+          }, 300);
+        }
         if (v === 'create') {
           navigation.navigate(RootRoutes.Onboarding, {
             screen: EOnboardingRoutes.SetPassword,
