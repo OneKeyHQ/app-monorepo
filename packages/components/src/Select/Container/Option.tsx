@@ -5,8 +5,6 @@ import Box from '../../Box';
 import Divider from '../../Divider';
 import HStack from '../../HStack';
 import Icon from '../../Icon';
-import { Check as CheckOUtline } from '../../Icon/react/outline';
-import { Check as CheckSolid } from '../../Icon/react/solid';
 import Pressable from '../../Pressable';
 import { useIsVerticalLayout } from '../../Provider/hooks';
 import Token from '../../Token';
