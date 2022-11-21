@@ -4,9 +4,15 @@ import axios from 'axios';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
+import {
+  disableExtSwitchTips,
+  toggleDisableExt,
+} from '../../store/reducers/settings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
+import ProviderApiPrivate from '../providers/ProviderApiPrivate';
+import extUtils from '../../utils/extUtils';
 
 type RemoteSetting = {
   enableAppRatings: boolean;
@@ -45,5 +51,25 @@ export default class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   async setWebAuthnCredentialID(webAuthnCredentialID: string) {
     return simpleDb.setting.setWebAuthnCredentialID(webAuthnCredentialID);
+  }
+
+  @backgroundMethod()
+  async toggleDisableExt() {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    privateProvider.notifyExtSwitchChanged({
+      send: this.backgroundApi.sendForProvider('$private'),
+    });
+    const disableExt = this.backgroundApi.appSelector(
+      (s) => s.settings.disableExt,
+    );
+    const iconPath = `icon-128${disableExt ? '' : '-disable'}.png`;
+    extUtils.handleIconChange(iconPath);
+    return this.backgroundApi.dispatch(toggleDisableExt());
+  }
+
+  @backgroundMethod()
+  async disableExtSwitchTips() {
+    return this.backgroundApi.dispatch(disableExtSwitchTips());
   }
 }

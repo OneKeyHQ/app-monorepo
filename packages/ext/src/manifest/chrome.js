@@ -36,6 +36,7 @@ module.exports = {
   'web_accessible_resources': [
     // allow content-script inject js file
     'injected.js',
+    'icon-128-disable.png',
     ...(isDev
       ? [
           // allow site load iframe force service-worker update

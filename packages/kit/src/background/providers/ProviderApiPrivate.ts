@@ -13,6 +13,7 @@ import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
+import { appSelector } from '../../store';
 import extUtils from '../../utils/extUtils';
 import { timeout } from '../../utils/helper';
 import { scanFromURLAsync } from '../../views/ScanQrcode/scanFromURLAsync';
@@ -36,6 +37,10 @@ class ProviderApiPrivate extends ProviderApiBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     // noop
+  }
+
+  public notifyExtSwitchChanged(info: IProviderBaseBackgroundNotifyInfo) {
+    info.send({ method: 'wallet_getConnectWalletInfo' });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -116,6 +121,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   ) {
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
+    const disableExt = !!appSelector((s) => s.settings.disableExt);
     const debugLoggerSettings: string = (await getDebugLoggerSettings()) || '';
     const ethereum = this.backgroundApi.providers
       .ethereum as ProviderApiEthereum;
@@ -146,6 +152,7 @@ class ProviderApiPrivate extends ProviderApiBase {
         platform: process.env.ONEKEY_PLATFORM,
         version: process.env.VERSION,
         buildNumber: process.env.BUILD_NUMBER,
+        disableExt,
         isLegacy: false,
         platformEnv: {
           isRuntimeBrowser: platformEnv.isRuntimeBrowser,

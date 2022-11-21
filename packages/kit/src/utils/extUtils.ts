@@ -1,3 +1,4 @@
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { isNil } from 'lodash';
 
 import {
@@ -95,9 +96,14 @@ function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
   });
 }
 
+function handleIconChange(path: string) {
+  chrome.browserAction.setIcon({ path });
+}
+
 export default {
   openUrl,
   openUrlInTab,
   openExpandTab,
   openStandaloneWindow,
+  handleIconChange,
 };
