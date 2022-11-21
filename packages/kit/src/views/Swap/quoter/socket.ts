@@ -137,6 +137,7 @@ interface SupportedChain {
 
 interface SupportedBridge {
   bridgeName: string;
+  name: string;
   icon: string;
   serviceTime: number;
   displayName: string;
@@ -289,10 +290,12 @@ export class SocketQuoter implements Quoter {
     if (!this.supportedBridges) {
       this.supportedBridges = await this.fetchSupportedBridges();
     }
+
     const bridge = this.supportedBridges.filter(
-      (i) => i.bridgeName === bridgeName,
+      (i) => i.name === bridgeName || i.bridgeName === bridgeName,
     )[0];
-    return { icon: bridge.icon, displayName: bridge.displayName };
+
+    return { icon: bridge?.icon, displayName: bridge?.displayName };
   }
 
   async fetchSupportedBridges(): Promise<SupportedBridge[]> {
@@ -529,6 +532,7 @@ export class SocketQuoter implements Quoter {
       const bridgeIcons = await Promise.all(
         route.usedBridgeNames.map((name) => this.getBridgeInfo(name)),
       );
+
       const providers = route.usedBridgeNames.map((name, index) => ({
         name: bridgeIcons[index]?.displayName,
         logoUrl: bridgeIcons[index]?.icon,
