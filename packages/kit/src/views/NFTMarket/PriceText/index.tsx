@@ -19,27 +19,28 @@ type Props = {
   networkId?: string;
 } & ComponentProps<typeof Text>;
 
+export function PriceString({ prefix, price, networkId, symbol }: Props) {
+  const innderSymbol = symbol ?? floorPriceSymbolMap[networkId ?? ''];
+  let value = '–';
+  if (price && price !== null) {
+    value = `${price} ${innderSymbol ?? ''}`;
+  }
+  if (prefix) {
+    return `${prefix} ${value}`;
+  }
+  return `${value}`;
+}
+
 const PriceText: FC<Props> = ({
   prefix = '',
   price,
   networkId,
   symbol,
   ...textProps
-}) => {
-  const innderSymbol = symbol ?? floorPriceSymbolMap[networkId ?? ''];
-  let value = '–';
-  if (price && price !== null) {
-    value = `${price} ${innderSymbol ?? ''}`;
-  }
-  return <Text {...textProps}>{`${prefix} ${value}`}</Text>;
-};
+}) => (
+  <Text {...textProps}>
+    {PriceString({ prefix, price, networkId, symbol })}
+  </Text>
+);
 
-export function PriceString({ prefix = '', price, networkId, symbol }: Props) {
-  const innderSymbol = symbol ?? floorPriceSymbolMap[networkId ?? ''];
-  let value = '–';
-  if (price && price !== null) {
-    value = `${price} ${innderSymbol ?? ''}`;
-  }
-  return `${`${prefix} `}${value}`;
-}
 export default PriceText;

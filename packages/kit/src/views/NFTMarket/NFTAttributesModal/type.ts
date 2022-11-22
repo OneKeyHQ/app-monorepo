@@ -1,0 +1,14 @@
+import { Collection } from '@onekeyhq/engine/src/types/nft';
+
+export enum NFTAttributeFilterRoutes {
+  FilterModal = 'FilterModal',
+}
+
+export type NFTAttributeFilterRoutesParams = {
+  [NFTAttributeFilterRoutes.FilterModal]: {
+    collection: Collection;
+    onAttributeSelected: (
+      attributes: { attribute_name: string; attribute_values: string[] }[],
+    ) => void;
+  };
+};
