@@ -70,7 +70,12 @@ const Provider: FC<UIProviderProps> = ({
   const themeVar = useMemo(
     () =>
       extendTheme({
-        colors: COLORS[themeVariant],
+        colors: {
+          primary: {
+            400: COLORS[themeVariant]['interactive-default'],
+          },
+          ...COLORS[themeVariant],
+        },
         breakpoints: {
           base: 0,
           sm: SCREEN_SIZE.MEDIUM,
@@ -135,6 +140,18 @@ const Provider: FC<UIProviderProps> = ({
           Image: {
             defaultProps: {
               alt: '-',
+            },
+          },
+          Input: {
+            baseStyle: {
+              focusOutlineColor: 'interactive-default',
+              invalidOutlineColor: 'border-critical-default',
+            },
+          },
+          Textarea: {
+            baseStyle: {
+              focusOutlineColor: 'interactive-default',
+              invalidOutlineColor: 'border-critical-default',
             },
           },
           ScrollView: {

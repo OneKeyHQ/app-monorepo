@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC } from 'react';
+import { FC, memo } from 'react';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,4 +32,4 @@ const Explorer: FC = () => {
   );
 };
 
-export default Explorer;
+export default memo(Explorer);
