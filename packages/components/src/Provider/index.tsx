@@ -70,7 +70,12 @@ const Provider: FC<UIProviderProps> = ({
   const themeVar = useMemo(
     () =>
       extendTheme({
-        colors: COLORS[themeVariant],
+        colors: {
+          primary: {
+            400: COLORS[themeVariant]['interactive-default'],
+          },
+          ...COLORS[themeVariant],
+        },
         breakpoints: {
           base: 0,
           sm: SCREEN_SIZE.MEDIUM,
