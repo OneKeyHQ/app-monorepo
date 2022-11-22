@@ -29,6 +29,7 @@ export const EnableExtTips: FC<{
       <Button
         onPress={() => {
           backgroundApiProxy.serviceSetting.disableExtSwitchTips();
+          onClose();
         }}
         my={3}
       >

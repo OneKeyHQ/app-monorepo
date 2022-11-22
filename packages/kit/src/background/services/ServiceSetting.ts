@@ -8,11 +8,11 @@ import {
   disableExtSwitchTips,
   toggleDisableExt,
 } from '../../store/reducers/settings';
+import extUtils from '../../utils/extUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
+import ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 import ServiceBase from './ServiceBase';
-import ProviderApiPrivate from '../providers/ProviderApiPrivate';
-import extUtils from '../../utils/extUtils';
 
 type RemoteSetting = {
   enableAppRatings: boolean;
@@ -54,18 +54,22 @@ export default class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkBrowserActionIcon() {
+    const disableExt = this.backgroundApi.appSelector(
+      (s) => s.settings.disableExt,
+    );
+    extUtils.updatBrowserActionIcon(!disableExt);
+  }
+
+  @backgroundMethod()
   async toggleDisableExt() {
+    this.backgroundApi.dispatch(toggleDisableExt());
     const privateProvider = this.backgroundApi.providers
       .$private as ProviderApiPrivate;
     privateProvider.notifyExtSwitchChanged({
       send: this.backgroundApi.sendForProvider('$private'),
     });
-    const disableExt = this.backgroundApi.appSelector(
-      (s) => s.settings.disableExt,
-    );
-    const iconPath = `icon-128${disableExt ? '' : '-disable'}.png`;
-    extUtils.handleIconChange(iconPath);
-    return this.backgroundApi.dispatch(toggleDisableExt());
+    this.checkBrowserActionIcon();
   }
 
   @backgroundMethod()

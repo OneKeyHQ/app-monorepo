@@ -1,4 +1,3 @@
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { isNil } from 'lodash';
 
 import {
@@ -96,8 +95,9 @@ function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
   });
 }
 
-function handleIconChange(path: string) {
-  chrome.browserAction.setIcon({ path });
+function updatBrowserActionIcon(enable: boolean) {
+  const iconPath = `icon-128${enable ? '' : '-disable'}.png`;
+  chrome.browserAction.setIcon({ path: iconPath });
 }
 
 export default {
@@ -105,5 +105,5 @@ export default {
   openUrlInTab,
   openExpandTab,
   openStandaloneWindow,
-  handleIconChange,
+  updatBrowserActionIcon,
 };

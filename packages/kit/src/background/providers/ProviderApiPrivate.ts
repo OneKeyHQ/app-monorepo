@@ -13,7 +13,6 @@ import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
-import { appSelector } from '../../store';
 import extUtils from '../../utils/extUtils';
 import { timeout } from '../../utils/helper';
 import { scanFromURLAsync } from '../../views/ScanQrcode/scanFromURLAsync';
@@ -40,7 +39,8 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   public notifyExtSwitchChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    info.send({ method: 'wallet_getConnectWalletInfo' });
+    const params = this.getWalletInfo();
+    info.send({ method: 'wallet_events_ext_switch_changed', params });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -113,6 +113,39 @@ class ProviderApiPrivate extends ProviderApiBase {
     return { success: 'wallet_sendSiteMetadata: save to DB' };
   }
 
+  getWalletInfo() {
+    const disableExt = !!this.backgroundApi.appSelector(
+      (s) => s.settings.disableExt,
+    );
+    return {
+      platform: process.env.ONEKEY_PLATFORM,
+      version: process.env.VERSION,
+      buildNumber: process.env.BUILD_NUMBER,
+      disableExt,
+      isLegacy: false,
+      platformEnv: {
+        isRuntimeBrowser: platformEnv.isRuntimeBrowser,
+        isRuntimeChrome: platformEnv.isRuntimeChrome,
+        isRuntimeFirefox: platformEnv.isRuntimeFirefox,
+
+        isWeb: platformEnv.isWeb,
+
+        isNative: platformEnv.isNative,
+        isNativeIOS: platformEnv.isNativeIOS,
+        isNativeAndroid: platformEnv.isNativeAndroid,
+
+        isExtension: platformEnv.isExtension,
+        isExtChrome: platformEnv.isExtChrome,
+        isExtFirefox: platformEnv.isExtFirefox,
+
+        isDesktop: platformEnv.isDesktop,
+        isDesktopWin: platformEnv.isDesktopWin,
+        isDesktopLinux: platformEnv.isDesktopLinux,
+        isDesktopMac: platformEnv.isDesktopMac,
+      },
+    };
+  }
+
   // $onekey.$private.request({method:'wallet_getConnectWalletInfo'})
   @providerApiMethod()
   async wallet_getConnectWalletInfo(
@@ -121,7 +154,6 @@ class ProviderApiPrivate extends ProviderApiBase {
   ) {
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
-    const disableExt = !!appSelector((s) => s.settings.disableExt);
     const debugLoggerSettings: string = (await getDebugLoggerSettings()) || '';
     const ethereum = this.backgroundApi.providers
       .ethereum as ProviderApiEthereum;
@@ -148,33 +180,7 @@ class ProviderApiPrivate extends ProviderApiBase {
         window.location.reload();
          */
       },
-      walletInfo: {
-        platform: process.env.ONEKEY_PLATFORM,
-        version: process.env.VERSION,
-        buildNumber: process.env.BUILD_NUMBER,
-        disableExt,
-        isLegacy: false,
-        platformEnv: {
-          isRuntimeBrowser: platformEnv.isRuntimeBrowser,
-          isRuntimeChrome: platformEnv.isRuntimeChrome,
-          isRuntimeFirefox: platformEnv.isRuntimeFirefox,
-
-          isWeb: platformEnv.isWeb,
-
-          isNative: platformEnv.isNative,
-          isNativeIOS: platformEnv.isNativeIOS,
-          isNativeAndroid: platformEnv.isNativeAndroid,
-
-          isExtension: platformEnv.isExtension,
-          isExtChrome: platformEnv.isExtChrome,
-          isExtFirefox: platformEnv.isExtFirefox,
-
-          isDesktop: platformEnv.isDesktop,
-          isDesktopWin: platformEnv.isDesktopWin,
-          isDesktopLinux: platformEnv.isDesktopLinux,
-          isDesktopMac: platformEnv.isDesktopMac,
-        },
-      },
+      walletInfo: this.getWalletInfo(),
       providerState,
     };
   }

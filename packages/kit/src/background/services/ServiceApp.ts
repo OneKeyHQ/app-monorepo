@@ -240,6 +240,7 @@ class ServiceApp extends ServiceBase {
       appSelector,
       serviceBootstrap,
       serviceOnboarding,
+      serviceSetting,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -248,6 +249,10 @@ class ServiceApp extends ServiceBase {
       ) ?? false;
 
     switchTestEndpoint(enableTestFiatEndpoint);
+
+    if (platformEnv.isExtensionBackground) {
+      serviceSetting.checkBrowserActionIcon();
+    }
 
     await engine.cleanupDBOnStart();
 
