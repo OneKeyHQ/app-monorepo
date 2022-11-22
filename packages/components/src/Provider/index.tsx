@@ -137,6 +137,18 @@ const Provider: FC<UIProviderProps> = ({
               alt: '-',
             },
           },
+          Input: {
+            baseStyle: {
+              focusOutlineColor: 'interactive-default',
+              invalidOutlineColor: 'border-critical-default',
+            },
+          },
+          Textarea: {
+            baseStyle: {
+              focusOutlineColor: 'interactive-default',
+              invalidOutlineColor: 'border-critical-default',
+            },
+          },
           ScrollView: {
             defaultProps: {
               // in CSS: packages/shared/src/web/index.css

@@ -60,6 +60,8 @@ const replyPartyName = 'onekey.so';
 
 export const isSupportedPlatform = platformEnv.isExtChrome;
 
+export const isMac = () => navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
 export const isContextSupportWebAuthn = Boolean(
   isSupportedPlatform && global?.navigator?.credentials,
 );
