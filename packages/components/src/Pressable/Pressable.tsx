@@ -26,7 +26,6 @@ const PressableCapture: FC<PressableItemProps> = ({ onPress, ...props }) => {
     <NBPressable
       {...props}
       onPress={props.disabled ? null : onPressOverride}
-      // @ts-ignore
       cursor={props.disabled ? 'not-allowed' : 'pointer'}
     />
   );
