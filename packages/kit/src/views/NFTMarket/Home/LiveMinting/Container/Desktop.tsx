@@ -87,6 +87,7 @@ const Desktop = () => {
             src={item.collection.logoUrl}
             width="40px"
             height="40px"
+            verified={item.collection.openseaVerified}
           />
           <ListItem.Column
             flex={1}
@@ -104,7 +105,7 @@ const Desktop = () => {
           text={{
             label: PriceString({
               price: new BigNumber(item.mintPrice ?? '0')
-                .decimalPlaces(2)
+                .decimalPlaces(6)
                 .toString(),
               networkId: context?.selectedNetwork?.id,
             }),
