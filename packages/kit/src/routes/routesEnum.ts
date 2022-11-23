@@ -89,6 +89,9 @@ export enum HomeRoutes {
   NFTMarketStatsList = 'NFTMarketStatsList',
   NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
+  ShowDotMap = 'ShowDotMap',
+  ImportKeyTag = 'ImportKeyTag',
+  KeyTagRoutes = 'KeyTagRoutes',
 }
 export enum TabRoutes {
   // Overview = 'overview',

@@ -144,6 +144,10 @@ export type HomeRoutesParams = {
     title?: string;
   };
   [HomeRoutes.RevokeRedirect]: undefined;
+  [HomeRoutes.ShowDotMap]: {
+    mnemonicWords: string;
+  };
+  [HomeRoutes.ImportKeyTag]: undefined;
 };
 /** HomeStack */
 

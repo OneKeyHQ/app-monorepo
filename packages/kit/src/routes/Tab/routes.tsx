@@ -13,6 +13,8 @@ import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
 import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import ImportKeyTag from '@onekeyhq/kit/src/views/KeyTag/Screen/ImportKeyTag';
+import ShowDotMap from '@onekeyhq/kit/src/views/KeyTag/Screen/ShowDotMap';
 import MarketScreen from '@onekeyhq/kit/src/views/Market';
 import MarketDetail from '@onekeyhq/kit/src/views/Market/MarketDetail';
 import MeScreen from '@onekeyhq/kit/src/views/Me';
@@ -200,6 +202,14 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.PushNotificationManageAccountDynamic,
         component: PushNotificationManageAccountDynamic,
       },
+      {
+        name: HomeRoutes.ShowDotMap,
+        component: ShowDotMap,
+      },
+      {
+        name: HomeRoutes.ImportKeyTag,
+        component: ImportKeyTag,
+      },
     ],
   },
 ];
@@ -210,6 +220,16 @@ if (process.env.NODE_ENV !== 'production') {
     component: DevelopScreen,
     tabBarIcon: () => 'ChipOutline',
     translationId: 'form__dev_mode',
+    children: [
+      {
+        name: HomeRoutes.ShowDotMap,
+        component: ShowDotMap,
+      },
+      {
+        name: HomeRoutes.ImportKeyTag,
+        component: ImportKeyTag,
+      },
+    ],
   });
 }
 

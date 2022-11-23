@@ -19,6 +19,8 @@ import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
 import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
 import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
+import ImportKeyTag from '@onekeyhq/kit/src/views/KeyTag/Screen/ImportKeyTag';
+import ShowDotMap from '@onekeyhq/kit/src/views/KeyTag/Screen/ShowDotMap';
 import MarketDetail from '@onekeyhq/kit/src/views/Market/MarketDetail';
 import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
 import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
@@ -49,6 +51,8 @@ import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
 
 import renderCustomSubStackHeader from './Header';
+import { KeyTagRoutes } from '../../views/KeyTag/Routes/enums';
+import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
 
 export const stackScreenList = [
   {
@@ -149,6 +153,18 @@ export const stackScreenList = [
   {
     name: HomeRoutes.RevokeRedirect,
     component: RevokeRedirectPage,
+  },
+  {
+    name: HomeRoutes.ShowDotMap,
+    component: ShowDotMap,
+  },
+  {
+    name: HomeRoutes.ImportKeyTag,
+    component: ImportKeyTag,
+  },
+  {
+    name: HomeRoutes.KeyTagRoutes,
+    component: RouteKeytag,
   },
 ];
 
