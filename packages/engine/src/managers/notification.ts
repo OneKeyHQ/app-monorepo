@@ -25,6 +25,10 @@ export type NotificationExtra = {
     initialTabName?: string;
     coingeckoId?: string;
   };
+
+  // for launchNotification
+  _j_msgid?: string;
+  aps?: { title: string; body: string };
 };
 
 export type NotificationType = {

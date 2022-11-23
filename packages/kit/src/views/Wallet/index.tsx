@@ -70,6 +70,7 @@ const WalletTabs: FC = () => {
   return (
     <>
       <Tabs.Container
+        key={homeTabName}
         initialTabName={homeTabName}
         // @ts-ignore fix type when remove react-native-collapsible-tab-view
         refreshing={refreshing}

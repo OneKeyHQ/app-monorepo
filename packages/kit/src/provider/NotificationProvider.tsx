@@ -4,6 +4,7 @@ import { requestPermissionsAsync } from 'expo-notifications';
 import { AppState, NativeModules } from 'react-native';
 
 import { DialogManager } from '@onekeyhq/components';
+import { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   checkPushNotificationPermission,
@@ -17,7 +18,8 @@ import { setPushNotificationConfig } from '../store/reducers/settings';
 
 const NotificationProvider: React.FC<{
   children: React.ReactElement<any, any> | null;
-}> = ({ children }) => {
+  launchNotification?: NotificationExtra;
+}> = ({ children, launchNotification }) => {
   const { pushNotification } = useSettings();
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
@@ -70,10 +72,10 @@ const NotificationProvider: React.FC<{
   useEffect(() => {
     // init in background if platform is ext
     if (!platformEnv.isExtension) {
-      serviceNotification.init();
+      serviceNotification.init(launchNotification);
       return () => serviceNotification.clear();
     }
-  }, [serviceNotification]);
+  }, [serviceNotification, launchNotification]);
 
   // checkPermission and init
   useEffect(() => {
