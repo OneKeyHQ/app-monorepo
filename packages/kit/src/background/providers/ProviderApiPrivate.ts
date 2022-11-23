@@ -38,6 +38,11 @@ class ProviderApiPrivate extends ProviderApiBase {
     // noop
   }
 
+  public notifyExtSwitchChanged(info: IProviderBaseBackgroundNotifyInfo) {
+    const params = this.getWalletInfo();
+    info.send({ method: 'wallet_events_ext_switch_changed', params });
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public rpcCall(request: IJsonRpcRequest): any {
     // noop
@@ -108,6 +113,39 @@ class ProviderApiPrivate extends ProviderApiBase {
     return { success: 'wallet_sendSiteMetadata: save to DB' };
   }
 
+  getWalletInfo() {
+    const disableExt = !!this.backgroundApi.appSelector(
+      (s) => s.settings.disableExt,
+    );
+    return {
+      platform: process.env.ONEKEY_PLATFORM,
+      version: process.env.VERSION,
+      buildNumber: process.env.BUILD_NUMBER,
+      disableExt,
+      isLegacy: false,
+      platformEnv: {
+        isRuntimeBrowser: platformEnv.isRuntimeBrowser,
+        isRuntimeChrome: platformEnv.isRuntimeChrome,
+        isRuntimeFirefox: platformEnv.isRuntimeFirefox,
+
+        isWeb: platformEnv.isWeb,
+
+        isNative: platformEnv.isNative,
+        isNativeIOS: platformEnv.isNativeIOS,
+        isNativeAndroid: platformEnv.isNativeAndroid,
+
+        isExtension: platformEnv.isExtension,
+        isExtChrome: platformEnv.isExtChrome,
+        isExtFirefox: platformEnv.isExtFirefox,
+
+        isDesktop: platformEnv.isDesktop,
+        isDesktopWin: platformEnv.isDesktopWin,
+        isDesktopLinux: platformEnv.isDesktopLinux,
+        isDesktopMac: platformEnv.isDesktopMac,
+      },
+    };
+  }
+
   // $onekey.$private.request({method:'wallet_getConnectWalletInfo'})
   @providerApiMethod()
   async wallet_getConnectWalletInfo(
@@ -142,32 +180,7 @@ class ProviderApiPrivate extends ProviderApiBase {
         window.location.reload();
          */
       },
-      walletInfo: {
-        platform: process.env.ONEKEY_PLATFORM,
-        version: process.env.VERSION,
-        buildNumber: process.env.BUILD_NUMBER,
-        isLegacy: false,
-        platformEnv: {
-          isRuntimeBrowser: platformEnv.isRuntimeBrowser,
-          isRuntimeChrome: platformEnv.isRuntimeChrome,
-          isRuntimeFirefox: platformEnv.isRuntimeFirefox,
-
-          isWeb: platformEnv.isWeb,
-
-          isNative: platformEnv.isNative,
-          isNativeIOS: platformEnv.isNativeIOS,
-          isNativeAndroid: platformEnv.isNativeAndroid,
-
-          isExtension: platformEnv.isExtension,
-          isExtChrome: platformEnv.isExtChrome,
-          isExtFirefox: platformEnv.isExtFirefox,
-
-          isDesktop: platformEnv.isDesktop,
-          isDesktopWin: platformEnv.isDesktopWin,
-          isDesktopLinux: platformEnv.isDesktopLinux,
-          isDesktopMac: platformEnv.isDesktopMac,
-        },
-      },
+      walletInfo: this.getWalletInfo(),
       providerState,
     };
   }

@@ -6,8 +6,14 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import { setEnableIOSDappSearch } from '../../store/reducers/discover';
+import {
+  disableExtSwitchTips,
+  toggleDisableExt,
+} from '../../store/reducers/settings';
 import { setSwapMaintain } from '../../store/reducers/swapTransactions';
+import extUtils from '../../utils/extUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
+import ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 import ServiceBase from './ServiceBase';
 
@@ -57,5 +63,29 @@ export default class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   async setWebAuthnCredentialID(webAuthnCredentialID: string) {
     return simpleDb.setting.setWebAuthnCredentialID(webAuthnCredentialID);
+  }
+
+  @backgroundMethod()
+  async checkBrowserActionIcon() {
+    const disableExt = this.backgroundApi.appSelector(
+      (s) => s.settings.disableExt,
+    );
+    extUtils.updatBrowserActionIcon(!disableExt);
+  }
+
+  @backgroundMethod()
+  async toggleDisableExt() {
+    this.backgroundApi.dispatch(toggleDisableExt());
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    privateProvider.notifyExtSwitchChanged({
+      send: this.backgroundApi.sendForProvider('$private'),
+    });
+    this.checkBrowserActionIcon();
+  }
+
+  @backgroundMethod()
+  async disableExtSwitchTips() {
+    return this.backgroundApi.dispatch(disableExtSwitchTips());
   }
 }
