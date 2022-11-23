@@ -26,6 +26,7 @@ import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
 import type ServiceRevoke from './services/ServiceRevoke';
+import type ServiceSetting from './services/ServiceSetting';
 import type ServiceSocket from './services/ServiceSocket';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
@@ -82,6 +83,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceRevoke: ServiceRevoke;
   serviceNameResolver: ServiceNameResolver;
   serviceMarket: ServiceMarket;
+  serviceSetting: ServiceSetting;
 }
 
 export type IDappSourceInfo = {

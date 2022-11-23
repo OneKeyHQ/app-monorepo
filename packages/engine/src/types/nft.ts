@@ -32,6 +32,14 @@ export type NFTServiceResp<T> = {
   data: T;
 };
 
+export type CollectionAttribute = {
+  attributes_name: string;
+  attributes_values: {
+    attributes_value: string;
+    total: number;
+  }[];
+};
+
 export type Collection = {
   contractAddress?: string;
   contractName?: string;
@@ -46,13 +54,7 @@ export type Collection = {
   collectionId?: string;
   chain?: string;
   ercType?: string;
-  attributes?: {
-    attribute_name: string;
-    attributes_values: {
-      attributes_value: string;
-      total: number;
-    };
-  }[];
+  attributes?: CollectionAttribute[];
   name?: string;
   itemsTotal?: number;
   ownersTotal?: number;

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { Column, Row } from 'native-base';
@@ -153,6 +153,7 @@ const AssetsList = ({
   const context = useCollectionDetailContext()?.context;
   const setContext = useCollectionDetailContext()?.setContext;
   const cursor = useRef<string | undefined>();
+  const cursorOfFilter = useRef<string | undefined>();
   const { serviceNFT } = backgroundApiProxy;
 
   const padding = isSmallScreen ? 16 : 32;
@@ -194,7 +195,11 @@ const AssetsList = ({
 
   useEffect(() => {
     (() => {
-      if (context?.selectedIndex === 0 && isMounted) {
+      if (
+        context?.selectedIndex === 0 &&
+        isMounted &&
+        context?.attributes.length === 0
+      ) {
         if (context?.refreshing) {
           cursor.current = undefined;
         }
@@ -213,6 +218,7 @@ const AssetsList = ({
       }
     })();
   }, [
+    context?.attributes.length,
     context?.refreshing,
     context?.selectedIndex,
     contractAddress,
@@ -222,6 +228,71 @@ const AssetsList = ({
     numColumns,
     setContext,
   ]);
+
+  const getDataWithAttributes = useCallback(
+    async (param: {
+      chain: string;
+      contractAddress: string;
+      attributes: any[];
+      cursor?: string;
+      limit?: number;
+    }) => {
+      const data = await serviceNFT.getAssetsWithAttributes(param);
+      if (data?.content) {
+        cursorOfFilter.current = data.next;
+        if (setContext) {
+          setContext((ctx) => {
+            if (context?.refreshing) {
+              return { ...ctx, filterAssetList: data.content };
+            }
+            return {
+              ...ctx,
+              filterAssetList: ctx.filterAssetList.concat(data?.content),
+            };
+          });
+        }
+      }
+    },
+    [context?.refreshing, serviceNFT, setContext],
+  );
+
+  useEffect(() => {
+    (() => {
+      if (
+        context?.selectedIndex === 0 &&
+        isMounted &&
+        context?.attributes.length > 0
+      ) {
+        if (context?.refreshing) {
+          cursorOfFilter.current = undefined;
+        }
+        if (cursorOfFilter.current !== null) {
+          getDataWithAttributes({
+            chain: networkId,
+            attributes: context.attributes,
+            contractAddress,
+            cursor: cursorOfFilter.current,
+            limit: getRequestLimit(numColumns),
+          }).then(() => {
+            if (setContext) {
+              setContext((ctx) => ({ ...ctx, refreshing: false }));
+            }
+          });
+        }
+      }
+    })();
+  }, [
+    context?.attributes,
+    context?.refreshing,
+    context?.selectedIndex,
+    contractAddress,
+    getDataWithAttributes,
+    isMounted,
+    networkId,
+    numColumns,
+    setContext,
+  ]);
+
   const { networks } = useRuntime();
 
   const network = networks.find((item) => item.id === networkId);
@@ -257,6 +328,56 @@ const AssetsList = ({
     [cardWidth, handleSelectAsset],
   );
 
+  const FooterView = useMemo(
+    () => (
+      <Footer
+        numColumns={numColumns}
+        cardWidth={cardWidth}
+        margin={margin}
+        marginBottom={marginBottom}
+      />
+    ),
+    [cardWidth, margin, marginBottom, numColumns],
+  );
+
+  const assetList = useMemo(() => {
+    if (context) {
+      if (context?.attributes?.length > 0) {
+        return context?.filterAssetList;
+      }
+      return context?.assetList;
+    }
+    return [];
+  }, [context]);
+
+  const onEndReached = useCallback(() => {
+    if (context) {
+      if (context?.attributes.length === 0 && cursor.current !== null) {
+        getData({
+          chain: networkId,
+          contractAddress,
+          cursor: cursor.current,
+          limit: getRequestLimit(numColumns),
+        });
+      }
+      if (context?.attributes.length > 0 && cursorOfFilter.current !== null) {
+        getDataWithAttributes({
+          chain: networkId,
+          attributes: context.attributes,
+          contractAddress,
+          cursor: cursorOfFilter.current,
+          limit: getRequestLimit(numColumns),
+        });
+      }
+    }
+  }, [
+    context,
+    contractAddress,
+    getData,
+    getDataWithAttributes,
+    networkId,
+    numColumns,
+  ]);
   return (
     <Tabs.FlatList
       key={numColumns}
@@ -275,31 +396,20 @@ const AssetsList = ({
         paddingBottom: isSmallScreen ? 16 : 24,
       }}
       ListFooterComponent={() => {
-        if (cursor.current !== null) {
-          return (
-            <Footer
-              numColumns={numColumns}
-              cardWidth={cardWidth}
-              margin={margin}
-              marginBottom={marginBottom}
-            />
-          );
+        if (context) {
+          if (
+            (cursor.current !== null && context?.attributes.length === 0) ||
+            (cursorOfFilter.current !== null && context?.attributes.length > 0)
+          ) {
+            return FooterView;
+          }
         }
         return <Box />;
       }}
-      data={context?.assetList}
+      data={assetList}
       renderItem={renderItem}
       keyExtractor={(item: NFTAsset) => `${item.tokenId as string}`}
-      onEndReached={() => {
-        if (cursor.current !== null) {
-          getData({
-            chain: networkId,
-            contractAddress,
-            cursor: cursor.current,
-            limit: getRequestLimit(numColumns),
-          });
-        }
-      }}
+      onEndReached={onEndReached}
     />
   );
 };

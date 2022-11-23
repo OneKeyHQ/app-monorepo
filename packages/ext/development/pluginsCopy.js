@@ -35,6 +35,7 @@ const copy1 = createCopyPlugin({
     }),
     createPattern('src/entry/injected.js'),
     createPattern('src/assets/img/icon-128.png'),
+    createPattern('src/assets/img/icon-128-disable.png'),
     createPattern('src/assets/ui-popup-boot.html'),
     createPattern('src/assets/ui-popup-boot.js'),
     createPattern('src/assets/theme-preload.js'),
