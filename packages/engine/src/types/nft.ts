@@ -60,6 +60,7 @@ export type Collection = {
   ownersTotal?: number;
   amountsTotal?: number;
   volume24h?: number;
+  openseaVerified?: boolean;
   blueChip?: {
     next_blue_chip_probability: string | null;
   } | null;
@@ -90,6 +91,7 @@ export type NFTAsset = {
     contractName?: string;
     logoUrl?: string;
     floorPrice?: number;
+    openseaVerified?: boolean;
   };
   image: {
     source: string;
@@ -155,6 +157,7 @@ export type NFTMarketCapCollection = {
   volume_change_7d?: string;
   verified?: boolean;
   market_cap: number | null;
+  openseaVerified?: boolean;
 };
 
 export type NFTMarketRanking = {
@@ -183,4 +186,5 @@ export type NFTMarketRanking = {
   blueChip?: {
     next_blue_chip_probability: string | null;
   } | null;
+  openseaVerified?: boolean;
 };

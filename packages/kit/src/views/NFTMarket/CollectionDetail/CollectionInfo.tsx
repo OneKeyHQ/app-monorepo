@@ -85,7 +85,12 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
   return (
     <Box {...props}>
       <Box flexDirection="row">
-        <CollectionLogo src={collection?.logoUrl} width="64px" height="64px" />
+        <CollectionLogo
+          src={collection?.logoUrl}
+          width="64px"
+          height="64px"
+          verified={collection?.openseaVerified}
+        />
         <Box ml={{ base: '16px', md: '24px' }} maxW="576px" flex={1}>
           <Text typography="PageHeading" mb="4px" numberOfLines={1}>
             {name || '–'}

@@ -197,7 +197,12 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
           }}
         >
           <Row flex={1.9} space="12px" alignItems="center">
-            <CollectionLogo src={item.logo_url} width="40px" height="40px" />
+            <CollectionLogo
+              src={item.logo_url}
+              width="40px"
+              height="40px"
+              verified={item.openseaVerified}
+            />
             <ListItem.Column
               text={{
                 label: `${index + 1}`,

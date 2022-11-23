@@ -69,7 +69,12 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
           }}
         >
           <ListItem.Column>
-            <CollectionLogo src={item.logo_url} width="40px" height="40px" />
+            <CollectionLogo
+              src={item.logo_url}
+              width="40px"
+              height="40px"
+              verified={item.openseaVerified}
+            />
           </ListItem.Column>
           <ListItem.Column
             text={{
