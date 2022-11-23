@@ -18,18 +18,27 @@ export const showTabGridAnim = makeMutable(MIN_OR_HIDE);
 export const tabViewShotRef = createRef<ViewShot>();
 export const tabGridRefs: Record<string, View> = {};
 
-export const targetGridLayout = makeMutable({
-  pageX: 0,
-  pageY: 0,
-  width: 0,
-  height: 0,
-});
+// can not use a whole object as animated value (it will be frozen)
+// so store them separately
+// https://github.com/software-mansion/react-native-reanimated/issues/3670#issuecomment-1303388096
+export const targetPreviewX = makeMutable(0);
+export const targetPreviewY = makeMutable(0);
+export const targetPreviewWidth = makeMutable(0);
+export const targetPreviewHeight = makeMutable(0);
 
 let thumbnailRatio = 0.8;
 export const setThumbnailRatio = (ratio: number) => {
   thumbnailRatio = ratio;
 };
 const thumbnailWidth = 340;
+const getTabCellLayout = (tabId: string) => {
+  tabGridRefs[tabId]?.measure((x, y, width, height, pageX, pageY) => {
+    targetPreviewX.value = pageX;
+    targetPreviewY.value = pageY;
+    targetPreviewWidth.value = width;
+    targetPreviewHeight.value = height;
+  });
+};
 export const showTabGrid = () => {
   const { currentTabId } = appSelector((s) => s.webTabs);
   if (platformEnv.isNative) {
@@ -47,14 +56,14 @@ export const showTabGrid = () => {
       );
     });
   }
-  tabGridRefs[currentTabId]?.measure((x, y, width, height, pageX, pageY) => {
-    targetGridLayout.value = { pageX, pageY, width, height };
-  });
+  getTabCellLayout(currentTabId);
   setTimeout(() => (showTabGridAnim.value = withTiming(MAX_OR_SHOW)), 30);
 };
 
-export const hideTabGrid = () => {
-  showTabGridAnim.value = withTiming(MIN_OR_HIDE);
+export const hideTabGrid = (id?: string) => {
+  const curId = id || appSelector((s) => s.webTabs.currentTabId);
+  getTabCellLayout(curId);
+  setTimeout(() => (showTabGridAnim.value = withTiming(MIN_OR_HIDE)), 30);
 };
 
 export const expandFloatingWindow = (afterMaximize: () => void = () => {}) => {

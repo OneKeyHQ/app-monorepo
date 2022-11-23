@@ -57,50 +57,54 @@ const WebTabCard: FC<
       if (!isCurrent) {
         backgroundApiProxy.dispatch(setCurrentWebTab(id));
       }
-      hideTabGrid();
+      hideTabGrid(id);
     }}
   >
     <Box
+      flex={1}
       ref={(ref) => {
         // @ts-ignore
         tabGridRefs[id] = ref;
       }}
-      bg="surface-default"
-      px="9px"
-      h="32px"
-      w="full"
-      borderTopLeftRadius="12px"
-      borderTopRightRadius="12px"
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="space-between"
     >
-      <NetImage
-        key={favicon}
-        width="18px"
-        height="18px"
-        borderRadius="4px"
-        src={favicon}
-      />
-      <Typography.CaptionStrong
-        color="text-default"
-        flex={1}
-        textAlign="left"
-        numberOfLines={1}
-        mx="4px"
+      <Box
+        bg="surface-default"
+        px="9px"
+        h="32px"
+        w="full"
+        borderTopLeftRadius="12px"
+        borderTopRightRadius="12px"
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
       >
-        {title}
-      </Typography.CaptionStrong>
-      <IconButton
-        size="sm"
-        type="plain"
-        name="CloseSolid"
-        onPress={() => {
-          backgroundApiProxy.dispatch(closeWebTab(id));
-        }}
-      />
+        <NetImage
+          key={favicon}
+          width="18px"
+          height="18px"
+          borderRadius="4px"
+          src={favicon}
+        />
+        <Typography.CaptionStrong
+          color="text-default"
+          flex={1}
+          textAlign="left"
+          numberOfLines={1}
+          mx="4px"
+        >
+          {title}
+        </Typography.CaptionStrong>
+        <IconButton
+          size="sm"
+          type="plain"
+          name="CloseSolid"
+          onPress={() => {
+            backgroundApiProxy.dispatch(closeWebTab(id));
+          }}
+        />
+      </Box>
+      <NBImage flex={1} resizeMode="cover" src={thumbnail} />
     </Box>
-    <NBImage flex={1} resizeMode="cover" src={thumbnail} />
   </Pressable>
 );
 const WebTabGrid = () => {
@@ -114,11 +118,13 @@ const WebTabGrid = () => {
       if (tab.id === homeTab.id) {
         return;
       }
-      if (tab.isCurrent) {
-        cells.unshift(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
-      } else {
-        cells.push(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
-      }
+      // if (tab.isCurrent) {
+      //   cells.unshift(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
+      // } else {
+      //   cells.push(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
+      // }
+
+      cells.push(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
     });
     return cells;
   }, [cellWidth, tabs]);

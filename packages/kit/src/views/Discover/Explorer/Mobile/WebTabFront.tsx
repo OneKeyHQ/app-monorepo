@@ -18,11 +18,10 @@ import {
   setThumbnailRatio,
   showTabGridAnim,
   tabViewShotRef,
-  targetGridHeight,
-  targetGridLayout,
-  targetGridWidth,
-  targetGridX,
-  targetGridY,
+  targetPreviewHeight,
+  targetPreviewWidth,
+  targetPreviewX,
+  targetPreviewY,
 } from '../explorerAnimation';
 
 const styles = StyleSheet.create({
@@ -30,13 +29,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
 const WebTabFront = memo(() => {
   useNotifyChanges();
   const { tabs, tab } = useWebTabs();
 
   const showHome = tab?.url === homeTab.url;
-  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const content = useMemo(
     () =>
       tabs.slice(1).map((t) => (
@@ -59,63 +56,20 @@ const WebTabFront = memo(() => {
 
   return (
     <ViewShot style={styles.container} ref={tabViewShotRef} onLayout={onLayout}>
-      <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          useAnimatedStyle(() => {
-            const { pageX, pageY, width, height } = targetGridLayout.value;
-            console.log({ pageX, pageY, width, height });
-            return {
-              opacity: 1 - showTabGridAnim.value,
-              transform: [
-                {
-                  translateX: interpolate(
-                    showTabGridAnim.value,
-                    [0, 1],
-                    [0, pageX],
-                  ),
-                },
-                {
-                  translateY: interpolate(
-                    showTabGridAnim.value,
-                    [0, 1],
-                    [0, pageY],
-                  ),
-                },
-                {
-                  scaleX: interpolate(
-                    showTabGridAnim.value,
-                    [0, 1],
-                    [1, width / screenWidth],
-                  ),
-                },
-                {
-                  scaleY: interpolate(
-                    showTabGridAnim.value,
-                    [0, 1],
-                    [1, height / screenHeight],
-                  ),
-                },
-              ],
-            };
-          }, [screenHeight, screenWidth, targetGridLayout.value]),
-        ]}
+      {content}
+      <View
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          zIndex: showHome ? 1 : -1,
+        }}
       >
-        {content}
-        <View
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            zIndex: showHome ? 1 : -1,
+        <DiscoverHome
+          onItemSelect={(dapp) => {
+            openMatchDApp({ id: dapp._id, dapp });
           }}
-        >
-          <DiscoverHome
-            onItemSelect={(dapp) => {
-              openMatchDApp({ id: dapp._id, dapp });
-            }}
-            onItemSelectHistory={openMatchDApp}
-          />
-        </View>
-      </Animated.View>
+          onItemSelectHistory={openMatchDApp}
+        />
+      </View>
     </ViewShot>
   );
 });
