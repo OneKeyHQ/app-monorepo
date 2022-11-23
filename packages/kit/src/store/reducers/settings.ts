@@ -40,6 +40,8 @@ export type SettingsState = {
   disableSwapExactApproveAmount?: boolean;
   enableHaptics: boolean;
   enableWebAuthn?: boolean;
+  disableExt?: boolean;
+  disableExtSwitchTips?: boolean;
   deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
@@ -99,6 +101,8 @@ const initialState: SettingsState = {
   instanceId: uuid.v4() as string,
   enableAppLock: false,
   enableLocalAuthentication: false,
+  disableExt: false,
+  disableExtSwitchTips: false,
   appLockDuration: 240,
   enableHaptics: defaultHapticStatus,
   selectedFiatMoneySymbol: 'usd',
@@ -379,6 +383,12 @@ export const settingsSlice = createSlice({
     setEnableWebAuthn(state, action: PayloadAction<boolean>) {
       state.enableWebAuthn = action.payload;
     },
+    toggleDisableExt(state) {
+      state.disableExt = !state.disableExt;
+    },
+    disableExtSwitchTips(state) {
+      state.disableExtSwitchTips = true;
+    },
   },
 });
 
@@ -414,6 +424,8 @@ export const {
   updateCustomNetworkRpc,
   setHideRiskTokens,
   setEnableWebAuthn,
+  toggleDisableExt,
+  disableExtSwitchTips,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

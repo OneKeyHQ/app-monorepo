@@ -81,6 +81,7 @@ const Provider: FC<UIProviderProps> = ({
           sm: SCREEN_SIZE.MEDIUM,
           md: SCREEN_SIZE.LARGE,
           lg: SCREEN_SIZE.XLARGE,
+          xl: SCREEN_SIZE.ULTRALARGE,
         },
         shadows: {
           depth: {

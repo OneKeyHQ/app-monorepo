@@ -95,9 +95,15 @@ function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
   });
 }
 
+function updatBrowserActionIcon(enable: boolean) {
+  const iconPath = `icon-128${enable ? '' : '-disable'}.png`;
+  chrome.browserAction.setIcon({ path: iconPath });
+}
+
 export default {
   openUrl,
   openUrlInTab,
   openExpandTab,
   openStandaloneWindow,
+  updatBrowserActionIcon,
 };

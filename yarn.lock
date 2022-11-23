@@ -5441,7 +5441,7 @@ __metadata:
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
     moti: ^0.21.0
-    native-base: 3.4.21
+    native-base: 3.4.22
     qrcode: ^1.5.0
     react-content-loader: ^6.1.0
     react-hook-form: ^7.22.1
@@ -22646,9 +22646,9 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"native-base@npm:3.4.21":
-  version: 3.4.21
-  resolution: "native-base@npm:3.4.21"
+"native-base@npm:3.4.22":
+  version: 3.4.22
+  resolution: "native-base@npm:3.4.22"
   dependencies:
     "@react-aria/focus": 3.2.3
     "@react-aria/utils": ^3.6.0
@@ -22697,7 +22697,62 @@ colour@latest:
     react-native: "*"
     react-native-safe-area-context: "*"
     react-native-svg: "*"
-  checksum: c179283b8512665bb6ee70e5e8bc1a79fb123754f24299bdbc5b88fea5f80c36e42bb3d54c7dbfdb74c3d57f0701a36d97ee5934ec464038960c0e46524dd19d
+  checksum: c50ac5d5d20123876acf8333cccaf692bc922e6e00fccf76e3ebcc9b5cd9612f94d227ec820ded1bbc7d3479ca88045d5b972561b8644efcd230092649c3867f
+  languageName: node
+  linkType: hard
+
+"native-base@patch:native-base@npm%3A3.4.22#./.yarn/patches/native-base-npm-3.4.22-844dd4a7e7.patch::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
+  version: 3.4.22
+  resolution: "native-base@patch:native-base@npm%3A3.4.22#./.yarn/patches/native-base-npm-3.4.22-844dd4a7e7.patch::version=3.4.22&hash=3a3437&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+  dependencies:
+    "@react-aria/focus": 3.2.3
+    "@react-aria/utils": ^3.6.0
+    "@react-aria/visually-hidden": ^3.2.1
+    "@react-native-aria/button": ^0.2.4
+    "@react-native-aria/checkbox": ^0.2.2
+    "@react-native-aria/combobox": ^0.2.4-alpha.0
+    "@react-native-aria/focus": ^0.2.6
+    "@react-native-aria/interactions": ^0.2.2
+    "@react-native-aria/listbox": ^0.2.4-alpha.3
+    "@react-native-aria/overlays": 0.3.3-rc.0
+    "@react-native-aria/radio": ^0.2.4
+    "@react-native-aria/slider": ^0.2.5-alpha.1
+    "@react-native-aria/tabs": ^0.2.7
+    "@react-native-aria/utils": ^0.2.8
+    "@react-stately/checkbox": 3.0.3
+    "@react-stately/collections": 3.3.0
+    "@react-stately/combobox": 3.0.0-alpha.1
+    "@react-stately/radio": 3.2.1
+    "@react-stately/slider": 3.0.1
+    "@react-stately/tabs": 3.0.0-alpha.1
+    "@react-stately/toggle": 3.2.1
+    "@types/lodash.has": ^4.5.6
+    "@types/use-subscription": ^1.0.0
+    inline-style-prefixer: ^6.0.1
+    lodash.clonedeep: ^4.5.0
+    lodash.get: ^4.4.2
+    lodash.has: ^4.5.2
+    lodash.isempty: ^4.4.0
+    lodash.isequal: ^4.5.0
+    lodash.isnil: ^4.0.0
+    lodash.merge: ^4.6.2
+    lodash.mergewith: ^4.6.2
+    lodash.omit: ^4.5.0
+    lodash.omitby: ^4.6.0
+    lodash.pick: ^4.4.0
+    react-native-keyboard-aware-scroll-view: ^0.9.5
+    stable-hash: ^0.0.2
+    tinycolor2: ^1.4.2
+    use-subscription: ^1.8.0
+  peerDependencies:
+    "@types/react": "*"
+    "@types/react-native": "*"
+    react: "*"
+    react-dom: "*"
+    react-native: "*"
+    react-native-safe-area-context: "*"
+    react-native-svg: "*"
+  checksum: 795be8d00f7c4e81fcc23fb2139638ca799a2056245d9c67e6f38b53d8a319b560f4ed784e2f2841fa2547a718dda28a50212b8dd1367c72867413389d6ba9b0
   languageName: node
   linkType: hard
 

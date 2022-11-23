@@ -1,7 +1,6 @@
 import React, { useLayoutEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
 
 import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 
@@ -19,7 +18,6 @@ import {
 const List = () => {
   const { bottom } = useSafeAreaInsets();
   const navigation = useNavigation();
-  const intl = useIntl();
   const setContext = useLiveMintContext()?.setContext;
   const context = useLiveMintContext()?.context;
   const defaultNetwork = useDefaultNetWork();
@@ -41,7 +39,7 @@ const List = () => {
         />
       ),
     });
-  }, [context?.selectedNetwork, defaultNetwork, intl, navigation, setContext]);
+  }, [context?.selectedNetwork, defaultNetwork, navigation, setContext]);
 
   return (
     <ScrollView
