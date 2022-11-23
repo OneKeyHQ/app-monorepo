@@ -4,6 +4,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
   Box,
+  Center,
   Icon,
   NetImage,
   Pressable,
@@ -54,7 +55,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
   const { tab } = useWebTabs();
   return (
     <Box
-      bg="surface-subdued"
+      bg="background-default"
       px="16px"
       h="56px"
       flexDirection="row"
@@ -67,7 +68,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         flex="1"
         bg="action-secondary-default"
         h="42px"
-        borderRadius="12px"
+        borderRadius="full"
         borderWidth="1px"
         borderColor="border-default"
         ml="12px"
@@ -85,7 +86,11 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         >
           {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
         </Typography.Body1>
-        <NetworkAccountSelectorTrigger size="sm" type="basic" />
+        <NetworkAccountSelectorTrigger
+          size="sm"
+          type="basic"
+          bg="surface-neutral-default"
+        />
       </Pressable>
     </Box>
   );
