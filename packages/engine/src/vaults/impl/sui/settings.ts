@@ -2,7 +2,7 @@ import { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = {
   privateKeyExportEnabled: true,
-  tokenEnabled: true,
+  tokenEnabled: false,
   txCanBeReplaced: false,
 
   importedAccountEnabled: true,
