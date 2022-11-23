@@ -7,12 +7,11 @@ import {
   Coin,
   GetObjectDataResponse,
   LocalTxnDataSerializer,
-  SignableTransactionData,
-  SignableTransactionKind,
   SignatureScheme,
   SuiMoveObject,
   SuiObject,
   SuiTransactionResponse,
+  UnserializedSignableTransaction,
   getCertifiedTransaction,
   getExecutionStatus,
   getMoveCallTransaction,
@@ -39,19 +38,14 @@ import {
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
-import { get, groupBy, isArray, isEmpty, isNil, map } from 'lodash';
+import { groupBy, isArray, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
-import {
-  getTimeDurationMs,
-  getTimeStamp,
-  isHexString,
-} from '@onekeyhq/kit/src/utils/helper';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
-  InvalidAccount,
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
@@ -64,14 +58,12 @@ import {
   IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
-  IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -79,10 +71,7 @@ import {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import {
-  convertFeeGweiToValue,
-  convertFeeValueToGwei,
-} from '../../utils/feeInfoUtils';
+import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
@@ -94,7 +83,6 @@ import { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
 import settings from './settings';
 import { IEncodedTxSUI } from './types';
 import {
-  DEFAULT_GAS_BUDGET_FOR_PAY,
   GAS_TYPE_ARG,
   SUI_NATIVE_COIN,
   computeGasBudget,
@@ -342,31 +330,32 @@ export default class Vault extends VaultBase {
 
     const sender = await this.getAccountAddress();
 
-    let {
-      kind,
-      data,
-    }: { kind: SignableTransactionKind; data: SignableTransactionData } =
-      encodedTx;
-    if (kind === 'bytes') {
+    let txData: UnserializedSignableTransaction;
+
+    if (encodedTx.kind === 'bytes') {
       try {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
-            new Base64DataBuffer(decodeBytesTransaction(data)),
+            new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
           );
         if (isArray(decode)) {
-          kind = decode[0].kind;
-          data = decode[0].data;
+          [txData] = decode;
         } else {
-          kind = decode.kind;
-          data = decode.data;
+          txData = decode;
         }
       } catch (e) {
         throw new OneKeyError('Invalid transaction data.');
       }
+    } else {
+      txData = encodedTx;
     }
 
+    if (!txData) throw new OneKeyError('Invalid transaction data.');
+
     const actions: IDecodedTxAction[] = [];
+
+    const { kind, data } = txData;
     let gasLimit = 0;
     if (data && 'gasBudget' in data) {
       gasLimit = data.gasBudget;
@@ -395,7 +384,7 @@ export default class Vault extends VaultBase {
               tokenInfo: token,
               from: sender,
               to: action.recipient,
-              amount: new BigNumber(action.amount ?? '0')
+              amount: new BigNumber(action.amount.toString() ?? '0')
                 .shiftedBy(-token.decimals)
                 .toFixed(),
               amountValue: action.amount?.toString() ?? '0',
@@ -866,7 +855,6 @@ export default class Vault extends VaultBase {
         const nativeToken: Token | undefined =
           await this.engine.getNativeTokenInfo(this.networkId);
 
-        console.log('=====>>>> isSuccess', tx);
         const executionStatus = getExecutionStatus(tx);
         const isSuccess = executionStatus?.status === 'success';
         const isFailure = executionStatus?.status === 'failure';
@@ -938,7 +926,6 @@ export default class Vault extends VaultBase {
             const pay = getPayTransaction(action);
             const actionPay = await decodeActionPay(client, pay);
             if (pay && actionPay) {
-              console.log('=====>>>> actionPay', actionPay);
               if (actionPay) {
                 to = actionPay.recipient;
                 let actionKey = 'nativeTransfer';

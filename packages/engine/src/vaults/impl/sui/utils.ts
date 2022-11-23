@@ -21,7 +21,6 @@ import {
   getPayTransaction,
   getTransferSuiTransaction,
 } from '@mysten/sui.js';
-import { hexToBytes } from '@noble/hashes/utils';
 import { isArray } from 'lodash';
 
 import { IDecodedTxActionType } from '../../types';
@@ -313,10 +312,14 @@ export async function decodeActionPayTransaction(
   const isNative = Coin.isSUI(moveObject[0]);
 
   const amount = tx.amounts.reduce((acc, cur) => {
-    if (typeof cur === 'string' || typeof cur === 'number') {
+    if (
+      typeof cur === 'string' ||
+      typeof cur === 'number' ||
+      typeof cur === 'bigint'
+    ) {
       return acc + BigInt(cur);
     }
-    return acc + cur;
+    return acc;
   }, BigInt(0));
 
   return {
