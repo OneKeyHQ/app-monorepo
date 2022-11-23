@@ -47,7 +47,7 @@ export default class ServiceNotification extends ServiceBase {
   private interval?: ReturnType<typeof setInterval>;
 
   @backgroundMethod()
-  async init() {
+  async init(launchNotification?: NotificationExtra) {
     try {
       await this.backgroundApi.serviceApp.waitForAppInited({
         logName: 'ServiceNotification',
@@ -85,6 +85,21 @@ export default class ServiceNotification extends ServiceBase {
     }
     this.syncLocalEnabledAccounts();
     this.syncPushNotificationConfig();
+
+    if (platformEnv.isNativeIOS && launchNotification) {
+      const {
+        _j_msgid: messageID = '',
+        aps: { title = '', body: content = '' } = {},
+      } = launchNotification || {};
+      debugLogger.notification.info('launchNotification: ', launchNotification);
+      this.handleNotificationCallback({
+        title,
+        content,
+        messageID,
+        notificationEventType: 'notificationOpened',
+        extras: launchNotification,
+      });
+    }
   }
 
   @bindThis()
