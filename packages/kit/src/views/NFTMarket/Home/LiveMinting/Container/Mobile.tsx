@@ -36,6 +36,7 @@ const Mobile = () => {
               src={item.collection.logoUrl}
               width="56px"
               height="56px"
+              verified={item.collection.openseaVerified}
             />
           </ListItem.Column>
           <ListItem.Column
@@ -51,7 +52,7 @@ const Mobile = () => {
             text={{
               label: PriceString({
                 price: new BigNumber(item.mintPrice ?? '0')
-                  .decimalPlaces(2)
+                  .decimalPlaces(6)
                   .toString(),
                 networkId: context?.selectedNetwork?.id,
               }),

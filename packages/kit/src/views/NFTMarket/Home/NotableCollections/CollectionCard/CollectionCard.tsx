@@ -3,7 +3,7 @@ import { ComponentProps, FC, useCallback } from 'react';
 import { MotiPressable } from 'moti/interactions';
 import { useIntl } from 'react-intl';
 
-import { Box, NetImage, Text } from '@onekeyhq/components';
+import { Box, Icon, NetImage, Text } from '@onekeyhq/components';
 
 import PriceText from '../../../PriceText';
 
@@ -11,12 +11,14 @@ interface CollectionCardProps extends ComponentProps<typeof MotiPressable> {
   netImageProps?: Partial<ComponentProps<typeof NetImage>>;
   priceTextProps?: Partial<ComponentProps<typeof PriceText>>;
   contractName?: string;
+  verified?: boolean;
 }
 
 const CollectionCard: FC<CollectionCardProps> = ({
   contractName,
   priceTextProps,
   netImageProps,
+  verified,
   ...rest
 }) => {
   const intl = useIntl();
@@ -34,13 +36,19 @@ const CollectionCard: FC<CollectionCardProps> = ({
       <Box borderRadius="12px" overflow="hidden">
         <NetImage width="220px" height="147px" {...netImageProps} />
       </Box>
-      <Box width="220px">
-        <Text mt="8px" typography="Body1Strong" isTruncated>
+      <Box
+        mt="8px"
+        width="220px"
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+      >
+        <Text typography="Body1Strong" isTruncated flex={1}>
           {contractName}
         </Text>
-        {/* TODO 
-          Verified Indicator here...
-        */}
+        {!!verified && (
+          <Icon name="BadgeCheckSolid" size={16} color="icon-success" />
+        )}
       </Box>
       <PriceText
         prefix={intl.formatMessage({

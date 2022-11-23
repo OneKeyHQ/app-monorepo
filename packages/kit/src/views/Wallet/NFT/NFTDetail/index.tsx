@@ -243,7 +243,10 @@ const NFTDetailModal: FC = () => {
               {intl.formatMessage({ id: 'content__last_sale' })}
             </Text>
             <Text typography="Body1Strong" color="text-subdued">
-              {asset.latestTradePrice || 'N/A'}
+              {(asset.latestTradePrice &&
+                asset.latestTradeSymbol &&
+                `${asset.latestTradePrice} ${asset.latestTradeSymbol}`) ||
+                'N/A'}
             </Text>
           </HStack>
           {/* {!!asset.collection.contractName && (
