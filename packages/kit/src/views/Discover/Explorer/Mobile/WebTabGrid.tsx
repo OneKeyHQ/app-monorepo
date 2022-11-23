@@ -22,9 +22,9 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
-  MAX_OR_SHOW,
   hideTabGrid,
   showTabGridAnim,
+  tabGridRefs,
 } from '../explorerAnimation';
 
 const CELL_GAP = 16;
@@ -61,6 +61,10 @@ const WebTabCard: FC<
     }}
   >
     <Box
+      ref={(ref) => {
+        // @ts-ignore
+        tabGridRefs[id] = ref;
+      }}
       bg="surface-default"
       px="9px"
       h="32px"
@@ -127,7 +131,8 @@ const WebTabGrid = () => {
           backgroundColor: useThemeValue('background-default'),
         },
         useAnimatedStyle(() => ({
-          zIndex: showTabGridAnim.value === MAX_OR_SHOW ? 1 : -1,
+          // zIndex: showTabGridAnim.value === MAX_OR_SHOW ? 1 : -1,
+          zIndex: -1,
           opacity: showTabGridAnim.value,
         })),
       ]}

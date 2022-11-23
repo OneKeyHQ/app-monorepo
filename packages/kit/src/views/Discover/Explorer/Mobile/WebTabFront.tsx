@@ -1,7 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import ViewShot from 'react-native-view-shot';
 
 import { homeTab } from '../../../../store/reducers/webTabs';
@@ -10,7 +14,16 @@ import WebContent from '../Content/WebContent';
 import { openMatchDApp } from '../Controller/gotoSite';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebTabs } from '../Controller/useWebTabs';
-import { setThumbnailRatio, tabViewShotRef } from '../explorerAnimation';
+import {
+  setThumbnailRatio,
+  showTabGridAnim,
+  tabViewShotRef,
+  targetGridHeight,
+  targetGridLayout,
+  targetGridWidth,
+  targetGridX,
+  targetGridY,
+} from '../explorerAnimation';
 
 const styles = StyleSheet.create({
   container: {
@@ -23,6 +36,7 @@ const WebTabFront = memo(() => {
   const { tabs, tab } = useWebTabs();
 
   const showHome = tab?.url === homeTab.url;
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const content = useMemo(
     () =>
       tabs.slice(1).map((t) => (
@@ -45,22 +59,63 @@ const WebTabFront = memo(() => {
 
   return (
     <ViewShot style={styles.container} ref={tabViewShotRef} onLayout={onLayout}>
-      {content}
-      <View
+      <Animated.View
         style={[
           StyleSheet.absoluteFill,
-          {
-            zIndex: showHome ? 1 : -1,
-          },
+          useAnimatedStyle(() => {
+            const { pageX, pageY, width, height } = targetGridLayout.value;
+            console.log({ pageX, pageY, width, height });
+            return {
+              opacity: 1 - showTabGridAnim.value,
+              transform: [
+                {
+                  translateX: interpolate(
+                    showTabGridAnim.value,
+                    [0, 1],
+                    [0, pageX],
+                  ),
+                },
+                {
+                  translateY: interpolate(
+                    showTabGridAnim.value,
+                    [0, 1],
+                    [0, pageY],
+                  ),
+                },
+                {
+                  scaleX: interpolate(
+                    showTabGridAnim.value,
+                    [0, 1],
+                    [1, width / screenWidth],
+                  ),
+                },
+                {
+                  scaleY: interpolate(
+                    showTabGridAnim.value,
+                    [0, 1],
+                    [1, height / screenHeight],
+                  ),
+                },
+              ],
+            };
+          }, [screenHeight, screenWidth, targetGridLayout.value]),
         ]}
       >
-        <DiscoverHome
-          onItemSelect={(dapp) => {
-            openMatchDApp({ id: dapp._id, dapp });
+        {content}
+        <View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            zIndex: showHome ? 1 : -1,
           }}
-          onItemSelectHistory={openMatchDApp}
-        />
-      </View>
+        >
+          <DiscoverHome
+            onItemSelect={(dapp) => {
+              openMatchDApp({ id: dapp._id, dapp });
+            }}
+            onItemSelectHistory={openMatchDApp}
+          />
+        </View>
+      </Animated.View>
     </ViewShot>
   );
 });

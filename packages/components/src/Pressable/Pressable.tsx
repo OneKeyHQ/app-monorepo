@@ -32,4 +32,4 @@ const PressableCapture: FC<PressableItemProps> = ({ onPress, ...props }) => {
   );
 };
 
-export { PressableCapture as default };
+export default PressableCapture;

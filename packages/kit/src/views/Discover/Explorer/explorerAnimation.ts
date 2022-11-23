@@ -8,12 +8,22 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../store';
 import { setWebTabData } from '../../../store/reducers/webTabs';
+
+import type { View } from 'react-native';
 // for mobile tab animations
 export const MIN_OR_HIDE = 0;
 export const MAX_OR_SHOW = 1;
 export const expandAnim = makeMutable(MIN_OR_HIDE);
 export const showTabGridAnim = makeMutable(MIN_OR_HIDE);
 export const tabViewShotRef = createRef<ViewShot>();
+export const tabGridRefs: Record<string, View> = {};
+
+export const targetGridLayout = makeMutable({
+  pageX: 0,
+  pageY: 0,
+  width: 0,
+  height: 0,
+});
 
 let thumbnailRatio = 0.8;
 export const setThumbnailRatio = (ratio: number) => {
@@ -21,6 +31,7 @@ export const setThumbnailRatio = (ratio: number) => {
 };
 const thumbnailWidth = 340;
 export const showTabGrid = () => {
+  const { currentTabId } = appSelector((s) => s.webTabs);
   if (platformEnv.isNative) {
     captureRef(tabViewShotRef, {
       format: 'jpg',
@@ -28,7 +39,6 @@ export const showTabGrid = () => {
       height: thumbnailWidth * thumbnailRatio,
       quality: 0.6,
     }).then((uri) => {
-      const { currentTabId } = appSelector((s) => s.webTabs);
       backgroundApiProxy.dispatch(
         setWebTabData({
           id: currentTabId,
@@ -37,7 +47,10 @@ export const showTabGrid = () => {
       );
     });
   }
-  showTabGridAnim.value = withTiming(MAX_OR_SHOW);
+  tabGridRefs[currentTabId]?.measure((x, y, width, height, pageX, pageY) => {
+    targetGridLayout.value = { pageX, pageY, width, height };
+  });
+  setTimeout(() => (showTabGridAnim.value = withTiming(MAX_OR_SHOW)), 30);
 };
 
 export const hideTabGrid = () => {

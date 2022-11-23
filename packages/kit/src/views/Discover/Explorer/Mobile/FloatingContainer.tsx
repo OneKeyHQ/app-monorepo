@@ -16,6 +16,7 @@ import {
   expandFloatingWindow,
   hideTabGrid,
   minimizeFloatingWindow,
+  showTabGridAnim,
   toggleFloatingWindow,
 } from '../explorerAnimation';
 
