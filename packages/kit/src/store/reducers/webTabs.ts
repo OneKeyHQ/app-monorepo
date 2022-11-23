@@ -51,14 +51,17 @@ const initialState: WebTabsInitialState = {
 
 export const homeResettingFlags: Record<string, number> = {};
 
-export const hasTabLimits = platformEnv.isNative && !platformEnv.isNativeIOSPad;
-export const MAX_WEB_TABS = 10;
+const hasTabLimits = platformEnv.isNative && !platformEnv.isNativeIOSPad;
+const MAX_WEB_TABS = 10;
+export const isTabLimitReached = (tabs: WebTab[]) =>
+  hasTabLimits && tabs.length >= MAX_WEB_TABS;
+
 export const webtabsSlice = createSlice({
   name: 'webTabs',
   initialState,
   reducers: {
     addWebTab: (state, { payload }: PayloadAction<Partial<WebTab>>) => {
-      if (hasTabLimits && state.tabs.length === MAX_WEB_TABS) {
+      if (isTabLimitReached(state.tabs)) {
         ToastManager.show(
           {
             title: formatMessage(

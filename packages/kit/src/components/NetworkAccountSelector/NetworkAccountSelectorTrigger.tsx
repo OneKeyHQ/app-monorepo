@@ -1,5 +1,6 @@
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
+import { ColorType } from 'native-base/lib/typescript/components/types';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -22,6 +23,7 @@ type NetworkAccountSelectorTriggerProps = {
   size?: 'sm' | 'lg' | string;
   type?: 'basic' | 'plain';
   mode?: EAccountSelectorMode;
+  bg?: ColorType;
 };
 
 const defaultProps = {
@@ -33,6 +35,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
   size,
   type,
   mode,
+  bg,
 }) => {
   // TODO different options of scene
   const { network, account, wallet } = useActiveWalletAccount();
@@ -75,7 +78,8 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
       >
         {(status) => {
           let bgColor: string | undefined;
-          bgColor = type === 'basic' ? 'action-secondary-default' : undefined;
+          bgColor =
+            bg ?? type === 'basic' ? 'action-secondary-default' : undefined;
           if (status.isPressed) {
             bgColor =
               type === 'basic' ? 'action-secondary-pressed' : 'surface-hovered';

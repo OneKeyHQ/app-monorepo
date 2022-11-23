@@ -21,14 +21,7 @@ const ExplorerBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
       borderWidth="1px"
       borderRadius="12px"
     >
-      <Pressable
-        px="13px"
-        py="13px"
-        onPress={() => {
-          onSearch();
-        }}
-        flex={1}
-      >
+      <Pressable px="13px" py="13px" onPress={onSearch} flex={1}>
         <Icon name="SearchSolid" size={20} color="icon-subdued" />
         <Typography.Caption flex={1} color="text-subdued" numberOfLines={1}>
           {intl.formatMessage({

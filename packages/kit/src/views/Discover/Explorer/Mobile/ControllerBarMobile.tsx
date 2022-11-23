@@ -7,7 +7,16 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
-import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Center,
+  Icon,
+  IconButton,
+  Typography,
+  useSafeAreaInsets,
+  useThemeValue,
+} from '@onekeyhq/components';
 import useFloatingBottomTabBarHeight from '@onekeyhq/components/src/Layout/BottomTabs/utils/useBottomTabBarHeight';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
@@ -16,6 +25,7 @@ import {
   addWebTab,
   closeAllWebTabs,
   homeTab,
+  isTabLimitReached,
 } from '../../../../store/reducers/webTabs';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';
@@ -33,13 +43,18 @@ import { showWebMoreMenu } from '../MoreMenu';
 
 export const ControllerBarMobile: FC = () => {
   const { currentTab, goBack, goForward, tabs } = useWebController();
+  const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
   const tabBarHeight = useFloatingBottomTabBarHeight();
+
+  const bgColor = useThemeValue('surface-subdued');
   const { canGoForward } = currentTab;
   const { dispatch } = backgroundApiProxy;
   const addNewTab = useCallback(() => {
     dispatch(addWebTab({ ...homeTab }));
   }, [dispatch]);
+
+  const reachedTabLimit = isTabLimitReached(tabs);
 
   const pageController = (
     <Animated.View
@@ -58,29 +73,32 @@ export const ControllerBarMobile: FC = () => {
         ),
       ]}
     >
-      <Button
+      <IconButton
         flex={1}
         type="plain"
         disabled={currentTab.url === homeTab.url}
         onPress={goBack}
-      >
-        <Icon color="icon-pressed" name="ChevronLeftSolid" />
-      </Button>
-      <Button
+        name="ChevronLeftOutline"
+      />
+      <IconButton
         flex={1}
         type="plain"
         disabled={!canGoForward}
         onPress={goForward}
-      >
-        <Icon color="icon-pressed" name="ChevronRightSolid" />
-      </Button>
-      <Button flex={1} type="plain" onPress={addNewTab}>
-        <Icon color="icon-pressed" name="PlusCircleSolid" />
-      </Button>
+        name="ChevronRightOutline"
+      />
+      <IconButton
+        flex={1}
+        type="plain"
+        disabled={reachedTabLimit}
+        onPress={addNewTab}
+        iconSize={26}
+        name="PlusCircleSolid"
+      />
       <Button type="plain" flex={1} onPress={showTabGrid}>
         <Center
-          w="18px"
-          h="18px"
+          w="20px"
+          h="20px"
           borderRadius="2px"
           borderWidth="2px"
           borderColor="icon-pressed"
@@ -94,15 +112,13 @@ export const ControllerBarMobile: FC = () => {
           </Typography.CaptionStrong>
         </Center>
       </Button>
-      <Button
+      <IconButton
         flex={1}
         type="plain"
-        opacity={currentTab.url === homeTab.url ? 0.4 : 1}
         disabled={currentTab.url === homeTab.url}
         onPress={showWebMoreMenu}
-      >
-        <Icon color="icon-pressed" name="DotsHorizontalSolid" />
-      </Button>
+        name="DotsHorizontalOutline"
+      />
     </Animated.View>
   );
 
@@ -123,13 +139,22 @@ export const ControllerBarMobile: FC = () => {
         ),
       ]}
     >
-      <Button flex={1} type="plain" onPress={hideTabGrid}>
-        <Icon color="icon-pressed" name="ChevronLeftSolid" />
-      </Button>
-      <Button flex={1} type="plain" onPress={addNewTab}>
-        <Icon color="icon-pressed" name="PlusCircleSolid" />
-      </Button>
-      <Button
+      <IconButton
+        flex={1}
+        type="plain"
+        onPress={hideTabGrid}
+        name="ChevronLeftOutline"
+      />
+      <IconButton
+        flex={1}
+        type="plain"
+        disabled={reachedTabLimit}
+        onPress={addNewTab}
+        iconSize={26}
+        name="PlusCircleSolid"
+      />
+      <IconButton
+        name="TrashOutline"
         flex={1}
         type="plain"
         onPress={() => {
@@ -160,9 +185,7 @@ export const ControllerBarMobile: FC = () => {
             </OverlayPanel>
           ));
         }}
-      >
-        <Icon color="icon-pressed" name="TrashSolid" />
-      </Button>
+      />
     </Animated.View>
   );
   return (
@@ -172,6 +195,7 @@ export const ControllerBarMobile: FC = () => {
           StyleSheet.absoluteFill,
           useAnimatedStyle(
             () => ({
+              backgroundColor: bgColor,
               zIndex: expandAnim.value === MIN_OR_HIDE ? -1 : 1,
               display: expandAnim.value === MIN_OR_HIDE ? 'none' : 'flex',
               translateY: interpolate(
@@ -181,16 +205,11 @@ export const ControllerBarMobile: FC = () => {
               ),
               opacity: expandAnim.value,
             }),
-            [],
+            [bgColor],
           ),
         ]}
       >
-        <Box
-          bg="surface-subdued"
-          flex={1}
-          flexDirection="row"
-          overflow="hidden"
-        >
+        <Box flex={1} flexDirection="row" overflow="hidden" mb={`${bottom}px`}>
           {pageController}
           {tabController}
         </Box>
