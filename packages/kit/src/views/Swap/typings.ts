@@ -140,6 +140,8 @@ export interface TransactionAttachment {
 }
 
 export type BuildTransactionParams = FetchQuoteParams & {
+  sellAmount: string;
+  buyAmount: string;
   txData?: TransactionData;
   additionalParams?: BuildTransactionAdditionalParameters;
 };
@@ -153,6 +155,19 @@ export type BuildTransactionResponse = {
   data?: TransactionData;
   attachment?: TransactionAttachment;
   error?: BuildTransactionError;
+  result?: {
+    quoter: string;
+    instantRate: string;
+    sellAmount: string;
+    sellTokenAddress: string;
+    buyAmount: string;
+    buyTokenAddress: string;
+    allowanceTarget?: string;
+    sources?: {
+      name: string;
+      logoUrl?: string;
+    }[];
+  };
 };
 
 export type SwapQuoteTx = SendConfirmPayloadBase &
