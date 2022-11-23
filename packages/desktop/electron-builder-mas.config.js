@@ -48,7 +48,7 @@ module.exports = {
     'sign': false,
   },
   'mac': {
-    'identity': null,
+    // 'identity': null,
     'icon': 'build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
