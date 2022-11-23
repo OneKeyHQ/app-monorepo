@@ -1,13 +1,12 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, StyleSheet } from 'react-native';
+import { ListRenderItem } from 'react-native';
 
 import {
   Box,
   Button,
-  Empty,
   FlatList,
   Image,
   Pressable,
@@ -18,32 +17,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useAppSelector } from '../../../../hooks';
 import { HomeRoutes, HomeRoutesParams } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
-import {
-  useDiscoverFavorites,
-  useDiscoverHistory,
-  useTaggedDapps,
-} from '../../hooks';
-import CardView from '../CardView';
+import { useDiscoverFavorites, useDiscoverHistory } from '../../hooks';
 import { DiscoverContext } from '../context';
 
-import { DAppCategories } from './DAppCategories';
-import { EmptySkeleton } from './EmptySkeleton';
-
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
-import type { DAppItemType, SectionDataType } from '../../type';
+import type { SectionDataType } from '../../type';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
   HomeRoutes.DAppListScreen
 >;
-
-const styles = StyleSheet.create({
-  listContentContainer: {
-    paddingBottom: 12,
-    paddingTop: 12,
-  },
-});
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
@@ -96,8 +80,6 @@ const ListHeaderFavorites = () => {
       horizontal
       data={favorites}
       renderItem={renderItem}
-      removeClippedSubviews
-      windowSize={5}
       showsHorizontalScrollIndicator={false}
       keyExtractor={(item, i) => `${item.id}${i}`}
       ListEmptyComponent={ListHeaderItemsEmptyComponent}
@@ -133,9 +115,7 @@ const ListHeaderHistories = () => {
   return histories.length ? (
     <FlatList
       horizontal
-      data={histories.slice(0, 8)}
-      removeClippedSubviews
-      windowSize={5}
+      data={histories}
       renderItem={renderItem}
       showsHorizontalScrollIndicator={false}
       keyExtractor={(item) => `${item.id}`}
@@ -201,42 +181,28 @@ const ListHeaderItems = () => {
 
 const ListHeaderComponent = () => {
   const dappItems = useAppSelector((s) => s.discover.dappItems);
+  const intl = useIntl();
   if (!dappItems) {
     return null;
   }
   return (
-    <>
-      <DAppCategories />
+    <Box>
+      {/* <DAppCategories /> */}
+      <Box px="4">
+        <Typography.Display2XLarge>
+          {intl.formatMessage({ id: 'title__browser' })}
+        </Typography.Display2XLarge>
+      </Box>
       {platformEnv.isWeb ? null : <ListHeaderItems />}
-    </>
+    </Box>
   );
 };
 
-const ListEmptyComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  const listedCategories = useAppSelector((s) => s.discover.listedCategories);
-  return dappItems && listedCategories ? <Empty title="" /> : <EmptySkeleton />;
-};
-
-export const Mine = () => {
+export const Beta = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const fullDapps = useTaggedDapps();
-  const [dapps, setDapps] = useState<
-    { label: string; id: string; items: DAppItemType[] }[]
-  >([]);
-  const [total, setTotal] = useState<number>(5);
-  const { onItemSelect } = useContext(DiscoverContext);
 
-  const data = useMemo(() => {
-    const items = dapps.map((item) => ({
-      title: item.label,
-      data: item.items,
-    }));
-    return total < items.length ? items.slice(0, total) : items;
-  }, [dapps, total]);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (platformEnv.isNative) {
       navigation.setOptions({
         title: intl.formatMessage({
@@ -244,36 +210,25 @@ export const Mine = () => {
         }),
       });
     }
-    setTimeout(() => {
-      setDapps(fullDapps);
-    });
-  }, [navigation, intl, fullDapps]);
+  }, [navigation, intl]);
 
   const renderItem: ListRenderItem<SectionDataType> = useCallback(
-    ({ item }) => <CardView {...item} onItemSelect={onItemSelect} />,
-    [onItemSelect],
+    () => null,
+    [],
   );
-
-  const onEndReached = useCallback(() => {
-    if (dapps.length >= total) {
-      setTotal(total * 2);
-    }
-  }, [dapps.length, total]);
 
   return (
     <Box flex="1" bg="background-default">
       <FlatList
-        contentContainerStyle={styles.listContentContainer}
-        data={data}
-        removeClippedSubviews
-        windowSize={5}
+        contentContainerStyle={{
+          paddingBottom: 12,
+          paddingTop: 12,
+        }}
+        data={[]}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
         ListHeaderComponent={ListHeaderComponent}
-        ListEmptyComponent={ListEmptyComponent}
         showsVerticalScrollIndicator={false}
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.2}
       />
     </Box>
   );

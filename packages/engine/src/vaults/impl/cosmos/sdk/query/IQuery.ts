@@ -52,7 +52,7 @@ class QueryRegistry {
 export const queryRegistry = new QueryRegistry();
 const cosmwasmQuery = new CosmwasmQuery();
 queryRegistry.register(OnekeyNetwork.juno, cosmwasmQuery);
-queryRegistry.register(OnekeyNetwork.terra, cosmwasmQuery); // terra2
+// queryRegistry.register(OnekeyNetwork.terra, cosmwasmQuery); // terra2
 queryRegistry.register(OnekeyNetwork.osmosis, cosmwasmQuery);
 queryRegistry.register(OnekeyNetwork.secretnetwork, new SecretwasmQuery());
 

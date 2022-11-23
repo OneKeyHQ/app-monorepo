@@ -20,6 +20,7 @@ type InitialState = {
 
   history: Record<string, DiscoverHistory>;
   firstRemindDAPP: boolean;
+  enableIOSDappSearch?: boolean;
 };
 
 const initialState: InitialState = {
@@ -227,6 +228,9 @@ export const discoverSlice = createSlice({
     ) {
       state.tagDapps = action.payload;
     },
+    setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
+      state.enableIOSDappSearch = action.payload;
+    },
   },
 });
 
@@ -246,6 +250,7 @@ export const {
   setCategoryDapps,
   setTagDapps,
   clearHistory,
+  setEnableIOSDappSearch,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;

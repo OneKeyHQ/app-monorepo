@@ -86,7 +86,7 @@ import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 const GAS_STEP_MULTIPLIER = 10000;
 const GAS_ADJUSTMENT: Record<string, string> = {
-  [OnekeyNetwork.terra]: '2',
+  // [OnekeyNetwork.terra]: '2',
   default: '1.3',
 };
 const GAS_PRICE = ['0.01', '0.025', '0.04'];

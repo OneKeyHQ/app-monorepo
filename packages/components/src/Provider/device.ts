@@ -2,6 +2,7 @@ export const SCREEN_SIZE = {
   MEDIUM: 768, // tablets
   LARGE: 1024, // laptops/desktops
   XLARGE: 1280, // extra Large laptops/desktops
+  ULTRALARGE: 9999,
 } as const;
 
 export type DeviceState = {
