@@ -159,6 +159,30 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAssetsWithAttributes(params: {
+    chain: string;
+    contractAddress: string;
+    attributes: any[];
+    limit?: number;
+    cursor?: string;
+  }) {
+    const apiUrl = `${this.baseUrl}/assets/attributes`;
+    const { data, success } = await axios
+      .post<
+        NFTServiceResp<{ total: number; next: string; content: NFTAsset[] }>
+      >(apiUrl, params)
+      .then((resp) => resp.data)
+      .catch(() => ({
+        success: false,
+        data: { total: 0, next: undefined, content: [] as NFTAsset[] },
+      }));
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
   async getCollectionTransactions({
     chain,
     contractAddress,

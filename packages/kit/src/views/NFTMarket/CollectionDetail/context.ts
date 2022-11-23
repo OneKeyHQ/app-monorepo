@@ -8,9 +8,14 @@ import {
 
 export type CollectionDetailContextValue = {
   collection?: Collection;
+  attributes: {
+    attribute_name: string;
+    attribute_values: string[];
+  }[];
   selectedIndex: number;
   refreshing?: boolean;
   assetList: NFTAsset[];
+  filterAssetList: NFTAsset[];
   txList: NFTTransaction[];
   networkId: string;
 };
