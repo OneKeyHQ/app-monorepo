@@ -15,22 +15,11 @@ type Props = {
 } & Pick<ComponentProps<typeof List>, 'ListHeaderComponent'>;
 const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const listData = useMemo(() => {
-    const arr: number[] = [];
-    for (let i = 0; i < numberOfData; i += 1) {
-      arr.push(i);
-    }
-    return arr;
-  }, [numberOfData]);
-
+  const listData = new Array(numberOfData).fill(0);
   const SeparatorConfig = useMemo(() => {
     if (isVerticalLayout)
       return {
-        ItemSeparatorComponent: () => (
-          <>
-            <Box h="4px" />
-          </>
-        ),
+        ItemSeparatorComponent: () => <Box h="4px" />,
       };
     return {
       showDivider: true,
