@@ -5230,7 +5230,7 @@ __metadata:
   linkType: hard
 
 "@onekeyfe/onekey-starcoin-provider@npm:1.1.6":
-  version: 1.1.6
+  version: 0.0.0-use.local
   resolution: "@onekeyfe/onekey-starcoin-provider@npm:1.1.6"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": 1.1.6
@@ -5240,7 +5240,7 @@ __metadata:
     eth-rpc-errors: ^4.0.3
   checksum: 2b5b8cdd410476e4d466b3f0fe9d2a8408cc861202aeda884647a1b7ce84e9d3e568f1369ccc583349f509dfd27386d9f5016ec3b11f872053efa6d76deb1336
   languageName: node
-  linkType: hard
+  linkType: hard?
 
 "@onekeyfe/onekey-tron-provider@npm:1.1.6":
   version: 1.1.6

@@ -197,6 +197,7 @@ export type IFeeInfo = {
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
   defaultPresetIndex: string; // '0' | '1' | '2';
   waitingSeconds?: Array<number>; // waiting time for different prices
+  disableEditFee?: boolean; // disable fee edit
 
   feeSymbol?: string; // feeSymbol: GWEI
   feeDecimals?: number; // feeDecimals: 9

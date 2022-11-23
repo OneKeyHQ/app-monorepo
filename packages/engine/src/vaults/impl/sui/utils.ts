@@ -21,6 +21,8 @@ import {
   getPayTransaction,
   getTransferSuiTransaction,
 } from '@mysten/sui.js';
+import { hexToBytes } from '@noble/hashes/utils';
+import { isArray } from 'lodash';
 
 import { IDecodedTxActionType } from '../../types';
 
@@ -62,6 +64,25 @@ export function getTransactionType({ tx }: { tx: IEncodedTxSUI }) {
   }
 }
 
+export function decodeBytesTransaction(txn: any) {
+  let bcsTxn: Uint8Array;
+  if (isArray(txn)) {
+    bcsTxn = Uint8Array.from(txn);
+  } else if (typeof txn === 'object') {
+    bcsTxn = new Uint8Array(Object.values(txn));
+  } else if (typeof txn === 'string') {
+    if (txn.indexOf(',') !== -1) {
+      bcsTxn = new Uint8Array(txn.split(',').map((item) => parseInt(item, 10)));
+    } else {
+      bcsTxn = new Base64DataBuffer(txn).getData();
+    }
+  } else {
+    throw new Error('invalidParams');
+  }
+
+  return bcsTxn;
+}
+
 export async function toTransaction(
   client: Provider,
   sender: string,
@@ -78,7 +99,10 @@ export async function toTransaction(
     const { kind } = tx;
     switch (kind) {
       case 'bytes':
-        txBytes = new Base64DataBuffer(tx.data).toString();
+        // The format of the dapp is incorrect after serialization
+        txBytes = new Base64DataBuffer(
+          decodeBytesTransaction(tx.data),
+        ).toString();
         break;
       case 'mergeCoin':
         txBytes = (await serializer.newMergeCoin(address, tx.data)).toString();
@@ -271,7 +295,7 @@ export async function decodeActionPay(
   };
 }
 
-export async function decodeAction(
+export async function decodeActionPayTransaction(
   client: JsonRpcProvider,
   tx: PayTransaction | undefined,
 ) {
@@ -288,7 +312,12 @@ export async function decodeAction(
   const coinType = Coin.getCoinType(moveObject[0].type);
   const isNative = Coin.isSUI(moveObject[0]);
 
-  const amount = tx.amounts.reduce((acc, cur) => acc + cur, 0);
+  const amount = tx.amounts.reduce((acc, cur) => {
+    if (typeof cur === 'string' || typeof cur === 'number') {
+      return acc + BigInt(cur);
+    }
+    return acc + cur;
+  }, BigInt(0));
 
   return {
     type: isNative

@@ -3,11 +3,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import {
+  Base64DataBuffer,
   Coin,
   GetObjectDataResponse,
+  LocalTxnDataSerializer,
+  SignableTransactionData,
+  SignableTransactionKind,
   SignatureScheme,
   SuiMoveObject,
   SuiObject,
+  SuiTransactionResponse,
   getCertifiedTransaction,
   getExecutionStatus,
   getMoveCallTransaction,
@@ -34,7 +39,7 @@ import {
   TransactionStatus,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
-import { get, groupBy, isEmpty, isNil, map } from 'lodash';
+import { get, groupBy, isArray, isEmpty, isNil, map } from 'lodash';
 import memoizee from 'memoizee';
 
 import { Token } from '@onekeyhq/kit/src/store/typings';
@@ -94,9 +99,10 @@ import {
   SUI_NATIVE_COIN,
   computeGasBudget,
   computeGasBudgetForPay,
-  decodeAction,
   decodeActionAllPay,
   decodeActionPay,
+  decodeActionPayTransaction,
+  decodeBytesTransaction,
   deduplicate,
   getTxnAmount,
   moveCallTxnName,
@@ -336,7 +342,30 @@ export default class Vault extends VaultBase {
 
     const sender = await this.getAccountAddress();
 
-    const { kind, data } = encodedTx;
+    let {
+      kind,
+      data,
+    }: { kind: SignableTransactionKind; data: SignableTransactionData } =
+      encodedTx;
+    if (kind === 'bytes') {
+      try {
+        const ser = new LocalTxnDataSerializer(await this.getClient());
+        const decode =
+          await ser.deserializeTransactionBytesToSignableTransaction(
+            new Base64DataBuffer(decodeBytesTransaction(data)),
+          );
+        if (isArray(decode)) {
+          kind = decode[0].kind;
+          data = decode[0].data;
+        } else {
+          kind = decode.kind;
+          data = decode.data;
+        }
+      } catch (e) {
+        throw new OneKeyError('Invalid transaction data.');
+      }
+    }
+
     const actions: IDecodedTxAction[] = [];
     let gasLimit = 0;
     if (data && 'gasBudget' in data) {
@@ -346,7 +375,7 @@ export default class Vault extends VaultBase {
     switch (kind) {
       case 'pay':
         // eslint-disable-next-line no-case-declarations
-        const action = await decodeAction(client, data);
+        const action = await decodeActionPayTransaction(client, data);
         if (action) {
           let actionKey = 'nativeTransfer';
           if (!action.isNative) {
@@ -650,6 +679,37 @@ export default class Vault extends VaultBase {
     // see objectid 0x5 reference_gas_price
     const price = convertFeeValueToGwei({ value: '1', network });
     let limit: string;
+
+    if (encodedTx.kind === 'bytes') {
+      try {
+        const ser = new LocalTxnDataSerializer(await this.getClient());
+        const decode =
+          await ser.deserializeTransactionBytesToSignableTransaction(
+            new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
+          );
+        let data;
+        if (isArray(decode)) {
+          data = decode[0].data;
+        } else {
+          data = decode.data;
+        }
+        if ('gasBudget' in data) {
+          return {
+            disableEditFee: true,
+            nativeSymbol: network.symbol,
+            nativeDecimals: network.decimals,
+            feeSymbol: network.feeSymbol,
+            feeDecimals: network.feeDecimals,
+
+            limit: data.gasBudget?.toString(),
+            prices: [price],
+            defaultPresetIndex: '0',
+          };
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
 
     const txnBytes = await toTransaction(
       client,
@@ -1070,5 +1130,13 @@ export default class Vault extends VaultBase {
     });
 
     return txids.map((txid) => txStatuses.get(txid));
+  }
+
+  async getTransactionByTxId(
+    txid: string,
+  ): Promise<SuiTransactionResponse | undefined> {
+    const client = await this.getClient();
+    const tx = await client.getTransactionWithEffects(txid);
+    return tx;
   }
 }
