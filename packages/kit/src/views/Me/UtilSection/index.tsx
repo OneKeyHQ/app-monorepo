@@ -8,6 +8,7 @@ import {
   Divider,
   Icon,
   Pressable,
+  Switch,
   Text,
   useIsVerticalLayout,
   useTheme,
@@ -27,6 +28,8 @@ import {
   ManageConnectedSitesRoutesParams,
 } from '../../ManageConnectedSites/types';
 
+import { showEnableExtTipsSheet } from './enableExtSheet';
+
 type NavigationProps = ModalScreenProps<ManageConnectedSitesRoutesParams>;
 
 export const UtilSection = () => {
@@ -35,6 +38,10 @@ export const UtilSection = () => {
   const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
+  const disableExt = useAppSelector((s) => s.settings.disableExt);
+  const disableExtSwitchTips = useAppSelector(
+    (s) => s.settings.disableExtSwitchTips,
+  );
   const onLock = useCallback(() => {
     backgroundApiProxy.serviceApp.lock(true);
   }, []);
@@ -46,6 +53,39 @@ export const UtilSection = () => {
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
+        {platformEnv.isExtension ? (
+          <Pressable
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            py={4}
+            px={{ base: 4, md: 6 }}
+            borderBottomWidth="1"
+            borderBottomColor="divider"
+          >
+            <Icon name="OnekeyLiteOutline" />
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              flex="1"
+              numberOfLines={1}
+              mx={3}
+            >
+              {intl.formatMessage({ id: 'form__enable_onekey' })}
+            </Text>
+            <Box>
+              <Switch
+                labelType="false"
+                isChecked={!disableExt}
+                onToggle={() => {
+                  backgroundApiProxy.serviceSetting.toggleDisableExt();
+                  if (!disableExtSwitchTips)
+                    showEnableExtTipsSheet({ enable: disableExt });
+                }}
+              />
+            </Box>
+          </Pressable>
+        ) : null}
         {isPasswordSet ? (
           <Pressable
             display="flex"
