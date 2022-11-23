@@ -32,3 +32,4 @@ export type { WebviewRoutesParams } from './WebView';
 export type { RevokeRoutesParams } from './Revoke';
 // eslint-disable-next-line import/no-cycle
 export type { SearchNFTCollectionRoutesParams } from './SearchNFTCollection';
+export type { NFTAttributeFilterRoutesParams } from './NFTAttributeFilter';

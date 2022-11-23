@@ -44,6 +44,7 @@ export enum ModalRoutes {
   Webview = 'Webview',
   Revoke = 'Revoke',
   SearchNFT = 'SearchNFT',
+  NFTAttributeFilter = 'NFTAttributeFilter',
 }
 
 export enum RootRoutes {

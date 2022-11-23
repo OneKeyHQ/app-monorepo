@@ -33,6 +33,7 @@ import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
 import ManageTokenModal from './ManageToken';
+import NFTAttributeFilter from './NFTAttributeFilter';
 import PasswordModal from './Password';
 import PushNotification from './PushNotification';
 import ReceiveToken from './ReceiveToken';
@@ -184,6 +185,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.SearchNFT,
     component: SearchNFT,
+  },
+  {
+    name: ModalRoutes.NFTAttributeFilter,
+    component: NFTAttributeFilter,
   },
 ];
 
