@@ -142,7 +142,7 @@ export const ControllerBarMobile: FC = () => {
       <IconButton
         flex={1}
         type="plain"
-        onPress={hideTabGrid}
+        onPress={() => hideTabGrid()}
         name="ChevronLeftOutline"
       />
       <IconButton
