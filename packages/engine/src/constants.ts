@@ -47,6 +47,9 @@ const COINTYPE_XRP = '144';
 const IMPL_COSMOS = 'cosmos';
 const COINTYPE_COSMOS = '118';
 
+const IMPL_ADA = 'ada';
+const COINTYPE_ADA = '1852';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -63,6 +66,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_ALGO,
   IMPL_XRP,
   IMPL_COSMOS,
+  IMPL_ADA,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -81,6 +85,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_ALGO,
   IMPL_XRP,
   IMPL_COSMOS,
+  IMPL_ADA,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -142,6 +147,8 @@ export {
   COINTYPE_XRP,
   IMPL_COSMOS,
   COINTYPE_COSMOS,
+  IMPL_ADA,
+  COINTYPE_ADA,
   getSupportedImpls,
 };
 

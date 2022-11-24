@@ -5111,10 +5111,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.25":
-  version: 1.6.25
-  resolution: "@onekeyfe/network-list@npm:1.6.25"
-  checksum: 257abd94e12b99da70ef89198448ed3cee9995a4de7bb501813ca93591c7d77192386b3d94d0dea14ae327135f4452d6d25dba3e9fe7f8af37262377248c0319
+"@onekeyfe/network-list@file:.yalc/@onekeyfe/network-list::locator=%40onekeyhq%2Fengine%40workspace%3Apackages%2Fengine":
+  version: 1.6.26
+  resolution: "@onekeyfe/network-list@file:.yalc/@onekeyfe/network-list#.yalc/@onekeyfe/network-list::hash=478a9a&locator=%40onekeyhq%2Fengine%40workspace%3Apackages%2Fengine"
+  checksum: 61fe4e90fdaf66db7fd24b7797d18857baa45b01c00402114ce425b171551c1acc7450034b24e667d8c012594cabee42220cd25e3c7d35ce4bf9daa63ffb426c
   languageName: node
   linkType: hard
 
@@ -5502,7 +5502,7 @@ __metadata:
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.46
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.25
+    "@onekeyfe/network-list": "file:.yalc/@onekeyfe/network-list"
     "@solana/spl-token": ^0.3.0
     "@solana/web3.js": ^1.53.0
     "@types/bchaddrjs": ^0.4.0
@@ -5521,6 +5521,7 @@ __metadata:
     bs58check: ^2.1.2
     buffer: ^6.0.3
     camelcase-keys: ^7.0.2
+    cardano-crypto.js: ^6.1.1
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
     crypto-browserify: ^3.12.0
@@ -10775,7 +10776,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bip39@npm:^3.0.4":
+"bip39@npm:^3.0.2, bip39@npm:^3.0.4":
   version: 3.0.4
   resolution: "bip39@npm:3.0.4"
   dependencies:
@@ -11039,6 +11040,21 @@ __metadata:
   version: 3.1.4
   resolution: "boolean@npm:3.1.4"
   checksum: 9a48bce4799ccca861be0ec9564f47a96dd01535079624e37b06df45e5dc89d14dcefa04c56f1491a91f0827029f6d9e25690f0b308dfc248b9e64e15593aa35
+  languageName: node
+  linkType: hard
+
+"borc@npm:^2.1.1":
+  version: 2.1.2
+  resolution: "borc@npm:2.1.2"
+  dependencies:
+    bignumber.js: ^9.0.0
+    buffer: ^5.5.0
+    commander: ^2.15.0
+    ieee754: ^1.1.13
+    iso-url: ~0.4.7
+    json-text-sequence: ~0.1.0
+    readable-stream: ^3.6.0
+  checksum: 1914720baf2dd980edc82a957d1901b8cc80746c0482892fe747558c47c452127a1359104f01b3df9510ae8bb7954273c52796329f8f1445ca04415e05c8e9e2
   languageName: node
   linkType: hard
 
@@ -11769,6 +11785,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cardano-crypto.js@npm:^6.1.1":
+  version: 6.1.1
+  resolution: "cardano-crypto.js@npm:6.1.1"
+  dependencies:
+    bech32: ^1.1.4
+    bip39: ^3.0.2
+    borc: ^2.1.1
+    pbkdf2: ^3.0.17
+  checksum: a5187e163d670a4a4ba6fcb47dc0ef0114b5c4d58f63f9e8e44dff41c938aa106ee5226abad5859397a66d79763f757bfbb33ae33e0351424fcd636173535f03
+  languageName: node
+  linkType: hard
+
 "caseless@npm:~0.11.0":
   version: 0.11.0
   resolution: "caseless@npm:0.11.0"
@@ -12386,7 +12414,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"commander@npm:^2.19.0, commander@npm:^2.20.0, commander@npm:^2.20.3":
+"commander@npm:^2.15.0, commander@npm:^2.19.0, commander@npm:^2.20.0, commander@npm:^2.20.3":
   version: 2.20.3
   resolution: "commander@npm:2.20.3"
   checksum: ab8c07884e42c3a8dbc5dd9592c606176c7eb5c1ca5ff274bcf907039b2c41de3626f684ea75ccf4d361ba004bbaff1f577d5384c155f3871e456bdf27becf9e
@@ -13775,6 +13803,13 @@ colour@latest:
   version: 1.0.0
   resolution: "delegates@npm:1.0.0"
   checksum: a51744d9b53c164ba9c0492471a1a2ffa0b6727451bdc89e31627fdf4adda9d51277cfcbfb20f0a6f08ccb3c436f341df3e92631a3440226d93a8971724771fd
+  languageName: node
+  linkType: hard
+
+"delimit-stream@npm:0.1.0":
+  version: 0.1.0
+  resolution: "delimit-stream@npm:0.1.0"
+  checksum: 78e71f488950546f763a3f27bd68ec74de00432a27da55cf6804bee5e614efb2248144ac16b8dc8d757561d91442784328eeb410e63d7438af2407226585b4f7
   languageName: node
   linkType: hard
 
@@ -18591,7 +18626,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"ieee754@npm:^1.2.1":
+"ieee754@npm:^1.1.13, ieee754@npm:^1.2.1":
   version: 1.2.1
   resolution: "ieee754@npm:1.2.1"
   checksum: 5144c0c9815e54ada181d80a0b810221a253562422e7c6c3a60b1901154184f49326ec239d618c416c1c5945a2e197107aee8d986a3dd836b53dffefd99b5e7e
@@ -19607,6 +19642,13 @@ colour@latest:
   version: 2.1.13
   resolution: "iso-639-1@npm:2.1.13"
   checksum: 53c0a76ad742b08dd1a5a525514f95457aa71aee4b9b71ad6bf8d5dc30b5db1cb9ec2dc3919ac6eb9b281c314a3e439b027760777e8c373068d38d003dd6812d
+  languageName: node
+  linkType: hard
+
+"iso-url@npm:~0.4.7":
+  version: 0.4.7
+  resolution: "iso-url@npm:0.4.7"
+  checksum: c42ae615b462fec55ea7b480548fc76ef69af26103fcbb12a305dd929a4c18c6b22e29c666b0601280e552f56b0f144eab0b28b9a6fbb12ec58dc7c8ae053124
   languageName: node
   linkType: hard
 
@@ -20679,6 +20721,15 @@ colour@latest:
   version: 5.0.1
   resolution: "json-stringify-safe@npm:5.0.1"
   checksum: 48ec0adad5280b8a96bb93f4563aa1667fd7a36334f79149abd42446d0989f2ddc58274b479f4819f1f00617957e6344c886c55d05a4e15ebb4ab931e4a6a8ee
+  languageName: node
+  linkType: hard
+
+"json-text-sequence@npm:~0.1.0":
+  version: 0.1.1
+  resolution: "json-text-sequence@npm:0.1.1"
+  dependencies:
+    delimit-stream: 0.1.0
+  checksum: 3d413b3d2b1b9a48b12221cae86f4f247ef400ab98fa65981a5e9c0d62a289d318aeeb0b7657b3d5df5a146d7533601f5d75297b0319175797e023088fd1c8e4
   languageName: node
   linkType: hard
 

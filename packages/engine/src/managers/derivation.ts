@@ -1,4 +1,5 @@
 import {
+  COINTYPE_ADA,
   COINTYPE_ALGO,
   COINTYPE_APTOS,
   COINTYPE_BCH,
@@ -14,6 +15,7 @@ import {
   COINTYPE_TBTC,
   COINTYPE_TRON,
   COINTYPE_XRP,
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_BCH,
@@ -48,6 +50,7 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_BCH]: [44],
   [IMPL_XRP]: [44],
   [IMPL_COSMOS]: [44],
+  [IMPL_ADA]: [1815],
 };
 
 // derive path template by coin types.
@@ -70,6 +73,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_BCH]: `m/44'/${COINTYPE_BCH}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_XRP]: `m/44'/${COINTYPE_XRP}'/${INCREMENT_LEVEL_TAG}'/0/0`,
   [COINTYPE_COSMOS]: `m/44'/${COINTYPE_COSMOS}'/0'/0/${INCREMENT_LEVEL_TAG}`,
+  [COINTYPE_ADA]: `m/1852'/${COINTYPE_ADA}'/{INCREMENT_LEVEL_TAG}'/0/0`,
 };
 
 function getDerivationPaths(
