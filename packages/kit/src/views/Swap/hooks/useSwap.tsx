@@ -13,11 +13,7 @@ import {
 import { Token } from '../../../store/typings';
 import { SwapQuoter } from '../quoter';
 import { FetchQuoteParams, SwapError } from '../typings';
-import {
-  getTokenAmountString,
-  greaterThanZeroOrUndefined,
-  nativeTokenAddress,
-} from '../utils';
+import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
 
@@ -47,6 +43,15 @@ class TokenAmount {
   }
 }
 
+function formatAmount(num?: BigNumber) {
+  if (!num) {
+    return '';
+  }
+  const a = num.toFixed(4);
+  const b = num.toFixed();
+  return b.length < a.length ? b : a;
+}
+
 export function useTokenAmount(token?: Token, amount?: string) {
   return useMemo(() => {
     if (!token || !amount) return;
@@ -70,15 +75,13 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
   );
-  const {
-    inputToken,
-    outputToken,
-    independentField,
-    typedValue,
-    inputTokenNetwork,
-    outputTokenNetwork,
-    sendingAccount,
-  } = useSwapState();
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const independentField = useAppSelector((s) => s.swap.independentField);
+  const typedValue = useAppSelector((s) => s.swap.typedValue);
+  const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
+  const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
 
   return useMemo(() => {
     if (
@@ -149,21 +152,6 @@ export const useSwapQuoteCallback = function (
         backgroundApiProxy.dispatch(setLoading(false));
         if (res) {
           if (res.data) {
-            const { data } = res;
-            if (data.allowanceTarget) {
-              const allowance =
-                await backgroundApiProxy.engine.getTokenAllowance({
-                  networkId: params.tokenIn.networkId,
-                  accountId: params.activeAccount.id,
-                  tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
-                  spender: data.allowanceTarget,
-                });
-              if (allowance) {
-                data.needApproved = new BigNumber(
-                  getTokenAmountString(params.tokenIn, allowance),
-                ).lt(data.sellAmount);
-              }
-            }
             backgroundApiProxy.serviceSwap.setQuote(res.data);
           }
           backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
@@ -217,8 +205,8 @@ export function useDerivedSwapState() {
       [independentField]: typedValue,
       [dependentField]:
         dependentField === 'INPUT'
-          ? inputAmount?.value.toFixed(4) || ''
-          : outputAmount?.value.toFixed(4) || '',
+          ? formatAmount(inputAmount?.value)
+          : formatAmount(outputAmount?.value),
     } as { 'INPUT'?: string; 'OUTPUT'?: string };
   }, [independentField, inputAmount, outputAmount, typedValue]);
 
