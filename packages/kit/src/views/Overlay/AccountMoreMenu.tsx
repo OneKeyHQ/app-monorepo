@@ -16,6 +16,7 @@ import { SelectProps } from '@onekeyhq/components/src/Select';
 import {
   IMPL_APTOS,
   IMPL_EVM,
+  IMPL_SUI,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
@@ -32,6 +33,8 @@ import { showOverlay } from '../../utils/overlayUtils';
 import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
+
+const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
 const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,
@@ -63,7 +66,10 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
         network.id,
       );
       // temp
-      if (network.impl === IMPL_APTOS && !network.isTestnet) {
+      if (
+        NeedActivateAccountImpl.includes(network.impl) &&
+        !network.isTestnet
+      ) {
         return false;
       }
       setNeedActivateAccount(

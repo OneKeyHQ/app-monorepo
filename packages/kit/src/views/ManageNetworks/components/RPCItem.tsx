@@ -54,7 +54,7 @@ export const RPCItem = ({
     if (!measure) {
       return <Skeleton shape="Caption" />;
     }
-    if (typeof latestBlock !== 'number') {
+    if (typeof latestBlock !== 'number' || !latestBlock) {
       return null;
     }
     return (

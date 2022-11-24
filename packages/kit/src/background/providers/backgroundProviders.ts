@@ -11,6 +11,7 @@ import ProviderApiNear from './ProviderApiNear';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 import ProviderApiStarcoin from './ProviderApiStarcoin';
+import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTron from './ProviderApiTron';
 
 function createBackgroundProviders({
@@ -44,6 +45,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.algo]: new ProviderAlgo({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.sui]: new ProviderApiSui({
       backgroundApi,
     }),
     // near

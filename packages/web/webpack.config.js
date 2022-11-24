@@ -2,6 +2,7 @@
 const webpack = require('webpack');
 const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
 const webpackTools = require('../../development/webpackTools');
+const { webModuleTranspile } = require('../../development/webpackTranspiles');
 
 console.log('============ webpack.version ', webpack.version);
 const platform = webpackTools.developmentConsts.platforms.web;
@@ -12,7 +13,9 @@ module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(
     {
       ...env,
-      babel: { dangerouslyAddModulePathsToTranspile: ['moti', '@gorhom'] },
+      babel: {
+        dangerouslyAddModulePathsToTranspile: [...webModuleTranspile],
+      },
       mode:
         process.env.NODE_ENV === 'production' ? 'production' : 'development',
     },
