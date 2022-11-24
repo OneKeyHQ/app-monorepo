@@ -24,21 +24,30 @@ const ScrollableButtonGroup = forwardRef<
   const scrollRef = useForwardRef(ref);
   const itemLayouts = useRef<{ x: number; width: number }[]>([]);
   const lastestTodoScrollIndex = useRef<number>();
-  const scrollTo = useCallback((index: number) => {
-    if (scrollRef.current) {
-      const target = itemLayouts.current[index === 0 ? 0 : index - 1];
-      if (target) {
-        lastestTodoScrollIndex.current = undefined;
-        return scrollRef.current.scrollTo({
-          x: target.x,
-          animated: true,
-        });
+  const scrollTo = useCallback(
+    (index: number) => {
+      if (index === selectedIndex) return;
+      if (scrollRef.current) {
+        const curentTarget = itemLayouts.current[index];
+        if (curentTarget) {
+          const scrollOffsetWidth =
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            scrollRef.current.getScrollableNode().offsetWidth;
+          const scrollToX =
+            curentTarget.x + curentTarget.width / 2 - scrollOffsetWidth / 2;
+          lastestTodoScrollIndex.current = undefined;
+          return scrollRef.current.scrollTo({
+            x: scrollToX,
+            animated: true,
+          });
+        }
       }
-    }
-    // ref or layout not ready, record the index and scroll to it later
-    lastestTodoScrollIndex.current = index;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      // ref or layout not ready, record the index and scroll to it later
+      lastestTodoScrollIndex.current = index;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [scrollRef, selectedIndex],
+  );
 
   const itemCount = Children.count(children);
 
