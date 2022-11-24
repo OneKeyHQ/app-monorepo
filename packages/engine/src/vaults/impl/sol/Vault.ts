@@ -325,12 +325,8 @@ export default class Vault extends VaultBase {
         },
       ];
     }
-    if (
-      payload?.type === 'Transfer' &&
-      payload?.nftInfos &&
-      payload.nftInfos[0]
-    ) {
-      const nftInfo = payload.nftInfos[0];
+    if (payload?.type === 'Transfer' && payload?.nftInfo) {
+      const { nftInfo } = payload;
 
       actions = [
         {

@@ -5391,6 +5391,7 @@ __metadata:
     react-native-markdown-display: ^7.0.0-alpha.2
     react-native-modal: ^13.0.1
     react-native-modalize: ^2.1.1
+    react-native-progress: ^5.0.0
     react-native-root-siblings: ^4.1.1
     react-native-svg: ^12.3.0
     react-native-tab-view: ^3.3.0
@@ -25719,6 +25720,17 @@ optjs@latest:
     react: "*"
     react-native: "*"
   checksum: 8b169bdc573cafcff9a28d15be371d393bf15a664c83c85520ed1c8ba18ef3da77ead838d3c3d8cc3bb537dbf49088eaa4551f78b62901c08bc30197e4c63862
+  languageName: node
+  linkType: hard
+
+"react-native-progress@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "react-native-progress@npm:5.0.0"
+  dependencies:
+    prop-types: ^15.7.2
+  peerDependencies:
+    react-native-svg: "*"
+  checksum: c634373c9b667db763cb92bc3fb766aa399fc59e2621072b5fcf1671677563b46e8ff398e3bcbac3760c0e4400c469958b0c00d2434149010f94a3a5edc360f5
   languageName: node
   linkType: hard
 

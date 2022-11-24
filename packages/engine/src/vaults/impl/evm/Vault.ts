@@ -17,7 +17,10 @@ import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
+import {
+  BatchSendConfirmPayloadInfo,
+  SendConfirmPayloadInfo,
+} from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { HISTORY_CONSTS } from '../../../constants';
@@ -201,7 +204,7 @@ export default class Vault extends VaultBase {
 
   async decodeBatchTransferTx(
     encodedTx: IEncodedTxEvm,
-    payload?: SendConfirmPayloadInfo,
+    payload?: BatchSendConfirmPayloadInfo,
   ): Promise<IDecodedTx | null> {
     const decoder = EVMTxDecoder.getDecoder(this.engine);
     const ethersTx = (await this.helper.parseToNativeTx(
@@ -437,13 +440,10 @@ export default class Vault extends VaultBase {
     if (
       (decodedTxLegacy.txType === EVMDecodedTxType.ERC721_TRANSFER ||
         decodedTxLegacy.txType === EVMDecodedTxType.ERC1155_TRANSFER) &&
-      payload?.nftInfos &&
-      payload.nftInfos[0]
+      payload?.nftInfo
     ) {
       action.type = IDecodedTxActionType.NFT_TRANSFER;
-      action.nftTransfer = await this.buildNFTTransferAcion(
-        payload.nftInfos[0],
-      );
+      action.nftTransfer = await this.buildNFTTransferAcion(payload.nftInfo);
       extraNativeTransferAction = undefined;
     }
     if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
@@ -584,11 +584,17 @@ export default class Vault extends VaultBase {
 
   override async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
+    prevNonce?: number,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
+    const dbAccount = await this.getDbAccount();
     const transferInfo = transferInfos[0];
     const isTransferToken = Boolean(transferInfo.token);
     const { tokenId, isNFT, type } = transferInfo;
+    const nextNonce: number =
+      prevNonce !== undefined
+        ? prevNonce + 1
+        : await this.getNextNonce(network.id, dbAccount);
 
     const contract = batchTransferContractAddress[network.id];
 
@@ -680,6 +686,7 @@ export default class Vault extends VaultBase {
         .encode(paramTypes, ParamValues)
         .slice(2)}`,
       value: isTransferToken ? '0x0' : toBigIntHex(totalAmountBN),
+      nonce: nextNonce,
     };
   }
 
@@ -716,10 +723,14 @@ export default class Vault extends VaultBase {
 
   override async buildEncodedTxsFromSetApproveForAll(
     approveInfos: ISetApprovalForAll[],
+    prevNonce?: number,
   ): Promise<IEncodedTxEvm[]> {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
-    const nextNonce: number = await this.getNextNonce(network.id, dbAccount);
+    const nextNonce: number =
+      prevNonce !== undefined
+        ? prevNonce + 1
+        : await this.getNextNonce(network.id, dbAccount);
     const encodedTxs = approveInfos.map((approveInfo, index) => ({
       from: approveInfo.from,
       to: approveInfo.to,

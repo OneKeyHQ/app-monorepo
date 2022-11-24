@@ -1,6 +1,9 @@
+import { wait } from '@onekeyfe/hd-core';
 import { groupBy, keys } from 'lodash';
 
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IEncodedTx,
   ISetApprovalForAll,
@@ -19,6 +22,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     accountId: string;
     networkId: string;
     transferInfos: ITransferInfo[];
+    prevNonce?: number;
   }): Promise<IEncodedTx[]> {
     const { accountId, networkId, transferInfos } = params;
     const { engine } = this.backgroundApi;
@@ -76,7 +80,46 @@ export default class ServiceBatchTransfer extends ServiceBase {
     accountId: string;
     networkId: string;
     transferInfos: ITransferInfo[];
+    prevNonce?: number;
   }) {
     return this.backgroundApi.engine.buildEncodedTxFromBatchTransfer(params);
+  }
+
+  @backgroundMethod()
+  async signAndSendEncodedTx(params: {
+    password: string;
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTx;
+    signOnly: boolean;
+    pendingTxs?: { id: string }[];
+  }) {
+    const { engine } = this.backgroundApi;
+    const { networkId, pendingTxs, encodedTx } = params;
+    const network = await engine.getNetwork(networkId);
+
+    if (
+      pendingTxs &&
+      pendingTxs.length > 0 &&
+      network.impl === IMPL_EVM &&
+      (encodedTx as IEncodedTxEvm).to ===
+        batchTransferContractAddress[network.id]
+    ) {
+      const refreshPendingTxs = async () => {
+        const txs = await engine.providerManager.refreshPendingTxs(
+          networkId,
+          pendingTxs,
+        );
+
+        if (Object.keys(txs).length !== pendingTxs.length) {
+          await wait(1000);
+          refreshPendingTxs();
+        }
+      };
+
+      refreshPendingTxs();
+    }
+
+    return engine.signAndSendEncodedTx(params);
   }
 }

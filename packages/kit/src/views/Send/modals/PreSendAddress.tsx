@@ -73,6 +73,7 @@ function PreSendAddress() {
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusAddressSecurity)[]
   >([]);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const { serviceNFT, serviceBatchTransfer, engine } = backgroundApiProxy;
   const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
   const { transferInfos, accountId, networkId, closeModal, ...reset } =
@@ -203,17 +204,19 @@ function PreSendAddress() {
       }
 
       if (transferInfos && transferInfos.length > 1) {
-        // TODO handle multi approve tx
-        // const encodedApproveTxs =
-        //   await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
-        //     networkId,
-        //     accountId,
-        //     transferInfos,
-        //   });
+        setIsLoadingAssets(true);
+        const encodedApproveTxs =
+          await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
+            networkId,
+            accountId,
+            transferInfos,
+          });
         encodedTx = await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
           networkId,
           accountId,
           transferInfos,
+          // @ts-ignore
+          prevNonce: encodedApproveTxs[encodedApproveTxs.length - 1].nonce,
         });
 
         for (let i = 0; i < transferInfos.length; i += 1) {
@@ -231,34 +234,46 @@ function PreSendAddress() {
             to: toVal,
           });
         }
-      } else {
-        nftInfos.push({
-          asset: nftInfo,
-          amount: transferInfo.amount,
-          from: account.address,
-          to: toVal,
+        setIsLoadingAssets(false);
+        navigation.navigate(SendRoutes.BatchSendConfirm, {
+          networkId,
+          accountId,
+          feeInfoUseFeeInTx: false,
+          feeInfoEditable: true,
+          encodedTxs: [...encodedApproveTxs, encodedTx],
+          backRouteName: SendRoutes.PreSendAddress,
+          payloadInfo: {
+            type: 'Transfer',
+            nftInfos,
+          },
+          onModalClose: closeModal,
         });
+      } else {
         encodedTx = await engine.buildEncodedTxFromTransfer({
           networkId,
           accountId,
           transferInfo,
         });
+        navigation.navigate(SendRoutes.SendConfirm, {
+          ...transferInfo,
+          networkId,
+          accountId,
+          encodedTx,
+          feeInfoUseFeeInTx: false,
+          feeInfoEditable: true,
+          backRouteName: SendRoutes.PreSendAddress,
+          payloadInfo: {
+            type: 'Transfer',
+            nftInfo: {
+              asset: nftInfo,
+              amount: transferInfo.amount,
+              from: account.address,
+              to: toVal,
+            },
+          },
+          onModalClose: closeModal,
+        });
       }
-
-      navigation.navigate(SendRoutes.SendConfirm, {
-        ...transferInfo,
-        networkId,
-        accountId,
-        encodedTx,
-        feeInfoUseFeeInTx: false,
-        feeInfoEditable: true,
-        backRouteName: SendRoutes.PreSendAddress,
-        payloadInfo: {
-          type: 'Transfer',
-          nftInfos,
-        },
-        onModalClose: closeModal,
-      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [navigation, nftInfo, transferInfo, transferInfos, closeModal],
@@ -297,6 +312,7 @@ function PreSendAddress() {
       primaryActionTranslationId="action__next"
       primaryActionProps={{
         isDisabled: submitDisabled,
+        isLoading: isLoadingAssets,
       }}
       onPrimaryActionPress={() => doSubmit()}
       scrollViewProps={{

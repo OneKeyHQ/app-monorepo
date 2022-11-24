@@ -41,7 +41,7 @@ export type ITxActionMeta = {
 export type ITxActionCardProps = {
   action: IDecodedTxAction;
   decodedTx: IDecodedTx;
-  historyTx: IHistoryTx | undefined;
+  historyTx?: IHistoryTx;
   meta?: ITxActionMeta;
   intl: IntlShape;
   network?: Network | null;

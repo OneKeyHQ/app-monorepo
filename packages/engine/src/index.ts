@@ -1813,13 +1813,15 @@ class Engine {
     networkId,
     accountId,
     approveInfos,
+    prevNonce,
   }: {
     networkId: string;
     accountId: string;
     approveInfos: ISetApprovalForAll[];
+    prevNonce?: number;
   }): Promise<IEncodedTx[]> {
     const vault = await this.getVault({ networkId, accountId });
-    return vault.buildEncodedTxsFromSetApproveForAll(approveInfos);
+    return vault.buildEncodedTxsFromSetApproveForAll(approveInfos, prevNonce);
   }
 
   @backgroundMethod()
@@ -1963,13 +1965,18 @@ class Engine {
     networkId,
     accountId,
     transferInfos,
+    prevNonce,
   }: {
     networkId: string;
     accountId: string;
     transferInfos: ITransferInfo[];
+    prevNonce?: number;
   }) {
     const vault = await this.getVault({ networkId, accountId });
-    const result = await vault.buildEncodedTxFromBatchTransfer(transferInfos);
+    const result = await vault.buildEncodedTxFromBatchTransfer(
+      transferInfos,
+      prevNonce,
+    );
     debugLogger.sendTx.info(
       'buildEncodedTxFromBatchTransfer: ',
       transferInfos,

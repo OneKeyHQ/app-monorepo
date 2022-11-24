@@ -51,7 +51,8 @@ export type TokenApproveAmountEditParams = {
 };
 
 export type EditFeeParams = SendConfirmSharedParams & {
-  sendConfirmParams: SendConfirmParams;
+  sendConfirmParams?: SendConfirmParams;
+  forBatchSend?: boolean;
 };
 
 export type PreSendParams = {
@@ -108,7 +109,7 @@ export type SendConfirmPayloadInfo = {
   transferInfo?: ITransferInfo;
   swapInfo?: ISwapInfo;
   stakeInfo?: IStakeInfo;
-  nftInfos?: INFTInfo[];
+  nftInfo?: INFTInfo;
 };
 export type SendConfirmSharedParams = {
   networkId: string;
@@ -188,6 +189,8 @@ export type SendRoutesParams = {
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
   [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
   [SendRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
+  [SendRoutes.BatchSendConfirm]: BatchSendConfirmParams;
+  [SendRoutes.BatchSendProgress]: BatchSendProgressParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({
@@ -263,4 +266,89 @@ export type ISendEditFeeValues = {
   maxFeePerGas: string;
   baseFee: string;
   totalFee: string;
+};
+
+export type BatchSendConfirmPayloadInfo = {
+  type: 'Transfer' | 'InternalSwap' | 'InternalStake';
+  transferInfos?: ITransferInfo[];
+  swapInfos?: ISwapInfo[];
+  stakeInfos?: IStakeInfo[];
+  nftInfos?: INFTInfo[];
+};
+
+export type BatchSendConfirmShared = {
+  networkId: string;
+  accountId: string;
+  encodedTxs: IEncodedTx[];
+  feeInfoSelected?: IFeeInfoSelected;
+  autoConfirmAfterFeeSaved?: boolean;
+  onModalClose?: () => void;
+};
+
+export type BatchSendConfirmParams = BatchSendConfirmShared & {
+  payload?: SendConfirmPayload;
+  payloadInfo?: BatchSendConfirmPayloadInfo;
+  onSuccess?: (txs: ISignedTx[], data?: BatchSendConfirmOnSuccessData) => void;
+  onFail?: (error: Error) => void;
+  sourceInfo?: IDappSourceInfo;
+  backRouteName?: keyof SendRoutesParams;
+  onDetail?: (txid: string) => any;
+  signOnly?: boolean;
+  feeInfoUseFeeInTx: boolean;
+  feeInfoEditable: boolean;
+  skipSaveHistory?: boolean;
+};
+
+export type IBatchTxsConfirmViewPropsHandleConfirm = ({
+  onClose,
+  close,
+  encodedTxs,
+}: {
+  onClose?: () => void;
+  close: () => void;
+  encodedTxs: IEncodedTx[];
+}) => void;
+
+export type IBatchTxsConfirmViewProps = ModalProps & {
+  networkId: string;
+  accountId: string;
+
+  sourceInfo?: IDappSourceInfo;
+  encodedTxs: IEncodedTx[];
+  decodedTxs: (IDecodedTx | IDecodedTxLegacy)[];
+  payload?: SendConfirmPayload;
+
+  updateEncodedTxsBeforeConfirm?: (
+    encodedTxs: IEncodedTx[],
+  ) => Promise<IEncodedTx[]>;
+  handleConfirm: IBatchTxsConfirmViewPropsHandleConfirm;
+  onEncodedTxsUpdate?: (encodedTxs: IEncodedTx[]) => void; // TODO remove
+
+  feeInfoPayloads: IFeeInfoPayload[];
+  feeInfoLoading: boolean;
+  feeInfoEditable?: boolean;
+  totalFeeInNative: number;
+  feeInput?: JSX.Element;
+
+  confirmDisabled?: boolean;
+  autoConfirm?: boolean;
+  children?: JSX.Element | JSX.Element[] | Element | Element[] | any;
+
+  batchSendConfirmParams: BatchSendConfirmParams;
+};
+
+export type BatchSendProgressParams = Omit<
+  BatchSendConfirmParams,
+  'feeInfoEditable' | 'feeInfoUseFeeInTx'
+> & {
+  accountId: string;
+  walletId: string;
+  networkId: string;
+  unsignedMessages?: IUnsignedMessageEvm[];
+};
+
+export type BatchSendConfirmOnSuccessData = {
+  signedTxs?: ISignedTx[];
+  encodedTxs?: IEncodedTx[];
+  decodedTxs?: IDecodedTx[];
 };

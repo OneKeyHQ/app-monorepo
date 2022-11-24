@@ -7,6 +7,7 @@ export type ITxDetailContextData = {
   isHistoryDetail?: boolean;
   isMultipleActions?: boolean;
   sendConfirmParamsParsed?: ReturnType<typeof useSendConfirmRouteParamsParsed>;
+  isCollapse?: boolean;
 };
 
 export type ITxDetailContext = {
@@ -27,12 +28,14 @@ function TxDetailContextProvider(
     isMultipleActions,
     isSendConfirm,
     sendConfirmParamsParsed,
+    isCollapse,
   } = props;
   const [context, setContext] = useState<ITxDetailContextData>({
     isHistoryDetail,
     isMultipleActions,
     isSendConfirm,
     sendConfirmParamsParsed,
+    isCollapse,
   });
   useEffect(() => {
     setContext((ctx) => ({
@@ -41,12 +44,14 @@ function TxDetailContextProvider(
       isMultipleActions,
       isSendConfirm,
       sendConfirmParamsParsed,
+      isCollapse,
     }));
   }, [
     isHistoryDetail,
     isMultipleActions,
     isSendConfirm,
     sendConfirmParamsParsed,
+    isCollapse,
   ]);
   return (
     <TxDetailContext.Provider value={{ context, setContext }}>

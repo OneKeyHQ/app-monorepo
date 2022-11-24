@@ -2,9 +2,10 @@ import React from 'react';
 
 import { isNil } from 'lodash';
 
-import { Box, Divider, HStack, VStack } from '@onekeyhq/components';
+import { Box, Collapse, Divider, HStack, VStack } from '@onekeyhq/components';
 
 import { TxActionElementDetailCell } from '../elements/TxActionElementDetailCell';
+import { useTxDetailContext } from '../TxDetailContext';
 import { ITxActionCardViewProps } from '../types';
 
 export function TxDetailActionBox(props: ITxActionCardViewProps) {
@@ -18,25 +19,36 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     isSingleTransformMode,
   } = props;
 
-  const iconView = icon;
-  const titleView = title;
+  const detailContext = useTxDetailContext();
+  const isCollapse = detailContext?.context?.isCollapse;
+
+  const titleView = !!title && (
+    <>
+      <HStack space={2} pb={4} alignItems="center">
+        {icon}
+        <VStack>
+          {title}
+          {subTitle}
+        </VStack>
+      </HStack>
+      {showTitleDivider && details?.length && content ? (
+        <Divider mb={4} ml={-4} mr={-4} w="auto" />
+      ) : null}
+    </>
+  );
+
+  const titleViewForCollapse = (
+    <HStack p={2} space={2} alignItems="center">
+      {icon}
+      <VStack flex={1}>
+        {title}
+        {subTitle}
+      </VStack>
+    </HStack>
+  );
 
   const contentView = (
     <>
-      {!!titleView && (
-        <>
-          <HStack space={2} pb={4} alignItems="center">
-            {iconView}
-            <VStack>
-              {titleView}
-              {subTitle}
-            </VStack>
-          </HStack>
-          {showTitleDivider && details?.length && content ? (
-            <Divider mb={4} ml={-4} mr={-4} w="auto" />
-          ) : null}
-        </>
-      )}
       {content}
       <VStack space={4}>
         {(details ?? [])
@@ -50,11 +62,35 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     </>
   );
 
+  if (isCollapse) {
+    return (
+      <Collapse
+        arrowPosition="right"
+        trigger={titleViewForCollapse}
+        triggerWrapperProps={{
+          borderRadius: 0,
+        }}
+        triggerProps={{
+          flex: 1,
+        }}
+      >
+        <Divider w="auto" />
+        <Box p={4}>{contentView}</Box>
+      </Collapse>
+    );
+  }
+
   if (isSingleTransformMode) {
-    return <Box>{contentView}</Box>;
+    return (
+      <Box>
+        {titleView}
+        {contentView}
+      </Box>
+    );
   }
   return (
     <Box bg="surface-default" borderRadius={12} p={4}>
+      {titleView}
       {contentView}
     </Box>
   );
