@@ -48,7 +48,7 @@ const IMPL_COSMOS = 'cosmos';
 const COINTYPE_COSMOS = '118';
 
 const IMPL_ADA = 'ada';
-const COINTYPE_ADA = '1852';
+const COINTYPE_ADA = '1815';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
