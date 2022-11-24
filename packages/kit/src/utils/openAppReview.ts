@@ -3,14 +3,14 @@ import InAppReview from 'react-native-in-app-review';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-export const openAppReview = async () => {
+export const canShowAppReview = async (unlimitedTimes?: boolean) => {
   const isAvailable = InAppReview.isAvailable();
   debugLogger.common.info(
     'react-native-in-app-review is available',
     isAvailable,
   );
   if (!isAvailable) {
-    return;
+    return false;
   }
   const appRatingsEnabled = await simpleDb.setting.getEnableAppRatings();
   const lastOpenedAt = await simpleDb.setting.getAppReviewsLastOpenedAt();
@@ -20,7 +20,14 @@ export const openAppReview = async () => {
     'lastOpenedAt, ',
     lastOpenedAt,
   );
-  if (lastOpenedAt > 0 || !appRatingsEnabled) {
+  if ((!unlimitedTimes && lastOpenedAt > 0) || !appRatingsEnabled) {
+    return false;
+  }
+  return true;
+};
+
+export const openAppReview = async (unlimitedTimes?: boolean) => {
+  if (!(await canShowAppReview(unlimitedTimes))) {
     return;
   }
   let hasFlowFinishedSuccessfully = false;

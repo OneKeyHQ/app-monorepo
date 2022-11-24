@@ -30,7 +30,14 @@ const ListView: FC<Props> = ({ listData, onSelectCollection }) => {
 
   const renderItem = useCallback(
     (item: Collection, index: number) => {
-      const { bannerUrl, contractName, floorPrice, chain, priceSymbol } = item;
+      const {
+        bannerUrl,
+        contractName,
+        floorPrice,
+        chain,
+        priceSymbol,
+        openseaVerified,
+      } = item;
       return (
         <CollectionCard
           key={`${item.contractAddress as string} ${index}`}
@@ -38,6 +45,7 @@ const ListView: FC<Props> = ({ listData, onSelectCollection }) => {
             onSelectCollection(item);
           }}
           contractName={contractName}
+          verified={openseaVerified}
           netImageProps={{ src: bannerUrl }}
           priceTextProps={{
             price: floorPrice,

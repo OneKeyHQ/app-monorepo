@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
@@ -21,6 +21,9 @@ import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { canShowAppReview } from '../../../utils/openAppReview';
+
+import AppRateSectionItem from './AppRateSectionItem';
 import AutoUpdateSectionItem from './AutoUpdateSectionItem';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -33,13 +36,22 @@ export const AboutSection = () => {
   const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
   const { themeVariant } = useTheme();
-
+  const [showRate, setShowRate] = useState(() => !platformEnv.isNative);
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const settings = useSettings();
-
   let lastTime: Date | undefined;
   let num = 0;
+  const checkShowAppReview = useCallback(() => {
+    if (platformEnv.isNative) {
+      canShowAppReview(true).then((data) => {
+        setShowRate(!!data);
+      });
+    }
+  }, []);
+  useEffect(() => {
+    checkShowAppReview();
+  }, [checkShowAppReview]);
   const openDebugMode = () => {
     const nowTime = new Date();
     if (
@@ -137,6 +149,9 @@ export const AboutSection = () => {
           </Text>
         </Pressable>
         <AutoUpdateSectionItem />
+        {showRate ? (
+          <AppRateSectionItem onAfterOnpenReview={checkShowAppReview} />
+        ) : null}
         <Pressable
           display="flex"
           flexDirection="row"

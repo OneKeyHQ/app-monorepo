@@ -54,7 +54,12 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
           }}
         >
           <ListItem.Column>
-            <CollectionLogo src={item.logo_url} width="56px" height="56px" />
+            <CollectionLogo
+              src={item.logo_url}
+              width="56px"
+              height="56px"
+              verified={item.openseaVerified}
+            />
           </ListItem.Column>
           <ListItem.Column
             text={{
