@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { JsonRpcProvider } from '@mysten/sui.js';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
@@ -18,7 +17,7 @@ import {
   ISignCredentialOptions,
   SignedTxResult,
 } from '../../types';
-import { addHexPrefix } from '../../utils/hexUtils';
+import { addHexPrefix, hexlify } from '../../utils/hexUtils';
 
 import { toTransaction } from './utils';
 
@@ -34,7 +33,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const passphraseState = await this.getWalletPassphraseState();
     try {
-      response = await HardwareSDK.aptosGetPublicKey(connectId, deviceId, {
+      response = await HardwareSDK.suiGetPublicKey(connectId, deviceId, {
         bundle: paths.map((path) => ({ path })),
         ...passphraseState,
       });
@@ -68,14 +67,11 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let addressesResponse;
     try {
-      addressesResponse = await HardwareSDK.aptosGetAddress(
-        connectId,
-        deviceId,
-        {
-          bundle: paths.map((path) => ({ path, showOnOneKey })),
-          ...passphraseState,
-        },
-      );
+      // @ts-expect-error
+      addressesResponse = await HardwareSDK.suiGetAddress(connectId, deviceId, {
+        bundle: paths.map((path) => ({ path, showOnOneKey })),
+        ...passphraseState,
+      });
     } catch (error: any) {
       debugLogger.common.error(error);
       throw new OneKeyHardwareError(error);
@@ -119,7 +115,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
-    const response = await HardwareSDK.aptosGetAddress(connectId, deviceId, {
+    const response = await HardwareSDK.suiGetAddress(connectId, deviceId, {
+      // @ts-expect-error
       path: params.path,
       showOnOneKey: params.showOnOneKey,
       ...passphraseState,
@@ -152,10 +149,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const passphraseState = await this.getWalletPassphraseState();
 
     const HardwareSDK = await this.getHardwareSDKInstance();
-    // @ts-expect-error
+
     const response = await HardwareSDK.suiSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
-      rawTx: txnBytes,
+      rawTx: hexlify(Buffer.from(txnBytes, 'base64')),
       ...passphraseState,
     });
 
@@ -165,7 +162,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         txid: '',
         rawTx: txnBytes,
         signatureScheme: 'ed25519',
-        signature: addHexPrefix(signature.toString('hex')),
+        signature: addHexPrefix(signature),
         publicKey: addHexPrefix(senderPublicKey),
       };
     }

@@ -215,8 +215,6 @@ export default class Vault extends VaultBase {
   override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
-    const client = await this.getClient();
-
     const requestAddress = groupBy(requests, (request) => request.address);
 
     const balances = new Map<string, BigNumber>();
