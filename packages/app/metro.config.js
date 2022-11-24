@@ -1,5 +1,7 @@
 const { createMetroConfiguration } = require('expo-yarn-workspaces');
 
+const defaultResolver = require('metro-resolver').resolve;
+
 const config = createMetroConfiguration(__dirname);
 
 // hot-reload file type
@@ -12,6 +14,8 @@ config.resolver.sourceExts = [
 ];
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
+  fs: require.resolve('react-native-level-fs'),
+  path: require.resolve('path-browserify'),
   stream: require.resolve('readable-stream'),
   crypto: require.resolve('react-native-crypto'),
   http: require.resolve('stream-http'),

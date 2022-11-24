@@ -4,6 +4,7 @@
  */
 
 export const OnekeyNetwork = {
+  'ada': 'ada--0',
   'algo': 'algo--4160',
   'talgo': 'algo--1',
   'apt': 'aptos--1',
@@ -55,6 +56,7 @@ export const OnekeyNetwork = {
   'tsol': 'sol--103',
   'stc': 'stc--1',
   'tstc': 'stc--251',
+  'sui': 'sui--8888882',
   'tbtc': 'tbtc--0',
   'trx': 'tron--0x2b6653dc',
   'ttrx': 'tron--0x94a9059e',
