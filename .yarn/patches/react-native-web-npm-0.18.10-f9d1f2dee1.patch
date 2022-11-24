@@ -1,8 +1,8 @@
 diff --git a/dist/exports/Dimensions/index.js b/dist/exports/Dimensions/index.js
-index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..bf9c5660ceeb130627c7069cd888fbd67b2bb31a 100644
+index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..39365d3fec8e800cfa4f5d6b59a79fb8fab5211f 100644
 --- a/dist/exports/Dimensions/index.js
 +++ b/dist/exports/Dimensions/index.js
-@@ -7,99 +7,108 @@
+@@ -7,99 +7,107 @@
   *
   * 
   */
@@ -105,7 +105,6 @@ index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..bf9c5660ceeb130627c7069cd888fbd6
 \ No newline at end of file
 + import invariant from 'fbjs/lib/invariant';
 + import canUseDOM from '../../modules/canUseDom';
-+ 
 + var dimensions = {
 +   window: {
 +     fontScale: 1,
@@ -130,26 +129,26 @@ index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..bf9c5660ceeb130627c7069cd888fbd6
 + 
 +   var win = window;
 +   var docEl = win.document.documentElement;
-+   let updated = false;
-+   const newWindow = {
++   var updated = false;
++   const _window = {
 +     fontScale: 1,
 +     height: docEl.clientHeight,
 +     scale: win.devicePixelRatio || 1,
 +     width: docEl.clientWidth
 +   };
-+   const newScreen = {
++   const _screen = {
 +     fontScale: 1,
 +     height: win.screen.height,
 +     scale: win.devicePixelRatio || 1,
 +     width: win.screen.width
 +   };
-+   if (JSON.stringify(newWindow) !== JSON.stringify(dimensions.window)) {
++   if (JSON.stringify(dimensions.window) !== JSON.stringify(_window)) {
++     dimensions.window = _window;
 +     updated = true;
-+     dimensions.window = newWindow;
 +   }
-+   if (JSON.stringify(newScreen) !== JSON.stringify(dimensions.screen)) {
++   if (JSON.stringify(dimensions.screen) !== JSON.stringify(_screen)) {
++     dimensions.screen = _screen;
 +     updated = true;
-+     dimensions.screen = newScreen;
 +   }
 +   return updated;
 + }
