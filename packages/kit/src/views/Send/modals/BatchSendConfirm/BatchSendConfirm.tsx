@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 
 import { isEmpty, map } from 'lodash';
 
-import { GroupingList, ListItem } from '@onekeyhq/components';
+import { Box, GroupingList, ListItem } from '@onekeyhq/components';
 import { IDecodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -14,10 +14,12 @@ import { wait } from '../../../../utils/helper';
 import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
+import { FeeInfoInputForConfirmLite } from '../../components/FeeInfoInput';
 import {
   BatchSendProgressParams,
   IBatchTxsConfirmViewProps,
   IBatchTxsConfirmViewPropsHandleConfirm,
+  SendConfirmParams,
   SendFeedbackReceiptParams,
   SendRoutes,
 } from '../../types';
@@ -72,6 +74,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     address: accountAddress || '',
   });
   const encodedTx = encodedTxs[0];
+  const isSingleTransformMode = encodedTxs.length === 1;
 
   const { decodedTxs } = useBatchSendConfirmDecodedTxs({
     accountId,
@@ -93,6 +96,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       signOnly: routeParams.signOnly,
       forBatchSend: true,
     });
+  const feeInfoPayload = feeInfoPayloads[0];
   useWalletConnectPrepareConnection({
     accountId,
     networkId,
@@ -219,7 +223,22 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     ],
   );
 
-  const feeInput = (
+  const feeInput = isSingleTransformMode ? (
+    <FeeInfoInputForConfirmLite
+      accountId={accountId}
+      networkId={networkId}
+      sendConfirmParams={
+        {
+          ...routeParams,
+          encodedTx,
+        } as SendConfirmParams
+      }
+      editable={feeInfoEditable}
+      encodedTx={encodedTx}
+      feeInfoPayload={feeInfoPayload}
+      loading={feeInfoLoading}
+    />
+  ) : (
     <BatchTransactionFeeInfo
       accountId={accountId}
       networkId={networkId}
@@ -248,6 +267,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     feeInfoEditable,
     totalFeeInNative,
     feeInput,
+    isSingleTransformMode,
 
     handleConfirm,
     onSecondaryActionPress: ({ close }) => {
@@ -266,21 +286,30 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     data: [tx],
   }));
 
-  sharedProps.children = (
-    <>
-      <GroupingList
-        mt="24px"
-        headerProps={{
-          title: 'Header',
-        }}
-        sections={groupTransactionsData}
-        renderItem={({ item }: { item: IDecodedTx }) => (
-          <ListItem key={item.txid}>
-            <BatchTxsItemView isSendConfirm decodedTx={item} />
-          </ListItem>
-        )}
-      />
-    </>
+  sharedProps.children = isSingleTransformMode ? (
+    <BatchTxsItemView
+      isSendConfirm
+      isSingleTransformMode={isSingleTransformMode}
+      decodedTx={decodedTx}
+      feeInput={feeInput}
+    />
+  ) : (
+    <GroupingList
+      mt="24px"
+      headerProps={{
+        title: 'Header',
+      }}
+      sections={groupTransactionsData}
+      renderItem={({ item }: { item: IDecodedTx }) => (
+        <ListItem key={item.txid}>
+          <BatchTxsItemView
+            isSendConfirm
+            isSingleTransformMode={isSingleTransformMode}
+            decodedTx={item}
+          />
+        </ListItem>
+      )}
+    />
   );
 
   const isWaitingTxReady = !decodedTx || !encodedTx;

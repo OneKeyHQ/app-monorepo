@@ -31,6 +31,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
     autoConfirm,
     sourceInfo,
     feeInput,
+    isSingleTransformMode,
     ...others
   } = props;
 
@@ -130,7 +131,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
                 isAccountNotMatched={isAccountNotMatched}
               />
             )}
-            {feeInput}
+            {!isSingleTransformMode && feeInput}
             <SendConfirmErrorBoundary>{children}</SendConfirmErrorBoundary>
 
             {platformEnv.isDev ? (

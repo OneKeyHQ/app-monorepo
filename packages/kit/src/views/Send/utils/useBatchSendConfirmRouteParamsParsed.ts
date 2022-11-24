@@ -16,18 +16,29 @@ type RouteProps = RouteProp<SendRoutesParams, SendRoutes.BatchSendConfirm>;
 
 export function useBatchSendConfirmRouteParamsParsed() {
   const navigation = useNavigation<NavigationProps>();
+  // const navigation = useNavigation<ModalNavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const defaultRouteParams = useRef({});
   const routeParams = route.params ?? defaultRouteParams.current;
-  const { sourceInfo, encodedTxs, onModalClose, networkId, accountId } =
-    routeParams;
+  const {
+    sourceInfo,
+    resendActionInfo,
+    encodedTxs,
+    onModalClose,
+    networkId,
+    accountId,
+  } = routeParams;
+  const isFromDapp = !!routeParams.sourceInfo;
   const feeInfoEditable: boolean = routeParams.feeInfoEditable ?? true;
   const feeInfoUseFeeInTx: boolean = routeParams.feeInfoUseFeeInTx ?? false;
+  const isSpeedUpOrCancel: boolean =
+    routeParams.resendActionInfo?.type === 'cancel' ||
+    routeParams.resendActionInfo?.type === 'speedUp';
   const payload = useMemo(
+    // TODO refactor SendConfirmPayloadBase type like decodedTxAction
     () => routeParams.payload as SendConfirmPayloadBase | undefined,
     [routeParams.payload],
   );
-  const isFromDapp = !!routeParams.sourceInfo;
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeOnError: true,
@@ -45,7 +56,10 @@ export function useBatchSendConfirmRouteParamsParsed() {
     isClosedRef.current = true;
   }, [dappApprove]);
 
+  // TODO use Context instead
   Object.assign(routeParams, { onModalClose: onClose });
+
+  const isInternalSwapTx: boolean = payload?.payloadType === 'InternalSwap';
 
   return {
     networkId,
@@ -60,7 +74,11 @@ export function useBatchSendConfirmRouteParamsParsed() {
     isFromDapp,
     feeInfoEditable,
     feeInfoUseFeeInTx,
+    isSpeedUpOrCancel,
     payload,
     payloadInfo: routeParams.payloadInfo,
+    resendActionInfo,
+    isInternalSwapTx,
+    isTransferTypeTx: false,
   };
 }

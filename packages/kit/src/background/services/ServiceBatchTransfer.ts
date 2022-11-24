@@ -1,5 +1,10 @@
+import { providers as multicall } from '@0xsequence/multicall';
 import { wait } from '@onekeyfe/hd-core';
+import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
+import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
+import { Contract } from 'ethers';
 import { groupBy, keys } from 'lodash';
+import memoizee from 'memoizee';
 
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
@@ -10,6 +15,7 @@ import {
   ISignedTx,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -18,8 +24,57 @@ import ServiceBase from './ServiceBase';
 
 const BATCH_SEND_RETRY_MAX = 20;
 
+const ERC721 = ERC721MetadataArtifact.abi;
+const ERC1155 = ERC1155MetadataArtifact.abi;
+
 @backgroundClass()
 export default class ServiceBatchTransfer extends ServiceBase {
+  checkIsApprovedForAllMemoizee = memoizee(
+    async (
+      networkId: string,
+      owner: string,
+      spender: string,
+      token: string,
+      type?: string,
+    ): Promise<boolean> => {
+      try {
+        const readProvider = await this.getReadProvider(networkId);
+        const contract = new Contract(
+          token,
+          type === 'erc1155' ? ERC1155 : ERC721,
+          readProvider,
+        );
+
+        const [isApprovedForAll]: boolean[] =
+          await contract.functions.isApprovedForAll(owner, spender);
+        return isApprovedForAll;
+      } catch {
+        return false;
+      }
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getProvider(networkId: string) {
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(networkId);
+    return vault.getEthersProvider();
+  }
+
+  @backgroundMethod()
+  async getReadProvider(networkId: string) {
+    const provider = await this.getProvider(networkId);
+    if (!provider) {
+      return;
+    }
+    return new multicall.MulticallProvider(provider, { verbose: true });
+  }
+
   @backgroundMethod()
   async buildEncodedTxsFromBatchApprove(params: {
     accountId: string;
@@ -48,7 +103,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     if (isTransferToken) {
       // mutiple NFTs to one address
       if (isNFT && tokenId && type) {
-        const approveInfos: ISetApprovalForAll[] = keys(
+        let approveInfos: ISetApprovalForAll[] = keys(
           groupBy(transferInfos, 'token'),
         ).map((token) => ({
           from: address,
@@ -56,6 +111,22 @@ export default class ServiceBatchTransfer extends ServiceBase {
           spender: contract,
           approved: true,
         }));
+
+        const isApproved = await Promise.all(
+          approveInfos.map((approveInfo) =>
+            this.checkIsApprovedForAll({
+              networkId,
+              owner: approveInfo.from,
+              spender: approveInfo.spender,
+              token: approveInfo.to,
+              type: approveInfo.type,
+            }),
+          ),
+        );
+
+        approveInfos = approveInfos.filter(
+          (approveInfo, index) => !isApproved[index],
+        );
 
         encodedApproveTxs = await engine.buildEncodedTxsFromSetApproveForAll({
           networkId,
@@ -141,5 +212,23 @@ export default class ServiceBatchTransfer extends ServiceBase {
     }
 
     return engine.signAndSendEncodedTx(params);
+  }
+
+  @backgroundMethod()
+  async checkIsApprovedForAll(params: {
+    networkId: string;
+    owner: string;
+    spender: string;
+    token: string;
+    type?: string;
+  }): Promise<boolean> {
+    const { networkId, owner, spender, token, type } = params;
+    return this.checkIsApprovedForAllMemoizee(
+      networkId,
+      owner,
+      spender,
+      token,
+      type,
+    );
   }
 }

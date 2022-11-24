@@ -280,6 +280,7 @@ export type BatchSendConfirmShared = {
   networkId: string;
   accountId: string;
   encodedTxs: IEncodedTx[];
+  resendActionInfo?: SendConfirmResendActionInfo;
   feeInfoSelected?: IFeeInfoSelected;
   autoConfirmAfterFeeSaved?: boolean;
   onModalClose?: () => void;
@@ -329,6 +330,7 @@ export type IBatchTxsConfirmViewProps = ModalProps & {
   feeInfoEditable?: boolean;
   totalFeeInNative: number;
   feeInput?: JSX.Element;
+  isSingleTransformMode?: boolean;
 
   confirmDisabled?: boolean;
   autoConfirm?: boolean;

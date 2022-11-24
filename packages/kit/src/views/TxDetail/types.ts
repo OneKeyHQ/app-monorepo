@@ -82,4 +82,5 @@ export type ITxActionListViewProps = {
   // TODO useContext instead
   transferAmount?: string;
   feeInput?: JSX.Element;
+  isSingleTransformMode?: boolean;
 } & ITxDetailContextData;

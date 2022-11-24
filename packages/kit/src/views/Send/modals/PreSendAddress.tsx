@@ -215,8 +215,8 @@ function PreSendAddress() {
           networkId,
           accountId,
           transferInfos,
-          // @ts-ignore
-          prevNonce: encodedApproveTxs[encodedApproveTxs.length - 1].nonce,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          prevNonce: encodedApproveTxs[encodedApproveTxs.length - 1]?.nonce,
         });
 
         for (let i = 0; i < transferInfos.length; i += 1) {
@@ -235,6 +235,7 @@ function PreSendAddress() {
           });
         }
         setIsLoadingAssets(false);
+
         navigation.navigate(SendRoutes.BatchSendConfirm, {
           networkId,
           accountId,
