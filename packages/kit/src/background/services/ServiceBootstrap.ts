@@ -42,6 +42,14 @@ const defaultNetworkRpcs: Record<string, string> = {
   'cfx--1029': 'https://main.confluxrpc.com',
   'algo--4160': 'https://algosigner.api.purestake.io/mainnet/algod',
   'evm--73927': 'https://geth.mvm.dev',
+  'cosmos--cosmoshub-4': 'https://lcd-cosmoshub.keplr.app',
+  'cosmos--juno-1': 'https://lcd-juno.keplr.app',
+  'cosmos--crypto-org-chain-mainnet-1':
+    'https://api-cryptoorgchain-ia.cosmosia.notional.ventures',
+  'cosmos--secret-4': 'https://lcd-secret.keplr.app/',
+  'cosmos--akashnet-2': 'https://lcd-akash.keplr.app/',
+  'cosmos--osmosis-1': 'https://lcd-osmosis.keplr.app/',
+  'cosmos--fetchhub-4': 'https://lcd-fetchhub.keplr.app',
 };
 
 @backgroundClass()
