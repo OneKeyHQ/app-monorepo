@@ -5,6 +5,7 @@ const path = require('path');
 const webpackTools = require('../../development/webpackTools');
 
 const InlineChunkHtmlPlugin = require('./development/InlineChunkHtmlPlugin');
+const { webModuleTranspile } = require('../../development/webpackTranspiles');
 
 const platform = webpackTools.developmentConsts.platforms.webEmbed;
 console.log('============ webpack.version ', webpack.version, platform);
@@ -15,7 +16,9 @@ module.exports = async function (env, argv) {
   let config = await createWebpackConfigAsync(
     {
       ...env,
-      babel: { dangerouslyAddModulePathsToTranspile: ['moti', '@gorhom'] },
+      babel: {
+        dangerouslyAddModulePathsToTranspile: [...webModuleTranspile],
+      },
     },
     argv,
   );

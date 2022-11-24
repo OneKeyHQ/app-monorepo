@@ -39,7 +39,13 @@ const ListHeader: FC<{
   showTokenCount?: boolean;
   showRoundTop?: boolean;
   borderColor?: string;
-}> = ({ showTokenCount, showRoundTop, borderColor = 'border-subdued' }) => {
+  tokenEnabled?: boolean;
+}> = ({
+  showTokenCount,
+  showRoundTop,
+  borderColor = 'border-subdued',
+  tokenEnabled,
+}) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const isVerticalLayout = useIsVerticalLayout();
@@ -83,20 +89,22 @@ const ListHeader: FC<{
           <Icon name="ChevronRightSolid" />
         </>
       ) : (
-        <IconButton
-          size="sm"
-          borderRadius={17}
-          name="PlusSolid"
-          bg="action-secondary-default"
-          onPress={() =>
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.ManageToken,
-              params: { screen: ManageTokenRoutes.Listing },
-            })
-          }
-        />
+        tokenEnabled && (
+          <IconButton
+            size="sm"
+            borderRadius={17}
+            name="PlusSolid"
+            bg="action-secondary-default"
+            onPress={() =>
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.ManageToken,
+                params: { screen: ManageTokenRoutes.Listing },
+              })
+            }
+          />
+        )
       ),
-    [accountTokens.length, navigation, showTokenCount],
+    [accountTokens.length, navigation, showTokenCount, tokenEnabled],
   );
   const Container = showTokenCount ? Pressable.Item : Box;
 
@@ -255,6 +263,7 @@ const AssetsListHeader: FC<{
             borderColor={innerHeaderBorderColor}
             showRoundTop={showInnerHeaderRoundTop}
             showTokenCount={showTokenCount}
+            tokenEnabled={tokenEnabled}
           />
           <Divider />
         </>

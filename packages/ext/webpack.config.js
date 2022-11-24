@@ -11,6 +11,7 @@ const packageJson = require('./package.json');
 const webpackTools = require('../../development/webpackTools');
 const sourcemapServer = require('./development/sourcemapServer');
 const manifest = require('./src/manifest/index');
+const { extModuleTranspile } = require('../../development/webpackTranspiles');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
@@ -28,10 +29,7 @@ const transpileModules = [
   '@onekeyhq/shared',
   '@onekeyhq/engine',
   '@onekeyhq/app',
-  'react-native-animated-splash-screen',
-  'moti',
-  'popmotion',
-  // '@mysten/sui.js',
+  ...extModuleTranspile,
 ];
 
 // load the secrets
