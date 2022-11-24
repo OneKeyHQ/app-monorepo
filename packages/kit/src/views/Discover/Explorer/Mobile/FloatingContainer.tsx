@@ -63,6 +63,14 @@ const FloatingContainer: FC<{
   }, [tabs.length, innerBeforeMaximize]);
 
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const onLayout = useCallback(
+    ({
+      nativeEvent: {
+        layout: { height },
+      },
+    }) => setContainerHeight(height),
+    [],
+  );
   return (
     <>
       <Animated.View
@@ -84,7 +92,7 @@ const FloatingContainer: FC<{
             [containerHeight, hasTabs],
           ),
         ]}
-        onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+        onLayout={onLayout}
       >
         <Animated.View
           style={[

@@ -1,4 +1,4 @@
-import { FC, ReactNode, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { Image as NBImage } from 'native-base';
 import { StyleSheet, useWindowDimensions } from 'react-native';
@@ -17,7 +17,6 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import {
   WebTab,
   closeWebTab,
-  homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
@@ -112,22 +111,13 @@ const WebTabGrid = () => {
   const { width } = useWindowDimensions();
   const cellWidth = (width - CELL_GAP * 3) / 2;
 
-  const content = useMemo(() => {
-    const cells: ReactNode[] = [];
-    tabs.forEach((tab) => {
-      if (tab.id === homeTab.id) {
-        return;
-      }
-      // if (tab.isCurrent) {
-      //   cells.unshift(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
-      // } else {
-      //   cells.push(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
-      // }
-
-      cells.push(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
-    });
-    return cells;
-  }, [cellWidth, tabs]);
+  const content = useMemo(
+    () =>
+      tabs
+        .slice(1)
+        .map((tab) => <WebTabCard key={tab.id} {...tab} width={cellWidth} />),
+    [cellWidth, tabs],
+  );
 
   return (
     <Animated.ScrollView
@@ -137,8 +127,6 @@ const WebTabGrid = () => {
           backgroundColor: useThemeValue('background-default'),
         },
         useAnimatedStyle(() => ({
-          // zIndex: showTabGridAnim.value === MAX_OR_SHOW ? 1 : -1,
-          zIndex: -1,
           opacity: showTabGridAnim.value,
         })),
       ]}

@@ -1,11 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import Animated, {
-  interpolate,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
 import { homeTab } from '../../../../store/reducers/webTabs';
@@ -14,15 +10,7 @@ import WebContent from '../Content/WebContent';
 import { openMatchDApp } from '../Controller/gotoSite';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebTabs } from '../Controller/useWebTabs';
-import {
-  setThumbnailRatio,
-  showTabGridAnim,
-  tabViewShotRef,
-  targetPreviewHeight,
-  targetPreviewWidth,
-  targetPreviewX,
-  targetPreviewY,
-} from '../explorerAnimation';
+import { setThumbnailRatio, tabViewShotRef } from '../explorerAnimation';
 
 const styles = StyleSheet.create({
   container: {
