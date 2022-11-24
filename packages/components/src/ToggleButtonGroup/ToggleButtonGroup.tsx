@@ -1,4 +1,4 @@
-import { FC, ReactElement } from 'react';
+import { FC, ReactElement, useMemo } from 'react';
 
 import { IBoxProps } from 'native-base';
 import { LayoutChangeEvent } from 'react-native';
@@ -60,6 +60,13 @@ const ToggleButton: FC<
   const isSmall = size === 'sm';
   const iconSize = leftIconSize || (isSmall ? '16px' : '20px');
   const selectedIconColor = leftIconSelectedColor || 'icon-hovered';
+  const iconTextSpace = useMemo(() => {
+    let mr = '0px';
+    if (text.length > 0) {
+      mr = isSmall ? '4px' : '8px';
+    }
+    return mr;
+  }, [isSmall, text.length]);
   return (
     <Pressable mr="8px" onPress={onPress} onLayout={onLayout}>
       {({ isHovered, isPressed }) => {
@@ -84,7 +91,7 @@ const ToggleButton: FC<
                 borderRadius="9999px"
                 w={iconSize}
                 h={iconSize}
-                mr={isSmall ? '4px' : '8px'}
+                mr={iconTextSpace}
               >
                 {!!leftIcon && (
                   <Icon

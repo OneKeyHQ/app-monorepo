@@ -42,7 +42,11 @@ function FeeInfoInput({
   const route = useRoute<RouteProps>();
 
   const disabled =
-    loading || !editable || !encodedTx || sendConfirmParams.signOnly;
+    loading ||
+    !editable ||
+    !encodedTx ||
+    sendConfirmParams.signOnly ||
+    feeInfoPayload?.info?.disableEditFee;
   const navigateToEdit = useCallback(
     ({ replace = false }: { replace?: boolean } = {}) => {
       if (disabled) {
@@ -392,7 +396,11 @@ function FeeInfoInputForConfirmLite({
 
   // edit and loading icon
   const icon: React.ReactElement | null = useMemo(() => {
-    if (!encodedTx || sendConfirmParams.signOnly) {
+    if (
+      !encodedTx ||
+      sendConfirmParams.signOnly ||
+      !!feeInfoPayload?.info?.disableEditFee
+    ) {
       return null;
     }
     if (loading) {

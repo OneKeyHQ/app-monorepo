@@ -1,4 +1,4 @@
-import { FC, ReactNode, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { Image as NBImage } from 'native-base';
 import { StyleSheet, useWindowDimensions } from 'react-native';
@@ -17,14 +17,13 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import {
   WebTab,
   closeWebTab,
-  homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
-  MAX_OR_SHOW,
   hideTabGrid,
   showTabGridAnim,
+  tabGridRefs,
 } from '../explorerAnimation';
 
 const CELL_GAP = 16;
@@ -57,46 +56,54 @@ const WebTabCard: FC<
       if (!isCurrent) {
         backgroundApiProxy.dispatch(setCurrentWebTab(id));
       }
-      hideTabGrid();
+      hideTabGrid(id);
     }}
   >
     <Box
-      bg="surface-default"
-      px="9px"
-      h="32px"
-      w="full"
-      borderTopLeftRadius="12px"
-      borderTopRightRadius="12px"
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="space-between"
+      flex={1}
+      ref={(ref) => {
+        // @ts-ignore
+        tabGridRefs[id] = ref;
+      }}
     >
-      <NetImage
-        key={favicon}
-        width="18px"
-        height="18px"
-        borderRadius="4px"
-        src={favicon}
-      />
-      <Typography.CaptionStrong
-        color="text-default"
-        flex={1}
-        textAlign="left"
-        numberOfLines={1}
-        mx="4px"
+      <Box
+        bg="surface-default"
+        px="9px"
+        h="32px"
+        w="full"
+        borderTopLeftRadius="12px"
+        borderTopRightRadius="12px"
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
       >
-        {title}
-      </Typography.CaptionStrong>
-      <IconButton
-        size="sm"
-        type="plain"
-        name="CloseSolid"
-        onPress={() => {
-          backgroundApiProxy.dispatch(closeWebTab(id));
-        }}
-      />
+        <NetImage
+          key={favicon}
+          width="18px"
+          height="18px"
+          borderRadius="4px"
+          src={favicon}
+        />
+        <Typography.CaptionStrong
+          color="text-default"
+          flex={1}
+          textAlign="left"
+          numberOfLines={1}
+          mx="4px"
+        >
+          {title}
+        </Typography.CaptionStrong>
+        <IconButton
+          size="sm"
+          type="plain"
+          name="CloseSolid"
+          onPress={() => {
+            backgroundApiProxy.dispatch(closeWebTab(id));
+          }}
+        />
+      </Box>
+      <NBImage flex={1} resizeMode="cover" src={thumbnail} />
     </Box>
-    <NBImage flex={1} resizeMode="cover" src={thumbnail} />
   </Pressable>
 );
 const WebTabGrid = () => {
@@ -104,20 +111,13 @@ const WebTabGrid = () => {
   const { width } = useWindowDimensions();
   const cellWidth = (width - CELL_GAP * 3) / 2;
 
-  const content = useMemo(() => {
-    const cells: ReactNode[] = [];
-    tabs.forEach((tab) => {
-      if (tab.id === homeTab.id) {
-        return;
-      }
-      if (tab.isCurrent) {
-        cells.unshift(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
-      } else {
-        cells.push(<WebTabCard key={tab.id} {...tab} width={cellWidth} />);
-      }
-    });
-    return cells;
-  }, [cellWidth, tabs]);
+  const content = useMemo(
+    () =>
+      tabs
+        .slice(1)
+        .map((tab) => <WebTabCard key={tab.id} {...tab} width={cellWidth} />),
+    [cellWidth, tabs],
+  );
 
   return (
     <Animated.ScrollView
@@ -127,7 +127,6 @@ const WebTabGrid = () => {
           backgroundColor: useThemeValue('background-default'),
         },
         useAnimatedStyle(() => ({
-          zIndex: showTabGridAnim.value === MAX_OR_SHOW ? 1 : -1,
           opacity: showTabGridAnim.value,
         })),
       ]}

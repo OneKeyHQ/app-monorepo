@@ -1,3 +1,5 @@
+import { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
+
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
@@ -26,9 +28,13 @@ import type {
 } from './impl/near/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
+import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
-import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // Options ----------------------------------------------
 export type IVaultSettings = {
@@ -136,7 +142,8 @@ export type IEncodedTx =
   | IEncodedTxCfx
   | IEncodedTxAlgo
   | IEncodedTxXrp
-  | IEncodedTxCosmos;
+  | IEncodedTxCosmos
+  | IEncodedTxSUI;
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear
@@ -147,10 +154,14 @@ export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
 };
 export type ISignedTx = {
-  txid: string;
-  rawTx: string;
   encodedTx: IEncodedTx;
-};
+} & SignedTxResult;
+
+export type SignedTxResult = {
+  signatureScheme?: CurveName;
+  signature?: string;
+  publicKey?: string;
+} & SignedTx;
 
 // EncodedTx Update ----------------------------------------------
 export enum IEncodedTxUpdateType {
@@ -186,6 +197,7 @@ export type IFeeInfo = {
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
   defaultPresetIndex: string; // '0' | '1' | '2';
   waitingSeconds?: Array<number>; // waiting time for different prices
+  disableEditFee?: boolean; // disable fee edit
 
   feeSymbol?: string; // feeSymbol: GWEI
   feeDecimals?: number; // feeDecimals: 9

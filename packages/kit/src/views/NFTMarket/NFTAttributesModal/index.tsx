@@ -13,6 +13,7 @@ import {
 
 import {
   Box,
+  Collapse,
   Divider,
   Icon,
   Modal,
@@ -100,12 +101,6 @@ type ItemProps = {
 };
 
 const ItemList: FC<ItemProps> = ({ attribute }) => {
-  const [open, setopen] = useState(false);
-  const onPressHeader = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setopen(!open);
-  };
-
   const ValuesView = useMemo(
     () => (
       <Box>
@@ -124,21 +119,23 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
     [attribute.attributes_name, attribute.attributes_values],
   );
   return (
-    <Box flexDirection="column" width="full">
-      <TouchableOpacity onPress={onPressHeader}>
-        <Box
-          flexDirection="row"
-          justifyContent="space-between"
-          height="48px"
-          alignItems="center"
-        >
-          <Text typography="Body1Strong">{attribute.attributes_name}</Text>
-          <Icon name="ChevronRightSolid" size={20} />
-        </Box>
-      </TouchableOpacity>
-      {/* <Box display={open ? 'flex' : 'none'}>{ValuesView}</Box> */}
-      {open && ValuesView}
-    </Box>
+    <Collapse
+      renderCustomTrigger={(onPress) => (
+        <TouchableOpacity onPress={onPress}>
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            height="48px"
+            alignItems="center"
+          >
+            <Text typography="Body1Strong">{attribute.attributes_name}</Text>
+            <Icon name="ChevronRightSolid" size={20} />
+          </Box>
+        </TouchableOpacity>
+      )}
+    >
+      {ValuesView}
+    </Collapse>
   );
 };
 

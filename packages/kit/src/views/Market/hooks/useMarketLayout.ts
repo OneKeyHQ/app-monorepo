@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 
+import { PixelRatio } from 'react-native';
+
 import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components/src';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const GRID_MAX_WIDTH = 700;
 export const useGridBoxStyle = ({
@@ -52,3 +55,6 @@ export const useMarketMidLayout = () => {
   const { size } = useUserDevice();
   return useMemo(() => ['NORMAL'].includes(size), [size]);
 };
+
+export const useDevicePixelRatio = () =>
+  useMemo(() => (platformEnv.isNative ? 1 : window.devicePixelRatio || 1), []);

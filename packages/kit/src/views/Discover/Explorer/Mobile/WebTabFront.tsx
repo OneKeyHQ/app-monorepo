@@ -17,7 +17,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
 const WebTabFront = memo(() => {
   useNotifyChanges();
   const { tabs, tab } = useWebTabs();
@@ -47,12 +46,10 @@ const WebTabFront = memo(() => {
     <ViewShot style={styles.container} ref={tabViewShotRef} onLayout={onLayout}>
       {content}
       <View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            zIndex: showHome ? 1 : -1,
-          },
-        ]}
+        style={{
+          ...StyleSheet.absoluteFillObject,
+          zIndex: showHome ? 1 : -1,
+        }}
       >
         <DiscoverHome
           onItemSelect={(dapp) => {

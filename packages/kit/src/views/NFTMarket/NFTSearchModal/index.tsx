@@ -182,7 +182,12 @@ const SearchResultList: FC<Props> = ({
             }}
           >
             <ListItem.Column>
-              <CollectionLogo src={item.logoUrl} width="56px" height="56px" />
+              <CollectionLogo
+                src={item.logoUrl}
+                width="56px"
+                height="56px"
+                verified={item.openseaVerified}
+              />
             </ListItem.Column>
             <ListItem.Column
               flex={1}
