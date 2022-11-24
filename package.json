@@ -60,6 +60,7 @@
     "@onekeyfe/cross-inpage-provider-injected": "1.1.6",
     "@onekeyfe/cross-inpage-provider-types": "1.1.6",
     "@onekeyfe/extension-bridge-hosted": "1.1.6",
+    "@onekeyfe/network-list": "file:.yalc/@onekeyfe/network-list",
     "@onekeyfe/onekey-cross-webview": "1.1.6",
     "@web3-react/core": "8.0.35-beta.0",
     "@web3-react/empty": "8.0.20-beta.0",

@@ -23,10 +23,8 @@ class Client {
     const res = await this.request
       .get<{ height: number }>('/')
       .then((i) => i.data);
-    const bestBlockNumber = Number(res.height);
     return {
-      bestBlockNumber,
-      isReady: Number.isFinite(bestBlockNumber) && bestBlockNumber > 0,
+      height: Number(res.height ?? 0),
     };
   }
 

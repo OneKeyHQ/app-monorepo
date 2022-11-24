@@ -6,3 +6,55 @@ export const enum NetworkId {
 }
 
 export type Address = string & { __typeAddress: any };
+
+export type IAdaAmount = {
+  unit: string;
+  quantity: string;
+};
+
+export type IAdaAccount = {
+  'address': string;
+  'amount': IAdaAmount[];
+  'stake_address': string;
+  'type': 'shelley';
+  'script': false;
+};
+
+export type IAdaUTXO = {
+  tx_hash: string;
+  tx_index: number;
+  output_index: string;
+  amount: IAdaAmount[];
+};
+
+export type IAdaTransaction = {
+  'hash': string;
+  'block': string;
+  'block_height': number;
+  'block_time': number;
+  'slot': number;
+  'index': number;
+  'output_amount': IAdaAmount[];
+  'fees': string;
+  'deposit': string;
+  'size': number;
+  'invalid_before': string | null;
+  'invalid_hereafter': string | null;
+  'utxo_count': number;
+  'withdrawal_count': number;
+  'mir_cert_count': number;
+  'delegation_count': number;
+  'stake_cert_count': number;
+  'pool_update_count': number;
+  'pool_retire_count': number;
+  'asset_mint_or_burn_count': number;
+  'redeemer_count': number;
+  'valid_contract': boolean;
+};
+
+export type ITransactionListItem = {
+  'tx_hash': string;
+  'tx_index': number;
+  'block_height': number;
+  'block_time': number;
+};

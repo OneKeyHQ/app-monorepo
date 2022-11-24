@@ -8,6 +8,8 @@ import {
   getAddressType,
   getPubKeyBlake2b224Hash,
   getShelleyAddressNetworkId,
+  isValidBootstrapAddress,
+  isValidShelleyAddress,
   packBaseAddress,
   // @ts-expect-error
 } from 'cardano-crypto.js';
@@ -58,3 +60,8 @@ export const baseAddressFromXpub = (
   );
   return encodeAddress(addrBuffer);
 };
+
+export const validShelleyAddress = (address: string): boolean =>
+  isValidShelleyAddress(address);
+export const validBootstrapAddress = (address: string): boolean =>
+  isValidBootstrapAddress(address);
