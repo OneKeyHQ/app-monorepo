@@ -97,7 +97,6 @@ export const AboutSection = () => {
     },
     [toast, intl],
   );
-
   return (
     <Box w="full" mb="6">
       <Box pb="2">
@@ -148,7 +147,7 @@ export const AboutSection = () => {
             {settings.buildNumber ? `-${settings.buildNumber}` : ''}
           </Text>
         </Pressable>
-        <AutoUpdateSectionItem />
+        {!platformEnv.isMas ? <AutoUpdateSectionItem /> : null}
         {showRate ? (
           <AppRateSectionItem onAfterOnpenReview={checkShowAppReview} />
         ) : null}
