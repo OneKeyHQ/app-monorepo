@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import BigNumber from 'bignumber.js';
+
 import { VaultBase } from '../../VaultBase';
 
+import { API } from './helper/blockfrost';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -19,4 +22,18 @@ export default class Vault extends VaultBase {
   };
 
   settings = settings;
+
+  override async getBalances(
+    requests: { address: string; tokenAddress?: string | undefined }[],
+  ): Promise<(BigNumber | undefined)[]> {
+    const result = await Promise.all(
+      requests.map(async ({ address }) => {
+        const account = API.getAccountInfo(address);
+        console.log(account);
+        return new BigNumber(2150);
+      }),
+    );
+
+    return result;
+  }
 }
