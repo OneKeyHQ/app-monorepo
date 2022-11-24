@@ -153,6 +153,7 @@
     "keccak": "^3",
     "rimraf": "^3.0.2",
     "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz",
+    "minimatch": "patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch",
     "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
     "native-base@3.4.22": "patch:native-base@npm%3A3.4.22#./.yarn/patches/native-base-npm-3.4.22-844dd4a7e7.patch",
     "source-map@0.7.3": "^0.7.4"

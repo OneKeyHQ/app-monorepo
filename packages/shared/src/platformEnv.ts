@@ -42,6 +42,8 @@ export type IPlatformEnv = {
   isDesktopMac?: boolean;
   /** macos arm64 only */
   isDesktopMacArm64?: boolean;
+  /** macos for appStore */
+  isMas?: boolean;
 
   isExtFirefox?: boolean;
   isExtChrome?: boolean;
@@ -101,6 +103,7 @@ const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const isNativeAndroidGooglePlay =
   isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
+const isMas = isDesktop && window?.desktopApi?.isMas;
 
 // for platform building by file extension
 const getPlatformSymbol = (): IPlatform | undefined => {
@@ -227,6 +230,7 @@ const platformEnv: IPlatformEnv = {
   isDesktopWin,
   isDesktopMacArm64,
   isDesktopLinux,
+  isMas,
 
   isExtFirefox,
   isExtChrome,

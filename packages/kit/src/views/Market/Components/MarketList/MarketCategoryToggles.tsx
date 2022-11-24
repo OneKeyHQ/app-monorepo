@@ -41,11 +41,8 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
     [categorys],
   );
 
-  const [toggleIndex, setToggleIndex] = useState(() => defaultSelectedIndex);
-
   const toggleCategory = useCallback(
     (index: number) => {
-      setToggleIndex(index);
       const selectedCategory = categorys[index];
       if (selectedCategory) {
         backgroundApiProxy.serviceMarket.toggleCategory({
@@ -65,7 +62,7 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
           <ToggleButtonGroup
             leftIconSize={0}
             buttons={buttons}
-            selectedIndex={toggleIndex}
+            selectedIndex={defaultSelectedIndex}
             onButtonPress={toggleCategory}
             bg="background-default"
           />
