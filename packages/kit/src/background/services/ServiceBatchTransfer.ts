@@ -7,6 +7,7 @@ import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   IEncodedTx,
   ISetApprovalForAll,
+  ISignedTx,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -14,6 +15,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
+
+const BATCH_SEND_RETRY_MAX = 20;
 
 @backgroundClass()
 export default class ServiceBatchTransfer extends ServiceBase {
@@ -97,7 +100,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const { engine } = this.backgroundApi;
     const { networkId, pendingTxs, encodedTx } = params;
     const network = await engine.getNetwork(networkId);
-
+    let retry = 0;
     if (
       pendingTxs &&
       pendingTxs.length > 0 &&
@@ -105,6 +108,8 @@ export default class ServiceBatchTransfer extends ServiceBase {
       (encodedTx as IEncodedTxEvm).to ===
         batchTransferContractAddress[network.id]
     ) {
+      // Make sure to call the batch sending contract after approves take effect
+      let signedTx: ISignedTx | null = null;
       const refreshPendingTxs = async () => {
         const txs = await engine.providerManager.refreshPendingTxs(
           networkId,
@@ -113,11 +118,26 @@ export default class ServiceBatchTransfer extends ServiceBase {
 
         if (Object.keys(txs).length !== pendingTxs.length) {
           await wait(1000);
-          refreshPendingTxs();
+          await refreshPendingTxs();
         }
       };
 
-      refreshPendingTxs();
+      const resendTx = async () => {
+        try {
+          signedTx = await engine.signAndSendEncodedTx(params);
+        } catch (e) {
+          if (retry > BATCH_SEND_RETRY_MAX) {
+            throw e;
+          }
+          retry += 1;
+          await wait(1000);
+          await resendTx();
+        }
+      };
+
+      await refreshPendingTxs();
+      await resendTx();
+      return signedTx;
     }
 
     return engine.signAndSendEncodedTx(params);

@@ -27,6 +27,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import Protected, { ValidationFields } from '../../../components/Protected';
 import { useInteractWithInfo } from '../../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
+import { useWallet } from '../../../hooks/useWallet';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -72,6 +73,7 @@ function SendProgress({
     encodedTxs,
     onSuccess,
     onFail,
+    walletId,
     payloadInfo,
     backRouteName,
     sourceInfo,
@@ -81,6 +83,7 @@ function SendProgress({
 
   const interactInfo = useInteractWithInfo({ sourceInfo });
   const progressState = useRef(currentState);
+  const { wallet } = useWallet({ walletId });
 
   const inProgress = currentState === BatchSendState.inProgress;
 
@@ -117,7 +120,7 @@ function SendProgress({
             id: tx.txid,
           })),
         });
-      result.push(signedTx);
+      result.push(signedTx as ISignedTx);
       debugLogger.sendTx.info(
         'Authentication sendTx DONE:',
         route.params,
@@ -302,6 +305,17 @@ function SendProgress({
           'Transaction In Progress...'}
         {currentState === BatchSendState.onPause && 'Transaction Paused'}
       </Text>
+      {wallet?.type === 'hw' && (
+        <Text
+          textAlign="center"
+          mt="4px"
+          typography="DisplaySmall"
+          color="text-subdued"
+        >
+          You may receive multiple signing requests on the hardware wallet.
+        </Text>
+      )}
+
       <Button
         leftIconName="PauseOutline"
         type="basic"
