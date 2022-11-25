@@ -319,7 +319,6 @@ function SendProgress({
       )}
 
       <Button
-        leftIconName="PauseOutline"
         type="basic"
         mt="16px"
         onPress={() => setCurrentState(BatchSendState.onPause)}
