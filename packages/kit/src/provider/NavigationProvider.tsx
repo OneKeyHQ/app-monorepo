@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef } from 'react';
+import { createRef, memo, useEffect, useMemo, useRef } from 'react';
 
 import {
   DefaultTheme,
@@ -22,7 +22,7 @@ import buildLinking from '../routes/linking';
 import RedirectProvider from './RedirectProvider';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
-export const navigationRef = React.createRef<RootNavContainerRef>();
+export const navigationRef = createRef<RootNavContainerRef>();
 
 declare global {
   // eslint-disable-next-line no-var, vars-on-top

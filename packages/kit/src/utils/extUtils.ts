@@ -1,9 +1,8 @@
 import { isNil } from 'lodash';
 
-import {
-  UI_HTML_DEFAULT_MIN_HEIGHT,
-  UI_HTML_DEFAULT_MIN_WIDTH,
-} from '../../../ext/src/ui/popupSizeFix';
+// Chrome extension popups can have a maximum height of 600px and maximum width of 800px
+export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
+export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
 
 let expandTabId: number | undefined;
 export type OpenUrlRouteInfo = {

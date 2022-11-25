@@ -24,12 +24,6 @@ type LaunchProps = {
   UIApplicationLaunchOptionsRemoteNotificationKey?: NotificationExtra;
 };
 
-if (platformEnv.isRuntimeBrowser) {
-  // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
-  // @ts-ignore
-  window._frameTimestamp = null;
-}
-
 const swrConfig = {
   refreshInterval: 0,
   // @ts-ignore
