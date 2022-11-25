@@ -3,7 +3,7 @@ import { OnekeyNetwork } from './networkIds';
 export const batchTransferContractAddress: {
   [k: string]: string;
 } = {
-  [OnekeyNetwork.eth]: '',
+  [OnekeyNetwork.eth]: '0x94214d492f1c94c977378e0884e1dc3f32ee6b99',
   [OnekeyNetwork.goerli]: '0x6bbe9c913e6ae7448b8cc975bac5364a557c724a',
   [OnekeyNetwork.polygon]: '0x8db8e4a1351e333823c016e931672dd10779e7f5',
   [OnekeyNetwork.bsc]: '0xbeaa4219f495611ccccc441c1f19ab0b3708dc67',
