@@ -15843,7 +15843,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"expo-device@npm:^4.3.0":
+"expo-device@npm:4.3.0":
   version: 4.3.0
   resolution: "expo-device@npm:4.3.0"
   dependencies:
@@ -15851,6 +15851,17 @@ colour@latest:
   peerDependencies:
     expo: "*"
   checksum: a92536c4177d39f7d4c0e5755fcbc6316ddd3ab39a415f9f711d9ed798e682c61812d6716cece88b022ea60306b011ea637448a65d47e2bacf9c52c5e71c7e5f
+  languageName: node
+  linkType: hard
+
+"expo-device@patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
+  version: 4.3.0
+  resolution: "expo-device@patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch::version=4.3.0&hash=78e097&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+  dependencies:
+    ua-parser-js: ^0.7.19
+  peerDependencies:
+    expo: "*"
+  checksum: adeddace649501c0b67063b10bd2c8b428020b84745c68dc4ee9ca363877427ffa9aba67707932adc0fcec4df3a48bbe692656ea06fa2d2df79fabd88cac1383
   languageName: node
   linkType: hard
 
