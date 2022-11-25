@@ -1,212 +1,53 @@
 diff --git a/dist/exports/Dimensions/index.js b/dist/exports/Dimensions/index.js
-index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..39365d3fec8e800cfa4f5d6b59a79fb8fab5211f 100644
+index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..e45e7b57304fd3bbb6693e08b357e4f810c61ba8 100644
 --- a/dist/exports/Dimensions/index.js
 +++ b/dist/exports/Dimensions/index.js
-@@ -7,99 +7,107 @@
-  *
-  * 
+@@ -9,6 +9,8 @@
   */
--import invariant from 'fbjs/lib/invariant';
--import canUseDOM from '../../modules/canUseDom';
--var dimensions = {
--  window: {
--    fontScale: 1,
--    height: 0,
--    scale: 1,
--    width: 0
--  },
--  screen: {
--    fontScale: 1,
--    height: 0,
--    scale: 1,
--    width: 0
--  }
--};
--var listeners = {};
--var shouldInit = canUseDOM;
--
--function update() {
--  if (!canUseDOM) {
--    return;
--  }
--
--  var win = window;
--  var docEl = win.document.documentElement;
--  dimensions.window = {
--    fontScale: 1,
--    height: docEl.clientHeight,
--    scale: win.devicePixelRatio || 1,
--    width: docEl.clientWidth
--  };
--  dimensions.screen = {
--    fontScale: 1,
--    height: win.screen.height,
--    scale: win.devicePixelRatio || 1,
--    width: win.screen.width
--  };
--}
--
--function handleResize() {
+ import invariant from 'fbjs/lib/invariant';
+ import canUseDOM from '../../modules/canUseDom';
++import { throttle } from 'lodash';
++
+ var dimensions = {
+   window: {
+     fontScale: 1,
+@@ -33,6 +35,12 @@ function update() {
+ 
+   var win = window;
+   var docEl = win.document.documentElement;
++
++  if (docEl.clientHeight === dimensions.window.height && 
++    docEl.clientWidth === dimensions.window.width &&
++    win.screen.height === dimensions.screen.height && 
++    win.screen.width === dimensions.screen.width) return;
++
+   dimensions.window = {
+     fontScale: 1,
+     height: docEl.clientHeight,
+@@ -45,12 +53,11 @@ function update() {
+     scale: win.devicePixelRatio || 1,
+     width: win.screen.width
+   };
++  return true;
+ }
+ 
+ function handleResize() {
 -  update();
 -
 -  if (Array.isArray(listeners['change'])) {
--    listeners['change'].forEach(handler => handler(dimensions));
--  }
--}
--
--export default class Dimensions {
--  static get(dimension) {
--    if (shouldInit) {
--      shouldInit = false;
--      update();
--    }
--
--    invariant(dimensions[dimension], "No dimension set for key " + dimension);
--    return dimensions[dimension];
--  }
--
--  static set(initialDimensions) {
--    if (initialDimensions) {
--      if (canUseDOM) {
--        invariant(false, 'Dimensions cannot be set in the browser');
--      } else {
--        if (initialDimensions.screen != null) {
--          dimensions.screen = initialDimensions.screen;
--        }
--
--        if (initialDimensions.window != null) {
--          dimensions.window = initialDimensions.window;
--        }
--      }
--    }
--  }
--
--  static addEventListener(type, handler) {
--    listeners[type] = listeners[type] || [];
--    listeners[type].push(handler);
--    return {
--      remove: () => {
--        this.removeEventListener(type, handler);
--      }
--    };
--  }
--
--  static removeEventListener(type, handler) {
--    if (Array.isArray(listeners[type])) {
--      listeners[type] = listeners[type].filter(_handler => _handler !== handler);
--    }
--  }
--
--}
--
--if (canUseDOM) {
++  if (update() && Array.isArray(listeners['change'])) {
+     listeners['change'].forEach(handler => handler(dimensions));
+   }
+ }
+@@ -100,6 +107,7 @@ export default class Dimensions {
+ 
+ }
+ 
++const handleResizeThrottle = throttle(handleResize, 300);
+ if (canUseDOM) {
 -  window.addEventListener('resize', handleResize, false);
--}
-\ No newline at end of file
-+ import invariant from 'fbjs/lib/invariant';
-+ import canUseDOM from '../../modules/canUseDom';
-+ var dimensions = {
-+   window: {
-+     fontScale: 1,
-+     height: 0,
-+     scale: 1,
-+     width: 0
-+   },
-+   screen: {
-+     fontScale: 1,
-+     height: 0,
-+     scale: 1,
-+     width: 0
-+   }
-+ };
-+ var listeners = {};
-+ var shouldInit = canUseDOM;
-+ 
-+ function update() {
-+   if (!canUseDOM) {
-+     return;
-+   }
-+ 
-+   var win = window;
-+   var docEl = win.document.documentElement;
-+   var updated = false;
-+   const _window = {
-+     fontScale: 1,
-+     height: docEl.clientHeight,
-+     scale: win.devicePixelRatio || 1,
-+     width: docEl.clientWidth
-+   };
-+   const _screen = {
-+     fontScale: 1,
-+     height: win.screen.height,
-+     scale: win.devicePixelRatio || 1,
-+     width: win.screen.width
-+   };
-+   if (JSON.stringify(dimensions.window) !== JSON.stringify(_window)) {
-+     dimensions.window = _window;
-+     updated = true;
-+   }
-+   if (JSON.stringify(dimensions.screen) !== JSON.stringify(_screen)) {
-+     dimensions.screen = _screen;
-+     updated = true;
-+   }
-+   return updated;
-+ }
-+ 
-+ function handleResize() {
-+   if (update() && Array.isArray(listeners['change'])) {
-+     listeners['change'].forEach(handler => handler(dimensions));
-+   }
-+ }
-+ 
-+ export default class Dimensions {
-+   static get(dimension) {
-+     if (shouldInit) {
-+       shouldInit = false;
-+       update();
-+     }
-+ 
-+     invariant(dimensions[dimension], "No dimension set for key " + dimension);
-+     return dimensions[dimension];
-+   }
-+ 
-+   static set(initialDimensions) {
-+     if (initialDimensions) {
-+       if (canUseDOM) {
-+         invariant(false, 'Dimensions cannot be set in the browser');
-+       } else {
-+         if (initialDimensions.screen != null) {
-+           dimensions.screen = initialDimensions.screen;
-+         }
-+ 
-+         if (initialDimensions.window != null) {
-+           dimensions.window = initialDimensions.window;
-+         }
-+       }
-+     }
-+   }
-+ 
-+   static addEventListener(type, handler) {
-+     listeners[type] = listeners[type] || [];
-+     listeners[type].push(handler);
-+     return {
-+       remove: () => {
-+         this.removeEventListener(type, handler);
-+       }
-+     };
-+   }
-+ 
-+   static removeEventListener(type, handler) {
-+     if (Array.isArray(listeners[type])) {
-+       listeners[type] = listeners[type].filter(_handler => _handler !== handler);
-+     }
-+   }
-+ 
-+ }
-+ 
-+ if (canUseDOM) {
-+   window.addEventListener('resize', handleResize, false);
-+ }
++  window.addEventListener('resize', handleResizeThrottle, false);
+ }
 \ No newline at end of file
 diff --git a/dist/exports/Image/index.js b/dist/exports/Image/index.js
 index 93c5f22f3b5c7625f3d428302033aae287a576f8..b06dbea0187ab4721133806a9c60f92bbfbcc037 100644
