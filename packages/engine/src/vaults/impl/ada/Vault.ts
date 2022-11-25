@@ -7,7 +7,11 @@ import { InvalidAddress } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import {
   IDecodedTx,
+  IDecodedTxActionNativeTransfer,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
   IDecodedTxLegacy,
+  IDecodedTxStatus,
   IEncodedTx,
   ITransferInfo,
 } from '../../types';
@@ -22,6 +26,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { IAdaAmount, IEncodedTxADA } from './types';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -68,20 +73,97 @@ export default class Vault extends VaultBase {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
 
+  override async decodeTx(
+    encodedTx: IEncodedTxADA,
+    payload?: any,
+  ): Promise<IDecodedTx> {
+    const { inputs, outputs, transferInfo } = encodedTx;
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const nativeTransfer: IDecodedTxActionNativeTransfer = {
+      tokenInfo: token,
+      utxoFrom: inputs.map((input) => {
+        const { balance, balanceValue } = this.getInputOrOutputBalance(
+          input.amount,
+          network.decimals,
+        );
+        return {
+          address: input.address,
+          balance,
+          balanceValue,
+          symbol: network.symbol,
+          isMine: true,
+        };
+      }),
+      utxoTo: outputs.map((output) => ({
+        address: output.address,
+        balance: new BigNumber(output.amount)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        balanceValue: output.amount,
+        symbol: network.symbol,
+        isMine: output.address === dbAccount.address,
+      })),
+      from: dbAccount.address,
+      to: transferInfo.to,
+      amount: new BigNumber(outputs[0].amount)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      amountValue: outputs[0].amount,
+      extraInfo: null,
+    };
+    return {
+      txid: '',
+      owner: dbAccount.address,
+      signer: dbAccount.address,
+      nonce: 0,
+      actions: [
+        {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          direction:
+            outputs[0].address === dbAccount.address
+              ? IDecodedTxDirection.OUT
+              : IDecodedTxDirection.SELF,
+          nativeTransfer,
+        },
+      ],
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      totalFeeInNative: encodedTx.totalFeeInNative,
+    };
+  }
+
+  private getInputOrOutputBalance = (
+    amounts: IAdaAmount[],
+    decimals: number,
+    asset = 'lovelace',
+  ): { balance: string; balanceValue: string } => {
+    const item = amounts.filter((amount) => amount.unit === asset);
+    if (!item || item.length <= 0) {
+      return { balance: '0', balanceValue: '0' };
+    }
+    const amount = item[0]?.quantity ?? '0';
+    return {
+      balance: new BigNumber(amount).shiftedBy(-decimals).toFixed(),
+      balanceValue: amount,
+    };
+  };
+
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
-  ): Promise<any> {
+  ): Promise<IEncodedTxADA> {
     const { to, amount } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const { decimals } = await this.engine.getNetwork(this.networkId);
+    const { decimals, feeDecimals } = await this.engine.getNetwork(
+      this.networkId,
+    );
     const client = await this.getClient();
     const utxos = await client.getUTXOs(dbAccount.address);
-    console.log('utxos: ', utxos);
-    console.log('transferInfo: ', transferInfo);
 
-    console.log(CardanoApi);
-
-    const amountBN = new BigNumber(transferInfo.amount).shiftedBy(decimals);
+    const amountBN = new BigNumber(amount).shiftedBy(decimals);
     const txPlan = CardanoApi.composeTxPlan(
       transferInfo,
       dbAccount.xpub,
@@ -95,17 +177,20 @@ export default class Vault extends VaultBase {
         },
       ],
     );
-    console.log(txPlan);
 
-    // const result = await CardanoApi.buildSendADATransaction(
-    //   {
-    //     ...transferInfo,
-    //     amount: amountBN.toFixed(),
-    //   },
-    //   utxos,
-    // );
-    // console.log(result);
-    throw new Error('not implemention');
+    // @ts-expect-error
+    const { fee, inputs, outputs, totalSpent } = txPlan;
+    const totalFeeInNative = new BigNumber(fee)
+      .shiftedBy(-1 * feeDecimals)
+      .toFixed();
+    return {
+      inputs,
+      outputs,
+      fee,
+      totalSpent,
+      totalFeeInNative,
+      transferInfo,
+    };
   }
 
   override async getBalances(

@@ -1,3 +1,5 @@
+import { ITransferInfo } from '../../types';
+
 export type BIP32Path = number[];
 
 export const enum NetworkId {
@@ -57,4 +59,30 @@ export type ITransactionListItem = {
   'tx_index': number;
   'block_height': number;
   'block_time': number;
+};
+
+type IEncodeInput = {
+  address: string;
+  amount: IAdaAmount[];
+  block: string;
+  data_hash: string;
+  outputIndex: number;
+  txHash: string;
+  tx_index: number;
+};
+
+type IEncodeOutput = {
+  address: string;
+  amount: string;
+  assets: IAdaAmount[];
+  isChange?: boolean;
+};
+
+export type IEncodedTxADA = {
+  inputs: IEncodeInput[];
+  outputs: IEncodeOutput[];
+  fee: string;
+  totalSpent: string;
+  totalFeeInNative: string;
+  transferInfo: ITransferInfo;
 };
