@@ -98,9 +98,7 @@ function normalizeConfig({ platform, config, env }) {
   config.resolve.extensions = lodash
     .uniq(config.resolve.extensions.concat(resolveExtensions))
     // sort platform specific extensions to the beginning
-    .sort((a, b) => {
-      return a.includes(platform) ? -1 : 0;
-    });
+    .sort((a, b) => (a.includes(platform) ? -1 : 0));
   config.resolve.alias = {
     ...config.resolve.alias,
     '@solana/buffer-layout-utils':

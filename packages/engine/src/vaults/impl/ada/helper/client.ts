@@ -48,7 +48,7 @@ class Client {
 
   async getUTXOs(address: string): Promise<IAdaUTXO[]> {
     return this.request
-      .get<IAdaUTXO[]>(`/addresses/${address}`)
+      .get<IAdaUTXO[]>(`/addresses/${address}/utxos`)
       .then((i) => i.data);
   }
 
