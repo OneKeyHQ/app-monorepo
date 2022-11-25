@@ -214,6 +214,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       engine,
       feeInfoEditable,
       feeInfoPayloads,
+      isSingleTransformMode,
       navigation,
       networkId,
       onModalClose,
@@ -298,7 +299,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     <GroupingList
       mt="24px"
       headerProps={{
-        title: 'Header',
+        title: `Multiple Transactions (${encodedTxs.length})`,
       }}
       sections={groupTransactionsData}
       renderItem={({ item }: { item: IDecodedTx }) => (
