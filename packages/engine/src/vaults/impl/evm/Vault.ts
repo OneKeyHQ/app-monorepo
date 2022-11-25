@@ -1415,14 +1415,29 @@ export default class Vault extends VaultBase {
         .filter(Boolean);
       const outputActions = decodedTx.outputActions ?? [];
       const decodeTxActions = outputActions?.filter((a) => {
-        const { tokenTransfer, tokenApprove } = a;
-        if (tokenTransfer || tokenApprove) {
+        const { tokenTransfer, tokenApprove, nftTransfer } = a;
+        if (tokenTransfer || tokenApprove || nftTransfer) {
           const tokenInfo = tokenTransfer?.tokenInfo ?? tokenApprove?.tokenInfo;
+          const assetInfo = nftTransfer?.asset;
+
           if (tokenInfo) {
             const { tokenIdOnNetwork, id } = tokenInfo;
             const findNFTTx = nftTxs.find(
               (tx) =>
                 tx.contractAddress === tokenIdOnNetwork && tx.tokenId === id,
+            );
+            if (findNFTTx) {
+              return false;
+            }
+          }
+
+          if (assetInfo) {
+            const findNFTTx = nftTxs.find(
+              (tx) =>
+                (tx.contractAddress === assetInfo.contractAddress ||
+                  tx.tokenAddress === assetInfo.tokenAddress) &&
+                (tx.tokenId === assetInfo.tokenId ||
+                  tx.contractTokenId === assetInfo.contractTokenId),
             );
             if (findNFTTx) {
               return false;

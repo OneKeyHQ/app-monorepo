@@ -129,6 +129,7 @@ export type NFTTransaction = {
   collectionId?: string;
   // sol
   tokenAddress?: string;
+  contractTokenId?: string;
 };
 
 export type NFTMarketCapCollection = {

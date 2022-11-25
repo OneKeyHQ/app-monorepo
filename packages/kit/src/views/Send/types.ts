@@ -169,6 +169,7 @@ export type SendFeedbackReceiptParams = {
   type: 'Send' | 'Sign' | 'SendUnconfirmed';
   closeModal?: () => any;
   onDetail?: (txid: string) => any;
+  isSingleTransformMode?: boolean;
 };
 
 export type HardwareSwapContinueParams = {

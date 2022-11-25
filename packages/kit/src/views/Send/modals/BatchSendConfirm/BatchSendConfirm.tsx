@@ -168,6 +168,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           type,
           closeModal: close,
           onDetail: routeParams.onDetail,
+          isSingleTransformMode,
         };
         navigation.navigate(SendRoutes.SendFeedbackReceipt, params);
 
