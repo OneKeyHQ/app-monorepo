@@ -59,6 +59,7 @@ function SendProgress({
   setTitleInfo,
 }: EnableLocalAuthenticationProps) {
   const [currentProgerss, setCurrentProgress] = useState(0);
+  const [currentFinished, setCurrentFinished] = useState(0);
   const navigation = useNavigation<NavigationProps>();
 
   const toast = useToast();
@@ -96,7 +97,8 @@ function SendProgress({
   });
 
   const txCount = encodedTxs.length;
-  const progress = new BigNumber(currentProgerss / txCount).toNumber();
+  const progress = new BigNumber(currentFinished / txCount).toNumber();
+  const canPause = inProgress && currentProgerss < txCount - 1;
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (progressState.current === BatchSendState.inProgress)
@@ -107,7 +109,9 @@ function SendProgress({
 
   const sendTxs = useCallback(async (): Promise<ISignedTx[]> => {
     const result: ISignedTx[] = [];
-    for (let i = currentProgerss; i < encodedTxs.length; i += 1) {
+    for (let i = 0; i < encodedTxs.length; i += 1) {
+      await waitUntilInProgress();
+      setCurrentProgress(i + 1);
       debugLogger.sendTx.info('Authentication sendTx:', route.params);
       const signedTx =
         await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
@@ -126,14 +130,12 @@ function SendProgress({
         route.params,
         result,
       );
-      await waitUntilInProgress();
       // eslint-disable-next-line @typescript-eslint/no-shadow
-      setCurrentProgress(i + 1);
+      setCurrentFinished(i + 1);
     }
     return result;
   }, [
     accountId,
-    currentProgerss,
     encodedTxs,
     networkId,
     password,
@@ -291,7 +293,7 @@ function SendProgress({
           text={
             <>
               <Text typography="DisplayMedium">
-                {currentProgerss} / {txCount}
+                {currentFinished} / {txCount}
               </Text>
               <Text typography="Body2Strong" color="text-subdued">
                 Transactions
@@ -321,8 +323,8 @@ function SendProgress({
         type="basic"
         mt="16px"
         onPress={() => setCurrentState(BatchSendState.onPause)}
-        opacity={inProgress ? 1 : 0}
-        disabled={!inProgress}
+        opacity={canPause ? 1 : 0}
+        disabled={!canPause}
       >
         Pause
       </Button>
