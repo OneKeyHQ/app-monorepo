@@ -3,7 +3,15 @@ import React, { useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Container, Spinner, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Container,
+  HStack,
+  Icon,
+  Spinner,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import { IEncodedTx, IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { BatchSendConfirmParams, SendRoutes, SendRoutesParams } from '../types';
@@ -91,44 +99,55 @@ function BatchTransactionFeeInfo(props: Props) {
 
   return (
     <Container.Box>
-      <Container.Item hasArrow={!disabled} onPress={handleNativeToEdit}>
-        <Box flexDirection="column" w="100%">
-          <Text typography="Body2Strong" color="text-subdued">
-            Gas Fee Settings
-          </Text>
-          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-            <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
-          </Text>
-        </Box>
-      </Container.Item>
-      <Container.Item>
-        <Box flexDirection="column" w="100%">
-          <Text typography="Body2Strong" color="text-subdued">
-            Estimate Total Gas Fee
-          </Text>
-          <Box
-            w="100%"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="flex-start"
-          >
-            {feeInfoPayload ? (
+      <Container.Item
+        onPress={handleNativeToEdit}
+        wrap={
+          <HStack p={4} alignItems="center" pr={2}>
+            <VStack flex={1}>
+              <Text typography="Body2Strong" color="text-subdued">
+                Gas Fee Settings
+              </Text>
               <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                {`${totalFeeInNative} ${
-                  feeInfoPayload?.info?.nativeSymbol || ''
-                }`}
+                <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
               </Text>
-            ) : (
-              <Text color="text-subdued" flex={1}>
-                {intl.formatMessage({ id: 'content__calculate_fee' })}
-              </Text>
-            )}
-            <Box w={2} />
-            {feeInfoLoading ? <Spinner size="sm" /> : null}
-            <Box flex={1} />
+            </VStack>
+            <Box>
+              <Icon name="ChevronRightSolid" size={20} />
+            </Box>
+          </HStack>
+        }
+      />
+      <Container.Item
+        hidePadding
+        wrap={
+          <Box flexDirection="column" w="100%" p={4}>
+            <Text typography="Body2Strong" color="text-subdued">
+              Estimate Total Gas Fee
+            </Text>
+            <Box
+              w="100%"
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="flex-start"
+            >
+              {feeInfoPayload ? (
+                <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+                  {`${totalFeeInNative} ${
+                    feeInfoPayload?.info?.nativeSymbol || ''
+                  }`}
+                </Text>
+              ) : (
+                <Text color="text-subdued" flex={1}>
+                  {intl.formatMessage({ id: 'content__calculate_fee' })}
+                </Text>
+              )}
+              <Box w={2} />
+              {feeInfoLoading ? <Spinner size="sm" /> : null}
+              <Box flex={1} />
+            </Box>
           </Box>
-        </Box>
-      </Container.Item>
+        }
+      />
     </Container.Box>
   );
 }

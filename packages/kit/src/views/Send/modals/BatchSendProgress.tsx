@@ -12,7 +12,7 @@ import {
   Center,
   Progress,
   Text,
-  VStack,
+  HStack,
   useToast,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -347,10 +347,10 @@ function BatchSendProgress() {
   const renderFooter = useCallback(
     () => (
       <Box opacity={onPause ? 1 : 0}>
-        <VStack space={4} p={4} pt={0}>
+        <HStack space={4} p={4} pt={0}>
           <Button
             size="xl"
-            leftIconName="CloseSolid"
+            flex={1}
             disabled={!onPause}
             onPress={() => close()}
           >
@@ -359,13 +359,13 @@ function BatchSendProgress() {
           <Button
             size="xl"
             type="primary"
-            leftIconName="PlaySolid"
+            flex={1}
             onPress={() => setCurrentState(BatchSendState.inProgress)}
             disabled={!onPause}
           >
             Continue
           </Button>
-        </VStack>
+        </HStack>
       </Box>
     ),
     [close, onPause],
