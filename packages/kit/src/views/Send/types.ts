@@ -60,7 +60,7 @@ export type PreSendParams = {
   accountId: string;
   closeModal?: () => any;
   transferInfos?: ITransferInfo[];
-} & Partial<ITransferInfo>;
+} & ITransferInfo;
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
   to: string;

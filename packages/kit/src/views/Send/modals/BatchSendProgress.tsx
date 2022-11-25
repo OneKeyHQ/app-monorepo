@@ -10,9 +10,9 @@ import {
   Box,
   Button,
   Center,
+  HStack,
   Progress,
   Text,
-  HStack,
   useToast,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';

@@ -12,7 +12,7 @@ export const defaultProps = {
   size: 'xs',
 } as const;
 
-const Progress: FC<ProgressProps> = ({
+const Bar: FC<ProgressProps> = ({
   value,
   width,
   height,
@@ -32,5 +32,5 @@ const Progress: FC<ProgressProps> = ({
   />
 );
 
-Progress.defaultProps = defaultProps;
-export default Progress;
+Bar.defaultProps = defaultProps;
+export default Bar;

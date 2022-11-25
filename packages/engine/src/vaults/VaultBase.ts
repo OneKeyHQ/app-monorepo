@@ -313,6 +313,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async buildEncodedTxsFromSetApproveForAll(
     approveInfos: ISetApprovalForAll[],
+    prevNonce?: number,
   ): Promise<IEncodedTx[]> {
     throw new NotImplemented();
   }

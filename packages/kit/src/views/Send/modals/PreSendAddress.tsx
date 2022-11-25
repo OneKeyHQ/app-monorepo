@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
@@ -9,6 +10,7 @@ import {
   GoPlusSupportApis,
 } from '@onekeyhq/engine/src/types/goplus';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   INFTInfo,
   ITransferInfo,
@@ -197,6 +199,7 @@ function PreSendAddress() {
       const nftInfos: INFTInfo[] = [];
 
       let encodedTx = null;
+      let prevNonce;
 
       if (transferInfo) {
         transferInfo.from = account.address;
@@ -211,12 +214,22 @@ function PreSendAddress() {
             accountId,
             transferInfos,
           });
+
+        const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
+
+        if (prevTx) {
+          prevNonce = (prevTx as IEncodedTxEvm).nonce;
+          prevNonce =
+            prevNonce !== undefined
+              ? new BigNumber(prevNonce).toNumber()
+              : prevNonce;
+        }
+
         encodedTx = await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
           networkId,
           accountId,
           transferInfos,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          prevNonce: encodedApproveTxs[encodedApproveTxs.length - 1]?.nonce,
+          prevNonce,
         });
 
         for (let i = 0; i < transferInfos.length; i += 1) {

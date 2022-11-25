@@ -179,19 +179,22 @@ function SendButton({
 
   const selectNFTs = listData.filter((item) => item.selected === true);
   const isDisabled = selectNFTs.length === 0;
+
+  const transferInfos = selectNFTs.map((item) => ({
+    from: '',
+    to: '',
+    isNFT: true,
+    amount: item.amount ?? '1',
+    token: item.contractAddress ?? item.tokenAddress,
+    tokenId: item.tokenId ?? item.tokenAddress,
+    type: item.ercType,
+  }));
   const sendAction = () => {
     const params: PreSendParams = {
+      ...transferInfos[0],
       accountId,
       networkId,
-      transferInfos: selectNFTs.map((item) => ({
-        from: '',
-        to: '',
-        isNFT: true,
-        amount: item.amount ?? '1',
-        token: item.contractAddress ?? item.tokenAddress,
-        tokenId: item.tokenId ?? item.tokenAddress,
-        type: item.ercType,
-      })),
+      transferInfos,
     };
     navigation.navigate(SendRoutes.PreSendAddress, params);
   };
