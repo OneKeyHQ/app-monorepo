@@ -3,9 +3,10 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
-import { InvalidAddress } from '../../../errors';
+import { InvalidAddress, NotImplemented } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import {
+  IApproveInfo,
   IDecodedTx,
   IDecodedTxActionNativeTransfer,
   IDecodedTxActionType,
@@ -13,7 +14,11 @@ import {
   IDecodedTxLegacy,
   IDecodedTxStatus,
   IEncodedTx,
+  IFeeInfo,
+  IFeeInfoUnit,
+  ISetApprovalForAll,
   ITransferInfo,
+  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -67,6 +72,13 @@ export default class Vault extends VaultBase {
       return Promise.resolve(address);
     }
     return Promise.reject(new InvalidAddress());
+  }
+
+  override attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxADA;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTxADA> {
+    return Promise.resolve(params.encodedTx);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
@@ -190,6 +202,51 @@ export default class Vault extends VaultBase {
       totalSpent,
       totalFeeInNative,
       transferInfo,
+    };
+  }
+
+  buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<any> {
+    throw new NotImplemented();
+  }
+
+  updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTx,
+    amount: string,
+  ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
+
+  updateEncodedTx(encodedTx: IEncodedTx): Promise<IEncodedTx> {
+    return Promise.resolve(encodedTx);
+  }
+
+  override async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxADA,
+  ): Promise<IUnsignedTxPro> {
+    const { inputs, outputs } = encodedTx;
+
+    const ret = {
+      inputs,
+      outputs,
+      payload: {},
+      encodedTx,
+    };
+
+    return Promise.resolve(ret as unknown as IUnsignedTxPro);
+  }
+
+  override async fetchFeeInfo(encodedTx: IEncodedTxADA): Promise<IFeeInfo> {
+    const network = await this.engine.getNetwork(this.networkId);
+    return {
+      customDisabled: true,
+      limit: encodedTx.totalFeeInNative,
+      prices: ['1'],
+      defaultPresetIndex: '0',
+      feeSymbol: network.symbol,
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      tx: null, // Must be null if network not support feeInTx
     };
   }
 
