@@ -16,8 +16,12 @@ module.exports = {
   },
   'author': 'https://www.onekey.so',
   // 'default_locale': 'en', // enable this after locale file exists
-  'content_security_policy':
-    "script-src 'self' 'wasm-eval'; object-src 'self';",
+  'content_security_policy': `
+script-src 'self' 'wasm-unsafe-eval'; 
+object-src 'self'; 
+`
+    .split('\n')
+    .join(''),
 
   //----------------------------------------------
 
