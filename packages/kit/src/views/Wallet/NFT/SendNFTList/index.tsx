@@ -13,6 +13,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 
@@ -234,7 +235,8 @@ function SendNFTList({
   const { account } = useActiveSideAccount({ accountId, networkId });
   const { network } = useNetwork({ networkId });
   const multiSelect = Boolean(
-    network && batchTransferContractAddress[network.id],
+    network &&
+      (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
   );
 
   const allAssets = useMemo(

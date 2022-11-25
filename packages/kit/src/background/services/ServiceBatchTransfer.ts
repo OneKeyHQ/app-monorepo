@@ -6,7 +6,7 @@ import { Contract } from 'ethers';
 import { groupBy, keys } from 'lodash';
 import memoizee from 'memoizee';
 
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
@@ -84,8 +84,12 @@ export default class ServiceBatchTransfer extends ServiceBase {
   }): Promise<IEncodedTx[]> {
     const { accountId, networkId, transferInfos } = params;
     const { engine } = this.backgroundApi;
-
     const network = await engine.getNetwork(networkId);
+
+    if (network.impl === IMPL_SOL) {
+      return Promise.resolve([]);
+    }
+
     const { address } = await engine.getAccount(accountId, networkId);
     const contract = batchTransferContractAddress[networkId];
     let encodedApproveTxs: IEncodedTx[] = [];
