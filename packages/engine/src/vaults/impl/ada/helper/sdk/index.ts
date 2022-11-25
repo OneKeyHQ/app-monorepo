@@ -1,6 +1,8 @@
 /* eslint-disable no-plusplus */
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
+import { coinSelection } from '@fivebinaries/coin-selection';
+import BigNumber from 'bignumber.js';
 
 import { IAdaAmount, IAdaUTXO } from '../../types';
 
@@ -29,6 +31,61 @@ const {
   LinearFee,
   BigNum,
 } = CardanoWasm;
+
+type CoinSelectResult = ReturnType<typeof coinSelection>;
+
+const composeTxPlan = (
+  transferInfo: ITransferInfo,
+  accountXpub: string,
+  utxos: IAdaUTXO[],
+  changeAddress: string,
+  outputs: { address: string; amount: string; assets: [] }[],
+): CoinSelectResult => {
+  const transformUtxos = utxos.map((utxo) => ({
+    address: transferInfo.from,
+    txHash: utxo.tx_hash,
+    outputIndex: utxo.output_index,
+    ...utxo,
+  }));
+  try {
+    const txPlan = coinSelection(
+      {
+        utxos: transformUtxos as any,
+        outputs: outputs as any,
+        changeAddress,
+        certificates: [],
+        withdrawals: [],
+        accountPubKey: accountXpub,
+      },
+      {
+        debug: true,
+      },
+    );
+    return txPlan;
+  } catch (err: unknown) {
+    if ((err as { code: string }).code === 'UTXO_BALANCE_INSUFFICIENT') {
+      console.log('UTxO balance insufficient');
+      if (outputs.length === 1) {
+        const fixedOutput = [...outputs];
+        const amountBN = new BigNumber(outputs[0].amount);
+        const oneLovelace = new BigNumber('100000');
+        if (amountBN.gte(oneLovelace)) {
+          fixedOutput[0].amount = amountBN.minus(oneLovelace).toFixed();
+          return composeTxPlan(
+            transferInfo,
+            accountXpub,
+            utxos,
+            changeAddress,
+            fixedOutput,
+          );
+        }
+      }
+      throw err;
+    } else {
+      throw err;
+    }
+  }
+};
 
 const getPaymentHexAddress = (address: string) => {
   const paymentAddr = Buffer.from(
@@ -168,19 +225,12 @@ const initTransactionBuilder = () => {
   return txBuilder;
 };
 
-// function getTxUnspentOutpus() {
-// 	const txOutputs = TransactionUnspentOutputs.new()
-// 	for (const utxo of Utxos) {
-// 		txOutputs.add(utxo.TransactionUnspentOutput)
-// 	}
-
-// 	return txOutputs
-// }
-
 const buildSendADATransaction = async (
   transferInfo: ITransferInfo,
   utxos: IAdaUTXO[],
 ) => {
+  console.log(transferInfo);
+
   const txBuilder = initTransactionBuilder();
   const shelleyOutputAddress = Address.from_bech32(transferInfo.to);
   const shelleyChangeAddress = Address.from_bech32(transferInfo.from);
@@ -196,6 +246,7 @@ const buildSendADATransaction = async (
   // us them as Inputs
   const txUnspentOutputs = await getTxUnspentOutputs(transferInfo.from, utxos);
   txBuilder.add_inputs_from(txUnspentOutputs, 1);
+
   // calculate the min fee required and send any change to an address
   txBuilder.add_change_if_needed(shelleyChangeAddress);
   // once the transaction is ready, we build it to get the tx body without witnesses
@@ -226,6 +277,8 @@ const getTxUnspentOutputs = async (address: string, utxos: IAdaUTXO[]) => {
   }
 
   for (const utxo of Utxos) {
+    const u = utxo.TransactionUnspentOutput.input().to_json();
+    console.log(u);
     txOutputs.add(utxo.TransactionUnspentOutput);
   }
   return txOutputs;
@@ -309,6 +362,18 @@ const formatUtxo = async (address: string, utxos: IAdaUTXO[]) => {
 };
 
 type ICardanoApi = {
+  composeTxPlan: (
+    transferInfo: ITransferInfo,
+    accountXpub: string,
+    utxos: IAdaUTXO[],
+    changeAddress: string,
+    outputs: {
+      address: string;
+      amount: string;
+      assets: [];
+    }[],
+  ) => CoinSelectResult;
+
   buildSendADATransaction: (
     transferInfo: ITransferInfo,
     utxos: IAdaUTXO[],
@@ -316,6 +381,7 @@ type ICardanoApi = {
 };
 
 const CardanoApi: ICardanoApi = {
+  composeTxPlan,
   buildSendADATransaction,
 };
 

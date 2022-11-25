@@ -2,8 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 
 import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
-import { revealEntropy } from '@onekeyfe/blockchain-libs/dist/secret/bip39';
-import { entropyToMnemonic } from 'bip39';
 // @ts-expect-error
 import { mnemonicToRootKeypair } from 'cardano-crypto.js';
 

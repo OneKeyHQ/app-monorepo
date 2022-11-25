@@ -4,10 +4,19 @@ import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { InvalidAddress } from '../../../errors';
+import { DBUTXOAccount } from '../../../types/account';
+import {
+  IDecodedTx,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  ITransferInfo,
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
 import Client from './helper/client';
+import { CardanoApi } from './helper/sdk';
+import { deriveAccountXpub } from './helper/shelley-address';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -53,6 +62,50 @@ export default class Vault extends VaultBase {
       return Promise.resolve(address);
     }
     return Promise.reject(new InvalidAddress());
+  }
+
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    return Promise.resolve({} as IDecodedTxLegacy);
+  }
+
+  override async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<any> {
+    const { to, amount } = transferInfo;
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const { decimals } = await this.engine.getNetwork(this.networkId);
+    const client = await this.getClient();
+    const utxos = await client.getUTXOs(dbAccount.address);
+    console.log('utxos: ', utxos);
+    console.log('transferInfo: ', transferInfo);
+
+    console.log(CardanoApi);
+
+    const amountBN = new BigNumber(transferInfo.amount).shiftedBy(decimals);
+    const txPlan = CardanoApi.composeTxPlan(
+      transferInfo,
+      dbAccount.xpub,
+      utxos,
+      dbAccount.address,
+      [
+        {
+          address: to,
+          amount: amountBN.toFixed(),
+          assets: [],
+        },
+      ],
+    );
+    console.log(txPlan);
+
+    // const result = await CardanoApi.buildSendADATransaction(
+    //   {
+    //     ...transferInfo,
+    //     amount: amountBN.toFixed(),
+    //   },
+    //   utxos,
+    // );
+    // console.log(result);
+    throw new Error('not implemention');
   }
 
   override async getBalances(
