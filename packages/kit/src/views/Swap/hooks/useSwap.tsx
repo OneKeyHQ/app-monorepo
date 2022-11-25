@@ -47,7 +47,7 @@ function formatAmount(num?: BigNumber) {
   if (!num) {
     return '';
   }
-  const a = num.toFixed(4);
+  const a = num.toFixed(4, 1);
   const b = num.toFixed();
   return b.length < a.length ? b : a;
 }
@@ -157,6 +157,7 @@ export const useSwapQuoteCallback = function (
           backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
         } else {
           backgroundApiProxy.dispatch(setError(SwapError.NotSupport));
+          backgroundApiProxy.dispatch(setQuoteLimited(undefined));
         }
       }
     } catch (e) {
