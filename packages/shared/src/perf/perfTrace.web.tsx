@@ -1,11 +1,6 @@
-const noop = () => {};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const noop = (id: string) => {};
 
-export const perfTrace = {
-  startTrace: noop,
-  newTrace: noop,
-};
+export const startTrace = noop;
 
-export const bundleLoadTrace = {
-  start: noop,
-  stop: noop,
-};
+export const stopTrace = noop;

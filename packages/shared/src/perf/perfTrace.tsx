@@ -2,11 +2,15 @@ import platformEnv from '../platformEnv';
 
 import type { FirebasePerformanceTypes } from '@react-native-firebase/perf';
 
-const noop = () => {};
+// @ts-ignore
+const noop: () => Promise<FirebasePerformanceTypes.Trace> = async (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  id: string,
+) => {};
 
 const isDev = !platformEnv.isProduction && process.env.BUILD_NUMBER !== '1';
 
-export const getPerfTrace = isDev
+const getPerf = isDev
   ? () => ({
       startTrace: noop,
       newTrace: noop,
@@ -16,20 +20,20 @@ export const getPerfTrace = isDev
       return module.firebase.perf();
     };
 
-let jsRenderTrace: FirebasePerformanceTypes.Trace | void;
+const traceMap: Record<string, FirebasePerformanceTypes.Trace> = {};
 
-let jsRenderTimer: number;
-export const startTraceJsRender = isDev
+export const startTrace = isDev
   ? noop
-  : async () => {
-      jsRenderTimer = Date.now();
-      const perf = await getPerfTrace();
-      jsRenderTrace = await perf.startTrace('js_render');
+  : async (id: string) => {
+      const perf = await getPerf();
+      traceMap[id] = await perf.startTrace(id);
+      return traceMap[id];
     };
 
-export const stopTraceJsRender = isDev
+export const stopTrace = isDev
   ? noop
-  : () => {
-      jsRenderTrace?.putMetric('duration', Date.now() - jsRenderTimer);
-      jsRenderTrace?.stop();
+  : (id: string) => {
+      traceMap[id]?.stop().finally(() => {
+        delete traceMap[id];
+      });
     };

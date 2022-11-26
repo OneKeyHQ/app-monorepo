@@ -9,9 +9,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { LogBox } from 'react-native';
 
 import { Provider } from '@onekeyhq/kit';
-import { startTraceJsRender } from '@onekeyhq/shared/src/perf/perfTrace';
+import { startTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 
-startTraceJsRender();
+startTrace('js_render');
 
 SplashScreen.preventAutoHideAsync();
 LogBox.ignoreAllLogs();
