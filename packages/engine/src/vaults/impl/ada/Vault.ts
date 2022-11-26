@@ -3,6 +3,8 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { InvalidAddress, NotImplemented } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import {
@@ -17,6 +19,7 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   ISetApprovalForAll,
+  ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -234,6 +237,30 @@ export default class Vault extends VaultBase {
     };
 
     return Promise.resolve(ret as unknown as IUnsignedTxPro);
+  }
+
+  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const client = await this.getClient();
+    try {
+      const result = await client.submitTx(signedTx.rawTx);
+      console.log(result);
+    } catch (err) {
+      debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+
+    return {
+      ...signedTx,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 
   override async fetchFeeInfo(encodedTx: IEncodedTxADA): Promise<IFeeInfo> {

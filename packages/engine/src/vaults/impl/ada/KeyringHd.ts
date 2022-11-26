@@ -21,9 +21,6 @@ import { CardanoApi } from './helper/sdk';
 import { batchGetShelleyAddresses } from './helper/shelley-address';
 import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
 
-// const PATH_PREFIX = `m/1852'/${COIN_TYPE}'`;
-
-// @ts-ignore
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(
     password: string,
@@ -104,7 +101,7 @@ export class KeyringHd extends KeyringHdBase {
     const accountIndex = getPathIndex(dbAccount.path);
     console.log(xprv);
     console.log(dbAccount);
-    const txData = await CardanoApi.signTransaction(
+    const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
       dbAccount.address,
       Number(accountIndex),
@@ -113,6 +110,9 @@ export class KeyringHd extends KeyringHdBase {
       false,
     );
 
-    console.log(txData);
+    return {
+      rawTx: signedTx,
+      txid,
+    };
   }
 }
