@@ -19,6 +19,7 @@ type CollapseProps = {
   trigger?: ReactNode;
   renderCustomTrigger?: (
     onPress: (event?: GestureResponderEvent) => void,
+    collapsed?: boolean,
   ) => ReactNode;
   children: ReactNode;
   defaultCollapsed?: boolean;
@@ -43,7 +44,7 @@ const Collapse = ({
 
   const triggerView = useMemo(() => {
     if (typeof renderCustomTrigger === 'function') {
-      return renderCustomTrigger(toggleCollapsed);
+      return renderCustomTrigger(toggleCollapsed, collapsed);
     }
     return (
       <Pressable
@@ -54,10 +55,7 @@ const Collapse = ({
         _pressed={{ bgColor: 'surface-pressed' }}
       >
         <HStack alignItems="center">
-          <MotiView
-            from={{ rotate: '90deg' }}
-            animate={{ rotate: collapsed ? '0deg' : '90deg' }}
-          >
+          <MotiView animate={{ rotate: collapsed ? '0deg' : '90deg' }}>
             <Icon name="ChevronRightSolid" size={20} />
           </MotiView>
           <Box ml="7px">{trigger}</Box>

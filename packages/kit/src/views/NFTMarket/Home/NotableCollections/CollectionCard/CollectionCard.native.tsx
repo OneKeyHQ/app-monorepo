@@ -27,14 +27,8 @@ const CollectionCard: FC<CollectionCardProps> = ({
       <Box borderRadius="12px" overflow="hidden">
         <NetImage width="280px" height="280px" {...netImageProps} />
       </Box>
-      <Box
-        mt="8px"
-        width="280px"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <Text typography="Body1Strong" isTruncated>
+      <Box mt="8px" width="280px" flexDirection="row" alignItems="center">
+        <Text mr="4px" typography="Body1Strong" isTruncated>
           {contractName}
         </Text>
         {!!verified && (
