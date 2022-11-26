@@ -8,7 +8,7 @@ const noop: () => Promise<FirebasePerformanceTypes.Trace> = async (
   id: string,
 ) => {};
 
-const isDev = !platformEnv.isProduction && process.env.BUILD_NUMBER !== '1';
+const isDev = !platformEnv.isProduction;
 
 const getPerf = isDev
   ? () => ({
