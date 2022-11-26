@@ -43,6 +43,7 @@ const PRIVATE_WHITE_LIST_ORIGIN = [
         // origin allowed in DEV
         'http://192.168.31.215:3008',
         'http://192.168.31.96:3008',
+        'http://192.168.50.36:3008',
       ]
     : []),
 ].filter(Boolean);
@@ -315,6 +316,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     scope: IInjectedProviderNamesStrings,
     data: unknown,
   ) => {
+    console.log('sendMessagesToInjectedBridge: ', this.bridge);
     if (!this.bridge) {
       if (!platformEnv.isWeb) {
         console.warn(
@@ -338,6 +340,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
       // this.bridge.requestSync({ scope, data });
       if (this.bridge.globalOnMessageEnabled) {
+        console.log(
+          'sendMessagesToInjectedBridge  send requestSync: ',
+          scope,
+          data,
+        );
         this.bridge.requestSync({ scope, data });
       }
     }
