@@ -1,8 +1,8 @@
 /* eslint-disable no-plusplus */
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import * as CardanoWasm from '@emurgo/cardano-serialization-lib-asmjs';
-import { coinSelection } from '@fivebinaries/coin-selection';
 import BigNumber from 'bignumber.js';
+import { coinSelection } from 'cardano-coin-selection';
 
 import { IAdaAmount, IAdaUTXO } from '../../types';
 
@@ -63,7 +63,7 @@ const composeTxPlan = (
     );
     return txPlan;
   } catch (err: unknown) {
-    if ((err as { code: string }).code === 'UTXO_BALANCE_INSUFFICIENT') {
+    if ((err as { code: string })?.code === 'UTXO_BALANCE_INSUFFICIENT') {
       console.log('UTxO balance insufficient');
       if (outputs.length === 1) {
         const fixedOutput = [...outputs];

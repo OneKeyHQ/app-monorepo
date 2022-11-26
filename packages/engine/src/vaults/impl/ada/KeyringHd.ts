@@ -1,10 +1,22 @@
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { COINTYPE_ADA as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
+import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import { IPrepareSoftwareAccountsParams } from '../../types';
+import {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
 
+import { getPathIndex, getXprvString } from './helper/bip32';
 import { batchGetShelleyAddresses } from './helper/shelley-address';
 import { NetworkId } from './types';
 
@@ -12,6 +24,30 @@ import { NetworkId } from './types';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
+  override async getSigners(
+    password: string,
+    addresses: string[],
+  ): Promise<Record<string, Signer>> {
+    const dbAccount = await this.getDbAccount();
+
+    if (addresses.length !== 1) {
+      throw new OneKeyInternalError('Starcoin signers number should be 1.');
+    } else if (addresses[0] !== dbAccount.address) {
+      throw new OneKeyInternalError('Wrong address required for signing.');
+    }
+
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+      password,
+    );
+    if (typeof privateKey === 'undefined') {
+      throw new OneKeyInternalError('Unable to get signer.');
+    }
+
+    return {
+      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
+    };
+  }
+
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
@@ -49,5 +85,24 @@ export class KeyringHd extends KeyringHdBase {
     });
 
     return ret;
+  }
+
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    debugLogger.sendTx.info('signTransaction result', unsignedTx);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const { password = '' } = options;
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+    const xprv = await getXprvString(password, entropy);
+    const accountIndex = getPathIndex(dbAccount.path);
+    const { inputs } = unsignedTx;
+    // TODO: call sdk signTransaction function
+    console.log(xprv);
+    console.log(dbAccount);
   }
 }
