@@ -1,13 +1,15 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
-import { IconButton } from '@onekeyhq/components';
+import { Box, Button, Hidden, IconButton } from '@onekeyhq/components';
 import {
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { HomeRoutes } from '../../../routes/routesEnum';
@@ -41,6 +43,7 @@ const CollectionDetail = () => {
     networkId,
   });
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const intl = useIntl();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -50,36 +53,54 @@ const CollectionDetail = () => {
 
   const { collection: ctxCollection } = context;
   useEffect(() => {
+    const FilterButton: FC<{ onPress?: () => void }> = ({ onPress }) => (
+      <>
+        <Hidden from="md">
+          <IconButton
+            name="FilterOutline"
+            size="lg"
+            type="plain"
+            circle
+            onPress={onPress}
+          />
+        </Hidden>
+        <Hidden till="md">
+          <Button leftIconName="FilterSolid" onPress={onPress}>
+            {intl.formatMessage({ id: 'title__filter' })}
+          </Button>
+        </Hidden>
+      </>
+    );
+
     if (ctxCollection) {
       navigation.setOptions({
         headerRight: () => (
-          <IconButton
-            name="FilterSolid"
-            size="lg"
-            type="plain"
-            onPressIn={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.NFTAttributeFilter,
-                params: {
-                  screen: NFTAttributeFilterRoutes.FilterModal,
+          <Box mr={platformEnv.isNative ? '16px' : '32px'}>
+            <FilterButton
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.NFTAttributeFilter,
                   params: {
-                    collection: ctxCollection,
-                    attributes: context.attributes,
-                    onAttributeSelected: (attributes) => {
-                      setContext((ctx) => ({
-                        ...ctx,
-                        attributes,
-                      }));
+                    screen: NFTAttributeFilterRoutes.FilterModal,
+                    params: {
+                      collection: ctxCollection,
+                      attributes: context.attributes,
+                      onAttributeSelected: (attributes) => {
+                        setContext((ctx) => ({
+                          ...ctx,
+                          attributes,
+                        }));
+                      },
                     },
                   },
-                },
-              });
-            }}
-          />
+                });
+              }}
+            />
+          </Box>
         ),
       });
     }
-  }, [context.attributes, ctxCollection, navigation]);
+  }, [context.attributes, ctxCollection, intl, navigation]);
 
   const { serviceNFT } = backgroundApiProxy;
 
