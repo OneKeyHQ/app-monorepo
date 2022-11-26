@@ -24,10 +24,8 @@
   },
   "dependencies": {
     "@conflux-dev/conflux-address-js": "^1.3.13",
-    "@emurgo/cardano-serialization-lib-asmjs": "^11.1.0",
     "@ethersproject/keccak256": "^5.6.0",
     "@ethersproject/transactions": "^5.6.0",
-    "@fivebinaries/coin-selection": "git+https://github.com/originalix/coin-selection.git#f90c71c69b924d17e7ca8144ff41861c83407c68",
     "@metamask/eth-sig-util": "^4.0.0",
     "@noble/hashes": "1.1.2",
     "@onekeyfe/blockchain-libs": "0.0.46",
@@ -46,6 +44,7 @@
     "bs58check": "^2.1.2",
     "buffer": "^6.0.3",
     "camelcase-keys": "^7.0.2",
+    "cardano-coin-selection": "1.0.3",
     "cardano-crypto.js": "^6.1.1",
     "coinselect": "^3.1.12",
     "cosmjs-types": "^0.5.2",
