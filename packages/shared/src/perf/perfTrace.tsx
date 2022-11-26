@@ -8,9 +8,9 @@ const noop: () => Promise<FirebasePerformanceTypes.Trace> = async (
   id: string,
 ) => {};
 
-const isDev = !platformEnv.isProduction;
+const enableTrace = platformEnv.isProduction;
 
-const getPerf = isDev
+const getPerf = enableTrace
   ? () => ({
       startTrace: noop,
       newTrace: noop,
@@ -22,7 +22,7 @@ const getPerf = isDev
 
 const traceMap: Record<string, FirebasePerformanceTypes.Trace> = {};
 
-export const startTrace = isDev
+export const startTrace = enableTrace
   ? noop
   : async (id: string) => {
       const perf = await getPerf();
@@ -30,7 +30,7 @@ export const startTrace = isDev
       return traceMap[id];
     };
 
-export const stopTrace = isDev
+export const stopTrace = enableTrace
   ? noop
   : (id: string) => {
       traceMap[id]?.stop().finally(() => {
