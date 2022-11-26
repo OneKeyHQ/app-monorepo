@@ -5,11 +5,7 @@ import React, { FC, useCallback, useMemo, useState } from 'react';
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import {
-  LayoutAnimation,
-  ListRenderItem,
-  TouchableOpacity,
-} from 'react-native';
+import { ListRenderItem, TouchableOpacity } from 'react-native';
 
 import {
   Box,
