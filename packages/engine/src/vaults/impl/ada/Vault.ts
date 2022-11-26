@@ -191,7 +191,7 @@ export default class Vault extends VaultBase {
     );
 
     // @ts-expect-error
-    const { fee, inputs, outputs, totalSpent } = txPlan;
+    const { fee, inputs, outputs, totalSpent, tx } = txPlan;
     const totalFeeInNative = new BigNumber(fee)
       .shiftedBy(-1 * feeDecimals)
       .toFixed();
@@ -202,6 +202,7 @@ export default class Vault extends VaultBase {
       totalSpent,
       totalFeeInNative,
       transferInfo,
+      tx,
     };
   }
 

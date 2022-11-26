@@ -17,8 +17,9 @@ import {
 } from '../../types';
 
 import { getPathIndex, getXprvString } from './helper/bip32';
+import { CardanoApi } from './helper/sdk';
 import { batchGetShelleyAddresses } from './helper/shelley-address';
-import { NetworkId } from './types';
+import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
 
 // const PATH_PREFIX = `m/1852'/${COIN_TYPE}'`;
 
@@ -92,6 +93,7 @@ export class KeyringHd extends KeyringHdBase {
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     debugLogger.sendTx.info('signTransaction result', unsignedTx);
+    const encodedTx = unsignedTx.payload.encodedTx as unknown as IEncodedTxADA;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { password = '' } = options;
     const { entropy } = (await this.engine.dbApi.getCredential(
@@ -100,9 +102,17 @@ export class KeyringHd extends KeyringHdBase {
     )) as ExportedSeedCredential;
     const xprv = await getXprvString(password, entropy);
     const accountIndex = getPathIndex(dbAccount.path);
-    const { inputs } = unsignedTx;
-    // TODO: call sdk signTransaction function
     console.log(xprv);
     console.log(dbAccount);
+    const txData = await CardanoApi.signTransaction(
+      encodedTx.tx.body,
+      dbAccount.address,
+      Number(accountIndex),
+      encodedTx.inputs as unknown as IAdaUTXO[],
+      xprv,
+      false,
+    );
+
+    console.log(txData);
   }
 }

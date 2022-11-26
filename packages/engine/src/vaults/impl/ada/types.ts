@@ -78,6 +78,12 @@ type IEncodeOutput = {
   isChange?: boolean;
 };
 
+type ITxInfo = {
+  body: string;
+  hash: string;
+  size: number;
+};
+
 export type IEncodedTxADA = {
   inputs: IEncodeInput[];
   outputs: IEncodeOutput[];
@@ -85,4 +91,5 @@ export type IEncodedTxADA = {
   totalSpent: string;
   totalFeeInNative: string;
   transferInfo: ITransferInfo;
+  tx: ITxInfo;
 };
