@@ -10,12 +10,10 @@ import {
   Box,
   Button,
   Center,
-  HStack,
   Progress,
   Text,
   useToast,
 } from '@onekeyhq/components';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
   OneKeyError,
   OneKeyErrorClassNames,
@@ -98,7 +96,7 @@ function SendProgress({
 
   const txCount = encodedTxs.length;
   const progress = new BigNumber(currentFinished / txCount).toNumber();
-  const canPause = inProgress && currentProgerss < txCount - 1;
+  const canPause = inProgress && currentProgerss < txCount;
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (progressState.current === BatchSendState.inProgress)
@@ -113,18 +111,19 @@ function SendProgress({
       await waitUntilInProgress();
       setCurrentProgress(i + 1);
       debugLogger.sendTx.info('Authentication sendTx:', route.params);
-      const signedTx =
-        await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
-          password,
-          networkId,
-          accountId,
-          encodedTx: encodedTxs[i],
-          signOnly,
-          pendingTxs: map(result, (tx) => ({
-            id: tx.txid,
-          })),
-        });
-      result.push(signedTx as ISignedTx);
+      // const signedTx =
+      //   await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
+      //     password,
+      //     networkId,
+      //     accountId,
+      //     encodedTx: encodedTxs[i],
+      //     signOnly,
+      //     pendingTxs: map(result, (tx) => ({
+      //       id: tx.txid,
+      //     })),
+      //   });
+      await wait(2000);
+      // result.push(signedTx as ISignedTx);
       debugLogger.sendTx.info(
         'Authentication sendTx DONE:',
         route.params,
@@ -292,11 +291,19 @@ function SendProgress({
           progress={progress}
           text={
             <>
-              <Text typography="DisplayMedium">
-                {currentFinished} / {txCount}
-              </Text>
               <Text typography="Body2Strong" color="text-subdued">
-                Transactions
+                {intl.formatMessage(
+                  {
+                    id: 'form__str_transactions',
+                  },
+                  {
+                    0: (
+                      <Text typography="DisplayMedium">
+                        {currentFinished} / {txCount}
+                      </Text>
+                    ),
+                  },
+                )}
               </Text>
             </>
           }
@@ -304,17 +311,32 @@ function SendProgress({
       </Box>
       <Text typography="DisplayMedium" mt="24px">
         {currentState === BatchSendState.inProgress &&
-          'Transaction In Progress...'}
-        {currentState === BatchSendState.onPause && 'Transaction Paused'}
+          intl.formatMessage({ id: 'title__transactions_in_progress' })}
+        {currentState === BatchSendState.onPause &&
+          intl.formatMessage({ id: 'title__transactions_paused' })}
       </Text>
-      {wallet?.type === 'hw' && (
+      {wallet?.type === 'hw' && inProgress && (
         <Text
           textAlign="center"
           mt="4px"
           typography="DisplaySmall"
           color="text-subdued"
         >
-          You may receive multiple signing requests on the hardware wallet.
+          {intl.formatMessage({
+            id: 'content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet',
+          })}
+        </Text>
+      )}
+      {!inProgress && (
+        <Text
+          textAlign="center"
+          mt="4px"
+          typography="DisplaySmall"
+          color="text-subdued"
+        >
+          {intl.formatMessage({
+            id: 'title__transactions_paused_desc',
+          })}
         </Text>
       )}
 
@@ -325,7 +347,7 @@ function SendProgress({
         opacity={canPause ? 1 : 0}
         disabled={!canPause}
       >
-        Pause
+        {intl.formatMessage({ id: 'action__pause' })}
       </Button>
     </Center>
   );
@@ -334,7 +356,6 @@ const SendProgressMemo = React.memo(SendProgress);
 
 function BatchSendProgress() {
   const route = useRoute<RouteProps>();
-  const close = useModalClose();
   const { params } = route;
   const { walletId, onModalClose, networkId, accountId } = params;
   const [titleInfo, setTitleInfo] = useState<
@@ -343,47 +364,25 @@ function BatchSendProgress() {
   const [currentState, setCurrentState] = useState(BatchSendState.inProgress);
   const onPause = currentState === BatchSendState.onPause;
 
-  const renderFooter = useCallback(
-    () => (
-      <Box opacity={onPause ? 1 : 0}>
-        <HStack space={4} p={4} pt={0}>
-          <Button
-            size="xl"
-            flex={1}
-            disabled={!onPause}
-            onPress={() => close()}
-          >
-            Abort
-          </Button>
-          <Button
-            size="xl"
-            type="primary"
-            flex={1}
-            onPress={() => setCurrentState(BatchSendState.inProgress)}
-            disabled={!onPause}
-          >
-            Continue
-          </Button>
-        </HStack>
-      </Box>
-    ),
-    [close, onPause],
-  );
-
   return (
     <BaseSendModal
       closeable={false}
       hideBackButton
-      height="598px"
+      height="auto"
       accountId={accountId}
       networkId={networkId}
       header={titleInfo?.title}
       headerDescription={titleInfo?.subTitle}
-      footer={renderFooter()}
       onModalClose={() => {
         onModalClose?.();
         closeExtensionWindowIfOnboardingFinished();
       }}
+      footer={onPause ? undefined : null}
+      hidePrimaryAction={!onPause}
+      hideSecondaryAction={!onPause}
+      primaryActionTranslationId="action__continue"
+      secondaryActionTranslationId="action__abort"
+      onPrimaryActionPress={() => setCurrentState(BatchSendState.inProgress)}
     >
       <Box flex={1}>
         <Protected walletId={walletId} field={ValidationFields.Payment}>

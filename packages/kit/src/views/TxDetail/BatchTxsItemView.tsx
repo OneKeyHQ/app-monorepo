@@ -2,11 +2,10 @@ import React, { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Container } from '@onekeyhq/components';
+import { Container } from '@onekeyhq/components';
 
 import { useNetworkSimple } from '../../hooks';
 
-import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
@@ -60,11 +59,6 @@ function BatchTxsItemView(props: ITxActionListViewProps) {
 
   return (
     <>
-      {isSingleTransformMode && (
-        <Box mb="24px">
-          <TxDetailExtraInfoBox {...props} />
-        </Box>
-      )}
       <TxInteractInfo
         origin={
           decodedTx?.interactInfo?.url ??

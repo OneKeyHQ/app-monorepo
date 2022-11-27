@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Text } from '@onekeyhq/components';
+import { Box, Text } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isWatchingAccount } from '@onekeyhq/engine/src/engineUtils';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -116,7 +116,11 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
           confirmDisabled,
       }}
       secondaryActionTranslationId="action__cancel"
-      header={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
+      header={intl.formatMessage({
+        id: isSingleTransformMode
+          ? 'form__transaction'
+          : 'form__multiple_transactions',
+      })}
       onSecondaryActionPress={({ close }) => close()}
       onPrimaryActionPress={confirmAction}
       {...others}
@@ -131,7 +135,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
                 isAccountNotMatched={isAccountNotMatched}
               />
             )}
-            {!isSingleTransformMode && feeInput}
+            <Box mb={6}>{feeInput}</Box>
             <SendConfirmErrorBoundary>{children}</SendConfirmErrorBoundary>
 
             {platformEnv.isDev ? (

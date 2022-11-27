@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { IEncodedTx, IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
+import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import { BatchSendConfirmParams, SendRoutes, SendRoutesParams } from '../types';
 
 import { FeeSpeedLabel } from './FeeSpeedLabel';
@@ -29,6 +30,7 @@ interface Props {
   editable: boolean;
   encodedTxs: IEncodedTx[];
   batchSendConfirmParams: BatchSendConfirmParams;
+  isSingleTransformMode?: boolean;
 }
 
 type NavigationProps = StackNavigationProp<
@@ -46,6 +48,7 @@ function BatchTransactionFeeInfo(props: Props) {
     editable,
     encodedTxs,
     batchSendConfirmParams,
+    isSingleTransformMode,
   } = props;
 
   const navigation = useNavigation<NavigationProps>();
@@ -72,7 +75,7 @@ function BatchTransactionFeeInfo(props: Props) {
           accountId,
           encodedTx,
           feeInfoSelected: feeInfoPayload?.selected,
-          forBatchSend: true,
+          forBatchSend: !isSingleTransformMode,
         });
       } else {
         navigation.navigate({
@@ -82,7 +85,7 @@ function BatchTransactionFeeInfo(props: Props) {
             accountId,
             encodedTx,
             feeInfoSelected: feeInfoPayload?.selected,
-            forBatchSend: true,
+            forBatchSend: !isSingleTransformMode,
           },
         });
       }
@@ -94,60 +97,99 @@ function BatchTransactionFeeInfo(props: Props) {
       accountId,
       encodedTx,
       feeInfoPayload?.selected,
+      isSingleTransformMode,
     ],
   );
 
   return (
     <Container.Box>
       <Container.Item
-        onPress={handleNativeToEdit}
+        hasDivider={!isSingleTransformMode}
+        onPress={disabled ? null : handleNativeToEdit}
         wrap={
           <HStack p={4} alignItems="center" pr={2}>
-            <VStack flex={1}>
+            <VStack flex={1} space={1}>
               <Text typography="Body2Strong" color="text-subdued">
-                Gas Fee Settings
+                {intl.formatMessage({ id: 'form__gas_fee_settings' })}
               </Text>
-              <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
+              <Text typography="Body1Strong">
                 <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
+                {isSingleTransformMode && (
+                  <FormatCurrencyNativeOfAccount
+                    networkId={networkId}
+                    accountId={accountId}
+                    value={totalFeeInNative}
+                    render={(ele) => <>(~ {ele})</>}
+                  />
+                )}
               </Text>
+              {isSingleTransformMode && (
+                <Box
+                  w="100%"
+                  flexDirection="row"
+                  alignItems="center"
+                  justifyContent="flex-start"
+                >
+                  {feeInfoPayload ? (
+                    <Text typography="Body2" color="text-subdued">
+                      {`${totalFeeInNative} ${
+                        feeInfoPayload?.info?.nativeSymbol || ''
+                      }`}
+                    </Text>
+                  ) : (
+                    <Text color="text-subdued" flex={1}>
+                      {intl.formatMessage({ id: 'content__calculate_fee' })}
+                    </Text>
+                  )}
+                  <Box w={2} />
+                  {feeInfoLoading ? <Spinner size="sm" /> : null}
+                  <Box flex={1} />
+                </Box>
+              )}
             </VStack>
-            <Box>
-              <Icon name="ChevronRightSolid" size={20} />
-            </Box>
+            {!disabled && (
+              <Box>
+                <Icon name="ChevronRightSolid" size={20} />
+              </Box>
+            )}
           </HStack>
         }
       />
-      <Container.Item
-        hidePadding
-        wrap={
-          <Box flexDirection="column" w="100%" p={4}>
-            <Text typography="Body2Strong" color="text-subdued">
-              Estimate Total Gas Fee
-            </Text>
-            <Box
-              w="100%"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="flex-start"
-            >
-              {feeInfoPayload ? (
-                <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}>
-                  {`${totalFeeInNative} ${
-                    feeInfoPayload?.info?.nativeSymbol || ''
-                  }`}
+      {!isSingleTransformMode && (
+        <Container.Item
+          hidePadding
+          wrap={
+            <Box flexDirection="column" w="100%" p={4}>
+              <VStack space={1}>
+                <Text typography="Body2Strong" color="text-subdued">
+                  {intl.formatMessage({ id: 'form__estimate_total_gas_fee' })}
                 </Text>
-              ) : (
-                <Text color="text-subdued" flex={1}>
-                  {intl.formatMessage({ id: 'content__calculate_fee' })}
-                </Text>
-              )}
-              <Box w={2} />
-              {feeInfoLoading ? <Spinner size="sm" /> : null}
-              <Box flex={1} />
+                <Box
+                  w="100%"
+                  flexDirection="row"
+                  alignItems="center"
+                  justifyContent="flex-start"
+                >
+                  {feeInfoPayload ? (
+                    <Text typography="Body1Strong">
+                      {`${totalFeeInNative} ${
+                        feeInfoPayload?.info?.nativeSymbol || ''
+                      }`}
+                    </Text>
+                  ) : (
+                    <Text color="text-subdued" flex={1}>
+                      {intl.formatMessage({ id: 'content__calculate_fee' })}
+                    </Text>
+                  )}
+                  <Box w={2} />
+                  {feeInfoLoading ? <Spinner size="sm" /> : null}
+                  <Box flex={1} />
+                </Box>
+              </VStack>
             </Box>
-          </Box>
-        }
-      />
+          }
+        />
+      )}
     </Container.Box>
   );
 }

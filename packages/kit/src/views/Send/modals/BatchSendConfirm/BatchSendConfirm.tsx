@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 
 import { isEmpty, map } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { Box, GroupingList, ListItem } from '@onekeyhq/components';
 import { IDecodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
@@ -14,12 +15,10 @@ import { wait } from '../../../../utils/helper';
 import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
-import { FeeInfoInputForConfirmLite } from '../../components/FeeInfoInput';
 import {
   BatchSendProgressParams,
   IBatchTxsConfirmViewProps,
   IBatchTxsConfirmViewPropsHandleConfirm,
-  SendConfirmParams,
   SendFeedbackReceiptParams,
   SendRoutes,
 } from '../../types';
@@ -55,7 +54,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     feeInfoUseFeeInTx,
     feeInfoEditable,
   } = batchSendConfirmParamsParsed;
-
+  const intl = useIntl();
   useOnboardingRequired();
   useReloadAccountBalance({ networkId, accountId });
   useDisableNavigationAnimation({
@@ -96,7 +95,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       signOnly: routeParams.signOnly,
       forBatchSend: true,
     });
-  const feeInfoPayload = feeInfoPayloads[0];
   useWalletConnectPrepareConnection({
     accountId,
     networkId,
@@ -225,22 +223,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     ],
   );
 
-  const feeInput = isSingleTransformMode ? (
-    <FeeInfoInputForConfirmLite
-      accountId={accountId}
-      networkId={networkId}
-      sendConfirmParams={
-        {
-          ...routeParams,
-          encodedTx,
-        } as SendConfirmParams
-      }
-      editable={feeInfoEditable}
-      encodedTx={encodedTx}
-      feeInfoPayload={feeInfoPayload}
-      loading={feeInfoLoading}
-    />
-  ) : (
+  const feeInput = (
     <BatchTransactionFeeInfo
       accountId={accountId}
       networkId={networkId}
@@ -250,6 +233,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       totalFeeInNative={totalFeeInNative}
       batchSendConfirmParams={routeParams}
       editable={feeInfoEditable}
+      isSingleTransformMode={isSingleTransformMode}
     />
   );
 
@@ -283,7 +267,9 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
 
   const groupTransactionsData = decodedTxs.map((tx, index) => ({
     headerProps: {
-      title: `TRANSACTION #${index + 1}`,
+      title: `${intl.formatMessage({ id: 'form__transaction' })} #${
+        index + 1
+      }`.toUpperCase(),
     },
     data: [tx],
   }));
@@ -293,13 +279,13 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       isSendConfirm
       isSingleTransformMode={isSingleTransformMode}
       decodedTx={decodedTx}
-      feeInput={feeInput}
     />
   ) : (
     <GroupingList
-      mt="24px"
       headerProps={{
-        title: `Multiple Transactions (${encodedTxs.length})`,
+        title: `${intl.formatMessage({ id: 'form__multiple_transactions' })} (${
+          encodedTxs.length
+        })`,
       }}
       sections={groupTransactionsData}
       renderItem={({ item }: { item: IDecodedTx }) => (
