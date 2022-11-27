@@ -29,6 +29,12 @@ export type IAdaUTXO = {
   amount: IAdaAmount[];
 };
 
+export type IAdaOutputs = {
+  address: string;
+  amount: string;
+  assets: [];
+};
+
 export type IAdaTransaction = {
   'hash': string;
   'block': string;

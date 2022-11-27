@@ -197,8 +197,9 @@ class ProviderApiPrivate extends ProviderApiBase {
       const result = {
         method: payload.data?.method,
         params: {
+          event: payload.data?.event,
           promiseId: payload.data?.promiseId,
-          ...payload.data?.params,
+          params: { ...payload.data?.params },
         },
       };
       return result;

@@ -412,6 +412,7 @@ class ServiceDapp extends ServiceBase {
   @backgroundMethod()
   sendWebEmbedMessage(payload: {
     method: string;
+    event: string;
     params: Record<string, any>;
   }) {
     return new Promise((resolve, reject) => {
@@ -422,6 +423,7 @@ class ServiceDapp extends ServiceBase {
       this.backgroundApi.providers.$private.handleMethods({
         data: {
           method: payload.method,
+          event: payload.event,
           send: this.backgroundApi.sendForProvider('$private'),
           promiseId: id,
           params: payload.params,

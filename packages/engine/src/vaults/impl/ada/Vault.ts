@@ -179,7 +179,8 @@ export default class Vault extends VaultBase {
     const utxos = await client.getUTXOs(dbAccount.address);
 
     const amountBN = new BigNumber(amount).shiftedBy(decimals);
-    const txPlan = CardanoApi.composeTxPlan(
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    const txPlan = await CardanoApi.composeTxPlan(
       transferInfo,
       dbAccount.xpub,
       utxos,

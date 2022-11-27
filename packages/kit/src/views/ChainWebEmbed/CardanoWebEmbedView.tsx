@@ -18,6 +18,7 @@ export function CardanoWebEmbedView() {
   const onBridge = async () => {
     const result = await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
       method: 'callCardanoWebEmbedMethod',
+      event: 'Cardano_composeTxPlan',
       params: {
         hex: '1123123123123',
       },
@@ -41,7 +42,7 @@ export function CardanoWebEmbedView() {
   const routePath = '/cardano';
 
   return (
-    <Box minH="320px" minW="320px" flex="1">
+    <Box minH="10px" minW="10px" flex="1">
       <Button
         onPress={() => {
           onBridge();
