@@ -96,7 +96,7 @@ function SendProgress({
 
   const txCount = encodedTxs.length;
   const progress = new BigNumber(currentFinished / txCount).toNumber();
-  const canPause = inProgress && currentProgerss < txCount;
+  const canPause = inProgress && currentProgerss < txCount - 1;
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (progressState.current === BatchSendState.inProgress)
@@ -111,19 +111,19 @@ function SendProgress({
       await waitUntilInProgress();
       setCurrentProgress(i + 1);
       debugLogger.sendTx.info('Authentication sendTx:', route.params);
-      // const signedTx =
-      //   await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
-      //     password,
-      //     networkId,
-      //     accountId,
-      //     encodedTx: encodedTxs[i],
-      //     signOnly,
-      //     pendingTxs: map(result, (tx) => ({
-      //       id: tx.txid,
-      //     })),
-      //   });
-      await wait(2000);
-      // result.push(signedTx as ISignedTx);
+      const signedTx =
+        await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
+          password,
+          networkId,
+          accountId,
+          encodedTx: encodedTxs[i],
+          signOnly,
+          pendingTxs: map(result, (tx) => ({
+            id: tx.txid,
+          })),
+        });
+      result.push(signedTx as ISignedTx);
+      await wait(3000);
       debugLogger.sendTx.info(
         'Authentication sendTx DONE:',
         route.params,
@@ -291,16 +291,22 @@ function SendProgress({
           progress={progress}
           text={
             <>
-              <Text typography="Body2Strong" color="text-subdued">
+              <Text
+                typography="Body2Strong"
+                color="text-subdued"
+                textAlign="center"
+              >
                 {intl.formatMessage(
                   {
                     id: 'form__str_transactions',
                   },
                   {
                     0: (
-                      <Text typography="DisplayMedium">
-                        {currentFinished} / {txCount}
-                      </Text>
+                      <Box display="block">
+                        <Text typography="DisplayMedium">
+                          {currentFinished} / {txCount}
+                        </Text>
+                      </Box>
                     ),
                   },
                 )}
@@ -309,11 +315,13 @@ function SendProgress({
           }
         />
       </Box>
-      <Text typography="DisplayMedium" mt="24px">
+      <Text typography="DisplayMedium" mt="24px" textAlign="center">
         {currentState === BatchSendState.inProgress &&
           intl.formatMessage({ id: 'title__transactions_in_progress' })}
         {currentState === BatchSendState.onPause &&
-          intl.formatMessage({ id: 'title__transactions_paused' })}
+          intl.formatMessage({
+            id: 'title__you_ve_paused_the_transaction_generation',
+          })}
       </Text>
       {wallet?.type === 'hw' && inProgress && (
         <Text
@@ -335,7 +343,7 @@ function SendProgress({
           color="text-subdued"
         >
           {intl.formatMessage({
-            id: 'title__transactions_paused_desc',
+            id: 'content__if_you_want_to_cancel_transactions_that_has_already_been_generated',
           })}
         </Text>
       )}
