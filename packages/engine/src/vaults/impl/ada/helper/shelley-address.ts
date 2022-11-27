@@ -6,7 +6,7 @@ import { derivePrivate, toPublic } from 'cardano-crypto.js';
 
 import { BIP32Path, NetworkId } from '../types';
 
-import { baseAddressFromXpub } from './addresses';
+import { baseAddressFromXpub, stakingAddressFromXpub } from './addresses';
 import { getRootKey, toBip32StringPath } from './bip32';
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
@@ -57,6 +57,20 @@ export const deriveXpub = (paths: BIP32Path, rootKey: Buffer): Buffer => {
   return toPublic(deriveSecret.slice(0, 64));
 };
 
+export const ShelleyStakingAccountProvider = (
+  accountIndex: number,
+  rootKey: Buffer,
+  networkId: NetworkId,
+) => {
+  const pathStake = shelleyStakeAccountPath(accountIndex);
+  const stakeXpub = deriveXpub(pathStake, rootKey);
+
+  return {
+    path: pathStake,
+    address: stakingAddressFromXpub(stakeXpub, networkId),
+  };
+};
+
 export const ShelleyBaseAddressProvider = (
   accountIndex: number,
   rootKey: Buffer,
@@ -84,7 +98,12 @@ export const batchGetShelleyAddresses = async (
   networkId: NetworkId,
 ) => {
   const rootKey = await getRootKey(password, entropy);
-  return indexes.map((accountIndex) =>
-    ShelleyBaseAddressProvider(accountIndex, rootKey, networkId),
-  );
+  return indexes.map((accountIndex) => ({
+    baseAddress: ShelleyBaseAddressProvider(accountIndex, rootKey, networkId),
+    stakingAddress: ShelleyStakingAccountProvider(
+      accountIndex,
+      rootKey,
+      networkId,
+    ),
+  }));
 };

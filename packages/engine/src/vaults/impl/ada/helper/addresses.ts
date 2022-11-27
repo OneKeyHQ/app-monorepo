@@ -11,6 +11,7 @@ import {
   isValidBootstrapAddress,
   isValidShelleyAddress,
   packBaseAddress,
+  packRewardAddress,
   // @ts-expect-error
 } from 'cardano-crypto.js';
 
@@ -47,6 +48,17 @@ const xpub2blake2b224Hash = (xpub: Buffer) =>
 
 export const isShelleyPath = (path: BIP32Path) =>
   path[0] - HARDENED_THRESHOLD === 1852;
+
+export const stakingAddressFromXpub = (
+  stakeXpub: Buffer,
+  networkId: NetworkId,
+): Address => {
+  const addrBuffer: Buffer = packRewardAddress(
+    xpub2blake2b224Hash(stakeXpub),
+    networkId,
+  );
+  return encodeAddress(addrBuffer);
+};
 
 export const baseAddressFromXpub = (
   spendXpub: Buffer,

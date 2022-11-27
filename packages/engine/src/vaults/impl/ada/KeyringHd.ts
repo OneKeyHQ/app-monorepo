@@ -67,8 +67,10 @@ export class KeyringHd extends KeyringHdBase {
     }
 
     const firstAddressRelPath = '0/0';
+    const stakingAddressPath = '2/0';
     const ret = addressInfos.map((info, index) => {
-      const { address, path, xpub } = info;
+      const { baseAddress, stakingAddress } = info;
+      const { address, path, xpub } = baseAddress;
       const name = (names || [])[index] || `ADA #${indexes[index] + 1}`;
       return {
         id: `${this.walletId}--${path}`,
@@ -78,7 +80,10 @@ export class KeyringHd extends KeyringHdBase {
         coinType: COIN_TYPE,
         xpub,
         address,
-        addresses: { [firstAddressRelPath]: address },
+        addresses: {
+          [firstAddressRelPath]: address,
+          [stakingAddressPath]: stakingAddress.address,
+        },
       };
     });
 
