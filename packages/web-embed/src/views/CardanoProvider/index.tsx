@@ -23,7 +23,7 @@ function CardanoProvider() {
   }, []);
 
   const handler = useCallback(
-    (payload: IJsonRpcRequest) => {
+    async (payload: IJsonRpcRequest) => {
       console.log('CardanoProvider Recive Message: ', payload);
       console.log('params: ', JSON.stringify(payload.params));
       const { method, params } = payload;
@@ -53,8 +53,24 @@ function CardanoProvider() {
           }
           break;
         }
+
         case CardanoEvent.signTransaction: {
           console.log('Cardano_signTransaction');
+          const { txBodyHex, address, accountIndex, utxos, xprv, partialSign } =
+            eventParams;
+          try {
+            const result = await onekeyUtils.signTransaction(
+              txBodyHex,
+              address,
+              accountIndex,
+              utxos,
+              xprv,
+              partialSign,
+            );
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
           break;
         }
         default:
