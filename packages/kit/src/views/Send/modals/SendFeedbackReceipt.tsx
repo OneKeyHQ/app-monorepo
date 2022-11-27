@@ -22,7 +22,7 @@ export function SendFeedbackReceipt() {
   const route = useRoute<RouteProps>();
   const closeModal = useModalClose();
   const { networkId, accountId, type } = route.params;
-  const { network } = useActiveSideAccount(route.params);
+  const { network, accountAddress } = useActiveSideAccount(route.params);
   const openBlockBrowser = useOpenBlockBrowser(network);
   const [count, setCount] = useState(3);
   const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
@@ -107,8 +107,10 @@ export function SendFeedbackReceipt() {
         setTimeout(() => {
           if (route.params.onDetail) {
             route.params.onDetail?.(route?.params?.txid);
-          } else {
+          } else if (route.params.isSingleTransformMode) {
             openBlockBrowser.openTransactionDetails(route?.params?.txid);
+          } else {
+            openBlockBrowser.openAddressDetails(accountAddress);
           }
         }, 100);
       }}

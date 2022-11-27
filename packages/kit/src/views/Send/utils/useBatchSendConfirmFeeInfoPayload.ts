@@ -3,9 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 
 import { useToast } from '@onekeyhq/components';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
+  IDecodedTx,
   IEncodedTx,
   IFeeInfo,
   IFeeInfoPayload,
@@ -31,9 +36,10 @@ function useFeePresetIndex(networkId: string) {
   return feePresetIndexMap?.[networkId];
 }
 
-export function useFeeInfoPayload({
-  encodedTx,
-  useFeeInTx = false, // do not set useFeeInTx=true if encodedTx generated from dapp
+export function useBatchSendConfirmFeeInfoPayload({
+  encodedTxs,
+  decodedTxs,
+  useFeeInTx = false,
   pollingInterval = 0,
   fetchAnyway = false,
   networkId,
@@ -41,7 +47,8 @@ export function useFeeInfoPayload({
   signOnly,
   forBatchSend,
 }: {
-  encodedTx: IEncodedTx | null;
+  encodedTxs: IEncodedTx[];
+  decodedTxs: IDecodedTx[];
   useFeeInTx?: boolean;
   pollingInterval?: number;
   fetchAnyway?: boolean;
@@ -53,10 +60,9 @@ export function useFeeInfoPayload({
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
   const [feeInfoError, setFeeInfoError] = useState<Error | null>(null);
-  const [feeInfoPayload, setFeeInfoPayload] = useState<IFeeInfoPayload | null>(
-    null,
-  );
-  const feeInfoPayloadCacheRef = useRef<IFeeInfoPayload | null>(null);
+  const [feeInfoPayloads, setFeeInfoPayloads] = useState<IFeeInfoPayload[]>([]);
+  const [totalFeeInNative, setTotalFeeInNative] = useState<number>(0);
+  const feeInfoPayloadCacheRef = useRef<IFeeInfoPayload[]>([]);
   const [loading, setLoading] = useState(true);
   const route = useRoute();
   const toast = useToast();
@@ -64,7 +70,6 @@ export function useFeeInfoPayload({
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
   )?.feeInfoSelected;
-  // TODO use standalone function
   const getSelectedFeeInfoUnit = useCallback(
     ({
       info,
@@ -86,16 +91,8 @@ export function useFeeInfoPayload({
     [],
   );
 
-  // prepareTransfer -> gasLimit
-  // maxFeePerGas
-  // price=5 limit=21000
-  // total fee amount
-  // max input
-  const fetchFeeInfo =
-    useCallback(async (): Promise<IFeeInfoPayload | null> => {
-      if (!encodedTx) {
-        return null;
-      }
+  const fetchFeeInfo = useCallback(
+    async (encodedTx: IEncodedTx): Promise<IFeeInfoPayload | null> => {
       const DEFAULT_PRESET_INDEX = '1';
       let feeInfoSelected = feeInfoSelectedInRouteParams;
       const {
@@ -112,6 +109,10 @@ export function useFeeInfoPayload({
         prices: [],
         defaultPresetIndex: defaultFeePresetIndex ?? DEFAULT_PRESET_INDEX,
       };
+      let currentInfoUnit: IFeeInfoUnit = {
+        price: '0',
+        limit: '0',
+      };
       let shouldFetch = !feeInfoSelected || feeInfoSelected?.type === 'preset';
       if (fetchAnyway) {
         shouldFetch = true;
@@ -127,18 +128,44 @@ export function useFeeInfoPayload({
           });
           setFeeInfoError(null);
         } catch (error: any) {
-          const { code: errCode, data: innerError } = error as {
-            code?: number;
-            data?: Error;
-          };
-          if (errCode === -32603 && innerError) {
-            // Internal RPC Error during fetching fee info
-            setFeeInfoError(innerError);
+          if (
+            network?.impl === IMPL_EVM &&
+            (encodedTx as IEncodedTxEvm).to ===
+              batchTransferContractAddress[network?.id]
+          ) {
+            const gasPrice = await backgroundApiProxy.engine.getGasPrice(
+              networkId,
+            );
+
+            const blockData = await backgroundApiProxy.engine.proxyJsonRPCCall(
+              networkId,
+              {
+                method: 'eth_getBlockByNumber',
+                params: ['latest', false],
+              },
+            );
+
+            const blockReceipt = blockData as { gasLimit: string };
+
+            currentInfoUnit = {
+              eip1559: typeof gasPrice[0] === 'object',
+              limit: String(+blockReceipt.gasLimit / 10),
+              price: gasPrice[gasPrice.length - 1],
+            };
           } else {
-            setFeeInfoError(error);
+            const { code: errCode, data: innerError } = error as {
+              code?: number;
+              data?: Error;
+            };
+            if (errCode === -32603 && innerError) {
+              // Internal RPC Error during fetching fee info
+              setFeeInfoError(innerError);
+            } else {
+              setFeeInfoError(error);
+            }
+            debugLogger.sendTx.error('engine.fetchFeeInfo ERROR: ', error);
+            return null;
           }
-          debugLogger.sendTx.error('engine.fetchFeeInfo ERROR: ', error);
-          return null;
         }
       }
       if (defaultFeePresetIndex) {
@@ -150,11 +177,6 @@ export function useFeeInfoPayload({
       if (parseFloat(info.defaultPresetIndex) < 0) {
         info.defaultPresetIndex = '0';
       }
-
-      let currentInfoUnit: IFeeInfoUnit = {
-        price: '0',
-        limit: '0',
-      };
 
       // useFeeInTx ONLY if encodedTx including full fee info
       if (!feeInfoSelected && info && useFeeInTx && info.tx) {
@@ -212,8 +234,8 @@ export function useFeeInfoPayload({
       };
       debugLogger.sendTx.info('useFeeInfoPayload: ', result);
       return result;
-    }, [
-      encodedTx,
+    },
+    [
       feeInfoSelectedInRouteParams,
       network,
       defaultFeePresetIndex,
@@ -224,19 +246,25 @@ export function useFeeInfoPayload({
       networkId,
       signOnly,
       getSelectedFeeInfoUnit,
-    ]);
+    ],
+  );
 
   useEffect(() => {
     (async function () {
-      if (!encodedTx) {
+      if (!encodedTxs.length) {
         return null;
       }
       // first time loading only, Interval loading does not support yet.
       setLoading(true);
       try {
-        const info = await fetchFeeInfo();
+        const infos = await Promise.all(
+          encodedTxs.map((encodedTx) => fetchFeeInfo(encodedTx)),
+        );
         // await delay(600);
-        setFeeInfoPayload(info);
+
+        setFeeInfoPayloads(
+          infos.includes(null) ? [] : (infos as IFeeInfoPayload[]),
+        );
       } catch (error: any) {
         // TODO: only an example implementation about showing rpc error
         const { code: errCode } = error as { code?: number };
@@ -248,14 +276,14 @@ export function useFeeInfoPayload({
             toast.show({ title: message });
           }
         }
-        setFeeInfoPayload(null);
+        setFeeInfoPayloads([]);
         setFeeInfoError(error);
         debugLogger.sendTx.error('fetchFeeInfo ERROR: ', error);
       } finally {
         setLoading(false);
       }
     })();
-  }, [encodedTx, fetchFeeInfo, setFeeInfoPayload, toast]);
+  }, [encodedTxs, fetchFeeInfo, setFeeInfoPayloads, toast]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
@@ -268,19 +296,25 @@ export function useFeeInfoPayload({
           return;
         }
         try {
-          const info = await fetchFeeInfo();
-          if (info) {
-            setFeeInfoPayload(info);
-            feeInfoPayloadCacheRef.current = info;
+          const infos = await Promise.all(
+            encodedTxs.map((encodedTx) => fetchFeeInfo(encodedTx)),
+          );
+          // await delay(600);
+          if (infos) {
+            const filterdInfos = infos.includes(null)
+              ? []
+              : (infos as IFeeInfoPayload[]);
+            setFeeInfoPayloads(filterdInfos);
+            feeInfoPayloadCacheRef.current = filterdInfos;
           } else if (feeInfoPayloadCacheRef.current) {
             // ** use last cache if error
-            setFeeInfoPayload(feeInfoPayloadCacheRef.current);
+            setFeeInfoPayloads(feeInfoPayloadCacheRef.current);
             setFeeInfoError(null);
           }
         } catch (error: any) {
           if (feeInfoPayloadCacheRef.current) {
             // ** use last cache if error
-            setFeeInfoPayload(feeInfoPayloadCacheRef.current);
+            setFeeInfoPayloads(feeInfoPayloadCacheRef.current);
             setFeeInfoError(null);
           } else {
             setFeeInfoError(error);
@@ -298,11 +332,35 @@ export function useFeeInfoPayload({
     loading,
     pollingInterval,
     isFocused,
+    encodedTxs,
   ]);
+
+  useEffect(() => {
+    let total = 0;
+    if (
+      feeInfoPayloads.length === decodedTxs.length &&
+      feeInfoPayloads.length !== 0
+    ) {
+      total = 0;
+      for (let i = 0; i < feeInfoPayloads.length; i += 1) {
+        if (decodedTxs[i].totalFeeInNative) {
+          total += new BigNumber(
+            decodedTxs[i].totalFeeInNative ?? 0,
+          ).toNumber();
+        } else {
+          total += new BigNumber(
+            feeInfoPayloads[i].current?.totalNative ?? 0,
+          ).toNumber();
+        }
+      }
+      setTotalFeeInNative(total);
+    }
+  }, [decodedTxs, feeInfoPayloads]);
 
   return {
     feeInfoError,
-    feeInfoPayload,
+    totalFeeInNative,
+    feeInfoPayloads,
     feeInfoLoading: loading,
     getSelectedFeeInfoUnit,
   };

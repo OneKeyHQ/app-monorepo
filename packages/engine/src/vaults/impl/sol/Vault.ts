@@ -65,6 +65,7 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  INFTInfo,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -325,19 +326,26 @@ export default class Vault extends VaultBase {
         },
       ];
     }
-    if (payload?.type === 'Transfer' && payload?.nftInfo) {
-      actions = [
-        {
+    if (
+      payload?.type === 'Transfer' &&
+      (payload?.nftInfo || payload?.nftInfos)
+    ) {
+      const infos: INFTInfo[] = payload.nftInfos
+        ? payload.nftInfos
+        : [payload.nftInfo];
+      actions = [];
+      infos.map((info) =>
+        actions.push({
           type: IDecodedTxActionType.NFT_TRANSFER,
           nftTransfer: {
-            asset: payload.nftInfo.asset,
-            amount: payload.nftInfo.amount,
-            send: payload.nftInfo.from,
-            receive: payload.nftInfo.to,
+            asset: info.asset,
+            amount: info.amount,
+            send: info.from,
+            receive: info.to,
             extraInfo: null,
           },
-        },
-      ];
+        }),
+      );
     }
 
     const owner = await this.getAccountAddress();
@@ -427,6 +435,70 @@ export default class Vault extends VaultBase {
           ),
         }),
       );
+    }
+
+    return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+  }
+
+  override async buildEncodedTxFromBatchTransfer(
+    transferInfos: ITransferInfo[],
+  ): Promise<IEncodedTx> {
+    const client = await this.getClient();
+    const transferInfo = transferInfos[0];
+    const { from, to } = transferInfo;
+
+    const feePayer = new PublicKey(from);
+    const receiver = new PublicKey(to);
+    const nativeTx = new Transaction();
+    [, nativeTx.recentBlockhash] = await client.getFees();
+    nativeTx.feePayer = feePayer;
+
+    for (let i = 0; i < transferInfos.length; i += 1) {
+      const { token: tokenAddress, isNFT, amount } = transferInfos[i];
+
+      const token = await this.engine.ensureTokenInDB(
+        this.networkId,
+        tokenAddress ?? '',
+      );
+      if (!token) {
+        throw new OneKeyInternalError(
+          `Token not found: ${tokenAddress || 'main'}`,
+        );
+      }
+      if (tokenAddress) {
+        const mint = new PublicKey(tokenAddress);
+        let associatedTokenAddress = receiver;
+        if (PublicKey.isOnCurve(receiver.toString())) {
+          // system account, get token receiver address
+          associatedTokenAddress = await getAssociatedTokenAddress(
+            mint,
+            receiver,
+          );
+        }
+        const associatedAccountInfo = await client.getAccountInfo(
+          associatedTokenAddress.toString(),
+        );
+        if (associatedAccountInfo === null) {
+          nativeTx.add(
+            createAssociatedTokenAccountInstruction(
+              feePayer,
+              associatedTokenAddress,
+              receiver,
+              mint,
+            ),
+          );
+        }
+        nativeTx.add(
+          createTransferCheckedInstruction(
+            await getAssociatedTokenAddress(mint, feePayer),
+            mint,
+            associatedTokenAddress,
+            feePayer,
+            BigInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
+            token.decimals,
+          ),
+        );
+      }
     }
 
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));

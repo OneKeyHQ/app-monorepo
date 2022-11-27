@@ -5391,6 +5391,7 @@ __metadata:
     react-native-markdown-display: ^7.0.0-alpha.2
     react-native-modal: ^13.0.1
     react-native-modalize: ^2.1.1
+    react-native-progress: ^5.0.0
     react-native-root-siblings: ^4.1.1
     react-native-svg: ^12.3.0
     react-native-tab-view: ^3.3.0
@@ -10750,7 +10751,7 @@ __metadata:
     typeforce: ^1.11.3
     varuint-bitcoin: ^1.0.4
     wif: ^2.0.1
-  checksum: 8f7405e80294361a901c37bb9492206eaf05b492d06e04676ec513b22218ee23477a3068ae879f267d5344ca7b05455e5337883bb1309d05dc7226b3944f8e75
+  checksum: fe0ea2965a132c2910c8197f298552282aaff6abafa1fea7306c83a92ecca44feedfa5b0b5036a10fef547383e75f6d64000d824a48ebb23ac0d45090b7ec9ca
   languageName: node
   linkType: hard
 
@@ -10799,7 +10800,7 @@ __metadata:
   resolution: "blake2b-wasm@https://github.com/BitGo/blake2b-wasm.git#commit=193cdb71656c1a6c7f89b05d0327bb9b758d071b"
   dependencies:
     nanoassert: ^1.0.0
-  checksum: a83b1c6c8a286c2c727a614d859cc4baf31658754f190e75daf410e3c74f91bdfcae334f1eacbfd7d89804b86cbf9b39074e47f9f808a2a77c2c7af3ab594218
+  checksum: b7c7123301986f01d0f9e33e2faac24ea5b92fc84628696f7da909156fd9bb2925cde1da7da3f3de05e0ef23f125312d2a3d11731aa69eff679b59ee1448717d
   languageName: node
   linkType: hard
 
@@ -10819,7 +10820,7 @@ __metadata:
   dependencies:
     blake2b-wasm: "https://github.com/BitGo/blake2b-wasm#193cdb71656c1a6c7f89b05d0327bb9b758d071b"
     nanoassert: ^1.0.0
-  checksum: 90515fde45f5be1d660916ec1cf97f8d8d86fbc6019e1b5355e1a25f6ea8f91ec81f45c0c7b9bfe9b1e2073e62aabd90dafbb977c9b95e4af4f5f2b3e5de96a0
+  checksum: 9f7a59625ccf8acdf74dae833efad7fa923d93f7825f66f8157298623cdca0b8b85f2e484bcf1618c00e1edb769d7f389596b2ad79bb78c277bd7b2c12b7f81d
   languageName: node
   linkType: hard
 
@@ -20128,7 +20129,7 @@ colour@latest:
   peerDependencies:
     jcore-react-native: ">= 1.9.3"
     react-native: ">= 0.50"
-  checksum: 34749ccd851ec8064cd79000ff5a59d56168506b9682bc82852fca0bcac8d596293f4cc78ce69f152352e4788415f906a4f3b4c383bca36f2956ac072d5debd5
+  checksum: b8de0fd1f0175e95df7bcc7791c2ad5d49a3f3b360c9ac208ecfa3697342b827a1b2140ce4c742929dd4504d6bbef70b93b7f78db6e6cfcbbef2eb6fd007f309
   languageName: node
   linkType: hard
 
@@ -25445,7 +25446,7 @@ optjs@latest:
 "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8":
   version: 2.4.0
   resolution: "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs.git#commit=e7e3111fb427b6df5e97f61c700ca1e64636cad8"
-  checksum: 13e53c2db5b0b6976eee1a543e6390adc66af55d1b5f12aa1a3b96d25a43f960e1637215d2adc906f0efeb1356826e6553a248c81266315e478b7087243636cf
+  checksum: 33bd19aaa15409e2bb5df5fa0d57b12a047b814245807c0da2782c8d68f1c0b3cf85b22baae1c0aba3ca3986c90d9d721b78e1517056dde21f93f7b906a0e4a5
   languageName: node
   linkType: hard
 
@@ -25708,7 +25709,7 @@ optjs@latest:
 "react-native-nested-scroll-view@https://github.com/OneKeyHQ/react-native-nested-scroll-view.git":
   version: 9.0.1
   resolution: "react-native-nested-scroll-view@https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#commit=e901ebfcd0b71f2f06186b252b0afdaccb50378e"
-  checksum: d7265123976585c2a70741b7773da9b5887eb2e655b32c7888849cc3904d4a57a33c829d0ddca4816a0a2ecf39cbb5c71cdfc659cd56426a519952229de9a6b6
+  checksum: 5440d2b1f793b885f990b521897752f31a69e2d8db97e9adedc723ba3f2c500b0693caf166a22dd63629247201a6c5aa748523058d31c37ead0a352573d929aa
   languageName: node
   linkType: hard
 
@@ -25719,6 +25720,17 @@ optjs@latest:
     react: "*"
     react-native: "*"
   checksum: 8b169bdc573cafcff9a28d15be371d393bf15a664c83c85520ed1c8ba18ef3da77ead838d3c3d8cc3bb537dbf49088eaa4551f78b62901c08bc30197e4c63862
+  languageName: node
+  linkType: hard
+
+"react-native-progress@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "react-native-progress@npm:5.0.0"
+  dependencies:
+    prop-types: ^15.7.2
+  peerDependencies:
+    react-native-svg: "*"
+  checksum: c634373c9b667db763cb92bc3fb766aa399fc59e2621072b5fcf1671677563b46e8ff398e3bcbac3760c0e4400c469958b0c00d2434149010f94a3a5edc360f5
   languageName: node
   linkType: hard
 

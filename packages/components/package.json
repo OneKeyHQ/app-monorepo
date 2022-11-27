@@ -21,6 +21,7 @@
     "react-native-markdown-display": "^7.0.0-alpha.2",
     "react-native-modal": "^13.0.1",
     "react-native-modalize": "^2.1.1",
+    "react-native-progress": "^5.0.0",
     "react-native-root-siblings": "^4.1.1",
     "react-native-svg": "^12.3.0",
     "react-native-tab-view": "^3.3.0",

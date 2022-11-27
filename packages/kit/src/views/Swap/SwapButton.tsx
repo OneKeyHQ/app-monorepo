@@ -294,7 +294,7 @@ const ExchangeButton = () => {
               const encodedEvmTx = encodedTx as IEncodedTxEvm;
               try {
                 const { result, decodedTx } =
-                  await backgroundApiProxy.serviceSwap.sendTransaction({
+                  await backgroundApiProxy.serviceTransaction.sendTransaction({
                     accountId: sendingAccount.id,
                     networkId: targetNetworkId,
                     encodedTx: { ...encodedEvmTx },

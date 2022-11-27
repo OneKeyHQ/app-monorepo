@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/kit/src/views/Send/types';
 
 import { BaseSendRouteScreen } from '../../views/Send/components/BaseSendRouteScreen';
+import { BatchSendConfirm } from '../../views/Send/modals/BatchSendConfirm';
+import { BatchSendProgress } from '../../views/Send/modals/BatchSendProgress';
 import { HardwareSwapContinue } from '../../views/Send/modals/HardwareSwapContinue';
 import { PreSendAddress } from '../../views/Send/modals/PreSendAddress';
 import { PreSendAmount } from '../../views/Send/modals/PreSendAmount';
@@ -55,6 +57,14 @@ const modalRoutes = [
   {
     name: SendRoutes.SendConfirm,
     component: BaseSendRouteScreen.wrap(SendConfirm),
+  },
+  {
+    name: SendRoutes.BatchSendConfirm,
+    component: BaseSendRouteScreen.wrap(BatchSendConfirm),
+  },
+  {
+    name: SendRoutes.BatchSendProgress,
+    component: BaseSendRouteScreen.wrap(BatchSendProgress),
   },
   {
     name: SendRoutes.SendEditFee,
