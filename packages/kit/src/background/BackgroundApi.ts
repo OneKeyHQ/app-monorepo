@@ -6,6 +6,7 @@ import { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
 import ServiceAccount from './services/ServiceAccount';
 import ServiceAccountSelector from './services/ServiceAccountSelector';
 import ServiceApp from './services/ServiceApp';
+import ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import ServiceBootstrap from './services/ServiceBootstrap';
 import ServiceCloudBackup from './services/ServiceCloudBackup';
 import ServiceCronJob from './services/ServiceCronJob';
@@ -28,6 +29,7 @@ import ServiceSocket from './services/ServiceSocket';
 import ServiceStaking from './services/ServiceStaking';
 import ServiceSwap from './services/ServiceSwap';
 import ServiceToken from './services/ServiceToken';
+import ServiceTransaction from './services/ServiceTransaction';
 import ServiceWalletConnect from './services/ServiceWalletConnect';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
@@ -142,5 +144,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   serviceSetting = new ServiceSetting({
     backgroundApi: this,
   });
+
+  serviceBatchTransfer = new ServiceBatchTransfer({ backgroundApi: this });
+
+  serviceTransaction = new ServiceTransaction({ backgroundApi: this });
 }
 export default BackgroundApi;

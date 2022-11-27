@@ -91,6 +91,7 @@ export type ISetApprovalForAll = {
   to: string;
   approved: boolean; // is approved
   spender: string; // spender to authorize
+  type?: string;
 };
 export type IERC721Approve = {
   from: string; // token owner
