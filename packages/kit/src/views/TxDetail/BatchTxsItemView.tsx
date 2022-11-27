@@ -34,6 +34,7 @@ function BatchTxsItemView(props: ITxActionListViewProps) {
           action,
           decodedTx,
           intl,
+          historyTx: undefined,
         });
         metaInfo.meta.transferAmount = transferAmount;
 
