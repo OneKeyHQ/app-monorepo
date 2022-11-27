@@ -7,7 +7,6 @@
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "^11.6.0",
     "@mui/material": "^5.2.8",
-    "@react-navigation/native": "^6.0.6",
     "iso-639-1": "^2.1.13",
     "lodash": "^4.17.21",
     "moti": "^0.21.0",

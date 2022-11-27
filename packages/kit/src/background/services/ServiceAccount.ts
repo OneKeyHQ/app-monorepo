@@ -30,6 +30,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
@@ -291,11 +292,16 @@ class ServiceAccount extends ServiceBase {
       servicePassword,
       serviceCloudBackup,
     } = this.backgroundApi;
-    const wallet = await engine.createHDWallet({
-      password,
-      mnemonic,
-      avatar: avatar ?? randomAvatar(),
-    });
+
+    startTrace('engine.createHDWallet');
+    const wallet = await engine
+      .createHDWallet({
+        password,
+        mnemonic,
+        avatar: avatar ?? randomAvatar(),
+      })
+      .finally(() => stopTrace('engine.createHDWallet'));
+
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
     const actions = [];

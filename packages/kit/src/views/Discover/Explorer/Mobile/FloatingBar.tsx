@@ -4,7 +4,6 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
   Box,
-  Center,
   Icon,
   NetImage,
   Pressable,
