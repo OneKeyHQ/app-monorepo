@@ -81,15 +81,11 @@ function CardanoProvider() {
   );
 
   useEffect(() => {
-    console.log('will Register !');
-    console.log('window.$onekey: ', window.$onekey);
     if (!window.$onekey) {
       return;
     }
-    console.log('Register Message Handler for $private');
     window.$onekey.$private.on('message_low_level', handler);
     return () => {
-      console.log('cancel registe');
       window.$onekey.$private.off('message_low_level', handler);
     };
   }, [handler]);

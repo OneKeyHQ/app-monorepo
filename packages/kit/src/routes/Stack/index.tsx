@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
+import ChainWebEmbed from '@onekeyhq/kit/src/views/ChainWebEmbed';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
 import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
@@ -254,6 +255,7 @@ function MainScreen() {
         <WalletSelectorEffectsSingleton />
         {/* TODO Waiting notification component */}
         <UpdateAlert />
+        <ChainWebEmbed />
       </Box>
     </RootSiblingParent>
   );

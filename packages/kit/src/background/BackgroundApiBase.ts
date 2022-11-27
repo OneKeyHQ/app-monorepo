@@ -316,7 +316,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     scope: IInjectedProviderNamesStrings,
     data: unknown,
   ) => {
-    console.log('sendMessagesToInjectedBridge: ', this.bridge);
     if (!this.bridge) {
       if (!platformEnv.isWeb) {
         console.warn(
@@ -340,11 +339,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
       // this.bridge.requestSync({ scope, data });
       if (this.bridge.globalOnMessageEnabled) {
-        console.log(
-          'sendMessagesToInjectedBridge  send requestSync: ',
-          scope,
-          data,
-        );
         this.bridge.requestSync({ scope, data });
       }
     }
