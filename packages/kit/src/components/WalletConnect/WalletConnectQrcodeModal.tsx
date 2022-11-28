@@ -277,8 +277,8 @@ export function WalletConnectQrcodeModal() {
           <Box
             flex={1}
             {...(platformEnv.isNativeIOSPad && {
-              flexDir: 'row',
-              flexWrap: 'wrap',
+              flexDir: { sm: 'row' },
+              flexWrap: { sm: 'wrap' },
             })}
           >
             <ConnectWalletListView

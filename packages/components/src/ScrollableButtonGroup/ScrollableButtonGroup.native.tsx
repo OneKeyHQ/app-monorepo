@@ -22,6 +22,7 @@ const ScrollableButtonGroup = forwardRef<
   ScrollableButtonGroupProps
 >(({ children, bg = 'surface-default', selectedIndex, ...boxProps }, ref) => {
   const scrollRef = useForwardRef(ref);
+  const scrollLayoutWidth = useRef(0);
   const itemLayouts = useRef<{ x: number; width: number }[]>([]);
   const lastestTodoScrollIndex = useRef<number>();
   const scrollTo = useCallback(
@@ -30,11 +31,10 @@ const ScrollableButtonGroup = forwardRef<
       if (scrollRef.current) {
         const curentTarget = itemLayouts.current[index];
         if (curentTarget) {
-          const scrollOffsetWidth =
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            scrollRef.current.getScrollableNode().offsetWidth;
           const scrollToX =
-            curentTarget.x + curentTarget.width / 2 - scrollOffsetWidth / 2;
+            curentTarget.x +
+            curentTarget.width / 2 -
+            scrollLayoutWidth.current / 2;
           lastestTodoScrollIndex.current = undefined;
           return scrollRef.current.scrollTo({
             x: scrollToX,
@@ -67,6 +67,13 @@ const ScrollableButtonGroup = forwardRef<
     <Box bg={bg} {...boxProps}>
       <Animated.ScrollView
         ref={scrollRef}
+        onLayout={({
+          nativeEvent: {
+            layout: { width },
+          },
+        }) => {
+          scrollLayoutWidth.current = width;
+        }}
         style={{
           flex: 1,
         }}

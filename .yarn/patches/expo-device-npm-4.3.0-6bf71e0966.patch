@@ -1,0 +1,18 @@
+diff --git a/android/src/main/java/expo/modules/device/DeviceModule.kt b/android/src/main/java/expo/modules/device/DeviceModule.kt
+index 0984d450a3845c04dcfdfb3c514309813c1ab5c7..f8fb9a0e5b7bc730600ad7ba5cac763daab0d965 100644
+--- a/android/src/main/java/expo/modules/device/DeviceModule.kt
++++ b/android/src/main/java/expo/modules/device/DeviceModule.kt
+@@ -62,7 +62,12 @@ class DeviceModule(private val mContext: Context) : ExportedModule(mContext) {
+     "osInternalBuildId" to Build.ID,
+     "osBuildFingerprint" to Build.FINGERPRINT,
+     "platformApiLevel" to Build.VERSION.SDK_INT,
+-    "deviceName" to Settings.Secure.getString(mContext.contentResolver, "bluetooth_name")
++    "deviceName" to run {
++       if (Build.VERSION.SDK_INT <= 31)
++         Settings.Secure.getString(mContext.contentResolver, "bluetooth_name")
++       else
++         Settings.Global.getString(mContext.contentResolver, Settings.Global.DEVICE_NAME)
++     }
+   )
+ 
+   private val deviceYearClass: Int

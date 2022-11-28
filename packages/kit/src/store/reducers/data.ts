@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { CurrencyType, MoonpayListType } from '../../views/FiatPay/types';
@@ -31,6 +32,7 @@ export const dataSlice = createSlice({
   initialState,
   reducers: {
     setAppRenderReady(state) {
+      stopTrace('js_render');
       state.isAppRenderReady = true;
     },
     setIsReduxReady(state) {

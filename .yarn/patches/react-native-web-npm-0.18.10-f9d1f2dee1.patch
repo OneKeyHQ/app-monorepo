@@ -1,5 +1,5 @@
 diff --git a/dist/exports/Dimensions/index.js b/dist/exports/Dimensions/index.js
-index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..56f739df90cdeb7293af78e3e77fa6e0098cc8da 100644
+index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..e45e7b57304fd3bbb6693e08b357e4f810c61ba8 100644
 --- a/dist/exports/Dimensions/index.js
 +++ b/dist/exports/Dimensions/index.js
 @@ -9,6 +9,8 @@
@@ -11,17 +11,39 @@ index 63af38bc973616969f5ccf3f6ab99d035e79c5f8..56f739df90cdeb7293af78e3e77fa6e0
  var dimensions = {
    window: {
      fontScale: 1,
-@@ -54,6 +56,7 @@ function handleResize() {
+@@ -33,6 +35,12 @@ function update() {
+ 
+   var win = window;
+   var docEl = win.document.documentElement;
++
++  if (docEl.clientHeight === dimensions.window.height && 
++    docEl.clientWidth === dimensions.window.width &&
++    win.screen.height === dimensions.screen.height && 
++    win.screen.width === dimensions.screen.width) return;
++
+   dimensions.window = {
+     fontScale: 1,
+     height: docEl.clientHeight,
+@@ -45,12 +53,11 @@ function update() {
+     scale: win.devicePixelRatio || 1,
+     width: win.screen.width
+   };
++  return true;
+ }
+ 
+ function handleResize() {
+-  update();
+-
+-  if (Array.isArray(listeners['change'])) {
++  if (update() && Array.isArray(listeners['change'])) {
      listeners['change'].forEach(handler => handler(dimensions));
    }
  }
-+const handleResizeThrottle = throttle(handleResize, 300);
+@@ -100,6 +107,7 @@ export default class Dimensions {
  
- export default class Dimensions {
-   static get(dimension) {
-@@ -101,5 +104,5 @@ export default class Dimensions {
  }
  
++const handleResizeThrottle = throttle(handleResize, 300);
  if (canUseDOM) {
 -  window.addEventListener('resize', handleResize, false);
 +  window.addEventListener('resize', handleResizeThrottle, false);

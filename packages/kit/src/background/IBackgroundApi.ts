@@ -12,6 +12,7 @@ import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConn
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';
+import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
@@ -29,6 +30,7 @@ import type ServiceRevoke from './services/ServiceRevoke';
 import type ServiceSetting from './services/ServiceSetting';
 import type ServiceSocket from './services/ServiceSocket';
 import type ServiceToken from './services/ServiceToken';
+import type ServiceTransaction from './services/ServiceTransaction';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -84,6 +86,8 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNameResolver: ServiceNameResolver;
   serviceMarket: ServiceMarket;
   serviceSetting: ServiceSetting;
+  serviceBatchTransfer: ServiceBatchTransfer;
+  serviceTransaction: ServiceTransaction;
 }
 
 export type IDappSourceInfo = {

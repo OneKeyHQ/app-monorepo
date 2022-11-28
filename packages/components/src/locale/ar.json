@@ -13,6 +13,7 @@
   "account__recover_select_paths": "حدد المسارات",
   "account__restore_a_previously_used_account": "استعادة حساب سبق استخدامه؟ محاولة",
   "account_activity_desc": "احصل على تحديث في جميع أنشطة حسابك",
+  "action__abort": "إحباط",
   "action__accept": "قبول",
   "action__add": "يضيف",
   "action__add_account": "إنشاء حساب",
@@ -25,6 +26,7 @@
   "action__add_new": "اضف جديد",
   "action__add_new_address": "أضف عنوان جديد",
   "action__add_node": "أضف العقدة",
+  "action__add_str_tokens": "{action__add_str_tokens, plural, zero {} one {} two {} few {} many {} other {أضف # رموز}}",
   "action__add_to_favorites": "اضافة الى المفضلة",
   "action__add_tokens": "أضف الرموز",
   "action__add_tokens_desc": "إضافة الرموز الموجودة إلى الحساب الجاري",
@@ -145,6 +147,7 @@
   "action__open_in_browser": "افتح في المتصفح",
   "action__overwrite": "الكتابة فوق",
   "action__paste": "معجون",
+  "action__pause": "يوقف",
   "action__permanently_delete": "حذف بشكل دائم",
   "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
   "action__protection": "حماية",
@@ -411,6 +414,7 @@
   "content__i_am_aware_of_the_above_risks": "أنا على علم بالمخاطر المذكورة أعلاه",
   "content__if_the_price_drifts_against_you": "إذا انحرف السعر ضدك بأكثر من هذه النسبة المئوية ، يتم إنهاء الصفقة.",
   "content__if_you_choose_max": "إذا اخترت الحد الأقصى ، فإن الحد الأقصى للمبلغ الذي قد تنفقه على {0} لا نهائي.",
+  "content__if_you_want_to_cancel_transactions_that_has_already_been_generated": "إذا كنت ترغب في إلغاء المعاملات التي تم إنشاؤها بالفعل ، يمكنك الانتقال إلى \"سجل الحساب\" لإلغائها.",
   "content__import_a_single_chain_wallet": "قم باستيراد محفظة أحادية السلسلة",
   "content__import_a_single_chain_wallet_desc": "قم باستيراد محفظتك ذات السلسلة الواحدة باستخدام مفتاح خاص أو ملف تخزين المفاتيح.",
   "content__import_address_as_watched_account": "استيراد العنوان العام كحساب مراقب",
@@ -596,6 +600,7 @@
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
+  "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "قد تتلقى طلبات توقيع متعددة على محفظة الأجهزة.",
   "content__your_biological_data_is_encrypted": "يتم تشفير بياناتك البيولوجية.",
   "content__your_biological_data_is_encrypted_desc": "يتم تخزين معلومات السيرة الذاتية محليًا ولا يمكن لـ OneKey الوصول إلى هذه البيانات أو تخزينها.",
   "content__your_profit_will_show_up_here": "سيظهر ربحك هنا.",
@@ -665,6 +670,8 @@
   "empty__no_wallet_title": "لا توجد محفظة",
   "empty__not_supported": "غير مدعوم",
   "empty__not_supported_desc": "هذه الشبكة لا تدعم NFT حتى الآن",
+  "empty__your_watchlist_is_empty": "قائمة الرغبات الخاصة بك فارغة",
+  "empty__your_watchlist_is_empty_desc": "أضف الرموز المميزة المفضلة لديك إلى قائمة المراقبة",
   "form__24h%_uppercase": "24 ساعة",
   "form__24h_high": "24 ساعة عالية",
   "form__24h_low": "24 ساعة منخفضة",
@@ -672,6 +679,7 @@
   "form__24h_volume_uppercase": "حجم 24 ساعة",
   "form__7d_high": "7d عالية",
   "form__7d_low": "7d منخفض",
+  "form__Watchlist": "قائمة المراقبة",
   "form___7d_volume": "حجم 7D",
   "form__about_uppercase": "حول",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
@@ -780,6 +788,7 @@
   "form__enable_onekey": "تمكين OneKey",
   "form__english": "إنجليزي",
   "form__ens_name": "اسم ENS",
+  "form__enter_a_number_greater_than_or_equal_to_0": "أدخل رقمًا أكبر من أو يساوي 0.",
   "form__enter_address": "أدخل العنوان",
   "form__enter_address_ens_name": "العنوان ، المجال ، أو أي اضطراب الشخصية الانفصامية",
   "form__enter_address_name": "أدخل اسم العنوان",
@@ -788,6 +797,7 @@
   "form__enter_recipient_address_valid": "عنوان صالح",
   "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
   "form__estimate_str": "تقدير {0}",
+  "form__estimate_total_gas_fee": "تقدير إجمالي رسوم الغاز",
   "form__estomated_gas": "الغاز المقدر",
   "form__exact_amount_allowance": "بدل المبلغ الدقيق",
   "form__exact_amount_allowance_desc": "احذر من إعطاء الكثير من البدل لأي عقد. قد يؤدي استخدام وضع المبلغ المحدد إلى تقليل المخاطر بشكل كبير. يمكنك تبديله في أي وقت.",
@@ -812,6 +822,7 @@
   "form__from": "من",
   "form__from_str": "من {0}",
   "form__fully_diluted_value": "القيمة المخففة بالكامل",
+  "form__gas_fee_settings": "إعدادات رسوم الغاز",
   "form__gas_limit_invalid_min": "يجب ألا يقل حد الغاز عن {0}",
   "form__gas_limit_invalid_too_much": "حد الغاز أعلى من اللازم.",
   "form__gas_price_invalid_min_str": "سعر الغاز الحد الأدنى غير صالح {0}",
@@ -881,6 +892,7 @@
   "form__minimum_received": "تلقى الحد الأدنى",
   "form__modifiable_tax": "ضريبة قابلة للتعديل",
   "form__modifiable_tax_desc": "إذا تم زيادة ضريبة المعاملات إلى أكثر من 49٪ ، فلن تكون التوكنات قادرة على التداول (مخاطرة موضع الجذب).",
+  "form__multiple_transactions": "معاملات متعددة",
   "form__my_cryptos_uppercase": "التشفير الخاص بي",
   "form__my_tokens": "الرموز الخاصة بي",
   "form__my_wallet": "محفظتى",
@@ -1027,6 +1039,7 @@
   "form__str_minute": "{0} دقيقة",
   "form__str_of_the_rewards": "{0} من المكافآت",
   "form__str_risky_item_uppercase": "{0} عنصر خطر",
+  "form__str_transactions": "{0} المعاملات",
   "form__str_used": "{0} مستخدمة",
   "form__str_y": "{0} ص",
   "form__submit_a_request": "تقديم طلب",
@@ -1062,6 +1075,7 @@
   "form__trading_volume": "حجم التداول",
   "form__trading_with_cooldown_time": "التداول مع وقت التهدئة",
   "form__trading_with_cooldown_time_desc": "في غضون فترة زمنية محددة أو حظر بعد الشراء ، لا يمكن للمستخدمين بيع الرموز المميزة.",
+  "form__transaction": "عملية",
   "form__transaction_hash": "تجزئة الصفقة",
   "form__trusted_token": "رمز موثوق",
   "form__trusted_token_desc": "هذا الرمز مشهور وجدير بالثقة.",
@@ -1597,6 +1611,7 @@
   "title__top_gainers": "أعلى الرابحين",
   "title__top_losers": "كبار الخاسرين",
   "title__top_picks": "أعلى اللقطات",
+  "title__transactions_in_progress": "معاملات جارية ...",
   "title__transferring_data": "جاري نقل البيانات ...",
   "title__transferring_data_desc": "الجهاز متصل ، يرجى الاحتفاظ بالبطاقة في مكانها وعدم تحريكها.",
   "title__trending": "الشائع",
@@ -1610,6 +1625,7 @@
   "title__welcome": "أهلا بك",
   "title__welcome_desc": "كل ما تحتاج لمعرفته حول استكشاف عالم Web3 الجديد من خلال OneKey",
   "title__whats_new": "ما هو الجديد",
+  "title__you_ve_paused_the_transaction_generation": "لقد أوقفت إنشاء المعاملة مؤقتًا",
   "title_select_wallet": "حدد Wallet",
   "title_use_touchid_unlock": "استخدم TouchID Unlock",
   "transaction__approve_token_spend_limit": "الموافقة على حد الإنفاق {token}",

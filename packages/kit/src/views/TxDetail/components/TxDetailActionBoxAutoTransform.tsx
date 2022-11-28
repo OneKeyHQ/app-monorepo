@@ -6,7 +6,10 @@ import {
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { TxActionElementAmountLarge } from '../elements/TxActionElementAmount';
+import {
+  TxActionElementAmountLarge,
+  TxActionElementAmountNormal,
+} from '../elements/TxActionElementAmount';
 import {
   TxActionElementIconLarge,
   TxActionElementIconXLarge,
@@ -51,6 +54,7 @@ export function TxDetailActionBoxAutoTransform(
   const isMultipleActions = detailContext?.context?.isMultipleActions;
   const isHistoryDetail = detailContext?.context?.isHistoryDetail;
   const isSingleTransformMode = !isMultipleActions;
+  const isCollapse = detailContext?.context?.isCollapse;
 
   let amountView;
   if (amountInfo) {
@@ -62,6 +66,16 @@ export function TxDetailActionBoxAutoTransform(
         mb={4}
       />
     );
+    if (isCollapse) {
+      amountView = (
+        <TxActionElementAmountNormal
+          direction={amountInfo.direction}
+          amount={amountInfo.amount}
+          symbol={amountInfo.symbol}
+          color="text-subdued"
+        />
+      );
+    }
   }
 
   let iconView = icon;

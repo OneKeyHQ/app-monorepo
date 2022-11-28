@@ -12,6 +12,7 @@ import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConn
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceApp from './services/ServiceApp';
+import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
@@ -34,6 +35,7 @@ import type ServiceSocket from './services/ServiceSocket';
 import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
+import type ServiceTransaction from './services/ServiceTransaction';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 
 class BackgroundApiProxy
@@ -128,6 +130,14 @@ class BackgroundApiProxy
   serviceRevoke = this._createProxyService('serviceRevoke') as ServiceRevoke;
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
+
+  serviceBatchTransfer = this._createProxyService(
+    'serviceBatchTransfer',
+  ) as ServiceBatchTransfer;
+
+  serviceTransaction = this._createProxyService(
+    'serviceTransaction',
+  ) as ServiceTransaction;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

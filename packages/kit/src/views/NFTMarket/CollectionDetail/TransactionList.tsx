@@ -193,11 +193,7 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
               flex={1}
               justifyContent="center"
             >
-              <Text
-                textAlign="right"
-                numberOfLines={1}
-                typography="Body1Underline"
-              >
+              <Text numberOfLines={1} typography="Body1Underline">
                 {item.send}
               </Text>
             </Pressable>
@@ -216,11 +212,7 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
               flex={1}
               justifyContent="center"
             >
-              <Text
-                textAlign="right"
-                numberOfLines={1}
-                typography="Body1Underline"
-              >
+              <Text numberOfLines={1} typography="Body1Underline">
                 {item.receive}
               </Text>
             </Pressable>
