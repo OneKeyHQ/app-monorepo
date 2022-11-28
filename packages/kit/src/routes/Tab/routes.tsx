@@ -34,6 +34,7 @@ import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
@@ -56,7 +57,7 @@ export interface TabRouteConfig {
 export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
-    component: HomeScreen,
+    component: toFocusedLazy(HomeScreen),
     tabBarIcon: () => 'CreditCardOutline',
     translationId: 'form__account',
     children: [
@@ -86,7 +87,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Market,
-    component: MarketScreen,
+    component: toFocusedLazy(MarketScreen),
     tabBarIcon: () => 'ChartSquareLineOutline',
     translationId: 'title__market',
     children: [
@@ -99,7 +100,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Swap,
-    component: SwapScreen,
+    component: toFocusedLazy(SwapScreen),
     tabBarIcon: () => 'SwitchHorizontalSolid',
     translationId: 'title__swap',
     children: [
@@ -111,7 +112,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.NFT,
-    component: NFTMarket,
+    component: toFocusedLazy(NFTMarket),
     tabBarIcon: () => 'Square3Stack3Doutline',
     translationId: 'title__nft',
     children: [
@@ -131,7 +132,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Discover,
-    component: DiscoverScreen,
+    component: toFocusedLazy(DiscoverScreen),
     tabBarIcon: () => 'CompassOutline',
     translationId: 'title__explore',
     children: [
@@ -151,7 +152,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Me,
-    component: MeScreen,
+    component: toFocusedLazy(MeScreen, { freezeWhenBlur: true }),
     tabBarIcon: () => 'MenuOutline',
     translationId: 'title__menu',
     children: [
