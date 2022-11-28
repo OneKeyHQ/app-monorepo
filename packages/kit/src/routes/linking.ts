@@ -307,7 +307,7 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => {
         // custom route with path params needs to be defined at last
         // /account/:address/:networkId?
         [RootRoutes.Account]: AccountRootLandingPathSchema,
-        // /wc/connect
+        // /wc/connect/wc
         [RootRoutes.OnLandingWalletConnect]:
           WalletConnectUniversalLinkPathSchema,
         NotFound: '*',

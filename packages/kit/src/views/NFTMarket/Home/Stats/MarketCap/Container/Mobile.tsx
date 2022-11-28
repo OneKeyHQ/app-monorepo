@@ -104,6 +104,7 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
           `${item.contract_address as string}${index}`
         }
         ItemSeparatorComponent={() => <Box h="4px" />}
+        ListFooterComponent={() => <Box height="20px" />}
       />
     </MotiView>
   );
