@@ -35,6 +35,7 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
+  COINTYPE_ADA,
   COINTYPE_BTC,
   IMPL_ALGO,
   IMPL_BCH,
@@ -934,8 +935,13 @@ class Engine {
       const balancesAddresss = await Promise.all(
         accounts.map(async (a) => {
           if (a.type === AccountType.UTXO) {
-            const { xpub } = a as DBUTXOAccount;
-            return { address: xpub };
+            const { xpub, addresses: changeAddresses } = a as DBUTXOAccount;
+            let address = xpub;
+            // Cardano should use stake address to search account
+            if (a.coinType === COINTYPE_ADA) {
+              address = changeAddresses['2/0'];
+            }
+            return { address };
           }
           if (a.type === AccountType.VARIANT) {
             let address = (a as DBVariantAccount).addresses[networkId];

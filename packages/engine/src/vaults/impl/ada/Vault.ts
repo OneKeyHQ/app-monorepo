@@ -385,9 +385,13 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const result = await Promise.all(
       requests.map(async ({ address }) => {
-        const stakeAddress = await this.getStakeAddress(address);
-        const balance = await client.getBalance(stakeAddress);
-        return balance;
+        try {
+          const stakeAddress = await this.getStakeAddress(address);
+          const balance = await client.getBalance(stakeAddress);
+          return balance;
+        } catch {
+          return new BigNumber(0);
+        }
       }),
     );
 
@@ -396,6 +400,9 @@ export default class Vault extends VaultBase {
 
   private getStakeAddress = memoizee(
     async (address: string) => {
+      if (validShelleyAddress(address) && address.startsWith('stake')) {
+        return address;
+      }
       const account = (await this.engine.dbApi.getAccountByAddress({
         address,
         coinType: COINTYPE_ADA,
