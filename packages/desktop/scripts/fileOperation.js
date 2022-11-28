@@ -19,16 +19,25 @@ exports.default = async function fileOperation(context) {
     );
     console.log('copy file finish');
     console.log('remove file start..');
+    const readDir = fs.readdirSync(
+      path.join(
+        appPath,
+        'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1/build/node_gyp_bins/',
+      ),
+    );
+    console.log('dir-list---', readDir);
     fs.rmSync(
       path.join(
         appPath,
-        'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1/build/node_gyp_bins/python3',
+        'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1/build/node_gyp_bins',
+        { recursive: true },
       ),
     );
     fs.rmSync(
       path.join(
         appPath,
-        'Contents/Resources/app.asar.unpacked/node_modules/keccak/build/node_gyp_bins/python3',
+        'Contents/Resources/app.asar.unpacked/node_modules/keccak/build/node_gyp_bins',
+        { recursive: true },
       ),
     );
     console.log('remove file finish..');
