@@ -63,6 +63,21 @@ export class QueryJsonRpcProvider extends JsonRpcProvider {
     }
   }
 
+  async getCoinMetadata(coinType: string) {
+    try {
+      return await this.client.requestWithType(
+        'sui_getCoinMetadata',
+        [coinType],
+        isGetObjectDataResponse,
+        this.options.skipDataValidation,
+      );
+    } catch (err) {
+      throw new Error(
+        `Error fetching coin Metadata: ${err} for id ${coinType}`,
+      );
+    }
+  }
+
   public async getOwnedObjects(address: string): Promise<SuiObject[]> {
     const objectInfos = await this.getObjectsOwnedByAddress(address);
     const objectIds = objectInfos.map((obj) => obj.objectId);
