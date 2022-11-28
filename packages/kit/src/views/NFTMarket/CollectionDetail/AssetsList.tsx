@@ -265,6 +265,9 @@ const AssetsList = ({
       ) {
         if (context?.refreshing) {
           cursorOfFilter.current = undefined;
+          if (setContext) {
+            setContext((ctx) => ({ ...ctx, filterAssetList: [] }));
+          }
         }
         if (cursorOfFilter.current !== null) {
           getDataWithAttributes({

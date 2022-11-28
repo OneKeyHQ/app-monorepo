@@ -139,6 +139,7 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
           `${item.contract_address as string}${index}`
         }
         ItemSeparatorComponent={() => <Box h="4px" />}
+        ListFooterComponent={() => <Box height="20px" />}
         {...listProps}
       />
     </MotiView>
