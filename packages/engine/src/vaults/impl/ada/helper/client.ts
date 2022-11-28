@@ -1,10 +1,11 @@
 import axios, { AxiosInstance } from 'axios';
 import BigNumber from 'bignumber.js';
+import memoizee from 'memoizee';
+
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import {
   IAdaAccount,
-  IAdaAddress,
-  IAdaAmount,
   IAdaTransaction,
   IAdaUTXO,
   ITransactionListItem,
@@ -13,9 +14,17 @@ import {
 class Client {
   readonly request: AxiosInstance;
 
+  readonly backendRequest: AxiosInstance;
+
   constructor(url: string) {
     this.request = axios.create({
-      baseURL: 'https://node.onekeytest.com/ada',
+      baseURL: 'https://node.onekeytest.com/ada' ?? url,
+      timeout: 20000,
+    });
+
+    this.backendRequest = axios.create({
+      baseURL:
+        'http://192.168.50.36:9000/cardano' ?? `${getFiatEndpoint()}/cardano`,
       timeout: 20000,
     });
   }
@@ -29,9 +38,9 @@ class Client {
     };
   }
 
-  async getAccount(address: string): Promise<IAdaAddress> {
+  async getAccount(stakeAddress: string): Promise<IAdaAccount> {
     return this.request
-      .get<IAdaAddress>(`/addresses/${address}`)
+      .get<IAdaAccount>(`/accounts/${stakeAddress}`)
       .then((i) => i.data);
   }
 
@@ -43,15 +52,20 @@ class Client {
     return balance;
   }
 
-  async getUTXOs(address: string): Promise<IAdaUTXO[]> {
-    return this.request
-      .get<IAdaUTXO[]>(`/addresses/${address}/utxos`)
-      .then((i) => i.data);
-  }
+  getUTXOs = memoizee(
+    async (stakeAddress: string) =>
+      this.backendRequest
+        .get<IAdaUTXO[]>(`/utxos/${stakeAddress}`)
+        .then((i) => i.data),
+    {
+      promise: true,
+      maxAge: 1000 * 60,
+    },
+  );
 
-  async getTransactions(address: string): Promise<ITransactionListItem[]> {
+  async getTransactions(stakeAddress: string): Promise<ITransactionListItem[]> {
     return this.request
-      .get<ITransactionListItem[]>(`/addresses/${address}/transactions`)
+      .get<ITransactionListItem[]>(`/history/${stakeAddress}`)
       .then((i) => i.data);
   }
 

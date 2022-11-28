@@ -173,11 +173,12 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxADA> {
     const { to, amount } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const stakeAddress = await this.getStakeAddress(dbAccount.address);
     const { decimals, feeDecimals } = await this.engine.getNetwork(
       this.networkId,
     );
     const client = await this.getClient();
-    const utxos = await client.getUTXOs(dbAccount.address);
+    const utxos = await client.getUTXOs(stakeAddress);
 
     const amountBN = new BigNumber(amount).shiftedBy(decimals);
     const txPlan = await CardanoApi.composeTxPlan(
