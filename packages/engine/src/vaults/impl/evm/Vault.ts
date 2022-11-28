@@ -17,7 +17,10 @@ import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
+import {
+  BatchSendConfirmPayloadInfo,
+  SendConfirmPayloadInfo,
+} from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { HISTORY_CONSTS } from '../../../constants';
@@ -61,7 +64,9 @@ import {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  INFTInfo,
   IRawTx,
+  ISetApprovalForAll,
   ISignCredentialOptions,
   ITransferInfo,
   IUnsignedTxPro,
@@ -69,7 +74,12 @@ import {
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
-import { BatchTransferSelectors, Erc20MethodSelectors } from './decoder/abi';
+import {
+  BatchTransferSelectors,
+  Erc1155MethodSelectors,
+  Erc20MethodSelectors,
+  Erc721MethodSelectors,
+} from './decoder/abi';
 import {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
@@ -194,7 +204,7 @@ export default class Vault extends VaultBase {
 
   async decodeBatchTransferTx(
     encodedTx: IEncodedTxEvm,
-    payload?: any,
+    payload?: BatchSendConfirmPayloadInfo,
   ): Promise<IDecodedTx | null> {
     const decoder = EVMTxDecoder.getDecoder(this.engine);
     const ethersTx = (await this.helper.parseToNativeTx(
@@ -203,7 +213,6 @@ export default class Vault extends VaultBase {
     if (!Number.isFinite(ethersTx.chainId)) {
       ethersTx.chainId = Number(await this.getNetworkChainId());
     }
-
     const [txDesc] = decoder.parseBatchTransfer(ethersTx);
     if (!txDesc) return null;
 
@@ -272,28 +281,38 @@ export default class Vault extends VaultBase {
         }
         break;
       }
+      case 'disperseNFT': {
+        const recipient = txDesc.args[0];
+        const amounts: string[] = txDesc.args[3];
+        if (!payload?.nftInfos) break;
+        for (let i = 0; i < amounts.length; i += 1) {
+          extraActions.push({
+            type: IDecodedTxActionType.NFT_TRANSFER,
+            direction: await this.buildTxActionDirection({
+              from: encodedTx.from,
+              to: recipient,
+              address,
+            }),
+            nftTransfer: await this.buildNFTTransferAcion({
+              asset: payload.nftInfos[i].asset,
+              amount: new BigNumber(amounts[i].toString()).toFixed(),
+              from: encodedTx.from,
+              to: recipient,
+            }),
+          });
+        }
+        break;
+      }
       default:
         return null;
     }
-
-    const mainAction: IDecodedTxAction = {
-      type: IDecodedTxActionType.UNKNOWN,
-      direction: await this.buildTxActionDirection({
-        from: encodedTx.from,
-        to: encodedTx.to,
-        address,
-      }),
-      unknownAction: {
-        extraInfo: {},
-      },
-    };
 
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: address,
       signer: encodedTx.from || address,
       nonce: new BigNumber(encodedTx.nonce ?? 0).toNumber(),
-      actions: [mainAction, ...extraActions],
+      actions: [...extraActions],
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -424,13 +443,7 @@ export default class Vault extends VaultBase {
       payload?.nftInfo
     ) {
       action.type = IDecodedTxActionType.NFT_TRANSFER;
-      action.nftTransfer = {
-        asset: payload.nftInfo.asset,
-        amount: payload.nftInfo.amount,
-        send: payload.nftInfo.from,
-        receive: payload.nftInfo.to,
-        extraInfo: null,
-      };
+      action.nftTransfer = await this.buildNFTTransferAcion(payload.nftInfo);
       extraNativeTransferAction = undefined;
     }
     if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
@@ -528,7 +541,7 @@ export default class Vault extends VaultBase {
           from: transferInfo.from,
           to: transferInfo.to,
           id: tokenId,
-          amount,
+          amount: amountBN.toFixed(),
         });
         return {
           from: transferInfo.from,
@@ -571,11 +584,17 @@ export default class Vault extends VaultBase {
 
   override async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
+    prevNonce?: number,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
+    const dbAccount = await this.getDbAccount();
     const transferInfo = transferInfos[0];
     const isTransferToken = Boolean(transferInfo.token);
     const { tokenId, isNFT, type } = transferInfo;
+    const nextNonce: number =
+      prevNonce !== undefined
+        ? prevNonce + 1
+        : await this.getNextNonce(network.id, dbAccount);
 
     const contract = batchTransferContractAddress[network.id];
 
@@ -592,10 +611,32 @@ export default class Vault extends VaultBase {
 
     if (isTransferToken) {
       if (isNFT && type && tokenId) {
-        // TODO
-        batchMethod = '';
-        paramTypes = [];
-        ParamValues = [];
+        batchMethod = BatchTransferSelectors.disperseNFT;
+        paramTypes = [
+          'address',
+          'address[]',
+          'uint256[]',
+          'uint256[]',
+          'bytes',
+        ];
+        ParamValues = [
+          transferInfo.to,
+          ...reduce(
+            transferInfos,
+            (result: [string[], string[], string[]], info) => {
+              result[0].push(info.token || '');
+              result[1].push(info.tokenId || '');
+              result[2].push(
+                new BigNumber(
+                  info.type === 'erc1155' ? info.amount : 0,
+                ).toFixed(),
+              );
+              return result;
+            },
+            [[], [], []],
+          ),
+          '0x00',
+        ];
       } else {
         const token = await this.engine.ensureTokenInDB(
           this.networkId,
@@ -645,6 +686,7 @@ export default class Vault extends VaultBase {
         .encode(paramTypes, ParamValues)
         .slice(2)}`,
       value: isTransferToken ? '0x0' : toBigIntHex(totalAmountBN),
+      nonce: nextNonce,
     };
   }
 
@@ -677,6 +719,35 @@ export default class Vault extends VaultBase {
       value: '0x0',
       data,
     };
+  }
+
+  override async buildEncodedTxsFromSetApproveForAll(
+    approveInfos: ISetApprovalForAll[],
+    prevNonce?: number,
+  ): Promise<IEncodedTxEvm[]> {
+    const network = await this.getNetwork();
+    const dbAccount = await this.getDbAccount();
+    const nextNonce: number =
+      prevNonce !== undefined
+        ? prevNonce + 1
+        : await this.getNextNonce(network.id, dbAccount);
+    const encodedTxs = approveInfos.map((approveInfo, index) => ({
+      from: approveInfo.from,
+      to: approveInfo.to,
+      data: `${
+        approveInfo.type === 'erc1155'
+          ? Erc1155MethodSelectors.setApprovalForAll
+          : Erc721MethodSelectors.setApprovalForAll
+      }${defaultAbiCoder
+        .encode(
+          ['address', 'bool'],
+          [approveInfo.spender, approveInfo.approved],
+        )
+        .slice(2)}`,
+      value: '0x0',
+      nonce: nextNonce + index,
+    }));
+    return Promise.resolve(encodedTxs);
   }
 
   async updateEncodedTx(
@@ -1137,6 +1208,16 @@ export default class Vault extends VaultBase {
     };
   }
 
+  async buildNFTTransferAcion(nftInfo: INFTInfo) {
+    return Promise.resolve({
+      asset: nftInfo.asset,
+      amount: nftInfo.amount,
+      send: nftInfo.from,
+      receive: nftInfo.to,
+      extraInfo: null,
+    });
+  }
+
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getJsonRPCClient();
     try {
@@ -1334,14 +1415,29 @@ export default class Vault extends VaultBase {
         .filter(Boolean);
       const outputActions = decodedTx.outputActions ?? [];
       const decodeTxActions = outputActions?.filter((a) => {
-        const { tokenTransfer, tokenApprove } = a;
-        if (tokenTransfer || tokenApprove) {
+        const { tokenTransfer, tokenApprove, nftTransfer } = a;
+        if (tokenTransfer || tokenApprove || nftTransfer) {
           const tokenInfo = tokenTransfer?.tokenInfo ?? tokenApprove?.tokenInfo;
+          const assetInfo = nftTransfer?.asset;
+
           if (tokenInfo) {
             const { tokenIdOnNetwork, id } = tokenInfo;
             const findNFTTx = nftTxs.find(
               (tx) =>
                 tx.contractAddress === tokenIdOnNetwork && tx.tokenId === id,
+            );
+            if (findNFTTx) {
+              return false;
+            }
+          }
+
+          if (assetInfo) {
+            const findNFTTx = nftTxs.find(
+              (tx) =>
+                (tx.contractAddress === assetInfo.contractAddress ||
+                  tx.tokenAddress === assetInfo.tokenAddress) &&
+                (tx.tokenId === assetInfo.tokenId ||
+                  tx.contractTokenId === assetInfo.contractTokenId),
             );
             if (findNFTTx) {
               return false;

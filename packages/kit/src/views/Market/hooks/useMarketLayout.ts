@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import { PixelRatio } from 'react-native';
-
 import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components/src';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

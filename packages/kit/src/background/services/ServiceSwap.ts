@@ -10,7 +10,6 @@ import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
-import { IEncodedTx, IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
 
 import { getActiveWalletAccount } from '../../hooks/redux';
 import {
@@ -30,7 +29,6 @@ import {
   clearTransactions,
   updateTokenList,
 } from '../../store/reducers/swapTransactions';
-import { SendConfirmParams } from '../../views/Send/types';
 import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -343,100 +341,6 @@ export default class ServiceSwap extends ServiceBase {
         return wallet;
       }
     }
-  }
-
-  @backgroundMethod()
-  async sendTransaction(params: {
-    accountId: string;
-    networkId: string;
-    encodedTx: IEncodedTx;
-    payload?: SendConfirmParams['payloadInfo'];
-  }) {
-    const { accountId, networkId, encodedTx } = params;
-    const { engine, servicePassword, serviceHistory } = this.backgroundApi;
-
-    const wallets = await engine.getWallets();
-    const activeWallet = wallets.find((wallet) =>
-      wallet.accounts.includes(accountId),
-    );
-
-    let password: string | undefined;
-    if (activeWallet?.type === 'hw') {
-      password = '';
-    } else {
-      password = await servicePassword.getPassword();
-    }
-
-    if (password === undefined) {
-      throw new Error('Internal Error');
-    }
-
-    let feeInfoUnit: IFeeInfoUnit | undefined;
-
-    try {
-      const feeInfo = await engine.fetchFeeInfo({
-        accountId,
-        networkId,
-        encodedTx,
-      });
-
-      if (Number.isNaN(Number(feeInfo.limit)) || Number(feeInfo.limit) <= 0) {
-        throw Error('bad limit');
-      }
-
-      const price = feeInfo.prices[feeInfo.prices.length - 1];
-
-      feeInfoUnit = {
-        eip1559: feeInfo.eip1559,
-        limit: feeInfo.limit,
-        price,
-      };
-    } catch {
-      const gasPrice = await engine.getGasPrice(params.networkId);
-
-      const blockData = await engine.proxyJsonRPCCall(params.networkId, {
-        method: 'eth_getBlockByNumber',
-        params: ['latest', false],
-      });
-
-      const blockReceipt = blockData as { gasLimit: string };
-
-      feeInfoUnit = {
-        eip1559: typeof gasPrice[0] === 'object',
-        limit: String(+blockReceipt.gasLimit / 10),
-        price: gasPrice[gasPrice.length - 1],
-      };
-    }
-
-    const encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({
-      networkId,
-      accountId,
-      encodedTx,
-      feeInfoValue: feeInfoUnit,
-    });
-
-    const signedTx = await engine.signAndSendEncodedTx({
-      encodedTx: encodedTxWithFee,
-      networkId,
-      accountId,
-      password,
-      signOnly: false,
-    });
-
-    const { decodedTx } = await engine.decodeTx({
-      networkId,
-      accountId,
-      encodedTx: signedTx.encodedTx,
-      payload: params.payload,
-    });
-
-    await serviceHistory.saveSendConfirmHistory({
-      networkId,
-      accountId,
-      data: { signedTx, decodedTx, encodedTx: signedTx.encodedTx },
-    });
-
-    return { result: signedTx, decodedTx, encodedTx: signedTx.encodedTx };
   }
 
   @backgroundMethod()

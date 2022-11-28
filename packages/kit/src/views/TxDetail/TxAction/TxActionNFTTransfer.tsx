@@ -2,7 +2,7 @@ import React from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Text } from '@onekeyhq/components';
+import { Box, HStack, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
   IDecodedTxActionType,
@@ -16,7 +16,11 @@ import { TxStatusBarInList } from '../components/TxStatusBar';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import { TxActionElementNFT } from '../elements/TxActionElementNFT';
-import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
+import {
+  TxActionElementTitleHeading,
+  TxActionElementTitleNormal,
+} from '../elements/TxActionElementTitle';
+import { useTxDetailContext } from '../TxDetailContext';
 import {
   ITxActionCardProps,
   ITxActionElementDetail,
@@ -132,6 +136,8 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
   const intl = useIntl();
   const { nftTransfer } = action;
   const { symbol, send, receive, isOut } = getTxActionNFTTransferInfo(props);
+  const detailContext = useTxDetailContext();
+  const isCollapse = detailContext?.context.isCollapse;
 
   const details: ITxActionElementDetail[] = [
     {
@@ -152,6 +158,25 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
     },
   ];
 
+  let titleView = <TxActionElementTitleHeading titleInfo={meta?.titleInfo} />;
+
+  if (isCollapse) {
+    titleView = (
+      <HStack space={2} alignItems="center" flex={1}>
+        <TxActionElementTitleNormal titleInfo={meta?.titleInfo} />
+        <Text
+          typography="Body1Strong"
+          color="text-subdued"
+          flexWrap="nowrap"
+          ellipsizeMode="middle"
+          numberOfLines={1}
+        >
+          {symbol}
+        </Text>
+      </HStack>
+    );
+  }
+
   return (
     <TxDetailActionBox
       icon={
@@ -163,7 +188,7 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
           />
         ) : undefined
       }
-      title={<TxActionElementTitleHeading titleInfo={meta?.titleInfo} />}
+      title={titleView}
       content={
         <Text typography="DisplayXLarge" mb="24px">
           {symbol}

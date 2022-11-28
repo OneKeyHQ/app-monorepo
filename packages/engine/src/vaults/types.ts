@@ -91,6 +91,7 @@ export type ISetApprovalForAll = {
   to: string;
   approved: boolean; // is approved
   spender: string; // spender to authorize
+  type?: string;
 };
 export type IERC721Approve = {
   from: string; // token owner
@@ -152,6 +153,7 @@ export type INativeTx =
 export type IRawTx = string;
 export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
+  // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTx = {
   encodedTx: IEncodedTx;

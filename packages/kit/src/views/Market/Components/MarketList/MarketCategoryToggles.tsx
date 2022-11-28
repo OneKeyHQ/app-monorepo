@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { FC, memo, useCallback, useMemo } from 'react';
 
 import {
   Box,
@@ -13,9 +13,7 @@ import { MARKET_FAKE_SKELETON_CATEGORY_ARRAY } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { MarketCategoryHeadProps } from '../../types';
 
-const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
-  categorys,
-}) => {
+const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
   const selectedCategoryId = useMarketSelectedCategoryId();
   const defaultSelectedIndex = useMemo(() => {
     if (selectedCategoryId) {
@@ -87,4 +85,4 @@ const MarketCategoryToggles: React.FC<MarketCategoryHeadProps> = ({
   );
 };
 
-export default React.memo(MarketCategoryToggles);
+export default memo(MarketCategoryToggles);

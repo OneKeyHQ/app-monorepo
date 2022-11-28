@@ -17,8 +17,7 @@
     "lint": "ultra lint:project",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
-    "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
-    "stats:ios": "yarn ios-bundle-analyzer --format json && node development/build-ios-stats.js",
+    "stats:ios": "node development/build-ios-stats.js",
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "m1:ios": "arch -x86_64 yarn ios",
     "m1:ios:device": "arch -x86_64 yarn ios:device",
@@ -158,7 +157,8 @@
     "source-map@0.7.3": "^0.7.4",
     "babel-preset-expo": "^9.2.0",
     "axios": "^0.27.2",
-    "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch"
+    "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
+    "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch"
   },
   "packageManager": "yarn@3.3.0"
 }

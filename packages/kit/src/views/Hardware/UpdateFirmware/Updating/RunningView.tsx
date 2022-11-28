@@ -27,7 +27,7 @@ const RunningView: FC<RunningViewProps> = ({ progress, hint }) => {
           </Typography.DisplayMedium>
 
           <Box px={2} width="full" mt={8}>
-            <Progress value={progress} />
+            <Progress.Bar value={progress} />
           </Box>
 
           <Typography.Body2 mt={3} textAlign="center">

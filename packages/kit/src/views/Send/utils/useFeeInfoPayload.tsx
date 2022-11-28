@@ -39,6 +39,7 @@ export function useFeeInfoPayload({
   networkId,
   accountId,
   signOnly,
+  forBatchSend,
 }: {
   encodedTx: IEncodedTx | null;
   useFeeInTx?: boolean;
@@ -47,6 +48,7 @@ export function useFeeInfoPayload({
   accountId: string;
   networkId: string;
   signOnly?: boolean;
+  forBatchSend?: boolean;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -148,6 +150,7 @@ export function useFeeInfoPayload({
       if (parseFloat(info.defaultPresetIndex) < 0) {
         info.defaultPresetIndex = '0';
       }
+
       let currentInfoUnit: IFeeInfoUnit = {
         price: '0',
         limit: '0',
@@ -166,6 +169,15 @@ export function useFeeInfoPayload({
         type: 'preset',
         preset: info.defaultPresetIndex,
       };
+
+      if (
+        forBatchSend &&
+        info &&
+        feeInfoSelected.type === 'preset' &&
+        feeInfoSelected.preset
+      ) {
+        info.customDisabled = true;
+      }
 
       // TODO reset to type=preset if custom.limit < info.limit (switch native token to erc20)
       if (feeInfoSelected.type === 'custom' && feeInfoSelected.custom) {
@@ -201,16 +213,17 @@ export function useFeeInfoPayload({
       debugLogger.sendTx.info('useFeeInfoPayload: ', result);
       return result;
     }, [
-      accountId,
       encodedTx,
       feeInfoSelectedInRouteParams,
-      fetchAnyway,
-      getSelectedFeeInfoUnit,
       network,
-      networkId,
-      useFeeInTx,
       defaultFeePresetIndex,
+      fetchAnyway,
+      useFeeInTx,
+      forBatchSend,
+      accountId,
+      networkId,
       signOnly,
+      getSelectedFeeInfoUnit,
     ]);
 
   useEffect(() => {
