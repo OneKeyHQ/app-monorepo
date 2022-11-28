@@ -106,21 +106,21 @@ jobs:
       #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
       - name: Install the Apple certificate and provisioning profile for build mas
         env:
-          DEVELOPER_ID_APP_P12_BASE64: ${{secrets.DEVELOPER_ID_APP_P12_BASE64}}
-          DEVELOPER_ID_APP_P12_PASSWORD: ${{secrets.DEVELOPER_ID_APP_P12_PASSWORD}}
+          # DEVELOPER_ID_APP_P12_BASE64: ${{secrets.DEVELOPER_ID_APP_P12_BASE64}}
+          # DEVELOPER_ID_APP_P12_PASSWORD: ${{secrets.DEVELOPER_ID_APP_P12_PASSWORD}}
           APPLE_DISTRIBUTION_P12_BASE64: ${{secrets.APPLE_DISTRIBUTION_P12_BASE64}}
           APPLE_DISTRIBUTION_P12_PASSWORD: ${{secrets.APPLE_DISTRIBUTION_P12_PASSWORD}}
           PROVISION_PROFILE_BASE64: ${{secrets.PROVISION_PROFILE_BASE64}}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           # create variables
-          DEVELOPER_ID_APP_P12_PATH=$RUNNER_TEMP/developer_id_application_certificate
+          # DEVELOPER_ID_APP_P12_PATH=$RUNNER_TEMP/developer_id_application_certificate.p12
           APPLE_DISTRIBUTION_P12_PATH=$RUNNER_TEMP/apple_distribution_certificate.p12
           PP_PATH=./OneKey_Mac_App.provisionprofile
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate from secrets
-          echo -n "$DEVELOPER_ID_APP_P12_BASE64" | base64 --decode > $DEVELOPER_ID_APP_P12_PATH
+          # echo -n "$DEVELOPER_ID_APP_P12_BASE64" | base64 --decode > $DEVELOPER_ID_APP_P12_PATH
           echo -n "$APPLE_DISTRIBUTION_P12_BASE64" | base64 --decode > $APPLE_DISTRIBUTION_P12_PATH
           echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode > $PP_PATH
 
@@ -130,7 +130,7 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
           # import certificate to keychain
-          security import $DEVELOPER_ID_APP_P12_PATH -P "$DEVELOPER_ID_APP_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          # security import $DEVELOPER_ID_APP_P12_PATH -P "$DEVELOPER_ID_APP_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security import $APPLE_DISTRIBUTION_P12_PATH -P "$APPLE_DISTRIBUTION_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
