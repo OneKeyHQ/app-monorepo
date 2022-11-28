@@ -56,7 +56,6 @@ const WebTabFront = memo(({ active }: { active?: boolean }) => {
         style={{
           ...StyleSheet.absoluteFillObject,
           zIndex: showHome ? 1 : -1,
-          display: showHome ? 'flex' : 'none',
         }}
       >
         <DiscoverHome
