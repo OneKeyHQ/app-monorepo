@@ -31,6 +31,7 @@ function WebView({
   isSpinnerLoading,
   onContentLoaded,
   onOpenWindow,
+  androidLayerType,
 }: {
   id?: string;
   src?: string;
@@ -46,6 +47,7 @@ function WebView({
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: WebViewOpenWindowEvent) => void;
+  androidLayerType?: 'none' | 'software' | 'hardware';
 }): JSX.Element {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
@@ -93,6 +95,7 @@ function WebView({
         // currently works in NativeWebView only
         onContentLoaded={onContentLoaded}
         onOpenWindow={onOpenWindow}
+        androidLayerType={androidLayerType}
       />
     </Box>
   );

@@ -18,8 +18,6 @@ import {
   WebViewProps,
 } from 'react-native-webview';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import ErrorView from './ErrorView';
 
 import type { ViewStyle } from 'react-native';
@@ -92,9 +90,6 @@ const NativeWebView = forwardRef(
         style={[
           {
             backgroundColor: 'transparent',
-            // this may fix some crashes on android
-            // https://github.com/react-native-webview/react-native-webview/issues/1915#issuecomment-808869253
-            opacity: platformEnv.isNativeAndroid ? 0.99 : 1,
           },
           style,
         ]}
