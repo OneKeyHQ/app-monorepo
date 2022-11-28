@@ -33,8 +33,22 @@ export async function getRootKey(
   return rootKey;
 }
 
-export async function getXprvString(password: string, entropy: Buffer) {
-  const rootKey = await getRootKey(password, entropy);
+export async function getXprvString(
+  password: Buffer,
+  entropy?: string,
+): Promise<string>;
+export async function getXprvString(
+  password: string,
+  entropy: Buffer,
+): Promise<string>;
+export async function getXprvString(
+  password: any,
+  entropy: any,
+): Promise<string> {
+  const rootKey =
+    typeof password === 'string'
+      ? await getRootKey(password, entropy)
+      : password;
   const xprv = bech32.encode(
     'xprv',
     Buffer.concat([rootKey.slice(0, 64), rootKey.slice(96)]),
