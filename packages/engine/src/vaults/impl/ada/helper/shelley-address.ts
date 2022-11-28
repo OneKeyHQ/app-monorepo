@@ -91,14 +91,12 @@ export const ShelleyBaseAddressProvider = (
   };
 };
 
-export const batchGetShelleyAddresses = async (
-  entropy: Buffer,
-  password: string,
+export const batchGetShelleyAddressByRootKey = (
+  rootKey: Buffer,
   indexes: number[],
   networkId: NetworkId,
-) => {
-  const rootKey = await getRootKey(password, entropy);
-  return indexes.map((accountIndex) => ({
+) =>
+  indexes.map((accountIndex) => ({
     baseAddress: ShelleyBaseAddressProvider(accountIndex, rootKey, networkId),
     stakingAddress: ShelleyStakingAccountProvider(
       accountIndex,
@@ -106,4 +104,13 @@ export const batchGetShelleyAddresses = async (
       networkId,
     ),
   }));
+
+export const batchGetShelleyAddresses = async (
+  entropy: Buffer,
+  password: string,
+  indexes: number[],
+  networkId: NetworkId,
+) => {
+  const rootKey = await getRootKey(password, entropy);
+  return batchGetShelleyAddressByRootKey(rootKey, indexes, networkId);
 };

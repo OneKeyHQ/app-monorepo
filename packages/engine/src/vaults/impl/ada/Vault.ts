@@ -29,7 +29,7 @@ import {
 import { VaultBase } from '../../VaultBase';
 
 import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
-import { getXprvString } from './helper/bip32';
+import { generateExportedCredential } from './helper/bip32';
 import Client from './helper/client';
 import { CardanoApi } from './helper/sdk';
 import { KeyringHardware } from './KeyringHardware';
@@ -92,14 +92,22 @@ export default class Vault extends VaultBase {
     return Promise.resolve(ret);
   }
 
+  override validateImportedCredential(input: string): Promise<boolean> {
+    return Promise.resolve(
+      this.settings.importedAccountEnabled &&
+        /^xprv/.test(input) &&
+        input.length >= 165,
+    );
+  }
+
   override async getExportedCredential(password: string): Promise<string> {
     const { entropy } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
 
-    const xprv = getXprvString(password, entropy);
-    return xprv;
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    return generateExportedCredential(password, entropy, dbAccount.path);
   }
 
   override attachFeeInfoToEncodedTx(params: {

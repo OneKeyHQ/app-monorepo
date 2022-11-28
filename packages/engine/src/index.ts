@@ -37,6 +37,7 @@ import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_ADA,
   COINTYPE_BTC,
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_BCH,
   IMPL_BTC,
@@ -131,6 +132,7 @@ import {
 } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
+import { decodePrivateKeyByXprv } from './vaults/impl/ada/helper/bip32';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
@@ -1084,6 +1086,10 @@ class Engine {
         }
         case IMPL_ALGO: {
           privateKey = Buffer.from(algosdk.seedFromMnemonic(credential));
+          break;
+        }
+        case IMPL_ADA: {
+          privateKey = decodePrivateKeyByXprv(credential);
           break;
         }
         default:

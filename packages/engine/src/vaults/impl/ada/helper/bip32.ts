@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 
 import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 // @ts-expect-error
-import { bech32, mnemonicToRootKeypair } from 'cardano-crypto.js';
+import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
 import { BIP32Path } from '../types';
 
@@ -34,10 +35,50 @@ export async function getRootKey(
 
 export async function getXprvString(password: string, entropy: Buffer) {
   const rootKey = await getRootKey(password, entropy);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const xprv = bech32.encode(
     'xprv',
     Buffer.concat([rootKey.slice(0, 64), rootKey.slice(96)]),
   ) as string;
   return xprv;
+}
+
+export async function generateExportedCredential(
+  password: string,
+  entropy: Buffer,
+  path: string,
+) {
+  const index = getPathIndex(path);
+  const rootKey = await getRootKey(password, entropy);
+  const xprv = bech32.encode(
+    'xprv',
+    Buffer.concat([
+      rootKey.slice(0, 64),
+      rootKey.slice(96, 128),
+      Buffer.from(index, 'utf8'),
+    ]),
+  ) as string;
+  return xprv;
+}
+
+/*
+ * @param xprv xprv string, 165 length, generate from OneKey wallet
+ */
+export function decodePrivateKeyByXprv(xprv: string) {
+  const decodeXprv = bech32.decode(xprv);
+  const index = decodeXprv.data.slice(96);
+  const publicKey = toPublic(decodeXprv.data.slice(0, 64));
+  const privateKey = Buffer.concat([
+    decodeXprv.data.slice(0, 64),
+    publicKey,
+    decodeXprv.data.slice(64, 96),
+    index,
+  ]);
+  return privateKey;
+}
+
+export function encodePrivateKey(privateKey: Buffer) {
+  return {
+    rootKey: privateKey.slice(0, 128),
+    index: Buffer.from(privateKey.slice(128)).toString('utf8'),
+  };
 }
