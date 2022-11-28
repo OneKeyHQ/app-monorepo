@@ -415,7 +415,7 @@ export type IDecodedTx = {
   signer: string; // creator, sender, fromAddress
   // receiver: string; // receiver, toAddress
 
-  nonce: number;
+  nonce?: number;
   actions: IDecodedTxAction[]; // inputActions
   outputActions?: IDecodedTxAction[];
 
