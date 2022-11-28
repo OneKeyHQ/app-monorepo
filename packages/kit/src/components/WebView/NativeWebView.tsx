@@ -20,6 +20,8 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import ErrorView from './ErrorView';
+
 import type { ViewStyle } from 'react-native';
 
 export type NativeWebViewProps = WebViewProps &
@@ -104,6 +106,9 @@ const NativeWebView = forwardRef(
         }
         source={{ uri: src }}
         onMessage={webviewOnMessage}
+        renderError={() => (
+          <ErrorView onRefresh={() => webviewRef.current?.reload()} />
+        )}
         {...props}
       />
     );
