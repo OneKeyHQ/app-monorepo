@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { FlatListProps, useWindowDimensions } from 'react-native';
 
@@ -14,7 +15,6 @@ import {
   Box,
   HStack,
   OverlayContainer,
-  PresenceTransition,
   Pressable,
   Text,
   Typography,
@@ -130,7 +130,7 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
     const { position, toPxPositionValue, triggerWidth } = useDropdownPosition({
       triggerEle: relativeComponent,
       contentRef: ele,
-      visible,
+      visible: true,
       dropdownPosition: 'right',
       translateY,
       setPositionOnlyMounted: false,
@@ -190,57 +190,65 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
 
     return (
       <OverlayContainer>
-        <PresenceTransition
-          visible={visible}
-          initial={{ opacity: 0, translateY: 0 }}
-          animate={{
-            opacity: 1,
-            translateY,
-            transition: {
-              duration: 150,
-            },
-          }}
-        >
-          <Box
-            ref={ele}
-            maxH={toPxPositionValue(maxHeight)}
-            nativeID={domId}
-            position="absolute"
-            width={triggerWidth ? toPxPositionValue(triggerWidth + 35) : 'full'}
-            left={toPxPositionValue(position.left)}
-            right={toPxPositionValue(position.right)}
-            top={toPxPositionValue(position.top)}
-            borderRadius="12"
-            bg="surface-default"
-            borderColor="border-subdued"
-            borderWidth={flatListData.length > 0 ? '1px' : '0px'}
-            shadow="depth.3"
-            overflow="hidden"
-          >
-            <FlatListRef
-              ref={flatListRef}
-              data={flatListData}
-              renderItem={renderItem}
-              keyboardShouldPersistTaps="handled"
-              ListHeaderComponent={
-                flatListData.length > 0 ? (
-                  <Box p={3}>
-                    <Typography.Subheading color="text-subdued">
-                      {intl.formatMessage({
-                        id: searchContentTerm
-                          ? 'title__search_results'
-                          : 'transaction__history',
-                      })}
-                    </Typography.Subheading>
-                  </Box>
-                ) : null
-              }
-              keyExtractor={(item) => item._id}
-              // extraData={selectItemIndex}
-              showsVerticalScrollIndicator={false}
-            />
-          </Box>
-        </PresenceTransition>
+        {/* TODO replace all PresenceTransition */}
+        <AnimatePresence>
+          {visible && (
+            <MotiView
+              from={{ opacity: 0, translateY: 0 }}
+              animate={{
+                opacity: 1,
+                translateY,
+              }}
+              transition={{
+                type: 'timing',
+                duration: 150,
+              }}
+              exit={{ opacity: 0, translateY: 0 }}
+            >
+              <Box
+                ref={ele}
+                maxH={toPxPositionValue(maxHeight)}
+                nativeID={domId}
+                position="absolute"
+                width={
+                  triggerWidth ? toPxPositionValue(triggerWidth + 35) : 'full'
+                }
+                left={toPxPositionValue(position.left)}
+                right={toPxPositionValue(position.right)}
+                top={toPxPositionValue(position.top)}
+                borderRadius="12"
+                bg="surface-default"
+                borderColor="border-subdued"
+                borderWidth={flatListData.length > 0 ? '1px' : '0px'}
+                shadow="depth.3"
+                overflow="hidden"
+              >
+                <FlatListRef
+                  ref={flatListRef}
+                  data={flatListData}
+                  renderItem={renderItem}
+                  keyboardShouldPersistTaps="handled"
+                  ListHeaderComponent={
+                    flatListData.length > 0 ? (
+                      <Box p={3}>
+                        <Typography.Subheading color="text-subdued">
+                          {intl.formatMessage({
+                            id: searchContentTerm
+                              ? 'title__search_results'
+                              : 'transaction__history',
+                          })}
+                        </Typography.Subheading>
+                      </Box>
+                    ) : null
+                  }
+                  keyExtractor={(item) => item._id}
+                  // extraData={selectItemIndex}
+                  showsVerticalScrollIndicator={false}
+                />
+              </Box>
+            </MotiView>
+          )}
+        </AnimatePresence>
       </OverlayContainer>
     );
   },
