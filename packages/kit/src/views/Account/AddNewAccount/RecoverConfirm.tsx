@@ -187,35 +187,45 @@ const RecoverConfirm: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const [stopFlag, setStopFlag] = useState(false);
+  const [recovering, setRecovering] = useState(false);
 
   return (
     <Modal
       height="340px"
       headerShown={false}
       hidePrimaryAction
-      onSecondaryActionPress={() => setStopFlag(true)}
+      onSecondaryActionPress={() => {
+        if (recovering) {
+          setStopFlag(true);
+        } else {
+          navigation.goBack();
+        }
+      }}
     >
       <Protected
         walletId={walletId}
         skipSavePassword
         field={ValidationFields.Wallet}
       >
-        {(password) => (
-          <RecoverConfirmDone
-            password={password}
-            accounts={accounts}
-            walletId={walletId}
-            network={network}
-            purpose={purpose}
-            config={config}
-            stopFlag={stopFlag}
-            onDone={() => {
-              if (navigation?.canGoBack?.()) {
-                navigation?.getParent?.()?.goBack?.();
-              }
-            }}
-          />
-        )}
+        {(password) => {
+          setRecovering(true);
+          return (
+            <RecoverConfirmDone
+              password={password}
+              accounts={accounts}
+              walletId={walletId}
+              network={network}
+              purpose={purpose}
+              config={config}
+              stopFlag={stopFlag}
+              onDone={() => {
+                if (navigation?.canGoBack?.()) {
+                  navigation?.getParent?.()?.goBack?.();
+                }
+              }}
+            />
+          );
+        }}
       </Protected>
     </Modal>
   );
