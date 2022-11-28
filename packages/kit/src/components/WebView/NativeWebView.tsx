@@ -12,6 +12,7 @@ import {
   IWebViewWrapperRef,
   JsBridgeNativeHost,
 } from '@onekeyfe/onekey-cross-webview';
+import { StyleSheet } from 'react-native';
 import {
   WebView,
   WebViewMessageEvent,
@@ -20,13 +21,13 @@ import {
 
 import ErrorView from './ErrorView';
 
-import type { ViewStyle } from 'react-native';
+export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 
-export type NativeWebViewProps = WebViewProps &
-  InpageProviderWebViewProps & {
-    style?: ViewStyle;
-  };
-
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: 'transparent',
+  },
+});
 const NativeWebView = forwardRef(
   (
     {
@@ -86,13 +87,7 @@ const NativeWebView = forwardRef(
 
     return (
       <WebView
-        // @ts-ignore
-        style={[
-          {
-            backgroundColor: 'transparent',
-          },
-          style,
-        ]}
+        style={styles.container}
         onLoadProgress={onLoadProgress}
         ref={webviewRef}
         // injectedJavaScript={injectedNative}

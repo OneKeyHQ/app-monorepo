@@ -1,6 +1,5 @@
 import { createRef } from 'react';
 
-import { af } from 'date-fns/locale';
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 
@@ -8,11 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../store';
-import {
-  homeTab,
-  setCurrentWebTab,
-  setWebTabData,
-} from '../../../store/reducers/webTabs';
+import { setWebTabData } from '../../../store/reducers/webTabs';
 
 import type { View } from 'react-native';
 // for mobile tab animations
