@@ -115,6 +115,7 @@ export const useWebviewRef = ({
           }
         };
         ref.addEventListener('did-start-loading', handleStartLoadingMessage);
+        // TODO move to desktopwebview.tsx
         ref.addEventListener('did-start-navigation', handleNavigation);
         ref.addEventListener('page-title-updated', handleTitleMessage);
         ref.addEventListener('page-favicon-updated', handleFaviconMessage);
