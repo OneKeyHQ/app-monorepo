@@ -98,6 +98,7 @@ const Mobile = () => {
           `${item.contractAddress as string}${item.tokenId as string}`
         }
         ItemSeparatorComponent={() => <Box h="4px" />}
+        ListFooterComponent={() => <Box height="20px" />}
       />
     </MotiView>
   );
