@@ -32,6 +32,7 @@ import { SwapQuoter } from './quoter';
 import { FetchQuoteParams, QuoteData, SwapError, SwapRoutes } from './typings';
 import {
   TokenAmount,
+  formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
 } from './utils';
@@ -211,12 +212,22 @@ const ExchangeButton = () => {
               from: {
                 networkId: inputAmount.token.networkId,
                 token: inputAmount.token,
-                amount: inputAmount.typedValue,
+                amount:
+                  formatAmount(
+                    new BigNumber(newQuote.sellAmount).shiftedBy(
+                      -inputAmount.token.decimals,
+                    ),
+                  ) || inputAmount.typedValue,
               },
               to: {
                 networkId: outputAmount.token.networkId,
                 token: outputAmount.token,
-                amount: outputAmount.typedValue,
+                amount:
+                  formatAmount(
+                    new BigNumber(newQuote.buyAmount).shiftedBy(
+                      -outputAmount.token.decimals,
+                    ),
+                  ) || outputAmount.typedValue,
               },
             },
           },

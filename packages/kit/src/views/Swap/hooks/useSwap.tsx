@@ -13,7 +13,11 @@ import {
 import { Token } from '../../../store/typings';
 import { SwapQuoter } from '../quoter';
 import { FetchQuoteParams, SwapError } from '../typings';
-import { greaterThanZeroOrUndefined, nativeTokenAddress } from '../utils';
+import {
+  formatAmount,
+  greaterThanZeroOrUndefined,
+  nativeTokenAddress,
+} from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
 
@@ -41,15 +45,6 @@ class TokenAmount {
   toFormat() {
     return this.toNumber().toFixed(0);
   }
-}
-
-function formatAmount(num?: BigNumber) {
-  if (!num) {
-    return '';
-  }
-  const a = num.toFixed(4);
-  const b = num.toFixed();
-  return b.length < a.length ? b : a;
 }
 
 export function useTokenAmount(token?: Token, amount?: string) {
@@ -156,7 +151,10 @@ export const useSwapQuoteCallback = function (
           }
           backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
         } else {
-          backgroundApiProxy.dispatch(setError(SwapError.NotSupport));
+          backgroundApiProxy.dispatch(
+            setError(SwapError.NotSupport),
+            setQuoteLimited(undefined),
+          );
         }
       }
     } catch (e) {
