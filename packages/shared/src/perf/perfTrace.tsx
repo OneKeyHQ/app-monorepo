@@ -10,10 +10,15 @@ const noop: () => Promise<FirebasePerformanceTypes.Trace> = async (
 
 const enableTrace = platformEnv.isProduction;
 
-const getPerf = () => ({
-  startTrace: noop,
-  newTrace: noop,
-});
+const getPerf = enableTrace
+  ? async () => {
+      const module = await import('@react-native-firebase/perf');
+      return module.firebase.perf();
+    }
+  : () => ({
+      startTrace: noop,
+      newTrace: noop,
+    });
 
 const traceMap: Record<string, FirebasePerformanceTypes.Trace> = {};
 
