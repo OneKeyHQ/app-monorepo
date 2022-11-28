@@ -16,7 +16,7 @@ import { useUpdateAllowance } from './hooks';
 import { AssetType, RevokeRoutes, RevokeRoutesParams } from './types';
 
 type FieldValues = {
-  allowance: number;
+  allowance: string;
   isUnlimited: boolean;
 };
 
@@ -41,7 +41,7 @@ export const ChangeModal = () => {
   const { control, handleSubmit, watch } = useForm<FieldValues>({
     mode: 'onChange',
     defaultValues: {
-      allowance: beforeAllowance === 'unlimited' ? 0 : +beforeAllowance,
+      allowance: beforeAllowance === 'unlimited' ? '0' : beforeAllowance,
       isUnlimited: beforeAllowance === 'unlimited',
     },
   });
@@ -102,6 +102,12 @@ export const ChangeModal = () => {
               })}
               control={control}
               rules={{
+                pattern: {
+                  value: /^\d+(\.\d+)?$/g,
+                  message: intl.formatMessage({
+                    id: 'form__enter_a_number_greater_than_or_equal_to_0',
+                  }),
+                },
                 required: {
                   value: true,
                   message: intl.formatMessage({
@@ -110,7 +116,7 @@ export const ChangeModal = () => {
                 },
               }}
             >
-              <Form.Input type="number" />
+              <Form.Input type="string" />
             </Form.Item>
           )}
         </Form>
