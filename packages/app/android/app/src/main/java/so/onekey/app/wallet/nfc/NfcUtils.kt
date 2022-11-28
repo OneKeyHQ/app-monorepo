@@ -28,18 +28,40 @@ object NfcUtils {
     @JvmField
     var mTechList: Array<Array<String>>? = null
 
+    private fun getPendingIntent(activity: Activity): PendingIntent? {
+        val intent = Intent(activity, activity.javaClass)
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        var flag = 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            flag = PendingIntent.FLAG_MUTABLE
+        } else {
+            flag = PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        return PendingIntent.getActivity(activity, 0, intent, flag)
+    }
+
+    private fun getIntentFilters(): Array<IntentFilter> {
+        return arrayOf(
+            IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED, "*/*"),
+            IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED),
+        )
+    }
+
+    private fun getTechLists(): Array<Array<String>> {
+        return arrayOf(
+            arrayOf(Ndef::class.java.name),
+            arrayOf(NfcV::class.java.name),
+            arrayOf(NfcF::class.java.name),
+            arrayOf(IsoDep::class.java.name)
+        )
+    }
+
     @JvmStatic
     fun init(activity: Activity): NfcAdapter? {
         mNfcAdapter = NfcAdapter.getDefaultAdapter(activity)
-        mTechList = arrayOf(arrayOf(Ndef::class.java.name), arrayOf(NfcV::class.java.name), arrayOf(NfcF::class.java.name), arrayOf(IsoDep::class.java.name))
-        // PendingIntent，the intent processing the coming tag
-        mPendingIntent = PendingIntent.getActivity(
-                activity,
-                0,
-                Intent(activity, activity.javaClass)
-                        .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                PendingIntent.FLAG_UPDATE_CURRENT)
-        mIntentFilter = arrayOf(IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED, "*/*"), IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED, "*/*"))
+        mTechList = getTechLists()
+        mPendingIntent = getPendingIntent(activity)
+        mIntentFilter = getIntentFilters()
         return mNfcAdapter
     }
 
