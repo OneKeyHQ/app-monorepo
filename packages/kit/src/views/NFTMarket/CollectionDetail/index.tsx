@@ -96,9 +96,13 @@ const CollectionDetail = () => {
   const { collection: ctxCollection } = context;
   useEffect(() => {
     if (ctxCollection) {
+      let mr = platformEnv.isWeb ? '32px' : '16px';
+      if (platformEnv.isNativeAndroid) {
+        mr = '0px';
+      }
       navigation.setOptions({
         headerRight: () => (
-          <Box mr={platformEnv.isWeb ? '32px' : undefined}>
+          <Box mr={mr}>
             <FilterButton
               isDisabled={
                 ctxCollection.attributes &&
@@ -115,6 +119,7 @@ const CollectionDetail = () => {
                       onAttributeSelected: (attributes) => {
                         setContext((ctx) => ({
                           ...ctx,
+                          refreshing: true,
                           attributes,
                         }));
                       },
