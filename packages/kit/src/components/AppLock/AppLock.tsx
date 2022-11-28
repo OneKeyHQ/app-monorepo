@@ -18,6 +18,7 @@ type AppLockProps = { children: JSX.Element; renderAsOverlay?: boolean };
 const unlockWhiteListUrl = [
   '/account/', // /account/0x88888
   '/wc/connect',
+  '/wc/connect/wc',
   '/onlanding',
   '/revoke',
   '/root/initial/tab/home/Revoke',
