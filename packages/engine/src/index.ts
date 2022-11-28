@@ -133,6 +133,7 @@ import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
+  IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,
@@ -141,6 +142,7 @@ import {
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
+  ISetApprovalForAll,
   IVaultSettings,
 } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1807,6 +1809,22 @@ class Engine {
   }
 
   @backgroundMethod()
+  async buildEncodedTxsFromSetApproveForAll({
+    networkId,
+    accountId,
+    approveInfos,
+    prevNonce,
+  }: {
+    networkId: string;
+    accountId: string;
+    approveInfos: ISetApprovalForAll[];
+    prevNonce?: number;
+  }): Promise<IEncodedTx[]> {
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.buildEncodedTxsFromSetApproveForAll(approveInfos, prevNonce);
+  }
+
+  @backgroundMethod()
   async attachFeeInfoToEncodedTx(params: {
     networkId: string;
     accountId: string;
@@ -1947,13 +1965,18 @@ class Engine {
     networkId,
     accountId,
     transferInfos,
+    prevNonce,
   }: {
     networkId: string;
     accountId: string;
     transferInfos: ITransferInfo[];
+    prevNonce?: number;
   }) {
     const vault = await this.getVault({ networkId, accountId });
-    const result = await vault.buildEncodedTxFromBatchTransfer(transferInfos);
+    const result = await vault.buildEncodedTxFromBatchTransfer(
+      transferInfos,
+      prevNonce,
+    );
     debugLogger.sendTx.info(
       'buildEncodedTxFromBatchTransfer: ',
       transferInfos,

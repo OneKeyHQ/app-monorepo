@@ -3,13 +3,10 @@
 import React, { FC, useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
+import { MotiView } from 'moti';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import {
-  LayoutAnimation,
-  ListRenderItem,
-  TouchableOpacity,
-} from 'react-native';
+import { ListRenderItem, TouchableOpacity } from 'react-native';
 
 import {
   Box,
@@ -87,8 +84,17 @@ const SubItem: FC<SubItemProps> = ({ attributeName, value }) => {
         bgColor={selected ? 'interactive-default' : 'surface-neutral-subdued'}
         height="28px"
       >
-        <Text typography="Body2Strong">{value.attributes_value}</Text>
-        <Text typography="Body2Strong" color="text-subdued">
+        <Text
+          typography="Body2Strong"
+          color={selected ? 'text-on-primary' : 'text-default'}
+        >
+          {value.attributes_value}
+        </Text>
+        <Text
+          typography="Body2Strong"
+          color={selected ? 'text-on-primary' : 'text-subdued'}
+          opacity={selected ? 0.65 : 1}
+        >
           {` ${value.total}`}
         </Text>
       </Box>
@@ -120,7 +126,7 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
   );
   return (
     <Collapse
-      renderCustomTrigger={(onPress) => (
+      renderCustomTrigger={(onPress, collapsed) => (
         <TouchableOpacity onPress={onPress}>
           <Box
             flexDirection="row"
@@ -129,7 +135,9 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
             alignItems="center"
           >
             <Text typography="Body1Strong">{attribute.attributes_name}</Text>
-            <Icon name="ChevronRightSolid" size={20} />
+            <MotiView animate={{ rotate: collapsed ? '0deg' : '90deg' }}>
+              <Icon name="ChevronRightSolid" size={20} />
+            </MotiView>
           </Box>
         </TouchableOpacity>
       )}
@@ -223,7 +231,7 @@ const NFTAttributesModal: FC = () => {
           }
         }}
         header={intl.formatMessage({ id: 'title__filter' })}
-        size="xs"
+        size="md"
         height="640px"
         flatListProps={{
           contentContainerStyle: {

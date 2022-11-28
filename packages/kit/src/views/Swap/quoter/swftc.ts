@@ -191,24 +191,6 @@ export class SwftcQuoter implements Quoter {
     return networkAddrRecords[networkName]?.[address];
   }
 
-  async getNoSupportCoins(
-    network: Network,
-    address: string,
-  ): Promise<Record<string, string[]> | undefined> {
-    const coin = await this.getCoin(network, address);
-    if (!coin) {
-      return;
-    }
-    const { noSupportCoin } = coin;
-    const coinCodeRecords = await this.getCoinCodeRecords();
-    const listItem = noSupportCoin.split(',');
-    const noSupportCoinItems = listItem
-      .map((name) => coinCodeRecords[name])
-      .filter(Boolean);
-    const data = this.groupCoinsByChainId(noSupportCoinItems);
-    return data;
-  }
-
   async getLocalCoins() {
     const { serviceSwap } = backgroundApiProxy;
     let coins: Coin[] | undefined;

@@ -6,7 +6,7 @@ import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
-import { SendConfirmParams } from '../types';
+import { BatchSendConfirmParams, SendConfirmParams } from '../types';
 
 // remove gas price if encodedTx build by DAPP
 function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
@@ -31,7 +31,7 @@ export async function prepareSendConfirmEncodedTx({
 }: {
   encodedTx?: IEncodedTx;
   networkImpl: string;
-  sendConfirmParams: SendConfirmParams;
+  sendConfirmParams: SendConfirmParams | BatchSendConfirmParams;
   address: string;
 }): Promise<IEncodedTx> {
   if (!encodedTx) {

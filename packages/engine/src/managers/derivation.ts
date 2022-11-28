@@ -12,6 +12,7 @@ import {
   COINTYPE_NEAR,
   COINTYPE_SOL,
   COINTYPE_STC,
+  COINTYPE_SUI,
   COINTYPE_TBTC,
   COINTYPE_TRON,
   COINTYPE_XRP,
@@ -51,6 +52,7 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_XRP]: [44],
   [IMPL_COSMOS]: [44],
   [IMPL_ADA]: [1815],
+  [COINTYPE_SUI]: [44], // [COINTYPE_SUI]: [44,54],
 };
 
 // derive path template by coin types.
@@ -74,6 +76,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_XRP]: `m/44'/${COINTYPE_XRP}'/${INCREMENT_LEVEL_TAG}'/0/0`,
   [COINTYPE_COSMOS]: `m/44'/${COINTYPE_COSMOS}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_ADA]: `m/1852'/${COINTYPE_ADA}'/{INCREMENT_LEVEL_TAG}'/0/0`,
+  [COINTYPE_SUI]: `m/44'/${COINTYPE_SUI}'/${INCREMENT_LEVEL_TAG}'/0'/0'`,
 };
 
 function getDerivationPaths(

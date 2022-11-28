@@ -1,4 +1,11 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
@@ -42,6 +49,13 @@ export const Listing: FC = () => {
   const navigation = useNavigation<NavigationProps>();
   const { network: activeNetwork } = useActiveWalletAccount();
 
+  const timerRef = useRef<any>();
+  const networkStatusRef = useRef<[string, boolean][]>([]);
+
+  useEffect(() => {
+    networkStatusRef.current = allNetworks.map((n) => [n.id, n.enabled]);
+  }, [allNetworks]);
+
   const data = useMemo(
     () =>
       allNetworks.filter(
@@ -52,24 +66,33 @@ export const Listing: FC = () => {
     [allNetworks, search],
   );
 
-  const handleToggle = useCallback(
-    (network: Network) => {
-      backgroundApiProxy.serviceNetwork.updateNetworks(
-        allNetworks.map((n) => [
-          n.id,
-          n.id === network.id ? !n.enabled : n.enabled,
-        ]),
-      );
-    },
-    [allNetworks],
-  );
-
   const onPress = useCallback(
     (network?: Network, mode: 'edit' | 'add' = 'add') => {
       navigation.navigate(ManageNetworkRoutes.AddNetwork, { network, mode });
     },
     [navigation],
   );
+
+  const handleToggle = useCallback((network: Network) => {
+    networkStatusRef.current = networkStatusRef.current.map(([id, enabled]) => {
+      if (id !== network.id) {
+        return [id, enabled];
+      }
+      return [id, !enabled];
+    });
+
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+
+    timerRef.current = setTimeout(() => {
+      backgroundApiProxy.serviceNetwork
+        .updateNetworks(networkStatusRef.current)
+        .finally(() => {
+          timerRef.current = undefined;
+        });
+    }, 10);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -100,49 +123,54 @@ export const Listing: FC = () => {
       {data.length > 0 ? (
         <List
           data={data}
-          renderItem={({ item }) => (
-            <ListItem
-              flex={1}
-              onPress={item.preset ? undefined : () => onPress(item, 'edit')}
-            >
-              <ListItem.Column>
-                <Token
-                  size={8}
-                  token={{
-                    logoURI: item.logoURI,
-                    name: item.name,
-                    symbol: item.name,
+          renderItem={({ item }) => {
+            const enabled =
+              networkStatusRef.current.find(([id]) => id === item.id)?.[1] ??
+              item.enabled;
+            return (
+              <ListItem
+                flex={1}
+                onPress={item.preset ? undefined : () => onPress(item, 'edit')}
+              >
+                <ListItem.Column>
+                  <Token
+                    size={8}
+                    token={{
+                      logoURI: item.logoURI,
+                      name: item.name,
+                      symbol: item.name,
+                    }}
+                  />
+                </ListItem.Column>
+                <ListItem.Column
+                  text={{
+                    label: item.name,
+                  }}
+                  flex={1}
+                />
+                <ListItem.Column
+                  text={{
+                    label: <Badge size="sm" title={item.impl.toUpperCase()} />,
                   }}
                 />
-              </ListItem.Column>
-              <ListItem.Column
-                text={{
-                  label: item.name,
-                }}
-                flex={1}
-              />
-              <ListItem.Column
-                text={{
-                  label: <Badge size="sm" title={item.impl.toUpperCase()} />,
-                }}
-              />
-              <ListItem.Column
-                text={{
-                  label: (
-                    <Pressable>
-                      <Switch
-                        isDisabled={item.id === activeNetwork?.id}
-                        isChecked={item.enabled}
-                        labelType="false"
-                        onToggle={() => handleToggle(item)}
-                      />
-                    </Pressable>
-                  ),
-                }}
-                alignItems="flex-end"
-              />
-            </ListItem>
-          )}
+                <ListItem.Column
+                  text={{
+                    label: (
+                      <Pressable>
+                        <Switch
+                          isDisabled={item.id === activeNetwork?.id}
+                          isChecked={enabled}
+                          labelType="false"
+                          onToggle={() => handleToggle(item)}
+                        />
+                      </Pressable>
+                    ),
+                  }}
+                  alignItems="flex-end"
+                />
+              </ListItem>
+            );
+          }}
           keyExtractor={(item) => item.id}
         />
       ) : (

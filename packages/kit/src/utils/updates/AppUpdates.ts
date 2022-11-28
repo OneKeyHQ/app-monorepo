@@ -28,6 +28,7 @@ class AppUpdates {
   addedListener = false;
 
   checkUpdate(isManual = false) {
+    if (platformEnv.isMas) return;
     if (platformEnv.isDesktop) {
       this.checkDesktopUpdate(isManual);
       return;

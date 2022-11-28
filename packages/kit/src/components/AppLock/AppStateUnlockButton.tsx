@@ -19,7 +19,7 @@ const WebAuthnButton = () => {
   const onPress = useCallback(async () => {
     const isOk = await webAuthenticate();
     if (isOk) {
-      toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
+      // toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
       backgroundApiProxy.serviceApp.webPureUnlock();
     } else {
       toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });

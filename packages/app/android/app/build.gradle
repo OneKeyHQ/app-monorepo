@@ -4,6 +4,7 @@ apply plugin: 'kotlin-kapt'
 
 apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
+apply plugin: 'com.google.firebase.firebase-perf'
 
 import com.android.build.OutputFile
 import org.apache.tools.ant.taskdefs.condition.Os

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
@@ -29,7 +30,12 @@ import {
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import { FetchQuoteParams, QuoteData, SwapError, SwapRoutes } from './typings';
-import { TokenAmount, getTokenAmountValue } from './utils';
+import {
+  TokenAmount,
+  formatAmount,
+  getTokenAmountString,
+  getTokenAmountValue,
+} from './utils';
 
 function convertToSwapInfo(options: {
   swapQuote: QuoteData;
@@ -137,6 +143,8 @@ const ExchangeButton = () => {
       receivingAddress: recipient?.address,
       txData: quote.txData,
       additionalParams: quote.additionalParams,
+      sellAmount: quote.sellAmount,
+      buyAmount: quote.buyAmount,
     });
 
     if (!res?.data) {
@@ -159,6 +167,8 @@ const ExchangeButton = () => {
     if (typeof res?.data === 'object') {
       encodedTx = {
         ...res?.data,
+        // SUI Transaction: error TS2322
+        // @ts-expect-error
         from: sendingAccount.address,
       };
     } else {
@@ -166,6 +176,13 @@ const ExchangeButton = () => {
     }
 
     if (encodedTx === undefined) {
+      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      return;
+    }
+
+    const newQuote = res.result;
+
+    if (!newQuote) {
       toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
       return;
     }
@@ -187,20 +204,30 @@ const ExchangeButton = () => {
             nonce,
             attachment: res.attachment,
             receivingAddress: recipient?.address,
-            providers: quote.providers,
+            providers: newQuote?.sources ?? quote.providers,
             arrivalTime: quote.arrivalTime,
             percentageFee: quote.percentageFee,
             tokens: {
-              rate: Number(quote.instantRate),
+              rate: Number(res?.result?.instantRate ?? quote.instantRate),
               from: {
                 networkId: inputAmount.token.networkId,
                 token: inputAmount.token,
-                amount: inputAmount.typedValue,
+                amount:
+                  formatAmount(
+                    new BigNumber(newQuote.sellAmount).shiftedBy(
+                      -inputAmount.token.decimals,
+                    ),
+                  ) || inputAmount.typedValue,
               },
               to: {
                 networkId: outputAmount.token.networkId,
                 token: outputAmount.token,
-                amount: outputAmount.typedValue,
+                amount:
+                  formatAmount(
+                    new BigNumber(newQuote.buyAmount).shiftedBy(
+                      -outputAmount.token.decimals,
+                    ),
+                  ) || outputAmount.typedValue,
               },
             },
           },
@@ -223,16 +250,32 @@ const ExchangeButton = () => {
       openAppReview();
     };
 
-    if (quote.needApproved && quote.allowanceTarget) {
+    let needApproved = false;
+
+    if (newQuote.allowanceTarget && params.tokenIn.tokenIdOnNetwork) {
+      const allowance = await backgroundApiProxy.engine.getTokenAllowance({
+        networkId: params.tokenIn.networkId,
+        accountId: params.activeAccount.id,
+        tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
+        spender: newQuote.allowanceTarget,
+      });
+      if (allowance) {
+        needApproved = new BigNumber(
+          getTokenAmountString(params.tokenIn, allowance),
+        ).lt(newQuote.sellAmount);
+      }
+    }
+
+    if (needApproved && newQuote.allowanceTarget) {
       const encodedApproveTx =
         (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-          spender: quote.allowanceTarget,
+          spender: newQuote.allowanceTarget,
           networkId: params.tokenIn.networkId,
           accountId: sendingAccount.id,
           token: inputAmount.token.tokenIdOnNetwork,
           amount: disableSwapExactApproveAmount
             ? 'unlimited'
-            : getTokenAmountValue(inputAmount.token, quote.sellAmount)
+            : getTokenAmountValue(inputAmount.token, newQuote.sellAmount)
                 .multipliedBy(1.5)
                 .toFixed(),
         })) as IEncodedTxEvm;
@@ -262,7 +305,7 @@ const ExchangeButton = () => {
               const encodedEvmTx = encodedTx as IEncodedTxEvm;
               try {
                 const { result, decodedTx } =
-                  await backgroundApiProxy.serviceSwap.sendTransaction({
+                  await backgroundApiProxy.serviceTransaction.sendTransaction({
                     accountId: sendingAccount.id,
                     networkId: targetNetworkId,
                     encodedTx: { ...encodedEvmTx },

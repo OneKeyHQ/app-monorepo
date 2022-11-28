@@ -13,6 +13,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -51,6 +52,8 @@ import VaultSol from './impl/sol/Vault';
 import VauleHelperSol from './impl/sol/VaultHelper';
 import VaultStc from './impl/stc/Vault';
 import VaultHelperStc from './impl/stc/VaultHelper';
+import VaultSui from './impl/sui/Vault';
+import VaultHelperSui from './impl/sui/VaultHelper';
 import VaultTbtc from './impl/tbtc/Vault';
 import VaultHelperTbtc from './impl/tbtc/VaultHelper';
 import VaultTron from './impl/tron/Vault';
@@ -114,6 +117,9 @@ export function createVaultHelperInstance(
   }
   if (impl === IMPL_ADA) {
     return new VaultHelperAda(options);
+  }
+  if (impl === IMPL_SUI) {
+    return new VaultHelperSui(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -205,6 +211,9 @@ export async function createVaultInstance(options: IVaultOptions) {
   }
   if (network.impl === IMPL_ADA) {
     vault = new VaultAda(options);
+  }
+  if (network.impl === IMPL_SUI) {
+    vault = new VaultSui(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

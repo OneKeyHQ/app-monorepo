@@ -1,12 +1,12 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
-import { Box, Pressable } from '@onekeyhq/components';
+import { Box, Pressable, useSafeAreaInsets } from '@onekeyhq/components';
 
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
@@ -16,6 +16,11 @@ import {
   expandFloatingWindow,
   hideTabGrid,
   minimizeFloatingWindow,
+  showTabGridAnim,
+  targetPreviewHeight,
+  targetPreviewWidth,
+  targetPreviewX,
+  targetPreviewY,
   toggleFloatingWindow,
 } from '../explorerAnimation';
 
@@ -35,6 +40,7 @@ const FloatingContainer: FC<{
   const lastTabsLength = useRef(tabs.length);
   const [containerHeight, setContainerHeight] = useState(0);
   const [showContent, setShowContent] = useState(false);
+  const { top } = useSafeAreaInsets();
 
   const innerBeforeMaximize = useCallback(() => {
     setShowContent(true);
@@ -56,6 +62,15 @@ const FloatingContainer: FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length, innerBeforeMaximize]);
 
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const onLayout = useCallback(
+    ({
+      nativeEvent: {
+        layout: { height },
+      },
+    }) => setContainerHeight(height),
+    [],
+  );
   return (
     <>
       <Animated.View
@@ -77,32 +92,80 @@ const FloatingContainer: FC<{
             [containerHeight, hasTabs],
           ),
         ]}
-        onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+        onLayout={onLayout}
       >
-        <Box flex={1} bg="background-default">
-          <Pressable
-            h="48px"
-            onPress={() =>
-              toggleFloatingWindow({
-                beforeMinimize,
-                afterMaximize,
-                beforeMaximize: innerBeforeMaximize,
-              })
-            }
-          >
-            <FloatingBar
-              favicon={currentTab?.favicon}
-              text={currentTab?.title}
-              onSearch={onSearch}
-            />
-          </Pressable>
-          {showContent && (
-            <>
-              <WebTabFront />
-              <WebTabGrid />
-            </>
-          )}
-        </Box>
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            useAnimatedStyle(() => {
+              const targetWidth = targetPreviewWidth.value;
+              const targetHeight = targetPreviewHeight.value;
+              const offsetX =
+                targetPreviewX.value - (screenWidth - targetWidth) / 2;
+              const offsetY =
+                targetPreviewY.value -
+                (containerHeight - targetHeight) / 2 -
+                top;
+              return {
+                opacity: 1 - showTabGridAnim.value,
+                zIndex: showTabGridAnim.value === MAX_OR_SHOW ? -1 : 1,
+                display:
+                  showTabGridAnim.value === MAX_OR_SHOW ? 'none' : 'flex',
+                transform: [
+                  {
+                    translateX: interpolate(
+                      showTabGridAnim.value,
+                      [0, 1],
+                      [0, offsetX],
+                    ),
+                  },
+                  {
+                    translateY: interpolate(
+                      showTabGridAnim.value,
+                      [0, 1],
+                      [0, offsetY],
+                    ),
+                  },
+                  {
+                    scaleX: interpolate(
+                      showTabGridAnim.value,
+                      [0, 1],
+                      [1, targetWidth / screenWidth],
+                    ),
+                  },
+                  {
+                    scaleY: interpolate(
+                      showTabGridAnim.value,
+                      [0, 1],
+                      [1, targetHeight / (containerHeight || screenHeight)],
+                    ),
+                  },
+                ],
+              };
+            }, [containerHeight, screenWidth, screenHeight, top]),
+          ]}
+        >
+          <Box flex={1} bg="background-default">
+            <Pressable
+              h="48px"
+              onPress={() =>
+                toggleFloatingWindow({
+                  beforeMinimize,
+                  afterMaximize,
+                  beforeMaximize: innerBeforeMaximize,
+                })
+              }
+            >
+              <FloatingBar
+                favicon={currentTab?.favicon}
+                text={currentTab?.title}
+                onSearch={onSearch}
+              />
+            </Pressable>
+            {showContent && <WebTabFront />}
+          </Box>
+        </Animated.View>
+        {showContent && <WebTabGrid />}
       </Animated.View>
       <ControllerBarMobile />
     </>

@@ -160,7 +160,7 @@ export function useFormatAmount() {
 
       const amount = formatNumber(balance, {
         ...formatOptions,
-        fixed: 2,
+        fixed: selectedFiatMoneySymbol === 'btc' ? 8 : 2,
         fullPrecision: true,
       });
 

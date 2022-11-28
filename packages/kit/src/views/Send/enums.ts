@@ -10,9 +10,17 @@ export enum SendRoutes {
   SignMessageConfirm = 'SignMessageConfirm',
   SendFeedbackReceipt = 'SendFeedbackReceipt',
   HardwareSwapContinue = 'HardwareSwapContinue',
+  BatchSendConfirm = 'BatchSendConfirm',
+  BatchSendProgress = 'BatchSendProgress',
 }
 
 export enum ESendEditFeeTypes {
   standard = 'standard',
   advanced = 'advanced',
+}
+
+export enum BatchSendState {
+  idle = 'idle',
+  inProgress = 'inProgress',
+  onPause = 'onPause',
 }

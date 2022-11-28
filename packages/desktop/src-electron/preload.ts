@@ -34,6 +34,7 @@ export type DesktopAPI = {
   hello: string;
   arch: string;
   platform: string;
+  isMas: boolean;
   reload: () => void;
   ready: () => void;
   focus: () => void;
@@ -111,6 +112,7 @@ const desktopApi = {
   hello: 'world',
   arch: process.arch,
   platform: process.platform,
+  isMas: process.mas,
   ready: () => ipcRenderer.send('app/ready'),
   reload: () => ipcRenderer.send('app/reload'),
   focus: () => ipcRenderer.send('app/focus'),

@@ -91,6 +91,7 @@ function ScreenSendEditFee({ ...rest }) {
     sendConfirmParams: oldSendConfirmParams,
     networkId,
     accountId,
+    forBatchSend,
   } = route.params;
   const { network } = useActiveSideAccount({
     networkId,
@@ -130,6 +131,7 @@ function ScreenSendEditFee({ ...rest }) {
       accountId,
       encodedTx: encodedTxForFeeInfo,
       fetchAnyway: true,
+      forBatchSend,
     });
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
 

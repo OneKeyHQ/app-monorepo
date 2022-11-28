@@ -17,8 +17,7 @@
     "lint": "ultra lint:project",
     "reset-cache": "node development/resetCache.js",
     "native": "yarn workspace @onekeyhq/app start",
-    "ios-bundle-analyzer": "yarn workspace @onekeyhq/app bundle-analyzer",
-    "stats:ios": "yarn ios-bundle-analyzer --format json && node development/build-ios-stats.js",
+    "stats:ios": "node development/build-ios-stats.js",
     "ios": "yarn copy:inject && yarn workspace @onekeyhq/app ios",
     "m1:ios": "arch -x86_64 yarn ios",
     "m1:ios:device": "arch -x86_64 yarn ios:device",
@@ -55,13 +54,13 @@
     ]
   },
   "dependencies": {
-    "@onekeyfe/cross-inpage-provider-core": "1.1.6",
-    "@onekeyfe/cross-inpage-provider-errors": "1.1.6",
-    "@onekeyfe/cross-inpage-provider-injected": "1.1.6",
-    "@onekeyfe/cross-inpage-provider-types": "1.1.6",
-    "@onekeyfe/extension-bridge-hosted": "1.1.6",
-    "@onekeyfe/network-list": "file:.yalc/@onekeyfe/network-list",
-    "@onekeyfe/onekey-cross-webview": "1.1.6",
+    "@onekeyfe/cross-inpage-provider-core": "1.1.9",
+    "@onekeyfe/cross-inpage-provider-errors": "1.1.9",
+    "@onekeyfe/cross-inpage-provider-injected": "1.1.9",
+    "@onekeyfe/cross-inpage-provider-types": "1.1.9",
+    "@onekeyfe/extension-bridge-hosted": "1.1.9",
+    "@onekeyfe/inpage-providers-hub": "1.1.9",
+    "@onekeyfe/onekey-cross-webview": "1.1.9",
     "@web3-react/core": "8.0.35-beta.0",
     "@web3-react/empty": "8.0.20-beta.0",
     "@web3-react/metamask": "8.0.28-beta.0",
@@ -153,8 +152,13 @@
     "keccak": "^3",
     "rimraf": "^3.0.2",
     "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz",
+    "minimatch": "patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch",
+    "native-base@3.4.22": "patch:native-base@npm%3A3.4.22#./.yarn/patches/native-base-npm-3.4.22-844dd4a7e7.patch",
+    "source-map@0.7.3": "^0.7.4",
+    "babel-preset-expo": "^9.2.0",
+    "axios": "^0.27.2",
     "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
-    "native-base@3.4.22": "patch:native-base@npm%3A3.4.22#./.yarn/patches/native-base-npm-3.4.22-844dd4a7e7.patch"
+    "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch"
   },
   "packageManager": "yarn@3.3.0"
 }

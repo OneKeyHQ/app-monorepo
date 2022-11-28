@@ -26,6 +26,7 @@ import {
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
+  IMPL_SUI,
   IMPL_TRON,
 } from '@onekeyhq/engine/src/constants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -301,6 +302,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'martian': IMPL_APTOS,
     'tron': IMPL_TRON,
     'algo': IMPL_ALGO,
+    'sui': IMPL_SUI,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
@@ -314,6 +316,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.conflux,
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
+  IInjectedProviderNames.sui,
 ];
 
 export function getNetworkImplFromDappScope(

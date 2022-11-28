@@ -22,23 +22,32 @@ const ScrollableButtonGroup = forwardRef<
   ScrollableButtonGroupProps
 >(({ children, bg = 'surface-default', selectedIndex, ...boxProps }, ref) => {
   const scrollRef = useForwardRef(ref);
+  const scrollLayoutWidth = useRef(0);
   const itemLayouts = useRef<{ x: number; width: number }[]>([]);
   const lastestTodoScrollIndex = useRef<number>();
-  const scrollTo = useCallback((index: number) => {
-    if (scrollRef.current) {
-      const target = itemLayouts.current[index === 0 ? 0 : index - 1];
-      if (target) {
-        lastestTodoScrollIndex.current = undefined;
-        return scrollRef.current.scrollTo({
-          x: target.x,
-          animated: true,
-        });
+  const scrollTo = useCallback(
+    (index: number) => {
+      if (index === selectedIndex) return;
+      if (scrollRef.current) {
+        const curentTarget = itemLayouts.current[index];
+        if (curentTarget) {
+          const scrollToX =
+            curentTarget.x +
+            curentTarget.width / 2 -
+            scrollLayoutWidth.current / 2;
+          lastestTodoScrollIndex.current = undefined;
+          return scrollRef.current.scrollTo({
+            x: scrollToX,
+            animated: true,
+          });
+        }
       }
-    }
-    // ref or layout not ready, record the index and scroll to it later
-    lastestTodoScrollIndex.current = index;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      // ref or layout not ready, record the index and scroll to it later
+      lastestTodoScrollIndex.current = index;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [scrollRef, selectedIndex],
+  );
 
   const itemCount = Children.count(children);
 
@@ -58,6 +67,13 @@ const ScrollableButtonGroup = forwardRef<
     <Box bg={bg} {...boxProps}>
       <Animated.ScrollView
         ref={scrollRef}
+        onLayout={({
+          nativeEvent: {
+            layout: { width },
+          },
+        }) => {
+          scrollLayoutWidth.current = width;
+        }}
         style={{
           flex: 1,
         }}

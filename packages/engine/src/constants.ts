@@ -50,6 +50,9 @@ const COINTYPE_COSMOS = '118';
 const IMPL_ADA = 'ada';
 const COINTYPE_ADA = '1815';
 
+const IMPL_SUI = 'sui';
+const COINTYPE_SUI = '784';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -67,6 +70,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_XRP,
   IMPL_COSMOS,
   IMPL_ADA,
+  IMPL_SUI,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -86,6 +90,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_XRP,
   IMPL_COSMOS,
   IMPL_ADA,
+  IMPL_SUI,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -149,8 +154,10 @@ export {
   COINTYPE_COSMOS,
   IMPL_ADA,
   COINTYPE_ADA,
+  IMPL_SUI,
+  COINTYPE_SUI,
   getSupportedImpls,
 };
 
 // switch network default rpc to onekey rpc node
-export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.19.0';
+export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.20.0';

@@ -32,7 +32,13 @@ const CollectionLogo: FC<Props> = ({ verified, ...imageProps }) => {
           {...imageProps}
         />
         {verified === true ? (
-          <Box position="absolute" right="-4px" bottom="-4px">
+          <Box
+            bgColor="background-default"
+            position="absolute"
+            right="-4px"
+            bottom="-4px"
+            borderRadius="full"
+          >
             <Icon size={16} name="BadgeCheckSolid" color="icon-success" />
           </Box>
         ) : null}
