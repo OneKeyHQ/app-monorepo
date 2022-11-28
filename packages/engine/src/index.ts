@@ -769,6 +769,7 @@ class Engine {
       '283': OnekeyNetwork.algo,
       '144': OnekeyNetwork.xrp,
       '118': OnekeyNetwork.cosmoshub,
+      '1815': OnekeyNetwork.ada,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');

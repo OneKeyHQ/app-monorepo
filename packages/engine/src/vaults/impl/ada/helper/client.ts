@@ -24,8 +24,7 @@ class Client {
     });
 
     this.backendRequest = axios.create({
-      baseURL:
-        'http://192.168.50.36:9000/cardano' ?? `${getFiatEndpoint()}/cardano`,
+      baseURL: `${getFiatEndpoint()}/cardano`,
       timeout: 20000,
     });
   }

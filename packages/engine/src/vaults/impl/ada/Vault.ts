@@ -6,6 +6,7 @@ import memoizee from 'memoizee';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_ADA } from '../../../constants';
+import { ExportedSeedCredential } from '../../../dbs/base';
 import { InvalidAddress, NotImplemented } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import {
@@ -28,6 +29,7 @@ import {
 import { VaultBase } from '../../VaultBase';
 
 import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
+import { getXprvString } from './helper/bip32';
 import Client from './helper/client';
 import { CardanoApi } from './helper/sdk';
 import { KeyringHardware } from './KeyringHardware';
@@ -88,6 +90,16 @@ export default class Vault extends VaultBase {
       // ignore
     }
     return Promise.resolve(ret);
+  }
+
+  override async getExportedCredential(password: string): Promise<string> {
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+
+    const xprv = getXprvString(password, entropy);
+    return xprv;
   }
 
   override attachFeeInfoToEncodedTx(params: {
