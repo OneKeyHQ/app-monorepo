@@ -48,7 +48,7 @@ class Client {
   }
 
   getUTXOs = memoizee(
-    async (stakeAddress: string) =>
+    async (stakeAddress: string): Promise<IAdaUTXO[]> =>
       this.backendRequest
         .get<IAdaUTXO[]>(`/utxos/${stakeAddress}`)
         .then((i) => i.data),
@@ -58,11 +58,16 @@ class Client {
     },
   );
 
-  async getHistory(stakeAddress: string): Promise<IAdaHistory[]> {
-    return this.backendRequest
-      .get<IAdaHistory[]>(`/history/${stakeAddress}`)
-      .then((i) => i.data);
-  }
+  getHistory = memoizee(
+    async (stakeAddress: string): Promise<IAdaHistory[]> =>
+      this.backendRequest
+        .get<IAdaHistory[]>(`/history/${stakeAddress}`)
+        .then((i) => i.data),
+    {
+      promise: true,
+      maxAge: 1000 * 60,
+    },
+  );
 
   async getRawTransaction(txid: string): Promise<IAdaTransaction> {
     return this.request
