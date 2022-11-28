@@ -5,6 +5,7 @@ import memoizee from 'memoizee';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { COINTYPE_ADA } from '../../../constants';
 import { InvalidAddress, NotImplemented } from '../../../errors';
 import { DBUTXOAccount } from '../../../types/account';
 import {
@@ -285,11 +286,26 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const result = await Promise.all(
       requests.map(async ({ address }) => {
-        const balance = await client.getBalance(address);
+        const stakeAddress = await this.getStakeAddress(address);
+        const balance = await client.getBalance(stakeAddress);
         return balance;
       }),
     );
 
     return result;
   }
+
+  private getStakeAddress = memoizee(
+    async (address: string) => {
+      const account = (await this.engine.dbApi.getAccountByAddress({
+        address,
+        coinType: COINTYPE_ADA,
+      })) as DBUTXOAccount;
+      return account.addresses['2/0'];
+    },
+    {
+      maxAge: 1000 * 60 * 30,
+      promise: true,
+    },
+  );
 }

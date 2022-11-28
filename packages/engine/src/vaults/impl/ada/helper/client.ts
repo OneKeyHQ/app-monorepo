@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import {
   IAdaAccount,
+  IAdaAddress,
   IAdaAmount,
   IAdaTransaction,
   IAdaUTXO,
@@ -14,35 +15,31 @@ class Client {
 
   constructor(url: string) {
     this.request = axios.create({
-      baseURL: url,
+      baseURL: 'https://node.onekeytest.com/ada',
       timeout: 20000,
     });
   }
 
   async latestBlock() {
     const res = await this.request
-      .get<{ height: number }>('/')
+      .get<{ height: number }>('/blocks/latest')
       .then((i) => i.data);
     return {
       height: Number(res.height ?? 0),
     };
   }
 
-  async getAccount(address: string): Promise<IAdaAccount> {
+  async getAccount(address: string): Promise<IAdaAddress> {
     return this.request
-      .get<IAdaAccount>(`/addresses/${address}`)
+      .get<IAdaAddress>(`/addresses/${address}`)
       .then((i) => i.data);
   }
 
-  async getBalance(address: string): Promise<BigNumber> {
+  async getBalance(stakeAddress: string): Promise<BigNumber> {
     const res = await this.request
-      .get<IAdaAccount>(`/addresses/${address}`)
+      .get<IAdaAccount>(`/accounts/${stakeAddress}`)
       .then((i) => i.data);
-    const { amount } = res;
-    const lovelace =
-      amount.find((item: IAdaAmount) => item.unit === 'lovelace')?.quantity ??
-      0;
-    const balance = new BigNumber(lovelace) ?? 0;
+    const balance = new BigNumber(res.controlled_amount) ?? 0;
     return balance;
   }
 

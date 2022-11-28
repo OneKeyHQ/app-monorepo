@@ -9,12 +9,25 @@ export const enum NetworkId {
 
 export type Address = string & { __typeAddress: any };
 
+export type IAdaAccount = {
+  'stake_address': string;
+  'active': boolean;
+  'active_epoch': number;
+  'controlled_amount': string;
+  'rewards_sum': string;
+  'withdrawals_sum': string;
+  'reserves_sum': string;
+  'treasury_sum': string;
+  'withdrawable_amount': string;
+  'pool_id': string;
+};
+
 export type IAdaAmount = {
   unit: string;
   quantity: string;
 };
 
-export type IAdaAccount = {
+export type IAdaAddress = {
   'address': string;
   'amount': IAdaAmount[];
   'stake_address': string;
