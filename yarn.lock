@@ -5382,7 +5382,7 @@ __metadata:
     moti: ^0.21.0
     native-base: 3.4.22
     qrcode: ^1.5.0
-    react-content-loader: ^6.1.0
+    react-content-loader: ^6.2.0
     react-hook-form: ^7.22.1
     react-native-draggable-flatlist: 4.0.0
     react-native-jazzicon: ^0.1.2
@@ -25193,7 +25193,7 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-content-loader@npm:^6.1.0, react-content-loader@npm:^6.2.0":
+"react-content-loader@npm:^6.2.0":
   version: 6.2.0
   resolution: "react-content-loader@npm:6.2.0"
   peerDependencies:
