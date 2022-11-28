@@ -4,7 +4,13 @@ import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
-import { IAdaAccount, IAdaHistory, IAdaTransaction, IAdaUTXO } from '../types';
+import {
+  IAdaAccount,
+  IAdaAddress,
+  IAdaHistory,
+  IAdaTransaction,
+  IAdaUTXO,
+} from '../types';
 
 class Client {
   readonly request: AxiosInstance;
@@ -31,6 +37,12 @@ class Client {
     return {
       height: Number(res.height ?? 0),
     };
+  }
+
+  async getAddress(address: string): Promise<IAdaAddress> {
+    return this.request
+      .get<IAdaAddress>(`/addresses/${address}`)
+      .then((i) => i.data);
   }
 
   async getAccount(stakeAddress: string): Promise<IAdaAccount> {

@@ -78,6 +78,18 @@ export default class Vault extends VaultBase {
     return Promise.reject(new InvalidAddress());
   }
 
+  override validateWatchingCredential(input: string): Promise<boolean> {
+    let ret = false;
+    try {
+      if (this.settings.watchingAccountEnabled && validShelleyAddress(input)) {
+        ret = true;
+      }
+    } catch {
+      // ignore
+    }
+    return Promise.resolve(ret);
+  }
+
   override attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxADA;
     feeInfoValue: IFeeInfoUnit;
