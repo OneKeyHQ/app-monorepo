@@ -2,7 +2,12 @@ import { createInstance } from 'dotbit';
 import { filter, groupBy, map } from 'lodash';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { COINTYPE_BTC, COINTYPE_ETH } from '@onekeyhq/engine/src/constants';
+import {
+  COINTYPE_BTC,
+  COINTYPE_DOGE,
+  COINTYPE_ETH,
+  COINTYPE_LTC,
+} from '@onekeyhq/engine/src/constants';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -36,6 +41,8 @@ export default class ServiceNameResolver extends ServiceBase {
         supportImplsMap: {
           'evm--*': ['eth'],
           [OnekeyNetwork.btc]: ['btc'],
+          [OnekeyNetwork.ltc]: ['ltc'],
+          [OnekeyNetwork.doge]: ['doge'],
         },
         resolver: this.resolveENS.bind(this),
       },
@@ -47,6 +54,9 @@ export default class ServiceNameResolver extends ServiceBase {
           [OnekeyNetwork.btc]: ['btc'],
           [OnekeyNetwork.near]: ['near'],
           [OnekeyNetwork.sol]: ['sol'],
+          [OnekeyNetwork.trx]: ['trx'],
+          [OnekeyNetwork.ltc]: ['ltc'],
+          [OnekeyNetwork.doge]: ['doge'],
         },
         resolver: this.resolveDotBit.bind(this),
       },
@@ -72,9 +82,8 @@ export default class ServiceNameResolver extends ServiceBase {
         shownSymbol: '-',
       };
 
-    const names: ResolverNameList | null | string = await config?.resolver(
-      name,
-    );
+    const names: ResolverNameList | null | string | undefined =
+      await config?.resolver(name);
 
     if (!names) {
       return {
@@ -121,7 +130,7 @@ export default class ServiceNameResolver extends ServiceBase {
       ? filter(validNamesPipe, (items) =>
           filterNetworkList(options.networkId)
             .map((item) => item.toUpperCase())
-            .includes(items.subtype?.toUpperCase?.()),
+            .includes(items.subtype?.toUpperCase?.() ?? ''),
         )
       : validNamesPipe;
 
@@ -173,6 +182,8 @@ export default class ServiceNameResolver extends ServiceBase {
 
       const btcAddress = await resolver.getAddress(Number(COINTYPE_BTC));
       const ethAddress = await resolver.getAddress(Number(COINTYPE_ETH));
+      const dogeAddress = await resolver.getAddress(Number(COINTYPE_DOGE));
+      const ltcAddress = await resolver.getAddress(Number(COINTYPE_LTC));
 
       const validNames = [
         {
@@ -186,6 +197,18 @@ export default class ServiceNameResolver extends ServiceBase {
           value: ethAddress,
           type: 'address',
           key: 'address.eth',
+        },
+        {
+          subtype: 'ltc',
+          value: ltcAddress,
+          type: 'address',
+          key: 'address.ltc',
+        },
+        {
+          subtype: 'doge',
+          value: dogeAddress,
+          type: 'address',
+          key: 'address.doge',
         },
       ].filter((item) => !!item.value);
 
