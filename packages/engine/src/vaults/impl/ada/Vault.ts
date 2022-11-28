@@ -19,23 +19,23 @@ import {
   IEncodedTx,
   IFeeInfo,
   IFeeInfoUnit,
-  ISetApprovalForAll,
+  IHistoryTx,
   ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
+  IUtxoAddressInfo,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
 import Client from './helper/client';
 import { CardanoApi } from './helper/sdk';
-import { deriveAccountXpub } from './helper/shelley-address';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IAdaAmount, IEncodedTxADA } from './types';
+import { IAdaAmount, IAdaHistory, IEncodedTxADA } from './types';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -239,6 +239,105 @@ export default class Vault extends VaultBase {
     };
 
     return Promise.resolve(ret as unknown as IUnsignedTxPro);
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string | undefined;
+    localHistory?: IHistoryTx[] | undefined;
+  }): Promise<IHistoryTx[]> {
+    const { localHistory = [] } = options;
+
+    const client = await this.getClient();
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const stakeAddress = await this.getStakeAddress(dbAccount.address);
+    const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    let txs: IAdaHistory[] = [];
+
+    try {
+      txs = (await client.getHistory(stakeAddress)) ?? [];
+    } catch (e) {
+      console.error(e);
+    }
+
+    const promises = txs.map((tx) => {
+      try {
+        const historyTxToMerge = localHistory.find(
+          (item) => item.decodedTx.txid === tx.tx_hash,
+        );
+        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+          // No need to update.
+          return null;
+        }
+        const {
+          utxoFrom,
+          utxoTo,
+          totalOut,
+          totalIn,
+          fee,
+          block_hash: blockHash,
+          tx_timestamp: txTimestamp,
+        } = tx.tx;
+        const totalOutBN = new BigNumber(totalOut);
+        const totalInBN = new BigNumber(totalIn);
+
+        let direction = IDecodedTxDirection.IN;
+        if (totalOutBN.gt(totalInBN)) {
+          direction = utxoTo.every(({ isMine }) => isMine)
+            ? IDecodedTxDirection.SELF
+            : IDecodedTxDirection.OUT;
+        }
+        let amountValue = totalOutBN.minus(totalIn).abs();
+        if (
+          direction === IDecodedTxDirection.OUT &&
+          utxoFrom.every(({ isMine }) => isMine)
+        ) {
+          amountValue = amountValue.minus(fee);
+        }
+        const decodedTx: IDecodedTx = {
+          txid: tx.tx_hash,
+          owner: dbAccount.address,
+          signer: dbAccount.address,
+          nonce: 0,
+          actions: [
+            {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: token,
+                utxoFrom,
+                utxoTo,
+                from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
+                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
+                amount: amountValue.shiftedBy(-decimals).toFixed(),
+                amountValue: amountValue.toFixed(),
+                extraInfo: null,
+              },
+            },
+          ],
+          status: blockHash
+            ? IDecodedTxStatus.Confirmed
+            : IDecodedTxStatus.Pending,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(fee).shiftedBy(-decimals).toFixed(),
+        };
+        decodedTx.updatedAt =
+          typeof txTimestamp !== 'undefined' ? txTimestamp * 1000 : Date.now();
+        decodedTx.createdAt =
+          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+        return this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
+        console.error(e);
+        return Promise.resolve(null);
+      }
+    });
+    return (await Promise.all(promises)).filter(Boolean);
   }
 
   override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {

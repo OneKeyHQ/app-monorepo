@@ -73,13 +73,6 @@ export type IAdaTransaction = {
   'valid_contract': boolean;
 };
 
-export type ITransactionListItem = {
-  'tx_hash': string;
-  'tx_index': number;
-  'block_height': number;
-  'block_time': number;
-};
-
 type IEncodeInput = {
   address: string;
   amount: IAdaAmount[];
@@ -111,4 +104,50 @@ export type IEncodedTxADA = {
   totalFeeInNative: string;
   transferInfo: ITransferInfo;
   tx: ITxInfo;
+};
+
+export type IAdaHistory = {
+  tx_hash: string;
+  epoch_no: number;
+  block_height: number;
+  block_time: number;
+  tx: {
+    tx_hash: string;
+    block_hash: string;
+    block_height: number;
+    tx_timestamp: number;
+    tx_block_index: number;
+    tx_size: number;
+    total_output: string;
+    fee: string;
+    inputs: IHistoryUTXO[];
+    outputs: IHistoryUTXO[];
+    utxoFrom: IHistoryUTXOForm[];
+    utxoTo: IHistoryUTXOForm[];
+    totalOut: string;
+    totalIn: string;
+  };
+};
+
+type IHistoryUTXO = {
+  tx_hash: string;
+  value: string;
+  asset_list: Asset;
+  stake_addr: string;
+  payment_addr: string;
+};
+
+type IHistoryUTXOForm = {
+  address: string;
+  balance: string;
+  balanceValue: string;
+  symbol: string;
+  isMine: boolean;
+};
+
+type Asset = {
+  policy_id: string;
+  asset_name: string;
+  fingerprint: string;
+  quantity: string;
 };

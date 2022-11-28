@@ -4,12 +4,7 @@ import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
-import {
-  IAdaAccount,
-  IAdaTransaction,
-  IAdaUTXO,
-  ITransactionListItem,
-} from '../types';
+import { IAdaAccount, IAdaHistory, IAdaTransaction, IAdaUTXO } from '../types';
 
 class Client {
   readonly request: AxiosInstance;
@@ -63,9 +58,9 @@ class Client {
     },
   );
 
-  async getTransactions(stakeAddress: string): Promise<ITransactionListItem[]> {
-    return this.request
-      .get<ITransactionListItem[]>(`/history/${stakeAddress}`)
+  async getHistory(stakeAddress: string): Promise<IAdaHistory[]> {
+    return this.backendRequest
+      .get<IAdaHistory[]>(`/history/${stakeAddress}`)
       .then((i) => i.data);
   }
 
