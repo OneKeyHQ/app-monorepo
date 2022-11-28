@@ -112,7 +112,11 @@ export function TxActionFunctionCallT0(props: ITxActionCardProps) {
       iconInfo={meta?.iconInfo}
       titleInfo={meta?.titleInfo}
       content={
-        <TxActionElementAddressNormal isShorten={false} address={target} isCopy={false} />
+        <TxActionElementAddressNormal
+          isShorten={false}
+          address={target}
+          isCopy={false}
+        />
       }
       subTitle={intl.formatMessage({ id: 'form__contract' })}
       extra={
