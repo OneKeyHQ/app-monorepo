@@ -39,7 +39,7 @@ const Screen = () => {
 
   let headerHeight = isVerticalLayout ? 296 : 216;
   if (platformEnv.isNativeIOSPad) {
-    headerHeight = screenWidth < screenHeight ? 296 : 216;
+    headerHeight = screenWidth < screenHeight ? 264 : 216;
   }
   return (
     <Tabs.Container
