@@ -3,6 +3,7 @@ import React, {
   ReactElement,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useState,
 } from 'react';
 
@@ -55,13 +56,19 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
   const toast = useToast();
   const intl = useIntl();
+  const iconName = useMemo(() => {
+    if (tokenItem?.favorited) {
+      return 'StarSolid';
+    }
+    return isVertical ? 'StarOutline' : 'StarSolid';
+  }, [isVertical, tokenItem?.favorited]);
   return (
     <Box>
       <IconButton
         ml={4}
         mr={2}
         type={isVertical ? 'plain' : 'basic'}
-        name={isVertical ? 'StarOutline' : 'StarSolid'}
+        name={iconName}
         size={isVertical ? 'xl' : 'base'}
         circle={!isVertical}
         iconColor={tokenItem?.favorited ? 'icon-warning' : 'icon-default'}

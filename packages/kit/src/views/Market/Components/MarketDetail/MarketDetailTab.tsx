@@ -195,6 +195,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
               news={tokenDetail?.news}
               expolorers={tokenDetail?.explorers}
               about={tokenDetail?.about}
+              links={tokenDetail?.links}
               px={contentPendding}
             />
           )}

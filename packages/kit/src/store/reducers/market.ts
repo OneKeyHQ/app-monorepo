@@ -52,9 +52,17 @@ export type MarketTokenItem = {
   tokens?: Token[]; // all netWork tokens
 };
 
+export type MarketLinks = {
+  homePageUrl?: string;
+  discordUrl?: string;
+  twitterUrl?: string;
+  telegramUrl?: string;
+};
+
 export type MarketTokenDetail = {
   stats?: MarketStats;
   about?: string;
+  links?: MarketLinks;
   explorers?: MarketEXplorer[];
   news?: MarketNews[];
   priceSubscribe?: boolean;
