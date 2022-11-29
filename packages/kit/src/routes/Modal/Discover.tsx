@@ -1,6 +1,6 @@
 import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
 import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
@@ -45,15 +45,15 @@ const DiscoverNavigator = createStackNavigator<DiscoverRoutesParams>();
 const withBackHeaderOptions = {
   headerShown: true,
   headerTitleAlign: 'center',
-  headerLeft: ({
-    // @ts-ignore
-    tintColor,
-  }) => (
-    <NavigationHeaderBackButton
-      tintColor={tintColor}
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      onPress={() => getAppNavigation().goBack()}
-      canGoBack
+  headerLeft: () => (
+    <IconButton
+      size="xl"
+      name="ChevronLeftOutline"
+      type="plain"
+      circle
+      onPress={() => {
+        getAppNavigation().goBack();
+      }}
     />
   ),
 };
