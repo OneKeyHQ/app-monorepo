@@ -122,6 +122,7 @@ function normalizeConfig({ platform, config }) {
   // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
 
   // https://babeljs.io/docs/en/assumptions
+  config.targets = 'defaults';
   config.assumptions = {
     noDocumentAll: true,
     noClassCalls: true,
