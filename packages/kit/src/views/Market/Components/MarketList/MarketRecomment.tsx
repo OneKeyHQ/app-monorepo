@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import { FC, memo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Center,
-  CheckBox,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
@@ -104,4 +103,4 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
   );
 };
 
-export default React.memo(MarketRecomment);
+export default memo(MarketRecomment);

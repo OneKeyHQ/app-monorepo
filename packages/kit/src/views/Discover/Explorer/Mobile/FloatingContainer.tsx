@@ -1,6 +1,6 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -54,9 +54,26 @@ const FloatingContainer: FC<
   }, [beforeMaximize, showContent]);
 
   const innerAfterMinimize = useCallback(() => {
-    if (showContent) setShowContent(false);
+    // if (showContent) setShowContent(false);
     afterMinimize?.();
-  }, [afterMinimize, showContent]);
+  }, [afterMinimize]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (expandAnim.value !== MIN_OR_HIDE) {
+          minimizeFloatingWindow({
+            before: beforeMinimize,
+          });
+          return true;
+        }
+        return false;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [beforeMinimize]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;
@@ -72,6 +89,7 @@ const FloatingContainer: FC<
         before: beforeMinimize,
       });
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length, innerBeforeMaximize]);
 
@@ -176,7 +194,7 @@ const FloatingContainer: FC<
                 onSearch={onSearch}
               />
             </Pressable>
-            <WebTabFront active={showContent} />
+            {showContent && <WebTabFront />}
           </Box>
         </Animated.View>
         {showContent && <WebTabGrid />}

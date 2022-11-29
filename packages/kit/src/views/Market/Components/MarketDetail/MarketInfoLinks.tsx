@@ -2,7 +2,7 @@ import { FC, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, ScrollView, useIsVerticalLayout } from '@onekeyhq/components';
+import { Button, ScrollView } from '@onekeyhq/components';
 import { MarketLinks } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
