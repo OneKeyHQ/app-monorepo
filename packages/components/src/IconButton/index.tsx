@@ -42,6 +42,7 @@ const IconButton: FC<IconButtonProps & ComponentProps<typeof Button>> = ({
   isLoading,
   isDisabled,
   borderRadius,
+  disabled,
   ...props
 }) => {
   const rect = getRect(size);
@@ -49,7 +50,7 @@ const IconButton: FC<IconButtonProps & ComponentProps<typeof Button>> = ({
   return (
     <Button
       isLoading={isLoading}
-      isDisabled={isDisabled}
+      isDisabled={disabled ?? isDisabled}
       type={type}
       pt={rect}
       pr={rect}
