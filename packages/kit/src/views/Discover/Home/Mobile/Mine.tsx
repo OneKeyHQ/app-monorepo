@@ -18,12 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
-import {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalRoutes,
-  RootRoutes,
-} from '../../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
@@ -38,12 +33,6 @@ import { EmptySkeleton } from './EmptySkeleton';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 import type { DAppItemType, SectionDataType } from '../../type';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.DAppListScreen
->;
 
 const styles = StyleSheet.create({
   listContentContainer: {

@@ -1,5 +1,3 @@
-import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
-
 import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
