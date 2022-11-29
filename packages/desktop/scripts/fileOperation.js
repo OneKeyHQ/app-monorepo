@@ -27,9 +27,14 @@ exports.default = async function fileOperation(context) {
       appPath,
       'Contents/Resources/app.asar.unpacked/node_modules/keccak/build/node_gyp_bins',
     );
-    const testPath = path.join(appPath, 'Contents/Resources/');
+    const testPath = path.join(
+      appPath,
+      'Contents/Resources/app.asar.unpacked/node_modules',
+    );
     console.log('exist---', fs.existsSync(ethereumCryptographyFilePath));
-    console.log('exist-resourcs--', fs.readdirSync(testPath));
+    if (fs.existsSync(testPath)) {
+      console.log('exist-resourcs--', fs.readdirSync(testPath));
+    }
     if (fs.existsSync(ethereumCryptographyFilePath)) {
       fs.rmSync(ethereumCryptographyFilePath, { recursive: true });
     }

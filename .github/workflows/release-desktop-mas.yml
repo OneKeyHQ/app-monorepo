@@ -116,7 +116,7 @@ jobs:
           # create variables
           # DEVELOPER_ID_APP_P12_PATH=$RUNNER_TEMP/developer_id_application_certificate.p12
           APPLE_DISTRIBUTION_P12_PATH=$RUNNER_TEMP/apple_distribution_certificate.p12
-          PP_PATH=./OneKey_Mac_App.provisionprofile
+          PP_PATH=$RUNNER_TEMP/OneKey_Mac_App.provisionprofile
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
           # import certificate from secrets
