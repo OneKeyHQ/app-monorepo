@@ -32,7 +32,6 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
   );
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  console.log('groupValue--', groupValue);
   return (
     <Box flex={1} alignItems="center" justifyContent="center">
       <Box mt={isVertical ? '40px' : '56px'} maxW={GRID_MAX_WIDTH}>
@@ -44,12 +43,7 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
             {intl.formatMessage({ id: 'empty__your_watchlist_is_empty_desc' })}
           </Typography.Body1>
         </Center>
-        <CheckBox.Group
-          defaultValue={groupValue}
-          onChange={(values) => {
-            setGroupValue(values || []);
-          }}
-          accessibilityLabel="choose multiple items"
+        <Box
           flexDirection="row"
           alignContent="flex-start"
           flexWrap="wrap"
@@ -76,7 +70,7 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
               index={i}
             />
           ))}
-        </CheckBox.Group>
+        </Box>
         <Button
           size="xl"
           mt="5"

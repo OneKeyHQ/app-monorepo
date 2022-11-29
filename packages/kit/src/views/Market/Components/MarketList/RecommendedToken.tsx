@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 
 import {
   Box,
@@ -66,25 +66,7 @@ const RecommendedTokenBox: React.FC<RecomendedTokenProps> = ({
         justifyContent="center"
         mr={1}
       >
-        <CheckBox
-          isChecked={isSelected}
-          isDisabled
-          baseProps={{
-            _disabled: {
-              value,
-              opacity: 1,
-              bg: isSelected
-                ? 'action-primary-default'
-                : 'action-primary-disabled',
-              borderColor: isSelected
-                ? 'action-primary-default'
-                : 'checkbox-border-disabled',
-            },
-            _icon: { color: 'icon-on-primary' },
-            value: value ?? '',
-          }}
-          value={value}
-        />
+        <CheckBox isChecked={isSelected} value={value} />
       </Box>
     </Pressable>
   );

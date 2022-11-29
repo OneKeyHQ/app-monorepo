@@ -1,10 +1,6 @@
 import { ComponentProps, FC, useMemo } from 'react';
 
 import { Checkbox as BaseCheckBox, IBoxProps } from 'native-base';
-import {
-  ICheckboxComponentType,
-  ICheckboxProps,
-} from 'native-base/lib/typescript/components/primitives/Checkbox/types';
 
 import Box from '../Box';
 import Pressable from '../Pressable';
@@ -43,7 +39,6 @@ export type CheckBoxProps = {
    * 点击监听
    */
   onChange?: (isSelected: boolean) => void;
-  baseProps?: ICheckboxProps;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {
@@ -64,7 +59,6 @@ const CheckBox: FC<CheckBoxProps> = ({
   isDisabled,
   onChange,
   children,
-  baseProps,
   ...props
 }) => {
   let titleColor = 'text-default';
@@ -149,7 +143,6 @@ const CheckBox: FC<CheckBoxProps> = ({
             value,
             bg: 'action-primary-pressed',
           }}
-          {...baseProps}
         >
           {children}
         </BaseCheckBox>
