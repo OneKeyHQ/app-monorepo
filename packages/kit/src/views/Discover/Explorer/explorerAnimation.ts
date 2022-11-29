@@ -66,28 +66,46 @@ export const hideTabGrid = (id?: string) => {
   setTimeout(() => (showTabGridAnim.value = withTiming(MIN_OR_HIDE)), 30);
 };
 
-export const expandFloatingWindow = (afterMaximize: () => void = () => {}) => {
+interface ExpandAnimationEvents {
+  before?: () => void;
+  after?: () => void;
+}
+export const expandFloatingWindow = ({
+  before,
+  after = () => {},
+}: ExpandAnimationEvents) => {
+  before?.();
   expandAnim.value = withTiming(MAX_OR_SHOW, { duration: 300 }, () =>
-    runOnJS(afterMaximize),
+    runOnJS(after)(),
   );
 };
-export const minimizeFloatingWindow = (beforeMinimize?: () => void) => {
-  beforeMinimize?.();
-  expandAnim.value = withTiming(MIN_OR_HIDE, { duration: 300 });
+export const minimizeFloatingWindow = ({
+  before,
+  after = () => {},
+}: ExpandAnimationEvents) => {
+  before?.();
+  expandAnim.value = withTiming(MIN_OR_HIDE, { duration: 300 }, () =>
+    runOnJS(after)(),
+  );
 };
-export const toggleFloatingWindow = ({
-  beforeMinimize,
-  beforeMaximize,
-  afterMaximize,
-}: {
+
+const noop = () => {};
+
+export interface ToggleFloatingWindowEvents {
   beforeMinimize?: () => void;
   beforeMaximize?: () => void;
   afterMaximize?: () => void;
-}) => {
+  afterMinimize?: () => void;
+}
+export const toggleFloatingWindow = ({
+  beforeMinimize,
+  beforeMaximize,
+  afterMaximize = noop,
+  afterMinimize = noop,
+}: ToggleFloatingWindowEvents) => {
   if (expandAnim.value === MIN_OR_HIDE) {
-    beforeMaximize?.();
-    expandFloatingWindow(afterMaximize);
+    expandFloatingWindow({ before: beforeMaximize, after: afterMaximize });
   } else {
-    minimizeFloatingWindow(beforeMinimize);
+    minimizeFloatingWindow({ before: beforeMinimize, after: afterMinimize });
   }
 };

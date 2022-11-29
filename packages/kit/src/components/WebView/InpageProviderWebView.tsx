@@ -27,6 +27,8 @@ import { DesktopWebView } from './DesktopWebView';
 import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
 
+import type { WebViewProps } from 'react-native-webview';
+
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
 
@@ -40,7 +42,7 @@ const USER_AGENT_ANDROID =
 // const DESKTOP_USER_AGENT_MOCK = USER_AGENT_IOS;
 const DESKTOP_USER_AGENT_MOCK = undefined;
 
-export type InpageProviderWebViewProps = InpageWebViewProps & {
+export interface InpageProviderWebViewProps extends InpageWebViewProps {
   id?: string;
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
@@ -49,7 +51,8 @@ export type InpageProviderWebViewProps = InpageWebViewProps & {
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: any) => void;
-};
+  androidLayerType?: 'none' | 'software' | 'hardware';
+}
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
@@ -65,6 +68,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       isSpinnerLoading,
       onContentLoaded,
       onOpenWindow,
+      androidLayerType,
     }: InpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -94,18 +98,19 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
     );
 
     const nativeWebviewProps = useMemo(() => {
-      const props = {} as any;
+      const props = {} as WebViewProps;
       if (nativeWebviewSource) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         props.source = nativeWebviewSource;
       }
       if (onOpenWindow) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         props.onOpenWindow = onOpenWindow;
       }
+      // setting layer type to software may fix some crashes on android
+      // https://github.com/react-native-webview/react-native-webview/issues/1915#issuecomment-880989194
+      props.androidLayerType = androidLayerType;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return props;
-    }, [nativeWebviewSource, onOpenWindow]);
+    }, [androidLayerType, nativeWebviewSource, onOpenWindow]);
     const nativeInjectedJsCode = useMemo(() => {
       let code: string = injectedNativeCode || '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {

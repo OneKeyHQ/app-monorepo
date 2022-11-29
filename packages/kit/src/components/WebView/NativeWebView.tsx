@@ -12,23 +12,22 @@ import {
   IWebViewWrapperRef,
   JsBridgeNativeHost,
 } from '@onekeyfe/onekey-cross-webview';
+import { StyleSheet } from 'react-native';
 import {
   WebView,
   WebViewMessageEvent,
   WebViewProps,
 } from 'react-native-webview';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import ErrorView from './ErrorView';
 
-import type { ViewStyle } from 'react-native';
+export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 
-export type NativeWebViewProps = WebViewProps &
-  InpageProviderWebViewProps & {
-    style?: ViewStyle;
-  };
-
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: 'transparent',
+  },
+});
 const NativeWebView = forwardRef(
   (
     {
@@ -88,16 +87,7 @@ const NativeWebView = forwardRef(
 
     return (
       <WebView
-        // @ts-ignore
-        style={[
-          {
-            backgroundColor: 'transparent',
-            // this may fix some crashes on android
-            // https://github.com/react-native-webview/react-native-webview/issues/1915#issuecomment-808869253
-            opacity: platformEnv.isNativeAndroid ? 0.99 : 1,
-          },
-          style,
-        ]}
+        style={styles.container}
         onLoadProgress={onLoadProgress}
         ref={webviewRef}
         // injectedJavaScript={injectedNative}

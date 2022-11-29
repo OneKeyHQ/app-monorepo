@@ -16,7 +16,6 @@ import {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
 

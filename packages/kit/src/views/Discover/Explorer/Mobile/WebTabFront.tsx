@@ -4,6 +4,8 @@ import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { homeTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
@@ -17,7 +19,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-const WebTabFront = memo(() => {
+const WebTabFront = memo(({ active }: { active?: boolean }) => {
   useNotifyChanges();
   const { tabs, tab } = useWebTabs();
 
@@ -26,10 +28,15 @@ const WebTabFront = memo(() => {
     () =>
       tabs.slice(1).map((t) => (
         <Freeze key={t.id} freeze={!t.isCurrent}>
-          <WebContent {...t} />
+          <WebContent
+            {...t}
+            androidLayerType={
+              platformEnv.isNativeAndroid && active ? 'hardware' : 'software'
+            }
+          />
         </Freeze>
       )),
-    [tabs],
+    [tabs, active],
   );
   const onLayout = useCallback(
     ({
