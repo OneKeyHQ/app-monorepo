@@ -102,7 +102,11 @@ export function getSummedValues({
   }, new BigNumber(0));
 }
 
-export function formatAmount(value?: BigNumber.Value, precision = 4, roundingMode: BigNumber.RoundingMode = 1) {
+export function formatAmount(
+  value?: BigNumber.Value,
+  precision = 4,
+  roundingMode: BigNumber.RoundingMode = 1,
+) {
   if (!value) {
     return '';
   }

@@ -38,15 +38,22 @@ export function useAccountTokensBalance(
   }, [networkId, accountId, balances]);
 }
 
-export const useNativeTokenBalance = (networkId?: string, accountId?: string) => {
+export const useNativeTokenBalance = (
+  networkId?: string,
+  accountId?: string,
+) => {
   const balances = useAccountTokensBalance(networkId, accountId);
   useEffect(() => {
     if (networkId && accountId) {
-      backgroundApiProxy.serviceToken.fetchTokenBalance({ activeAccountId: accountId, activeNetworkId: networkId, tokenIds: [] })
+      backgroundApiProxy.serviceToken.fetchTokenBalance({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        tokenIds: [],
+      });
     }
-  }, [networkId, accountId])
-  return useMemo(() => balances?.['main'], [balances])
-}
+  }, [networkId, accountId]);
+  return useMemo(() => balances?.main, [balances]);
+};
 
 export function useNetworkTokens(networkId?: string) {
   const tokens = useAppSelector((s) => s.tokens.tokens);
