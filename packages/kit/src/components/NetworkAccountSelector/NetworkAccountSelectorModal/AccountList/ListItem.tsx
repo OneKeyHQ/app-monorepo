@@ -6,6 +6,7 @@ import {
   Pressable,
   Text,
   useIsVerticalLayout,
+  Skeleton
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
@@ -29,6 +30,9 @@ import { wait } from '../../../../utils/helper';
 import ExternalAccountImg from '../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountItemSelectDropdown } from '../AccountItemSelectDropdown';
+import { useNativeTokenBalance } from '../../../../hooks/useTokens'
+import { formatAmount } from '../../../../utils/priceUtils'
+
 
 type ListItemProps = {
   label?: string;
@@ -65,6 +69,8 @@ const ListItem: FC<ListItemProps> = ({
   const accountSelectorMode = useAppSelector(
     (s) => s.accountSelector.accountSelectorMode,
   );
+
+  const nativeBalance = useNativeTokenBalance(network?.id, account.id)
 
   // @ts-ignore
   const isLastItem = account?.$isLastItem;
@@ -166,10 +172,10 @@ const ListItem: FC<ListItemProps> = ({
               isActive
                 ? 'surface-selected'
                 : isPressed
-                ? 'surface-pressed'
-                : isHovered
-                ? 'surface-hovered'
-                : 'transparent'
+                  ? 'surface-pressed'
+                  : isHovered
+                    ? 'surface-hovered'
+                    : 'transparent'
             }
           >
             <ExternalAccountImg mr={2} accountId={account?.id} />
@@ -181,20 +187,16 @@ const ListItem: FC<ListItemProps> = ({
                 <Text typography="Body2" color="text-subdued">
                   {address}
                 </Text>
-                {balance ? (
-                  <>
-                    <Box
-                      w={1}
-                      h={1}
-                      m={2}
-                      bgColor="icon-disabled"
-                      rounded="full"
-                    />
-                    <Text typography="Body2" color="text-subdued" isTruncated>
-                      {balance}
-                    </Text>
-                  </>
-                ) : null}
+                <Box
+                  w={1}
+                  h={1}
+                  m={2}
+                  bgColor="icon-disabled"
+                  rounded="full"
+                />
+                {nativeBalance ? <Text typography="Body2" color="text-subdued" isTruncated>
+                  {formatAmount(nativeBalance, 2)} {network?.symbol.toUpperCase()}
+                </Text> : <Skeleton shape="Body2"></Skeleton>}
               </Box>
             </Box>
             <AccountItemSelectDropdown
