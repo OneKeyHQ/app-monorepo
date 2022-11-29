@@ -1,14 +1,22 @@
+import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
+
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
+import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import { ShareView } from '@onekeyhq/kit/src/views/Discover/Share';
 
+import { getAppNavigation } from '../../hooks/useAppNavigation';
 import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
+import { DAppItemType } from '../../views/Discover/type';
 
 import createStackNavigator from './createStackNavigator';
 
 export enum DiscoverModalRoutes {
   SearchHistoryModal = 'SearchHistoryModal',
   ShareModal = 'ShareModal',
+  DAppListModal = 'DAppListModal',
+  MyDAppListModal = 'MyDAppListModal',
 }
 
 export type DiscoverRoutesParams = {
@@ -21,9 +29,34 @@ export type DiscoverRoutesParams = {
     name?: string;
     logoURL?: string;
   };
+  [DiscoverModalRoutes.DAppListModal]: {
+    title: string;
+    data: DAppItemType[];
+    onItemSelect?: (item: DAppItemType) => void;
+  };
+  [DiscoverModalRoutes.MyDAppListModal]: {
+    defaultIndex?: number;
+    onItemSelect?: (item: MatchDAppItemType) => void;
+  };
 };
 
 const DiscoverNavigator = createStackNavigator<DiscoverRoutesParams>();
+
+const withBackHeaderOptions = {
+  headerShown: true,
+  headerTitleAlign: 'center',
+  headerLeft: ({
+    // @ts-ignore
+    tintColor,
+  }) => (
+    <NavigationHeaderBackButton
+      tintColor={tintColor}
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      onPress={() => getAppNavigation().goBack()}
+      canGoBack
+    />
+  ),
+};
 
 const modalRoutes = [
   {
@@ -34,6 +67,16 @@ const modalRoutes = [
     name: DiscoverModalRoutes.ShareModal,
     component: ShareView,
   },
+  {
+    name: DiscoverModalRoutes.DAppListModal,
+    component: DAppList,
+    options: withBackHeaderOptions,
+  },
+  {
+    name: DiscoverModalRoutes.MyDAppListModal,
+    component: MyDAppList,
+    options: withBackHeaderOptions,
+  },
 ];
 
 const DiscoverModalStack = () => {
@@ -42,7 +85,7 @@ const DiscoverModalStack = () => {
     <DiscoverNavigator.Navigator
       screenOptions={{
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
+        animationEnabled: isVerticalLayout,
       }}
     >
       {modalRoutes.map((route) => (
@@ -50,6 +93,7 @@ const DiscoverModalStack = () => {
           key={route.name}
           name={route.name}
           component={route.component}
+          options={route.options}
         />
       ))}
     </DiscoverNavigator.Navigator>

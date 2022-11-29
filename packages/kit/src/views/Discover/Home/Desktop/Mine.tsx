@@ -16,7 +16,14 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
-import { HomeRoutes, HomeRoutesParams } from '../../../../routes/types';
+import { getAppNavigation } from '../../../../hooks/useAppNavigation';
+import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
@@ -167,9 +174,15 @@ const ListHeaderItems = () => {
         </Box>
         <Button
           onPress={() => {
-            navigation.navigate(HomeRoutes.MyDAppListScreen, {
-              onItemSelect: onItemSelectHistory,
-              defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+            getAppNavigation().navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Discover,
+              params: {
+                screen: DiscoverModalRoutes.MyDAppListModal,
+                params: {
+                  onItemSelect: onItemSelectHistory,
+                  defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+                },
+              },
             });
           }}
           height="32px"

@@ -54,9 +54,9 @@ const FloatingContainer: FC<
   }, [beforeMaximize, showContent]);
 
   const innerAfterMinimize = useCallback(() => {
-    if (showContent) setShowContent(false);
+    // if (showContent) setShowContent(false);
     afterMinimize?.();
-  }, [afterMinimize, showContent]);
+  }, [afterMinimize]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;
@@ -176,7 +176,7 @@ const FloatingContainer: FC<
                 onSearch={onSearch}
               />
             </Pressable>
-            <WebTabFront active={showContent} />
+            {showContent && <WebTabFront />}
           </Box>
         </Animated.View>
         {showContent && <WebTabGrid />}
