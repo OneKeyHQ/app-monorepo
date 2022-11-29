@@ -61,6 +61,7 @@ const WebTabCard: FC<
   >
     <Box
       flex={1}
+      collapsable={false}
       ref={(ref) => {
         // @ts-ignore
         tabGridRefs[id] = ref;

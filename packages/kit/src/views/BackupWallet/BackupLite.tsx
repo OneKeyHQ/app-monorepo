@@ -2,7 +2,7 @@ import React, { FC, useEffect } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
-import { Modal } from '@onekeyhq/components';
+import { Center, Modal, Spinner } from '@onekeyhq/components';
 import {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
@@ -33,22 +33,28 @@ const BackupDone: FC<BackupDoneProps> = ({ password, walletId }) => {
         walletId,
         password,
       );
-      navigation.replace(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
-        params: {
-          screen: CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal,
+      setTimeout(() => {
+        navigation.replace(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateWallet,
           params: {
-            walletId,
-            backupData: mnemonic,
-            onSuccess: () => {},
+            screen: CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal,
+            params: {
+              walletId,
+              backupData: mnemonic,
+              onSuccess: () => {},
+            },
           },
-        },
-      });
+        });
+      }, 500);
     }
     main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return <></>;
+  return (
+    <Center>
+      <Spinner />
+    </Center>
+  );
 };
 
 const BackupLite = () => {

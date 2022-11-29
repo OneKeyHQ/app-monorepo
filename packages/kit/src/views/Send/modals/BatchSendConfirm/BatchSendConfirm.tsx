@@ -1,9 +1,9 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { isEmpty, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Box, GroupingList, ListItem } from '@onekeyhq/components';
+import { GroupingList, ListItem } from '@onekeyhq/components';
 import { IDecodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -46,7 +46,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     sourceInfo,
     payload,
     payloadInfo,
-    isFromDapp,
     dappApprove,
     onModalClose,
     networkId,

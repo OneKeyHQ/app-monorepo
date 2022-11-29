@@ -124,8 +124,18 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
     ),
     [attribute.attributes_name, attribute.attributes_values],
   );
+  const context = useNFTAttributesContext()?.context;
+
+  const defaultCollapsed = useMemo(() => {
+    if (context?.selectedAttributes) {
+      const item = context?.selectedAttributes[attribute.attributes_name] ?? [];
+      return item.length === 0;
+    }
+  }, [attribute.attributes_name, context?.selectedAttributes]);
+
   return (
     <Collapse
+      defaultCollapsed={defaultCollapsed}
       renderCustomTrigger={(onPress, collapsed) => (
         <TouchableOpacity onPress={onPress}>
           <Box

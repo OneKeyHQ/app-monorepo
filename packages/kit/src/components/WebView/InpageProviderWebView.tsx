@@ -1,34 +1,21 @@
 import {
   FC,
   forwardRef,
-  useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from 'react';
 
-import {
-  IElectronWebView,
-  InpageProviderWebViewProps as InpageWebViewProps,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
 import {
   IWebViewWrapperRef,
   useWebViewBridge,
 } from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
-import { Freeze } from 'react-freeze';
-import { useIntl } from 'react-intl';
 import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
-import {
-  Button,
-  Center,
-  Empty,
-  Spinner,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Center, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line import/order
@@ -39,6 +26,8 @@ import { DesktopWebView } from './DesktopWebView';
 // @ts-ignore
 import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
+
+import type { WebViewProps } from 'react-native-webview';
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;
@@ -53,7 +42,7 @@ const USER_AGENT_ANDROID =
 // const DESKTOP_USER_AGENT_MOCK = USER_AGENT_IOS;
 const DESKTOP_USER_AGENT_MOCK = undefined;
 
-export type InpageProviderWebViewProps = InpageWebViewProps & {
+export interface InpageProviderWebViewProps extends InpageWebViewProps {
   id?: string;
   onNavigationStateChange?: (event: any) => void;
   allowpopups?: boolean;
@@ -62,7 +51,8 @@ export type InpageProviderWebViewProps = InpageWebViewProps & {
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
   onOpenWindow?: (event: any) => void;
-};
+  androidLayerType?: 'none' | 'software' | 'hardware';
+}
 
 const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
   (
@@ -78,12 +68,10 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       isSpinnerLoading,
       onContentLoaded,
       onOpenWindow,
+      androidLayerType,
     }: InpageProviderWebViewProps,
     ref: any,
   ) => {
-    const intl = useIntl();
-    const [key, setKey] = useState('');
-    const [desktopLoadError, setDesktopLoadError] = useState(false);
     const [progress, setProgress] = useState(5);
     const { webviewRef, setWebViewRef } = useWebViewBridge();
     const isRenderAsIframe = isWeb || isExtension;
@@ -109,89 +97,20 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       isRenderAsIframe ? iframeWebviewRef.current : webviewRef.current,
     );
 
-    useEffect(() => {
-      if (platformEnv.isDesktop) {
-        setDesktopLoadError(false);
-      }
-    }, [src]);
-
-    useEffect(() => {
-      const webview = webviewRef.current?.innerRef;
-
-      if (!webview || !isDesktop) {
-        return;
-      }
-
-      try {
-        const electronWebView = webview as IElectronWebView;
-        const handleMessage = (event: any) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (event.errorCode !== -3) {
-            // TODO iframe error also show ErrorView
-            //      testing www.163.com
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            if (event.isMainFrame) {
-              setDesktopLoadError(true);
-            }
-          }
-        };
-
-        electronWebView.addEventListener('did-fail-load', handleMessage);
-        return () => {
-          electronWebView.removeEventListener('did-fail-load', handleMessage);
-        };
-      } catch (error) {
-        console.error(error);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [webviewRef.current, webviewRef.current?.innerRef]);
-
-    const onRefresh = useCallback(() => {
-      try {
-        setKey(Math.random().toString());
-        setDesktopLoadError(false);
-      } catch (error) {
-        console.warn(error);
-      }
-    }, []);
-
-    type ErrorViewProps = {
-      error?: string | undefined;
-    };
-    const ErrorView: FC<ErrorViewProps> = () => (
-      <Center w="full" h="full" bg="background-default">
-        <Empty
-          emoji="🌐"
-          title={intl.formatMessage({ id: 'title__no_connection' })}
-          subTitle={intl.formatMessage({ id: 'title__no_connection_desc' })}
-          mb={3}
-        />
-
-        <Button
-          mt={6}
-          size="lg"
-          type="primary"
-          leftIconName="RefreshOutline"
-          onPress={onRefresh}
-        >
-          {intl.formatMessage({ id: 'action__refresh' })}
-        </Button>
-      </Center>
-    );
-
     const nativeWebviewProps = useMemo(() => {
-      const props = {} as any;
+      const props = {} as WebViewProps;
       if (nativeWebviewSource) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         props.source = nativeWebviewSource;
       }
       if (onOpenWindow) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         props.onOpenWindow = onOpenWindow;
       }
+      // setting layer type to software may fix some crashes on android
+      // https://github.com/react-native-webview/react-native-webview/issues/1915#issuecomment-880989194
+      props.androidLayerType = androidLayerType;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return props;
-    }, [nativeWebviewSource, onOpenWindow]);
+    }, [androidLayerType, nativeWebviewSource, onOpenWindow]);
     const nativeInjectedJsCode = useMemo(() => {
       let code: string = injectedNativeCode || '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
@@ -249,38 +168,32 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
         {progressLoading}
         <Box flex={1}>
           {isDesktop && (
-            <Freeze freeze={desktopLoadError}>
-              <DesktopWebView
-                id={id}
-                key={key}
-                ref={setWebViewRef}
-                src={src}
-                onSrcChange={onSrcChange}
-                receiveHandler={receiveHandler}
-                // Warning: any string work, any bool not work
-                // @ts-expect-error
-                allowpopups={allowpopups ? 'true' : false}
-                useragent={
-                  // TODO move it to Developer Settings
-                  // we can resize desktop to vertical only in DEV env currently
-                  platformEnv.isDev && isVertical
-                    ? // sim mobile app UA
-                      DESKTOP_USER_AGENT_MOCK
-                    : undefined
-                }
-              />
-            </Freeze>
-          )}
-          {desktopLoadError ? <ErrorView /> : null}
-
-          {isApp && (
-            <NativeWebView
-              key={key}
+            <DesktopWebView
+              id={id}
               ref={setWebViewRef}
               src={src}
               onSrcChange={onSrcChange}
               receiveHandler={receiveHandler}
-              renderError={(error) => <ErrorView error={error} />}
+              // Warning: any string work, any bool not work
+              // @ts-expect-error
+              allowpopups={allowpopups ? 'true' : false}
+              useragent={
+                // TODO move it to Developer Settings
+                // we can resize desktop to vertical only in DEV env currently
+                platformEnv.isDev && isVertical
+                  ? // sim mobile app UA
+                    DESKTOP_USER_AGENT_MOCK
+                  : undefined
+              }
+            />
+          )}
+
+          {isApp && (
+            <NativeWebView
+              ref={setWebViewRef}
+              src={src}
+              onSrcChange={onSrcChange}
+              receiveHandler={receiveHandler}
               injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
               onLoadProgress={({ nativeEvent }) => {
                 const p = Math.ceil(nativeEvent.progress * 100);
@@ -308,7 +221,6 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
               ref={iframeRef}
               title="iframe-web"
               src={src}
-              key={key}
               frameBorder="0"
               style={{ height: '100%', width: '100%' }}
             />

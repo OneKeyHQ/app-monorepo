@@ -1,4 +1,8 @@
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_TRON as COIN_TYPE } from '../../../constants';
 import { OneKeyInternalError } from '../../../errors';
@@ -6,9 +10,12 @@ import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { publicKeyToAddress } from './utils';
+import { publicKeyToAddress, signTransaction } from './utils';
 
-import type { IPrepareImportedAccountsParams } from '../../types';
+import type {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {
@@ -25,6 +32,20 @@ export class KeyringImported extends KeyringImportedBase {
     return {
       [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
     };
+  }
+
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+
+    return signTransaction(unsignedTx, signer);
   }
 
   override async prepareAccounts(

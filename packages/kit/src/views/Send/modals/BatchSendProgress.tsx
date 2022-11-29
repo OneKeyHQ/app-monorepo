@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { NavigationProp } from '@react-navigation/core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -54,7 +54,6 @@ function SendProgress({
   password,
   currentState,
   setCurrentState,
-  setTitleInfo,
 }: EnableLocalAuthenticationProps) {
   const [currentProgerss, setCurrentProgress] = useState(0);
   const [currentFinished, setCurrentFinished] = useState(0);
@@ -360,7 +359,7 @@ function SendProgress({
     </Center>
   );
 }
-const SendProgressMemo = React.memo(SendProgress);
+const SendProgressMemo = memo(SendProgress);
 
 function BatchSendProgress() {
   const route = useRoute<RouteProps>();

@@ -225,7 +225,7 @@ export const Mine = () => {
   const [dapps, setDapps] = useState<
     { label: string; id: string; items: DAppItemType[] }[]
   >([]);
-  const [total, setTotal] = useState<number>(5);
+  const [total, setTotal] = useState<number>(10);
   const { onItemSelect } = useContext(DiscoverContext);
 
   const data = useMemo(() => {
@@ -266,14 +266,14 @@ export const Mine = () => {
         contentContainerStyle={styles.listContentContainer}
         data={data}
         removeClippedSubviews
-        windowSize={5}
+        windowSize={10}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
         showsVerticalScrollIndicator={false}
         onEndReached={onEndReached}
-        onEndReachedThreshold={0.2}
+        onEndReachedThreshold={0.5}
       />
     </Box>
   );

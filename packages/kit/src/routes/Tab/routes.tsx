@@ -87,7 +87,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Market,
-    component: toFocusedLazy(MarketScreen),
+    component: MarketScreen,
     tabBarIcon: () => 'ChartSquareLineOutline',
     translationId: 'title__market',
     children: [
@@ -100,7 +100,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Swap,
-    component: toFocusedLazy(SwapScreen),
+    component: SwapScreen,
     tabBarIcon: () => 'SwitchHorizontalSolid',
     translationId: 'title__swap',
     children: [

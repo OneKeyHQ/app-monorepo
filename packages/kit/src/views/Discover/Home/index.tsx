@@ -6,8 +6,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DiscoverContext, ItemSource } from './context';
-// import { Desktop } from './Desktop';
-// import { Mobile } from './Mobile';
 import { DiscoverProps } from './type';
 
 const Updater = () => {
