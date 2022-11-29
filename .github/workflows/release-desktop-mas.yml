@@ -151,14 +151,14 @@ jobs:
         with:
           name: onekey-desktop-mas
           path: |
-            ./packages/desktop/build-electron/mac-universal/*.pkg
+            ./packages/desktop/build-electron/mas-universal/*.pkg
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main
         with:
           web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-RN
+          artifact-name: OneKey-Desktop-MAS
           artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'

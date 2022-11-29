@@ -29,12 +29,20 @@ exports.default = async function fileOperation(context) {
     );
     const testPath = path.join(
       appPath,
-      'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1',
+      'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1/prebuilds',
+    );
+    const testPath2 = path.join(
+      appPath,
+      'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1/prebuilds/node_gyp_bins',
     );
     console.log('exist---', fs.existsSync(ethereumCryptographyFilePath));
     if (fs.existsSync(testPath)) {
       console.log('exist-resourcs--', fs.readdirSync(testPath));
     }
+    if (fs.existsSync(testPath2)) {
+      console.log('exist-resourcs-2-', fs.readdirSync(testPath2));
+    }
+
     if (fs.existsSync(ethereumCryptographyFilePath)) {
       fs.rmSync(ethereumCryptographyFilePath, { recursive: true });
     }
