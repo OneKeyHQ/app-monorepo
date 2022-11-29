@@ -711,6 +711,7 @@ export default class Vault extends VaultBase {
             historyTxToMerge?.decodedTx.createdAt ?? tx.block_timestamp,
           isFinal: true,
           extraInfo: null,
+          nonce: 0,
         };
         return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
       } catch (e) {
