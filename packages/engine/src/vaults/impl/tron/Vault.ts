@@ -47,12 +47,18 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { IEncodedTxTron } from './types';
+import type {
+  IEncodedTxTron,
+  IOnChainHistoryTokenTx,
+  IOnChainHistoryTx,
+} from './types';
 
 const FAKE_OWNER_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 const SIGNATURE_LENGTH = 65;
 const TX_RESULT_SIZE = 64;
 const TX_SIZE_OVERHEAD = 5; // 1 byte raw_data key, 1 byte signature key, 1 byte signature number, 1 byte signature data length for 65 bytes, 1 byte tx result key. TODO: multisign support.
+const INFINITE_AMOUNT_HEX =
+  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -310,7 +316,7 @@ export default class Vault extends VaultBase {
             ['address', 'uint256'],
             `0x${data.slice(8)}`,
           );
-          const amountBigNumber = new BigNumber(
+          const amountBN = new BigNumber(
             (decodedAmount as { _hex: string })._hex,
           );
           const token = await this.engine.ensureTokenInDB(
@@ -324,8 +330,8 @@ export default class Vault extends VaultBase {
                 tokenInfo: token,
                 from: TronWeb.address.fromHex(fromAddressHex),
                 to: TronWeb.address.fromHex(toAddressHex),
-                amount: amountBigNumber.shiftedBy(-token.decimals).toFixed(),
-                amountValue: amountBigNumber.toFixed(),
+                amount: amountBN.shiftedBy(-token.decimals).toFixed(),
+                amountValue: amountBN.toFixed(),
                 extraInfo: null,
               },
             };
@@ -604,28 +610,117 @@ export default class Vault extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { localHistory = [], tokenIdOnNetwork } = options;
-    if (tokenIdOnNetwork) {
-      // No token support now.
-      return Promise.resolve([]);
-    }
+
+    let tokenOnChainHistory: IOnChainHistoryTokenTx[] = [];
+    let nativeTokenOnChainHistory: IOnChainHistoryTx[] = [];
 
     const tronWeb = await this.getClient();
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
 
-    const { data } = (await tronWeb.fullNode.request(
-      `v1/accounts/${dbAccount.address}/transactions?only_confirmed=true`,
-    )) as {
-      data: Array<
-        {
-          ret: [{ contractRet: string; fee: number }];
-          // eslint-disable-next-line camelcase
-          block_timestamp: number;
-        } & IEncodedTxTron
-      >;
-    };
+    tokenOnChainHistory = (
+      (await tronWeb.fullNode.request(
+        `v1/accounts/${
+          dbAccount.address
+        }/transactions/trc20?only_confirmed=true${
+          tokenIdOnNetwork ? `&&contract_address=${tokenIdOnNetwork}` : ''
+        }`,
+      )) as {
+        data: IOnChainHistoryTokenTx[];
+      }
+    ).data;
 
-    const promises = data.map(async (tx) => {
+    if (!tokenIdOnNetwork) {
+      nativeTokenOnChainHistory = (
+        (await tronWeb.fullNode.request(
+          `v1/accounts/${dbAccount.address}/transactions/?only_confirmed=true`,
+        )) as {
+          data: IOnChainHistoryTx[];
+        }
+      ).data;
+    }
+
+    const tokenHistoryPromises = tokenOnChainHistory.map(async (tx) => {
+      const historyTxToMerge = localHistory.find(
+        (item) => item.decodedTx.txid === tx.transaction_id,
+      );
+      if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        return Promise.resolve(null);
+      }
+
+      const token = await this.engine.ensureTokenInDB(
+        this.networkId,
+        tx.token_info.address,
+      );
+
+      if (!token) {
+        return Promise.resolve(null);
+      }
+
+      const txDetail = await tronWeb.trx.getTransactionInfo(tx.transaction_id);
+
+      const amountBN = new BigNumber(tx.value);
+
+      let action: IDecodedTxAction = {
+        type: IDecodedTxActionType.UNKNOWN,
+      };
+
+      if (tx.type === 'Transfer') {
+        action = {
+          type: IDecodedTxActionType.TOKEN_TRANSFER,
+          tokenTransfer: {
+            tokenInfo: token,
+            from: tx.from,
+            to: tx.to,
+            amount: amountBN.shiftedBy(-token.decimals).toFixed(),
+            amountValue: amountBN.toFixed(),
+            extraInfo: null,
+          },
+        };
+      }
+
+      if (tx.type === 'Approval') {
+        action = {
+          type: IDecodedTxActionType.TOKEN_APPROVE,
+          tokenApprove: {
+            tokenInfo: token,
+            owner: tx.from,
+            spender: tx.to,
+            isMax: toBigIntHex(amountBN) === INFINITE_AMOUNT_HEX,
+            amount: amountBN.shiftedBy(-token.decimals).toFixed(),
+            amountValue: amountBN.toFixed(),
+            extraInfo: null,
+          },
+        };
+      }
+      try {
+        const decodedTx: IDecodedTx = {
+          txid: tx.transaction_id,
+
+          owner: tx.from,
+          signer: tx.from,
+          totalFeeInNative: new BigNumber(txDetail.fee ?? 0)
+            .shiftedBy(-decimals)
+            .toFixed(),
+          actions: [action],
+          accountId: this.accountId,
+          networkId: this.networkId,
+          status: IDecodedTxStatus.Confirmed,
+          updatedAt: tx.block_timestamp,
+          createdAt:
+            historyTxToMerge?.decodedTx.createdAt ?? tx.block_timestamp,
+          isFinal: true,
+          extraInfo: null,
+          nonce: 0,
+        };
+        return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
+      } catch (e) {
+        debugLogger.common.error(e);
+      }
+
+      return Promise.resolve(null);
+    });
+    const nativeTokenPromises = nativeTokenOnChainHistory.map(async (tx) => {
       const historyTxToMerge = localHistory.find(
         (item) => item.decodedTx.txid === tx.txID,
       );
@@ -659,7 +754,14 @@ export default class Vault extends VaultBase {
       return Promise.resolve(null);
     });
 
-    return (await Promise.all(promises)).filter(Boolean);
+    const tokenHistory = (await Promise.all(tokenHistoryPromises)).filter(
+      Boolean,
+    );
+    const nativeTokenHistory = (await Promise.all(nativeTokenPromises)).filter(
+      Boolean,
+    );
+
+    return [...tokenHistory, ...nativeTokenHistory];
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
