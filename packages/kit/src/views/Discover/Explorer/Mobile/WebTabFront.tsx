@@ -19,7 +19,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-const WebTabFront = memo(({ active }: { active?: boolean }) => {
+const WebTabFront = memo(() => {
   useNotifyChanges();
   const { tabs, tab } = useWebTabs();
 
@@ -31,12 +31,12 @@ const WebTabFront = memo(({ active }: { active?: boolean }) => {
           <WebContent
             {...t}
             androidLayerType={
-              platformEnv.isNativeAndroid && active ? 'hardware' : 'software'
+              platformEnv.isNativeAndroid && t.isCurrent ? 'hardware' : 'none'
             }
           />
         </Freeze>
       )),
-    [tabs, active],
+    [tabs],
   );
   const onLayout = useCallback(
     ({
