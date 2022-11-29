@@ -29,7 +29,7 @@ exports.default = async function fileOperation(context) {
     );
     const testPath = path.join(
       appPath,
-      'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1/build',
+      'Contents/Resources/app.asar.unpacked/node_modules/ethereum-cryptography/node_modules/secp256k1',
     );
     console.log('exist---', fs.existsSync(ethereumCryptographyFilePath));
     if (fs.existsSync(testPath)) {
