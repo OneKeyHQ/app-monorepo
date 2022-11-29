@@ -137,6 +137,7 @@ const CollectionDetail = () => {
                 bgColor="interactive-default"
                 borderRadius="full"
                 borderWidth="1px"
+                borderColor="background-default"
               />
             )}
           </Box>

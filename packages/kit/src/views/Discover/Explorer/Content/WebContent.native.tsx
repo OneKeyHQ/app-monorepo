@@ -1,7 +1,6 @@
 import { FC, useCallback, useMemo, useRef } from 'react';
 
 import * as Linking from 'expo-linking';
-import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
@@ -15,7 +14,13 @@ import { gotoSite } from '../Controller/gotoSite';
 import { onNavigation } from '../Controller/useWebController';
 import { webviewRefs } from '../explorerUtils';
 
-const WebContent: FC<WebTab> = ({ id, url }) => {
+import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
+
+const WebContent: FC<WebTab & WebViewProps> = ({
+  id,
+  url,
+  androidLayerType,
+}) => {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
 
@@ -60,6 +65,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
     () => (
       <WebView
         key={String(showHome)}
+        androidLayerType={androidLayerType}
         src={url}
         onWebViewRef={(ref) => {
           const { dispatch } = backgroundApiProxy;
@@ -78,7 +84,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome],
+    [id, showHome, androidLayerType],
   );
 
   return webview;

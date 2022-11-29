@@ -239,6 +239,7 @@ export class SwapQuoter {
       providers: fetchQuote.sources,
       percentageFee: fetchQuote.percentageFee,
       allowanceTarget: fetchQuote.allowanceTarget,
+      arrivalTime: fetchQuote.arrivalTime,
       needApproved: false,
     };
     if (result.allowanceTarget) {

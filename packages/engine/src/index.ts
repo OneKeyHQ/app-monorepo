@@ -133,7 +133,6 @@ import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
-  IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,

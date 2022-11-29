@@ -6,7 +6,9 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
 import { webviewRefs } from '../explorerUtils';
 
-const WebContent: FC<WebTab> = ({ id, url }) => {
+import type { WebViewProps } from 'react-native-webview';
+
+const WebContent: FC<WebTab & WebViewProps> = ({ id, url }) => {
   const webview = useMemo(
     () => (
       <WebView
