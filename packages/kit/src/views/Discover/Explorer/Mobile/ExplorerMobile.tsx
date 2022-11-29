@@ -15,6 +15,7 @@ import { ModalScreenProps } from '../../../../routes/types';
 import WebHomeContainer from '../Content/WebHomeContainer';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useIncomingUrl } from '../Controller/useIncomingUrl';
+import { minimizeFloatingWindow } from '../explorerAnimation';
 import { MatchDAppItemType } from '../explorerUtils';
 
 import ExplorerBar from './ExplorerBarMobile';
@@ -26,6 +27,8 @@ const ExplorerMobile: FC = () => {
   const { top } = useSafeAreaInsets();
   const { incomingUrl, clearIncomingUrl } = useIncomingUrl();
   const [showContent, setShowContent] = useState(false);
+  const [showHome, setShowHome] = useState(true);
+  const beforeMinimize = useCallback(() => setShowHome(true), []);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,7 +41,10 @@ const ExplorerMobile: FC = () => {
           setShowContent(true);
         }, 100);
       }
-    }, [clearIncomingUrl, incomingUrl, showContent]),
+      return () => {
+        minimizeFloatingWindow({ before: beforeMinimize });
+      };
+    }, [beforeMinimize, clearIncomingUrl, incomingUrl, showContent]),
   );
 
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -64,20 +70,16 @@ const ExplorerMobile: FC = () => {
     [navigation],
   );
 
-  const [showHome, setShowHome] = useState(true);
-
   return (
     <Box flex={1} bg="background-default" mt={`${top}px`}>
-      <Box flex={1} bg="background-default">
-        <Freeze freeze={!showHome}>
-          <ExplorerBar onSearch={() => onSearch(true)} />
-          <WebHomeContainer alwaysOpenNewWindow />
-        </Freeze>
-      </Box>
+      <Freeze freeze={!showHome}>
+        <ExplorerBar onSearch={() => onSearch(true)} />
+        <WebHomeContainer alwaysOpenNewWindow />
+      </Freeze>
       {showContent && (
         <FloatingContainer
           afterMaximize={() => setShowHome(false)}
-          beforeMinimize={() => setShowHome(true)}
+          beforeMinimize={beforeMinimize}
           onSearch={() => onSearch(false)}
         />
       )}

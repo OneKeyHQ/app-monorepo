@@ -1,6 +1,6 @@
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -59,6 +59,23 @@ const FloatingContainer: FC<
   }, [afterMinimize]);
 
   useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (expandAnim.value !== MIN_OR_HIDE) {
+          minimizeFloatingWindow({
+            before: beforeMinimize,
+          });
+          return true;
+        }
+        return false;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [beforeMinimize]);
+
+  useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;
     lastTabsLength.current = tabs.length;
     if (newTabAdded && expandAnim.value === MIN_OR_HIDE) {
@@ -72,6 +89,7 @@ const FloatingContainer: FC<
         before: beforeMinimize,
       });
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length, innerBeforeMaximize]);
 

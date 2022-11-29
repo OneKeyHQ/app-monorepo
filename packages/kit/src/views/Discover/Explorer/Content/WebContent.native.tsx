@@ -1,6 +1,7 @@
-import { FC, useCallback, useMemo, useRef } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import * as Linking from 'expo-linking';
+import { BackHandler } from 'react-native';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
@@ -19,7 +20,9 @@ import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
 const WebContent: FC<WebTab & WebViewProps> = ({
   id,
   url,
+  isCurrent,
   androidLayerType,
+  canGoBack,
 }) => {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
@@ -60,6 +63,23 @@ const WebContent: FC<WebTab & WebViewProps> = ({
     },
     [id, showHome],
   );
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (isCurrent && webviewRefs[id] && canGoBack && id !== homeTab.id) {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          webviewRefs[id]?.innerRef?.goBack();
+          return true;
+        }
+        return false;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [canGoBack, id, isCurrent]);
 
   const webview = useMemo(
     () => (
