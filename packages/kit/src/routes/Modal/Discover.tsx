@@ -93,6 +93,7 @@ const DiscoverModalStack = () => {
           key={route.name}
           name={route.name}
           component={route.component}
+          // @ts-ignore
           options={route.options}
         />
       ))}
