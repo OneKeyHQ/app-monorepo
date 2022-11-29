@@ -60,7 +60,7 @@ export const MarketInfoLinks: FC<MarketInfoLinksProps> = ({ links }) => {
         <Button
           type="basic"
           size="base"
-          leftIconName="GlobeOutline"
+          leftIconName="GlobeAltOutline"
           mr={4}
           borderColor="border-default"
           borderRadius="12px"
