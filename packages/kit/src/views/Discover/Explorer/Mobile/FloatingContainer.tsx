@@ -12,6 +12,7 @@ import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
   MIN_OR_HIDE,
+  ToggleFloatingWindowEvents,
   expandAnim,
   expandFloatingWindow,
   hideTabGrid,
@@ -29,12 +30,17 @@ import FloatingBar from './FloatingBar';
 import WebTabFront from './WebTabFront';
 import WebTabGrid from './WebTabGrid';
 
-const FloatingContainer: FC<{
-  beforeMaximize?: () => void;
-  afterMaximize: () => void;
-  beforeMinimize: () => void;
-  onSearch: () => void;
-}> = ({ beforeMaximize, afterMaximize, beforeMinimize, onSearch }) => {
+const FloatingContainer: FC<
+  ToggleFloatingWindowEvents & {
+    onSearch: () => void;
+  }
+> = ({
+  beforeMaximize,
+  afterMaximize,
+  beforeMinimize,
+  afterMinimize,
+  onSearch,
+}) => {
   const { tabs, tab: currentTab } = useWebTabs();
   const hasTabs = tabs.length > 1;
   const lastTabsLength = useRef(tabs.length);
@@ -43,9 +49,14 @@ const FloatingContainer: FC<{
   const { top } = useSafeAreaInsets();
 
   const innerBeforeMaximize = useCallback(() => {
-    setShowContent(true);
+    if (!showContent) setShowContent(true);
     beforeMaximize?.();
-  }, [beforeMaximize]);
+  }, [beforeMaximize, showContent]);
+
+  const innerAfterMinimize = useCallback(() => {
+    if (showContent) setShowContent(false);
+    afterMinimize?.();
+  }, [afterMinimize, showContent]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;
@@ -53,11 +64,13 @@ const FloatingContainer: FC<{
     if (newTabAdded && expandAnim.value === MIN_OR_HIDE) {
       innerBeforeMaximize();
       setTimeout(() => {
-        expandFloatingWindow(afterMaximize);
+        expandFloatingWindow({ after: afterMaximize });
       }, 100);
     } else if (tabs.length === 1) {
       hideTabGrid();
-      minimizeFloatingWindow(beforeMinimize);
+      minimizeFloatingWindow({
+        before: beforeMinimize,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabs.length, innerBeforeMaximize]);
@@ -153,6 +166,7 @@ const FloatingContainer: FC<{
                   beforeMinimize,
                   afterMaximize,
                   beforeMaximize: innerBeforeMaximize,
+                  afterMinimize: innerAfterMinimize,
                 })
               }
             >
@@ -162,7 +176,7 @@ const FloatingContainer: FC<{
                 onSearch={onSearch}
               />
             </Pressable>
-            {showContent && <WebTabFront />}
+            <WebTabFront active={showContent} />
           </Box>
         </Animated.View>
         {showContent && <WebTabGrid />}
