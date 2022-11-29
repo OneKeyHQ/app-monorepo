@@ -13,6 +13,7 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { gotoSite } from '../Controller/gotoSite';
 import { onNavigation } from '../Controller/useWebController';
+import { MAX_OR_SHOW, expandAnim } from '../explorerAnimation';
 import { webviewRefs } from '../explorerUtils';
 
 import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
@@ -38,6 +39,7 @@ const WebContent: FC<WebTab & WebViewProps> = ({
       }
       lastNavEventSnapshot.current = snapshot;
       const {
+        // eslint-disable-next-line @typescript-eslint/no-shadow
         canGoBack,
         canGoForward,
         loading,
@@ -68,7 +70,13 @@ const WebContent: FC<WebTab & WebViewProps> = ({
     const subscription = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
-        if (isCurrent && webviewRefs[id] && canGoBack && id !== homeTab.id) {
+        if (
+          isCurrent &&
+          expandAnim.value === MAX_OR_SHOW &&
+          webviewRefs[id] &&
+          canGoBack &&
+          id !== homeTab.id
+        ) {
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           webviewRefs[id]?.innerRef?.goBack();
