@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
   CheckBox,
   Typography,
   useIsVerticalLayout,
@@ -26,23 +27,23 @@ type MarketRecommentProps = {
   tokens?: RecomentTokenType[];
 };
 const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
-  const [groupValue, setGroupValue] = useState(() =>
-    tokens?.map((t) => t.coingeckoId),
+  const [groupValue, setGroupValue] = useState<string[]>(
+    () => tokens?.map((t) => t.coingeckoId) ?? [],
   );
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   return (
     <Box flex={1} alignItems="center" justifyContent="center">
-      <Box mt={isVertical ? '6' : '14'} maxW={GRID_MAX_WIDTH}>
-        <Typography.Heading>
-          {intl.formatMessage({ id: 'form__hot_tokens_uppercase' })}
-        </Typography.Heading>
-        <CheckBox.Group
-          defaultValue={groupValue}
-          onChange={(values) => {
-            setGroupValue(values || []);
-          }}
-          accessibilityLabel="choose multiple items"
+      <Box mt={isVertical ? '40px' : '56px'} maxW={GRID_MAX_WIDTH}>
+        <Center w="full" mb="32px">
+          <Typography.DisplayLarge>
+            {intl.formatMessage({ id: 'empty__your_watchlist_is_empty' })}
+          </Typography.DisplayLarge>
+          <Typography.Body1 mt={2}>
+            {intl.formatMessage({ id: 'empty__your_watchlist_is_empty_desc' })}
+          </Typography.Body1>
+        </Center>
+        <Box
           flexDirection="row"
           alignContent="flex-start"
           flexWrap="wrap"
@@ -50,14 +51,26 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
         >
           {tokens?.map((t, i) => (
             <RecommendedTokenBox
+              key={`${t.name ?? 'token'}-i`}
               name={t.name ?? ''}
               icon={t.iconUrl ?? ''}
               symbol={t.symbol ?? ''}
               coingeckoId={t.coingeckoId ?? ''}
+              isSelected={groupValue?.includes(t.coingeckoId)}
+              onPress={(isSelected) => {
+                if (isSelected) {
+                  const newGroup = [t.coingeckoId, ...groupValue];
+                  setGroupValue(newGroup);
+                } else {
+                  const newGroup = [...groupValue];
+                  newGroup.splice(newGroup.indexOf(t.coingeckoId), 1);
+                  setGroupValue(newGroup);
+                }
+              }}
               index={i}
             />
           ))}
-        </CheckBox.Group>
+        </Box>
         <Button
           size="xl"
           mt="5"
@@ -79,9 +92,12 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
             }
           }}
         >
-          {intl.formatMessage({
-            id: 'action__add',
-          })}
+          {intl.formatMessage(
+            {
+              id: 'action__add_str_tokens',
+            },
+            { '0': `${groupValue?.length ?? 0}` },
+          )}
         </Button>
       </Box>
     </Box>

@@ -1,5 +1,7 @@
 import { FC, memo, useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   CustomSkeleton,
@@ -22,7 +24,7 @@ const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
     const findIndex = categorys.findIndex((c) => c.defaultSelected);
     return findIndex !== -1 ? findIndex : 0;
   }, [categorys, selectedCategoryId]);
-
+  const intl = useIntl();
   const buttons = useMemo(
     () =>
       categorys.map((c) => {
@@ -30,13 +32,13 @@ const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
           text: c.name ?? '',
         };
         if (c.categoryId === MARKET_FAVORITES_CATEGORYID) {
-          buttonData.leftIcon = 'StarSolid';
-          buttonData.leftIconSelectedColor = 'icon-warning';
-          buttonData.text = '';
+          // buttonData.leftIcon = 'StarSolid';
+          // buttonData.leftIconSelectedColor = 'icon-warning';
+          buttonData.text = intl.formatMessage({ id: 'form__Watchlist' });
         }
         return buttonData;
       }),
-    [categorys],
+    [categorys, intl],
   );
 
   const toggleCategory = useCallback(
