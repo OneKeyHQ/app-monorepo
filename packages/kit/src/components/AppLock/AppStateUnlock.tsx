@@ -39,11 +39,6 @@ const ForgetPasswordButton = () => {
   return (
     <>
       <Box justifyContent="center" alignItems="center" pb="10">
-        <Typography.Caption color="text-subdued" mb="4">
-          {intl.formatMessage({
-            id: 'content__no_password_until_next_locking',
-          })}
-        </Typography.Caption>
         <Pressable
           onPress={() => setVisible(true)}
           flexDirection="row"
