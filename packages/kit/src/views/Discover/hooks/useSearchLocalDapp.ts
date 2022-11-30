@@ -61,7 +61,10 @@ export const useSearchLocalDapp = (
     setLoading(true);
     try {
       let items = allDapps;
-      if (platformEnv.isNativeIOS && !enableIOSDappSearch) {
+      if (
+        (platformEnv.isNativeIOS || platformEnv.isMas) &&
+        !enableIOSDappSearch
+      ) {
         items = [];
       }
       return searchDapps(items, terms);
