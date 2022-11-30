@@ -1,6 +1,5 @@
 import { FC, useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,17 +8,12 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
+import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
 import { DAppItemType, SectionDataType } from '../../type';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.DAppListScreen
->;
 export const SectionTitle: FC<SectionDataType> = ({
   title,
   data,
@@ -27,7 +21,6 @@ export const SectionTitle: FC<SectionDataType> = ({
 }) => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
-  const navigation = useNavigation<NavigationProps>();
 
   const onSelected = useCallback(
     (item: DAppItemType) => {
@@ -52,10 +45,16 @@ export const SectionTitle: FC<SectionDataType> = ({
       </Box>
       <Button
         onPress={() => {
-          navigation.navigate(HomeRoutes.DAppListScreen, {
-            data,
-            title,
-            onItemSelect: onSelected,
+          getAppNavigation().navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Discover,
+            params: {
+              screen: DiscoverModalRoutes.DAppListModal,
+              params: {
+                data,
+                title,
+                onItemSelect: onSelected,
+              },
+            },
           });
         }}
         height="32px"
