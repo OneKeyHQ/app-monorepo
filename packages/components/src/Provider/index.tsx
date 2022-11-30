@@ -2,12 +2,13 @@ import { FC, createRef, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LOCALES, { LocaleSymbol } from '../locale';
+import { Body1Props, Body2Props, SubheadingProps } from '../Typography';
 
 import { SCREEN_SIZE, getSize } from './device';
 import { Context, useLoadCustomFonts } from './hooks';
@@ -160,6 +161,73 @@ const Provider: FC<UIProviderProps> = ({
               // in CSS: packages/shared/src/web/index.css
               // show/hide scrollbar
               showsVerticalScrollIndicator: false,
+            },
+          },
+          Menu: {
+            baseStyle: {
+              px: 0,
+              py: 1,
+              bg: COLORS[themeVariant]['background-default'],
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: COLORS[themeVariant]['border-subdued'],
+              borderRadius: 12,
+              shadow: 2,
+              _presenceTransition: {
+                animate: {
+                  transition: { duration: 150 },
+                },
+                exit: { transition: { duration: 100 } },
+              },
+            },
+          },
+          MenuGroup: {
+            baseStyle: {
+              px: 4,
+              pb: 1,
+              _title: {
+                ...SubheadingProps,
+                color: COLORS[themeVariant]['text-subdued'],
+              },
+            },
+          },
+          MenuItem: {
+            baseStyle: {
+              px: 0,
+              mx: 1,
+              borderRadius: 8,
+              _text: {
+                ...(platformEnv.isNative ? Body1Props : Body2Props),
+                color: COLORS[themeVariant]['text-default'],
+              },
+              _disabled: {
+                _text: {
+                  color: COLORS[themeVariant]['text-disabled'],
+                },
+              },
+              _hover: {
+                bg: COLORS[themeVariant]['surface-hovered'],
+              },
+              _focus: {
+                bg: COLORS[themeVariant]['surface-hovered'],
+              },
+              _pressed: {
+                bg: COLORS[themeVariant]['surface-pressed'],
+              },
+              _icon: {
+                color: COLORS[themeVariant]['interactive-default'],
+              },
+            },
+            variants: {
+              highlight: () => ({
+                _text: {
+                  color: COLORS[themeVariant]['interactive-default'],
+                },
+              }),
+              destructive: () => ({
+                _text: {
+                  color: COLORS[themeVariant]['text-critical'],
+                },
+              }),
             },
           },
         },
