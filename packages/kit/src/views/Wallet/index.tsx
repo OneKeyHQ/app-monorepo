@@ -18,6 +18,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
+import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
@@ -164,6 +165,7 @@ const WalletTabs: FC = () => {
 };
 
 export default function Wallet() {
+  useOnboardingRequired(true);
   return (
     <>
       <IdentityAssertion>
