@@ -46,6 +46,7 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
+  InsufficientBalance,
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
@@ -549,6 +550,10 @@ export default class Vault extends VaultBase {
       amountAndGasBudget,
     ) as GetObjectDataResponse[];
 
+    if (inputCoins.length === 0) {
+      throw new InsufficientBalance();
+    }
+
     const selectCoinIds = inputCoins.map((object) => getObjectId(object));
 
     const txCommon = {
@@ -623,7 +628,8 @@ export default class Vault extends VaultBase {
         return Promise.resolve({
           kind: 'payAllSui',
           data: {
-            inputCoins: data.inputCoins,
+            // TODO: Don't have to flip it, wait for official restoration
+            inputCoins: data.inputCoins.reverse(),
             recipient: data.recipients[0],
             gasBudget: data.gasBudget,
           },
