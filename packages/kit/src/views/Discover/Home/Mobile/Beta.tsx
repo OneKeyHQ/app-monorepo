@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useLayoutEffect } from 'react';
+import { useCallback, useContext, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,19 +15,15 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
-import { HomeRoutes, HomeRoutesParams } from '../../../../routes/types';
+import { getAppNavigation } from '../../../../hooks/useAppNavigation';
+import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverFavorites, useDiscoverHistory } from '../../hooks';
 import { DiscoverContext } from '../context';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 import type { SectionDataType } from '../../type';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.DAppListScreen
->;
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
@@ -128,7 +124,6 @@ const ListHeaderHistories = () => {
 
 const ListHeaderItems = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
   const { itemSource, setItemSource, onItemSelectHistory } =
     useContext(DiscoverContext);
 
@@ -156,9 +151,15 @@ const ListHeaderItems = () => {
         </Box>
         <Button
           onPress={() => {
-            navigation.navigate(HomeRoutes.MyDAppListScreen, {
-              onItemSelect: onItemSelectHistory,
-              defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+            getAppNavigation().navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Discover,
+              params: {
+                screen: DiscoverModalRoutes.MyDAppListModal,
+                params: {
+                  onItemSelect: onItemSelectHistory,
+                  defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+                },
+              },
             });
           }}
           height="32px"

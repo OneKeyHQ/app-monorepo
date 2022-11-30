@@ -205,7 +205,7 @@ function enableCodeSplitChunks({ config, name }) {
   config.optimization.splitChunks = {
     chunks: 'all',
     minSize: 0, // 2000000
-    maxSize: 4000000,
+    maxSize: 1000 * 1000, // limit to max 2MB to ignore firefox lint error
     // auto-gen chunk file name by module name or just increasing number
     name: name ? `vendors-${name}` : true,
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3

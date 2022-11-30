@@ -1,7 +1,7 @@
-import { FC, useMemo } from 'react';
+import { FC, useEffect, useMemo } from 'react';
 
 import { Image as NBImage } from 'native-base';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
@@ -21,6 +21,7 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
+  MIN_OR_HIDE,
   hideTabGrid,
   showTabGridAnim,
   tabGridRefs,
@@ -111,6 +112,21 @@ const WebTabGrid = () => {
   const { tabs } = useWebTabs();
   const { width } = useWindowDimensions();
   const cellWidth = (width - CELL_GAP * 3) / 2;
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (showTabGridAnim.value !== MIN_OR_HIDE) {
+          hideTabGrid();
+          return true;
+        }
+        return false;
+      },
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   const content = useMemo(
     () =>
