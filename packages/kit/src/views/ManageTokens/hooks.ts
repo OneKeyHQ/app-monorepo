@@ -29,6 +29,8 @@ export const useSearchTokens = (
   useEffect(() => {
     async function main() {
       if (terms.length === 0 || !networkid || !accountId) {
+        setLoading(false);
+        setTokens([]);
         return;
       }
       setLoading(true);
