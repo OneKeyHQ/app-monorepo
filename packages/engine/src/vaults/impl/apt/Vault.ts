@@ -159,12 +159,9 @@ export default class Vault extends VaultBase {
   }
 
   override async validateWatchingCredential(input: string) {
-    const ssss = await this.validateAddress(input)
+    return this.validateAddress(input)
       .then((address) => this.settings.watchingAccountEnabled && !!address)
       .catch(() => false);
-    console.log('=====>>>>> validateWatchingCredential', input, ssss);
-
-    return ssss;
   }
 
   override async checkAccountExistence(address: string): Promise<boolean> {

@@ -184,6 +184,7 @@ function SendConfirm({
             type,
             closeModal: close,
             onDetail: routeParams.onDetail,
+            isSingleTransformMode: true,
           };
           navigation.navigate(SendRoutes.SendFeedbackReceipt, params);
         }
