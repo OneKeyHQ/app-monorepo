@@ -26,6 +26,7 @@ interface Props {
   feeInfoPayloads: IFeeInfoPayload[];
   feeInfoLoading: boolean;
   totalFeeInNative: number;
+  minTotalFeeInNative: number;
   networkId: string;
   accountId: string;
   editable: boolean;
@@ -44,6 +45,7 @@ function BatchTransactionFeeInfo(props: Props) {
     feeInfoPayloads,
     feeInfoLoading,
     totalFeeInNative,
+    minTotalFeeInNative,
     accountId,
     networkId,
     editable,
@@ -67,6 +69,8 @@ function BatchTransactionFeeInfo(props: Props) {
   if (feeInfoPayload && feeInfoPayload.selected) {
     feeInfoPayload.selected.preset = feePresetIndex;
   }
+
+  const nativeSymbol = feeInfoPayload?.info?.nativeSymbol || '';
 
   const disabled =
     feeInfoLoading ||
@@ -183,9 +187,10 @@ function BatchTransactionFeeInfo(props: Props) {
                 >
                   {feeInfoPayload ? (
                     <Text typography="Body1Strong">
-                      {`${totalFeeInNative} ${
-                        feeInfoPayload?.info?.nativeSymbol || ''
-                      }`}
+                      {minTotalFeeInNative === totalFeeInNative &&
+                        `${totalFeeInNative} ${nativeSymbol}`}
+                      {minTotalFeeInNative !== totalFeeInNative &&
+                        `${minTotalFeeInNative} ~ ${totalFeeInNative} ${nativeSymbol}`}
                     </Text>
                   ) : (
                     <Text color="text-subdued" flex={1}>

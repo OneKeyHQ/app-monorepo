@@ -84,18 +84,22 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
   });
   const decodedTx = decodedTxs[0];
 
-  const { feeInfoPayloads, feeInfoLoading, totalFeeInNative } =
-    useBatchSendConfirmFeeInfoPayload({
-      accountId,
-      networkId,
-      encodedTxs,
-      decodedTxs,
-      useFeeInTx: feeInfoUseFeeInTx,
-      pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
-      signOnly: routeParams.signOnly,
-      forBatchSend: true,
-      transferCount,
-    });
+  const {
+    feeInfoPayloads,
+    feeInfoLoading,
+    totalFeeInNative,
+    minTotalFeeInNative,
+  } = useBatchSendConfirmFeeInfoPayload({
+    accountId,
+    networkId,
+    encodedTxs,
+    decodedTxs,
+    useFeeInTx: feeInfoUseFeeInTx,
+    pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
+    signOnly: routeParams.signOnly,
+    forBatchSend: true,
+    transferCount,
+  });
   useWalletConnectPrepareConnection({
     accountId,
     networkId,
@@ -232,6 +236,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       feeInfoPayloads={feeInfoPayloads}
       feeInfoLoading={feeInfoLoading}
       totalFeeInNative={totalFeeInNative}
+      minTotalFeeInNative={minTotalFeeInNative}
       batchSendConfirmParams={routeParams}
       editable={feeInfoEditable}
       isSingleTransformMode={isSingleTransformMode}

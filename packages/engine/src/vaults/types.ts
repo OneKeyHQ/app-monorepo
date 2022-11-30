@@ -226,6 +226,9 @@ export type IFeeInfoPayload = {
     total: string; // total fee in Gwei
     totalNative: string; // total fee in ETH
     value: IFeeInfoUnit;
+    // as an estimated min fee for unapproved batch transfer
+    minTotal?: string;
+    minTotalNative?: string;
   };
   extraInfo?: any | null;
 };
