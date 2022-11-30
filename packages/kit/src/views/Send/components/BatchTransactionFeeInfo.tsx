@@ -16,6 +16,7 @@ import { IEncodedTx, IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import { BatchSendConfirmParams, SendRoutes, SendRoutesParams } from '../types';
+import { useFeePresetIndex } from '../utils/useFeePresetIndex';
 
 import { FeeSpeedLabel } from './FeeSpeedLabel';
 
@@ -53,9 +54,19 @@ function BatchTransactionFeeInfo(props: Props) {
 
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
+  const defaultFeePresetIndex = useFeePresetIndex(networkId);
 
   const encodedTx = encodedTxs[0];
   const feeInfoPayload = feeInfoPayloads[0];
+
+  const feePresetIndex =
+    (isSingleTransformMode
+      ? feeInfoPayload?.selected?.preset
+      : defaultFeePresetIndex) || '0';
+
+  if (feeInfoPayload && feeInfoPayload.selected) {
+    feeInfoPayload.selected.preset = feePresetIndex;
+  }
 
   const disabled =
     feeInfoLoading ||
@@ -113,7 +124,7 @@ function BatchTransactionFeeInfo(props: Props) {
                 {intl.formatMessage({ id: 'form__gas_fee_settings' })}
               </Text>
               <Text typography="Body1Strong">
-                <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />
+                <FeeSpeedLabel index={feePresetIndex} />
                 {isSingleTransformMode && (
                   <FormatCurrencyNativeOfAccount
                     networkId={networkId}

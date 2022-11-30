@@ -52,6 +52,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     accountId,
     feeInfoUseFeeInTx,
     feeInfoEditable,
+    transferCount,
   } = batchSendConfirmParamsParsed;
   const intl = useIntl();
   useOnboardingRequired();
@@ -93,6 +94,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
       signOnly: routeParams.signOnly,
       forBatchSend: true,
+      transferCount,
     });
   useWalletConnectPrepareConnection({
     accountId,
