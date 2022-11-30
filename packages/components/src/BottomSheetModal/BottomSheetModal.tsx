@@ -1,16 +1,8 @@
 import { FC, useEffect, useRef } from 'react';
 
-import { IBoxProps } from 'native-base';
 import { Modalize, ModalizeProps } from 'react-native-modalize';
 
-import {
-  Box,
-  Modal,
-  PresenceTransition,
-  useIsVerticalLayout,
-  useSafeAreaInsets,
-  useThemeValue,
-} from '@onekeyhq/components';
+import { Modal, useSafeAreaInsets, useThemeValue } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 
 const BottomSheetModal: FC<{
