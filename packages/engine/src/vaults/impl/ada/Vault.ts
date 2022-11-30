@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
@@ -30,8 +30,10 @@ import { VaultBase } from '../../VaultBase';
 
 import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
 import { generateExportedCredential } from './helper/bip32';
+import { getChangeAddress } from './helper/cardanoUtils';
 import Client from './helper/client';
 import { CardanoApi } from './helper/sdk';
+import { transformToOneKeyInputs } from './helper/transformations';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -205,12 +207,11 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxADA> {
     const { to, amount } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const stakeAddress = await this.getStakeAddress(dbAccount.address);
     const { decimals, feeDecimals } = await this.engine.getNetwork(
       this.networkId,
     );
     const client = await this.getClient();
-    const utxos = await client.getUTXOs(stakeAddress);
+    const utxos = await client.getUTXOs(dbAccount);
 
     const amountBN = new BigNumber(amount).shiftedBy(decimals);
     const txPlan = await CardanoApi.composeTxPlan(
@@ -227,11 +228,14 @@ export default class Vault extends VaultBase {
       ],
     );
 
+    const changeAddress = getChangeAddress(dbAccount);
+
     // @ts-expect-error
     const { fee, inputs, outputs, totalSpent, tx } = txPlan;
     const totalFeeInNative = new BigNumber(fee)
       .shiftedBy(-1 * feeDecimals)
       .toFixed();
+
     return {
       inputs,
       outputs,
@@ -240,6 +244,7 @@ export default class Vault extends VaultBase {
       totalFeeInNative,
       transferInfo,
       tx,
+      changeAddress,
     };
   }
 

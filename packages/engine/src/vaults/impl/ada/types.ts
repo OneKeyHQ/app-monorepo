@@ -1,5 +1,7 @@
 import { ITransferInfo } from '../../types';
 
+import type { PROTO } from '@onekeyfe/hd-core';
+
 export type BIP32Path = number[];
 
 export const enum NetworkId {
@@ -36,6 +38,7 @@ export type IAdaAddress = {
 };
 
 export type IAdaUTXO = {
+  path: string;
   address: string;
   tx_hash: string;
   tx_index: number;
@@ -97,6 +100,15 @@ type ITxInfo = {
   size: number;
 };
 
+export type IChangeAddress = {
+  address: string;
+  addressParameters: {
+    path: string;
+    addressType: PROTO.CardanoAddressType;
+    stakingPath: string;
+  };
+};
+
 export type IEncodedTxADA = {
   inputs: IEncodeInput[];
   outputs: IEncodeOutput[];
@@ -105,6 +117,7 @@ export type IEncodedTxADA = {
   totalFeeInNative: string;
   transferInfo: ITransferInfo;
   tx: ITxInfo;
+  changeAddress: IChangeAddress;
 };
 
 export type IAdaHistory = {

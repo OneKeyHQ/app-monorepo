@@ -4,6 +4,7 @@ import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
+import { DBUTXOAccount } from '../../../../types/account';
 import {
   IAdaAccount,
   IAdaAddress,
@@ -59,10 +60,23 @@ class Client {
   }
 
   getUTXOs = memoizee(
-    async (stakeAddress: string): Promise<IAdaUTXO[]> =>
-      this.backendRequest
-        .get<IAdaUTXO[]>(`/utxos/${stakeAddress}`)
-        .then((i) => i.data),
+    async (dbAccount: DBUTXOAccount): Promise<IAdaUTXO[]> => {
+      const { xpub, addresses, path } = dbAccount;
+      const stakeAddress = addresses['2/0'];
+      const { data } = await this.backendRequest.get<IAdaUTXO[]>(
+        `/utxos?stakeAddress=${stakeAddress}&xpub=${xpub}}`,
+      );
+      const pathIndex = path.split('/')[3];
+      return data.map((utxo) => {
+        let { path: utxoPath } = utxo;
+        if (utxoPath && utxoPath.length > 0) {
+          const pathArray = path.split('/');
+          pathArray.splice(3, 1, pathIndex);
+          utxoPath = pathArray.join('/');
+        }
+        return { ...utxo, path: utxoPath };
+      });
+    },
     {
       promise: true,
       maxAge: 1000 * 60,
