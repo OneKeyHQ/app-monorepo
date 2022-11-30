@@ -156,7 +156,6 @@ export function useBatchSendConfirmFeeInfoPayload({
             };
 
             if (feeInfoStandard?.info?.limit) {
-              //
               standardLimit = +feeInfoStandard.info.limit * (transferCount + 1);
             }
 
@@ -281,6 +280,8 @@ export function useBatchSendConfirmFeeInfoPayload({
 
       const firstTx = encodedTxs[0];
 
+      // Use the fee of the first transaction as a benchmark
+      // To calculate the fee of subsequent batch transaction that may fail
       const firstTxInfo = await fetchFeeInfo(firstTx);
       const restEncodedTxs = encodedTxs.slice(1);
 
