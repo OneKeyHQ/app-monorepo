@@ -1,5 +1,19 @@
 import { OnekeyNetwork } from './networkIds';
 
+/*
+Check Contract Solidity SourceCode:
+ packages/engine/src/vaults/impl/evm/decoder/batchTransferContract/Disperse.sol
+
+Compiler Version
+v0.8.17+commit.8df45f5f
+
+Contract Creation Code
+6080...0033
+
+Swarm Source
+ipfs://0c42f631543ed0b0dfde4783e36b5900bffae1728a7dc8de3d44f7d1fd388e33
+ */
+
 export const batchTransferContractAddress: {
   [k: string]: string;
 } = {
