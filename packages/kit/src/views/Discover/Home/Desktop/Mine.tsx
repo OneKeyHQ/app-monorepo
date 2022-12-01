@@ -13,6 +13,7 @@ import {
   Pressable,
   Typography,
 } from '@onekeyhq/components';
+import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
@@ -31,7 +32,6 @@ import { DiscoverContext } from '../context';
 import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
-import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 import type { SectionDataType } from '../../type';
 
 const ListHeaderItemsEmptyComponent = () => {
@@ -61,36 +61,35 @@ const ListHeaderFavorites = () => {
   const { onItemSelectHistory } = useContext(DiscoverContext);
   const favorites = useDiscoverFavorites();
 
-  const renderItem: ListRenderItem<MatchDAppItemType> = ({ item }) => {
-    const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
-    const name = item.dapp?.name ?? item.webSite?.title;
-    return (
-      <Pressable
-        py="2"
-        px="3"
-        borderRadius={12}
-        justifyContent="center"
-        alignItems="center"
-        onPress={() => onItemSelectHistory(item)}
-      >
-        <DAppIcon size={48} url={logoURL} borderRadius={12} mb="1.5" />
-        <Typography.Caption w="12" numberOfLines={1} textAlign="center">
-          {name ?? 'Unknown'}
-        </Typography.Caption>
-      </Pressable>
-    );
-  };
+  const children = useMemo(
+    () =>
+      favorites.slice(0, 20).map((item) => {
+        const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
+        const name = item.dapp?.name ?? item.webSite?.title;
+        return (
+          <Pressable
+            key={item.id}
+            py="2"
+            px="3"
+            borderRadius={12}
+            justifyContent="center"
+            alignItems="center"
+            onPress={() => onItemSelectHistory(item)}
+          >
+            <DAppIcon size={48} url={logoURL} borderRadius={12} mb="1.5" />
+            <Typography.Caption w="12" numberOfLines={1} textAlign="center">
+              {name ?? 'Unknown'}
+            </Typography.Caption>
+          </Pressable>
+        );
+      }),
+    [favorites, onItemSelectHistory],
+  );
+
   return favorites.length ? (
-    <FlatList
-      horizontal
-      data={favorites}
-      renderItem={renderItem}
-      removeClippedSubviews
-      windowSize={5}
-      showsHorizontalScrollIndicator={false}
-      keyExtractor={(item, i) => `${item.id}${i}`}
-      ListEmptyComponent={ListHeaderItemsEmptyComponent}
-    />
+    <ScrollableButtonGroup justifyContent="center" bg="transparent">
+      {children}
+    </ScrollableButtonGroup>
   ) : (
     <ListHeaderItemsEmptyComponent />
   );
@@ -100,34 +99,35 @@ const ListHeaderHistories = () => {
   const { onItemSelectHistory } = useContext(DiscoverContext);
   const histories = useDiscoverHistory();
 
-  const renderItem: ListRenderItem<MatchDAppItemType> = ({ item }) => {
-    const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
-    const name = item.dapp?.name ?? item.webSite?.title;
-    return (
-      <Pressable
-        py="2"
-        px="3"
-        borderRadius={12}
-        justifyContent="center"
-        alignItems="center"
-        onPress={() => onItemSelectHistory(item)}
-      >
-        <Image w="10" h="10" src={logoURL} borderRadius={12} mb="1.5" />
-        <Typography.Caption w="12" numberOfLines={1} textAlign="center">
-          {name ?? 'Unknown'}
-        </Typography.Caption>
-      </Pressable>
-    );
-  };
+  const children = useMemo(
+    () =>
+      histories.slice(0, 20).map((item) => {
+        const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
+        const name = item.dapp?.name ?? item.webSite?.title;
+        return (
+          <Pressable
+            key={item.id}
+            py="2"
+            px="3"
+            borderRadius={12}
+            justifyContent="center"
+            alignItems="center"
+            onPress={() => onItemSelectHistory(item)}
+          >
+            <Image w="10" h="10" src={logoURL} borderRadius={12} mb="1.5" />
+            <Typography.Caption w="12" numberOfLines={1} textAlign="center">
+              {name ?? 'Unknown'}
+            </Typography.Caption>
+          </Pressable>
+        );
+      }),
+    [histories, onItemSelectHistory],
+  );
+
   return histories.length ? (
-    <FlatList
-      horizontal
-      data={histories}
-      renderItem={renderItem}
-      showsHorizontalScrollIndicator={false}
-      keyExtractor={(item) => `${item.id}`}
-      ListEmptyComponent={ListHeaderItemsEmptyComponent}
-    />
+    <ScrollableButtonGroup justifyContent="center" bg="transparent">
+      {children}
+    </ScrollableButtonGroup>
   ) : (
     <ListHeaderItemsEmptyComponent />
   );

@@ -564,6 +564,7 @@
   "content__third_party_validator": "المدقق",
   "content__time": "زمن",
   "content__to": "ل",
+  "content__to_ensure_that_the_transaction_will_be_successfully_sent": "لضمان إرسال المعاملة بنجاح ، سيتم استخدام الحد الأقصى المسموح به للغاز في الكتلة الحالية لتقدير الحد الأقصى لرسوم الغاز. يرجى التأكد من أن حسابك به رصيد كاف.",
   "content__today": "اليوم",
   "content__token_approve_owner": "صاحب",
   "content__token_approve_spender": "Approved Spender",
@@ -600,6 +601,7 @@
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
+  "content__you_don_t_have_a_str_account": "You don't have a {0} account.",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "قد تتلقى طلبات توقيع متعددة على محفظة الأجهزة.",
   "content__your_biological_data_is_encrypted": "يتم تشفير بياناتك البيولوجية.",
   "content__your_biological_data_is_encrypted_desc": "يتم تخزين معلومات السيرة الذاتية محليًا ولا يمكن لـ OneKey الوصول إلى هذه البيانات أو تخزينها.",
@@ -720,6 +722,8 @@
   "form__amount_invalid": "رصيد {0} غير كافٍ",
   "form__amount_max_amount": "الحد الأقصى للمبلغ",
   "form__amount_recipient_activate": "المستلم يتطلب حجز {amount} {unit} للتفعيل",
+  "form__anti_sandwich_attack": "Anti Sandwich Attack",
+  "form__anti_sandwich_attack_desc": "We find the best routes for decentralized exchange (DEX) trades while avoiding slippage and MEV attacks.",
   "form__anti_whale": "مكافحة الحوت",
   "form__anti_whale_desc": "يحتوي العقد على وظيفة تحديد الحد الأقصى لمقدار المعاملات أو الحد الأقصى لمقدار العملات المعدنية المحتفظ بها.",
   "form__app_lock": "القفل التلقائي للتطبيق",
@@ -738,6 +742,7 @@
   "form__balance": "الرصيد",
   "form__base_str": "القاعدة: {0}",
   "form__beginner_guide": "دليل المبتدئين",
+  "form__best_rate": "👍 Best Rate",
   "form__blacklist_included": "وشملت القائمة السوداء",
   "form__blacklist_included_desc": "يمكن لمالك العقد إضافة أي عنوان إلى القائمة السوداء ، ولا يمكن لحاملي الرموز المدرجة في القائمة السوداء التداول. إساءة استخدام ميزة القائمة السوداء محفوفة بالمخاطر.",
   "form__ble_version": "إصدار BLE",
@@ -760,6 +765,7 @@
   "form__can_sell_all_of_the_token": "يمكن بيع كل الرموز",
   "form__can_sell_all_of_the_token_desc": "يمكن بيع جميع الرموز المميزة. بعض العقود الرمزية تحد من نسبة البيع.",
   "form__cancelled_transaction": "💨 معاملة ملغاة",
+  "form__car_normal": "🚗  Normal",
   "form__chain_id": "معرف السلسلة",
   "form__chain_id_invalid": "معرف السلسلة غير صالح!",
   "form__change_password": "غير كلمة السر",
@@ -777,10 +783,14 @@
   "form__create_transactions": "إنشاء المعاملات",
   "form__created": "مخلوق",
   "form__cross_chain": "عبر سلسلة",
+  "form__cross_chain_swap": "Cross-Chain Swap",
+  "form__cross_chain_swap_desc": "You can freely swap tokens across more than {0} supported chains.",
   "form__dark": "داكن",
   "form__data": "البيانات",
   "form__data_tab": "البيانات",
   "form__decimal": "عدد عشري",
+  "form__designated_recipient": "Designated Recipient",
+  "form__designated_recipient_desc": "You can choose another account to receive the swap.",
   "form__dev_mode": "وضع المطور",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
@@ -801,6 +811,7 @@
   "form__estomated_gas": "الغاز المقدر",
   "form__exact_amount_allowance": "بدل المبلغ الدقيق",
   "form__exact_amount_allowance_desc": "احذر من إعطاء الكثير من البدل لأي عقد. قد يؤدي استخدام وضع المبلغ المحدد إلى تقليل المخاطر بشكل كبير. يمكنك تبديله في أي وقت.",
+  "form__exact_amount_allowance_significantly_reduces_risk_exposure": "Exact amount allowance significantly reduces risk exposure.",
   "form__expand_view": "قم بتوسيع العرض",
   "form__explorer": "إكسبلورر",
   "form__explorers": "المستكشفون",
@@ -892,12 +903,14 @@
   "form__minimum_received": "تلقى الحد الأدنى",
   "form__modifiable_tax": "ضريبة قابلة للتعديل",
   "form__modifiable_tax_desc": "إذا تم زيادة ضريبة المعاملات إلى أكثر من 49٪ ، فلن تكون التوكنات قادرة على التداول (مخاطرة موضع الجذب).",
+  "form__more_details": "المزيد من التفاصيل",
   "form__multiple_transactions": "معاملات متعددة",
   "form__my_cryptos_uppercase": "التشفير الخاص بي",
   "form__my_tokens": "الرموز الخاصة بي",
   "form__my_wallet": "محفظتى",
   "form__name": "اسم",
   "form__name_uppercase": "اسم",
+  "form__network_fee": "رسوم الشبكة",
   "form__network_helperText": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
   "form__network_name": "اسم الشبكة",
   "form__network_name_invalid": "يجب أن يتكون الاسم من 30 حرفًا أو أقل.",
@@ -985,6 +998,7 @@
   "form__reset_app": "إعادة تعيين التطبيق",
   "form__reward_history": "تاريخ المكافأة",
   "form__risk_exposure": "التعرض للخطر",
+  "form__rocket_rapid": "🚀  Rapid",
   "form__rpc_fetched_failed": "فشل جلب RPC.",
   "form__rpc_url": "عنوان URL لـ RPC",
   "form__rpc_url_connecting": "اتصال RPC ...",
@@ -1075,6 +1089,7 @@
   "form__trading_volume": "حجم التداول",
   "form__trading_with_cooldown_time": "التداول مع وقت التهدئة",
   "form__trading_with_cooldown_time_desc": "في غضون فترة زمنية محددة أو حظر بعد الشراء ، لا يمكن للمستخدمين بيع الرموز المميزة.",
+  "form__train_fast": "🚅️  Fast",
   "form__transaction": "عملية",
   "form__transaction_hash": "تجزئة الصفقة",
   "form__trusted_token": "رمز موثوق",
@@ -1297,6 +1312,7 @@
   "msg__enter_a_valid_slippage_percentage": "أدخل نسبة انزلاق سعرية صالحة",
   "msg__enter_passphrase_on_device": "أدخل عبارة المرور على الجهاز",
   "msg__enter_passphrase_on_device_dsc": "استخدم عبارة مرور محفظة مخفية أخرى",
+  "msg__enter_pin_on_device": "أدخل رقم التعريف الشخصي على الجهاز",
   "msg__estimate_str_minutes": "تقدير {0} دقيقة",
   "msg__exceeding_the_maximum_word_limit": "تجاوز الحد الأقصى لعدد الكلمات.",
   "msg__failed_to_add_token": "فشل إضافة الرمز المميز",
@@ -1451,6 +1467,7 @@
   "terms__title": "البنود و الظروف",
   "terms__user_agreement": "اتفاقية المستخدم",
   "title__New_Collection": "مجموعة جديدة",
+  "title__Swap _Bridge": "المبادلة والجسر",
   "title__about": "عن",
   "title__accounts": "حسابات",
   "title__activity": "نشاط",
@@ -1583,6 +1600,7 @@
   "title__select_an_account_and_network_to_continue": "حدد حسابًا وشبكة للمتابعة",
   "title__select_blockchain_browser": "حدد متصفح Blockchain",
   "title__select_contact": "حدد جهة اتصال",
+  "title__select_route": "Select Route",
   "title__sell_str": "بيع {0}",
   "title__set_password": "ضبط كلمة السر",
   "title__set_up_new_pin": "قم بإعداد PIN الجديد",
@@ -1624,6 +1642,8 @@
   "title__wallets": "محافظ",
   "title__welcome": "أهلا بك",
   "title__welcome_desc": "كل ما تحتاج لمعرفته حول استكشاف عالم Web3 الجديد من خلال OneKey",
+  "title__welcome_to_onekey_swap": "Welcome to OneKey Swap!",
+  "title__welcome_to_onekey_swap_desc": "Safe, fast, and find the best rate.",
   "title__whats_new": "ما هو الجديد",
   "title__you_ve_paused_the_transaction_generation": "لقد أوقفت إنشاء المعاملة مؤقتًا",
   "title_select_wallet": "حدد Wallet",
