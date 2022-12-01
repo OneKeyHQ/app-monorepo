@@ -8,9 +8,11 @@ import { DBUTXOAccount } from '../../../../types/account';
 import {
   IAdaAccount,
   IAdaAddress,
+  IAdaAmount,
   IAdaHistory,
   IAdaTransaction,
   IAdaUTXO,
+  IAsset,
 } from '../types';
 
 class Client {
@@ -114,6 +116,16 @@ class Client {
           'Content-Type': 'application/cbor',
         },
       })
+      .then((i) => i.data);
+  }
+
+  async getAssetDetail(asset: string): Promise<IAsset> {
+    return this.request.get<IAsset>(`/assets/${asset}`).then((i) => i.data);
+  }
+
+  async getAssetsBalances(stakeAddress: string): Promise<IAdaAmount[]> {
+    return this.request
+      .get<IAdaAmount[]>(`/accounts/${stakeAddress}/addresses/assets`)
       .then((i) => i.data);
   }
 }

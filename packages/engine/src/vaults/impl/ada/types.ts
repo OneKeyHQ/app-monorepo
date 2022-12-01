@@ -159,6 +159,10 @@ type IHistoryUTXOForm = {
   isMine: boolean;
 };
 
+export type IAsset = Asset & {
+  asset: string;
+};
+
 type Asset = {
   policy_id: string;
   asset_name: string;

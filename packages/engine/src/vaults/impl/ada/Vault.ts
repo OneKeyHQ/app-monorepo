@@ -9,7 +9,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { COINTYPE_ADA } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { InvalidAddress, NotImplemented } from '../../../errors';
-import { DBUTXOAccount } from '../../../types/account';
+import { Account, DBUTXOAccount } from '../../../types/account';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -63,6 +63,22 @@ export default class Vault extends VaultBase {
     maxAge: 60 * 1000 * 3,
   });
 
+  override async getOutputAccount(): Promise<
+    Account & { addresses: Record<string, string> }
+  > {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+      addresses: dbAccount.addresses,
+    };
+  }
+
   override async getClientEndpointStatus(): Promise<{
     responseTime: number;
     latestBlock: number;
@@ -101,6 +117,18 @@ export default class Vault extends VaultBase {
         /^xprv/.test(input) &&
         input.length >= 165,
     );
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    console.log(address);
+    const client = await this.getClient();
+    try {
+      const res = await client.getAssetDetail(address);
+      return res.asset;
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
   }
 
   override async getExportedCredential(password: string): Promise<string> {
@@ -441,19 +469,32 @@ export default class Vault extends VaultBase {
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
     const client = await this.getClient();
-    const result = await Promise.all(
-      requests.map(async ({ address }) => {
-        try {
-          const stakeAddress = await this.getStakeAddress(address);
-          const balance = await client.getBalance(stakeAddress);
-          return balance;
-        } catch {
-          return new BigNumber(0);
+    const stakeAddress = await this.getStakeAddress(requests[0]?.address);
+    const promises: (Promise<BigNumber> | Promise<IAdaAmount[]>)[] = [
+      client.getBalance(stakeAddress),
+    ];
+    if (requests.some((v) => v.tokenAddress)) {
+      promises.push(client.getAssetsBalances(stakeAddress));
+    }
+    try {
+      const [balance, ...tokenBalance] = await Promise.all(promises);
+      const results = requests.map(({ address, tokenAddress }) => {
+        if (!tokenAddress) {
+          return balance as BigNumber;
         }
-      }),
-    );
-
-    return result;
+        if (Array.isArray(tokenBalance) && tokenBalance.length) {
+          const quantity =
+            (tokenBalance[0] as IAdaAmount[]).find(
+              (item) => item.unit === tokenAddress,
+            )?.quantity ?? 0;
+          return new BigNumber(quantity);
+        }
+        return new BigNumber(0);
+      });
+      return results;
+    } catch {
+      return requests.map(() => new BigNumber(0));
+    }
   }
 
   private getStakeAddress = memoizee(

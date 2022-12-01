@@ -814,10 +814,16 @@ class Engine {
     let newTokens: Token[] | undefined;
     if (balanceSupprtedNetwork.includes(networkId)) {
       try {
-        const { address: accountAddress } = await this.getAccount(
-          accountId,
-          networkId,
-        );
+        const account = await this.getAccount(accountId, networkId);
+        let { address: accountAddress } = account;
+
+        // use the stake address to check cardano account balance.
+        if (networkId === 'ada--0') {
+          accountAddress =
+            (account as Account & { addresses: Record<string, string> })
+              ?.addresses?.['2/0'] ?? accountAddress;
+        }
+
         const balancesFromApi =
           (await getBalancesFromApi(networkId, accountAddress)) || [];
         const missedTokenIds: string[] = [];
