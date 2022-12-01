@@ -10,6 +10,7 @@ import {
   RootRoutesParams,
 } from '../routes/types';
 import { setOnBoardingLoadingBehindModal } from '../store/reducers/runtime';
+import { setHomePageCheckBoarding } from '../store/reducers/status';
 import { wait } from '../utils/helper';
 
 import { useAppSelector } from './redux';
@@ -25,12 +26,20 @@ export function closeExtensionWindowIfOnboardingFinished() {
   }
 }
 
-export const useOnboardingRequired = () => {
+export const useOnboardingRequired = (isHomeCheck?: boolean) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
+  const homePageCheckBoarding = useAppSelector(
+    (s) => s.status.homePageCheckBoarding,
+  );
   useEffect(() => {
     if (!boardingCompleted) {
-      navigation.replace(RootRoutes.Onboarding);
+      if (!isHomeCheck || (isHomeCheck && !homePageCheckBoarding)) {
+        navigation.replace(RootRoutes.Onboarding);
+        if (isHomeCheck) {
+          backgroundApiProxy.dispatch(setHomePageCheckBoarding());
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
