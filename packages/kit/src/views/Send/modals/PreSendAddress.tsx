@@ -260,6 +260,7 @@ function PreSendAddress() {
             type: 'Transfer',
             nftInfos,
           },
+          transferCount: transferInfos.length,
           onModalClose: closeModal,
         });
       } else {
