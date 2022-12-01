@@ -88,7 +88,13 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm i -g expo-cli && yarn
-
+      
+      - name: Install electron-builder v23
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd ./packages/desktop && yarn add electron-builder@23.6.0
+      
       - name: Inject Environment Variables
         env:
           CLOUNDINARY_NAME: ${{ secrets.CLOUNDINARY_NAME }}
