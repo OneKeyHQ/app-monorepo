@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
@@ -230,6 +232,7 @@ function FeeInfoInputForTransfer({
     ),
     [intl],
   );
+
   const hint = useMemo(() => {
     let text = '';
     if (!feeInfoPayload && showFirstTimeHint.current) {
@@ -373,6 +376,7 @@ function FeeInfoInputForConfirmLite({
   sendConfirmParams,
   networkId,
   accountId,
+  feeInfoError,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
@@ -381,6 +385,7 @@ function FeeInfoInputForConfirmLite({
   sendConfirmParams: SendConfirmParams;
   networkId: string;
   accountId: string;
+  feeInfoError?: Error | null;
 }) {
   const intl = useIntl();
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
@@ -511,6 +516,34 @@ function FeeInfoInputForConfirmLite({
     );
   }, [encodedTx, feeInfoPayload, intl, isPreset]);
 
+  const errorHint = useMemo(() => {
+    if (!feeInfoError) {
+      return null;
+    }
+
+    let message: string | null = null;
+    if (feeInfoError instanceof OneKeyError) {
+      if (feeInfoError.code === -99999) {
+        message = feeInfoError.message;
+      } else {
+        message = intl.formatMessage({
+          // @ts-expect-error
+          id: feeInfoError.key,
+        });
+      }
+    } else {
+      message = feeInfoError.message;
+    }
+
+    return (
+      !!message && (
+        <Text typography="CaptionMono" color="text-critical" flex={1}>
+          {message}
+        </Text>
+      )
+    );
+  }, [feeInfoError, intl]);
+
   const renderChildren = useCallback(
     // ({ isHovered })
     () => {
@@ -525,19 +558,22 @@ function FeeInfoInputForConfirmLite({
         );
       } else {
         content = (
-          <Box
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="flex-start"
-          >
-            <Text color="text-subdued" flex={1}>
-              {/* show static text: No Available Fee */}
-              {intl.formatMessage({ id: 'content__calculate_fee' })}
-            </Text>
-            <Box w={2} />
-            {loading ? <Spinner size="sm" /> : null}
-            <Box flex={1} />
-          </Box>
+          <>
+            <Box
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="flex-start"
+            >
+              <Text color="text-subdued" flex={1}>
+                {/* show static text: No Available Fee */}
+                {intl.formatMessage({ id: 'content__calculate_fee' })}
+              </Text>
+              <Box w={2} />
+              {loading ? <Spinner size="sm" /> : null}
+              <Box flex={1} />
+            </Box>
+            {errorHint}
+          </>
         );
       }
 
@@ -546,7 +582,7 @@ function FeeInfoInputForConfirmLite({
         <Box>{content}</Box>
       );
     },
-    [intl, loading, subTitle, title],
+    [errorHint, intl, loading, subTitle, title],
   );
   return (
     <FeeInfoInputContainer

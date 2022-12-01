@@ -677,7 +677,7 @@ export default class Vault extends VaultBase {
           (!isOnekeyNativeTransfer && !simulationTx.success)
         ) {
           // Exec failure
-          throw new OneKeyError();
+          throw new OneKeyError(simulationTx?.vm_status);
         }
 
         limit = BigNumber.min(
