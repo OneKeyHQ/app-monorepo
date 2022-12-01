@@ -101,3 +101,18 @@ export function getSummedValues({
     return acc.plus(value);
   }, new BigNumber(0));
 }
+
+export function formatAmount(
+  value?: BigNumber.Value,
+  precision = 4,
+  roundingMode: BigNumber.RoundingMode = 1,
+) {
+  if (!value) {
+    return '';
+  }
+  const bn = new BigNumber(value);
+  if (bn.isNaN()) {
+    return '';
+  }
+  return bn.decimalPlaces(precision, roundingMode).toFixed();
+}
