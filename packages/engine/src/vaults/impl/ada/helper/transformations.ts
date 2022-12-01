@@ -168,7 +168,7 @@ export const transformToTokenBundle = (assets: Asset[]) => {
   return assetsByPolicy;
 };
 
-export const transformToTrezorOutputs = (
+export const transformToOneKeyOutputs = (
   outputs: FinalOutput[],
   changeAddressParameters: CardanoAddressParameters,
 ): CardanoOutput[] =>

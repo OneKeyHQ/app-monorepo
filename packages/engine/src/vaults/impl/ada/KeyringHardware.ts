@@ -1,3 +1,7 @@
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { CardanoGetAddressMethodParams, PROTO } from '@onekeyfe/hd-core';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -14,11 +18,21 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
+  ISignCredentialOptions,
 } from '../../types';
 
-import { NetworkId } from './types';
+import { getChangeAddress } from './helper/cardanoUtils';
+import { CardanoApi } from './helper/sdk';
+import {
+  transformToOneKeyInputs,
+  transformToOneKeyOutputs,
+} from './helper/transformations';
+import { IEncodedTxADA, NetworkId } from './types';
+
+import type AdaVault from './Vault';
 
 const PATH_PREFIX = `m/1852'/${COIN_TYPE}'`;
+const ProtocolMagic = 764824073;
 
 // @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {
@@ -111,7 +125,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         stakingPath,
       },
       networkId: NetworkId.MAINNET,
-      protocolMagic: 764824073,
+      protocolMagic: ProtocolMagic,
       derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
       isCheck: true,
       showOnOneKey: true,
@@ -121,5 +135,52 @@ export class KeyringHardware extends KeyringHardwareBase {
       return response.payload.address;
     }
     throw deviceUtils.convertDeviceError(response.payload);
+  }
+
+  override async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    const encodedTx = unsignedTx.payload.encodedTx as unknown as IEncodedTxADA;
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const changeAddress = getChangeAddress(dbAccount);
+    const utxos = await (
+      await (this.vault as AdaVault).getClient()
+    ).getUTXOs(dbAccount);
+
+    const { inputs, outputs, fee, tx } = encodedTx;
+    const res = await HardwareSDK.cardanoSignTransaction(connectId, deviceId, {
+      ...passphraseState,
+      signingMode: PROTO.CardanoTxSigningMode.ORDINARY_TRANSACTION,
+      inputs: transformToOneKeyInputs(inputs, utxos),
+      outputs: transformToOneKeyOutputs(
+        outputs,
+        changeAddress.addressParameters,
+      ),
+      fee,
+      protocolMagic: ProtocolMagic,
+      derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
+      networkId: NetworkId.MAINNET,
+      // TODO: certificates, withdrawals
+    });
+
+    if (!res.success) {
+      throw deviceUtils.convertDeviceError(res.payload);
+    }
+
+    const signedTx = CardanoApi.hwSignTransaction(
+      tx.body,
+      res.payload.witnesses,
+    );
+
+    return {
+      rawTx: signedTx,
+      txid: tx.hash,
+    };
+  }
+
+  signMessage(): Promise<string[]> {
+    throw new NotImplemented();
   }
 }
