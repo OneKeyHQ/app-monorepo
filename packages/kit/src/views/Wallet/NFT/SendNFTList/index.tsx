@@ -126,35 +126,6 @@ function List({
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
       py="24px"
-      ListHeaderComponent={
-        multiSelect ? (
-          <Box
-            mb="16px"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'row',
-            }}
-          >
-            <Icon size={12} name="DocumentDuplicateSolid" />
-            <Text
-              typography="CaptionStrong"
-              textAlign="center"
-              position="relative"
-              color="text-subdued"
-              ml="10px"
-            >
-              {intl.formatMessage(
-                {
-                  id: 'form__supports_multi_send_nfts_on_network_name',
-                },
-                { network_name: network?.name },
-              )}
-            </Text>
-          </Box>
-        ) : null
-      }
     />
   );
 }

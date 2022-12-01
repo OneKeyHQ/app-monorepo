@@ -298,6 +298,7 @@ export type BatchSendConfirmParams = BatchSendConfirmShared & {
   signOnly?: boolean;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
+  transferCount: number;
   skipSaveHistory?: boolean;
 };
 

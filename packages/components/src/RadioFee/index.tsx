@@ -9,9 +9,9 @@ import Typography, { Text } from '../Typography';
 export type RadioFeeItemProps = {
   value: string;
   title: string | React.ReactElement<any>;
-  titleSecond: string | React.ReactElement<any>;
-  describe: string | React.ReactElement<any>;
-  describeSecond: string | React.ReactElement<any>;
+  titleSecond?: string | React.ReactElement<any>;
+  describe?: string | React.ReactElement<any>;
+  describeSecond?: string | React.ReactElement<any>;
   describeThird?: string | React.ReactElement<any>;
 } & RadioBoxProps;
 
@@ -39,25 +39,32 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
             >
               {item.title}
             </Text>
-            <Typography.Body2
-              mt="auto"
-              color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
-            >
-              {item.titleSecond}
-            </Typography.Body2>
+            {!!item.titleSecond && (
+              <Typography.Body2
+                mt="auto"
+                color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
+              >
+                {item.titleSecond}
+              </Typography.Body2>
+            )}
           </Box>
           <Box alignItems="flex-end">
-            <Text
-              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
-              color={item.isDisabled ? 'text-disabled' : 'text-default'}
-            >
-              {item.describe}
-            </Text>
-            <Typography.Body2
-              color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
-            >
-              {item.describeSecond}
-            </Typography.Body2>
+            {!!item.describe && (
+              <Text
+                typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
+                color={item.isDisabled ? 'text-disabled' : 'text-default'}
+              >
+                {item.describe}
+              </Text>
+            )}
+            {!!item.describeSecond && (
+              <Typography.Body2
+                color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
+              >
+                {item.describeSecond}
+              </Typography.Body2>
+            )}
+
             {!!item.describeThird && (
               <Typography.Body2
                 color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
