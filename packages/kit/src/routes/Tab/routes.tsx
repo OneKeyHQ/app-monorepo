@@ -7,6 +7,7 @@ import { useThemeValue } from '@onekeyhq/components';
 import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
+import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
@@ -204,9 +205,6 @@ export const tabRoutes: TabRouteConfig[] = [
 ];
 
 if (process.env.NODE_ENV !== 'production') {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const DevelopScreen = require('@onekeyhq/kit/src/views/Developer').default;
-
   tabRoutes.push({
     name: TabRoutes.Developer,
     component: DevelopScreen,
