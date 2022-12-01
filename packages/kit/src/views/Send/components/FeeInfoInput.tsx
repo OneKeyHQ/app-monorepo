@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
@@ -521,15 +520,17 @@ function FeeInfoInputForConfirmLite({
       return null;
     }
 
+    console.log('=====>>>>> errorHint', JSON.stringify(feeInfoError));
+
     let message: string | null = null;
     if (feeInfoError instanceof OneKeyError) {
-      if (feeInfoError.code === -99999) {
-        message = feeInfoError.message;
-      } else {
+      if (feeInfoError.key !== 'onekey_error') {
         message = intl.formatMessage({
           // @ts-expect-error
           id: feeInfoError.key,
         });
+      } else {
+        message = feeInfoError.message;
       }
     } else {
       message = feeInfoError.message;

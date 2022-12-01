@@ -74,6 +74,7 @@ import {
   DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
   DEFAULT_GAS_LIMIT_TRANSFER,
   buildSignedTx,
+  convertRpcError,
   generateRegisterToken,
   generateTransferCoin,
   generateUnsignedTransaction,
@@ -677,7 +678,7 @@ export default class Vault extends VaultBase {
           (!isOnekeyNativeTransfer && !simulationTx.success)
         ) {
           // Exec failure
-          throw new OneKeyError(simulationTx?.vm_status);
+          throw convertRpcError(simulationTx.vm_status);
         }
 
         limit = BigNumber.min(
