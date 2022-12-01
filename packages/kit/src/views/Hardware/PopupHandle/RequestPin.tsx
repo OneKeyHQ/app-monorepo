@@ -6,17 +6,12 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  Image,
   Input,
   Keyboard,
   LottieView,
-  Pressable,
   Text,
   Typography,
 } from '@onekeyhq/components';
-import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
-import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
-import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-classic.json';
 import EnterPinCodeOnMini from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-mini.json';
 import EnterPinCodeOnPro from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-pro.json';
@@ -45,9 +40,13 @@ const getEnterPinCodeAnimation = (type: IDeviceType) => {
 
 type PinOnSoftwareViewProps = {
   onConfirm: (pin: string) => void;
+  onDeviceInput: () => void;
 };
 
-const PinOnSoftwareView: FC<PinOnSoftwareViewProps> = ({ onConfirm }) => {
+const PinOnSoftwareView: FC<PinOnSoftwareViewProps> = ({
+  onConfirm,
+  onDeviceInput,
+}) => {
   const intl = useIntl();
   const [value, setValue] = useState('');
   const [displayValue, setDisplayValue] = useState('');
@@ -110,6 +109,10 @@ const PinOnSoftwareView: FC<PinOnSoftwareViewProps> = ({ onConfirm }) => {
           id: 'action__ok',
         })}
       </Button>
+
+      <Button type="plain" size="base" mt={3} onPress={() => onDeviceInput()}>
+        {intl.formatMessage({ id: 'msg__enter_pin_on_device' })}
+      </Button>
     </Box>
   );
 };
@@ -121,14 +124,6 @@ type RequestPinViewProps = {
   onConfirm?: (pin: string) => void;
   onDeviceInputChange?: (onDeviceInput: boolean) => void;
 } & Omit<BaseRequestViewProps, 'children'>;
-
-const DEVICE_ICON = {
-  'classic': ClassicDeviceIcon,
-  'mini': MiniDeviceIcon,
-  'touch': TouchDeviceIcon,
-  // TODO
-  'pro': null,
-};
 
 const RequestPinView: FC<RequestPinViewProps> = ({
   deviceType,
@@ -183,28 +178,10 @@ const RequestPinView: FC<RequestPinViewProps> = ({
           onConfirm={(pin) => {
             onConfirm?.(pin);
           }}
-        />
-      )}
-
-      {!innerOnDeviceInput && (
-        <Pressable
-          onPress={() => {
+          onDeviceInput={() => {
             setInnerOnDeviceInput?.(true);
           }}
-          position="absolute"
-          top={2}
-          right={12}
-          justifyContent="center"
-          alignItems="center"
-          _hover={{ bgColor: 'surface-hovered' }}
-          _pressed={{ bgColor: 'surface-pressed' }}
-          width="40px"
-          height="40px"
-          mr="8px"
-          borderRadius="12px"
-        >
-          <Image source={DEVICE_ICON[deviceType]} width="16px" height="24px" />
-        </Pressable>
+        />
       )}
     </BaseRequestView>
   );

@@ -601,7 +601,7 @@
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
-  "content__you_don_t_have_a_str_account": "You don't have a {0} account.",
+  "content__you_don_t_have_a_str_account": "ليس لديك حساب {0} .",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "قد تتلقى طلبات توقيع متعددة على محفظة الأجهزة.",
   "content__your_biological_data_is_encrypted": "يتم تشفير بياناتك البيولوجية.",
   "content__your_biological_data_is_encrypted_desc": "يتم تخزين معلومات السيرة الذاتية محليًا ولا يمكن لـ OneKey الوصول إلى هذه البيانات أو تخزينها.",
@@ -722,8 +722,8 @@
   "form__amount_invalid": "رصيد {0} غير كافٍ",
   "form__amount_max_amount": "الحد الأقصى للمبلغ",
   "form__amount_recipient_activate": "المستلم يتطلب حجز {amount} {unit} للتفعيل",
-  "form__anti_sandwich_attack": "Anti Sandwich Attack",
-  "form__anti_sandwich_attack_desc": "We find the best routes for decentralized exchange (DEX) trades while avoiding slippage and MEV attacks.",
+  "form__anti_sandwich_attack": "هجوم مضاد للساندويتش",
+  "form__anti_sandwich_attack_desc": "نجد أفضل الطرق للتداول اللامركزي (DEX) مع تجنب الانزلاق وهجمات MEV.",
   "form__anti_whale": "مكافحة الحوت",
   "form__anti_whale_desc": "يحتوي العقد على وظيفة تحديد الحد الأقصى لمقدار المعاملات أو الحد الأقصى لمقدار العملات المعدنية المحتفظ بها.",
   "form__app_lock": "القفل التلقائي للتطبيق",
@@ -742,7 +742,7 @@
   "form__balance": "الرصيد",
   "form__base_str": "القاعدة: {0}",
   "form__beginner_guide": "دليل المبتدئين",
-  "form__best_rate": "👍 Best Rate",
+  "form__best_rate": "👍 أفضل سعر",
   "form__blacklist_included": "وشملت القائمة السوداء",
   "form__blacklist_included_desc": "يمكن لمالك العقد إضافة أي عنوان إلى القائمة السوداء ، ولا يمكن لحاملي الرموز المدرجة في القائمة السوداء التداول. إساءة استخدام ميزة القائمة السوداء محفوفة بالمخاطر.",
   "form__ble_version": "إصدار BLE",
@@ -765,7 +765,7 @@
   "form__can_sell_all_of_the_token": "يمكن بيع كل الرموز",
   "form__can_sell_all_of_the_token_desc": "يمكن بيع جميع الرموز المميزة. بعض العقود الرمزية تحد من نسبة البيع.",
   "form__cancelled_transaction": "💨 معاملة ملغاة",
-  "form__car_normal": "🚗  Normal",
+  "form__car_normal": "🚗 عادي",
   "form__chain_id": "معرف السلسلة",
   "form__chain_id_invalid": "معرف السلسلة غير صالح!",
   "form__change_password": "غير كلمة السر",
@@ -783,14 +783,14 @@
   "form__create_transactions": "إنشاء المعاملات",
   "form__created": "مخلوق",
   "form__cross_chain": "عبر سلسلة",
-  "form__cross_chain_swap": "Cross-Chain Swap",
-  "form__cross_chain_swap_desc": "You can freely swap tokens across more than {0} supported chains.",
+  "form__cross_chain_swap": "المبادلة عبر السلاسل",
+  "form__cross_chain_swap_desc": "يمكنك تبديل الرموز بحرية عبر أكثر من {0} سلاسل مدعومة.",
   "form__dark": "داكن",
   "form__data": "البيانات",
   "form__data_tab": "البيانات",
   "form__decimal": "عدد عشري",
-  "form__designated_recipient": "Designated Recipient",
-  "form__designated_recipient_desc": "You can choose another account to receive the swap.",
+  "form__designated_recipient": "المستلم المعين",
+  "form__designated_recipient_desc": "يمكنك اختيار حساب آخر لاستلام المبادلة.",
   "form__dev_mode": "وضع المطور",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
@@ -811,7 +811,7 @@
   "form__estomated_gas": "الغاز المقدر",
   "form__exact_amount_allowance": "بدل المبلغ الدقيق",
   "form__exact_amount_allowance_desc": "احذر من إعطاء الكثير من البدل لأي عقد. قد يؤدي استخدام وضع المبلغ المحدد إلى تقليل المخاطر بشكل كبير. يمكنك تبديله في أي وقت.",
-  "form__exact_amount_allowance_significantly_reduces_risk_exposure": "Exact amount allowance significantly reduces risk exposure.",
+  "form__exact_amount_allowance_significantly_reduces_risk_exposure": "مخصص المبلغ المحدد يقلل بشكل كبير من التعرض للمخاطر.",
   "form__expand_view": "قم بتوسيع العرض",
   "form__explorer": "إكسبلورر",
   "form__explorers": "المستكشفون",
@@ -998,7 +998,7 @@
   "form__reset_app": "إعادة تعيين التطبيق",
   "form__reward_history": "تاريخ المكافأة",
   "form__risk_exposure": "التعرض للخطر",
-  "form__rocket_rapid": "🚀  Rapid",
+  "form__rocket_rapid": "🚀 سريع",
   "form__rpc_fetched_failed": "فشل جلب RPC.",
   "form__rpc_url": "عنوان URL لـ RPC",
   "form__rpc_url_connecting": "اتصال RPC ...",
@@ -1089,7 +1089,7 @@
   "form__trading_volume": "حجم التداول",
   "form__trading_with_cooldown_time": "التداول مع وقت التهدئة",
   "form__trading_with_cooldown_time_desc": "في غضون فترة زمنية محددة أو حظر بعد الشراء ، لا يمكن للمستخدمين بيع الرموز المميزة.",
-  "form__train_fast": "🚅️  Fast",
+  "form__train_fast": "🚅️ سريع",
   "form__transaction": "عملية",
   "form__transaction_hash": "تجزئة الصفقة",
   "form__trusted_token": "رمز موثوق",
@@ -1251,6 +1251,7 @@
   "modal__setup_new_device": "إعداد المحفظة الجديدة",
   "modal__setup_new_device_desc": "لنبدأ ونقوم بإعداد جهازك!",
   "modal__sort": "فرز",
+  "modal__swap_tips": "نصائح المبادلة",
   "modal__this_device_contains_backup": "يحتوي هذا الجهاز على نسخة احتياطية",
   "modal__this_device_contains_backup_desc": "إذا تابعت ، فسيتم استبدال النسخة الاحتياطية السابقة بالكامل وستفقد إلى الأبد.",
   "modal__this_device_has_no_backup_inbside": "هذا الجهاز ليس لديه نسخة احتياطية في الداخل",
@@ -1394,7 +1395,7 @@
   "msg__signing_this_message_can_be_dangerous_Only_sign_this_message_if_you_fully_trust_this_site_and_understand_the_potential_risks": "قد يكون توقيع هذه الرسالة خطيرًا. قم بالتوقيع على هذه الرسالة فقط إذا كنت تثق تمامًا بهذا الموقع وتفهم المخاطر المحتملة.",
   "msg__str_data_reset": "{0} إعادة تعيين البيانات",
   "msg__str_is_a_risky_token_be_careful": "❗ {0} هو رمز محفوف بالمخاطر ، انتبه!",
-  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} is an attention token, be careful!",
+  "msg__str_is_an_attention_token_be_careful": "⚠️ {0} هو رمز الانتباه ، كن حذرًا!",
   "msg__str_is_staking_in_progress": "{0} قيد التقدم",
   "msg__str_maximum_amount": "{0} الحد الأقصى للمبلغ",
   "msg__str_minimum_amount": "{0} الحد الأدنى للمبلغ",
@@ -1448,7 +1449,9 @@
   "msg__wrong_network": "شبكة خاطئة",
   "msg__wrong_network_desc": "Swap لا يدعم الشبكة الحالية ، يرجى التبديل إلى شبكة متاحة والمحاولة مرة أخرى.",
   "msg__wrong_password": "كلمة مرور خاطئة.",
+  "msg__you_are_swapping_asset_to_an_address_that_may_not_be_yours_please_verify": "أنت تقوم بتبديل الأصول إلى عنوان قد لا يكون ملكك. ارجوك تحقق.",
   "msg__you_can_find_your_transaction_history_here": "يمكنك العثور على سجل معاملاتك هنا",
+  "msg__you_have_selected_another_account_to_receive_tokens": "لقد قمت بتحديد حساب آخر لتلقي الرموز.",
   "msg__your_transaction_may_be_frontrun": "قد تكون معاملتك في المقدمة",
   "msg__your_transaction_may_fail": "قد تفشل معاملتك",
   "network__network": "شبكة",
@@ -1600,7 +1603,7 @@
   "title__select_an_account_and_network_to_continue": "حدد حسابًا وشبكة للمتابعة",
   "title__select_blockchain_browser": "حدد متصفح Blockchain",
   "title__select_contact": "حدد جهة اتصال",
-  "title__select_route": "Select Route",
+  "title__select_route": "حدد الطريق",
   "title__sell_str": "بيع {0}",
   "title__set_password": "ضبط كلمة السر",
   "title__set_up_new_pin": "قم بإعداد PIN الجديد",
@@ -1642,8 +1645,8 @@
   "title__wallets": "محافظ",
   "title__welcome": "أهلا بك",
   "title__welcome_desc": "كل ما تحتاج لمعرفته حول استكشاف عالم Web3 الجديد من خلال OneKey",
-  "title__welcome_to_onekey_swap": "Welcome to OneKey Swap!",
-  "title__welcome_to_onekey_swap_desc": "Safe, fast, and find the best rate.",
+  "title__welcome_to_onekey_swap": "مرحبًا بك في OneKey Swap!",
+  "title__welcome_to_onekey_swap_desc": "آمن وسريع والعثور على أفضل سعر.",
   "title__whats_new": "ما هو الجديد",
   "title__you_ve_paused_the_transaction_generation": "لقد أوقفت إنشاء المعاملة مؤقتًا",
   "title_select_wallet": "حدد Wallet",

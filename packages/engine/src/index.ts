@@ -879,6 +879,38 @@ class Engine {
   }
 
   @backgroundMethod()
+  async queryBalanceFillAccounts(
+    walletId: string,
+    networkId: string,
+    accounts: ImportableHDAccount[],
+  ): Promise<ImportableHDAccount[]> {
+    const dbNetwork = await this.dbApi.getNetwork(networkId);
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
+
+    let balances: Array<BigNumber | undefined>;
+    try {
+      const balancesAddress = accounts.map((a) => ({
+        // @ts-expect-error
+        address: a.balancesAddress,
+      }));
+      balances = await vault.getBalances(balancesAddress);
+    } catch (e) {
+      balances = accounts.map(() => undefined);
+    }
+
+    return accounts.map((account, index) => {
+      const balance = balances[index];
+      return {
+        ...account,
+        mainBalance:
+          typeof balance === 'undefined'
+            ? '0'
+            : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
+      };
+    });
+  }
+
+  @backgroundMethod()
   async searchHDAccounts(
     walletId: string,
     networkId: string,
@@ -888,10 +920,7 @@ class Engine {
     purpose?: number,
   ): Promise<Array<ImportableHDAccount>> {
     // Search importable HD accounts.
-    const [wallet, dbNetwork] = await Promise.all([
-      this.dbApi.getWallet(walletId),
-      this.dbApi.getNetwork(networkId),
-    ]);
+    const wallet = await this.dbApi.getWallet(walletId);
     if (typeof wallet === 'undefined') {
       throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
     }
@@ -928,40 +957,33 @@ class Engine {
       }),
     );
 
-    let balances: Array<BigNumber | undefined>;
-    try {
-      const balancesAddresss = await Promise.all(
-        accounts.map(async (a) => {
-          if (a.type === AccountType.UTXO) {
-            const { xpub } = a as DBUTXOAccount;
-            return { address: xpub };
+    const balancesAddress = await Promise.all(
+      accounts.map(async (a) => {
+        if (a.type === AccountType.UTXO) {
+          const { xpub } = a as DBUTXOAccount;
+          return { address: xpub };
+        }
+        if (a.type === AccountType.VARIANT) {
+          let address = (a as DBVariantAccount).addresses[networkId];
+          if (!address) {
+            address = await this.providerManager.addressFromBase(
+              networkId,
+              a.address,
+            );
           }
-          if (a.type === AccountType.VARIANT) {
-            let address = (a as DBVariantAccount).addresses[networkId];
-            if (!address) {
-              address = await this.providerManager.addressFromBase(
-                networkId,
-                a.address,
-              );
-            }
-            return { address };
-          }
-          return { address: a.address };
-        }),
-      );
-      balances = await vault.getBalances(balancesAddresss);
-    } catch (e) {
-      balances = accounts.map(() => undefined);
-    }
-    return balances.map((balance, index) => ({
+          return { address };
+        }
+        return { address: a.address };
+      }),
+    );
+
+    return accounts.map((account, index) => ({
       index: start + index,
-      path: accounts[index].path,
-      defaultName: accounts[index].name,
+      path: account.path,
+      defaultName: account.name,
       displayAddress: addresses[index],
-      mainBalance:
-        typeof balance === 'undefined'
-          ? '0'
-          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
+      balancesAddress: balancesAddress[index].address,
+      mainBalance: '0',
     }));
   }
 

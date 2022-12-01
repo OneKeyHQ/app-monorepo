@@ -3,13 +3,7 @@ import React, { useCallback, useMemo } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  Form,
-  Modal,
-  SegmentedControl,
-  useForm,
-  useToast,
-} from '@onekeyhq/components';
+import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -99,6 +93,13 @@ const AddImportedOrWatchingAccount = () => {
     [getValues, possibleAddTypes],
   );
 
+  const onFailure = useCallback(() => {
+    const stack = navigation.getParent() || navigation;
+    if (stack.canGoBack()) {
+      stack.goBack();
+    }
+  }, [navigation]);
+
   const onSubmit = useCallback(
     async (values: AddImportedOrWatchingAccountValues) => {
       const selectedTypeIndex =
@@ -115,6 +116,7 @@ const AddImportedOrWatchingAccount = () => {
             networkId: values.networkId,
             name,
             onSuccess,
+            onFailure,
           },
         );
       } else if (importType === UserInputCategory.WATCHING) {
@@ -133,6 +135,7 @@ const AddImportedOrWatchingAccount = () => {
           toast.show({
             title: intl.formatMessage({ id: errorKey }),
           });
+          onFailure?.();
         }
       }
     },
@@ -143,6 +146,7 @@ const AddImportedOrWatchingAccount = () => {
       navigation,
       text,
       onSuccess,
+      onFailure,
       toast,
       intl,
     ],
@@ -178,7 +182,7 @@ const AddImportedOrWatchingAccount = () => {
             label={intl.formatMessage({ id: 'form__import_as' })}
             control={control}
           >
-            <SegmentedControl
+            <Form.SegmentedControl
               values={[
                 intl.formatMessage({ id: 'wallet__imported_accounts' }),
                 intl.formatMessage({ id: 'wallet__watched_accounts' }),
