@@ -128,8 +128,6 @@ function normalizeConfig({ platform, config }) {
   config.assumptions = {
     noDocumentAll: true,
     noClassCalls: true,
-    ignoreToPrimitiveHint: true,
-    iterableIsArray: true,
     noIncompleteNsImportDetection: true,
     noNewArrows: true,
     setClassMethods: true,
