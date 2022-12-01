@@ -1281,6 +1281,7 @@
   "msg__address_copied": "주소 복사됨",
   "msg__address_deleted": "주소가 삭제되었습니다",
   "msg__alert_already_exists": "경고가 이미 있습니다.",
+  "msg__aptos_first_activation_token": "토큰이 처음으로 활성화되면 코인 트랜잭션이 발행됩니다.",
   "msg__backup_imported": "백업 가져오기",
   "msg__broadcast_tx_Insufficient_fee": "부족한 수수료: 잔액이 충분한지 확인하거나 수수료 기어를 전환해 보십시오.",
   "msg__broadcast_tx_sequence_number_error": "이미 확인 중인 트랜잭션이 있거나 노드 장애가 있습니다.",

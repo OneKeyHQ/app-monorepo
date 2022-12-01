@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Nakopya ang Address",
   "msg__address_deleted": "Tinanggal ang Address",
   "msg__alert_already_exists": "Umiiral na ang alerto",
+  "msg__aptos_first_activation_token": "Kung ang token ay na-activate sa unang pagkakataon, isang transaksyon ng barya ang ibibigay.",
   "msg__backup_imported": "Na-import ang backup",
   "msg__broadcast_tx_Insufficient_fee": "Hindi sapat na bayad: Pakisuri kung sapat ang balanse o subukang palitan ang gear ng bayad.",
   "msg__broadcast_tx_sequence_number_error": "Mayroon nang mga transaksyon na kinukumpirma o pagkabigo ng Node.",

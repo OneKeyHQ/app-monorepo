@@ -1281,6 +1281,7 @@
   "msg__address_copied": "تم نسخ العنوان!",
   "msg__address_deleted": "تم حذف العنوان",
   "msg__alert_already_exists": "التنبيه موجود بالفعل",
+  "msg__aptos_first_activation_token": "إذا تم تنشيط الرمز المميز لأول مرة ، فسيتم إصدار معاملة عملة.",
   "msg__backup_imported": "استيراد النسخ الاحتياطي",
   "msg__broadcast_tx_Insufficient_fee": "رسوم غير كافية: يرجى التحقق مما إذا كان الرصيد كافياً أو حاول تبديل ترس الرسوم.",
   "msg__broadcast_tx_sequence_number_error": "توجد بالفعل معاملات تم تأكيدها أو فشل العقدة.",

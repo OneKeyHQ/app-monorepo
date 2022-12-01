@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Endereço copiado",
   "msg__address_deleted": "Endereço excluído",
   "msg__alert_already_exists": "O alerta já existe",
+  "msg__aptos_first_activation_token": "Se o token for ativado pela primeira vez, uma transação de moeda será emitida.",
   "msg__backup_imported": "Backup importado",
   "msg__broadcast_tx_Insufficient_fee": "A taxa de manuseio é insuficiente, tente mudar de marcha.",
   "msg__broadcast_tx_sequence_number_error": "Já existem transações sendo confirmadas ou falha de nó.",

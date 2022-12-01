@@ -223,13 +223,17 @@ export async function generateUnsignedTransaction(
 }
 
 export function convertRpcError(error: string): OneKeyError {
+  // more: https://github.com/aptos-labs/aptos-core/blob/1b3348636fd24a8eb413c34f2ebb2c76c25e10d5/developer-docs-site/docs/guides/handle-aptos-errors.md
   if (error.indexOf('EACCOUNT_DOES_NOT_EXIST') !== -1) {
     return new OneKeyInternalError(
       error,
       'msg__error_aptso_account_does_not_exist',
     );
   }
-  if (error.indexOf('EINSUFFICIENT_BALANCE') !== -1) {
+  if (
+    error.indexOf('EINSUFFICIENT_BALANCE') !== -1 ||
+    error.indexOf('INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE') !== -1
+  ) {
     return new OneKeyInternalError(error, 'msg__error_aptos_insufficient_coin');
   }
 

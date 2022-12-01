@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Адрес скопирован!",
   "msg__address_deleted": "Адрес удален",
   "msg__alert_already_exists": "Оповещение уже существует",
+  "msg__aptos_first_activation_token": "Если токен активируется в первый раз, будет выдана транзакция монет.",
   "msg__backup_imported": "Резервная копия импортирована",
   "msg__broadcast_tx_Insufficient_fee": "Плата за обработку недостаточна, попробуйте переключить передачу.",
   "msg__broadcast_tx_sequence_number_error": "Уже есть подтвержденные транзакции или сбой узла.",

@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Dirección copiada",
   "msg__address_deleted": "Dirección borrada.",
   "msg__alert_already_exists": "Alerta ya existe",
+  "msg__aptos_first_activation_token": "Si el token se activa por primera vez, se emitirá una transacción de monedas.",
   "msg__backup_imported": "Copia de seguridad importada",
   "msg__broadcast_tx_Insufficient_fee": "La tarifa de manejo es insuficiente, intente cambiar de marcha.",
   "msg__broadcast_tx_sequence_number_error": "Ya hay transacciones en proceso de confirmación o falla del Nodo.",

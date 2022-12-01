@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Хаяг хуулсан",
   "msg__address_deleted": "Хаяг устгасан",
   "msg__alert_already_exists": "Анхааруулга аль хэдийн байна",
+  "msg__aptos_first_activation_token": "Хэрэв жетон анх удаа идэвхжсэн бол зоосны гүйлгээ хийгдэнэ.",
   "msg__backup_imported": "Нөөцийг импортолсон",
   "msg__broadcast_tx_Insufficient_fee": "Харьцуулах хураамж хангалтгүй байна, араагаа сольж үзнэ үү.",
   "msg__broadcast_tx_sequence_number_error": "Аль хэдийн гүйлгээ баталгаажсан эсвэл зангилааны бүтэлгүйтэл байна.",

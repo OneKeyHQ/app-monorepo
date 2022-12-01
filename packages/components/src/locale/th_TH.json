@@ -1281,6 +1281,7 @@
   "msg__address_copied": "คัดลอกที่อยู่แล้ว!",
   "msg__address_deleted": "ลบที่อยู่",
   "msg__alert_already_exists": "มีการแจ้งเตือนอยู่แล้ว",
+  "msg__aptos_first_activation_token": "หากเปิดใช้งานโทเค็นเป็นครั้งแรก ธุรกรรมเหรียญจะออกให้",
   "msg__backup_imported": "สำรองข้อมูลนำเข้า",
   "msg__broadcast_tx_Insufficient_fee": "ค่าธรรมเนียมการจัดการไม่เพียงพอ โปรดลองเปลี่ยนเกียร์",
   "msg__broadcast_tx_sequence_number_error": "มีธุรกรรมที่ได้รับการยืนยันแล้วหรือโหนดล้มเหลว",

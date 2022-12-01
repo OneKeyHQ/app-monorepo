@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Adresse copiée",
   "msg__address_deleted": "Adresse supprimée",
   "msg__alert_already_exists": "L'alerte existe déjà",
+  "msg__aptos_first_activation_token": "Si le jeton est activé pour la première fois, une transaction de pièces sera émise.",
   "msg__backup_imported": "Sauvegarde importée",
   "msg__broadcast_tx_Insufficient_fee": "Frais insuffisants : veuillez vérifier si le solde est suffisant ou essayez de changer de vitesse.",
   "msg__broadcast_tx_sequence_number_error": "Il y a déjà des transactions en cours de confirmation ou une défaillance du nœud.",

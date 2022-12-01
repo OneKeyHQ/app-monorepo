@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Adresse kopiert",
   "msg__address_deleted": "Adresse gestrichen",
   "msg__alert_already_exists": "Benachrichtigung existiert bereits",
+  "msg__aptos_first_activation_token": "Wenn der Token zum ersten Mal aktiviert wird, wird eine Coin-Transaktion ausgegeben.",
   "msg__backup_imported": "Sicherung importiert",
   "msg__broadcast_tx_Insufficient_fee": "Die Bearbeitungsgebühr ist unzureichend, bitte versuchen Sie, die Gänge zu wechseln.",
   "msg__broadcast_tx_sequence_number_error": "Es werden bereits Transaktionen bestätigt oder Knotenfehler.",

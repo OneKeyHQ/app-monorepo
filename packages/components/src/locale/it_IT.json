@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Indirizzo copiato",
   "msg__address_deleted": "Indirizzo cancellato",
   "msg__alert_already_exists": "L'avviso esiste già",
+  "msg__aptos_first_activation_token": "Se il token viene attivato per la prima volta, verrà emessa una transazione in moneta.",
   "msg__backup_imported": "Backup importato",
   "msg__broadcast_tx_Insufficient_fee": "Tariffa insufficiente: controlla se il saldo è sufficiente o prova a cambiare marcia.",
   "msg__broadcast_tx_sequence_number_error": "Ci sono già transazioni in fase di conferma o errore del nodo.",

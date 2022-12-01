@@ -1281,6 +1281,7 @@
   "msg__address_copied": "ঠিকানা কপি করা হয়েছে!",
   "msg__address_deleted": "ঠিকানা মুছে ফেলা হয়েছে",
   "msg__alert_already_exists": "সতর্কতা আগে থেকেই আছে",
+  "msg__aptos_first_activation_token": "প্রথমবার টোকেন সক্রিয় করা হলে, একটি মুদ্রা লেনদেন জারি করা হবে।",
   "msg__backup_imported": "ব্যাকআপ আমদানি করা হয়েছে",
   "msg__broadcast_tx_Insufficient_fee": "অপর্যাপ্ত ফি: ব্যালেন্স পর্যাপ্ত কিনা অনুগ্রহ করে পরীক্ষা করুন বা ফি গিয়ার পরিবর্তন করার চেষ্টা করুন।",
   "msg__broadcast_tx_sequence_number_error": "ইতিমধ্যে লেনদেন নিশ্চিত বা নোড ব্যর্থতা আছে.",

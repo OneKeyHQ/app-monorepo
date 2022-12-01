@@ -1281,6 +1281,7 @@
   "msg__address_copied": "Đã sao chép địa chỉ",
   "msg__address_deleted": "Địa chỉ đã bị xóa!",
   "msg__alert_already_exists": "Cảnh báo đã tồn tại",
+  "msg__aptos_first_activation_token": "Nếu mã thông báo được kích hoạt lần đầu tiên, giao dịch tiền xu sẽ được phát hành.",
   "msg__backup_imported": "Đã nhập bản sao lưu",
   "msg__broadcast_tx_Insufficient_fee": "Phí xử lý không đủ, vui lòng thử sang số.",
   "msg__broadcast_tx_sequence_number_error": "Đã có các giao dịch được xác nhận hoặc Node bị lỗi.",

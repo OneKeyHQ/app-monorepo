@@ -1281,6 +1281,7 @@
   "msg__address_copied": "アドレス コピー済み",
   "msg__address_deleted": "アドレス削除",
   "msg__alert_already_exists": "アラートはすでに存在済み",
+  "msg__aptos_first_activation_token": "トークンが初めて有効化されると、コイン トランザクションが発行されます。",
   "msg__backup_imported": "バックアップ インポート済み",
   "msg__broadcast_tx_Insufficient_fee": "手数料が不足している: 残高が十分かどうかを確認するか、手数料のギアを切り替えてみてください。",
   "msg__broadcast_tx_sequence_number_error": "すでにトランザクションが確認されているか、ノード障害があります。",

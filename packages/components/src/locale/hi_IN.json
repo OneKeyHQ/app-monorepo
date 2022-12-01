@@ -1281,6 +1281,7 @@
   "msg__address_copied": "पता कॉपी किया गया!",
   "msg__address_deleted": "पता हटा दिया गया",
   "msg__alert_already_exists": "अलर्ट पहले से मौजूद है",
+  "msg__aptos_first_activation_token": "यदि टोकन पहली बार सक्रिय होता है, तो एक सिक्का लेनदेन जारी किया जाएगा।",
   "msg__backup_imported": "बैकअप आयातित",
   "msg__broadcast_tx_Insufficient_fee": "अपर्याप्त शुल्क: कृपया जांचें कि क्या शेष राशि पर्याप्त है या शुल्क गियर को बदलने का प्रयास करें।",
   "msg__broadcast_tx_sequence_number_error": "पहले से ही लेन-देन की पुष्टि हो रही है या नोड विफल हो गया है।",
