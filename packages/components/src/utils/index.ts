@@ -1,5 +1,7 @@
+import { isString } from 'lodash';
+
 export const shortenAddress = (address: string, chars = 4) => {
-  if (!address) {
+  if (!address || !isString(address)) {
     return address;
   }
   const prevOffset = address.startsWith('0x') ? chars + 2 : chars;
