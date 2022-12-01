@@ -70,11 +70,11 @@ class Client {
       return data.map((utxo) => {
         let { path: utxoPath } = utxo;
         if (utxoPath && utxoPath.length > 0) {
-          const pathArray = path.split('/');
+          const pathArray = utxoPath.split('/');
           pathArray.splice(3, 1, pathIndex);
           utxoPath = pathArray.join('/');
         }
-        return { ...utxo, path: utxoPath };
+        return { ...utxo, path: utxoPath, output_index: utxo.tx_index };
       });
     },
     {
@@ -101,14 +101,20 @@ class Client {
   }
 
   async submitTx(data: string) {
+    let tx: Buffer | null = null;
+    if (typeof data === 'string') {
+      tx = Buffer.from(data, 'hex');
+    } else {
+      tx = Buffer.from(data);
+    }
+
     return this.request
-      .post<{ data: any }>('/tx/submit', data, {
+      .post<{ data: any }>('/tx/submit', tx, {
         headers: {
           'Content-Type': 'application/cbor',
         },
       })
       .then((i) => i.data);
-    // return this.backendRequest.post('/tx/submit', { data });
   }
 }
 

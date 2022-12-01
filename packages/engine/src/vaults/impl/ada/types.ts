@@ -42,7 +42,7 @@ export type IAdaUTXO = {
   address: string;
   tx_hash: string;
   tx_index: number;
-  output_index: string;
+  output_index: number;
   amount: IAdaAmount[];
 };
 

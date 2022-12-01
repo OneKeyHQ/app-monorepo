@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
@@ -414,6 +415,26 @@ export default class Vault extends VaultBase {
       nativeDecimals: network.decimals,
       tx: null, // Must be null if network not support feeInTx
     };
+  }
+
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    const client = await this.getClient();
+    return Promise.all(
+      txids.map(async (txid) => {
+        try {
+          const response = await client.getRawTransaction(txid);
+          if (response.index || response.block_height) {
+            return TransactionStatus.CONFIRM_AND_SUCCESS;
+          }
+          return TransactionStatus.PENDING;
+        } catch (e) {
+          console.error(e);
+          return TransactionStatus.PENDING;
+        }
+      }),
+    );
   }
 
   override async getBalances(
