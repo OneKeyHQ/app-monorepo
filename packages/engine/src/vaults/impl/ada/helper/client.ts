@@ -101,7 +101,14 @@ class Client {
   }
 
   async submitTx(data: string) {
-    return this.request.post('/tx/submit', { data });
+    return this.request
+      .post<{ data: any }>('/tx/submit', data, {
+        headers: {
+          'Content-Type': 'application/cbor',
+        },
+      })
+      .then((i) => i.data);
+    // return this.backendRequest.post('/tx/submit', { data });
   }
 }
 
