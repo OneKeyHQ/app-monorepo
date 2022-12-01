@@ -1,18 +1,21 @@
-import { useState } from 'react';
-
-import { Box } from '@onekeyhq/components';
+import { Box, Button, Center, Text } from '@onekeyhq/components';
 import BottomSheetModal from '@onekeyhq/components/src/BottomSheetModal/BottomSheetModal';
 
-const BottomSheetModalGallery = () => {
-  const [selectedIndex1, setSelectedIndex1] = useState(2);
+import { showOverlay } from '../../../utils/overlayUtils';
 
-  const [selectedIndex2, setSelectedIndex2] = useState(10);
-  return (
-    <>
-      <Box h="20px" />
-      <BottomSheetModal />
-    </>
-  );
-};
+const showBottomSheetModal = () =>
+  showOverlay((close) => (
+    <BottomSheetModal title="title" closeOverlay={close}>
+      <Center w="full" h="300px" bg="border-subdued">
+        <Text>PlaceHolder</Text>
+      </Center>
+    </BottomSheetModal>
+  ));
+
+const BottomSheetModalGallery = () => (
+  <Box p="20px">
+    <Button onPress={showBottomSheetModal}>Show BottomSheetModal</Button>
+  </Box>
+);
 
 export default BottomSheetModalGallery;

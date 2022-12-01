@@ -1,18 +1,73 @@
-import { FC, useEffect, useRef } from 'react';
+import { FC, ReactNode, useEffect, useRef } from 'react';
 
 import { Modalize, ModalizeProps } from 'react-native-modalize';
 
-import { Modal, useSafeAreaInsets, useThemeValue } from '@onekeyhq/components';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
+import {
+  Box,
+  Center,
+  IconButton,
+  Typography,
+  useIsVerticalLayout,
+  useSafeAreaInsets,
+  useThemeValue,
+} from '@onekeyhq/components';
+import { CloseBackDrop } from '@onekeyhq/components/src/Select';
+import { useCloseOnEsc } from '@onekeyhq/kit/src/hooks/useOnKeydown';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const BottomSheetModal: FC<{
+interface BottomSheetModalProps {
   closeOverlay: () => void;
-  modalProps?: ModalProps;
+  title: string;
+  headerRight?: () => ReactNode;
   modalLizeProps?: ModalizeProps;
-}> = ({ closeOverlay, modalProps, children, modalLizeProps }) => {
+}
+
+const isFlatStyle = platformEnv.isNativeAndroid || platformEnv.isExtension;
+const showCloseButton = !platformEnv.isNativeIOSPhone;
+
+const Header: FC<{
+  title: string;
+  headerRight?: () => ReactNode;
+  closeOverlay: () => void;
+}> = ({ title, headerRight, closeOverlay }) => (
+  <Box
+    h="60px"
+    flexDirection="row"
+    justifyContent="space-between"
+    alignItems="center"
+  >
+    {platformEnv.isNativeIOS ? (
+      <Typography.Heading
+        position="absolute"
+        left={0}
+        right={0}
+        textAlign="center"
+      >
+        {title}
+      </Typography.Heading>
+    ) : (
+      <Typography.Heading flex={1}>{title}</Typography.Heading>
+    )}
+
+    <Box ml="auto" flexDirection="row" alignItems="center">
+      {headerRight?.()}
+      {showCloseButton && (
+        <IconButton circle size="xs" name="CloseSolid" onPress={closeOverlay} />
+      )}
+    </Box>
+  </Box>
+);
+
+const Mobile: FC<BottomSheetModalProps> = ({
+  closeOverlay,
+  children,
+  modalLizeProps,
+  title,
+  headerRight,
+}) => {
   const modalizeRef = useRef<Modalize>(null);
 
-  const bg = useThemeValue('surface-subdued');
+  const bg = useThemeValue('background-default');
 
   const { bottom } = useSafeAreaInsets();
   useEffect(() => {
@@ -27,25 +82,62 @@ const BottomSheetModal: FC<{
       withHandle={false}
       modalStyle={{
         backgroundColor: bg,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: isFlatStyle ? 0 : 24,
+        borderTopRightRadius: isFlatStyle ? 0 : 24,
         overflow: 'hidden',
+        padding: 16,
+        paddingTop: 0,
       }}
       {...modalLizeProps}
     >
-      <Modal
-        visible
-        footer={null}
-        closeAction={closeOverlay}
-        staticChildrenProps={{
-          padding: '8px',
-          paddingBottom: `${bottom + 8}px`,
-        }}
-        {...modalProps}
-      >
+      <Box pb={`${bottom}px`}>
+        <Header
+          title={title}
+          headerRight={headerRight}
+          closeOverlay={closeOverlay}
+        />
         {children}
-      </Modal>
+      </Box>
     </Modalize>
   );
+};
+
+const Desktop: FC<BottomSheetModalProps> = ({
+  closeOverlay,
+  children,
+  title,
+  headerRight,
+}) => (
+  <Center position="absolute" w="full" h="full" zIndex={999}>
+    <CloseBackDrop
+      onClose={closeOverlay}
+      backgroundColor="rgba(61, 61, 77, 0.75)"
+    />
+    <Box
+      overflow="hidden"
+      bg="background-default"
+      w="400px"
+      pb="24px"
+      px="24px"
+      borderRadius="24px"
+      borderWidth="1px"
+      borderColor="border-subdued"
+    >
+      <Header
+        title={title}
+        headerRight={headerRight}
+        closeOverlay={closeOverlay}
+      />
+      {children}
+    </Box>
+  </Center>
+);
+
+const BottomSheetModal: FC<BottomSheetModalProps> = (props) => {
+  const isVerticalLayout = useIsVerticalLayout();
+  // eslint-disable-next-line react/destructuring-assignment
+  useCloseOnEsc(props.closeOverlay);
+
+  return isVerticalLayout ? <Mobile {...props} /> : <Desktop {...props} />;
 };
 export default BottomSheetModal;

@@ -179,6 +179,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentList]: undefined;
   [StackRoutes.ComponentToggleButtonGroup]: undefined;
   [StackRoutes.ComponentCollapse]: undefined;
+  [StackRoutes.ComponentBottomSheetModal]: undefined;
 };
 
 export const stackScreenList = [

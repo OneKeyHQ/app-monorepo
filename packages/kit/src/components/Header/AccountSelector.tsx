@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, {
+import {
   FC,
   ReactNode,
   memo,
@@ -10,7 +10,6 @@ import React, {
 } from 'react';
 
 import { useDrawerStatus } from '@react-navigation/drawer';
-import { useFocusEffect } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -19,10 +18,10 @@ import {
   removeOldRef,
 } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce, useNavigationActions } from '../../hooks';
+import { useCloseOnEsc } from '../../hooks/useOnKeydown';
 import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
 
 import {
@@ -62,18 +61,10 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     };
   }, []);
 
-  useFocusEffect(
+  useCloseOnEsc(
     useCallback(() => {
-      if (platformEnv.isRuntimeBrowser) {
-        const closeOnEsc = (e: KeyboardEvent) => {
-          if (e.code === 'Escape' && isDesktopWalletSelectorVisible) {
-            dispatch(updateDesktopWalletSelectorVisible(false));
-          }
-        };
-        document.addEventListener('keydown', closeOnEsc);
-        return () => {
-          document.removeEventListener('keydown', closeOnEsc);
-        };
+      if (isDesktopWalletSelectorVisible) {
+        dispatch(updateDesktopWalletSelectorVisible(false));
       }
     }, [dispatch, isDesktopWalletSelectorVisible]),
   );
@@ -98,8 +89,8 @@ const AccountSelector: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     toggleWalletSelector();
   }, [visible, toggleWalletSelector, serviceAccountSelector]);
 
-  const desktopRef = React.useRef<DesktopRef | null>(null);
-  const setRef = React.useCallback((ref: DesktopRef | null) => {
+  const desktopRef = useRef<DesktopRef | null>(null);
+  const setRef = useCallback((ref: DesktopRef | null) => {
     // Since we know there's a ref, we'll update `refs` to use it.
     if (ref) {
       // store the ref in this toast instance to be able to remove it from the array later when the ref becomes null.
