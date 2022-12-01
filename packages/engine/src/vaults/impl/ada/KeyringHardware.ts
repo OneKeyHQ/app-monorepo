@@ -11,7 +11,10 @@ import {
 } from '../../../errors';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { IPrepareHardwareAccountsParams } from '../../types';
+import {
+  IHardwareGetAddressParams,
+  IPrepareHardwareAccountsParams,
+} from '../../types';
 
 import { NetworkId } from './types';
 
@@ -40,7 +43,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       networkId: NetworkId.MAINNET,
       protocolMagic: 764824073,
       derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
-      address: '',
       showOnOneKey,
     })) as CardanoGetAddressMethodParams[];
 
@@ -93,5 +95,31 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
     }
     return ret;
+  }
+
+  async getAddress(params: IHardwareGetAddressParams): Promise<string> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const { path } = params;
+    const stakingPath = `${path.split('/').slice(0, 4).join('/')}/2/0`;
+    const response = await HardwareSDK.cardanoGetAddress(connectId, deviceId, {
+      ...passphraseState,
+      addressParameters: {
+        addressType: PROTO.CardanoAddressType.BASE,
+        path,
+        stakingPath,
+      },
+      networkId: NetworkId.MAINNET,
+      protocolMagic: 764824073,
+      derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
+      isCheck: true,
+      showOnOneKey: true,
+    });
+
+    if (response.success && !!response.payload?.address) {
+      return response.payload.address;
+    }
+    throw deviceUtils.convertDeviceError(response.payload);
   }
 }
