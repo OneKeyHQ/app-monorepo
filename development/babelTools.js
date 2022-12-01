@@ -121,6 +121,21 @@ function normalizeConfig({ platform, config }) {
 
   // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
 
+  // https://babeljs.io/docs/en/options#no-targets
+  config.targets = 'defaults';
+
+  // https://babeljs.io/docs/en/assumptions
+  config.assumptions = {
+    noDocumentAll: true,
+    noClassCalls: true,
+    ignoreToPrimitiveHint: true,
+    iterableIsArray: true,
+    noIncompleteNsImportDetection: true,
+    noNewArrows: true,
+    setClassMethods: true,
+    setComputedProperties: true,
+  };
+
   return config;
 }
 
