@@ -207,7 +207,9 @@ function createMainWindow() {
     emitter.emit('ready');
   });
   ipcMain.on('app/reload', () => {
-    app.relaunch();
+    if (!process.mas) {
+      app.relaunch();
+    }
     app.exit(0);
     disposeContextMenu();
   });
