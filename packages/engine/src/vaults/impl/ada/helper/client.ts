@@ -119,9 +119,14 @@ class Client {
       .then((i) => i.data);
   }
 
-  async getAssetDetail(asset: string): Promise<IAsset> {
-    return this.request.get<IAsset>(`/assets/${asset}`).then((i) => i.data);
-  }
+  getAssetDetail = memoizee(
+    async (asset: string): Promise<IAsset> =>
+      this.request.get<IAsset>(`/assets/${asset}`).then((i) => i.data),
+    {
+      promise: true,
+      maxAge: 1000 * 60,
+    },
+  );
 
   async getAssetsBalances(stakeAddress: string): Promise<IAdaAmount[]> {
     return this.request

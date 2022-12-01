@@ -161,6 +161,11 @@ type IHistoryUTXOForm = {
 
 export type IAsset = Asset & {
   asset: string;
+  metadata?: {
+    name?: string;
+    ticker?: string;
+    decimals?: number;
+  };
 };
 
 type Asset = {

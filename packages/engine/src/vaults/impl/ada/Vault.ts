@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
@@ -117,18 +120,6 @@ export default class Vault extends VaultBase {
         /^xprv/.test(input) &&
         input.length >= 165,
     );
-  }
-
-  override async validateTokenAddress(address: string): Promise<string> {
-    console.log(address);
-    const client = await this.getClient();
-    try {
-      const res = await client.getAssetDetail(address);
-      return res.asset;
-    } catch (e) {
-      console.error(e);
-      throw e;
-    }
   }
 
   override async getExportedCredential(password: string): Promise<string> {
@@ -412,8 +403,7 @@ export default class Vault extends VaultBase {
     });
     const client = await this.getClient();
     try {
-      const result = await client.submitTx(signedTx.rawTx);
-      console.log(result);
+      await client.submitTx(signedTx.rawTx);
     } catch (err) {
       debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
       throw err;
@@ -495,6 +485,37 @@ export default class Vault extends VaultBase {
     } catch {
       return requests.map(() => new BigNumber(0));
     }
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    const client = await this.getClient();
+    try {
+      const res = await client.getAssetDetail(address);
+      return res.asset;
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
+  override async fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<(PartialTokenInfo | undefined)[]> {
+    const client = await this.getClient();
+    return Promise.all(
+      tokenAddresses.map(async (tokenAddress) => {
+        const asset = await client.getAssetDetail(tokenAddress);
+        return {
+          decimals: asset.metadata?.decimals ?? 6,
+          name:
+            asset.metadata?.name ??
+            Buffer.from(asset.asset_name, 'hex').toString('utf8'),
+          symbol:
+            asset.metadata?.ticker ??
+            Buffer.from(asset.asset_name, 'hex').toString('utf8'),
+        };
+      }),
+    );
   }
 
   private getStakeAddress = memoizee(
