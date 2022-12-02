@@ -17,7 +17,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
@@ -25,6 +24,7 @@ import {
   useDiscoverHistory,
   useTaggedDapps,
 } from '../../hooks';
+import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
 
@@ -201,8 +201,8 @@ const ListHeaderItems = () => {
 };
 
 const ListHeaderComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  if (!dappItems) {
+  const home = useAppSelector((s) => s.discover.home);
+  if (!home) {
     return null;
   }
   return (
@@ -214,9 +214,8 @@ const ListHeaderComponent = () => {
 };
 
 const ListEmptyComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  const listedCategories = useAppSelector((s) => s.discover.listedCategories);
-  return dappItems && listedCategories ? <Empty title="" /> : <EmptySkeleton />;
+  const home = useAppSelector((s) => s.discover.home);
+  return home ? <Empty title="" /> : <EmptySkeleton />;
 };
 
 export const Mine = () => {
@@ -233,6 +232,7 @@ export const Mine = () => {
     const items = dapps.map((item) => ({
       title: item.label,
       data: item.items,
+      tagId: item.id,
     }));
     return total < items.length ? items.slice(0, total) : items;
   }, [dapps, total]);

@@ -6,12 +6,9 @@ import { Freeze } from 'react-freeze';
 import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 
 import { useNavigation } from '../../../../hooks';
-import {
-  DiscoverModalRoutes,
-  DiscoverRoutesParams,
-} from '../../../../routes/Modal/Discover';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../../routes/types';
+import { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
 import WebHomeContainer from '../Content/WebHomeContainer';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useIncomingUrl } from '../Controller/useIncomingUrl';

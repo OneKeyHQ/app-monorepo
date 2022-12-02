@@ -18,10 +18,7 @@ import LogoPrimary from '@onekeyhq/components/src/Icon/react/illus/LogoPrimary';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  DiscoverModalRoutes,
-  DiscoverRoutesParams,
-} from '../../../routes/Modal/Discover';
+import { DiscoverModalRoutes, DiscoverRoutesParams } from '../type';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,

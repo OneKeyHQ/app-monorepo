@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
-import { merge } from 'lodash';
+import { isNumber, merge } from 'lodash';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -39,7 +39,9 @@ export const useManageTokensOfAccount = ({
   const charts = useNetworkTokensChart(networkId);
   const nativeToken = useNativeToken(networkId, accountId);
   // const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const [frozenBalance, setFrozenBalance] = useState(0);
+  const [frozenBalance, setFrozenBalance] = useState<
+    number | Record<string, number>
+  >(0);
 
   const accountTokensMap = useMemo(() => {
     const map = new Map<string, Token>();
@@ -91,12 +93,15 @@ export const useManageTokensOfAccount = ({
   }, []);
 
   useEffect(() => {
-    backgroundApiProxy.engine.getFrozenBalance(networkId).then((value) => {
-      if (+value > 0) {
+    backgroundApiProxy.engine
+      .getFrozenBalance({
+        accountId,
+        networkId,
+      })
+      .then((value) => {
         setFrozenBalance(value);
-      }
-    });
-  }, [networkId]);
+      });
+  }, [accountId, networkId]);
 
   const getTokenBalance = useCallback(
     (
@@ -114,12 +119,19 @@ export const useManageTokensOfAccount = ({
         },
         options ?? {},
       );
+
       const tokenInfo = token as Token | null;
       const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
       const balance = balances?.[key] ?? defaultValue;
-      const frozenBN = new BigNumber(frozenBalance ?? 0);
+      const frozen = isNumber(frozenBalance)
+        ? frozenBalance
+        : frozenBalance[key];
+      const frozenBN = new BigNumber(frozen ?? 0);
       const balanceBN = new BigNumber(balance);
-      const realBalance = balanceBN.minus(frozenBN).toFixed();
+      const realBalanceBN = balanceBN.minus(frozenBN);
+      const realBalance = (
+        realBalanceBN.isNegative() ? 0 : realBalanceBN
+      ).toFixed();
       return realBalance;
     },
     [balances, frozenBalance],

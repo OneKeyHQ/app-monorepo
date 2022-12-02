@@ -5,16 +5,18 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import {
   addFavorite,
+  cleanOldState,
   clearHistory,
   removeDappHistory,
   removeFavorite,
   removeWebSiteHistory,
-  setCategoryDapps,
   setDappHistory,
-  setDappItems,
-  setListedCategories,
-  setListedTags,
-  setTagDapps,
+  // setCategoryDapps,
+  // setDappItems,
+  // setListedCategories,
+  // setListedTags,
+  // setTagDapps,
+  setHomeData,
 } from '../../store/reducers/discover';
 import { WebTab, setWebTabData } from '../../store/reducers/webTabs';
 import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
@@ -32,16 +34,8 @@ class ServicDiscover extends ServiceBase {
   }
 
   get baseUrl() {
-    return `${getFiatEndpoint()}/discover`;
-  }
-
-  @backgroundMethod()
-  async getAllDapps() {
-    const { dispatch } = this.backgroundApi;
-    const url = `${this.baseUrl}/dapps`;
-    const res = await this.client.get(url);
-    const data = res.data as DAppItemType[];
-    dispatch(setDappItems(data));
+    const url = getFiatEndpoint();
+    return `${url}/discover`;
   }
 
   async getList(url: string) {
@@ -49,40 +43,55 @@ class ServicDiscover extends ServiceBase {
     const res = await this.client.get(url);
     const data = res.data as {
       listedCategories: { name: string; _id: string }[];
-      listedTags: { name: string; _id: string }[];
-      categoryDapps: { label: string; id: string; items: DAppItemType[] }[];
+      // listedTags: { name: string; _id: string }[];
+      // categoryDapps: { label: string; id: string; items: DAppItemType[] }[];
       tagDapps: { label: string; id: string; items: DAppItemType[] }[];
     };
 
-    let dapps: DAppItemType[] = [];
-
-    dapps = data.categoryDapps.reduce(
-      (result, item) => result.concat(item.items),
-      dapps,
-    );
-
-    dapps = data.tagDapps.reduce(
-      (result, item) => result.concat(item.items),
-      dapps,
-    );
-
-    const set = new Set();
-
-    dapps = dapps.filter((item) => {
-      if (!set.has(item._id)) {
-        set.add(item._id);
-        return true;
-      }
-      return false;
-    });
-
     dispatch(
-      setCategoryDapps(data.categoryDapps),
-      setListedCategories(data.listedCategories),
-      setTagDapps(data.tagDapps),
-      setListedTags(data.listedTags),
-      setDappItems(dapps),
+      // setCategoryDapps(data.categoryDapps),
+      // setListedCategories(data.listedCategories),
+      // setTagDapps(data.tagDapps),
+      // setListedTags(data.listedTags),
+      // setDappItems(dapps),
+      setHomeData({
+        categories: data.listedCategories,
+        tagDapps: data.tagDapps,
+      }),
+      cleanOldState(),
     );
+  }
+
+  @backgroundMethod()
+  async getCategoryDapps(categoryId: string) {
+    const url = `${this.baseUrl}/get_listing_category_dapps?categoryId=${categoryId}`;
+    const res = await this.client.get(url);
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async getTagDapps(tagId: string) {
+    const url = `${this.baseUrl}/get_listing_tag_dapps?tagId=${tagId}`;
+    const res = await this.client.get(url);
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async getDappsByIds(dappIds: string[]) {
+    const url = `${this.baseUrl}/get_listing_dapps`;
+    const res = await this.client.post(url, { dappIds });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async searchDapps(keyword: string) {
+    const url = `${this.baseUrl}/search_dapps?keyword=${keyword}`;
+    const res = await this.client.get(url);
+    const data = res.data as DAppItemType[];
+    return data;
   }
 
   @backgroundMethod()
@@ -92,15 +101,8 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFullList() {
-    const url = `${this.baseUrl}/full_list`;
-    this.getList(url);
-  }
-
-  @backgroundMethod()
   async fetchData() {
     this.getCompactList();
-    this.getFullList();
   }
 
   @backgroundMethod()

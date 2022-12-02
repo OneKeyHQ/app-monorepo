@@ -65,9 +65,13 @@ const group = (items: DAppItemType[]) => {
   return result;
 };
 
-export const Mobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
-  const filterData = data.slice(0, 8);
-  const items = group(filterData);
+export const Mobile: FC<SectionDataType> = ({
+  title,
+  data,
+  tagId,
+  onItemSelect,
+}) => {
+  const items = group(data);
 
   const renderItem: ListRenderItem<DappTypeTuple> = useCallback(
     ({ item }) => {
@@ -92,7 +96,7 @@ export const Mobile: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
   );
   return (
     <Box width="100%" mt="8">
-      <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
+      <SectionTitle tagId={tagId} title={title} onItemSelect={onItemSelect} />
       <FlatList
         contentContainerStyle={styles.listContentContainer}
         removeClippedSubviews
