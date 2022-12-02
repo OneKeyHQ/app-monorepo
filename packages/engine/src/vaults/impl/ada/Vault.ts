@@ -21,7 +21,9 @@ import { Token } from '../../../types/token';
 import {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxActionNativeTransfer,
+  IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxLegacy,
@@ -155,6 +157,11 @@ export default class Vault extends VaultBase {
     const { inputs, outputs, transferInfo } = encodedTx;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const client = await this.getClient();
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+
+    const actions: IDecodedTxAction[] = [];
+
     let token: Token = await this.engine.getNativeTokenInfo(this.networkId);
     const isTokenTransfer = !!transferInfo?.token?.length;
     if (isTokenTransfer) {
@@ -163,66 +170,84 @@ export default class Vault extends VaultBase {
         transferInfo.token ?? '',
       )) as Token;
       if (!token) {
-        const client = await this.getClient();
         token = await client.getAssetDetail(
           transferInfo.token ?? '',
           this.networkId,
         );
       }
+
+      // build tokenTransfer
+      const amountMap = this.getOutputAmount(
+        outputs,
+        token.decimals ?? network.decimals,
+        transferInfo.token,
+      );
+      const tokenTransfer: IDecodedTxActionTokenTransfer = {
+        tokenInfo: token,
+        from: dbAccount.address,
+        to: transferInfo.to,
+        amount: amountMap.amount,
+        amountValue: amountMap.amountValue,
+        extraInfo: null,
+      };
+      actions.push({
+        type: IDecodedTxActionType.TOKEN_TRANSFER,
+        direction:
+          outputs[0].address === dbAccount.address
+            ? IDecodedTxDirection.OUT
+            : IDecodedTxDirection.SELF,
+        tokenTransfer,
+      });
     }
 
-    const asset = isTokenTransfer ? transferInfo.token : 'lovelace';
-    const decimals = token.decimals ?? network.decimals;
-    const symbol = token.symbol ?? network.symbol;
-
-    const amountMap = this.getOutputAmount(outputs, decimals, asset);
+    // build nativeTransfer
+    const nativeAmountMap = this.getOutputAmount(outputs, network.decimals);
     const transferAction: IDecodedTxActionNativeTransfer = {
-      tokenInfo: token,
+      tokenInfo: nativeToken,
       utxoFrom: inputs.map((input) => {
         const { balance, balanceValue } = this.getInputOrOutputBalance(
           input.amount,
-          decimals,
-          asset,
+          network.decimals,
         );
         return {
           address: input.address,
           balance,
           balanceValue,
-          symbol,
+          symbol: network.symbol,
           isMine: true,
         };
       }),
       utxoTo: outputs.map((output) => ({
         address: output.address,
-        balance: new BigNumber(output.amount).shiftedBy(decimals).toFixed(),
+        balance: new BigNumber(output.amount)
+          .shiftedBy(network.decimals)
+          .toFixed(),
         balanceValue: output.amount,
-        symbol,
+        symbol: network.symbol,
         isMine: output.address === dbAccount.address,
       })),
       from: dbAccount.address,
       to: transferInfo.to,
-      amount: amountMap.amount,
-      amountValue: amountMap.amountValue,
+      amount: nativeAmountMap.amount,
+      amountValue: nativeAmountMap.amountValue,
       extraInfo: null,
     };
+
+    actions.push({
+      type: IDecodedTxActionType.NATIVE_TRANSFER,
+      direction:
+        outputs[0].address === dbAccount.address
+          ? IDecodedTxDirection.OUT
+          : IDecodedTxDirection.SELF,
+      nativeTransfer: transferAction,
+    });
+
     return {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [
-        {
-          type: isTokenTransfer
-            ? IDecodedTxActionType.TOKEN_TRANSFER
-            : IDecodedTxActionType.NATIVE_TRANSFER,
-          direction:
-            outputs[0].address === dbAccount.address
-              ? IDecodedTxDirection.OUT
-              : IDecodedTxDirection.SELF,
-          [isTokenTransfer ? 'tokenTransfer' : 'nativeTransfer']:
-            transferAction,
-        },
-      ],
+      actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,

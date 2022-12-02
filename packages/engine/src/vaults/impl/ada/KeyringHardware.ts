@@ -18,7 +18,6 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
-  ISignCredentialOptions,
 } from '../../types';
 
 import { getChangeAddress } from './helper/cardanoUtils';
