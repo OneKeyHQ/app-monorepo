@@ -11,8 +11,13 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { COINTYPE_ADA } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
-import { InvalidAddress, NotImplemented } from '../../../errors';
+import {
+  InvalidAddress,
+  NotImplemented,
+  OneKeyInternalError,
+} from '../../../errors';
 import { Account, DBUTXOAccount } from '../../../types/account';
+import { Token } from '../../../types/token';
 import {
   IApproveInfo,
   IDecodedTx,
@@ -43,7 +48,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IAdaAmount, IAdaHistory, IEncodedTxADA } from './types';
+import { IAdaAmount, IAdaHistory, IEncodeOutput, IEncodedTxADA } from './types';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -150,37 +155,48 @@ export default class Vault extends VaultBase {
     const { inputs, outputs, transferInfo } = encodedTx;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const token = await this.engine.getNativeTokenInfo(this.networkId);
-    const nativeTransfer: IDecodedTxActionNativeTransfer = {
+    let token: Token = await this.engine.getNativeTokenInfo(this.networkId);
+    const isTokenTransfer = !!transferInfo?.token?.length;
+    if (isTokenTransfer) {
+      token = (await this.engine.ensureTokenInDB(
+        this.networkId,
+        transferInfo.token ?? '',
+      )) as Token;
+      // TODO: fetch token info
+    }
+
+    const asset = isTokenTransfer ? transferInfo.token : 'lovelace';
+    const decimals = token.decimals ?? network.decimals;
+    const symbol = token.symbol ?? network.symbol;
+
+    const amountMap = this.getOutputAmount(outputs, decimals, asset);
+    const transferAction: IDecodedTxActionNativeTransfer = {
       tokenInfo: token,
       utxoFrom: inputs.map((input) => {
         const { balance, balanceValue } = this.getInputOrOutputBalance(
           input.amount,
-          network.decimals,
+          decimals,
+          asset,
         );
         return {
           address: input.address,
           balance,
           balanceValue,
-          symbol: network.symbol,
+          symbol,
           isMine: true,
         };
       }),
       utxoTo: outputs.map((output) => ({
         address: output.address,
-        balance: new BigNumber(output.amount)
-          .shiftedBy(-network.decimals)
-          .toFixed(),
+        balance: new BigNumber(output.amount).shiftedBy(decimals).toFixed(),
         balanceValue: output.amount,
-        symbol: network.symbol,
+        symbol,
         isMine: output.address === dbAccount.address,
       })),
       from: dbAccount.address,
       to: transferInfo.to,
-      amount: new BigNumber(outputs[0].amount)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      amountValue: outputs[0].amount,
+      amount: amountMap.amount,
+      amountValue: amountMap.amountValue,
       extraInfo: null,
     };
     return {
@@ -190,12 +206,15 @@ export default class Vault extends VaultBase {
       nonce: 0,
       actions: [
         {
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          type: isTokenTransfer
+            ? IDecodedTxActionType.TOKEN_TRANSFER
+            : IDecodedTxActionType.NATIVE_TRANSFER,
           direction:
             outputs[0].address === dbAccount.address
               ? IDecodedTxDirection.OUT
               : IDecodedTxDirection.SELF,
-          nativeTransfer,
+          [isTokenTransfer ? 'tokenTransfer' : 'nativeTransfer']:
+            transferAction,
         },
       ],
       status: IDecodedTxStatus.Pending,
@@ -222,30 +241,77 @@ export default class Vault extends VaultBase {
     };
   };
 
+  private getOutputAmount = (
+    outputs: IEncodeOutput[],
+    decimals: number,
+    asset = 'lovelace',
+  ) => {
+    const realOutput = outputs.find((output) => !output.isChange);
+    if (!realOutput) {
+      return {
+        amount: new BigNumber(0).shiftedBy(-decimals).toFixed(),
+        amountValue: '0',
+      };
+    }
+    if (asset === 'lovelace') {
+      return {
+        amount: new BigNumber(realOutput.amount).shiftedBy(-decimals).toFixed(),
+        amountValue: realOutput.amount,
+      };
+    }
+    const assetAmount = realOutput.assets.find((token) => token.unit === asset);
+    return {
+      amount: new BigNumber(assetAmount?.quantity ?? 0)
+        .shiftedBy(-decimals)
+        .toFixed(),
+      amountValue: assetAmount?.quantity ?? '0',
+    };
+  };
+
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxADA> {
-    const { to, amount } = transferInfo;
+    const { to, amount, token: tokenAddress } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { decimals, feeDecimals } = await this.engine.getNetwork(
       this.networkId,
     );
+    const token = await this.engine.ensureTokenInDB(
+      this.networkId,
+      tokenAddress ?? '',
+    );
+    if (!token) {
+      throw new OneKeyInternalError(
+        `Token not found: ${tokenAddress || 'main'}`,
+      );
+    }
+
     const client = await this.getClient();
     const utxos = await client.getUTXOs(dbAccount);
 
     const amountBN = new BigNumber(amount).shiftedBy(decimals);
+    const output = tokenAddress
+      ? {
+          address: to,
+          amount: undefined,
+          assets: [
+            {
+              quantity: amountBN.toFixed(),
+              unit: tokenAddress,
+            },
+          ],
+        }
+      : {
+          address: to,
+          amount: amountBN.toFixed(),
+          assets: [],
+        };
     const txPlan = await CardanoApi.composeTxPlan(
       transferInfo,
       dbAccount.xpub,
       utxos,
       dbAccount.address,
-      [
-        {
-          address: to,
-          amount: amountBN.toFixed(),
-          assets: [],
-        },
-      ],
+      [output as any],
     );
 
     const changeAddress = getChangeAddress(dbAccount);

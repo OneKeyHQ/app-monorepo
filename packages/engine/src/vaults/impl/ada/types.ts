@@ -87,7 +87,7 @@ type IEncodeInput = {
   tx_index: number;
 };
 
-type IEncodeOutput = {
+export type IEncodeOutput = {
   address: string;
   amount: string;
   assets: IAdaAmount[];
