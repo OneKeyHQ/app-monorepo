@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
-import { Box, Center, Divider, Icon, Menu, Text } from '@onekeyhq/components';
+import { Center, Divider, Menu, Text } from '@onekeyhq/components';
 
 const MenuGallery = () => (
   <Center flex="1" bg="background-hovered">
@@ -14,26 +14,31 @@ const MenuGallery = () => (
         </NBPressable>
       )}
     >
-      <Menu.Item>
-        Arial{' '}
-        <Box ml="auto">
-          <Icon name="SaveAsSolid" size={20} />
-        </Box>
-      </Menu.Item>
+      <Menu.Item>Arial</Menu.Item>
       <Menu.Item>Nunito Sans</Menu.Item>
       <Menu.Item isDisabled>Sofia</Menu.Item>
-      <Menu.Item variant="destructive">
+      <Menu.Item variant="destructive">Delete</Menu.Item>
+      <Menu.Item variant="highlight">Update</Menu.Item>
+    </Menu>
+
+    <Menu
+      w="190"
+      trigger={(triggerProps) => (
+        <NBPressable accessibilityLabel="More options menu" {...triggerProps}>
+          <Text>Menu with icons</Text>
+        </NBPressable>
+      )}
+    >
+      <Menu.CustomItem icon="PencilSolid">Edit</Menu.CustomItem>
+      <Menu.CustomItem variant="desctructive" icon="TrashSolid">
         Delete
-        <Box ml="auto">
-          <Icon name="TrashSolid" color="icon-critical" size={20} />
-        </Box>
-      </Menu.Item>
-      <Menu.Item variant="highlight">
+      </Menu.CustomItem>
+      <Menu.CustomItem variant="highlight" icon="ArrowNarrowUpSolid">
         Update
-        <Box ml="auto">
-          <Icon name="ArrowUpSolid" color="interactive-default" size={20} />
-        </Box>
-      </Menu.Item>
+      </Menu.CustomItem>
+      <Menu.CustomItem isDisabled icon="ArrowNarrowUpSolid">
+        Update
+      </Menu.CustomItem>
     </Menu>
 
     <Menu

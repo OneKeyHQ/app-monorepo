@@ -2,7 +2,7 @@ import { FC, createRef, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { Easing, StyleSheet, useWindowDimensions } from 'react-native';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -163,7 +163,9 @@ const Provider: FC<UIProviderProps> = ({
               showsVerticalScrollIndicator: false,
             },
           },
+
           Menu: {
+            // Official Menu configuration documentation: https://github.com/GeekyAnts/NativeBase/blob/master/src/theme/components/menu.ts
             baseStyle: {
               px: 0,
               py: 1,
@@ -171,12 +173,19 @@ const Provider: FC<UIProviderProps> = ({
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: COLORS[themeVariant]['border-subdued'],
               borderRadius: 12,
-              shadow: 2,
               _presenceTransition: {
                 animate: {
-                  transition: { duration: 150 },
+                  transition: {
+                    duration: 100,
+                    easing: Easing.bezier(0, 0, 0.2, 1),
+                  },
                 },
-                exit: { transition: { duration: 100 } },
+                exit: {
+                  transition: {
+                    duration: 75,
+                    easing: Easing.bezier(0.4, 0, 1, 1),
+                  },
+                },
               },
             },
           },
@@ -212,6 +221,11 @@ const Provider: FC<UIProviderProps> = ({
               },
               _pressed: {
                 bg: COLORS[themeVariant]['surface-pressed'],
+              },
+              _focusVisible: {
+                _web: {
+                  bg: COLORS[themeVariant]['surface-pressed'],
+                },
               },
               _icon: {
                 color: COLORS[themeVariant]['interactive-default'],
