@@ -2772,14 +2772,23 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getFrozenBalance(networkId: string) {
-    if (!networkId) return 0;
-    return this._getFrozenBalance(networkId);
+  async getFrozenBalance({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    if (!networkId || !accountId) return 0;
+    return this._getFrozenBalance(accountId, networkId);
   }
 
   _getFrozenBalance = memoizee(
-    async (networkId: string) => {
-      const vault = await this.getChainOnlyVault(networkId);
+    async (accountId: string, networkId: string) => {
+      const vault = await this.getVault({
+        accountId,
+        networkId,
+      });
       return vault.getFrozenBalance();
     },
     {
