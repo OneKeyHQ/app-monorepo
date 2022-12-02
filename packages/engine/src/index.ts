@@ -136,7 +136,6 @@ import { decodePrivateKeyByXprv } from './vaults/impl/ada/helper/bip32';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
-  IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionType,
@@ -890,6 +889,38 @@ class Engine {
   }
 
   @backgroundMethod()
+  async queryBalanceFillAccounts(
+    walletId: string,
+    networkId: string,
+    accounts: ImportableHDAccount[],
+  ): Promise<ImportableHDAccount[]> {
+    const dbNetwork = await this.dbApi.getNetwork(networkId);
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
+
+    let balances: Array<BigNumber | undefined>;
+    try {
+      const balancesAddress = accounts.map((a) => ({
+        // @ts-expect-error
+        address: a.balancesAddress,
+      }));
+      balances = await vault.getBalances(balancesAddress);
+    } catch (e) {
+      balances = accounts.map(() => undefined);
+    }
+
+    return accounts.map((account, index) => {
+      const balance = balances[index];
+      return {
+        ...account,
+        mainBalance:
+          typeof balance === 'undefined'
+            ? '0'
+            : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
+      };
+    });
+  }
+
+  @backgroundMethod()
   async searchHDAccounts(
     walletId: string,
     networkId: string,
@@ -899,10 +930,7 @@ class Engine {
     purpose?: number,
   ): Promise<Array<ImportableHDAccount>> {
     // Search importable HD accounts.
-    const [wallet, dbNetwork] = await Promise.all([
-      this.dbApi.getWallet(walletId),
-      this.dbApi.getNetwork(networkId),
-    ]);
+    const wallet = await this.dbApi.getWallet(walletId);
     if (typeof wallet === 'undefined') {
       throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
     }
@@ -939,45 +967,38 @@ class Engine {
       }),
     );
 
-    let balances: Array<BigNumber | undefined>;
-    try {
-      const balancesAddresss = await Promise.all(
-        accounts.map(async (a) => {
-          if (a.type === AccountType.UTXO) {
-            const { xpub, addresses: changeAddresses } = a as DBUTXOAccount;
-            let address = xpub;
-            // Cardano should use stake address to search account
-            if (a.coinType === COINTYPE_ADA) {
-              address = changeAddresses['2/0'];
-            }
-            return { address };
+    const balancesAddress = await Promise.all(
+      accounts.map(async (a) => {
+        if (a.type === AccountType.UTXO) {
+          const { xpub, addresses: changeAddresses } = a as DBUTXOAccount;
+          let address = xpub;
+          // Cardano should use stake address to search account
+          if (a.coinType === COINTYPE_ADA) {
+            address = changeAddresses['2/0'];
           }
-          if (a.type === AccountType.VARIANT) {
-            let address = (a as DBVariantAccount).addresses[networkId];
-            if (!address) {
-              address = await this.providerManager.addressFromBase(
-                networkId,
-                a.address,
-              );
-            }
-            return { address };
+          return { address };
+        }
+        if (a.type === AccountType.VARIANT) {
+          let address = (a as DBVariantAccount).addresses[networkId];
+          if (!address) {
+            address = await this.providerManager.addressFromBase(
+              networkId,
+              a.address,
+            );
           }
-          return { address: a.address };
-        }),
-      );
-      balances = await vault.getBalances(balancesAddresss);
-    } catch (e) {
-      balances = accounts.map(() => undefined);
-    }
-    return balances.map((balance, index) => ({
+          return { address };
+        }
+        return { address: a.address };
+      }),
+    );
+
+    return accounts.map((account, index) => ({
       index: start + index,
-      path: accounts[index].path,
-      defaultName: accounts[index].name,
+      path: account.path,
+      defaultName: account.name,
       displayAddress: addresses[index],
-      mainBalance:
-        typeof balance === 'undefined'
-          ? '0'
-          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
+      balancesAddress: balancesAddress[index].address,
+      mainBalance: '0',
     }));
   }
 
@@ -2770,14 +2791,23 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getFrozenBalance(networkId: string) {
-    if (!networkId) return 0;
-    return this._getFrozenBalance(networkId);
+  async getFrozenBalance({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    if (!networkId || !accountId) return 0;
+    return this._getFrozenBalance(accountId, networkId);
   }
 
   _getFrozenBalance = memoizee(
-    async (networkId: string) => {
-      const vault = await this.getChainOnlyVault(networkId);
+    async (accountId: string, networkId: string) => {
+      const vault = await this.getVault({
+        accountId,
+        networkId,
+      });
       return vault.getFrozenBalance();
     },
     {

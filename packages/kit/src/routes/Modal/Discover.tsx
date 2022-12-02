@@ -1,31 +1,34 @@
-import React from 'react';
-
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
+import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
 import { ShareView } from '@onekeyhq/kit/src/views/Discover/Share';
 
-import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
+import { getAppNavigation } from '../../hooks/useAppNavigation';
+import MyDAppList from '../../views/Discover/MyDAppList';
+import {
+  DiscoverModalRoutes,
+  DiscoverRoutesParams,
+} from '../../views/Discover/type';
 
 import createStackNavigator from './createStackNavigator';
 
-export enum DiscoverModalRoutes {
-  SearchHistoryModal = 'SearchHistoryModal',
-  ShareModal = 'ShareModal',
-}
-
-export type DiscoverRoutesParams = {
-  [DiscoverModalRoutes.SearchHistoryModal]: {
-    url: string | undefined;
-    onSelectorItem?: (item: MatchDAppItemType | string) => void;
-  };
-  [DiscoverModalRoutes.ShareModal]: {
-    url: string;
-    name?: string;
-    logoURL?: string;
-  };
-};
-
 const DiscoverNavigator = createStackNavigator<DiscoverRoutesParams>();
+
+const withBackHeaderOptions = {
+  headerShown: true,
+  headerTitleAlign: 'center',
+  headerLeft: () => (
+    <IconButton
+      size="xl"
+      name="ChevronLeftOutline"
+      type="plain"
+      circle
+      onPress={() => {
+        getAppNavigation().goBack();
+      }}
+    />
+  ),
+};
 
 const modalRoutes = [
   {
@@ -36,6 +39,16 @@ const modalRoutes = [
     name: DiscoverModalRoutes.ShareModal,
     component: ShareView,
   },
+  {
+    name: DiscoverModalRoutes.DAppListModal,
+    component: DAppList,
+    options: withBackHeaderOptions,
+  },
+  {
+    name: DiscoverModalRoutes.MyDAppListModal,
+    component: MyDAppList,
+    options: withBackHeaderOptions,
+  },
 ];
 
 const DiscoverModalStack = () => {
@@ -44,7 +57,7 @@ const DiscoverModalStack = () => {
     <DiscoverNavigator.Navigator
       screenOptions={{
         headerShown: false,
-        animationEnabled: !!isVerticalLayout,
+        animationEnabled: isVerticalLayout,
       }}
     >
       {modalRoutes.map((route) => (
@@ -52,6 +65,8 @@ const DiscoverModalStack = () => {
           key={route.name}
           name={route.name}
           component={route.component}
+          // @ts-ignore
+          options={route.options}
         />
       ))}
     </DiscoverNavigator.Navigator>

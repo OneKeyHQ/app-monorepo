@@ -156,6 +156,7 @@ export type INativeTx =
 export type IRawTx = string;
 export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
+  // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTx = {
   encodedTx: IEncodedTx;
@@ -228,6 +229,9 @@ export type IFeeInfoPayload = {
     total: string; // total fee in Gwei
     totalNative: string; // total fee in ETH
     value: IFeeInfoUnit;
+    // as an estimated min fee for unapproved batch transfer
+    minTotal?: string;
+    minTotalNative?: string;
   };
   extraInfo?: any | null;
 };

@@ -16,13 +16,15 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
-import { HomeRoutes, HomeRoutesParams } from '../../../../routes/types';
+import { getAppNavigation } from '../../../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
   useDiscoverHistory,
   useTaggedDapps,
 } from '../../hooks';
+import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
 
@@ -31,12 +33,6 @@ import { EmptySkeleton } from './EmptySkeleton';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 import type { DAppItemType, SectionDataType } from '../../type';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.DAppListScreen
->;
 
 const styles = StyleSheet.create({
   listContentContainer: {
@@ -148,7 +144,6 @@ const ListHeaderHistories = () => {
 
 const ListHeaderItems = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
   const { itemSource, setItemSource, onItemSelectHistory } =
     useContext(DiscoverContext);
 
@@ -176,9 +171,15 @@ const ListHeaderItems = () => {
         </Box>
         <Button
           onPress={() => {
-            navigation.navigate(HomeRoutes.MyDAppListScreen, {
-              onItemSelect: onItemSelectHistory,
-              defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+            getAppNavigation().navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Discover,
+              params: {
+                screen: DiscoverModalRoutes.MyDAppListModal,
+                params: {
+                  onItemSelect: onItemSelectHistory,
+                  defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+                },
+              },
             });
           }}
           height="32px"
@@ -200,8 +201,8 @@ const ListHeaderItems = () => {
 };
 
 const ListHeaderComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  if (!dappItems) {
+  const home = useAppSelector((s) => s.discover.home);
+  if (!home) {
     return null;
   }
   return (
@@ -213,9 +214,8 @@ const ListHeaderComponent = () => {
 };
 
 const ListEmptyComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  const listedCategories = useAppSelector((s) => s.discover.listedCategories);
-  return dappItems && listedCategories ? <Empty title="" /> : <EmptySkeleton />;
+  const home = useAppSelector((s) => s.discover.home);
+  return home ? <Empty title="" /> : <EmptySkeleton />;
 };
 
 export const Mine = () => {
@@ -225,13 +225,14 @@ export const Mine = () => {
   const [dapps, setDapps] = useState<
     { label: string; id: string; items: DAppItemType[] }[]
   >([]);
-  const [total, setTotal] = useState<number>(5);
+  const [total, setTotal] = useState<number>(10);
   const { onItemSelect } = useContext(DiscoverContext);
 
   const data = useMemo(() => {
     const items = dapps.map((item) => ({
       title: item.label,
       data: item.items,
+      tagId: item.id,
     }));
     return total < items.length ? items.slice(0, total) : items;
   }, [dapps, total]);
@@ -266,14 +267,14 @@ export const Mine = () => {
         contentContainerStyle={styles.listContentContainer}
         data={data}
         removeClippedSubviews
-        windowSize={5}
+        windowSize={10}
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
         showsVerticalScrollIndicator={false}
         onEndReached={onEndReached}
-        onEndReachedThreshold={0.2}
+        onEndReachedThreshold={0.5}
       />
     </Box>
   );

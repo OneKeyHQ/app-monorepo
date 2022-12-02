@@ -23,8 +23,11 @@ import isArray from 'lodash/isArray';
 import isEmpty from 'lodash/isEmpty';
 import isNil from 'lodash/isNil';
 import isPlainObject from 'lodash/isPlainObject';
+import { Freeze } from 'react-freeze';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+
+import ErrorView from './ErrorView';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -136,7 +139,59 @@ const DesktopWebView = forwardRef(
     const webviewRef = useRef<IElectronWebView | null>(null);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
 
-    if (props.preload) {
+    const [desktopLoadError, setDesktopLoadError] = useState(false);
+
+    useEffect(() => {
+      const electronWebView = webviewRef.current;
+
+      if (!electronWebView) {
+        return;
+      }
+
+      try {
+        const handleMessage = (event: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (event.errorCode !== -3) {
+            // TODO iframe error also show ErrorView
+            //      testing www.163.com
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            if (event.isMainFrame) {
+              setDesktopLoadError(true);
+            }
+          }
+        };
+
+        const handleNavigation = ({
+          isMainFrame,
+        }: {
+          url: string;
+          isInPlace: boolean;
+          isMainFrame: boolean;
+        }) => {
+          if (isMainFrame) {
+            setDesktopLoadError(false);
+          }
+        };
+
+        electronWebView.addEventListener('did-fail-load', handleMessage);
+
+        electronWebView.addEventListener(
+          'did-start-navigation',
+          handleNavigation,
+        );
+        return () => {
+          electronWebView.removeEventListener('did-fail-load', handleMessage);
+
+          electronWebView.removeEventListener(
+            'did-start-navigation',
+            handleNavigation,
+          );
+        };
+      } catch (error) {
+        console.error(error);
+      }
+    }, []);
+    if (isDev && props.preload) {
       console.warn(
         'DesktopWebView:  custom preload url may disable built-in injected function',
       );
@@ -288,25 +343,34 @@ const DesktopWebView = forwardRef(
           </button>
         )}
 
-        <webview
-          ref={initWebviewByRef}
-          preload={preloadJsUrl}
-          src={src}
-          style={{
-            'width': '100%',
-            'height': '100%',
-            ...style,
-          }}
-          // @ts-ignore
-          allowpopups="true"
-          // @ts-ignore
-          nodeintegration="true"
-          nodeintegrationinsubframes="true"
-          webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1"
-          // mobile user-agent
-          // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
-          {...props}
-        />
+        <Freeze freeze={desktopLoadError}>
+          <webview
+            ref={initWebviewByRef}
+            preload={preloadJsUrl}
+            src={src}
+            style={{
+              'width': '100%',
+              'height': '100%',
+              ...style,
+            }}
+            // @ts-ignore
+            allowpopups="true"
+            // @ts-ignore
+            nodeintegration="true"
+            nodeintegrationinsubframes="true"
+            webpreferences="contextIsolation=0, contextisolation=0, nativeWindowOpen=1"
+            // mobile user-agent
+            // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
+            {...props}
+          />
+        </Freeze>
+        {desktopLoadError && (
+          <ErrorView
+            onRefresh={() => {
+              webviewRef.current?.reload();
+            }}
+          />
+        )}
       </>
     );
   },

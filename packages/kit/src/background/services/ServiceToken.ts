@@ -16,6 +16,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import { setTools } from '../../store/reducers/data';
 import {
   addAccountTokens,
   addNetworkTokens,
@@ -96,27 +97,6 @@ export default class ServiceToken extends ServiceBase {
       });
     }
     return networkTokens;
-  }
-
-  @backgroundMethod()
-  async fetchTokensIfEmpty({ activeNetworkId }: { activeNetworkId: string }) {
-    const { appSelector, engine, dispatch } = this.backgroundApi;
-    const tokens = appSelector((s) => s.tokens.tokens);
-    const networkTokens = tokens[activeNetworkId];
-    const isEmpty = !networkTokens || networkTokens.length === 0;
-    const notIncludeNative =
-      networkTokens && !networkTokens?.find((item) => !item.tokenIdOnNetwork);
-    if (isEmpty || notIncludeNative) {
-      await engine.getTokens(activeNetworkId, undefined, true, true, true);
-      const topTokens = await engine.getTopTokensOnNetwork(activeNetworkId, 50);
-      dispatch(
-        setNetworkTokens({
-          activeNetworkId,
-          tokens: topTokens,
-          keepAutoDetected: true,
-        }),
-      );
-    }
   }
 
   _fetchAccountTokensDebounced = debounce(
@@ -398,7 +378,9 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTools(networkId: string) {
-    return fetchTools(networkId);
+  async fetchTools() {
+    const tools = await fetchTools();
+    const { dispatch } = this.backgroundApi;
+    dispatch(setTools(tools));
   }
 }

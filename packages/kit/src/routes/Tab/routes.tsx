@@ -7,7 +7,6 @@ import { useThemeValue } from '@onekeyhq/components';
 import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
-import DevelopScreen from '@onekeyhq/kit/src/views/Developer';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
@@ -34,6 +33,7 @@ import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
@@ -56,7 +56,7 @@ export interface TabRouteConfig {
 export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
-    component: HomeScreen,
+    component: toFocusedLazy(HomeScreen),
     tabBarIcon: () => 'CreditCardOutline',
     translationId: 'form__account',
     children: [
@@ -111,7 +111,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.NFT,
-    component: NFTMarket,
+    component: toFocusedLazy(NFTMarket),
     tabBarIcon: () => 'Square3Stack3Doutline',
     translationId: 'title__nft',
     children: [
@@ -131,7 +131,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Discover,
-    component: DiscoverScreen,
+    component: toFocusedLazy(DiscoverScreen),
     tabBarIcon: () => 'CompassOutline',
     translationId: 'title__explore',
     children: [
@@ -151,7 +151,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Me,
-    component: MeScreen,
+    component: toFocusedLazy(MeScreen, { freezeWhenBlur: true }),
     tabBarIcon: () => 'MenuOutline',
     translationId: 'title__menu',
     children: [
@@ -204,6 +204,9 @@ export const tabRoutes: TabRouteConfig[] = [
 ];
 
 if (process.env.NODE_ENV !== 'production') {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const DevelopScreen = require('@onekeyhq/kit/src/views/Developer').default;
+
   tabRoutes.push({
     name: TabRoutes.Developer,
     component: DevelopScreen,

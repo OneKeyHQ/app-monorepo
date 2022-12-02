@@ -203,6 +203,7 @@ export default class Vault extends VaultBase {
   }
 
   async decodeBatchTransferTx(
+    decodedTxLegacy: IDecodedTxLegacy,
     encodedTx: IEncodedTxEvm,
     payload?: BatchSendConfirmPayloadInfo,
   ): Promise<IDecodedTx | null> {
@@ -308,7 +309,7 @@ export default class Vault extends VaultBase {
     }
 
     const decodedTx: IDecodedTx = {
-      txid: '',
+      txid: decodedTxLegacy.txHash,
       owner: address,
       signer: encodedTx.from || address,
       nonce: new BigNumber(encodedTx.nonce ?? 0).toNumber(),
@@ -374,7 +375,11 @@ export default class Vault extends VaultBase {
   }): Promise<IDecodedTx> {
     // batch transfer
     if (encodedTx.to === batchTransferContractAddress[this.networkId]) {
-      const decodeTx = await this.decodeBatchTransferTx(encodedTx, payload);
+      const decodeTx = await this.decodeBatchTransferTx(
+        decodedTxLegacy,
+        encodedTx,
+        payload,
+      );
       if (decodeTx) return decodeTx;
     }
 

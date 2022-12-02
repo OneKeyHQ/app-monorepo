@@ -62,6 +62,7 @@ export default class Vault extends VaultBase {
   private getClientCache = memoizee(
     async (rpcUrl) => {
       if (!clientInstance) {
+        // WebSocket wss ws client of xrp sdk
         clientInstance = new XRPL.Client(rpcUrl);
       }
       if (!clientInstance.isConnected()) {
@@ -499,7 +500,7 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override getFrozenBalance(): number {
+  override async getFrozenBalance() {
     return 10;
   }
 }

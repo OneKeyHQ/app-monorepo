@@ -1,7 +1,7 @@
-import { FC, useCallback, useMemo, useRef } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import * as Linking from 'expo-linking';
-import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+import { BackHandler } from 'react-native';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
@@ -13,9 +13,18 @@ import {
 } from '../../../../store/reducers/webTabs';
 import { gotoSite } from '../Controller/gotoSite';
 import { onNavigation } from '../Controller/useWebController';
+import { MAX_OR_SHOW, expandAnim } from '../explorerAnimation';
 import { webviewRefs } from '../explorerUtils';
 
-const WebContent: FC<WebTab> = ({ id, url }) => {
+import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
+
+const WebContent: FC<WebTab & WebViewProps> = ({
+  id,
+  url,
+  isCurrent,
+  androidLayerType,
+  canGoBack,
+}) => {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
 
@@ -30,6 +39,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       }
       lastNavEventSnapshot.current = snapshot;
       const {
+        // eslint-disable-next-line @typescript-eslint/no-shadow
         canGoBack,
         canGoForward,
         loading,
@@ -56,10 +66,34 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
     [id, showHome],
   );
 
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (
+          isCurrent &&
+          expandAnim.value === MAX_OR_SHOW &&
+          webviewRefs[id] &&
+          canGoBack &&
+          id !== homeTab.id
+        ) {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          webviewRefs[id]?.innerRef?.goBack();
+          return true;
+        }
+        return false;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [canGoBack, id, isCurrent]);
+
   const webview = useMemo(
     () => (
       <WebView
         key={String(showHome)}
+        androidLayerType={androidLayerType}
         src={url}
         onWebViewRef={(ref) => {
           const { dispatch } = backgroundApiProxy;
@@ -78,7 +112,7 @@ const WebContent: FC<WebTab> = ({ id, url }) => {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome],
+    [id, showHome, androidLayerType],
   );
 
   return webview;

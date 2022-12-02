@@ -30,6 +30,7 @@ import { DAppItemType } from '../../type';
 import { DiscoverContext } from '../context';
 
 import { DAppCategories } from './DAppCategories';
+import { EmptySkeletonContent } from './EmptySkeleton';
 
 type ChainsSelectorValues = {
   selectedNetworkId: string;
@@ -137,7 +138,8 @@ const DappsContainerItem: FC<{ item: DAppItemType }> = ({ item }) => {
 
 const DappsContainer = () => {
   const { categoryId } = useContext(DiscoverContext);
-  const dapps = useCategoryDapps(categoryId);
+  const fullDapps = useCategoryDapps(categoryId);
+  const [dapps, setDapps] = useState<DAppItemType[]>([]);
   const { selectedNetworkId } = useContext(SelectedNetworkContext);
 
   const data = useMemo(() => {
@@ -151,6 +153,11 @@ const DappsContainer = () => {
     ({ item }) => <DappsContainerItem item={item} />,
     [],
   );
+
+  useEffect(() => {
+    setDapps(fullDapps);
+  }, [fullDapps]);
+
   return (
     <FlatList
       data={data}
@@ -159,6 +166,7 @@ const DappsContainer = () => {
       windowSize={5}
       showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item._id}
+      ListEmptyComponent={EmptySkeletonContent}
     />
   );
 };

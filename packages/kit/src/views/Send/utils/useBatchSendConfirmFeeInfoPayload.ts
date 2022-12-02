@@ -26,15 +26,12 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useAppSelector } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks';
+
+import { useFeePresetIndex } from './useFeePresetIndex';
 
 export const FEE_INFO_POLLING_INTERVAL = 5000;
 // export const FEE_INFO_POLLING_INTERVAL = platformEnv.isDev ? 60 * 1000 : 5000;
-
-function useFeePresetIndex(networkId: string) {
-  const feePresetIndexMap = useAppSelector((s) => s.data.feePresetIndexMap);
-  return feePresetIndexMap?.[networkId];
-}
 
 export function useBatchSendConfirmFeeInfoPayload({
   encodedTxs,
@@ -46,6 +43,7 @@ export function useBatchSendConfirmFeeInfoPayload({
   accountId,
   signOnly,
   forBatchSend,
+  transferCount,
 }: {
   encodedTxs: IEncodedTx[];
   decodedTxs: IDecodedTx[];
@@ -56,13 +54,16 @@ export function useBatchSendConfirmFeeInfoPayload({
   networkId: string;
   signOnly?: boolean;
   forBatchSend?: boolean;
+  transferCount: number;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
   const [feeInfoError, setFeeInfoError] = useState<Error | null>(null);
   const [feeInfoPayloads, setFeeInfoPayloads] = useState<IFeeInfoPayload[]>([]);
   const [totalFeeInNative, setTotalFeeInNative] = useState<number>(0);
+  const [minTotalFeeInNative, setMinTotalFeeInNative] = useState<number>(0);
   const feeInfoPayloadCacheRef = useRef<IFeeInfoPayload[]>([]);
+  const timer = useRef<ReturnType<typeof setInterval>>();
   const [loading, setLoading] = useState(true);
   const route = useRoute();
   const toast = useToast();
@@ -92,8 +93,12 @@ export function useBatchSendConfirmFeeInfoPayload({
   );
 
   const fetchFeeInfo = useCallback(
-    async (encodedTx: IEncodedTx): Promise<IFeeInfoPayload | null> => {
+    async (
+      encodedTx: IEncodedTx,
+      feeInfoStandard?: IFeeInfoPayload | null,
+    ): Promise<IFeeInfoPayload | null> => {
       const DEFAULT_PRESET_INDEX = '1';
+      let isUnapprovedBatchTx = false;
       let feeInfoSelected = feeInfoSelectedInRouteParams;
       const {
         decimals: nativeDecimals,
@@ -113,6 +118,7 @@ export function useBatchSendConfirmFeeInfoPayload({
         price: '0',
         limit: '0',
       };
+      let minInfoUnit: IFeeInfoUnit | null = null;
       let shouldFetch = !feeInfoSelected || feeInfoSelected?.type === 'preset';
       if (fetchAnyway) {
         shouldFetch = true;
@@ -133,6 +139,8 @@ export function useBatchSendConfirmFeeInfoPayload({
             (encodedTx as IEncodedTxEvm).to ===
               batchTransferContractAddress[network?.id]
           ) {
+            isUnapprovedBatchTx = true;
+            let standardLimit = 0;
             const gasPrice = await backgroundApiProxy.engine.getGasPrice(
               networkId,
             );
@@ -145,13 +153,28 @@ export function useBatchSendConfirmFeeInfoPayload({
               },
             );
 
-            const blockReceipt = blockData as { gasLimit: string };
+            const blockReceipt = blockData as {
+              gasLimit: string;
+            };
+
+            const maxLimit = +blockReceipt.gasLimit / 10;
+
+            if (feeInfoStandard?.info?.limit) {
+              standardLimit = +feeInfoStandard.info.limit * transferCount;
+            }
 
             currentInfoUnit = {
               eip1559: typeof gasPrice[0] === 'object',
-              limit: String(+blockReceipt.gasLimit / 10),
+              limit: String(maxLimit),
               price: gasPrice[gasPrice.length - 1],
             };
+
+            minInfoUnit = {
+              eip1559: typeof gasPrice[0] === 'object',
+              limit: String(standardLimit || maxLimit),
+              price: gasPrice[gasPrice.length - 1],
+            };
+            info.prices = gasPrice;
           } else {
             const { code: errCode, data: innerError } = error as {
               code?: number;
@@ -168,14 +191,16 @@ export function useBatchSendConfirmFeeInfoPayload({
           }
         }
       }
-      if (defaultFeePresetIndex) {
-        info.defaultPresetIndex = defaultFeePresetIndex;
-      }
-      if (parseFloat(info.defaultPresetIndex) > info.prices.length - 1) {
-        info.defaultPresetIndex = `${info.prices.length - 1}`;
-      }
-      if (parseFloat(info.defaultPresetIndex) < 0) {
-        info.defaultPresetIndex = '0';
+      if (!isUnapprovedBatchTx) {
+        if (defaultFeePresetIndex) {
+          info.defaultPresetIndex = defaultFeePresetIndex;
+        }
+        if (parseFloat(info.defaultPresetIndex) > info.prices.length - 1) {
+          info.defaultPresetIndex = `${info.prices.length - 1}`;
+        }
+        if (parseFloat(info.defaultPresetIndex) < 0) {
+          info.defaultPresetIndex = '0';
+        }
       }
 
       // useFeeInTx ONLY if encodedTx including full fee info
@@ -205,7 +230,12 @@ export function useBatchSendConfirmFeeInfoPayload({
       if (feeInfoSelected.type === 'custom' && feeInfoSelected.custom) {
         currentInfoUnit = feeInfoSelected.custom;
       }
-      if (info && feeInfoSelected.type === 'preset' && feeInfoSelected.preset) {
+      if (
+        info &&
+        feeInfoSelected.type === 'preset' &&
+        feeInfoSelected.preset &&
+        !isUnapprovedBatchTx
+      ) {
         currentInfoUnit = getSelectedFeeInfoUnit({
           info,
           index: feeInfoSelected.preset,
@@ -218,11 +248,22 @@ export function useBatchSendConfirmFeeInfoPayload({
         amount: total,
         info,
       });
-      const current = {
+      const current: IFeeInfoPayload['current'] = {
         value: currentInfoUnit,
         total,
         totalNative,
       };
+
+      if (isUnapprovedBatchTx && minInfoUnit) {
+        const minTotal = calculateTotalFeeRange(minInfoUnit).max;
+        const minTotalNative = calculateTotalFeeNative({
+          amount: minTotal,
+          info,
+        });
+        current.minTotal = minTotal;
+        current.minTotalNative = minTotalNative;
+      }
+
       const result = {
         // { type:'preset', preset:'1', custom: { price, limit } }
         selected: feeInfoSelected,
@@ -245,6 +286,7 @@ export function useBatchSendConfirmFeeInfoPayload({
       accountId,
       networkId,
       signOnly,
+      transferCount,
       getSelectedFeeInfoUnit,
     ],
   );
@@ -256,15 +298,28 @@ export function useBatchSendConfirmFeeInfoPayload({
       }
       // first time loading only, Interval loading does not support yet.
       setLoading(true);
+
+      const firstTx = encodedTxs[0];
+
+      // Use the fee of the first transaction as a benchmark
+      // To calculate the fee of subsequent batch transaction that may fail
+      const firstTxInfo = await fetchFeeInfo(firstTx);
+      const restEncodedTxs = encodedTxs.slice(1);
+
       try {
         const infos = await Promise.all(
-          encodedTxs.map((encodedTx) => fetchFeeInfo(encodedTx)),
+          restEncodedTxs.map((encodedTx) =>
+            fetchFeeInfo(encodedTx, firstTxInfo),
+          ),
         );
-        // await delay(600);
 
-        setFeeInfoPayloads(
-          infos.includes(null) ? [] : (infos as IFeeInfoPayload[]),
-        );
+        const mergedInfos = [firstTxInfo, ...infos];
+
+        const filterdInfos = mergedInfos.includes(null)
+          ? []
+          : (mergedInfos as IFeeInfoPayload[]);
+
+        setFeeInfoPayloads(filterdInfos);
       } catch (error: any) {
         // TODO: only an example implementation about showing rpc error
         const { code: errCode } = error as { code?: number };
@@ -283,12 +338,12 @@ export function useBatchSendConfirmFeeInfoPayload({
         setLoading(false);
       }
     })();
-  }, [encodedTxs, fetchFeeInfo, setFeeInfoPayloads, toast]);
+  }, [decodedTxs, encodedTxs, fetchFeeInfo, setFeeInfoPayloads, toast]);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
+    clearInterval(timer.current);
     if (pollingInterval && isFocused) {
-      timer = setInterval(async () => {
+      timer.current = setInterval(async () => {
         if (loading) {
           return;
         }
@@ -296,16 +351,25 @@ export function useBatchSendConfirmFeeInfoPayload({
           return;
         }
         try {
+          const firstTx = encodedTxs[0];
+
+          const firstTxFeeInfo = await fetchFeeInfo(firstTx);
+          const restEncodedTxs = encodedTxs.slice(1);
+
           const infos = await Promise.all(
-            encodedTxs.map((encodedTx) => fetchFeeInfo(encodedTx)),
+            restEncodedTxs.map((encodedTx) =>
+              fetchFeeInfo(encodedTx, firstTxFeeInfo),
+            ),
           );
           // await delay(600);
           if (infos) {
-            const filterdInfos = infos.includes(null)
+            const mergedInfos = [firstTxFeeInfo, ...infos];
+
+            const filterdInfos = mergedInfos.includes(null)
               ? []
-              : (infos as IFeeInfoPayload[]);
+              : (mergedInfos as IFeeInfoPayload[]);
+
             setFeeInfoPayloads(filterdInfos);
-            feeInfoPayloadCacheRef.current = filterdInfos;
           } else if (feeInfoPayloadCacheRef.current) {
             // ** use last cache if error
             setFeeInfoPayloads(feeInfoPayloadCacheRef.current);
@@ -324,7 +388,7 @@ export function useBatchSendConfirmFeeInfoPayload({
       }, pollingInterval);
     }
     return () => {
-      clearInterval(timer);
+      clearInterval(timer.current);
     };
   }, [
     feeInfoSelectedInRouteParams?.type,
@@ -336,29 +400,39 @@ export function useBatchSendConfirmFeeInfoPayload({
   ]);
 
   useEffect(() => {
-    let total = 0;
+    let minTotalNative = 0;
+    let totalNative = 0;
     if (
       feeInfoPayloads.length === decodedTxs.length &&
       feeInfoPayloads.length !== 0
     ) {
-      total = 0;
       for (let i = 0; i < feeInfoPayloads.length; i += 1) {
         if (decodedTxs[i].totalFeeInNative) {
-          total += new BigNumber(
+          totalNative += new BigNumber(
+            decodedTxs[i].totalFeeInNative ?? 0,
+          ).toNumber();
+          minTotalNative += new BigNumber(
             decodedTxs[i].totalFeeInNative ?? 0,
           ).toNumber();
         } else {
-          total += new BigNumber(
+          totalNative += new BigNumber(
             feeInfoPayloads[i].current?.totalNative ?? 0,
+          ).toNumber();
+          minTotalNative += new BigNumber(
+            feeInfoPayloads[i].current?.minTotalNative ??
+              feeInfoPayloads[i].current?.totalNative ??
+              0,
           ).toNumber();
         }
       }
-      setTotalFeeInNative(total);
+      setTotalFeeInNative(totalNative);
+      setMinTotalFeeInNative(minTotalNative);
     }
   }, [decodedTxs, feeInfoPayloads]);
 
   return {
     feeInfoError,
+    minTotalFeeInNative,
     totalFeeInNative,
     feeInfoPayloads,
     feeInfoLoading: loading,

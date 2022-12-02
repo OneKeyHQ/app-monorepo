@@ -1,4 +1,10 @@
-import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
+import React, {
+  FC,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -27,6 +33,36 @@ import Screen from './Screen';
 
 type NavigationProps = ModalScreenProps<NFTAttributeFilterRoutesParams>;
 
+const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
+  onPress,
+  isDisabled,
+}) => {
+  const intl = useIntl();
+  return (
+    <>
+      <Hidden from="md">
+        <IconButton
+          isDisabled={isDisabled}
+          name="FilterOutline"
+          size="lg"
+          type="plain"
+          circle
+          onPress={onPress}
+        />
+      </Hidden>
+      <Hidden till="md">
+        <Button
+          isDisabled={isDisabled}
+          leftIconName="FilterSolid"
+          onPress={onPress}
+        >
+          {intl.formatMessage({ id: 'title__filter' })}
+        </Button>
+      </Hidden>
+    </>
+  );
+};
+
 const CollectionDetail = () => {
   const route =
     useRoute<
@@ -51,32 +87,27 @@ const CollectionDetail = () => {
     });
   }, [collection?.contractName, collection?.name, navigation, title]);
 
+  const isFilter = useMemo(() => {
+    const find = context.attributes.find(
+      (item) => item.attribute_values.length > 0,
+    );
+    return !!find;
+  }, [context.attributes]);
   const { collection: ctxCollection } = context;
   useEffect(() => {
-    const FilterButton: FC<{ onPress?: () => void }> = ({ onPress }) => (
-      <>
-        <Hidden from="md">
-          <IconButton
-            name="FilterOutline"
-            size="lg"
-            type="plain"
-            circle
-            onPress={onPress}
-          />
-        </Hidden>
-        <Hidden till="md">
-          <Button leftIconName="FilterSolid" onPress={onPress}>
-            {intl.formatMessage({ id: 'title__filter' })}
-          </Button>
-        </Hidden>
-      </>
-    );
-
     if (ctxCollection) {
+      let mr = platformEnv.isWeb ? '32px' : '16px';
+      if (platformEnv.isNativeAndroid) {
+        mr = '0px';
+      }
       navigation.setOptions({
         headerRight: () => (
-          <Box mr={platformEnv.isNative ? '16px' : '32px'}>
+          <Box mr={mr}>
             <FilterButton
+              isDisabled={
+                ctxCollection.attributes &&
+                ctxCollection.attributes.length === 0
+              }
               onPress={() => {
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.NFTAttributeFilter,
@@ -88,6 +119,7 @@ const CollectionDetail = () => {
                       onAttributeSelected: (attributes) => {
                         setContext((ctx) => ({
                           ...ctx,
+                          refreshing: true,
                           attributes,
                         }));
                       },
@@ -96,11 +128,23 @@ const CollectionDetail = () => {
                 });
               }}
             />
+            {isFilter && (
+              <Box
+                top="-2px"
+                right="0px"
+                position="absolute"
+                size="10px"
+                bgColor="interactive-default"
+                borderRadius="full"
+                borderWidth="1px"
+                borderColor="background-default"
+              />
+            )}
           </Box>
         ),
       });
     }
-  }, [context.attributes, ctxCollection, intl, navigation]);
+  }, [context.attributes, ctxCollection, intl, isFilter, navigation]);
 
   const { serviceNFT } = backgroundApiProxy;
 

@@ -1,47 +1,39 @@
 {
-    "project_info": {
-      "project_number": "1",
-      "firebase_url": "https://onekey-uni.firebaseio.com",
-      "project_id": "onekey-uni",
-      "storage_bucket": "onekey-uni.appspot.com"
-    },
-    "client": [
-      {
-        "client_info": {
-          "mobilesdk_app_id": "1:example",
-          "android_client_info": {
-            "package_name": "so.onekey.app.wallet.dev"
-          }
-        },
-        "oauth_client": [
-          {
-            "client_id": "example.apps.googleusercontent.com",
-            "client_type": 3
-          }
-        ],
-        "api_key": [
-          {
-            "current_key": "AI-examplew"
-          }
-        ],
-        "services": {
-          "appinvite_service": {
-            "other_platform_oauth_client": [
-              {
-                "client_id": "example.apps.googleusercontent.com",
-                "client_type": 3
-              },
-              {
-                "client_id": "example.apps.googleusercontent.com",
-                "client_type": 2,
-                "ios_info": {
-                  "bundle_id": "com.onekey.testflight"
-                }
-              }
-            ]
-          }
+  "project_info": {
+    "project_number": "117481276073",
+    "project_id": "test-aa6e3",
+    "storage_bucket": "test-aa6e3.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:117481276073:android:bdffdba4b36cd239b5dfb8",
+        "android_client_info": {
+          "package_name": "so.onekey.app.wallet.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZE4y0ffcHVo8i0BRHHENkok-U8Vq9Pr8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
-    ],
-    "configuration_version": "1"
-  }
+    }
+  ],
+  "configuration_version": "1"
+}

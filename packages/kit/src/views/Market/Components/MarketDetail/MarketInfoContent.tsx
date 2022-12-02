@@ -12,6 +12,7 @@ import {
 import { useSettings } from '@onekeyhq/kit/src/hooks';
 import {
   MarketEXplorer,
+  MarketLinks,
   MarketNews,
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -19,6 +20,7 @@ import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { formatMarketValueForInfo, getFiatCodeUnit } from '../../utils';
 
 import { MarketInfoExplorer } from './MarketInfoExplorer';
+import { MarketInfoLinks } from './MarketInfoLinks';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
 
 const WRAP_STRING_LENGTH = 9;
@@ -74,6 +76,7 @@ type MarketInfoContentProps = {
   expolorers?: MarketEXplorer[];
   news?: MarketNews[];
   about?: string;
+  links?: MarketLinks;
   px?: string;
 };
 
@@ -87,6 +90,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   expolorers,
   news,
   about,
+  links,
   px,
 }) => {
   const intl = useIntl();
@@ -139,7 +143,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
             />
           </HStack>
         </Box>
-        {expolorers && expolorers.length > 0 ? (
+        {expolorers?.length ? (
           <Box>
             <Typography.Heading>
               {intl.formatMessage({ id: 'form__explorers' })}
@@ -163,7 +167,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
             </Box>
           </Box>
         ) : null}
-        {about && about.length > 0 ? (
+        {about?.length ? (
           <Box>
             <Typography.Heading mb="3">
               {intl.formatMessage({ id: 'title__about' })}
@@ -171,7 +175,8 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
             <Typography.Body2 noOfLines={5}>{about}</Typography.Body2>
           </Box>
         ) : null}
-        {news && news.length > 0 ? (
+        {links ? <MarketInfoLinks links={links} /> : null}
+        {news?.length ? (
           <Box>
             <Typography.Heading>
               {intl.formatMessage({ id: 'title__news' })}

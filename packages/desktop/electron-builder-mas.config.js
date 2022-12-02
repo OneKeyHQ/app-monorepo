@@ -10,7 +10,7 @@ module.exports = {
   'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
-  'buildVersion': process.env.BUILD_NUMBER,
+  'buildVersion': `${process.env.BUILD_NUMBER}0`,
   'directories': {
     'output': 'build-electron',
   },
@@ -48,7 +48,7 @@ module.exports = {
     'sign': false,
   },
   'mac': {
-    // 'identity': null,
+    'identity': null,
     'icon': 'build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
@@ -63,6 +63,7 @@ module.exports = {
   'mas': {
     'hardenedRuntime': false,
     // 'mergeASARs': false,
+    'gatekeeperAssess': true,
     'entitlements': 'entitlements.mas.plist',
     'entitlementsInherit': 'entitlements.mas.inherit.plist',
     'entitlementsLoginHelper': 'entitlements.mas.loginhelper.plist',
@@ -73,6 +74,6 @@ module.exports = {
     },
   },
   'afterSign': 'scripts/notarize.js',
-  'afterPack': 'scripts/copyFileForMas.js',
-  // 'asarUnpack': ['**/*.node'],
+  'afterPack': 'scripts/fileOperation.js',
+  'asarUnpack': ['**/*.node'],
 };

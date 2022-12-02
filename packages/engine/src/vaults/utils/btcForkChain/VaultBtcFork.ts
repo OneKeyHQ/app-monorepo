@@ -667,13 +667,20 @@ export default class VaultBtcFork extends VaultBase {
       const client = await (await this.getProvider()).blockbook;
       const blockNums = this.getDefaultBlockNums();
       try {
-        return await Promise.all(
+        const fees = await Promise.all(
           blockNums.map((blockNum) =>
             client
               .estimateFee(blockNum)
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
           ),
         );
+        return fees.sort((a, b) => {
+          const aBN = new BigNumber(a);
+          const bBN = new BigNumber(b);
+          if (aBN.gt(bBN)) return 1;
+          if (aBN.lt(bBN)) return -1;
+          return 0;
+        });
       } catch (e) {
         console.error(e);
         throw new OneKeyInternalError('Failed to get fee rates.');

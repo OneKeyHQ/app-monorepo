@@ -3,6 +3,7 @@ import React, { FC, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type Props = {
   onClose?: () => void;
@@ -28,7 +29,9 @@ const RestartAppDialog: FC<Props> = ({ onClose, onConfirm }) => {
         }),
       }}
       footerButtonProps={{
-        primaryActionTranslationId: 'action__restart',
+        primaryActionTranslationId: platformEnv.isMas
+          ? 'action__close'
+          : 'action__restart',
         primaryActionProps: {
           type: 'primary',
         },

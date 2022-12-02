@@ -1,9 +1,9 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { isEmpty, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Box, GroupingList, ListItem } from '@onekeyhq/components';
+import { GroupingList, ListItem } from '@onekeyhq/components';
 import { IDecodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -46,13 +46,13 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     sourceInfo,
     payload,
     payloadInfo,
-    isFromDapp,
     dappApprove,
     onModalClose,
     networkId,
     accountId,
     feeInfoUseFeeInTx,
     feeInfoEditable,
+    transferCount,
   } = batchSendConfirmParamsParsed;
   const intl = useIntl();
   useOnboardingRequired();
@@ -84,17 +84,22 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
   });
   const decodedTx = decodedTxs[0];
 
-  const { feeInfoPayloads, feeInfoLoading, totalFeeInNative } =
-    useBatchSendConfirmFeeInfoPayload({
-      accountId,
-      networkId,
-      encodedTxs,
-      decodedTxs,
-      useFeeInTx: feeInfoUseFeeInTx,
-      pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
-      signOnly: routeParams.signOnly,
-      forBatchSend: true,
-    });
+  const {
+    feeInfoPayloads,
+    feeInfoLoading,
+    totalFeeInNative,
+    minTotalFeeInNative,
+  } = useBatchSendConfirmFeeInfoPayload({
+    accountId,
+    networkId,
+    encodedTxs,
+    decodedTxs,
+    useFeeInTx: feeInfoUseFeeInTx,
+    pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
+    signOnly: routeParams.signOnly,
+    forBatchSend: true,
+    transferCount,
+  });
   useWalletConnectPrepareConnection({
     accountId,
     networkId,
@@ -231,6 +236,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       feeInfoPayloads={feeInfoPayloads}
       feeInfoLoading={feeInfoLoading}
       totalFeeInNative={totalFeeInNative}
+      minTotalFeeInNative={minTotalFeeInNative}
       batchSendConfirmParams={routeParams}
       editable={feeInfoEditable}
       isSingleTransformMode={isSingleTransformMode}

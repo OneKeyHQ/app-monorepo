@@ -4,6 +4,8 @@ import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { homeTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
@@ -26,7 +28,12 @@ const WebTabFront = memo(() => {
     () =>
       tabs.slice(1).map((t) => (
         <Freeze key={t.id} freeze={!t.isCurrent}>
-          <WebContent {...t} />
+          <WebContent
+            {...t}
+            androidLayerType={
+              platformEnv.isNativeAndroid && t.isCurrent ? 'hardware' : 'none'
+            }
+          />
         </Freeze>
       )),
     [tabs],

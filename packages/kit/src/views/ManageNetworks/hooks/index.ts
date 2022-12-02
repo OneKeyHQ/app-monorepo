@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
+
 import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -101,6 +103,7 @@ export const useRpcMeasureStatus = (networkId: string) => {
   const [loading, setLoading] = useState(false);
   const { network } = useNetwork({ networkId });
   const [status, setStatus] = useState<MeasureResult>();
+  const isFocused = useIsFocused();
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -116,10 +119,13 @@ export const useRpcMeasureStatus = (networkId: string) => {
     const interval = setInterval(() => {
       refresh();
     }, getTimeDurationMs({ minute: 1 }));
+    if (!isFocused) {
+      clearInterval(interval);
+    }
     return () => {
       clearInterval(interval);
     };
-  }, [refresh]);
+  }, [refresh, isFocused]);
 
   return {
     loading,

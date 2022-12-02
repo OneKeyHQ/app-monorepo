@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Modal } from '@onekeyhq/components';
 
 import { NativeWebView } from '../../../components/WebView/NativeWebView';

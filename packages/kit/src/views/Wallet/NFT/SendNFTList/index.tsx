@@ -16,6 +16,7 @@ import { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
@@ -125,35 +126,6 @@ function List({
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
       py="24px"
-      ListHeaderComponent={
-        multiSelect ? (
-          <Box
-            mb="16px"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'row',
-            }}
-          >
-            <Icon size={12} name="DocumentDuplicateSolid" />
-            <Text
-              typography="CaptionStrong"
-              textAlign="center"
-              position="relative"
-              color="text-subdued"
-              ml="10px"
-            >
-              {intl.formatMessage(
-                {
-                  id: 'form__supports_multi_send_nfts_on_network_name',
-                },
-                { network_name: network?.name },
-              )}
-            </Text>
-          </Box>
-        ) : null
-      }
     />
   );
 }
@@ -234,8 +206,11 @@ function SendNFTList({
   const intl = useIntl();
   const { account } = useActiveSideAccount({ accountId, networkId });
   const { network } = useNetwork({ networkId });
+  const { devMode } = useSettings();
+  const enableMultiSelect = devMode?.enable;
   const multiSelect = Boolean(
-    network &&
+    enableMultiSelect &&
+      network &&
       (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
   );
 
