@@ -134,19 +134,6 @@ const RevokePage: FC = () => {
   }, [navigation, isVertical, account?.id, walletConnectButton]);
 
   const content = useMemo(() => {
-    if (headerParams && !headerParams?.address && !isLoading) {
-      return (
-        <Empty
-          emoji="💁‍♀️️"
-          title={intl.formatMessage({
-            id: 'title__enter_address_or_connect_wallet',
-          })}
-          subTitle={intl.formatMessage({
-            id: 'title__enter_address_or_connect_wallet_desc',
-          })}
-        />
-      );
-    }
     if (network && network?.impl !== IMPL_EVM && !isLoading) {
       return (
         <Empty
@@ -161,6 +148,19 @@ const RevokePage: FC = () => {
           )}
           subTitle={intl.formatMessage({
             id: 'title__str_network_is_not_supported_yet_desc',
+          })}
+        />
+      );
+    }
+    if (headerParams && !headerParams?.address && !isLoading) {
+      return (
+        <Empty
+          emoji="💁‍♀️️"
+          title={intl.formatMessage({
+            id: 'title__enter_address_or_connect_wallet',
+          })}
+          subTitle={intl.formatMessage({
+            id: 'title__enter_address_or_connect_wallet_desc',
           })}
         />
       );
