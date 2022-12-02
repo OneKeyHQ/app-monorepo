@@ -12,6 +12,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -216,8 +217,17 @@ const AssetsListHeader: FC<{
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { network } = useActiveWalletAccount();
-  const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
+  const { network, wallet } = useActiveWalletAccount();
+  const { tokenEnabled: networkTokenEnabled, activateTokenRequired } =
+    network?.settings ?? { tokenEnabled: false, activateTokenRequired: false };
+
+  const tokenEnabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING && activateTokenRequired) {
+      return false;
+    }
+    return networkTokenEnabled;
+  }, [activateTokenRequired, networkTokenEnabled, wallet?.type]);
+
   return (
     <>
       {showOuterHeader && (
