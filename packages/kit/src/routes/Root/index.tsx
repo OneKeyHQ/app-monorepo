@@ -14,7 +14,7 @@ import KeyboardManager from 'react-native-keyboard-manager';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AppLock } from '@onekeyhq/kit/src/components/AppLock';
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
@@ -38,10 +38,11 @@ const RootStack = createStackNavigator();
 
 const RootNavigatorContainer: FC = ({ children }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
-  const initialRouteName = boardingCompleted
-    ? RootRoutes.Root
-    : RootRoutes.Onboarding;
+  // const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
+  // const initialRouteName = boardingCompleted
+  //   ? RootRoutes.Root
+  //   : RootRoutes.Onboarding;
+  const initialRouteName = RootRoutes.Root;
   if (platformEnv.isNative) {
     return (
       <RootNativeStack.Navigator

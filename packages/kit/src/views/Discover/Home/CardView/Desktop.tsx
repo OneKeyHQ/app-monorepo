@@ -9,7 +9,12 @@ import DAppIcon from '../../DAppIcon';
 import { DAppItemType, SectionDataType } from '../../type';
 import { SectionTitle } from '../TitleView';
 
-export const Desktop: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
+export const Desktop: FC<SectionDataType> = ({
+  title,
+  data,
+  onItemSelect,
+  tagId,
+}) => {
   const { width } = useWindowDimensions();
   const screenWidth = width - 270 - 48;
   const minWidth = 250;
@@ -89,7 +94,7 @@ export const Desktop: FC<SectionDataType> = ({ title, data, onItemSelect }) => {
   );
   return (
     <Box width="100%" mt="32px">
-      <SectionTitle title={title} data={data} onItemSelect={onItemSelect} />
+      <SectionTitle title={title} tagId={tagId} onItemSelect={onItemSelect} />
       {flatList}
     </Box>
   );

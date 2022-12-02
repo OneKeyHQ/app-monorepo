@@ -469,6 +469,22 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
+  override async getFrozenBalance() {
+    const client = await this.getClient();
+    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+    const { address } = await this.getDbAccount();
+    try {
+      const { 'min-balance': minBalance = 0 } = (await client
+        .accountInformation(address)
+        .do()) as IAccountInformation;
+      return {
+        'main': new BigNumber(minBalance ?? 0).shiftedBy(-decimals).toNumber(),
+      };
+    } catch {
+      return 0;
+    }
+  }
+
   override async updateEncodedTx(
     encodedTx: IEncodedTxAlgo,
     payload: any,
@@ -483,6 +499,7 @@ export default class Vault extends VaultBase {
     ) {
       const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
       const { amount } = payload as IEncodedTxUpdatePayloadTransfer;
+
       return encodeTransaction(
         sdk.Transaction.from_obj_for_encoding({
           ...nativeTx,

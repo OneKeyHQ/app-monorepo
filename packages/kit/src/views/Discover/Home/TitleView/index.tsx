@@ -1,5 +1,6 @@
 import { FC, useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,20 +9,38 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
-import { DAppItemType, SectionDataType } from '../../type';
+import { DAppItemType, DiscoverModalRoutes } from '../../type';
 
-export const SectionTitle: FC<SectionDataType> = ({
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type SectionTitleProps = {
+  title: string;
+  tagId: string;
+  onItemSelect?: (item: DAppItemType) => void;
+};
+
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.DAppListScreen
+>;
+
+export const SectionTitle: FC<SectionTitleProps> = ({
   title,
-  data,
+  tagId,
   onItemSelect,
 }) => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
-
+  const navigation = useNavigation<NavigationProps>();
   const onSelected = useCallback(
     (item: DAppItemType) => {
       onItemSelect?.(item);
@@ -45,17 +64,25 @@ export const SectionTitle: FC<SectionDataType> = ({
       </Box>
       <Button
         onPress={() => {
-          getAppNavigation().navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Discover,
-            params: {
-              screen: DiscoverModalRoutes.DAppListModal,
+          if (platformEnv.isNative) {
+            getAppNavigation().navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Discover,
               params: {
-                data,
-                title,
-                onItemSelect: onSelected,
+                screen: DiscoverModalRoutes.DAppListModal,
+                params: {
+                  tagId,
+                  title,
+                  onItemSelect: onSelected,
+                },
               },
-            },
-          });
+            });
+          } else {
+            navigation.navigate(HomeRoutes.DAppListScreen, {
+              tagId,
+              title,
+              onItemSelect: onSelected,
+            });
+          }
         }}
         height="32px"
         type="plain"

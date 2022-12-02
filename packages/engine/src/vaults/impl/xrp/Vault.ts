@@ -500,7 +500,7 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override getFrozenBalance(): number {
+  override async getFrozenBalance() {
     return 10;
   }
 }

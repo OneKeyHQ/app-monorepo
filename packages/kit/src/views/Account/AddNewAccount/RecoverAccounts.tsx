@@ -439,6 +439,23 @@ const RecoverAccounts: FC = () => {
         setLoadedAccounts(addedAccounts);
         setSelectState(addedSelectState);
         setLoading(false);
+        return { currentPageAccounts: accounts, loadedAccounts: addedAccounts };
+      })
+      .then(async (accounts) => {
+        const accountsWithBalance =
+          await backgroundApiProxy.engine.queryBalanceFillAccounts(
+            walletId,
+            network,
+            accounts.currentPageAccounts,
+          );
+
+        const addedAccounts = new Map(accounts.loadedAccounts);
+        accountsWithBalance.forEach((i) => {
+          addedAccounts.set(i.index, i);
+        });
+
+        updateCurrentPageData(accountsWithBalance);
+        setLoadedAccounts(addedAccounts);
       })
       .catch((e) => {
         isFetchingData.current = false;

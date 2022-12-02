@@ -1,5 +1,6 @@
 import { FC } from 'react';
 
+import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,6 +12,7 @@ import {
   Text,
   useForm,
 } from '@onekeyhq/components';
+import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
@@ -30,6 +32,9 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
 }) => {
   const intl = useIntl();
 
+  // Prevents screen locking
+  useKeepAwake();
+
   const { control, handleSubmit } = useForm<FieldValues>({
     mode: 'onChange',
     defaultValues: { value: '' },
@@ -41,6 +46,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
 
   return (
     <BaseRequestView {...props} closeWay="now">
+      <SkipAppLock />
       <Form mt={4}>
         <Form.Item
           control={control}

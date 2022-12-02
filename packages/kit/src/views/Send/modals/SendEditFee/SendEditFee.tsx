@@ -46,6 +46,7 @@ import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
 
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
 import { SendEditFeeStandardForm } from './SendEditFeeStandardForm';
+import { SendEditFeeStandardFormLite } from './SendEditFeeStandardFormLite';
 import { SendEditFeeTabs } from './SendEditFeeTabs';
 
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -377,7 +378,15 @@ function ScreenSendEditFee({ ...rest }) {
         useFormReturn={useFormReturn}
       />
     );
-    const presetFeeForm = (
+    const presetFeeForm = forBatchSend ? (
+      <SendEditFeeStandardFormLite
+        feeInfoPayload={feeInfoPayload}
+        value={radioValue}
+        onChange={(value) => {
+          setRadioValue(value);
+        }}
+      />
+    ) : (
       <SendEditFeeStandardForm
         accountId={accountId}
         networkId={networkId}

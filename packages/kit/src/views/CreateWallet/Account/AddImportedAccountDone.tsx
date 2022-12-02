@@ -31,6 +31,7 @@ type DoneProps = {
   networkId: string;
   withEnableAuthentication?: boolean;
   onSuccess?: (options: { account: Account }) => void;
+  onFailure?: () => void;
 };
 
 const Done: FC<DoneProps> = ({
@@ -40,6 +41,7 @@ const Done: FC<DoneProps> = ({
   password,
   withEnableAuthentication,
   onSuccess,
+  onFailure,
 }) => {
   const intl = useIntl();
   const toast = useToast();
@@ -70,6 +72,7 @@ const Done: FC<DoneProps> = ({
           },
           { type: 'error' },
         );
+        onFailure?.();
       }
     }
     main();
@@ -85,7 +88,8 @@ const Done: FC<DoneProps> = ({
 export const AddImportedAccountDone = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
-  const { privatekey, name, networkId, onSuccess } = route.params ?? {};
+  const { privatekey, name, networkId, onSuccess, onFailure } =
+    route.params ?? {};
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: false });
   }, [navigation]);
@@ -104,6 +108,7 @@ export const AddImportedAccountDone = () => {
             networkId={networkId}
             password={password}
             onSuccess={onSuccess}
+            onFailure={onFailure}
           />
         )}
       </Protected>

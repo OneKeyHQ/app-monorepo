@@ -11,15 +11,12 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
-import {
-  DiscoverModalRoutes,
-  DiscoverRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Discover';
 
 import { homeTab } from '../../../../store/reducers/webTabs';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
+import { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
 import { MatchDAppItemType } from '../explorerUtils';
 
 import { Header, ListEmptyComponent } from './Header';

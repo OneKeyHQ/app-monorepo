@@ -16,9 +16,9 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
-import { DiscoverModalRoutes } from '../../../routes/Modal/Discover';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { showOverlay } from '../../../utils/overlayUtils';
+import { DiscoverModalRoutes } from '../../Discover/type';
 import { OverlayPanel } from '../OverlayPanel';
 
 import { ShowMenuProps } from './type';

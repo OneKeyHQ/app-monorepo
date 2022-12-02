@@ -4,6 +4,7 @@ import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
 import {
   Box,
   Pressable,
+  Skeleton,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -17,6 +18,7 @@ import {
   useNavigationActions,
 } from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { useNativeTokenBalance } from '../../../../hooks/useTokens';
 import {
   ModalRoutes,
   RootRoutes,
@@ -26,6 +28,7 @@ import reducerAccountSelector, {
   EAccountSelectorMode,
 } from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
+import { formatAmount } from '../../../../utils/priceUtils';
 import ExternalAccountImg from '../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountItemSelectDropdown } from '../AccountItemSelectDropdown';
@@ -50,7 +53,7 @@ const ListItem: FC<ListItemProps> = ({
   network,
   label,
   address,
-  balance,
+  // balance,
   networkId,
   walletId,
   wallet,
@@ -65,6 +68,8 @@ const ListItem: FC<ListItemProps> = ({
   const accountSelectorMode = useAppSelector(
     (s) => s.accountSelector.accountSelectorMode,
   );
+
+  const nativeBalance = useNativeTokenBalance(network?.id, account.id);
 
   // @ts-ignore
   const isLastItem = account?.$isLastItem;
@@ -181,20 +186,15 @@ const ListItem: FC<ListItemProps> = ({
                 <Text typography="Body2" color="text-subdued">
                   {address}
                 </Text>
-                {balance ? (
-                  <>
-                    <Box
-                      w={1}
-                      h={1}
-                      m={2}
-                      bgColor="icon-disabled"
-                      rounded="full"
-                    />
-                    <Text typography="Body2" color="text-subdued" isTruncated>
-                      {balance}
-                    </Text>
-                  </>
-                ) : null}
+                <Box w={1} h={1} m={2} bgColor="icon-disabled" rounded="full" />
+                {nativeBalance ? (
+                  <Text typography="Body2" color="text-subdued" isTruncated>
+                    {formatAmount(nativeBalance, 2)}{' '}
+                    {network?.symbol.toUpperCase()}
+                  </Text>
+                ) : (
+                  <Skeleton shape="Body2" />
+                )}
               </Box>
             </Box>
             <AccountItemSelectDropdown
