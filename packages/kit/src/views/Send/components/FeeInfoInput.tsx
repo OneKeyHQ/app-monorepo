@@ -1,9 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
-import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  Pressable,
+  Spinner,
+  Text,
+  Tooltip,
+} from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
@@ -27,6 +41,25 @@ type NavigationProps = StackNavigationProp<
   SendRoutes.SendConfirm
 >;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
+
+function PressableWrapper({
+  children,
+  canPress,
+  onPress,
+}: {
+  children: React.ReactNode;
+  canPress: boolean;
+  onPress: () => void;
+}) {
+  if (canPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
+  return <>{children}</>;
+}
 
 function FeeInfoInput({
   networkId,
@@ -390,6 +423,8 @@ function FeeInfoInputForConfirmLite({
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
   const networkFeeInfoEditable = useNetworkFeeInfoEditable({ networkId });
 
+  const [hasTooltipOpen, setHasTooltipOpen] = useState(false);
+
   let totalFeeInNative = feeInfoPayload?.current?.totalNative || '';
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   if (encodedTx.totalFeeInNative) {
@@ -520,8 +555,6 @@ function FeeInfoInputForConfirmLite({
       return null;
     }
 
-    console.log('=====>>>>> errorHint', JSON.stringify(feeInfoError));
-
     let message: string | null = null;
     if (feeInfoError instanceof OneKeyError) {
       if (feeInfoError.key !== 'onekey_error') {
@@ -535,15 +568,33 @@ function FeeInfoInputForConfirmLite({
     } else {
       message = feeInfoError.message;
     }
+    if (message && message.length > 350) {
+      message = `${message.slice(0, 350)}...`;
+    }
 
     return (
       !!message && (
-        <Text typography="CaptionMono" color="text-critical" flex={1}>
-          {message}
-        </Text>
+        <>
+          <Tooltip
+            maxW="360px"
+            isOpen={hasTooltipOpen}
+            hasArrow
+            label={message}
+            bg="surface-neutral-default"
+            _text={{ color: 'text-default', fontSize: '14px' }}
+            px="16px"
+            py="8px"
+            placement="top"
+            borderRadius="12px"
+          >
+            <Box>
+              <Icon name="ExclamationOutline" size={20} color="icon-warning" />
+            </Box>
+          </Tooltip>
+        </>
       )
     );
-  }, [feeInfoError, intl]);
+  }, [feeInfoError, hasTooltipOpen, intl]);
 
   const renderChildren = useCallback(
     // ({ isHovered })
@@ -559,7 +610,10 @@ function FeeInfoInputForConfirmLite({
         );
       } else {
         content = (
-          <>
+          <PressableWrapper
+            canPress={!!errorHint}
+            onPress={() => setHasTooltipOpen(!hasTooltipOpen)}
+          >
             <Box
               flexDirection="row"
               alignItems="center"
@@ -570,11 +624,11 @@ function FeeInfoInputForConfirmLite({
                 {intl.formatMessage({ id: 'content__calculate_fee' })}
               </Text>
               <Box w={2} />
+              {errorHint}
               {loading ? <Spinner size="sm" /> : null}
               <Box flex={1} />
             </Box>
-            {errorHint}
-          </>
+          </PressableWrapper>
         );
       }
 
@@ -583,8 +637,11 @@ function FeeInfoInputForConfirmLite({
         <Box>{content}</Box>
       );
     },
-    [errorHint, intl, loading, subTitle, title],
+    [errorHint, hasTooltipOpen, intl, loading, subTitle, title],
   );
+
+  useEffect(() => () => setHasTooltipOpen(false), []);
+
   return (
     <FeeInfoInputContainer
       networkId={networkId}

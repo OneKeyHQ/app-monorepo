@@ -9,7 +9,6 @@ import {
   HardwareErrorCode,
   createDeferred,
 } from '@onekeyfe/hd-shared';
-import { isEmpty } from 'lodash';
 import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
@@ -220,7 +219,7 @@ class DeviceUtils {
 
   showErrorToast(error: any, defKey?: LocaleIds): boolean {
     try {
-      const { className, key, code, info, message } = error || {};
+      const { className, key, code, info } = error || {};
 
       if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
         return false;
@@ -294,8 +293,8 @@ class DeviceUtils {
           errorMessage = formatMessage({ id: key }, info);
         } else if (defKey) {
           errorMessage = formatMessage({ id: defKey }, info);
-        } else if (message && !isEmpty(message)) {
-          errorMessage = message;
+          // } else if (message && !isEmpty(message)) {
+          //   errorMessage = message;
         } else {
           errorMessage = formatMessage({ id: key }, info);
         }
