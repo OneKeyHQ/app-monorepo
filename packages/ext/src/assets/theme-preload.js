@@ -12,6 +12,7 @@
     document.documentElement.style.backgroundColor = 'white';
   }
 
+  // optimizeResize start ----------------------------------------------
   /* TEST CODE
 const handler = ()=>console.log('ffffff');
 window.addEventListener('resize', handler);
@@ -57,5 +58,13 @@ window.removeEventListener('resize',handler);
       }
     };
   }
-  optimizeResize();
+
+  try {
+    optimizeResize();
+  } catch (error) {
+    // const e = error as Error | undefined;
+  } finally {
+    // noop
+  }
+  // optimizeResize end ----------------------------------------------
 })();
