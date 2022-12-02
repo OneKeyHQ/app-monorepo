@@ -11,12 +11,18 @@ type InitialState = {
   dappHistory?: Record<string, HistoryItemData>;
   dappFavorites?: string[];
 
+  // REMOVED
   dappItems?: DAppItemType[] | null;
-
   listedCategories?: { name: string; _id: string }[];
   listedTags?: { name: string; _id: string }[];
   categoryDapps?: { label: string; id: string; items: DAppItemType[] }[];
   tagDapps?: { label: string; id: string; items: DAppItemType[] }[];
+  // REMOVED
+
+  home?: {
+    categories: { name: string; _id: string }[];
+    tagDapps: { label: string; id: string; items: DAppItemType[] }[];
+  };
 
   history: Record<string, DiscoverHistory>;
   firstRemindDAPP: boolean;
@@ -153,9 +159,9 @@ export const discoverSlice = createSlice({
     updateFirstRemindDAPP(state, action: PayloadAction<boolean>) {
       state.firstRemindDAPP = action.payload;
     },
-    setDappItems(state, action: PayloadAction<DAppItemType[]>) {
-      state.dappItems = action.payload;
-    },
+    // setDappItems(state, action: PayloadAction<DAppItemType[]>) {
+    //   state.dappItems = action.payload;
+    // },
     setDappHistory(state, action: PayloadAction<string>) {
       if (!state.dappHistory) {
         state.dappHistory = {};
@@ -200,36 +206,53 @@ export const discoverSlice = createSlice({
         state.dappFavorites.splice(i, 1);
       }
     },
-    setListedCategories(
-      state,
-      action: PayloadAction<{ name: string; _id: string }[]>,
-    ) {
-      state.listedCategories = action.payload;
-    },
-    setListedTags(
-      state,
-      action: PayloadAction<{ name: string; _id: string }[]>,
-    ) {
-      state.listedTags = action.payload;
-    },
-    setCategoryDapps(
-      state,
-      action: PayloadAction<
-        { label: string; id: string; items: DAppItemType[] }[]
-      >,
-    ) {
-      state.categoryDapps = action.payload;
-    },
-    setTagDapps(
-      state,
-      action: PayloadAction<
-        { label: string; id: string; items: DAppItemType[] }[]
-      >,
-    ) {
-      state.tagDapps = action.payload;
-    },
+    // setListedCategories(
+    //   state,
+    //   action: PayloadAction<{ name: string; _id: string }[]>,
+    // ) {
+    //   state.listedCategories = action.payload;
+    // },
+    // setListedTags(
+    //   state,
+    //   action: PayloadAction<{ name: string; _id: string }[]>,
+    // ) {
+    //   state.listedTags = action.payload;
+    // },
+    // setCategoryDapps(
+    //   state,
+    //   action: PayloadAction<
+    //     { label: string; id: string; items: DAppItemType[] }[]
+    //   >,
+    // ) {
+    //   state.categoryDapps = action.payload;
+    // },
+    // setTagDapps(
+    //   state,
+    //   action: PayloadAction<
+    //     { label: string; id: string; items: DAppItemType[] }[]
+    //   >,
+    // ) {
+    //   state.tagDapps = action.payload;
+    // },
+
     setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
       state.enableIOSDappSearch = action.payload;
+    },
+    cleanOldState(state) {
+      state.dappItems = undefined;
+      state.listedCategories = undefined;
+      state.listedTags = undefined;
+      state.categoryDapps = undefined;
+      state.tagDapps = undefined;
+    },
+    setHomeData(
+      state,
+      action: PayloadAction<{
+        categories: { name: string; _id: string }[];
+        tagDapps: { label: string; id: string; items: DAppItemType[] }[];
+      }>,
+    ) {
+      state.home = action.payload;
     },
   },
 });
@@ -244,13 +267,15 @@ export const {
   addFavorite,
   removeFavorite,
   removeWebSiteHistory,
-  setDappItems,
-  setListedCategories,
-  setListedTags,
-  setCategoryDapps,
-  setTagDapps,
+  // setDappItems,
+  // setListedCategories,
+  // setListedTags,
+  // setCategoryDapps,
+  // setTagDapps,
   clearHistory,
   setEnableIOSDappSearch,
+  cleanOldState,
+  setHomeData,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;

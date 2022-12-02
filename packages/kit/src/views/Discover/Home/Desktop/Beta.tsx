@@ -18,10 +18,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverFavorites, useDiscoverHistory } from '../../hooks';
+import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
 

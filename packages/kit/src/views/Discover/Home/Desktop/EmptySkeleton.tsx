@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { ListRenderItem, useWindowDimensions } from 'react-native';
 
@@ -8,13 +8,27 @@ import {
   FlatList,
   Pressable,
   Skeleton,
-  Typography,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const ListEmptyComponentRenderItem = () => {
+type EmptySkeletonContentProps = {
+  ListHeaderComponent?:
+    | React.ComponentType<any>
+    | React.ReactElement
+    | null
+    | undefined;
+  offset?: number;
+};
+
+type ListEmptyComponentRenderItemProps = {
+  offset?: number;
+};
+
+const ListEmptyComponentRenderItem: FC<ListEmptyComponentRenderItemProps> = ({
+  offset,
+}) => {
   const { width } = useWindowDimensions();
-  const screenWidth = width - 270 - 48;
+  const value = offset ?? 0;
+  const screenWidth = width - 270 - 48 + value;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
   const cardWidth = screenWidth / numColumns;
@@ -80,41 +94,48 @@ const ListEmptyComponentRenderItem = () => {
     ),
     [data, numColumns, renderItem],
   );
-  return (
-    <Box width="100%">
-      <Box mx="8">
-        <Typography.Heading>Dapps</Typography.Heading>
-      </Box>
-      {flatList}
-    </Box>
-  );
+  return <Box width="100%">{flatList}</Box>;
 };
 
-export const EmptySkeleton = () => (
+export const EmptySkeletonContent: FC<EmptySkeletonContentProps> = ({
+  ListHeaderComponent,
+  offset,
+}) => (
   <FlatList
     contentContainerStyle={{
       paddingBottom: 24,
       paddingTop: 24,
     }}
-    data={[1, 2, 3, 4, 5, 6, 7, 8]}
-    ListHeaderComponent={
+    data={[1, 2, 3, 4]}
+    ListHeaderComponent={ListHeaderComponent}
+    renderItem={() => <ListEmptyComponentRenderItem offset={offset} />}
+    keyExtractor={(item) => String(item)}
+    ItemSeparatorComponent={() => <Box h="8" />}
+  />
+);
+
+type EmptySkeletonProps = {
+  offset?: number;
+};
+
+export const EmptySkeleton: FC<EmptySkeletonProps> = ({ offset }) => (
+  <EmptySkeletonContent
+    offset={offset}
+    ListHeaderComponent={() => (
       <FlatList
         horizontal
-        showsHorizontalScrollIndicator={platformEnv.isDesktop}
+        showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 16,
           marginBottom: 16,
         }}
-        data={[1, 2, 3, 4, 5, 6, 7]}
+        data={[1, 2, 3]}
         renderItem={() => (
           <Box h="7" w="12" borderRadius={12} mr={3} overflow="hidden">
             <CustomSkeleton />
           </Box>
         )}
       />
-    }
-    renderItem={() => <ListEmptyComponentRenderItem />}
-    keyExtractor={(item) => String(item)}
-    ItemSeparatorComponent={() => <Box h="8" />}
+    )}
   />
 );

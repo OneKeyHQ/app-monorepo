@@ -30,6 +30,7 @@ import { DAppItemType } from '../../type';
 import { DiscoverContext } from '../context';
 
 import { DAppCategories } from './DAppCategories';
+import { EmptySkeletonContent } from './EmptySkeleton';
 
 type ChainsSelectorValues = {
   selectedNetworkId: string;
@@ -165,6 +166,7 @@ const DappsContainer = () => {
       windowSize={5}
       showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item._id}
+      ListEmptyComponent={EmptySkeletonContent}
     />
   );
 };
