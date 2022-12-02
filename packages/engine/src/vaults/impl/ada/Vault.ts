@@ -162,7 +162,13 @@ export default class Vault extends VaultBase {
         this.networkId,
         transferInfo.token ?? '',
       )) as Token;
-      // TODO: fetch token info
+      if (!token) {
+        const client = await this.getClient();
+        token = await client.getAssetDetail(
+          transferInfo.token ?? '',
+          this.networkId,
+        );
+      }
     }
 
     const asset = isTokenTransfer ? transferInfo.token : 'lovelace';
@@ -556,8 +562,8 @@ export default class Vault extends VaultBase {
   override async validateTokenAddress(address: string): Promise<string> {
     const client = await this.getClient();
     try {
-      const res = await client.getAssetDetail(address);
-      return res.asset;
+      const res = await client.getAssetDetail(address, this.networkId);
+      return res.address ?? res.tokenIdOnNetwork;
     } catch (e) {
       console.error(e);
       throw e;
@@ -570,15 +576,11 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
-        const asset = await client.getAssetDetail(tokenAddress);
+        const asset = await client.getAssetDetail(tokenAddress, this.networkId);
         return {
-          decimals: asset.metadata?.decimals ?? 6,
-          name:
-            asset.metadata?.name ??
-            Buffer.from(asset.asset_name, 'hex').toString('utf8'),
-          symbol:
-            asset.metadata?.ticker ??
-            Buffer.from(asset.asset_name, 'hex').toString('utf8'),
+          decimals: asset.decimals,
+          name: asset.name,
+          symbol: asset.symbol,
         };
       }),
     );

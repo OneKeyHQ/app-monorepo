@@ -5,6 +5,7 @@ import memoizee from 'memoizee';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import { DBUTXOAccount } from '../../../../types/account';
+import { Token } from '../../../../types/token';
 import {
   IAdaAccount,
   IAdaAddress,
@@ -92,7 +93,7 @@ class Client {
         .then((i) => i.data),
     {
       promise: true,
-      maxAge: 1000 * 60,
+      maxAge: 1000 * 15,
     },
   );
 
@@ -120,8 +121,23 @@ class Client {
   }
 
   getAssetDetail = memoizee(
-    async (asset: string): Promise<IAsset> =>
-      this.request.get<IAsset>(`/assets/${asset}`).then((i) => i.data),
+    async (asset: string, networkId: string): Promise<Token> => {
+      const { data } = await this.request.get<IAsset>(`/assets/${asset}`);
+      const { asset_name: assetName, metadata } = data;
+      const decodeName = Buffer.from(assetName, 'hex').toString('utf8');
+      return {
+        id: `${networkId}--${asset}`,
+        address: asset,
+        decimals: metadata?.decimals ?? 6,
+        impl: 'ada',
+        isNative: false,
+        networkId,
+        symbol: metadata?.ticker ?? decodeName,
+        name: metadata?.name ?? decodeName,
+        tokenIdOnNetwork: asset,
+        logoURI: '',
+      };
+    },
     {
       promise: true,
       maxAge: 1000 * 60,
