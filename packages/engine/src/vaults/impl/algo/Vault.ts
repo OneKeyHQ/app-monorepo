@@ -474,7 +474,7 @@ export default class Vault extends VaultBase {
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
     const { address } = await this.getDbAccount();
     try {
-      const { 'min-balance': minBalance } = (await client
+      const { 'min-balance': minBalance = 0 } = (await client
         .accountInformation(address)
         .do()) as IAccountInformation;
       return {
