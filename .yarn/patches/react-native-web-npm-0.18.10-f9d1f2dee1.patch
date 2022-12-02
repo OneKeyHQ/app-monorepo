@@ -103,3 +103,42 @@ index 93c5f22f3b5c7625f3d428302033aae287a576f8..b06dbea0187ab4721133806a9c60f92b
  
          if (onError) {
            onError({
+diff --git a/dist/vendor/react-native/VirtualizedList/index.js b/dist/vendor/react-native/VirtualizedList/index.js
+index 801cc86c00539a8989670df44daa0f97158ac59a..277739565f9851e7b8c60e37f3ea819f088b58cb 100644
+--- a/dist/vendor/react-native/VirtualizedList/index.js
++++ b/dist/vendor/react-native/VirtualizedList/index.js
+@@ -561,6 +561,34 @@ class VirtualizedList extends React.PureComponent {
+         this._hasWarned.perf = true;
+       }
+ 
++      // onekey patch ----------------------------------------------
++      var perfCheckContentLength = 200;
++      if (this.props && this.props.perfCheckContentLength) {
++        perfCheckContentLength = this.props.perfCheckContentLength;
++      }
++      if (contentLength > perfCheckContentLength) {
++        // IOneKeyPerfCheckPayload
++        var perfEventPayload = {
++          testID: this.props && this.props.testID,
++          componentName: 'VirtualizedList',
++
++          flatListInfo: {
++            cellKey: this.context && this.context.cellKey,
++            firstData: this.props && this.props.data && this.props.data[0],
++            contentLength: contentLength,
++            perfCheckContentLength: perfCheckContentLength,
++          }
++        };
++        if (
++          typeof window !=='undefined' && 
++          typeof CustomEvent !=='undefined' && 
++          window.dispatchEvent
++          ) {
++          window.dispatchEvent(new CustomEvent('OneKeyEventPerfCheck', {detail: perfEventPayload}));
++        }
++      }
++      // onekey patch ----------------------------------------------
++
+       this._scrollMetrics = {
+         contentLength,
+         dt,
