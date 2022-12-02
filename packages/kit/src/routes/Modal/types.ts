@@ -18,7 +18,7 @@ export type { EnableLocalAuthenticationRoutesParams } from './EnableLocalAuthent
 export type { ManageNetworkRoutesParams } from './ManageNetwork';
 export type { OnekeyHardwareRoutesParams } from './HardwareOnekey';
 export type { HardwareUpdateRoutesParams } from './HardwareUpdate';
-export type { DiscoverRoutesParams } from './Discover';
+export type { DiscoverRoutesParams } from '../../views/Discover/type';
 export type { SwapRoutesParams } from '../../views/Swap/typings';
 export type { ScanQrcodeRoutesParams } from './ScanQrcode';
 export type { UpdateFeatureRoutesParams } from './UpdateFeature';

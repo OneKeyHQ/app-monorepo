@@ -158,7 +158,7 @@ export default class Vault extends VaultBase {
     // }
   }
 
-  override validateWatchingCredential(input: string) {
+  override async validateWatchingCredential(input: string) {
     return this.validateAddress(input)
       .then((address) => this.settings.watchingAccountEnabled && !!address)
       .catch(() => false);

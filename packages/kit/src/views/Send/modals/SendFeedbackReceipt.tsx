@@ -107,10 +107,10 @@ export function SendFeedbackReceipt() {
         setTimeout(() => {
           if (route.params.onDetail) {
             route.params.onDetail?.(route?.params?.txid);
-          } else if (route.params.isSingleTransformMode) {
-            openBlockBrowser.openTransactionDetails(route?.params?.txid);
-          } else {
+          } else if (route.params.isSingleTransformMode === false) {
             openBlockBrowser.openAddressDetails(accountAddress);
+          } else {
+            openBlockBrowser.openTransactionDetails(route?.params?.txid);
           }
         }, 100);
       }}

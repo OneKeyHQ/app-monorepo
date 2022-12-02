@@ -7,6 +7,7 @@ import { FormNumberInput } from './FormNumberInput';
 import { FormPasswordInput } from './FormPasswordInput';
 import { FormRadio } from './FormRadio';
 import { FormRadioGroup } from './FormRadioGroup';
+import { FormSegmentedControl } from './FormSegmentedControl';
 import { FormSelect } from './FormSelect';
 import { FormSwitch } from './FormSwitch';
 import { FormTextarea } from './FormTextarea';
@@ -25,6 +26,7 @@ Base.RadioGroup = FormRadioGroup;
 Base.Select = FormSelect;
 Base.PasswordInput = FormPasswordInput;
 Base.FormErrorMessage = FormErrorMessage;
+Base.SegmentedControl = FormSegmentedControl;
 
 type IFormComponentType = typeof BaseForm & {
   Item: typeof FormItem;
@@ -38,6 +40,7 @@ type IFormComponentType = typeof BaseForm & {
   Select: typeof FormSelect;
   PasswordInput: typeof FormPasswordInput;
   FormErrorMessage: typeof FormErrorMessage;
+  SegmentedControl: typeof FormSegmentedControl;
 };
 
 const Form = Base as IFormComponentType;

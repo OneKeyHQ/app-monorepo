@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { DAppItemType, WebSiteHistory } from '../type';
 
@@ -55,18 +56,30 @@ export function useHistoryHostMap(): Record<string, WebSiteHistory> {
 }
 
 export function useDiscoverHistory(): MatchDAppItemType[] {
-  const { idsMap } = useAllDappMap();
+  const [items, setItems] = useState<MatchDAppItemType[]>([]);
   const dappHistory = useAppSelector((s) => s.discover.dappHistory);
-  return useMemo(() => {
+
+  const dappsIds = useMemo(() => {
     if (!dappHistory) {
       return [];
     }
     return Object.entries(dappHistory)
       .sort((a, b) => b[1].timestamp - a[1].timestamp)
-      .map((o) => idsMap[o[0]])
-      .filter(Boolean)
-      .map((e) => ({ id: e._id, dapp: e }));
-  }, [dappHistory, idsMap]);
+      .map((o) => o[0])
+      .filter((item) => !Number.isNaN(item));
+  }, [dappHistory]);
+
+  useEffect(() => {
+    async function main() {
+      if (dappsIds) {
+        const itemDapps =
+          await backgroundApiProxy.serviceDiscover.getDappsByIds(dappsIds);
+        setItems(itemDapps.map((o) => ({ id: o._id, dapp: o })));
+      }
+    }
+    main();
+  }, [dappsIds]);
+  return items;
 }
 
 export function useDiscoverFavorites(): MatchDAppItemType[] {
@@ -102,37 +115,53 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
 }
 
 export function useTaggedDapps() {
-  const tagDapps = useAppSelector((s) => s.discover.tagDapps);
+  const home = useAppSelector((s) => s.discover.home);
   return useMemo(() => {
-    if (!tagDapps) {
+    if (!home) {
       return [];
     }
-    return tagDapps.filter((item) => item.items.length > 0);
-  }, [tagDapps]);
+    return home.tagDapps.filter((item) => item.items.length > 0);
+  }, [home]);
 }
 
-export function useCategoryDapps(categoryId?: string) {
-  const categoryDapps = useAppSelector((s) => s.discover.categoryDapps);
-  return useMemo(() => {
-    if (!categoryDapps || !categoryId) {
-      return [];
+export function useCategoryDapps(categoryId?: string): DAppItemType[] {
+  const [categoryDapps, setCategoryDapps] = useState<DAppItemType[]>([]);
+  useEffect(() => {
+    async function main() {
+      if (categoryId) {
+        const dapps = await backgroundApiProxy.serviceDiscover.getCategoryDapps(
+          categoryId,
+        );
+        setCategoryDapps(dapps);
+      }
     }
-    const result = categoryDapps.find((item) => item.id === categoryId);
-    if (result) {
-      return result.items;
+    main();
+  }, [categoryId]);
+  return categoryDapps;
+}
+
+export function useTagDapps(tagId: string) {
+  const [tagDapps, setTagDapps] = useState<DAppItemType[]>([]);
+  useEffect(() => {
+    async function main() {
+      if (tagId) {
+        const dapps = await backgroundApiProxy.serviceDiscover.getTagDapps(
+          tagId,
+        );
+        setTagDapps(dapps);
+      }
     }
-    return [];
-  }, [categoryId, categoryDapps]);
+    main();
+  }, [tagId]);
+  return tagDapps;
 }
 
 export function useCategories() {
-  const categoryDapps = useAppSelector((s) => s.discover.categoryDapps);
+  const home = useAppSelector((s) => s.discover.home);
   return useMemo(() => {
-    if (!categoryDapps) {
+    if (!home) {
       return [];
     }
-    return categoryDapps
-      .filter((item) => item.items.length > 0)
-      .map((o) => ({ name: o.label, _id: o.id }));
-  }, [categoryDapps]);
+    return home.categories;
+  }, [home]);
 }

@@ -25,8 +25,10 @@ import {
   SystemProgram,
   Transaction,
 } from '@solana/web3.js';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
+import { isArray } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
@@ -85,6 +87,17 @@ export default class Vault extends VaultBase {
   };
 
   settings = settings;
+
+  getApiExplorerCache = memoizee((baseURL) => axios.create({ baseURL }), {
+    promise: true,
+    max: 1,
+    maxAge: getTimeDurationMs({ minute: 3 }),
+  });
+
+  getApiExplorer() {
+    const baseURL = 'https://public-api.solscan.io/';
+    return this.getApiExplorerCache(baseURL);
+  }
 
   private async getClient(): Promise<Solana> {
     return (await this.engine.providerManager.getClient(
@@ -730,24 +743,63 @@ export default class Vault extends VaultBase {
       // No token support now.
       return Promise.resolve([]);
     }
-
+    const network = await this.getNetwork();
+    const ApiExplorer = this.getApiExplorer();
     const client = await this.getClient();
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+    let transfers: Array<{ signature?: string[] | string; txHash?: string }> =
+      [];
 
-    const signaturesResult: Array<{ signature: string }> =
-      await client.rpc.call('getSignaturesForAddress', [
+    if (network.isTestnet) {
+      transfers = await client.rpc.call('getSignaturesForAddress', [
         dbAccount.address,
-        { limit: 20 },
+        { limit: 50 },
       ]);
+    } else {
+      // Get full on chain history (including NFT) by using solscan api
+      // Does not support devnet
+      const splTransfersRequest = ApiExplorer.get<{
+        data: { signature?: string[]; txHash?: string }[];
+      }>('/account/splTransfers', {
+        params: {
+          account: dbAccount.address,
+          limit: 50,
+          cluster: network.isTestnet && 'devnet',
+        },
+      });
+
+      const solTransferRequest = ApiExplorer.get<{
+        data: { signature?: string[]; txHash?: string }[];
+      }>('/account/solTransfers', {
+        params: {
+          account: dbAccount.address,
+          limit: 50,
+          cluster: network.isTestnet && 'devnet',
+        },
+      });
+
+      const [splResp, solResl] = await Promise.all([
+        splTransfersRequest,
+        solTransferRequest,
+      ]);
+
+      const splTransfers = splResp.data.data || [];
+      const solTransfers = solResl.data.data || [];
+      transfers = [...splTransfers, ...solTransfers];
+    }
+
     const onChainTxs: Array<{
       blockTime: number;
       transaction: [IEncodedTx];
       meta: { fee: number; err: any | null };
     }> = await client.rpc.batchCall(
-      signaturesResult.map(({ signature }) => [
+      transfers.map(({ signature, txHash }) => [
         'getTransaction',
-        [signature, { encoding: 'base58' }],
+        [
+          txHash || isArray(signature) ? signature && signature[0] : signature,
+          { encoding: 'base58' },
+        ],
       ]),
     );
 
@@ -768,7 +820,13 @@ export default class Vault extends VaultBase {
     });
 
     const promises = onChainTxs.map(async (tx, index) => {
-      const { signature: txid } = signaturesResult[index];
+      const transferItem = transfers[index];
+      const txid =
+        transferItem.txHash ||
+        (isArray(transferItem.signature)
+          ? transferItem.signature && transferItem.signature[0]
+          : transferItem.signature) ||
+        '';
       const historyTxToMerge = localHistory.find(
         (item) => item.decodedTx.txid === txid,
       );
@@ -803,6 +861,7 @@ export default class Vault extends VaultBase {
           decodedTx,
           nftTxs,
         });
+
         return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
       } catch (e) {
         debugLogger.common.error(e);

@@ -49,12 +49,16 @@ export class KeyringHardware extends KeyringHardwareBase {
         },
       };
     } else if (encodedTx.raw_data.contract[0].type === 'TriggerSmartContract') {
-      const { contract_address: contractAddressHex, data } =
-        encodedTx.raw_data.contract[0].parameter.value;
+      const {
+        contract_address: contractAddressHex,
+        call_value: callValue,
+        data,
+      } = encodedTx.raw_data.contract[0].parameter.value;
       contractCall = {
         triggerSmartContract: {
           contractAddress: TronWeb.address.fromHex(contractAddressHex),
           data,
+          callValue,
         },
       };
     }
@@ -85,11 +89,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
 
     if (response.success && response.payload.signature) {
-      const { signature } = response.payload;
+      const { signature, serialized_tx: serializedTx } = response.payload;
       return Promise.resolve({
         txid: encodedTx.txID,
         rawTx: JSON.stringify({
           ...encodedTx,
+          raw_data_hex: serializedTx || encodedTx.raw_data_hex,
           signature: [signature],
         }),
       });
