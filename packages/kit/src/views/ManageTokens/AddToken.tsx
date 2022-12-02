@@ -22,7 +22,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
-import { useManageTokens } from '../../hooks';
+import { useAccountTokens, useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
@@ -256,6 +256,7 @@ function AddTokenModal() {
   } = useActiveWalletAccount();
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
+  const accountTokens = useAccountTokens(activeNetwork?.id, activeAccount?.id);
   const navigation = useNavigation<NavigationProps>();
   const token = useRouteParams();
   const queryInfo = useDappParams();
@@ -273,30 +274,42 @@ function AddTokenModal() {
       }
       try {
         setLoading(true);
-        const addedToken =
-          await backgroundApiProxy.serviceToken.addAccountToken(
+
+        let addedToken = {
+          address,
+        } as TokenType | undefined;
+        if (accountTokens.some((t) => t.tokenIdOnNetwork === address)) {
+          toast.show({
+            title: intl.formatMessage({
+              id: 'msg__token_already_existed',
+            }),
+          });
+        } else {
+          addedToken = await backgroundApiProxy.serviceToken.addAccountToken(
             activeNetwork.id,
             activeAccount.id,
             address,
             logoURI,
           );
+          toast.show({
+            title: intl.formatMessage({
+              id: 'msg__token_added',
+              defaultMessage: 'Token Added',
+            }),
+          });
+        }
         await wait(1000);
         await dappApprove.resolve({ close, result: addedToken });
         if (navigation.canGoBack()) {
           navigation.goBack();
         }
-        toast.show({
-          title: intl.formatMessage({
-            id: 'msg__token_added',
-            defaultMessage: 'Token Added',
-          }),
-        });
       } catch (error) {
         debugLogger.common.error('add token faild', error, address);
       }
       setLoading(false);
     },
     [
+      accountTokens,
       activeAccount,
       activeNetwork,
       address,
