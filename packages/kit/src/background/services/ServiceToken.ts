@@ -16,6 +16,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import { setTools } from '../../store/reducers/data';
 import {
   addAccountTokens,
   addNetworkTokens,
@@ -377,7 +378,9 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTools(networkId: string) {
-    return fetchTools(networkId);
+  async fetchTools() {
+    const tools = await fetchTools();
+    const { dispatch } = this.backgroundApi;
+    dispatch(setTools(tools));
   }
 }
