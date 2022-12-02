@@ -6,6 +6,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
+import { decodeAccountID } from 'xrpl';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -405,7 +406,7 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
     const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
-    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     let txs: IAdaHistory[] = [];
 
     try {
@@ -414,7 +415,7 @@ export default class Vault extends VaultBase {
       console.error(e);
     }
 
-    const promises = txs.map((tx) => {
+    const promises = txs.map(async (tx) => {
       try {
         const historyTxToMerge = localHistory.find(
           (item) => item.decodedTx.txid === tx.tx_hash,
@@ -424,51 +425,62 @@ export default class Vault extends VaultBase {
           return null;
         }
         const {
-          utxoFrom,
-          utxoTo,
-          totalOut,
-          totalIn,
           fee,
+          actions,
           block_hash: blockHash,
           tx_timestamp: txTimestamp,
         } = tx.tx;
-        const totalOutBN = new BigNumber(totalOut);
-        const totalInBN = new BigNumber(totalIn);
 
-        let direction = IDecodedTxDirection.IN;
-        if (totalOutBN.gt(totalInBN)) {
-          direction = utxoTo.every(({ isMine }) => isMine)
-            ? IDecodedTxDirection.SELF
-            : IDecodedTxDirection.OUT;
-        }
-        let amountValue = totalOutBN.minus(totalIn).abs();
-        if (
-          direction === IDecodedTxDirection.OUT &&
-          utxoFrom.every(({ isMine }) => isMine)
-        ) {
-          amountValue = amountValue.minus(fee);
-        }
+        const promiseActions = actions.map(async (action) => {
+          const { from, to, amount, type, direction } = action;
+          if (action.type === 'NATIVE_TRANSFER') {
+            return {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: nativeToken,
+                utxoFrom: action.utxoFrom,
+                utxoTo: action.utxoTo,
+                from,
+                to,
+                amount,
+                amountValue: action.amountValue,
+                extraInfo: null,
+              } as IDecodedTxActionNativeTransfer,
+            };
+          }
+          if (action.type === 'TOKEN_TRANSFER') {
+            const token = await this.engine.ensureTokenInDB(
+              this.networkId,
+              action.token.tokenIdOnNetwork,
+            );
+            return {
+              type: IDecodedTxActionType.TOKEN_TRANSFER,
+              direction,
+              tokenTransfer: {
+                tokenInfo: (token ?? action.token) as unknown as Token,
+                from,
+                to,
+                amount: new BigNumber(action.amount)
+                  .shiftedBy(-(token?.decimals ?? decimals))
+                  .toFixed(),
+                amountValue: action.amount,
+                extraInfo: null,
+              } as IDecodedTxActionTokenTransfer,
+            };
+          }
+        });
+
+        const decodeActions = (await Promise.all(
+          promiseActions,
+        )) as unknown as IDecodedTxAction[];
+
         const decodedTx: IDecodedTx = {
           txid: tx.tx_hash,
           owner: dbAccount.address,
           signer: dbAccount.address,
           nonce: 0,
-          actions: [
-            {
-              type: IDecodedTxActionType.NATIVE_TRANSFER,
-              direction,
-              nativeTransfer: {
-                tokenInfo: token,
-                utxoFrom,
-                utxoTo,
-                from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
-                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
-                amount: amountValue.shiftedBy(-decimals).toFixed(),
-                amountValue: amountValue.toFixed(),
-                extraInfo: null,
-              },
-            },
-          ],
+          actions: decodeActions,
           status: blockHash
             ? IDecodedTxStatus.Confirmed
             : IDecodedTxStatus.Pending,
@@ -482,7 +494,7 @@ export default class Vault extends VaultBase {
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-        return this.buildHistoryTx({
+        return await this.buildHistoryTx({
           decodedTx,
           historyTxToMerge,
         });

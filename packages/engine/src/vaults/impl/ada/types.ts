@@ -1,4 +1,4 @@
-import { ITransferInfo } from '../../types';
+import { IDecodedTxDirection, ITransferInfo } from '../../types';
 
 import type { PROTO } from '@onekeyfe/hd-core';
 
@@ -134,29 +134,41 @@ export type IAdaHistory = {
     tx_size: number;
     total_output: string;
     fee: string;
-    inputs: IHistoryUTXO[];
-    outputs: IHistoryUTXO[];
-    utxoFrom: IHistoryUTXOForm[];
-    utxoTo: IHistoryUTXOForm[];
-    totalOut: string;
-    totalIn: string;
+    actions: IAdaNativeTranfer[] | IAdaTokenTranfer[];
   };
 };
 
-type IHistoryUTXO = {
-  tx_hash: string;
-  value: string;
-  asset_list: Asset;
-  stake_addr: string;
-  payment_addr: string;
+type IAdaNativeTranfer = {
+  type: 'NATIVE_TRANSFER';
+  direction: IDecodedTxDirection;
+  utxoFrom: IUtxoForm[];
+  utxoTo: IUtxoForm[];
+  from: string;
+  to: string;
+  amount: string;
+  amountValue: string;
 };
 
-type IHistoryUTXOForm = {
+type IUtxoForm = {
   address: string;
   balance: string;
   balanceValue: string;
   symbol: string;
   isMine: boolean;
+};
+
+type IAdaTokenTranfer = {
+  type: 'TOKEN_TRANSFER';
+  direction: IDecodedTxDirection;
+  from: string;
+  to: string;
+  amount: string;
+  token: {
+    id: string;
+    tokenIdOnNetwork: string;
+    decimals: number;
+    name: string;
+  };
 };
 
 export type IAsset = Asset & {
