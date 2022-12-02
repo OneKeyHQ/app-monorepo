@@ -1,6 +1,13 @@
-import React, { FC, useLayoutEffect, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -61,6 +68,19 @@ const RevokePage: FC = () => {
     headerParams?.networkId ?? '',
     headerParams?.address ?? '',
     filters.assetType,
+  );
+
+  const onHeaderParamsChange = useCallback(
+    (params: typeof headerParams) => {
+      if (!params?.address) {
+        return;
+      }
+      if (isEqual(params, headerParams)) {
+        return;
+      }
+      setHeaderParams(params);
+    },
+    [setHeaderParams, headerParams],
   );
 
   const isLoading = loading || !!headerParams?.loading;
@@ -192,7 +212,7 @@ const RevokePage: FC = () => {
       }}
     >
       <Center flex="1" pb="108px">
-        <RevokeHeader onChange={setHeaderParams} />
+        <RevokeHeader onChange={onHeaderParamsChange} />
         <VStack maxW="1030px" w="100%">
           <FilterBar {...filters} isFromRpc={isFromRpc} onChange={setFilters} />
           {content}

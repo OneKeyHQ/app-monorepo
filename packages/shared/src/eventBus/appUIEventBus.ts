@@ -11,6 +11,7 @@ enum AppUIEventBusNames {
   RemoveAccount = 'RemoveAccount',
   Unlocked = 'Unlocked',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
+  AccountChanged = 'AccountChanged',
 }
 
 if (isExtensionBackground) {
