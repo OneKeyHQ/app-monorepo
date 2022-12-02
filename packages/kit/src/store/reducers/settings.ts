@@ -54,6 +54,7 @@ export type SettingsState = {
     updateDeviceRes?: boolean;
     enableTestFiatEndpoint?: boolean;
     enableZeroNotificationThreshold?: boolean;
+    enablePerfCheck?: boolean;
   };
   pushNotification?: {
     registrationId?: string;
@@ -118,6 +119,7 @@ const initialState: SettingsState = {
     updateDeviceRes: false,
     enableTestFiatEndpoint: false,
     enableZeroNotificationThreshold: false,
+    enablePerfCheck: false,
   },
   pushNotification: defaultPushNotification,
   validationSetting: {
@@ -261,6 +263,12 @@ export const settingsSlice = createSlice({
       state.devMode = {
         ...state.devMode,
         enableZeroNotificationThreshold: action.payload,
+      };
+    },
+    setEnablePerfCheck(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        enablePerfCheck: action.payload,
       };
     },
     setDeviceUpdates(
@@ -417,6 +425,7 @@ export const {
   setHideSmallBalance,
   setPushNotificationConfig,
   setEnableZeroNotificationThreshold,
+  setEnablePerfCheck,
   setIncludeNFTsInTotal,
   setHideBalance,
   setUpdateSetting,
