@@ -8,7 +8,6 @@ import { DiscoverContext } from '../context';
 export const DAppCategories = () => {
   const { categoryId, setCategoryId } = useContext(DiscoverContext);
   const categories = useCategories();
-
   const data = useMemo(() => {
     if (!categories) {
       return [];

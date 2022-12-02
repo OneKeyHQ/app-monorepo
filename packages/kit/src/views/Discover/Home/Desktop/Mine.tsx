@@ -18,14 +18,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
   useDiscoverHistory,
   useTaggedDapps,
 } from '../../hooks';
+import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
 
@@ -33,6 +38,7 @@ import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
 import type { SectionDataType } from '../../type';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
@@ -133,8 +139,14 @@ const ListHeaderHistories = () => {
   );
 };
 
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.DAppListScreen
+>;
+
 const ListHeaderItems = () => {
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
   const { itemSource, setItemSource, onItemSelectHistory } =
     useContext(DiscoverContext);
 
@@ -162,16 +174,23 @@ const ListHeaderItems = () => {
         </Box>
         <Button
           onPress={() => {
-            getAppNavigation().navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Discover,
-              params: {
-                screen: DiscoverModalRoutes.MyDAppListModal,
+            if (platformEnv.isNative) {
+              getAppNavigation().navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Discover,
                 params: {
-                  onItemSelect: onItemSelectHistory,
-                  defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+                  screen: DiscoverModalRoutes.MyDAppListModal,
+                  params: {
+                    onItemSelect: onItemSelectHistory,
+                    defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+                  },
                 },
-              },
-            });
+              });
+            } else {
+              navigation.navigate(HomeRoutes.MyDAppListScreen, {
+                onItemSelect: onItemSelectHistory,
+                defaultIndex: itemSource === 'Favorites' ? 0 : 1,
+              });
+            }
           }}
           height="32px"
           type="plain"
@@ -192,8 +211,8 @@ const ListHeaderItems = () => {
 };
 
 const ListHeaderComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  if (!dappItems) {
+  const home = useAppSelector((s) => s.discover.home);
+  if (!home) {
     return null;
   }
   return (
@@ -205,9 +224,8 @@ const ListHeaderComponent = () => {
 };
 
 const ListEmptyComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  const listedCategories = useAppSelector((s) => s.discover.listedCategories);
-  return dappItems && listedCategories ? <Empty title="" /> : <EmptySkeleton />;
+  const home = useAppSelector((s) => s.discover.home);
+  return home ? <Empty title="" /> : <EmptySkeleton />;
 };
 
 export const Mine: FC = () => {
@@ -217,7 +235,12 @@ export const Mine: FC = () => {
   const { onItemSelect } = useContext(DiscoverContext);
 
   const data = useMemo(
-    () => dapps.map((item) => ({ title: item.label, data: item.items })),
+    () =>
+      dapps.map((item) => ({
+        title: item.label,
+        data: item.items,
+        tagId: item.id,
+      })),
     [dapps],
   );
 

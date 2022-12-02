@@ -1,42 +1,16 @@
 import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
-import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
 import { ShareView } from '@onekeyhq/kit/src/views/Discover/Share';
 
 import { getAppNavigation } from '../../hooks/useAppNavigation';
-import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
-import { DAppItemType } from '../../views/Discover/type';
+import MyDAppList from '../../views/Discover/MyDAppList';
+import {
+  DiscoverModalRoutes,
+  DiscoverRoutesParams,
+} from '../../views/Discover/type';
 
 import createStackNavigator from './createStackNavigator';
-
-export enum DiscoverModalRoutes {
-  SearchHistoryModal = 'SearchHistoryModal',
-  ShareModal = 'ShareModal',
-  DAppListModal = 'DAppListModal',
-  MyDAppListModal = 'MyDAppListModal',
-}
-
-export type DiscoverRoutesParams = {
-  [DiscoverModalRoutes.SearchHistoryModal]: {
-    url: string | undefined;
-    onSelectorItem?: (item: MatchDAppItemType | string) => void;
-  };
-  [DiscoverModalRoutes.ShareModal]: {
-    url: string;
-    name?: string;
-    logoURL?: string;
-  };
-  [DiscoverModalRoutes.DAppListModal]: {
-    title: string;
-    data: DAppItemType[];
-    onItemSelect?: (item: DAppItemType) => void;
-  };
-  [DiscoverModalRoutes.MyDAppListModal]: {
-    defaultIndex?: number;
-    onItemSelect?: (item: MatchDAppItemType) => void;
-  };
-};
 
 const DiscoverNavigator = createStackNavigator<DiscoverRoutesParams>();
 

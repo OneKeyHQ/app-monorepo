@@ -8,9 +8,7 @@ import { SectionDataType } from '../../type';
 
 let CardViewImpl: any;
 
-if (platformEnv.isDesktop || platformEnv.isNativeIOSPad) {
-  CardViewImpl = require('./Desktop').Desktop;
-} else if (platformEnv.isNative) {
+if (platformEnv.isNative) {
   CardViewImpl = require('./Mobile').Mobile;
 } else {
   CardViewImpl = require('./Unknown').Unknown;
