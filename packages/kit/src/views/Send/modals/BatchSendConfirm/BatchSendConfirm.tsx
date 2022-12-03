@@ -11,7 +11,7 @@ import { useWalletConnectPrepareConnection } from '../../../../components/Wallet
 import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
-import { wait } from '../../../../utils/helper';
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
@@ -32,12 +32,6 @@ import { useBatchSendConfirmRouteParamsParsed } from '../../utils/useBatchSendCo
 import { useReloadAccountBalance } from '../../utils/useReloadAccountBalance';
 
 import { BatchSendConfirmLoading } from './BatchSendConfirmLoading';
-
-import {
-  ModalRoutes,
-  RootRoutes,
-  ModalScreenProps,
-} from '../../../../routes/types';
 
 interface Props {
   batchSendConfirmParamsParsed: ReturnType<

@@ -7,6 +7,7 @@ import { groupBy, keys } from 'lodash';
 import memoizee from 'memoizee';
 
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
@@ -16,7 +17,6 @@ import {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
 

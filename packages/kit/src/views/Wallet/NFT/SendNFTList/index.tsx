@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   FlatList,
-  Icon,
   Text,
   useIsVerticalLayout,
   useSafeAreaInsets,
@@ -22,12 +21,12 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { SendRoutes } from '../../../../routes/routesEnum';
-import { PreSendParams } from '../../../Send/types';
 import {
   ModalRoutes,
-  RootRoutes,
   ModalScreenProps,
+  RootRoutes,
 } from '../../../../routes/types';
+import { PreSendParams } from '../../../Send/types';
 
 import SelectNFTCard from './SelectNFTCard';
 import {

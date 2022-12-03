@@ -25,16 +25,15 @@ import NameServiceResolver, {
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '../../../routes/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes, SendRoutesParams } from '../types';
-
-import {
-  ModalRoutes,
-  RootRoutes,
-  ModalScreenProps,
-} from '../../../routes/types';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
