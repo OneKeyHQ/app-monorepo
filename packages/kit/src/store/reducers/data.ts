@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import { Tool } from '@onekeyhq/engine/src/types/token';
 import { stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -15,6 +16,7 @@ export type DataInitialState = {
   cursorMap: Record<string, string>;
   handOperatedLock?: boolean;
   feePresetIndexMap?: Record<string, string | undefined>;
+  tools: Tool[];
 };
 
 const initialState: DataInitialState = {
@@ -25,6 +27,7 @@ const initialState: DataInitialState = {
   currencyList: [],
   isAppRenderReady: false,
   cursorMap: {},
+  tools: [],
 };
 
 export const dataSlice = createSlice({
@@ -78,6 +81,9 @@ export const dataSlice = createSlice({
       }
       state.feePresetIndexMap[action.payload.networkId] = action.payload.index;
     },
+    setTools(state, action: PayloadAction<Tool[]>) {
+      state.tools = action.payload;
+    },
   },
 });
 
@@ -91,6 +97,7 @@ export const {
   lock,
   setHandOperatedLock,
   setFeePresetIndex,
+  setTools,
 } = dataSlice.actions;
 
 export default dataSlice.reducer;
