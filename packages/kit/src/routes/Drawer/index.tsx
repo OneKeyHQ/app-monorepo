@@ -43,6 +43,7 @@ const DrawerStackNavigator = () => {
         drawerType: 'back',
         swipeEdgeWidth: 390,
         drawerStyle,
+        swipeEnabled: !platformEnv.isNativeIOSPad,
       }}
       // drawerContent={(props) => <AccountSelectorMobile {...props} />}
       drawerContent={(props) => <WalletSelectorMobile {...props} />}
