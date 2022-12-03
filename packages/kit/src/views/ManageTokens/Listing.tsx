@@ -34,6 +34,7 @@ import {
   useDebounce,
   useNetworkTokens,
 } from '../../hooks';
+import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
@@ -256,8 +257,32 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     (t) => item.tokenIdOnNetwork === t.tokenIdOnNetwork && !t.autoDetected,
   );
 
+  const checkIfShouldActiveToken = useCallback(async () => {
+    const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+      networkId,
+    );
+    if (!vaultSettings?.activateTokenRequired) {
+      return;
+    }
+    return new Promise((resolve, reject) => {
+      navigation.navigate(ManageTokenRoutes.ActivateToken, {
+        walletId,
+        accountId,
+        networkId,
+        tokenId: item.tokenIdOnNetwork,
+        onSuccess: () => {
+          resolve(true);
+        },
+        onFailure: (e) => {
+          reject(e);
+        },
+      });
+    });
+  }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
+
   const onAddToken = useCallback(async () => {
     try {
+      await checkIfShouldActiveToken();
       await backgroundApiProxy.engine.quickAddToken(
         accountId,
         networkId,
@@ -267,14 +292,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       );
     } catch (e) {
       debugLogger.common.error('add token error', e);
-      toast.show(
-        {
-          title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
-        },
-        {
-          type: 'error',
-        },
-      );
+      deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
       return;
     }
     backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -320,41 +338,27 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       }
     }
     toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
-  }, [accountId, networkId, toast, intl, hideSmallBalance, item]);
-
-  const checkIfShouldActiveToken = useCallback(async () => {
-    const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
-      networkId,
-    );
-    if (!vaultSettings?.activateTokenRequired) {
-      return;
-    }
-    return new Promise((resolve) => {
-      navigation.navigate(ManageTokenRoutes.ActivateToken, {
-        walletId,
-        accountId,
-        networkId,
-        tokenId: item.tokenIdOnNetwork,
-        onSuccess: () => {
-          resolve(true);
-        },
-      });
-    });
-  }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
+  }, [
+    accountId,
+    networkId,
+    hideSmallBalance,
+    toast,
+    intl,
+    checkIfShouldActiveToken,
+    item,
+  ]);
 
   const onPress = useCallback(async () => {
     if (!accountId || !networkId) {
       return;
     }
     setLoading(true);
-    await checkIfShouldActiveToken();
-    onAddToken().finally(() => {
-      notifyIfRiskToken(item);
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
-    });
-  }, [item, accountId, networkId, onAddToken, checkIfShouldActiveToken]);
+    await onAddToken();
+    notifyIfRiskToken(item);
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+  }, [item, accountId, networkId, onAddToken]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned

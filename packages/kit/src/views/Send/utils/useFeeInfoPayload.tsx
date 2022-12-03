@@ -131,6 +131,7 @@ export function useFeeInfoPayload({
             code?: number;
             data?: Error;
           };
+
           if (errCode === -32603 && innerError) {
             // Internal RPC Error during fetching fee info
             setFeeInfoError(innerError);

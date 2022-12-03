@@ -74,6 +74,7 @@ import {
   DEFAULT_GAS_LIMIT_NATIVE_TRANSFER,
   DEFAULT_GAS_LIMIT_TRANSFER,
   buildSignedTx,
+  convertRpcError,
   generateRegisterToken,
   generateTransferCoin,
   generateUnsignedTransaction,
@@ -677,7 +678,7 @@ export default class Vault extends VaultBase {
           (!isOnekeyNativeTransfer && !simulationTx.success)
         ) {
           // Exec failure
-          throw new OneKeyError();
+          throw convertRpcError(simulationTx.vm_status);
         }
 
         limit = BigNumber.min(
@@ -752,9 +753,13 @@ export default class Vault extends VaultBase {
         txid,
       };
     } catch (error: any) {
-      const { errorCode, message } = error || {};
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new OneKeyInternalError(`${errorCode ?? ''} ${message}`);
+      // It's already been dealt with in the waitPendingTransaction
+      if (error instanceof OneKeyInternalError) {
+        throw error;
+      }
+
+      const { message } = error || {};
+      throw convertRpcError(message);
     }
   }
 

@@ -16,6 +16,7 @@ import {
   InvalidAccount,
   OneKeyError,
   OneKeyHardwareError,
+  OneKeyInternalError,
 } from '../../../errors';
 import { IDecodedTxActionType } from '../../types';
 import { hexlify, stripHexPrefix } from '../../utils/hexUtils';
@@ -221,6 +222,50 @@ export async function generateUnsignedTransaction(
   return rawTxn;
 }
 
+export function convertRpcError(error: string): OneKeyError {
+  // more: https://github.com/aptos-labs/aptos-core/blob/1b3348636fd24a8eb413c34f2ebb2c76c25e10d5/developer-docs-site/docs/guides/handle-aptos-errors.md
+  if (error.indexOf('EACCOUNT_DOES_NOT_EXIST') !== -1) {
+    return new OneKeyInternalError(
+      error,
+      'msg__error_aptso_account_does_not_exist',
+    );
+  }
+  if (
+    error.indexOf('EINSUFFICIENT_BALANCE') !== -1 ||
+    error.indexOf('INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE') !== -1
+  ) {
+    return new OneKeyInternalError(error, 'msg__error_aptos_insufficient_coin');
+  }
+
+  if (error.indexOf('ECOIN_STORE_NOT_PUBLISHED') !== -1) {
+    return new OneKeyInternalError(
+      error,
+      'msg__error_aptos_account_has_not_registered_token',
+    );
+  }
+
+  if (error.indexOf('ECOLLECTION_ALREADY_EXISTS') !== -1) {
+    return new OneKeyInternalError(
+      error,
+      'msg__error_aptos_collection_already_exists',
+    );
+  }
+  if (error.indexOf('ECOLLECTION_NOT_PUBLISHED') !== -1) {
+    return new OneKeyInternalError(
+      error,
+      'msg__error_aptos_cannot_find_collection',
+    );
+  }
+
+  if (error.indexOf('ETOKEN_DATA_ALREADY_EXISTS') !== -1) {
+    return new OneKeyInternalError(
+      error,
+      'msg__error_aptos_nft_token_already_exists',
+    );
+  }
+  return new OneKeyError(error);
+}
+
 export function waitPendingTransaction(
   client: AptosClient,
   txHash: string,
@@ -247,7 +292,7 @@ export function waitPendingTransaction(
     }
     if (success === false) {
       return Promise.reject(
-        new OneKeyError(get(transaction, 'vm_status', undefined)),
+        convertRpcError(get(transaction, 'vm_status', undefined) ?? ''),
       );
     }
     if (retry > retryCount) {
