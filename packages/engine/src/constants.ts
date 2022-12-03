@@ -153,4 +153,4 @@ export {
 };
 
 // switch network default rpc to onekey rpc node
-export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.20.0';
+export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.21.0';

@@ -23,12 +23,13 @@ import {
   transactionPayloadToTxPayload,
 } from '@onekeyhq/engine/src/vaults/impl/apt/utils';
 import VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
+import { decodeBytesTransaction } from '@onekeyhq/engine/src/vaults/impl/sui/utils';
 import {
   hexlify,
   stripHexPrefix,
-} from '../../../../engine/src/vaults/utils/hexUtils';
+} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { getActiveWalletAccount } from '../../hooks/redux';
 import {
   backgroundClass,
@@ -480,21 +481,160 @@ class ProviderApiAptos extends ProviderApiBase {
     return Promise.resolve(result);
   }
 
-  @providerApiMethod()
-  public async getChainId() {
-    debugLogger.providerApi.info('aptos getChainId');
-
+  private async getAptosVault(): Promise<VaultAptos> {
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_APTOS) {
-      return undefined;
+      throw web3Errors.provider.chainDisconnected();
     }
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
     })) as VaultAptos;
 
+    return vault;
+  }
+
+  @providerApiMethod()
+  public async getChainId() {
+    debugLogger.providerApi.info('aptos getChainId');
+
+    const vault = await this.getAptosVault();
+
     const chainId = await (await vault.getClient()).getChainId();
     return Promise.resolve({ chainId });
+  }
+
+  @providerApiMethod()
+  public async generateTransaction(
+    request: IJsBridgeMessagePayload,
+    params: {
+      sender: string;
+      payload: {
+        function: string;
+        type_arguments: any[];
+        arguments: any[];
+      };
+      options?: {
+        sender?: string;
+        sequence_number?: string;
+        max_gas_amount?: string;
+        gas_unit_price?: string;
+        gas_currency_code?: string; // TODO:Unix timestamp, in seconds + 10 seconds
+        expiration_timestamp_secs?: string;
+      };
+    },
+  ) {
+    debugLogger.providerApi.info('aptos generateTransaction');
+
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+    const rawTx = await client.generateTransaction(
+      params.sender,
+      params.payload,
+      params.options,
+    );
+    const serializer = new BCS.Serializer();
+    rawTx.serialize(serializer);
+    return serializer.getBytes().toString();
+  }
+
+  @providerApiMethod()
+  public async submitTransaction(
+    request: IJsBridgeMessagePayload,
+    params: Uint8Array | string,
+  ) {
+    debugLogger.providerApi.info('aptos generateTransaction');
+
+    const bcsTxn: Uint8Array = decodeBytesTransaction(params);
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+    const res = await client.submitTransaction(bcsTxn);
+    return res.hash;
+  }
+
+  @providerApiMethod()
+  public async getTransactions(
+    request: IJsBridgeMessagePayload,
+    params: { start?: string; limit?: number },
+  ) {
+    debugLogger.providerApi.info('aptos getTransactions');
+
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+    const { start } = params ?? {};
+    return client.getTransactions({
+      start: start ? BigInt(start) : undefined,
+      limit: params.limit,
+    });
+  }
+
+  @providerApiMethod()
+  public async getTransaction(
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ) {
+    debugLogger.providerApi.info('aptos getTransaction');
+
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+    return client.getTransactionByHash(params);
+  }
+
+  @providerApiMethod()
+  public async getAccountTransactions(
+    request: IJsBridgeMessagePayload,
+    params: {
+      accountAddress: string;
+      query?: { start?: string; limit?: number };
+    },
+  ) {
+    debugLogger.providerApi.info('aptos getAccountTransactions');
+
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+    const { start } = params.query ?? {};
+    return client.getAccountTransactions(params.accountAddress, {
+      start: start ? BigInt(start) : undefined,
+      limit: params.query?.limit,
+    });
+  }
+
+  @providerApiMethod()
+  public async getAccountResources(
+    request: IJsBridgeMessagePayload,
+    params: {
+      accountAddress: string;
+      query?: { ledgerVersion?: string };
+    },
+  ) {
+    debugLogger.providerApi.info('aptos getAccountResources');
+
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+
+    const { ledgerVersion } = params.query ?? {};
+
+    return client.getAccountResources(params.accountAddress, {
+      ledgerVersion: ledgerVersion ? BigInt(ledgerVersion) : undefined,
+    });
+  }
+
+  @providerApiMethod()
+  public async getAccount(request: IJsBridgeMessagePayload, params: string) {
+    debugLogger.providerApi.info('aptos getAccount');
+
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+    return client.getAccount(params);
+  }
+
+  @providerApiMethod()
+  public async getLedgerInfo() {
+    debugLogger.providerApi.info('aptos getLedgerInfo');
+
+    const vault = await this.getAptosVault();
+    const client = await vault.getClient();
+    return client.getLedgerInfo();
   }
 }
 
