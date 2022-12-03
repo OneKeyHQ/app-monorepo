@@ -154,15 +154,10 @@ export const fetchTokenDetail = async (
   );
 };
 
-export const fetchTools = async (networkId: string): Promise<Tool[]> => {
-  if (!networkId) {
-    return [];
-  }
+export const fetchTools = async (): Promise<Tool[]> => {
   const res = await fetchData<{ data: Tool[] }>(
     '/config/tools',
-    {
-      networkId,
-    },
+    {},
     { data: [] },
   );
   return res.data ?? [];

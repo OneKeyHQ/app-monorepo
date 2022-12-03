@@ -4,7 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useState,
+  useRef,
 } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -22,7 +22,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { Tool } from '@onekeyhq/engine/src/types/token';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -32,9 +32,11 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
+import { useTools } from '../../../hooks/redux';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
+import { WalletHomeTabEnum } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -77,11 +79,13 @@ type NavigationProps = NativeStackNavigationProp<
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
+  const hasFetchedRef = useRef(false);
   const { size } = useUserDevice();
-  const [tools, setTools] = useState<Tool[]>([]);
   const { network, accountAddress } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const tools = useTools(network?.id);
 
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
@@ -128,14 +132,20 @@ const ToolsPage: FC = () => {
   );
 
   const fetchData = useCallback(() => {
-    backgroundApiProxy.serviceToken
-      .fetchTools(network?.id ?? '')
-      .then((ts) => setTools(ts ?? []));
-  }, [network?.id]);
+    backgroundApiProxy.serviceToken.fetchTools().finally(() => {
+      hasFetchedRef.current = true;
+    });
+  }, []);
 
   useEffect(() => {
+    if (hasFetchedRef.current) {
+      return;
+    }
+    if (homeTabName !== WalletHomeTabEnum.Tools) {
+      return;
+    }
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, homeTabName]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: typeof data[0]; index: number }) => (
