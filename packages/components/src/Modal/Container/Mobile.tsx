@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { FC, isValidElement, useMemo, useState } from 'react';
+import { FC, isValidElement, useMemo, useState } from 'react';
 
 import {
   useFocusEffect,
