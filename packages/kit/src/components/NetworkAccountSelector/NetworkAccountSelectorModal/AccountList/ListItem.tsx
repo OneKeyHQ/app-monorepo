@@ -10,6 +10,10 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
@@ -137,6 +141,7 @@ const ListItem: FC<ListItemProps> = ({
           walletId: walletId ?? '',
         });
         await serviceAccountSelector.setSelectedWalletToActive();
+        appUIEventBus.emit(AppUIEventBusNames.AccountChanged);
       } finally {
         await wait(100);
         dispatch(updateIsRefreshDisabled(false));

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { FC, useCallback, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -11,10 +11,12 @@ import {
   Empty,
   SectionList,
   useSafeAreaInsets,
+  useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IAccount } from '@onekeyhq/engine/src/types';
 
+import { useNetwork } from '../../../../hooks';
 import { useActiveWalletAccount } from '../../../../hooks/redux';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
@@ -25,9 +27,60 @@ import {
   isListAccountsSingleWalletMode,
   useAccountSelectorSectionData,
 } from '../../hooks/useAccountSelectorSectionData';
+import {
+  NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+  useCreateAccountInWallet,
+} from '../../hooks/useCreateAccountInWallet';
 
 import ListItem from './ListItem';
 import SectionHeader from './SectionHeader';
+
+type EmptyAccountStateProps = {
+  walletId: string;
+  networkId: string;
+};
+
+const EmptyAccountState: FC<EmptyAccountStateProps> = ({
+  walletId,
+  networkId,
+}) => {
+  const intl = useIntl();
+  const toast = useToast();
+  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
+    walletId,
+    networkId,
+  });
+  const { network } = useNetwork({ networkId });
+  return (
+    <Empty
+      emoji="💳"
+      title={intl.formatMessage({ id: 'empty__no_account_title' })}
+      subTitle={intl.formatMessage({
+        id: 'empty__no_account_desc',
+      })}
+      handleAction={() => {
+        if (isCreateAccountSupported) {
+          createAccount();
+        } else {
+          toast.show({
+            title: intl.formatMessage(
+              {
+                id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
+              },
+              { 0: network?.shortName },
+            ),
+          });
+        }
+      }}
+      actionTitle={intl.formatMessage({ id: 'action__create_account' })}
+      actionProps={{
+        leftIconName: 'PlusOutline',
+      }}
+      flex={1}
+      mt={8}
+    />
+  );
+};
 
 function AccountList({
   accountSelectorInfo,
@@ -50,7 +103,6 @@ function AccountList({
     networkId: activeNetworkId,
   } = useActiveWalletAccount();
   const insets = useSafeAreaInsets();
-  const intl = useIntl();
 
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
@@ -202,14 +254,9 @@ function AccountList({
               ) : null}
 
               {isEmptySectionData && !isPreloadingCreate ? (
-                <Empty
-                  emoji="💳"
-                  title={intl.formatMessage({ id: 'empty__no_account_title' })}
-                  subTitle={intl.formatMessage({
-                    id: 'empty__no_account_desc',
-                  })}
-                  flex={1}
-                  mt={8}
+                <EmptyAccountState
+                  walletId={section.wallet.id}
+                  networkId={section.networkId}
                 />
               ) : null}
 

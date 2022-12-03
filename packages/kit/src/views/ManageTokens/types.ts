@@ -33,7 +33,7 @@ export type ManageTokenRoutesParams = {
     networkId: string;
     tokenId: string;
     onSuccess?: () => void;
-    onFailure?: () => void;
+    onFailure?: (error?: Error) => void;
   };
   [ManageTokenRoutes.ViewToken]: {
     name: string;

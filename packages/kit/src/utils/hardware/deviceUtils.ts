@@ -284,7 +284,20 @@ class DeviceUtils {
           return true;
         }
       } else {
-        const errorMessage = formatMessage({ id: defKey ?? key }, info);
+        let errorMessage;
+        if (
+          key &&
+          key !== 'msg__engine__internal_error' &&
+          key !== 'onekey_error'
+        ) {
+          errorMessage = formatMessage({ id: key }, info);
+        } else if (defKey) {
+          errorMessage = formatMessage({ id: defKey }, info);
+          // } else if (message && !isEmpty(message)) {
+          //   errorMessage = message;
+        } else {
+          errorMessage = formatMessage({ id: key }, info);
+        }
 
         if (errorMessage) {
           ToastManager.show({ title: errorMessage }, { type: 'error' });

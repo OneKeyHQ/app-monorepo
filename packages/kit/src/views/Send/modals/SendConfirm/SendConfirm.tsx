@@ -101,7 +101,7 @@ function SendConfirm({
     return false;
   }, [decodedTx, isFromDapp, payload]);
 
-  const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
+  const { feeInfoError, feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     accountId,
     networkId,
     encodedTx,
@@ -251,6 +251,7 @@ function SendConfirm({
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
       loading={feeInfoLoading}
+      feeInfoError={feeInfoError}
     />
   );
   const sharedProps: ITxConfirmViewProps = {
