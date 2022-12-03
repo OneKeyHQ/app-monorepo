@@ -113,11 +113,18 @@ class BlockBook {
 
   async broadcastTransaction(rawTx: string): Promise<string> {
     try {
-      const res = await this.request
-        .get(`/api/v2/sendtx/${rawTx}`)
-        .then((i) => i.data);
+      let res: { result: string } | null = null;
+      if (rawTx.length < 500) {
+        res = await this.request
+          .get(`/api/v2/sendtx/${rawTx}`)
+          .then((i) => i.data);
+      } else {
+        res = await this.request
+          .post(`/api/v2/sendtx/`, rawTx)
+          .then((i) => i.data);
+      }
 
-      return res.result;
+      return res?.result ?? '';
     } catch (e: unknown) {
       const err = e as RequestError;
       if (

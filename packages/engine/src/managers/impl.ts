@@ -182,17 +182,17 @@ const defaultAccountNameInfo: Record<
   [IMPL_LTC]: {
     default: {
       prefix: 'LTC Nested SegWit',
-      category: `49'/${COINTYPE_BTC}'`,
+      category: `49'/${COINTYPE_LTC}'`,
       label: 'Nested SegWit (P2SH)',
     },
     BIP44: {
       prefix: 'LTC Legacy',
-      category: `44'/${COINTYPE_BTC}'`,
+      category: `44'/${COINTYPE_LTC}'`,
       label: 'Legacy (P2PKH)',
     },
     BIP84: {
       prefix: 'LTC Native SegWit',
-      category: `84'/${COINTYPE_BTC}'`,
+      category: `84'/${COINTYPE_LTC}'`,
       label: 'Native SegWit',
     },
   },
