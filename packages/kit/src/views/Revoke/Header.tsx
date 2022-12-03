@@ -12,6 +12,10 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
@@ -63,16 +67,24 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
   }, [address, networkId, onChange, loading]);
 
   useEffect(() => {
-    if (accountAddress) {
-      setAddressOrName(accountAddress);
-    }
-  }, [accountAddress]);
-
-  useEffect(() => {
     if (activeNetworkId) {
       setNetworkId(activeNetworkId);
     }
   }, [activeNetworkId]);
+
+  useEffect(() => {
+    setAddressOrName(accountAddress);
+    const onActiveAccountChange = () => {
+      setAddressOrName(accountAddress);
+    };
+    appUIEventBus.on(AppUIEventBusNames.AccountChanged, onActiveAccountChange);
+    return () => {
+      appUIEventBus.off(
+        AppUIEventBusNames.AccountChanged,
+        onActiveAccountChange,
+      );
+    };
+  }, [accountAddress]);
 
   const share = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
