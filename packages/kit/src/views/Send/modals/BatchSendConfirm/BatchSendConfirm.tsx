@@ -33,6 +33,12 @@ import { useReloadAccountBalance } from '../../utils/useReloadAccountBalance';
 
 import { BatchSendConfirmLoading } from './BatchSendConfirmLoading';
 
+import {
+  ModalRoutes,
+  RootRoutes,
+  ModalScreenProps,
+} from '../../../../routes/types';
+
 interface Props {
   batchSendConfirmParamsParsed: ReturnType<
     typeof useBatchSendConfirmRouteParamsParsed
@@ -173,7 +179,14 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           onDetail: routeParams.onDetail,
           isSingleTransformMode,
         };
-        navigation.navigate(SendRoutes.SendFeedbackReceipt, params);
+
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendFeedbackReceipt,
+            params,
+          },
+        });
 
         if (routeParams.onSuccess) {
           routeParams.onSuccess(txs, data);
@@ -198,18 +211,13 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         onModalClose,
       };
 
-      // @ts-ignore
-      delete nextRouteParams._disabledAnimationOfNavigate;
-      let nextRouteAction: 'replace' | 'navigate' = 'navigate';
-      if (routeParams.autoConfirmAfterFeeSaved) {
-        // add delay to avoid white screen when navigation replace
-        await wait(600);
-        nextRouteAction = 'replace';
-      }
-      return navigation[nextRouteAction](
-        SendRoutes.BatchSendProgress,
-        nextRouteParams,
-      );
+      return navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.BatchSendProgress,
+          params: nextRouteParams,
+        },
+      });
     },
     [
       accountId,
