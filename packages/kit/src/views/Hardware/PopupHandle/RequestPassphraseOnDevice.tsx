@@ -1,6 +1,7 @@
 import { FC } from 'react';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, LottieView, Text } from '@onekeyhq/components';
@@ -8,6 +9,7 @@ import EnterPassphraseOnClassic from '@onekeyhq/kit/assets/animations/lottie-one
 import EnterPassphraseOnMini from '@onekeyhq/kit/assets/animations/lottie-onekey-mini-enter-passphrase-on-device.json';
 import EnterPassphraseOnPro from '@onekeyhq/kit/assets/animations/lottie-onekey-pro-enter-passphrase-on-device.json';
 import EnterPassphraseOnTouch from '@onekeyhq/kit/assets/animations/lottie-onekey-touch-enter-passphrase-on-device.json';
+import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
@@ -38,9 +40,12 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
   ...props
 }) => {
   const intl = useIntl();
+  // Prevents screen locking
+  useKeepAwake();
 
   return (
     <BaseRequestView {...props}>
+      <SkipAppLock />
       <LottieView
         source={getEnterPassphraseAnimation(deviceType)}
         autoPlay
