@@ -1,3 +1,4 @@
+import { IBlockBookTransaction } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 
 import { COINTYPE_BCH } from '../../../constants';
@@ -8,6 +9,8 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import Provider from './provider';
 import settings from './settings';
+
+import type { ArrayElement } from '../../utils/btcForkChain/types';
 
 export default class Vault extends VaultBtcFork {
   override providerClass = Provider;
@@ -48,5 +51,17 @@ export default class Vault extends VaultBtcFork {
 
   override getDefaultBlockTime(): number {
     return 600;
+  }
+
+  override isMyTransaction(
+    item:
+      | ArrayElement<IBlockBookTransaction['vin']>
+      | ArrayElement<IBlockBookTransaction['vout']>,
+    accountAddress: string,
+  ) {
+    if ('isOwn' in item) {
+      return item.isOwn ?? false;
+    }
+    return item.addresses.some((address) => address === accountAddress);
   }
 }
