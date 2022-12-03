@@ -16,6 +16,7 @@ import {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 
 import { backgroundClass, backgroundMethod } from '../decorators';
 
@@ -200,6 +201,9 @@ export default class ServiceBatchTransfer extends ServiceBase {
         try {
           signedTx = await engine.signAndSendEncodedTx(params);
         } catch (e) {
+          if (e instanceof OneKeyError) {
+            throw e;
+          }
           if (retry > BATCH_SEND_RETRY_MAX) {
             throw e;
           }
