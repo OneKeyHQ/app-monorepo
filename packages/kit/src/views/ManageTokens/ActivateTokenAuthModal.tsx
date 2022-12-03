@@ -9,7 +9,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../components/Protected';
-import { deviceUtils } from '../../utils/hardware';
 
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
@@ -21,7 +20,7 @@ export type EnableLocalAuthenticationProps = {
   networkId: string;
   tokenId: string;
   onSuccess?: () => void;
-  onFailure?: () => void;
+  onFailure?: (error?: Error) => void;
 };
 
 const Done: FC<EnableLocalAuthenticationProps> = ({
@@ -49,10 +48,9 @@ const Done: FC<EnableLocalAuthenticationProps> = ({
           } else {
             onFailure?.();
           }
-        } catch (e) {
+        } catch (e: any) {
           debugLogger.sendTx.error(e);
-          onFailure?.();
-          deviceUtils.showErrorToast(e);
+          onFailure?.(e);
         }
         navigation.goBack();
       })();
@@ -82,8 +80,12 @@ const ActivateTokenAuthModal: FC<NavigationProps> = ({ route }) => {
         id: 'action__add_custom_tokens',
         defaultMessage: 'Add Token',
       })}
+      headerDescription={intl.formatMessage({
+        id: 'msg__aptos_first_activation_token',
+      })}
       hideSecondaryAction
       hidePrimaryAction
+      footer={null}
     >
       <Protected
         walletId={walletId}
