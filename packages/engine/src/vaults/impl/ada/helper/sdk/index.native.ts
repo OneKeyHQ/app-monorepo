@@ -8,6 +8,7 @@ const ProvideMethod = 'callCardanoWebEmbedMethod';
 enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
   signTransaction = 'Cardano_signTransaction',
+  hwSignTransaction = 'Cardano_hwSignTransaction',
 }
 
 type IResult = { error: Error; result: any };
@@ -64,9 +65,41 @@ const signTransaction = async (
   return result.result;
 };
 
+enum CardanoTxWitnessType {
+  BYRON_WITNESS = 0,
+  SHELLEY_WITNESS = 1,
+}
+
+type CardanoSignedTxWitness = {
+  type: CardanoTxWitnessType;
+  pubKey: string;
+  signature: string;
+  chainCode?: string | null;
+};
+
+const hwSignTransaction = async (
+  txBodyHex: string,
+  signedWitnesses: CardanoSignedTxWitness[],
+) => {
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: CardanoEvent.hwSignTransaction,
+    params: {
+      txBodyHex,
+      signedWitnesses,
+    },
+  })) as IResult;
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.result;
+};
+
 const CardanoApi = {
   composeTxPlan,
   signTransaction,
+  hwSignTransaction,
 };
 
 export { CardanoApi };

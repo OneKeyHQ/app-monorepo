@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect } from 'react';
 
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { onekeyUtils } from 'cardano-coin-selection';
+import { onekeyUtils, trezorUtils } from 'cardano-coin-selection';
 
 import { Box } from '@onekeyhq/components';
 
@@ -11,6 +11,7 @@ const ProvideResponseMethod = 'cardanoWebEmbedResponse';
 enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
   signTransaction = 'Cardano_signTransaction',
+  hwSignTransaction = 'Cardano_hwSignTransaction',
 }
 
 function CardanoProvider() {
@@ -73,6 +74,21 @@ function CardanoProvider() {
           }
           break;
         }
+
+        case CardanoEvent.hwSignTransaction: {
+          const { txBodyHex, signedWitnesses } = eventParams;
+          try {
+            const result = trezorUtils.signTransaction(
+              txBodyHex,
+              signedWitnesses,
+            );
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
+          break;
+        }
+
         default:
           break;
       }
