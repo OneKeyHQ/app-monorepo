@@ -52,6 +52,8 @@ export type IPlatformEnv = {
   /** ios, both tablet & iPhone */
   isNativeIOS?: boolean;
   isNativeIOSStore?: boolean;
+  /** ios, phone only */
+  isNativeIOSPhone?: boolean;
   /** ios, tablet only */
   isNativeIOSPad?: boolean;
   isNativeIOSPadStore?: boolean;
@@ -98,6 +100,8 @@ const isDesktopLinux = isDesktop && window?.desktopApi?.platform === 'linux';
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
+const isNativeIOSPhone =
+  isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTVOS;
 const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
@@ -237,6 +241,7 @@ const platformEnv: IPlatformEnv = {
 
   isNativeIOS,
   isNativeIOSStore,
+  isNativeIOSPhone,
   isNativeIOSPad,
   isNativeIOSPadStore,
   isNativeAndroid,

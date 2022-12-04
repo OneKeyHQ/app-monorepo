@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -97,7 +97,7 @@ function List({
     pageWidth,
   });
 
-  const renderItem = React.useCallback<
+  const renderItem = useCallback<
     NonNullable<FlatListProps<SelectAsset>['renderItem']>
   >(
     ({ item }) => (

@@ -32,15 +32,23 @@ import { Text } from '../Typography';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
-export interface CloseButtonProps {
+interface CloseButtonProps {
   onClose: (event: GestureResponderEvent) => void;
+  backgroundColor?: string;
 }
 
-export function CloseBackDrop({ onClose }: CloseButtonProps) {
+export function CloseBackDrop({ onClose, backgroundColor }: CloseButtonProps) {
   const { width, height } = useWindowDimensions();
   return (
     <TouchableWithoutFeedback onPress={onClose}>
-      <View style={{ width, height, ...StyleSheet.absoluteFillObject }} />
+      <View
+        style={{
+          width,
+          height,
+          backgroundColor,
+          ...StyleSheet.absoluteFillObject,
+        }}
+      />
     </TouchableWithoutFeedback>
   );
 }

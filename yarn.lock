@@ -5355,7 +5355,7 @@ __metadata:
     react-native-in-app-review: ^4.2.1
     react-native-keyboard-manager: ^6.5.4-4
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
-    react-native-pager-view: 6.1.1
+    react-native-pager-view: 6.1.2
     react-native-randombytes: ^3.6.1
     react-native-reanimated: 2.13.0
     react-native-restart: 0.0.24
@@ -25898,13 +25898,13 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:6.1.1":
-  version: 6.1.1
-  resolution: "react-native-pager-view@npm:6.1.1"
+"react-native-pager-view@npm:6.1.2":
+  version: 6.1.2
+  resolution: "react-native-pager-view@npm:6.1.2"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 8b169bdc573cafcff9a28d15be371d393bf15a664c83c85520ed1c8ba18ef3da77ead838d3c3d8cc3bb537dbf49088eaa4551f78b62901c08bc30197e4c63862
+  checksum: 813da82c7816748b7a66c87d281c11cc3d787342b0896ffad686ee15e968911f4ed7b1164cdf196068eb2abcb28513bd85cdd0023280af73ff66e2b42bd2efa1
   languageName: node
   linkType: hard
 

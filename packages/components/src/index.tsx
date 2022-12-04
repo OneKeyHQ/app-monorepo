@@ -20,6 +20,7 @@ export { default as Icon } from './Icon';
 export { default as IconButton } from './IconButton';
 export { default as Input } from './Input';
 export { default as Markdown } from './Markdown';
+export { default as Menu } from './Menu';
 export { default as Modal } from './Modal';
 export { default as PinCode } from './PinCode';
 export { default as PresenceTransition } from './PresenceTransition';
