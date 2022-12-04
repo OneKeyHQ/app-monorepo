@@ -2,20 +2,17 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
+import { ModalScreenProps } from '../../../routes/types';
 import { SendConfirmPayloadBase, SendRoutes, SendRoutesParams } from '../types';
 
-type NavigationProps = StackNavigationProp<
-  SendRoutesParams,
-  SendRoutes.BatchSendConfirm
->;
+type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.BatchSendConfirm>;
 
 export function useBatchSendConfirmRouteParamsParsed() {
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   // const navigation = useNavigation<ModalNavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const defaultRouteParams = useRef({});

@@ -11,7 +11,7 @@ import { useWalletConnectPrepareConnection } from '../../../../components/Wallet
 import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
-import { wait } from '../../../../utils/helper';
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
@@ -173,7 +173,14 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           onDetail: routeParams.onDetail,
           isSingleTransformMode,
         };
-        navigation.navigate(SendRoutes.SendFeedbackReceipt, params);
+
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendFeedbackReceipt,
+            params,
+          },
+        });
 
         if (routeParams.onSuccess) {
           routeParams.onSuccess(txs, data);
@@ -198,18 +205,13 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         onModalClose,
       };
 
-      // @ts-ignore
-      delete nextRouteParams._disabledAnimationOfNavigate;
-      let nextRouteAction: 'replace' | 'navigate' = 'navigate';
-      if (routeParams.autoConfirmAfterFeeSaved) {
-        // add delay to avoid white screen when navigation replace
-        await wait(600);
-        nextRouteAction = 'replace';
-      }
-      return navigation[nextRouteAction](
-        SendRoutes.BatchSendProgress,
-        nextRouteParams,
-      );
+      return navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.BatchSendProgress,
+          params: nextRouteParams,
+        },
+      });
     },
     [
       accountId,

@@ -294,13 +294,12 @@ class ServiceAccount extends ServiceBase {
     } = this.backgroundApi;
 
     startTrace('engine.createHDWallet');
-    const wallet = await engine
-      .createHDWallet({
-        password,
-        mnemonic,
-        avatar: avatar ?? randomAvatar(),
-      })
-      .finally(() => stopTrace('engine.createHDWallet'));
+    const wallet = await engine.createHDWallet({
+      password,
+      mnemonic,
+      avatar: avatar ?? randomAvatar(),
+    });
+    stopTrace('engine.createHDWallet');
 
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);

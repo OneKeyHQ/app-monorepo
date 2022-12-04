@@ -7,6 +7,7 @@ import { groupBy, keys } from 'lodash';
 import memoizee from 'memoizee';
 
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
@@ -200,6 +201,9 @@ export default class ServiceBatchTransfer extends ServiceBase {
         try {
           signedTx = await engine.signAndSendEncodedTx(params);
         } catch (e) {
+          if (e instanceof OneKeyError) {
+            throw e;
+          }
           if (retry > BATCH_SEND_RETRY_MAX) {
             throw e;
           }
