@@ -4,6 +4,7 @@
  */
 
 export const OnekeyNetwork = {
+  'ada': 'ada--0',
   'algo': 'algo--4160',
   'talgo': 'algo--1',
   'apt': 'aptos--1',

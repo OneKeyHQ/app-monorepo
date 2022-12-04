@@ -261,13 +261,12 @@ export default class Vault extends VaultBase {
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          const [address, moduleName, structName] = tokenAddress.split('::');
-          await client.getNormalizedMoveStruct(address, moduleName, structName);
+          const coinInfo = await client.getCoinMetadata(tokenAddress);
 
           return await Promise.resolve({
-            name: structName,
-            symbol: structName,
-            decimals: 1,
+            name: coinInfo.name,
+            symbol: coinInfo.symbol,
+            decimals: coinInfo.decimals,
           });
         } catch (e) {
           // pass
