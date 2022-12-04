@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   FlatList,
-  Icon,
   Text,
   useIsVerticalLayout,
   useSafeAreaInsets,
@@ -22,6 +21,11 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { SendRoutes } from '../../../../routes/routesEnum';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '../../../../routes/types';
 import { PreSendParams } from '../../../Send/types';
 
 import SelectNFTCard from './SelectNFTCard';
@@ -32,12 +36,8 @@ import {
 } from './SendNFTContent';
 
 import type { SendRoutesParams } from '../../../../routes';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  SendRoutesParams,
-  SendRoutes.PreSendToken
->;
+type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
 export function useGridListLayout({
   maxCardWidth,
@@ -142,7 +142,7 @@ function SendButton({
   const content = useSendNFTContent();
   const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const listData = content?.context.listData ?? [];
   const multiSelect = content?.context.multiSelect;
@@ -169,7 +169,13 @@ function SendButton({
       networkId,
       transferInfos,
     };
-    navigation.navigate(SendRoutes.PreSendAddress, params);
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Send,
+      params: {
+        screen: SendRoutes.PreSendAddress,
+        params,
+      },
+    });
   };
 
   return (
