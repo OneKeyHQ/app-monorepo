@@ -224,8 +224,8 @@ const OnekeyHardwareHomescreen: FC = () => {
   ]);
 
   const { width } = useWindowDimensions();
-  const containerWidth = platformEnv.isNative ? width : 400;
-  const containerPadding = platformEnv.isNative ? 16 : 24;
+  const containerWidth = isSmallScreen ? width : 400;
+  const containerPadding = isSmallScreen ? 16 : 24;
   const sperate = 16;
   const cardWidth = Math.floor(
     (containerWidth - containerPadding * 2 - sperate * 3) / 4,
