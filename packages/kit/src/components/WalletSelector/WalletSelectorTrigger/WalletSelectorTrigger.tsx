@@ -1,14 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, {
-  FC,
-  ReactNode,
-  memo,
-  useCallback,
-  useMemo,
-  useRef,
-} from 'react';
-
-import { useFocusEffect } from '@react-navigation/native';
+import { FC, ReactNode, memo, useCallback, useMemo, useRef } from 'react';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';
@@ -16,10 +7,10 @@ import {
   addNewRef,
   removeOldRef,
 } from '@onekeyhq/components/src/utils/SelectAutoHide';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigationActions } from '../../../hooks';
+import { useCloseOnEsc } from '../../../hooks/useOnKeydown';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import WalletSelectorDesktop from '../WalletSelectorDesktop';
@@ -49,18 +40,10 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
   const { toggleWalletSelector } = useNavigationActions();
   const { visible } = useWalletSelectorStatus();
 
-  useFocusEffect(
+  useCloseOnEsc(
     useCallback(() => {
-      if (platformEnv.isRuntimeBrowser) {
-        const closeOnEsc = (e: KeyboardEvent) => {
-          if (e.code === 'Escape' && isDesktopWalletSelectorVisible) {
-            dispatch(updateDesktopWalletSelectorVisible(false));
-          }
-        };
-        document.addEventListener('keydown', closeOnEsc);
-        return () => {
-          document.removeEventListener('keydown', closeOnEsc);
-        };
+      if (isDesktopWalletSelectorVisible) {
+        dispatch(updateDesktopWalletSelectorVisible(false));
       }
     }, [dispatch, isDesktopWalletSelectorVisible]),
   );
@@ -69,8 +52,8 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
     toggleWalletSelector();
   }, [toggleWalletSelector]);
 
-  const desktopRef = React.useRef<DesktopRef | null>(null);
-  const setRef = React.useCallback((ref: DesktopRef | null) => {
+  const desktopRef = useRef<DesktopRef | null>(null);
+  const setRef = useCallback((ref: DesktopRef | null) => {
     // Since we know there's a ref, we'll update `refs` to use it.
     if (ref) {
       // store the ref in this toast instance to be able to remove it from the array later when the ref becomes null.

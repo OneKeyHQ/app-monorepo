@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
@@ -11,6 +9,7 @@ import AlertGallery from '@onekeyhq/kit/src/views/Components/stories/Alert';
 import AppUpdateGallery from '@onekeyhq/kit/src/views/Components/stories/AppUpdate';
 import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
+import BottomSheetModalGallery from '@onekeyhq/kit/src/views/Components/stories/BottomSheetModal';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
 import CollapseGallery from '@onekeyhq/kit/src/views/Components/stories/Collapse';
@@ -120,6 +119,7 @@ export enum StackRoutes {
   ComponentHomescreen = 'component/homescreen',
   ComponentToggleButtonGroup = 'component/ToggleButtonGroup',
   ComponentCollapse = 'component/Collapse',
+  ComponentBottomSheetModal = 'component/BottomSheetModal',
 }
 
 export type StackBasicRoutesParams = {
@@ -182,6 +182,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentList]: undefined;
   [StackRoutes.ComponentToggleButtonGroup]: undefined;
   [StackRoutes.ComponentCollapse]: undefined;
+  [StackRoutes.ComponentBottomSheetModal]: undefined;
 };
 
 export const stackScreenList = [
@@ -271,6 +272,10 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentCollapse,
     component: CollapseGallery,
+  },
+  {
+    name: StackRoutes.ComponentBottomSheetModal,
+    component: BottomSheetModalGallery,
   },
 ];
 
