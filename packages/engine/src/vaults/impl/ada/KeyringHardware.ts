@@ -87,7 +87,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of response.payload) {
       const { address, xpub, serializedPath, stakeAddress } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `XRP #${indexes[index] + 1}`;
+        const name = (names || [])[index] || `ADA #${indexes[index] + 1}`;
         const addresses: Record<string, string> = {
           [firstAddressRelPath]: address,
         };
