@@ -74,9 +74,7 @@ export default class Vault extends VaultBase {
     maxAge: 60 * 1000 * 3,
   });
 
-  override async getOutputAccount(): Promise<
-    Account & { addresses: Record<string, string> }
-  > {
+  override async getOutputAccount(): Promise<Account & { addresses: string }> {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     return {
       id: dbAccount.id,
@@ -86,7 +84,7 @@ export default class Vault extends VaultBase {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
-      addresses: dbAccount.addresses,
+      addresses: JSON.stringify(dbAccount.addresses),
     };
   }
 
