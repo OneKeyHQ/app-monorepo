@@ -5488,7 +5488,7 @@ __metadata:
     bs58check: ^2.1.2
     buffer: ^6.0.3
     camelcase-keys: ^7.0.2
-    cardano-coin-selection: 1.0.5
+    cardano-coin-selection: 1.0.6
     cardano-crypto.js: ^6.1.1
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
@@ -5611,7 +5611,7 @@ __metadata:
   dependencies:
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
-    cardano-coin-selection: 1.0.5
+    cardano-coin-selection: 1.0.6
     expo: ^45.0.5
     expo-yarn-workspaces: 2.0.3
     firebase: ^9.8.2
@@ -11881,14 +11881,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cardano-coin-selection@npm:1.0.5":
-  version: 1.0.5
-  resolution: "cardano-coin-selection@npm:1.0.5"
+"cardano-coin-selection@npm:1.0.6":
+  version: 1.0.6
+  resolution: "cardano-coin-selection@npm:1.0.6"
   dependencies:
     "@emurgo/cardano-serialization-lib-asmjs": 11.1.0
   peerDependencies:
     bignumber.js: ^9.0.1
-  checksum: db361a770167f0675be3da0e486a0bf836616b943b8dd4e40834ae3b9fc2e74945bc084a172f51afac7b8e25b6523a627df6791178910297472deb21b34a2a1b
+  checksum: bc9082b1f4d44839146499e64503a7f551235ba6d4f8cf9c1cebdae499806513aa47477cc2b13a87627e3a3e170cc56ed266fd80c246df7c954756015f7c4e6d
   languageName: node
   linkType: hard
 

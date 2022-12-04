@@ -41,7 +41,7 @@ function CardanoProvider() {
           const { transferInfo, xpub, utxos, changeAddress, outputs } =
             eventParams;
           try {
-            const txPlan = onekeyUtils.composeTxPlan(
+            const txPlan = await onekeyUtils.composeTxPlan(
               transferInfo,
               xpub,
               utxos,
@@ -78,7 +78,7 @@ function CardanoProvider() {
         case CardanoEvent.hwSignTransaction: {
           const { txBodyHex, signedWitnesses } = eventParams;
           try {
-            const result = trezorUtils.signTransaction(
+            const result = await trezorUtils.signTransaction(
               txBodyHex,
               signedWitnesses,
             );

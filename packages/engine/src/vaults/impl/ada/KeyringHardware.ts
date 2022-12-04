@@ -168,7 +168,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw deviceUtils.convertDeviceError(res.payload);
     }
 
-    const signedTx = CardanoApi.hwSignTransaction(
+    const signedTx = await CardanoApi.hwSignTransaction(
       tx.body,
       res.payload.witnesses,
     );

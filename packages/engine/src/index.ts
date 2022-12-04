@@ -818,9 +818,14 @@ class Engine {
 
         // use the stake address to check cardano account balance.
         if (networkId === 'ada--0') {
-          accountAddress =
-            (account as Account & { addresses: Record<string, string> })
-              ?.addresses?.['2/0'] ?? accountAddress;
+          try {
+            const addresses = JSON.parse(
+              (account as Account & { addresses: string })?.addresses,
+            );
+            accountAddress = addresses['2/0'];
+          } catch {
+            // if parse failure, passing
+          }
         }
 
         const balancesFromApi =
