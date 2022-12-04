@@ -1,9 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
-import { Box, Icon, Pressable, Spinner, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  Pressable,
+  Spinner,
+  Text,
+  Tooltip,
+} from '@onekeyhq/components';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
@@ -26,6 +41,25 @@ type NavigationProps = StackNavigationProp<
   SendRoutes.SendConfirm
 >;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
+
+function PressableWrapper({
+  children,
+  canPress,
+  onPress,
+}: {
+  children: React.ReactNode;
+  canPress: boolean;
+  onPress: () => void;
+}) {
+  if (canPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
+  return <>{children}</>;
+}
 
 function FeeInfoInput({
   networkId,
@@ -230,6 +264,7 @@ function FeeInfoInputForTransfer({
     ),
     [intl],
   );
+
   const hint = useMemo(() => {
     let text = '';
     if (!feeInfoPayload && showFirstTimeHint.current) {
@@ -373,6 +408,7 @@ function FeeInfoInputForConfirmLite({
   sendConfirmParams,
   networkId,
   accountId,
+  feeInfoError,
 }: {
   encodedTx: any;
   feeInfoPayload: IFeeInfoPayload | null;
@@ -381,10 +417,13 @@ function FeeInfoInputForConfirmLite({
   sendConfirmParams: SendConfirmParams;
   networkId: string;
   accountId: string;
+  feeInfoError?: Error | null;
 }) {
   const intl = useIntl();
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
   const networkFeeInfoEditable = useNetworkFeeInfoEditable({ networkId });
+
+  const [hasTooltipOpen, setHasTooltipOpen] = useState(false);
 
   let totalFeeInNative = feeInfoPayload?.current?.totalNative || '';
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -511,6 +550,52 @@ function FeeInfoInputForConfirmLite({
     );
   }, [encodedTx, feeInfoPayload, intl, isPreset]);
 
+  const errorHint = useMemo(() => {
+    if (!feeInfoError) {
+      return null;
+    }
+
+    let message: string | null = null;
+    if (feeInfoError instanceof OneKeyError) {
+      if (feeInfoError.key !== 'onekey_error') {
+        message = intl.formatMessage({
+          // @ts-expect-error
+          id: feeInfoError.key,
+        });
+      } else {
+        message = feeInfoError.message;
+      }
+    } else {
+      message = feeInfoError.message;
+    }
+    if (message && message.length > 350) {
+      message = `${message.slice(0, 350)}...`;
+    }
+
+    return (
+      !!message && (
+        <>
+          <Tooltip
+            maxW="360px"
+            isOpen={hasTooltipOpen}
+            hasArrow
+            label={message}
+            bg="surface-neutral-default"
+            _text={{ color: 'text-default', fontSize: '14px' }}
+            px="16px"
+            py="8px"
+            placement="top"
+            borderRadius="12px"
+          >
+            <Box>
+              <Icon name="ExclamationOutline" size={20} color="icon-warning" />
+            </Box>
+          </Tooltip>
+        </>
+      )
+    );
+  }, [feeInfoError, hasTooltipOpen, intl]);
+
   const renderChildren = useCallback(
     // ({ isHovered })
     () => {
@@ -525,19 +610,25 @@ function FeeInfoInputForConfirmLite({
         );
       } else {
         content = (
-          <Box
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="flex-start"
+          <PressableWrapper
+            canPress={!!errorHint}
+            onPress={() => setHasTooltipOpen(!hasTooltipOpen)}
           >
-            <Text color="text-subdued" flex={1}>
-              {/* show static text: No Available Fee */}
-              {intl.formatMessage({ id: 'content__calculate_fee' })}
-            </Text>
-            <Box w={2} />
-            {loading ? <Spinner size="sm" /> : null}
-            <Box flex={1} />
-          </Box>
+            <Box
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="flex-start"
+            >
+              <Text color="text-subdued" flex={1}>
+                {/* show static text: No Available Fee */}
+                {intl.formatMessage({ id: 'content__calculate_fee' })}
+              </Text>
+              <Box w={2} />
+              {errorHint}
+              {loading ? <Spinner size="sm" /> : null}
+              <Box flex={1} />
+            </Box>
+          </PressableWrapper>
         );
       }
 
@@ -546,8 +637,11 @@ function FeeInfoInputForConfirmLite({
         <Box>{content}</Box>
       );
     },
-    [intl, loading, subTitle, title],
+    [errorHint, hasTooltipOpen, intl, loading, subTitle, title],
   );
+
+  useEffect(() => () => setHasTooltipOpen(false), []);
+
   return (
     <FeeInfoInputContainer
       networkId={networkId}
