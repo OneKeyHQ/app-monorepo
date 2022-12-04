@@ -27,6 +27,7 @@ import KeyboardGallery from '@onekeyhq/kit/src/views/Components/stories/Keyboard
 import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
+import MenuGallery from '@onekeyhq/kit/src/views/Components/stories/Menu';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
 import NFTImageGallery from '@onekeyhq/kit/src/views/Components/stories/NFTImage';
@@ -73,6 +74,7 @@ export enum StackRoutes {
   ComponentTheme = 'component/theme',
   ComponentIcon = 'component/icon',
   ComponentBadge = 'component/badge',
+  ComponentMenu = 'component/menu',
   ComponentList = 'component/List',
   ComponentAlert = 'component/alert',
   ComponentButton = 'component/button',
@@ -135,6 +137,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentTheme]: undefined;
   [StackRoutes.ComponentIcon]: undefined;
   [StackRoutes.ComponentBadge]: undefined;
+  [StackRoutes.ComponentMenu]: undefined;
   [StackRoutes.ComponentAlert]: undefined;
   [StackRoutes.ComponentButton]: undefined;
   [StackRoutes.ComponentIconButton]: undefined;
@@ -195,6 +198,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
   { name: StackRoutes.ComponentIcon, component: IconGallery },
   { name: StackRoutes.ComponentBadge, component: BadgeGallery },
+  { name: StackRoutes.ComponentMenu, component: MenuGallery },
   { name: StackRoutes.ComponentList, component: ListGallery },
   { name: StackRoutes.ComponentAlert, component: AlertGallery },
   { name: StackRoutes.ComponentButton, component: ButtonsGallery },

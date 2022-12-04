@@ -25,17 +25,18 @@ import NameServiceResolver, {
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '../../../routes/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes, SendRoutesParams } from '../types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
-type NavigationProps = NativeStackNavigationProp<
-  SendRoutesParams,
-  SendRoutes.PreSendAddress
->;
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendAddress>;
 
 type FormValues = {
@@ -106,7 +107,7 @@ function PreSendAddress() {
   } = useNameServiceStatus();
 
   const { control, formState, trigger, handleSubmit } = useFormReturn;
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const tokenInfo = useTokenInfo({
     networkId,
     tokenIdOnNetwork: transferInfo.token,
@@ -249,19 +250,25 @@ function PreSendAddress() {
         }
         setIsLoadingAssets(false);
 
-        navigation.navigate(SendRoutes.BatchSendConfirm, {
-          networkId,
-          accountId,
-          feeInfoUseFeeInTx: false,
-          feeInfoEditable: true,
-          encodedTxs: [...encodedApproveTxs, encodedTx],
-          backRouteName: SendRoutes.PreSendAddress,
-          payloadInfo: {
-            type: 'Transfer',
-            nftInfos,
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.BatchSendConfirm,
+            params: {
+              networkId,
+              accountId,
+              feeInfoUseFeeInTx: false,
+              feeInfoEditable: true,
+              encodedTxs: [...encodedApproveTxs, encodedTx],
+              backRouteName: SendRoutes.PreSendAddress,
+              payloadInfo: {
+                type: 'Transfer',
+                nftInfos,
+              },
+              transferCount: transferInfos.length,
+              onModalClose: closeModal,
+            },
           },
-          transferCount: transferInfos.length,
-          onModalClose: closeModal,
         });
       } else {
         encodedTx = await engine.buildEncodedTxFromTransfer({
@@ -269,24 +276,30 @@ function PreSendAddress() {
           accountId,
           transferInfo,
         });
-        navigation.navigate(SendRoutes.SendConfirm, {
-          ...transferInfo,
-          networkId,
-          accountId,
-          encodedTx,
-          feeInfoUseFeeInTx: false,
-          feeInfoEditable: true,
-          backRouteName: SendRoutes.PreSendAddress,
-          payloadInfo: {
-            type: 'Transfer',
-            nftInfo: {
-              asset: nftInfo,
-              amount: transferInfo.amount,
-              from: account.address,
-              to: toVal,
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendConfirm,
+            params: {
+              ...transferInfo,
+              networkId,
+              accountId,
+              encodedTx,
+              feeInfoUseFeeInTx: false,
+              feeInfoEditable: true,
+              backRouteName: SendRoutes.PreSendAddress,
+              payloadInfo: {
+                type: 'Transfer',
+                nftInfo: {
+                  asset: nftInfo,
+                  amount: transferInfo.amount,
+                  from: account.address,
+                  to: toVal,
+                },
+              },
+              onModalClose: closeModal,
             },
           },
-          onModalClose: closeModal,
         });
       }
     },
@@ -303,11 +316,17 @@ function PreSendAddress() {
       if (isNFT) {
         nftSendConfirm(toVal);
       } else {
-        navigation.navigate(SendRoutes.PreSendAmount, {
-          ...transferInfo,
-          networkId,
-          accountId,
-          to: toVal,
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.PreSendAmount,
+            params: {
+              ...transferInfo,
+              networkId,
+              accountId,
+              to: toVal,
+            },
+          },
         });
       }
     },

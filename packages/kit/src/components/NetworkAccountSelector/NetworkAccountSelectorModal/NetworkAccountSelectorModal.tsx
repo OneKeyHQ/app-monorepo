@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { Box, Modal } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

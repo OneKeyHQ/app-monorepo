@@ -1,12 +1,16 @@
-import { FC, useCallback, useState } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
 
 import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 
 import { useNavigation } from '../../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { useIsFocusedInTab } from '../../../../hooks/useIsFocusedInTab';
+import {
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../../routes/types';
 import { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
 import WebHomeContainer from '../Content/WebHomeContainer';
@@ -26,9 +30,10 @@ const ExplorerMobile: FC = () => {
   const [showContent, setShowContent] = useState(false);
   const [showHome, setShowHome] = useState(true);
   const beforeMinimize = useCallback(() => setShowHome(true), []);
+  const isFocusedInDiscoverTab = useIsFocusedInTab(TabRoutes.Discover);
 
-  useFocusEffect(
-    useCallback(() => {
+  useEffect(() => {
+    if (isFocusedInDiscoverTab) {
       if (incomingUrl) {
         gotoSite({ url: incomingUrl, isNewWindow: true });
         clearIncomingUrl();
@@ -38,11 +43,16 @@ const ExplorerMobile: FC = () => {
           setShowContent(true);
         }, 100);
       }
-      return () => {
-        minimizeFloatingWindow({ before: beforeMinimize });
-      };
-    }, [beforeMinimize, clearIncomingUrl, incomingUrl, showContent]),
-  );
+    } else {
+      minimizeFloatingWindow({ before: beforeMinimize });
+    }
+  }, [
+    beforeMinimize,
+    clearIncomingUrl,
+    incomingUrl,
+    isFocusedInDiscoverTab,
+    showContent,
+  ]);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
