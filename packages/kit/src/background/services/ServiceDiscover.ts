@@ -187,6 +187,19 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateBookmark({ tabId, url }: { tabId?: string; url?: string }) {
+    if (!tabId || !url) {
+      return;
+    }
+    const { appSelector, dispatch } = this.backgroundApi;
+    const dappFavorites = appSelector((s) => s.discover.dappFavorites);
+    if (dappFavorites) {
+      const isBookmarked = dappFavorites.includes(url);
+      dispatch(setWebTabData({ id: tabId, isBookmarked }));
+    }
+  }
+
+  @backgroundMethod()
   async removeMatchItem(item: MatchDAppItemType) {
     if (item.dapp) {
       this.removeDappHistory(item.id);

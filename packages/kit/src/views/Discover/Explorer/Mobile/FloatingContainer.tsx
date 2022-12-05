@@ -8,6 +8,7 @@ import Animated, {
 
 import { Box, Pressable, useSafeAreaInsets } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
@@ -179,14 +180,18 @@ const FloatingContainer: FC<
           <Box flex={1} bg="background-default">
             <Pressable
               h="48px"
-              onPress={() =>
+              onPress={() => {
                 toggleFloatingWindow({
                   beforeMinimize,
                   afterMaximize,
                   beforeMaximize: innerBeforeMaximize,
                   afterMinimize: innerAfterMinimize,
-                })
-              }
+                });
+                backgroundApiProxy.serviceDiscover.updateBookmark({
+                  tabId: currentTab?.id,
+                  url: currentTab?.url,
+                });
+              }}
             >
               <FloatingBar
                 favicon={currentTab?.favicon}
