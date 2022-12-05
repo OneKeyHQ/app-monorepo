@@ -301,11 +301,10 @@ function SendProgress({
                   },
                   {
                     0: (
-                      <Box display="block">
-                        <Text typography="DisplayMedium">
-                          {currentFinished} / {txCount}
-                        </Text>
-                      </Box>
+                      <Text
+                        typography="DisplayMedium"
+                        textAlign="center"
+                      >{`${currentFinished} / ${txCount}\n`}</Text>
                     ),
                   },
                 )}
@@ -376,6 +375,7 @@ function BatchSendProgress() {
       closeable={false}
       hideBackButton
       height="auto"
+      closeOnOverlayClick={false}
       accountId={accountId}
       networkId={networkId}
       header={titleInfo?.title}
