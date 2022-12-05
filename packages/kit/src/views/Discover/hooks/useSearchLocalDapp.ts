@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { useShowFullLayout } from '.';
+
 import Fuse from 'fuse.js';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../hooks';
 import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { DAppItemType } from '../type';
 
@@ -42,10 +41,7 @@ export const useSearchLocalDapp = (
 ): { loading: boolean; searchedDapps: MatchDAppItemType[] } => {
   const [loading, setLoading] = useState(false);
   const [allDapps, setAllDapps] = useState<DAppItemType[]>([]);
-
-  const enableIOSDappSearch = useAppSelector(
-    (s) => s.discover.enableIOSDappSearch,
-  );
+  const showFullLayout = useShowFullLayout();
 
   useEffect(() => {
     async function main() {
@@ -69,17 +65,14 @@ export const useSearchLocalDapp = (
     setLoading(true);
     try {
       let items = allDapps;
-      if (
-        (platformEnv.isNativeIOS || platformEnv.isMas) &&
-        !enableIOSDappSearch
-      ) {
+      if (!showFullLayout) {
         items = [];
       }
       return searchDapps(items, terms);
     } finally {
       setLoading(false);
     }
-  }, [allDapps, terms, enableIOSDappSearch]);
+  }, [allDapps, terms, showFullLayout]);
 
   return {
     loading,
