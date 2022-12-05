@@ -35,6 +35,7 @@ import { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
+import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
@@ -60,9 +61,13 @@ const AccountAmountInfo: FC = () => {
     networkId: network?.id,
   });
 
-  const { accountTokens, prices, balances, charts } = useManageTokens({
+  const { accountTokens, balances, charts } = useManageTokens({
     pollingInterval: 15000,
   });
+
+  const { prices } = useManageTokenprices();
+
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
 
   const { copyAddress } = useCopyAddress({ wallet });
 
@@ -71,6 +76,7 @@ const AccountAmountInfo: FC = () => {
       tokens: accountTokens,
       balances,
       prices,
+      vsCurrency,
       hideSmallBalance,
     }).toNumber();
 
@@ -104,6 +110,7 @@ const AccountAmountInfo: FC = () => {
     includeNFTsInTotal,
     nftPrice,
     prices,
+    vsCurrency,
   ]);
 
   const changedValueComp = useMemo(() => {

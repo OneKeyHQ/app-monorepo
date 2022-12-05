@@ -41,6 +41,7 @@ import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { StakingRoutes, StakingRoutesParams } from '../typing';
+import { useSimpleTokenPrice } from '../../../hooks/useManegeTokenPrice';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
 
@@ -125,7 +126,7 @@ function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [amountInputDecimals]);
 
-  const { getTokenPrice } = useManageTokens();
+  // const { getTokenPrice } = useManageTokens();
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
@@ -136,16 +137,13 @@ function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [textInputDecimals]);
 
+  const price = useSimpleTokenPrice({
+    networkId: tokenInfo?.networkId,
+    contractAdress: tokenInfo?.tokenIdOnNetwork,
+  });
+
   const [text, setText] = useState(amount);
-  const tokenPriceBN = useMemo(
-    () =>
-      new BigNumber(
-        getTokenPrice({
-          token: tokenInfo,
-        }),
-      ),
-    [getTokenPrice, tokenInfo],
-  );
+  const tokenPriceBN = useMemo(() => new BigNumber(price ?? 0), [price]);
   const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
   const getInputText = useCallback(
     (isFiatMode0: boolean, amount0: string, roundMode = undefined) => {

@@ -25,6 +25,7 @@ import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { useManageTokens, useNavigation } from '../../../hooks';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
+import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { getSummedValues } from '../../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
 
@@ -56,13 +57,15 @@ const ListHeader: FC<{
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
 
-  const { accountTokens, balances, prices } = useManageTokens();
-
+  const { accountTokens, balances } = useManageTokens();
+  const { prices } = useManageTokenprices();
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
   const summedValue = useMemo(() => {
     const displayValue = getSummedValues({
       tokens: accountTokens,
       balances,
       prices,
+      vsCurrency,
       hideSmallBalance,
     }).toNumber();
 
@@ -75,7 +78,7 @@ const ListHeader: FC<{
         )}
       </Text>
     );
-  }, [accountTokens, balances, hideSmallBalance, prices]);
+  }, [accountTokens, balances, hideSmallBalance, prices, vsCurrency]);
 
   const tokenCountOrAddToken = useMemo(
     () =>

@@ -2451,6 +2451,24 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getPricesFromCgkSimple(
+    networkId: string,
+    tokenIdsOnNetwork: Array<string>,
+    vsCurrency?: string,
+    withMain?: boolean,
+  ) {
+    const datas = await this.priceManager.getCgkTokenPrice({
+      networkId,
+      addresses: tokenIdsOnNetwork.filter(
+        (tokenIdOnNetwork) => tokenIdOnNetwork.length > 0,
+      ),
+      vs_currency: vsCurrency,
+      withMain,
+    });
+    return datas;
+  }
+
+  @backgroundMethod()
   async getPricesAndCharts(
     networkId: string,
     tokenIdsOnNetwork: Array<string>,

@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { Token } from '@onekeyhq/engine/src/types/token';
 
-import { TokenBalanceValue } from '../store/reducers/tokens';
+import { SimpleTokenPrices, TokenBalanceValue } from '../store/reducers/tokens';
 import { formatDecimalZero } from '../views/Market/utils';
 
 export function calculateGains({
@@ -67,16 +67,30 @@ export function getTokenValues({
   tokens,
   prices,
   balances,
+  vsCurrency,
 }: {
   tokens: (Token | undefined | null)[];
-  prices: Record<string, number | string | null | undefined>;
+  prices: Record<string, SimpleTokenPrices | number>;
   balances: Record<string, TokenBalanceValue>;
+  vsCurrency: string;
 }) {
   return tokens.map((token) => {
     const tokenId = token?.tokenIdOnNetwork || 'main';
+    const priceId = token?.tokenIdOnNetwork
+      ? `${token?.networkId}-${token.tokenIdOnNetwork}`
+      : token?.networkId ?? '';
     const balance = balances[tokenId] || 0;
     if (balance !== undefined) {
-      const price = new BigNumber(prices[tokenId] || 0);
+      let price = new BigNumber(0);
+      if (prices[priceId]) {
+        if (typeof prices[priceId] === 'number') {
+          price = new BigNumber((prices[priceId] as number) || 0);
+        } else {
+          price = new BigNumber(
+            (prices[priceId] as SimpleTokenPrices)?.[vsCurrency] || 0,
+          );
+        }
+      }
       return new BigNumber(balance).times(price);
     }
     return new BigNumber(0);
@@ -87,19 +101,24 @@ export function getSummedValues({
   tokens,
   prices,
   balances,
+  vsCurrency = 'usd',
   hideSmallBalance = false,
 }: {
   tokens: Token[];
-  prices: Record<string, number | string | null | undefined>;
+  prices: Record<string, SimpleTokenPrices | number>;
   balances: Record<string, TokenBalanceValue>;
+  vsCurrency?: string;
   hideSmallBalance?: boolean;
 }) {
-  return getTokenValues({ tokens, prices, balances }).reduce((acc, value) => {
-    if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
-      return acc;
-    }
-    return acc.plus(value);
-  }, new BigNumber(0));
+  return getTokenValues({ tokens, prices, balances, vsCurrency }).reduce(
+    (acc, value) => {
+      if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
+        return acc;
+      }
+      return acc.plus(value);
+    },
+    new BigNumber(0),
+  );
 }
 
 export function formatAmount(

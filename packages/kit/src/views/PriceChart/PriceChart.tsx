@@ -6,6 +6,7 @@ import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useManageTokens, useSettings } from '../../hooks';
+import { useSimpleTokenPrice } from '../../hooks/useManegeTokenPrice';
 
 import { MarketApiData, PriceApiProps, fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
@@ -22,10 +23,11 @@ const PriceChart: React.FC<PriceChartProps> = ({
 }) => {
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
-  const { charts: reduxCachedCharts, prices } = useManageTokens();
+  const { charts: reduxCachedCharts } = useManageTokens();
+  const price = useSimpleTokenPrice({ networkId, contractAdress: contract });
   const { selectedFiatMoneySymbol } = useSettings();
   const tokenId = contract || 'main';
-  const isNoPriceData = prices[tokenId] === null;
+  const isNoPriceData = !price;
   const dayData = reduxCachedCharts[tokenId];
   const dataMap = useRef<MarketApiData[][]>([]);
   let points: string | undefined;

@@ -22,6 +22,7 @@ import ServiceNFT from './services/ServiceNFT';
 import ServiceNotification from './services/serviceNotification';
 import ServiceOnboarding from './services/ServiceOnboarding';
 import ServicePassword from './services/ServicePassword';
+import ServicePrice from './services/ServicePrice';
 import ServicePromise from './services/ServicePromise';
 import ServiceRevoke from './services/ServiceRevoke';
 import ServiceSetting from './services/ServiceSetting';
@@ -148,5 +149,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   serviceBatchTransfer = new ServiceBatchTransfer({ backgroundApi: this });
 
   serviceTransaction = new ServiceTransaction({ backgroundApi: this });
+
+  ServicePrice = new ServicePrice({ backgroundApi: this });
 }
 export default BackgroundApi;
