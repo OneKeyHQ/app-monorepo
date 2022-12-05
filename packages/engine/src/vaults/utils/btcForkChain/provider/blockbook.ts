@@ -9,10 +9,12 @@ import type {
   ChainInfo,
   IBtcUTXO,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 const BTC_PER_KBYTES_TO_SAT_PER_BYTE = 10 ** 5;
 
 type RequestError = AxiosError<{ message: string }>;
+type SendTxRequestError = AxiosError<{ error: string }>;
 
 type ClientInfo = {
   bestBlockNumber: number;
@@ -25,7 +27,7 @@ class BlockBook {
   constructor(url: string) {
     this.request = axios.create({
       baseURL: url,
-      timeout: 10000,
+      timeout: 20000,
     });
   }
 
@@ -120,22 +122,33 @@ class BlockBook {
           .then((i) => i.data);
       } else {
         res = await this.request
-          .post(`/api/v2/sendtx/`, rawTx)
+          .post(`/api/v2/sendtx/`, rawTx, {
+            headers: {
+              'Content-Type': 'text/plain',
+            },
+          })
           .then((i) => i.data);
       }
 
       return res?.result ?? '';
     } catch (e: unknown) {
-      const err = e as RequestError;
+      const err = e as SendTxRequestError;
       if (
-        err.response?.data?.message?.includes(
+        err.response?.data?.error?.includes(
           'transaction already in block chain',
         )
       ) {
         throw new Error('Transaction already in block');
       }
 
-      throw e;
+      if (err.response?.data?.error) {
+        debugLogger.sendTx.debug(
+          'blockbook send tx error: ',
+          err.response?.data?.error,
+        );
+        throw new Error(err.response?.data?.error);
+      }
+      throw err;
     }
   }
 
