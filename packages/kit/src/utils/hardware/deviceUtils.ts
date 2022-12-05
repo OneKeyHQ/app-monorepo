@@ -285,17 +285,17 @@ class DeviceUtils {
         }
       } else {
         let errorMessage;
-        if (
-          key &&
-          key !== 'msg__engine__internal_error' &&
-          key !== 'onekey_error'
-        ) {
+
+        // Ignore key
+        const ignoreKeys = ['msg__engine__internal_error', 'onekey_error'];
+
+        if (key && !ignoreKeys.includes(key)) {
           errorMessage = formatMessage({ id: key }, info);
         } else if (defKey) {
           errorMessage = formatMessage({ id: defKey }, info);
           // } else if (message && !isEmpty(message)) {
           //   errorMessage = message;
-        } else {
+        } else if (key && key !== 'onekey_error') {
           errorMessage = formatMessage({ id: key }, info);
         }
 

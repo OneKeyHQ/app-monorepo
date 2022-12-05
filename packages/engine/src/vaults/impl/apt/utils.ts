@@ -53,7 +53,7 @@ export const DEFAULT_GAS_LIMIT_TRANSFER = '20000';
 
 const MAX_U64_BIG_INT = BigInt(9007199254740991);
 
-const POLL_INTERVAL = 1500;
+const POLL_INTERVAL = 2000;
 type IPollFn<T> = (time?: number, index?: number) => T;
 
 export function getTransactionTypeByPayload({
@@ -283,7 +283,10 @@ export function waitPendingTransaction(
       transaction = await client.getTransactionByHash(txHash);
     } catch (error: any) {
       const { errorCode } = error;
-      return Promise.reject(new OneKeyError(errorCode));
+      // ignore transaction not found
+      if (errorCode !== 'transaction_not_found') {
+        return Promise.reject(new OneKeyError(errorCode));
+      }
     }
 
     const success = get(transaction, 'success', undefined);
