@@ -21,6 +21,8 @@ import { CardanoApi } from './helper/sdk';
 import { batchGetShelleyAddresses } from './helper/shelley-address';
 import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
 
+import type Vault from './Vault';
+
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(
     password: string,
@@ -66,14 +68,19 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Unable to get address');
     }
 
+    const client = await (this.vault as Vault).getClient();
+
     const firstAddressRelPath = '0/0';
     const stakingAddressPath = '2/0';
-    const ret = addressInfos.map((info, index) => {
+    const ret = [];
+    let index = 0;
+    for (const info of addressInfos) {
       const { baseAddress, stakingAddress } = info;
       const { address, path, xpub } = baseAddress;
       const name = (names || [])[index] || `ADA #${indexes[index] + 1}`;
-      return {
-        id: `${this.walletId}--${path}`,
+      const accountPath = path.slice(0, -4);
+      ret.push({
+        id: `${this.walletId}--${accountPath}`,
         name,
         type: AccountType.UTXO,
         path,
@@ -84,8 +91,17 @@ export class KeyringHd extends KeyringHdBase {
           [firstAddressRelPath]: address,
           [stakingAddressPath]: stakingAddress.address,
         },
-      };
-    });
+      });
+
+      const { tx_count: txCount } = await client.getAddressDetails(address);
+      if (txCount > 0) {
+        index += 1;
+        // api rate limit
+        await new Promise((r) => setTimeout(r, 200));
+      } else {
+        break;
+      }
+    }
 
     return ret;
   }

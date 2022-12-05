@@ -37,6 +37,13 @@ export type IAdaAddress = {
   'script': false;
 };
 
+export type IAdaAddressDetail = {
+  address: string;
+  received_sum?: IAdaAmount[];
+  sent_sum?: IAdaAmount[];
+  tx_count: number;
+};
+
 export type IAdaUTXO = {
   path: string;
   address: string;

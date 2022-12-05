@@ -101,6 +101,22 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async checkAccountExistence(
+    accountIdOnNetwork: string,
+  ): Promise<boolean> {
+    let accountIsPresent = false;
+    try {
+      const client = await this.getClient();
+      const { tx_count: txs } = await client.getAddressDetails(
+        accountIdOnNetwork,
+      );
+      accountIsPresent = txs > 0;
+    } catch (e) {
+      console.error(e);
+    }
+    return Promise.resolve(accountIsPresent);
+  }
+
   override async validateAddress(address: string): Promise<string> {
     if (validShelleyAddress(address) || validBootstrapAddress(address)) {
       return Promise.resolve(address);
@@ -566,6 +582,20 @@ export default class Vault extends VaultBase {
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
     const client = await this.getClient();
+    // batch recover account
+    if (requests.every((request) => request.address.startsWith('stake'))) {
+      const results = await Promise.all(
+        requests.map(async (request) => {
+          try {
+            return await client.getBalance(request.address);
+          } catch {
+            return new BigNumber(0);
+          }
+        }),
+      );
+      return results;
+    }
+
     const stakeAddress = await this.getStakeAddress(requests[0]?.address);
     const promises: (Promise<BigNumber> | Promise<IAdaAmount[]>)[] = [
       client.getBalance(stakeAddress),

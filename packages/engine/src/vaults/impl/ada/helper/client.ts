@@ -9,6 +9,7 @@ import { Token } from '../../../../types/token';
 import {
   IAdaAccount,
   IAdaAddress,
+  IAdaAddressDetail,
   IAdaAmount,
   IAdaHistory,
   IAdaTransaction,
@@ -23,7 +24,7 @@ class Client {
 
   constructor(url: string) {
     this.request = axios.create({
-      baseURL: 'https://node.onekeytest.com/ada' ?? url,
+      baseURL: url,
       timeout: 20000,
     });
 
@@ -46,6 +47,20 @@ class Client {
     return this.request
       .get<IAdaAddress>(`/addresses/${address}`)
       .then((i) => i.data);
+  }
+
+  async getAddressDetails(address: string): Promise<IAdaAddressDetail> {
+    try {
+      const { data } = await this.request.get<IAdaAddressDetail>(
+        `/addresses/${address}/total`,
+      );
+      return data;
+    } catch {
+      return {
+        address,
+        tx_count: 0,
+      };
+    }
   }
 
   async getAccount(stakeAddress: string): Promise<IAdaAccount> {

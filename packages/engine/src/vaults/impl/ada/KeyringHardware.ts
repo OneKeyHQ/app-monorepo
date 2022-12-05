@@ -80,6 +80,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
 
+    const client = await (this.vault as AdaVault).getClient();
     const ret = [];
     let index = 0;
     const firstAddressRelPath = '0/0';
@@ -104,7 +105,14 @@ export class KeyringHardware extends KeyringHardwareBase {
           address,
           addresses,
         });
-        index += 1;
+        const { tx_count: txCount } = await client.getAddressDetails(address);
+        if (txCount > 0) {
+          index += 1;
+          // api rate limit
+          await new Promise((r) => setTimeout(r, 200));
+        } else {
+          break;
+        }
       }
     }
     return ret;
