@@ -27,7 +27,7 @@ class BlockBook {
   constructor(url: string) {
     this.request = axios.create({
       baseURL: url,
-      timeout: 10000,
+      timeout: 20000,
     });
   }
 
