@@ -1,7 +1,5 @@
 const { createMetroConfiguration } = require('expo-yarn-workspaces');
 
-const defaultResolver = require('metro-resolver').resolve;
-
 const config = createMetroConfiguration(__dirname);
 
 // hot-reload file type

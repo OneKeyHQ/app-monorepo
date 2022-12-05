@@ -814,19 +814,7 @@ class Engine {
     if (balanceSupprtedNetwork.includes(networkId)) {
       try {
         const account = await this.getAccount(accountId, networkId);
-        let { address: accountAddress } = account;
-
-        // use the stake address to check cardano account balance.
-        if (networkId === 'ada--0') {
-          try {
-            const addresses = JSON.parse(
-              (account as Account & { addresses: string })?.addresses,
-            );
-            accountAddress = addresses['2/0'];
-          } catch {
-            // if parse failure, passing
-          }
-        }
+        const accountAddress = await vault.getFetchBalanceAddress(account);
 
         const balancesFromApi =
           (await getBalancesFromApi(networkId, accountAddress)) || [];
@@ -975,12 +963,7 @@ class Engine {
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
         if (a.type === AccountType.UTXO) {
-          const { xpub, addresses: changeAddresses } = a as DBUTXOAccount;
-          let address = xpub;
-          // Cardano should use stake address to search account
-          if (a.coinType === COINTYPE_ADA) {
-            address = changeAddresses['2/0'];
-          }
+          const address = await vault.getFetchBalanceAddress(a);
           return { address };
         }
         if (a.type === AccountType.VARIANT) {

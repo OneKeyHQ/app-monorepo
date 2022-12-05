@@ -586,4 +586,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   notifyChainChanged(currentNetworkId: string, previousNetworkId: string) {}
+
+  /**
+   * Most of the chains use the address to check the balance.
+   * The utxo model chain needs to use xpub to check the balance
+   * Cardano requires the stake address to check the balance
+   */
+  getFetchBalanceAddress(account: DBAccount | Account) {
+    return Promise.resolve(account.address);
+  }
 }

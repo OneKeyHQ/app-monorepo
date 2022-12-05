@@ -6,7 +6,6 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
-import { decodeAccountID } from 'xrpl';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -17,7 +16,12 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { Account, DBUTXOAccount } from '../../../types/account';
+import {
+  Account,
+  AccountType,
+  DBAccount,
+  DBUTXOAccount,
+} from '../../../types/account';
 import { Token } from '../../../types/token';
 import {
   IApproveInfo,
@@ -86,6 +90,30 @@ export default class Vault extends VaultBase {
       address: dbAccount.address,
       addresses: JSON.stringify(dbAccount.addresses),
     };
+  }
+
+  override getFetchBalanceAddress(
+    account:
+      | DBUTXOAccount
+      | (Account & { addresses: string | Record<string, string> }),
+  ) {
+    if (
+      account.type === AccountType.UTXO &&
+      typeof account.addresses === 'object'
+    ) {
+      return Promise.resolve(account.addresses['2/0']);
+    }
+    if (typeof account.addresses === 'string') {
+      try {
+        const addresses: DBUTXOAccount['addresses'] = JSON.parse(
+          account.addresses,
+        );
+        return Promise.resolve(addresses['2/0']);
+      } catch {
+        return Promise.resolve(account.address);
+      }
+    }
+    return Promise.resolve(account.address);
   }
 
   override async getClientEndpointStatus(): Promise<{
