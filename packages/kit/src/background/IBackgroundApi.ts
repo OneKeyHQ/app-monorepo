@@ -4,8 +4,6 @@ import type { Engine } from '@onekeyhq/engine';
 import type { Validators } from '@onekeyhq/engine/src/validators';
 import type { VaultFactory } from '@onekeyhq/engine/src/vaults/VaultFactory';
 
-import ServiceExternalAccount from './services/ServiceExternalAccount';
-
 import type { IAppSelector, IPersistor, IStore } from '../store';
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
@@ -17,6 +15,7 @@ import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceMarket from './services/ServiceMarket';
