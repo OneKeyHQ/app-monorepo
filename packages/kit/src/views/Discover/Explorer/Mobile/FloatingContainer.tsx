@@ -8,7 +8,6 @@ import Animated, {
 
 import { Box, Pressable, useSafeAreaInsets } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
@@ -186,10 +185,6 @@ const FloatingContainer: FC<
                   afterMaximize,
                   beforeMaximize: innerBeforeMaximize,
                   afterMinimize: innerAfterMinimize,
-                });
-                backgroundApiProxy.serviceDiscover.updateBookmark({
-                  tabId: currentTab?.id,
-                  url: currentTab?.url,
                 });
               }}
             >
