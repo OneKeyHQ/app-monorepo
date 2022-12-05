@@ -25,7 +25,7 @@ export function CardanoWebEmbedView() {
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
-    backgroundApiProxy.connectBridge(jsBridge);
+    backgroundApiProxy.connectWebEmbedBridge(jsBridge);
   }, [webviewRef]);
 
   const routePath = '/cardano';
