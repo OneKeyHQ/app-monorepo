@@ -82,10 +82,56 @@ export function useDiscoverHistory(): MatchDAppItemType[] {
   return items;
 }
 
+export function useFavoritesDapps() {
+  const [dapps, setDapps] = useState<DAppItemType[]>([]);
+
+  const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
+
+  const origins = useMemo(() => {
+    if (!dappFavorites) {
+      return [];
+    }
+    return dappFavorites.map((item) => {
+      const url = new URL(item);
+      return url.origin;
+    });
+  }, [dappFavorites]);
+  useEffect(() => {
+    async function main() {
+      if (origins.length > 0) {
+        const data =
+          await backgroundApiProxy.serviceDiscover.searchDappsWithRegExp(
+            origins,
+          );
+        setDapps(data);
+      }
+    }
+    main();
+  }, [origins]);
+  const dappsHostMap = useMemo(() => {
+    const hostMap: Record<string, DAppItemType> = {};
+    for (let i = 0; i < dapps.length; i += 1) {
+      const item = dapps[i];
+      if (item.url) {
+        const { host } = new URL(item.url);
+        const shortHost = host.split('.').slice(-2).join('.');
+        if (host) {
+          hostMap[host] = item;
+        }
+        if (shortHost) {
+          hostMap[shortHost] = item;
+        }
+      }
+    }
+    return hostMap;
+  }, [dapps]);
+  return { dappsHostMap, dapps };
+}
+
 export function useDiscoverFavorites(): MatchDAppItemType[] {
-  const { hostMap: dappHostMap } = useAllDappMap();
   const webSiteHostMap = useHistoryHostMap();
   const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
+  const { dappsHostMap } = useFavoritesDapps();
 
   return useMemo(() => {
     if (!dappFavorites) {
@@ -100,7 +146,7 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
       .map((item) => {
         const { host } = item;
         const shortHost = host.split('.').slice(-2).join('.');
-        const dapp = dappHostMap[host] ?? dappHostMap[shortHost];
+        const dapp = dappsHostMap[host] ?? dappsHostMap[shortHost];
         if (dapp) {
           return { id: item.value, dapp };
         }
@@ -111,7 +157,7 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
         return undefined;
       })
       .filter(Boolean);
-  }, [dappFavorites, dappHostMap, webSiteHostMap]);
+  }, [dappFavorites, dappsHostMap, webSiteHostMap]);
 }
 
 export function useTaggedDapps() {
