@@ -43,19 +43,19 @@ const InputGallery = () => {
           <Input leftText="$" placeholder="Placeholder" />
           <Input leftIconName="AdjustmentsOutline" placeholder="Placeholder" />
           <Input
-            leftIconName="MailSolid"
+            leftIconName="MailMini"
             rightIconName="AdjustmentsOutline"
             placeholder="Placeholder"
           />
           <Input
-            leftIconName="MailSolid"
+            leftIconName="MailMini"
             rightText="Max"
             placeholder="Placeholder"
           />
           <Input
-            rightIconName="QrcodeSolid"
+            rightIconName="QrCodeMini"
             onPressRightIcon={onQrScan}
-            rightSecondaryIconName="UserSolid"
+            rightSecondaryIconName="UserMini"
             onPressSecondaryRightIcon={onUser}
             placeholder="Placeholder"
           />
@@ -67,9 +67,9 @@ const InputGallery = () => {
             placeholder="Placeholder"
           />
           <Input
-            rightIconName="QrcodeSolid"
+            rightIconName="QrCodeMini"
             onPressRightIcon={onQrScan}
-            rightSecondaryIconName="UserSolid"
+            rightSecondaryIconName="UserMini"
             onPressSecondaryRightIcon={onUser}
             placeholder="Placeholder"
             value="small"

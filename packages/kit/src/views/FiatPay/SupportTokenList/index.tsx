@@ -152,7 +152,7 @@ export const SupportTokenList: FC = () => {
         <Text typography="Body1Strong" color="text-subdued" mr="4px">
           {item.balance ?? 0}
         </Text>
-        <Icon name="ChevronRightSolid" size={20} />
+        <Icon name="ChevronRightMini" size={20} />
       </Pressable>
     ),
     [flatListData.length, navigation, type],
@@ -188,7 +188,7 @@ export const SupportTokenList: FC = () => {
               subTitle={intl.formatMessage({
                 id: 'empty__no_purchasable_tokens_desc',
               })}
-              icon="DatabaseSolid"
+              icon="DatabaseMini"
             />
           </Box>
         ),

@@ -179,7 +179,7 @@ export const AboutSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -210,7 +210,7 @@ export const AboutSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -240,7 +240,7 @@ export const AboutSection = () => {
               id: 'form__website',
             })}
           </Text>
-          <Icon name="ExternalLinkSolid" size={20} />
+          <Icon name="ExternalLinkMini" size={20} />
         </Pressable>
         <Pressable
           display="flex"
@@ -260,7 +260,7 @@ export const AboutSection = () => {
           >
             Discord
           </Text>
-          <Icon name="ExternalLinkSolid" size={20} />
+          <Icon name="ExternalLinkMini" size={20} />
         </Pressable>
         <Pressable
           display="flex"
@@ -278,7 +278,7 @@ export const AboutSection = () => {
           >
             Twitter
           </Text>
-          <Icon name="ExternalLinkSolid" size={20} />
+          <Icon name="ExternalLinkMini" size={20} />
         </Pressable>
       </Box>
     </Box>

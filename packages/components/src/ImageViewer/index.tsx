@@ -139,7 +139,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
           borderColor="border-default"
           bg="action-secondary-default"
         >
-          <Icon name="DownloadSolid" size={20} />
+          <Icon name="DownloadMini" size={20} />
         </Box>
       )}
       containerProps={{

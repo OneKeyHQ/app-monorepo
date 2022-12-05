@@ -99,7 +99,7 @@ function ListItemWithHidden({
                 }
               }}
             >
-              <Icon name="PlusSmSolid" size={20} />
+              <Icon name="PlusSmMini" size={20} />
               <Text ml={2} typography="Body2Strong">
                 {intl.formatMessage({ id: 'action__add_hidden_wallet' })}
               </Text>

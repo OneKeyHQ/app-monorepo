@@ -48,7 +48,7 @@ const TabNavigator = () => {
           navigationRef.current?.navigate(TabRoutes.Swap);
         },
         tabBarLabel: intl.formatMessage({ id: 'title__swap' }),
-        tabBarIcon: () => 'SwitchHorizontalSolid',
+        tabBarIcon: () => 'SwitchHorizontalMini',
         description: intl.formatMessage({
           id: 'content__exchange_any_tokens',
         }),

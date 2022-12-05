@@ -88,7 +88,7 @@ const AccountAmountInfo: FC = () => {
             />
           </Typography.Display2XLarge>
           <IconButton
-            name="ChevronDownSolid"
+            name="ChevronDownMini"
             onPress={showAccountValueSettings}
             type="plain"
             circle

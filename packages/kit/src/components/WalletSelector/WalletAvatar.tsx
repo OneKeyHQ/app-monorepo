@@ -161,7 +161,7 @@ const PassphraseStatus: FC<Partial<WalletAvatarProps>> = ({ size }) => (
     bgColor="background-default"
   >
     <Icon
-      name="LockClosedSolid"
+      name="LockClosedMini"
       color="icon-default"
       size={size === 'xl' || size === 'lg' ? 12 : 10}
     />

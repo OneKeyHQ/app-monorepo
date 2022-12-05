@@ -213,7 +213,7 @@ export default function ConnectedSites() {
               <ConnectedSiteItemAddress item={item} />
             </Box>
             <IconButton
-              name="CloseCircleSolid"
+              name="CloseCircleMini"
               type="plain"
               circle
               onPress={() => {

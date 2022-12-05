@@ -33,7 +33,7 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
         : 'transparent'
     }
   >
-    <Icon size={20} name="DotsHorizontalSolid" />
+    <Icon size={20} name="DotsHorizontalMini" />
   </Box>
 );
 
@@ -60,16 +60,14 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
                 label: intl.formatMessage({ id: 'action__rename' }),
                 value: 'rename',
                 iconProps: {
-                  name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+                  name: isVerticalLayout ? 'TagOutline' : 'TagMini',
                 },
               },
               {
                 label: intl.formatMessage({ id: 'action__copy_address' }),
                 value: 'copy',
                 iconProps: {
-                  name: isVerticalLayout
-                    ? 'DuplicateOutline'
-                    : 'DuplicateSolid',
+                  name: isVerticalLayout ? 'DuplicateOutline' : 'Square2StackMini',
                 },
               },
               {
@@ -78,14 +76,14 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
                 iconProps: {
                   name: isVerticalLayout
                     ? 'DocumentTextOutline'
-                    : 'DocumentTextSolid',
+                    : 'DocumentTextMini',
                 },
               },
               {
                 label: intl.formatMessage({ id: 'action__remove_account' }),
                 value: 'remove',
                 iconProps: {
-                  name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+                  name: isVerticalLayout ? 'TrashOutline' : 'TrashMini',
                 },
                 destructive: true,
               },
@@ -95,16 +93,14 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
                 label: intl.formatMessage({ id: 'action__rename' }),
                 value: 'rename',
                 iconProps: {
-                  name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+                  name: isVerticalLayout ? 'TagOutline' : 'TagMini',
                 },
               },
               {
                 label: intl.formatMessage({ id: 'action__copy_address' }),
                 value: 'copy',
                 iconProps: {
-                  name: isVerticalLayout
-                    ? 'DuplicateOutline'
-                    : 'DuplicateSolid',
+                  name: isVerticalLayout ? 'DuplicateOutline' : 'Square2StackMini',
                 },
               },
             ]

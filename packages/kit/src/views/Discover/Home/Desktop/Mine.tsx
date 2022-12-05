@@ -195,7 +195,7 @@ const ListHeaderItems = () => {
           height="32px"
           type="plain"
           size="sm"
-          rightIconName="ChevronRightSolid"
+          rightIconName="ChevronRightMini"
           textProps={{ color: 'text-subdued' }}
         >
           {intl.formatMessage({ id: 'action__see_all' })}

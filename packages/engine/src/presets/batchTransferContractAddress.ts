@@ -1,7 +1,7 @@
 import { OnekeyNetwork } from './networkIds';
 
 /*
-Check Contract Solidity SourceCode:
+Check Contract Miniity SourceCode:
  packages/engine/src/vaults/impl/evm/decoder/batchTransferContract/Disperse.sol
 
 Compiler Version

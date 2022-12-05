@@ -77,7 +77,7 @@ const NFTListHeader = ({
             disabled
             onPress={showSelectNFTPriceType}
             size="sm"
-            name="CogSolid"
+            name="Cog8ToothMini"
             type="plain"
             mr={-2}
           /> */}

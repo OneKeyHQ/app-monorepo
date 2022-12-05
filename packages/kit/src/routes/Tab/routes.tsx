@@ -100,7 +100,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Swap,
     component: SwapScreen,
-    tabBarIcon: () => 'SwitchHorizontalSolid',
+    tabBarIcon: () => 'SwitchHorizontalMini',
     translationId: 'title__swap',
     children: [
       {

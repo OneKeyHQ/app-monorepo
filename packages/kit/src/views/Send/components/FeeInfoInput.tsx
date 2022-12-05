@@ -185,7 +185,7 @@ function FeeInfoInputForTransfer({
       return <Spinner size="sm" />;
     }
     if (feeInfoPayload && editable && networkFeeInfoEditable) {
-      return <Icon size={20} name="PencilSolid" />;
+      return <Icon size={20} name="PencilMini" />;
     }
     return null;
   }, [editable, encodedTx, feeInfoPayload, loading, networkFeeInfoEditable]);
@@ -446,7 +446,7 @@ function FeeInfoInputForConfirmLite({
       return <Spinner size="sm" />;
     }
     if (feeInfoPayload && editable && networkFeeInfoEditable) {
-      return <Icon size={20} name="PencilSolid" />;
+      return <Icon size={20} name="PencilMini" />;
     }
     return null;
   }, [

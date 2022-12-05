@@ -58,7 +58,7 @@ export const PushSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
       </Box>

@@ -60,7 +60,7 @@ const ItemRow: FC<ItemRowProps> = ({
           <IconButton
             type="plain"
             circle
-            name="ArrowUpTopSolid"
+            name="ArrowUpTopMini"
             onPress={onFixTop}
           />
         ) : null}

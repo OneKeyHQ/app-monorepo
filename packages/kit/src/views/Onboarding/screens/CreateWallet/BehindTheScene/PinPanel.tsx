@@ -69,10 +69,10 @@ const PinPanel: FC<PinPanelProps> = ({ visible }) => {
               rounded="full"
               bgColor="surface-neutral-subdued"
             >
-              <Icon name="ExtensionsSolid" color="icon-default" size={16} />
+              <Icon name="ExtensionsMini" color="icon-default" size={16} />
             </Box>
             <Box p={2} rounded="full">
-              <Icon name="DotsVerticalSolid" size={16} />
+              <Icon name="EllipsisVerticalMini" size={16} />
             </Box>
           </Box>
           <Box
@@ -89,7 +89,7 @@ const PinPanel: FC<PinPanelProps> = ({ visible }) => {
             <Text flex={1} mx={3} typography="Body2">
               OneKey
             </Text>
-            <Icon name="PinSolid" size={16} />
+            <Icon name="PinMini" size={16} />
           </Box>
           <Box position="absolute" left="-112px" bottom="-69px">
             <Icon

@@ -108,7 +108,7 @@ export const UtilSection = () => {
               })}
             </Text>
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" size={20} />
             </Box>
           </Pressable>
         ) : null}
@@ -140,7 +140,7 @@ export const UtilSection = () => {
                 })}
               </Text>
               <Box>
-                <Icon name="ChevronRightSolid" size={20} />
+                <Icon name="ChevronRightMini" size={20} />
               </Box>
             </Pressable>
           </>
@@ -157,7 +157,7 @@ export const UtilSection = () => {
             gotoScanQrcode();
           }}
         >
-          <Icon name={small ? 'ScanOutline' : 'ScanSolid'} />
+          <Icon name={small ? 'ScanOutline' : 'ViewfinderCircleMini'} />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex="1"
@@ -169,7 +169,7 @@ export const UtilSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
         <>
@@ -203,7 +203,7 @@ export const UtilSection = () => {
               })}
             </Text>
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" size={20} />
             </Box>
           </Pressable>
         </>

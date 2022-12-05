@@ -53,7 +53,7 @@ const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
       <Hidden till="md">
         <Button
           isDisabled={isDisabled}
-          leftIconName="FilterSolid"
+          leftIconName="FilterMini"
           onPress={onPress}
         >
           {intl.formatMessage({ id: 'title__filter' })}

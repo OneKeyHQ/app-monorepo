@@ -148,7 +148,7 @@ const DAppIcon: FC<DAppIconProps> = ({ url, size, networkIds, ...rest }) => {
                 width={`${innerSize}px`}
                 height={`${innerSize}px`}
               >
-                <Icon size={16} name="GlobeSolid" />
+                <Icon size={16} name="GlobeMini" />
               </Box>
             }
           />
@@ -160,7 +160,7 @@ const DAppIcon: FC<DAppIconProps> = ({ url, size, networkIds, ...rest }) => {
             width={`${innerSize}px`}
             height={`${innerSize}px`}
           >
-            <Icon size={16} name="GlobeSolid" />
+            <Icon size={16} name="GlobeMini" />
           </Box>
         )}
         {networkIds && networkIds.length > 0 ? (

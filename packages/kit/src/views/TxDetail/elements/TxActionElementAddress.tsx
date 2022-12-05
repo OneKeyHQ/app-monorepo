@@ -73,7 +73,7 @@ export function TxActionElementAddress(
         <HStack alignItems="center">
           {securityInfo?.length ? (
             <Icon
-              name="ShieldExclamationSolid"
+              name="ShieldExclamationMini"
               size={20}
               color="icon-critical"
             />

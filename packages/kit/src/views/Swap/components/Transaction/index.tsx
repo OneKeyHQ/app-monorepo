@@ -62,7 +62,7 @@ const StatusIcon: FC<{ status: TransactionStatus }> = ({ status }) => {
   if (status === 'sucesss') {
     return (
       <Center w="4" h="4" borderRadius="full" bg="action-primary-default">
-        <Icon name="CheckSolid" size={12} color="icon-on-primary" />
+        <Icon name="CheckMini" size={12} color="icon-on-primary" />
       </Center>
     );
   }
@@ -74,13 +74,13 @@ const StatusIcon: FC<{ status: TransactionStatus }> = ({ status }) => {
         borderRadius="full"
         style={{ 'backgroundColor': '#008CB8' }}
       >
-        <Icon name="ClockSolid" size={12} color="icon-on-primary" />
+        <Icon name="ClockMini" size={12} color="icon-on-primary" />
       </Center>
     );
   }
   return (
     <Center w="4" h="4" borderRadius="full" bg="action-critical-default">
-      <Icon name="CloseSolid" size={12} color="icon-on-primary" />
+      <Icon name="XMarkMini" size={12} color="icon-on-primary" />
     </Center>
   );
 };
@@ -140,11 +140,7 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
           position="relative"
           mr="3"
         >
-          <Icon
-            name="SwitchHorizontalSolid"
-            size={25}
-            color="text-on-primary"
-          />
+          <Icon name="SwitchHorizontalMini" size={25} color="text-on-primary" />
           <Box position="absolute" bottom="0" right="0">
             <StatusIcon status={tx.status} />
           </Box>
@@ -210,7 +206,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         alignItems="center"
       >
         <Box mr="4" width="8" flexDirection="row" justifyContent="center">
-          <Icon name="ArrowDownSolid" size={16} />
+          <Icon name="ArrowDownMini" size={16} />
         </Box>
         <Divider flex="1" />
       </Box>

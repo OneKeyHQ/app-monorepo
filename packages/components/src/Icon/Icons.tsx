@@ -18,6 +18,441 @@ import TxStatusFailureCircleIllus from "./react/illus/TxStatusFailureCircle";
 import TxStatusSuccessCircleIllus from "./react/illus/TxStatusSuccessCircle";
 import TxStatusWarningCircleIllus from "./react/illus/TxStatusWarningCircle";
 import WalletconnectLogoIllus from "./react/illus/WalletconnectLogo";
+import AcademicCapMini from "./react/mini/AcademicCap";
+import AdjustmentsMini from "./react/mini/Adjustments";
+import AdjustmentsHorizontalMini from "./react/mini/AdjustmentsHorizontal";
+import AdjustmentsVerticalMini from "./react/mini/AdjustmentsVertical";
+import AndroidMini from "./react/mini/Android";
+import AnnotationMini from "./react/mini/Annotation";
+import AppStoreMini from "./react/mini/AppStore";
+import ArchiveMini from "./react/mini/Archive";
+import ArchiveBoxMini from "./react/mini/ArchiveBox";
+import ArchiveBoxArrowDownMini from "./react/mini/ArchiveBoxArrowDown";
+import ArchiveBoxXMarkMini from "./react/mini/ArchiveBoxXMark";
+import ArrowCircleDownMini from "./react/mini/ArrowCircleDown";
+import ArrowCircleLeftMini from "./react/mini/ArrowCircleLeft";
+import ArrowCircleRightMini from "./react/mini/ArrowCircleRight";
+import ArrowCircleUpMini from "./react/mini/ArrowCircleUp";
+import ArrowDownMini from "./react/mini/ArrowDown";
+import ArrowDownCircleMini from "./react/mini/ArrowDownCircle";
+import ArrowDownLeftMini from "./react/mini/ArrowDownLeft";
+import ArrowDownOnSquareMini from "./react/mini/ArrowDownOnSquare";
+import ArrowDownOnSquareStackMini from "./react/mini/ArrowDownOnSquareStack";
+import ArrowDownRightMini from "./react/mini/ArrowDownRight";
+import ArrowDownTrayMini from "./react/mini/ArrowDownTray";
+import ArrowLeftMini from "./react/mini/ArrowLeft";
+import ArrowLeftCircleMini from "./react/mini/ArrowLeftCircle";
+import ArrowLeftOnRectangleMini from "./react/mini/ArrowLeftOnRectangle";
+import ArrowLongDownMini from "./react/mini/ArrowLongDown";
+import ArrowLongLeftMini from "./react/mini/ArrowLongLeft";
+import ArrowLongRightMini from "./react/mini/ArrowLongRight";
+import ArrowLongUpMini from "./react/mini/ArrowLongUp";
+import ArrowNarrowDownMini from "./react/mini/ArrowNarrowDown";
+import ArrowNarrowLeftMini from "./react/mini/ArrowNarrowLeft";
+import ArrowNarrowRightMini from "./react/mini/ArrowNarrowRight";
+import ArrowNarrowUpMini from "./react/mini/ArrowNarrowUp";
+import ArrowPathMini from "./react/mini/ArrowPath";
+import ArrowPathRoundedSquareMini from "./react/mini/ArrowPathRoundedSquare";
+import ArrowRightMini from "./react/mini/ArrowRight";
+import ArrowRightCircleMini from "./react/mini/ArrowRightCircle";
+import ArrowRightOnRectangleMini from "./react/mini/ArrowRightOnRectangle";
+import ArrowSmDownMini from "./react/mini/ArrowSmDown";
+import ArrowSmLeftMini from "./react/mini/ArrowSmLeft";
+import ArrowSmRightMini from "./react/mini/ArrowSmRight";
+import ArrowSmUpMini from "./react/mini/ArrowSmUp";
+import ArrowSmallDownMini from "./react/mini/ArrowSmallDown";
+import ArrowSmallLeftMini from "./react/mini/ArrowSmallLeft";
+import ArrowSmallRightMini from "./react/mini/ArrowSmallRight";
+import ArrowSmallUpMini from "./react/mini/ArrowSmallUp";
+import ArrowTopRightOnSquareMini from "./react/mini/ArrowTopRightOnSquare";
+import ArrowTrendingDownMini from "./react/mini/ArrowTrendingDown";
+import ArrowTrendingUpMini from "./react/mini/ArrowTrendingUp";
+import ArrowUpMini from "./react/mini/ArrowUp";
+import ArrowUpCircleMini from "./react/mini/ArrowUpCircle";
+import ArrowUpLeftMini from "./react/mini/ArrowUpLeft";
+import ArrowUpOnSquareMini from "./react/mini/ArrowUpOnSquare";
+import ArrowUpOnSquareStackMini from "./react/mini/ArrowUpOnSquareStack";
+import ArrowUpRightMini from "./react/mini/ArrowUpRight";
+import ArrowUpTopMini from "./react/mini/ArrowUpTop";
+import ArrowUpTrayMini from "./react/mini/ArrowUpTray";
+import ArrowUturnDownMini from "./react/mini/ArrowUturnDown";
+import ArrowUturnLeftMini from "./react/mini/ArrowUturnLeft";
+import ArrowUturnRightMini from "./react/mini/ArrowUturnRight";
+import ArrowUturnUpMini from "./react/mini/ArrowUturnUp";
+import ArrowsExpandMini from "./react/mini/ArrowsExpand";
+import ArrowsPointingInMini from "./react/mini/ArrowsPointingIn";
+import ArrowsPointingOutMini from "./react/mini/ArrowsPointingOut";
+import ArrowsRightLeftMini from "./react/mini/ArrowsRightLeft";
+import ArrowsUpDownMini from "./react/mini/ArrowsUpDown";
+import AtSymbolMini from "./react/mini/AtSymbol";
+import BackspaceMini from "./react/mini/Backspace";
+import BackwardMini from "./react/mini/Backward";
+import BadgeCheckMini from "./react/mini/BadgeCheck";
+import BanMini from "./react/mini/Ban";
+import BanknotesMini from "./react/mini/Banknotes";
+import Bars2Mini from "./react/mini/Bars2";
+import Bars3Mini from "./react/mini/Bars3";
+import Bars3BottomLeftMini from "./react/mini/Bars3BottomLeft";
+import Bars3BottomRightMini from "./react/mini/Bars3BottomRight";
+import Bars3CenterLeftMini from "./react/mini/Bars3CenterLeft";
+import Bars4Mini from "./react/mini/Bars4";
+import BarsArrowDownMini from "./react/mini/BarsArrowDown";
+import BarsArrowUpMini from "./react/mini/BarsArrowUp";
+import BarsShrinkMini from "./react/mini/BarsShrink";
+import Battery0Mini from "./react/mini/Battery0";
+import Battery100Mini from "./react/mini/Battery100";
+import Battery50Mini from "./react/mini/Battery50";
+import BeakerMini from "./react/mini/Beaker";
+import BellMini from "./react/mini/Bell";
+import BellAlertMini from "./react/mini/BellAlert";
+import BellOffMini from "./react/mini/BellOff";
+import BellSlashMini from "./react/mini/BellSlash";
+import BellSnoozeMini from "./react/mini/BellSnooze";
+import BlockExplorerMini from "./react/mini/BlockExplorer";
+import BoltMini from "./react/mini/Bolt";
+import BoltSlashMini from "./react/mini/BoltSlash";
+import BookOpenMini from "./react/mini/BookOpen";
+import BookmarkMini from "./react/mini/Bookmark";
+import BookmarkAltMini from "./react/mini/BookmarkAlt";
+import BookmarkSlashMini from "./react/mini/BookmarkSlash";
+import BookmarkSquareMini from "./react/mini/BookmarkSquare";
+import BriefcaseMini from "./react/mini/Briefcase";
+import BugAntMini from "./react/mini/BugAnt";
+import BuildingLibraryMini from "./react/mini/BuildingLibrary";
+import BuildingOfficeMini from "./react/mini/BuildingOffice";
+import BuildingOffice2Mini from "./react/mini/BuildingOffice2";
+import BuildingStorefrontMini from "./react/mini/BuildingStorefront";
+import BulkSenderMini from "./react/mini/BulkSender";
+import CakeMini from "./react/mini/Cake";
+import CalculatorMini from "./react/mini/Calculator";
+import CalendarMini from "./react/mini/Calendar";
+import CalendarDaysMini from "./react/mini/CalendarDays";
+import CameraMini from "./react/mini/Camera";
+import ChartBarMini from "./react/mini/ChartBar";
+import ChartBarSquareMini from "./react/mini/ChartBarSquare";
+import ChartPieMini from "./react/mini/ChartPie";
+import ChartSquareBarMini from "./react/mini/ChartSquareBar";
+import ChatMini from "./react/mini/Chat";
+import ChatAltMini from "./react/mini/ChatAlt";
+import ChatAlt2Mini from "./react/mini/ChatAlt2";
+import ChatBubbleBottomCenterMini from "./react/mini/ChatBubbleBottomCenter";
+import ChatBubbleBottomCenterTextMini from "./react/mini/ChatBubbleBottomCenterText";
+import ChatBubbleLeftMini from "./react/mini/ChatBubbleLeft";
+import ChatBubbleLeftEllipsisMini from "./react/mini/ChatBubbleLeftEllipsis";
+import ChatBubbleLeftRightMini from "./react/mini/ChatBubbleLeftRight";
+import ChatBubbleOvalLeftMini from "./react/mini/ChatBubbleOvalLeft";
+import ChatBubbleOvalLeftEllipsisMini from "./react/mini/ChatBubbleOvalLeftEllipsis";
+import CheckMini from "./react/mini/Check";
+import CheckBadgeMini from "./react/mini/CheckBadge";
+import CheckBoxIconCheckedMini from "./react/mini/CheckBoxIconChecked";
+import CheckBoxIconCheckedDisableMini from "./react/mini/CheckBoxIconCheckedDisable";
+import CheckBoxIconDefaultMini from "./react/mini/CheckBoxIconDefault";
+import CheckBoxIconDefaultDisableMini from "./react/mini/CheckBoxIconDefaultDisable";
+import CheckCircleMini from "./react/mini/CheckCircle";
+import ChevronDoubleDownMini from "./react/mini/ChevronDoubleDown";
+import ChevronDoubleLeftMini from "./react/mini/ChevronDoubleLeft";
+import ChevronDoubleRightMini from "./react/mini/ChevronDoubleRight";
+import ChevronDoubleUpMini from "./react/mini/ChevronDoubleUp";
+import ChevronDownMini from "./react/mini/ChevronDown";
+import ChevronLeftMini from "./react/mini/ChevronLeft";
+import ChevronRightMini from "./react/mini/ChevronRight";
+import ChevronUpMini from "./react/mini/ChevronUp";
+import ChevronUpDownMini from "./react/mini/ChevronUpDown";
+import ChipMini from "./react/mini/Chip";
+import CircleStackMini from "./react/mini/CircleStack";
+import ClipboardMini from "./react/mini/Clipboard";
+import ClipboardCheckMini from "./react/mini/ClipboardCheck";
+import ClipboardCopyMini from "./react/mini/ClipboardCopy";
+import ClipboardDocumentMini from "./react/mini/ClipboardDocument";
+import ClipboardDocumentCheckMini from "./react/mini/ClipboardDocumentCheck";
+import ClipboardDocumentListMini from "./react/mini/ClipboardDocumentList";
+import ClipboardListMini from "./react/mini/ClipboardList";
+import ClockMini from "./react/mini/Clock";
+import CloseCircleMini from "./react/mini/CloseCircle";
+import CloudMini from "./react/mini/Cloud";
+import CloudArrowDownMini from "./react/mini/CloudArrowDown";
+import CloudArrowUpMini from "./react/mini/CloudArrowUp";
+import CloudDownloadMini from "./react/mini/CloudDownload";
+import CloudUploadMini from "./react/mini/CloudUpload";
+import CodeMini from "./react/mini/Code";
+import CodeBracketMini from "./react/mini/CodeBracket";
+import CodeBracketSquareMini from "./react/mini/CodeBracketSquare";
+import CogMini from "./react/mini/Cog";
+import Cog6ToothMini from "./react/mini/Cog6Tooth";
+import Cog8ToothMini from "./react/mini/Cog8Tooth";
+import CollectionMini from "./react/mini/Collection";
+import ColorSwatchMini from "./react/mini/ColorSwatch";
+import CommandLineMini from "./react/mini/CommandLine";
+import ComputerDesktopMini from "./react/mini/ComputerDesktop";
+import CpuChipMini from "./react/mini/CpuChip";
+import CreditCardMini from "./react/mini/CreditCard";
+import CubeMini from "./react/mini/Cube";
+import CubeTransparentMini from "./react/mini/CubeTransparent";
+import CurrencyBangladeshiMini from "./react/mini/CurrencyBangladeshi";
+import CurrencyDollarMini from "./react/mini/CurrencyDollar";
+import CurrencyEuroMini from "./react/mini/CurrencyEuro";
+import CurrencyPoundMini from "./react/mini/CurrencyPound";
+import CurrencyRupeeMini from "./react/mini/CurrencyRupee";
+import CurrencyYenMini from "./react/mini/CurrencyYen";
+import CursorArrowRaysMini from "./react/mini/CursorArrowRays";
+import CursorArrowRippleMini from "./react/mini/CursorArrowRipple";
+import CursorClickMini from "./react/mini/CursorClick";
+import DatabaseMini from "./react/mini/Database";
+import DesktopComputerMini from "./react/mini/DesktopComputer";
+import DeviceMobileMini from "./react/mini/DeviceMobile";
+import DevicePhoneMobileMini from "./react/mini/DevicePhoneMobile";
+import DeviceTabletMini from "./react/mini/DeviceTablet";
+import DialogIconTypeDangerMini from "./react/mini/DialogIconTypeDanger";
+import DialogIconTypeInfoMini from "./react/mini/DialogIconTypeInfo";
+import DocumentMini from "./react/mini/Document";
+import DocumentAddMini from "./react/mini/DocumentAdd";
+import DocumentArrowDownMini from "./react/mini/DocumentArrowDown";
+import DocumentArrowUpMini from "./react/mini/DocumentArrowUp";
+import DocumentChartBarMini from "./react/mini/DocumentChartBar";
+import DocumentCheckMini from "./react/mini/DocumentCheck";
+import DocumentDownloadMini from "./react/mini/DocumentDownload";
+import DocumentDuplicateMini from "./react/mini/DocumentDuplicate";
+import DocumentMagnifyingGlassMini from "./react/mini/DocumentMagnifyingGlass";
+import DocumentMinusMini from "./react/mini/DocumentMinus";
+import DocumentPlusMini from "./react/mini/DocumentPlus";
+import DocumentRemoveMini from "./react/mini/DocumentRemove";
+import DocumentReportMini from "./react/mini/DocumentReport";
+import DocumentSearchMini from "./react/mini/DocumentSearch";
+import DocumentTextMini from "./react/mini/DocumentText";
+import DotsCircleHorizontalMini from "./react/mini/DotsCircleHorizontal";
+import DotsHorizontalMini from "./react/mini/DotsHorizontal";
+import DownloadMini from "./react/mini/Download";
+import DuplicateMini from "./react/mini/Duplicate";
+import EllipsisHorizontalMini from "./react/mini/EllipsisHorizontal";
+import EllipsisHorizontalCircleMini from "./react/mini/EllipsisHorizontalCircle";
+import EllipsisVerticalMini from "./react/mini/EllipsisVertical";
+import EmojiHappyMini from "./react/mini/EmojiHappy";
+import EmojiSadMini from "./react/mini/EmojiSad";
+import EnvelopeMini from "./react/mini/Envelope";
+import EnvelopeOpenMini from "./react/mini/EnvelopeOpen";
+import ExclamationMini from "./react/mini/Exclamation";
+import ExclamationCircleMini from "./react/mini/ExclamationCircle";
+import ExclamationTriangleMini from "./react/mini/ExclamationTriangle";
+import ExtensionsMini from "./react/mini/Extensions";
+import ExternalLinkMini from "./react/mini/ExternalLink";
+import EyeMini from "./react/mini/Eye";
+import EyeDropperMini from "./react/mini/EyeDropper";
+import EyeOffMini from "./react/mini/EyeOff";
+import EyeSlashMini from "./react/mini/EyeSlash";
+import FaceFrownMini from "./react/mini/FaceFrown";
+import FaceSmileMini from "./react/mini/FaceSmile";
+import FastForwardMini from "./react/mini/FastForward";
+import FilmMini from "./react/mini/Film";
+import FilterMini from "./react/mini/Filter";
+import FingerPrintMini from "./react/mini/FingerPrint";
+import FireMini from "./react/mini/Fire";
+import FlagMini from "./react/mini/Flag";
+import FolderMini from "./react/mini/Folder";
+import FolderAddMini from "./react/mini/FolderAdd";
+import FolderArrowDownMini from "./react/mini/FolderArrowDown";
+import FolderDownloadMini from "./react/mini/FolderDownload";
+import FolderMinusMini from "./react/mini/FolderMinus";
+import FolderOpenMini from "./react/mini/FolderOpen";
+import FolderPlusMini from "./react/mini/FolderPlus";
+import FolderRemoveMini from "./react/mini/FolderRemove";
+import ForwardMini from "./react/mini/Forward";
+import FunnelMini from "./react/mini/Funnel";
+import GifMini from "./react/mini/Gif";
+import GiftMini from "./react/mini/Gift";
+import GiftTopMini from "./react/mini/GiftTop";
+import GlobeMini from "./react/mini/Globe";
+import GlobeAltMini from "./react/mini/GlobeAlt";
+import GlobeAmericasMini from "./react/mini/GlobeAmericas";
+import GlobeAsiaAustraliaMini from "./react/mini/GlobeAsiaAustralia";
+import GlobeEuropeAfricaMini from "./react/mini/GlobeEuropeAfrica";
+import HandMini from "./react/mini/Hand";
+import HandRaisedMini from "./react/mini/HandRaised";
+import HandThumbDownMini from "./react/mini/HandThumbDown";
+import HandThumbUpMini from "./react/mini/HandThumbUp";
+import HashtagMini from "./react/mini/Hashtag";
+import HeartMini from "./react/mini/Heart";
+import HomeMini from "./react/mini/Home";
+import HomeModernMini from "./react/mini/HomeModern";
+import IdentificationMini from "./react/mini/Identification";
+import InboxMini from "./react/mini/Inbox";
+import InboxArrowDownMini from "./react/mini/InboxArrowDown";
+import InboxInMini from "./react/mini/InboxIn";
+import InboxStackMini from "./react/mini/InboxStack";
+import InformationCircleMini from "./react/mini/InformationCircle";
+import KeyMini from "./react/mini/Key";
+import LanguageMini from "./react/mini/Language";
+import LibraryMini from "./react/mini/Library";
+import LifebuoyMini from "./react/mini/Lifebuoy";
+import LightBulbMini from "./react/mini/LightBulb";
+import LightningBoltMini from "./react/mini/LightningBolt";
+import LinkMini from "./react/mini/Link";
+import ListBulletMini from "./react/mini/ListBullet";
+import LocationMarkerMini from "./react/mini/LocationMarker";
+import LockClosedMini from "./react/mini/LockClosed";
+import LockOpenMini from "./react/mini/LockOpen";
+import LoginMini from "./react/mini/Login";
+import LogoutMini from "./react/mini/Logout";
+import MagnifyingGlassMini from "./react/mini/MagnifyingGlass";
+import MagnifyingGlassCircleMini from "./react/mini/MagnifyingGlassCircle";
+import MagnifyingGlassMinusMini from "./react/mini/MagnifyingGlassMinus";
+import MagnifyingGlassPlusMini from "./react/mini/MagnifyingGlassPlus";
+import MailMini from "./react/mini/Mail";
+import MailOpenMini from "./react/mini/MailOpen";
+import MapMini from "./react/mini/Map";
+import MapPinMini from "./react/mini/MapPin";
+import MegaphoneMini from "./react/mini/Megaphone";
+import MenuMini from "./react/mini/Menu";
+import MenuAlt1Mini from "./react/mini/MenuAlt1";
+import MenuAlt2Mini from "./react/mini/MenuAlt2";
+import MenuAlt3Mini from "./react/mini/MenuAlt3";
+import MenuAlt4Mini from "./react/mini/MenuAlt4";
+import MicrophoneMini from "./react/mini/Microphone";
+import MinusMini from "./react/mini/Minus";
+import MinusCircleMini from "./react/mini/MinusCircle";
+import MinusSmMini from "./react/mini/MinusSm";
+import MinusSmallMini from "./react/mini/MinusSmall";
+import MoonMini from "./react/mini/Moon";
+import MusicNoteMini from "./react/mini/MusicNote";
+import MusicalNoteMini from "./react/mini/MusicalNote";
+import NavActivityMini from "./react/mini/NavActivity";
+import NavBankCardMini from "./react/mini/NavBankCard";
+import NavBuyMini from "./react/mini/NavBuy";
+import NavDiscoveryMini from "./react/mini/NavDiscovery";
+import NavHomeMini from "./react/mini/NavHome";
+import NavMenuMini from "./react/mini/NavMenu";
+import NavReceiveMini from "./react/mini/NavReceive";
+import NavSellMini from "./react/mini/NavSell";
+import NavSendMini from "./react/mini/NavSend";
+import NavSettingsMini from "./react/mini/NavSettings";
+import NavSwapMini from "./react/mini/NavSwap";
+import NewspaperMini from "./react/mini/Newspaper";
+import NoSymbolMini from "./react/mini/NoSymbol";
+import OfficeBuildingMini from "./react/mini/OfficeBuilding";
+import OfflineMini from "./react/mini/Offline";
+import OptionListAllMini from "./react/mini/OptionListAll";
+import PaintBrushMini from "./react/mini/PaintBrush";
+import PaperAirplaneMini from "./react/mini/PaperAirplane";
+import PaperClipMini from "./react/mini/PaperClip";
+import PauseMini from "./react/mini/Pause";
+import PauseCircleMini from "./react/mini/PauseCircle";
+import PencilMini from "./react/mini/Pencil";
+import PencilAltMini from "./react/mini/PencilAlt";
+import PencilSquareMini from "./react/mini/PencilSquare";
+import PhoneMini from "./react/mini/Phone";
+import PhoneArrowDownLeftMini from "./react/mini/PhoneArrowDownLeft";
+import PhoneArrowUpRightMini from "./react/mini/PhoneArrowUpRight";
+import PhoneIncomingMini from "./react/mini/PhoneIncoming";
+import PhoneMissedCallMini from "./react/mini/PhoneMissedCall";
+import PhoneOutgoingMini from "./react/mini/PhoneOutgoing";
+import PhoneXMarkMini from "./react/mini/PhoneXMark";
+import PhotoMini from "./react/mini/Photo";
+import PhotographMini from "./react/mini/Photograph";
+import PinMini from "./react/mini/Pin";
+import PlayMini from "./react/mini/Play";
+import PlayCircleMini from "./react/mini/PlayCircle";
+import PlayPauseMini from "./react/mini/PlayPause";
+import PlusMini from "./react/mini/Plus";
+import PlusCircleMini from "./react/mini/PlusCircle";
+import PlusSmMini from "./react/mini/PlusSm";
+import PlusSmallMini from "./react/mini/PlusSmall";
+import PowerMini from "./react/mini/Power";
+import PresentationChartBarMini from "./react/mini/PresentationChartBar";
+import PresentationChartLineMini from "./react/mini/PresentationChartLine";
+import PrinterMini from "./react/mini/Printer";
+import PuzzleMini from "./react/mini/Puzzle";
+import PuzzlePieceMini from "./react/mini/PuzzlePiece";
+import QrCodeMini from "./react/mini/QrCode";
+import QuestionMarkCircleMini from "./react/mini/QuestionMarkCircle";
+import QueueListMini from "./react/mini/QueueList";
+import RadioMini from "./react/mini/Radio";
+import ReceiptPercentMini from "./react/mini/ReceiptPercent";
+import ReceiptRefundMini from "./react/mini/ReceiptRefund";
+import ReceiptTaxMini from "./react/mini/ReceiptTax";
+import RectangleGroupMini from "./react/mini/RectangleGroup";
+import RectangleStackMini from "./react/mini/RectangleStack";
+import ReplyMini from "./react/mini/Reply";
+import RestoreMini from "./react/mini/Restore";
+import RewindMini from "./react/mini/Rewind";
+import RocketLaunchMini from "./react/mini/RocketLaunch";
+import RssMini from "./react/mini/Rss";
+import SaveMini from "./react/mini/Save";
+import SaveAsMini from "./react/mini/SaveAs";
+import ScaleMini from "./react/mini/Scale";
+import ScissorsMini from "./react/mini/Scissors";
+import SearchCircleMini from "./react/mini/SearchCircle";
+import ServerMini from "./react/mini/Server";
+import ServerStackMini from "./react/mini/ServerStack";
+import ShareMini from "./react/mini/Share";
+import ShieldCheckMini from "./react/mini/ShieldCheck";
+import ShieldExclamationMini from "./react/mini/ShieldExclamation";
+import ShoppingBagMini from "./react/mini/ShoppingBag";
+import ShoppingCartMini from "./react/mini/ShoppingCart";
+import SignalMini from "./react/mini/Signal";
+import SignalSlashMini from "./react/mini/SignalSlash";
+import SortAscendingMini from "./react/mini/SortAscending";
+import SortDescendingMini from "./react/mini/SortDescending";
+import SparklesMini from "./react/mini/Sparkles";
+import SpeakerWaveMini from "./react/mini/SpeakerWave";
+import SpeakerXMarkMini from "./react/mini/SpeakerXMark";
+import SpeakerphoneMini from "./react/mini/Speakerphone";
+import Square2StackMini from "./react/mini/Square2Stack";
+import Square3Stack3Dmini from "./react/mini/Square3Stack3D";
+import Squares2X2Mini from "./react/mini/Squares2X2";
+import SquaresPlusMini from "./react/mini/SquaresPlus";
+import StarMini from "./react/mini/Star";
+import StatusOfflineMini from "./react/mini/StatusOffline";
+import StatusOnlineMini from "./react/mini/StatusOnline";
+import StopMini from "./react/mini/Stop";
+import StopCircleMini from "./react/mini/StopCircle";
+import SunMini from "./react/mini/Sun";
+import SupportMini from "./react/mini/Support";
+import SwatchMini from "./react/mini/Swatch";
+import SwitchHorizontalMini from "./react/mini/SwitchHorizontal";
+import SwitchVerticalMini from "./react/mini/SwitchVertical";
+import TableMini from "./react/mini/Table";
+import TableCellsMini from "./react/mini/TableCells";
+import TagMini from "./react/mini/Tag";
+import TemplateMini from "./react/mini/Template";
+import TerminalMini from "./react/mini/Terminal";
+import ThumbDownMini from "./react/mini/ThumbDown";
+import ThumbUpMini from "./react/mini/ThumbUp";
+import TicketMini from "./react/mini/Ticket";
+import TranslateMini from "./react/mini/Translate";
+import TrashMini from "./react/mini/Trash";
+import TrendingDownMini from "./react/mini/TrendingDown";
+import TrendingUpMini from "./react/mini/TrendingUp";
+import TrophyMini from "./react/mini/Trophy";
+import TruckMini from "./react/mini/Truck";
+import TvMini from "./react/mini/Tv";
+import UploadMini from "./react/mini/Upload";
+import UserMini from "./react/mini/User";
+import UserAddMini from "./react/mini/UserAdd";
+import UserCircleMini from "./react/mini/UserCircle";
+import UserGroupMini from "./react/mini/UserGroup";
+import UserMinusMini from "./react/mini/UserMinus";
+import UserPlusMini from "./react/mini/UserPlus";
+import UserRemoveMini from "./react/mini/UserRemove";
+import UsersMini from "./react/mini/Users";
+import VariableMini from "./react/mini/Variable";
+import VideoCameraMini from "./react/mini/VideoCamera";
+import VideoCameraSlashMini from "./react/mini/VideoCameraSlash";
+import ViewBoardsMini from "./react/mini/ViewBoards";
+import ViewColumnsMini from "./react/mini/ViewColumns";
+import ViewGridMini from "./react/mini/ViewGrid";
+import ViewGridAddMini from "./react/mini/ViewGridAdd";
+import ViewListMini from "./react/mini/ViewList";
+import ViewfinderCircleMini from "./react/mini/ViewfinderCircle";
+import VolumeOffMini from "./react/mini/VolumeOff";
+import VolumeUpMini from "./react/mini/VolumeUp";
+import WalletMini from "./react/mini/Wallet";
+import WifiMini from "./react/mini/Wifi";
+import WindowMini from "./react/mini/Window";
+import WrenchMini from "./react/mini/Wrench";
+import WrenchScrewdriverMini from "./react/mini/WrenchScrewdriver";
+import XCircleMini from "./react/mini/XCircle";
+import XMarkMini from "./react/mini/XMark";
+import ZoomInMini from "./react/mini/ZoomIn";
+import ZoomOutMini from "./react/mini/ZoomOut";
 import AcademicCapOutline from "./react/outline/AcademicCap";
 import ActivityOutline from "./react/outline/Activity";
 import AdjustmentsOutline from "./react/outline/Adjustments";
@@ -272,265 +707,6 @@ import WalletAddOutline from "./react/outline/WalletAdd";
 import WifiOutline from "./react/outline/Wifi";
 import ZoomInOutline from "./react/outline/ZoomIn";
 import ZoomOutOutline from "./react/outline/ZoomOut";
-import AcademicCapSolid from "./react/solid/AcademicCap";
-import AdjustmentsSolid from "./react/solid/Adjustments";
-import AndroidSolid from "./react/solid/Android";
-import AnnotationSolid from "./react/solid/Annotation";
-import AppStoreSolid from "./react/solid/AppStore";
-import ArchiveSolid from "./react/solid/Archive";
-import ArrowCircleDownSolid from "./react/solid/ArrowCircleDown";
-import ArrowCircleLeftSolid from "./react/solid/ArrowCircleLeft";
-import ArrowCircleRightSolid from "./react/solid/ArrowCircleRight";
-import ArrowCircleUpSolid from "./react/solid/ArrowCircleUp";
-import ArrowDownSolid from "./react/solid/ArrowDown";
-import ArrowLeftSolid from "./react/solid/ArrowLeft";
-import ArrowNarrowDownSolid from "./react/solid/ArrowNarrowDown";
-import ArrowNarrowLeftSolid from "./react/solid/ArrowNarrowLeft";
-import ArrowNarrowRightSolid from "./react/solid/ArrowNarrowRight";
-import ArrowNarrowUpSolid from "./react/solid/ArrowNarrowUp";
-import ArrowRightSolid from "./react/solid/ArrowRight";
-import ArrowSmDownSolid from "./react/solid/ArrowSmDown";
-import ArrowSmLeftSolid from "./react/solid/ArrowSmLeft";
-import ArrowSmRightSolid from "./react/solid/ArrowSmRight";
-import ArrowSmUpSolid from "./react/solid/ArrowSmUp";
-import ArrowUpSolid from "./react/solid/ArrowUp";
-import ArrowUpTopSolid from "./react/solid/ArrowUpTop";
-import ArrowsExpandSolid from "./react/solid/ArrowsExpand";
-import AtSymbolSolid from "./react/solid/AtSymbol";
-import BackspaceSolid from "./react/solid/Backspace";
-import BadgeCheckSolid from "./react/solid/BadgeCheck";
-import BanSolid from "./react/solid/Ban";
-import BeakerSolid from "./react/solid/Beaker";
-import BellSolid from "./react/solid/Bell";
-import BellOffSolid from "./react/solid/BellOff";
-import BlockExplorerSolid from "./react/solid/BlockExplorer";
-import BookOpenSolid from "./react/solid/BookOpen";
-import BookmarkSolid from "./react/solid/Bookmark";
-import BookmarkAltSolid from "./react/solid/BookmarkAlt";
-import BriefcaseSolid from "./react/solid/Briefcase";
-import BulkSenderSolid from "./react/solid/BulkSender";
-import CakeSolid from "./react/solid/Cake";
-import CalculatorSolid from "./react/solid/Calculator";
-import CalendarSolid from "./react/solid/Calendar";
-import CameraSolid from "./react/solid/Camera";
-import CashSolid from "./react/solid/Cash";
-import ChartBarSolid from "./react/solid/ChartBar";
-import ChartPieSolid from "./react/solid/ChartPie";
-import ChartSquareBarSolid from "./react/solid/ChartSquareBar";
-import ChatSolid from "./react/solid/Chat";
-import ChatAltSolid from "./react/solid/ChatAlt";
-import ChatAlt2Solid from "./react/solid/ChatAlt2";
-import CheckSolid from "./react/solid/Check";
-import CheckBoxIconCheckedSolid from "./react/solid/CheckBoxIconChecked";
-import CheckBoxIconCheckedDisableSolid from "./react/solid/CheckBoxIconCheckedDisable";
-import CheckBoxIconDefaultSolid from "./react/solid/CheckBoxIconDefault";
-import CheckBoxIconDefaultDisableSolid from "./react/solid/CheckBoxIconDefaultDisable";
-import CheckCircleSolid from "./react/solid/CheckCircle";
-import ChevronDoubleDownSolid from "./react/solid/ChevronDoubleDown";
-import ChevronDoubleLeftSolid from "./react/solid/ChevronDoubleLeft";
-import ChevronDoubleRightSolid from "./react/solid/ChevronDoubleRight";
-import ChevronDoubleUpSolid from "./react/solid/ChevronDoubleUp";
-import ChevronDownSolid from "./react/solid/ChevronDown";
-import ChevronLeftSolid from "./react/solid/ChevronLeft";
-import ChevronRightSolid from "./react/solid/ChevronRight";
-import ChevronUpSolid from "./react/solid/ChevronUp";
-import ChipSolid from "./react/solid/Chip";
-import ClipboardSolid from "./react/solid/Clipboard";
-import ClipboardCheckSolid from "./react/solid/ClipboardCheck";
-import ClipboardCopySolid from "./react/solid/ClipboardCopy";
-import ClipboardListSolid from "./react/solid/ClipboardList";
-import ClockSolid from "./react/solid/Clock";
-import CloseSolid from "./react/solid/Close";
-import CloseCircleSolid from "./react/solid/CloseCircle";
-import CloudSolid from "./react/solid/Cloud";
-import CloudDownloadSolid from "./react/solid/CloudDownload";
-import CloudUploadSolid from "./react/solid/CloudUpload";
-import CodeSolid from "./react/solid/Code";
-import CogSolid from "./react/solid/Cog";
-import CollectionSolid from "./react/solid/Collection";
-import ColorSwatchSolid from "./react/solid/ColorSwatch";
-import CreditCardSolid from "./react/solid/CreditCard";
-import CubeSolid from "./react/solid/Cube";
-import CubeTransparentSolid from "./react/solid/CubeTransparent";
-import CurrencyBangladeshiSolid from "./react/solid/CurrencyBangladeshi";
-import CurrencyDollarSolid from "./react/solid/CurrencyDollar";
-import CurrencyEuroSolid from "./react/solid/CurrencyEuro";
-import CurrencyPoundSolid from "./react/solid/CurrencyPound";
-import CurrencyRupeeSolid from "./react/solid/CurrencyRupee";
-import CurrencyYenSolid from "./react/solid/CurrencyYen";
-import CursorClickSolid from "./react/solid/CursorClick";
-import DatabaseSolid from "./react/solid/Database";
-import DesktopComputerSolid from "./react/solid/DesktopComputer";
-import DeviceMobileSolid from "./react/solid/DeviceMobile";
-import DeviceTabletSolid from "./react/solid/DeviceTablet";
-import DialogIconTypeDangerSolid from "./react/solid/DialogIconTypeDanger";
-import DialogIconTypeInfoSolid from "./react/solid/DialogIconTypeInfo";
-import DocumentSolid from "./react/solid/Document";
-import DocumentAddSolid from "./react/solid/DocumentAdd";
-import DocumentDownloadSolid from "./react/solid/DocumentDownload";
-import DocumentDuplicateSolid from "./react/solid/DocumentDuplicate";
-import DocumentRemoveSolid from "./react/solid/DocumentRemove";
-import DocumentReportSolid from "./react/solid/DocumentReport";
-import DocumentSearchSolid from "./react/solid/DocumentSearch";
-import DocumentTextSolid from "./react/solid/DocumentText";
-import DotsCircleHorizontalSolid from "./react/solid/DotsCircleHorizontal";
-import DotsHorizontalSolid from "./react/solid/DotsHorizontal";
-import DotsVerticalSolid from "./react/solid/DotsVertical";
-import DownloadSolid from "./react/solid/Download";
-import DuplicateSolid from "./react/solid/Duplicate";
-import EmojiHappySolid from "./react/solid/EmojiHappy";
-import EmojiSadSolid from "./react/solid/EmojiSad";
-import ExclamationSolid from "./react/solid/Exclamation";
-import ExclamationCircleSolid from "./react/solid/ExclamationCircle";
-import ExtensionsSolid from "./react/solid/Extensions";
-import ExternalLinkSolid from "./react/solid/ExternalLink";
-import EyeSolid from "./react/solid/Eye";
-import EyeOffSolid from "./react/solid/EyeOff";
-import FastForwardSolid from "./react/solid/FastForward";
-import FilmSolid from "./react/solid/Film";
-import FilterSolid from "./react/solid/Filter";
-import FingerPrintSolid from "./react/solid/FingerPrint";
-import FireSolid from "./react/solid/Fire";
-import FlagSolid from "./react/solid/Flag";
-import FolderSolid from "./react/solid/Folder";
-import FolderAddSolid from "./react/solid/FolderAdd";
-import FolderDownloadSolid from "./react/solid/FolderDownload";
-import FolderOpenSolid from "./react/solid/FolderOpen";
-import FolderRemoveSolid from "./react/solid/FolderRemove";
-import GiftSolid from "./react/solid/Gift";
-import GlobeSolid from "./react/solid/Globe";
-import GlobeAltSolid from "./react/solid/GlobeAlt";
-import HandSolid from "./react/solid/Hand";
-import HashtagSolid from "./react/solid/Hashtag";
-import HeartSolid from "./react/solid/Heart";
-import HomeSolid from "./react/solid/Home";
-import IdentificationSolid from "./react/solid/Identification";
-import InboxSolid from "./react/solid/Inbox";
-import InboxInSolid from "./react/solid/InboxIn";
-import InformationCircleSolid from "./react/solid/InformationCircle";
-import KeySolid from "./react/solid/Key";
-import LibrarySolid from "./react/solid/Library";
-import LightBulbSolid from "./react/solid/LightBulb";
-import LightningBoltSolid from "./react/solid/LightningBolt";
-import LinkSolid from "./react/solid/Link";
-import LocationMarkerSolid from "./react/solid/LocationMarker";
-import LockClosedSolid from "./react/solid/LockClosed";
-import LockOpenSolid from "./react/solid/LockOpen";
-import LoginSolid from "./react/solid/Login";
-import LogoutSolid from "./react/solid/Logout";
-import MailSolid from "./react/solid/Mail";
-import MailOpenSolid from "./react/solid/MailOpen";
-import MapSolid from "./react/solid/Map";
-import MenuSolid from "./react/solid/Menu";
-import MenuAlt1Solid from "./react/solid/MenuAlt1";
-import MenuAlt2Solid from "./react/solid/MenuAlt2";
-import MenuAlt3Solid from "./react/solid/MenuAlt3";
-import MenuAlt4Solid from "./react/solid/MenuAlt4";
-import MicrophoneSolid from "./react/solid/Microphone";
-import MinusSolid from "./react/solid/Minus";
-import MinusCircleSolid from "./react/solid/MinusCircle";
-import MinusSmSolid from "./react/solid/MinusSm";
-import MoonSolid from "./react/solid/Moon";
-import MusicNoteSolid from "./react/solid/MusicNote";
-import NavActivitySolid from "./react/solid/NavActivity";
-import NavBankCardSolid from "./react/solid/NavBankCard";
-import NavBuySolid from "./react/solid/NavBuy";
-import NavDiscoverySolid from "./react/solid/NavDiscovery";
-import NavHomeSolid from "./react/solid/NavHome";
-import NavMenuSolid from "./react/solid/NavMenu";
-import NavReceiveSolid from "./react/solid/NavReceive";
-import NavSellSolid from "./react/solid/NavSell";
-import NavSendSolid from "./react/solid/NavSend";
-import NavSettingsSolid from "./react/solid/NavSettings";
-import NavSwapSolid from "./react/solid/NavSwap";
-import NewspaperSolid from "./react/solid/Newspaper";
-import OfficeBuildingSolid from "./react/solid/OfficeBuilding";
-import OfflineSolid from "./react/solid/Offline";
-import OptionListAllSolid from "./react/solid/OptionListAll";
-import PaperAirplaneSolid from "./react/solid/PaperAirplane";
-import PaperClipSolid from "./react/solid/PaperClip";
-import PauseSolid from "./react/solid/Pause";
-import PencilSolid from "./react/solid/Pencil";
-import PencilAltSolid from "./react/solid/PencilAlt";
-import PhoneSolid from "./react/solid/Phone";
-import PhoneIncomingSolid from "./react/solid/PhoneIncoming";
-import PhoneMissedCallSolid from "./react/solid/PhoneMissedCall";
-import PhoneOutgoingSolid from "./react/solid/PhoneOutgoing";
-import PhotographSolid from "./react/solid/Photograph";
-import PinSolid from "./react/solid/Pin";
-import PlaySolid from "./react/solid/Play";
-import PlusSolid from "./react/solid/Plus";
-import PlusCircleSolid from "./react/solid/PlusCircle";
-import PlusSmSolid from "./react/solid/PlusSm";
-import PresentationChartBarSolid from "./react/solid/PresentationChartBar";
-import PresentationChartLineSolid from "./react/solid/PresentationChartLine";
-import PrinterSolid from "./react/solid/Printer";
-import PuzzleSolid from "./react/solid/Puzzle";
-import QrcodeSolid from "./react/solid/Qrcode";
-import QuestionMarkCircleSolid from "./react/solid/QuestionMarkCircle";
-import ReceiptRefundSolid from "./react/solid/ReceiptRefund";
-import ReceiptTaxSolid from "./react/solid/ReceiptTax";
-import RefreshSolid from "./react/solid/Refresh";
-import ReplySolid from "./react/solid/Reply";
-import RestoreSolid from "./react/solid/Restore";
-import RewindSolid from "./react/solid/Rewind";
-import RssSolid from "./react/solid/Rss";
-import SaveSolid from "./react/solid/Save";
-import SaveAsSolid from "./react/solid/SaveAs";
-import ScaleSolid from "./react/solid/Scale";
-import ScanSolid from "./react/solid/Scan";
-import ScissorsSolid from "./react/solid/Scissors";
-import SearchSolid from "./react/solid/Search";
-import SearchCircleSolid from "./react/solid/SearchCircle";
-import SelectorSolid from "./react/solid/Selector";
-import ServerSolid from "./react/solid/Server";
-import ShareSolid from "./react/solid/Share";
-import ShieldCheckSolid from "./react/solid/ShieldCheck";
-import ShieldExclamationSolid from "./react/solid/ShieldExclamation";
-import ShoppingBagSolid from "./react/solid/ShoppingBag";
-import ShoppingCartSolid from "./react/solid/ShoppingCart";
-import SortAscendingSolid from "./react/solid/SortAscending";
-import SortDescendingSolid from "./react/solid/SortDescending";
-import SparklesSolid from "./react/solid/Sparkles";
-import SpeakerphoneSolid from "./react/solid/Speakerphone";
-import StarSolid from "./react/solid/Star";
-import StatusOfflineSolid from "./react/solid/StatusOffline";
-import StatusOnlineSolid from "./react/solid/StatusOnline";
-import StopSolid from "./react/solid/Stop";
-import SunSolid from "./react/solid/Sun";
-import SupportSolid from "./react/solid/Support";
-import SwitchHorizontalSolid from "./react/solid/SwitchHorizontal";
-import SwitchVerticalSolid from "./react/solid/SwitchVertical";
-import TableSolid from "./react/solid/Table";
-import TagSolid from "./react/solid/Tag";
-import TemplateSolid from "./react/solid/Template";
-import TerminalSolid from "./react/solid/Terminal";
-import ThumbDownSolid from "./react/solid/ThumbDown";
-import ThumbUpSolid from "./react/solid/ThumbUp";
-import TicketSolid from "./react/solid/Ticket";
-import TranslateSolid from "./react/solid/Translate";
-import TrashSolid from "./react/solid/Trash";
-import TrendingDownSolid from "./react/solid/TrendingDown";
-import TrendingUpSolid from "./react/solid/TrendingUp";
-import TruckSolid from "./react/solid/Truck";
-import UploadSolid from "./react/solid/Upload";
-import UserSolid from "./react/solid/User";
-import UserAddSolid from "./react/solid/UserAdd";
-import UserCircleSolid from "./react/solid/UserCircle";
-import UserGroupSolid from "./react/solid/UserGroup";
-import UserRemoveSolid from "./react/solid/UserRemove";
-import UsersSolid from "./react/solid/Users";
-import VariableSolid from "./react/solid/Variable";
-import VideoCameraSolid from "./react/solid/VideoCamera";
-import ViewBoardsSolid from "./react/solid/ViewBoards";
-import ViewGridSolid from "./react/solid/ViewGrid";
-import ViewGridAddSolid from "./react/solid/ViewGridAdd";
-import ViewListSolid from "./react/solid/ViewList";
-import VolumeOffSolid from "./react/solid/VolumeOff";
-import VolumeUpSolid from "./react/solid/VolumeUp";
-import WifiSolid from "./react/solid/Wifi";
-import ZoomInSolid from "./react/solid/ZoomIn";
-import ZoomOutSolid from "./react/solid/ZoomOut";
 
 const icons = {
   ArrowBottomLeftIllus,
@@ -551,6 +727,441 @@ const icons = {
   TxStatusSuccessCircleIllus,
   TxStatusWarningCircleIllus,
   WalletconnectLogoIllus,
+  AcademicCapMini,
+  AdjustmentsMini,
+  AdjustmentsHorizontalMini,
+  AdjustmentsVerticalMini,
+  AndroidMini,
+  AnnotationMini,
+  AppStoreMini,
+  ArchiveMini,
+  ArchiveBoxMini,
+  ArchiveBoxArrowDownMini,
+  ArchiveBoxXMarkMini,
+  ArrowCircleDownMini,
+  ArrowCircleLeftMini,
+  ArrowCircleRightMini,
+  ArrowCircleUpMini,
+  ArrowDownMini,
+  ArrowDownCircleMini,
+  ArrowDownLeftMini,
+  ArrowDownOnSquareMini,
+  ArrowDownOnSquareStackMini,
+  ArrowDownRightMini,
+  ArrowDownTrayMini,
+  ArrowLeftMini,
+  ArrowLeftCircleMini,
+  ArrowLeftOnRectangleMini,
+  ArrowLongDownMini,
+  ArrowLongLeftMini,
+  ArrowLongRightMini,
+  ArrowLongUpMini,
+  ArrowNarrowDownMini,
+  ArrowNarrowLeftMini,
+  ArrowNarrowRightMini,
+  ArrowNarrowUpMini,
+  ArrowPathMini,
+  ArrowPathRoundedSquareMini,
+  ArrowRightMini,
+  ArrowRightCircleMini,
+  ArrowRightOnRectangleMini,
+  ArrowSmDownMini,
+  ArrowSmLeftMini,
+  ArrowSmRightMini,
+  ArrowSmUpMini,
+  ArrowSmallDownMini,
+  ArrowSmallLeftMini,
+  ArrowSmallRightMini,
+  ArrowSmallUpMini,
+  ArrowTopRightOnSquareMini,
+  ArrowTrendingDownMini,
+  ArrowTrendingUpMini,
+  ArrowUpMini,
+  ArrowUpCircleMini,
+  ArrowUpLeftMini,
+  ArrowUpOnSquareMini,
+  ArrowUpOnSquareStackMini,
+  ArrowUpRightMini,
+  ArrowUpTopMini,
+  ArrowUpTrayMini,
+  ArrowUturnDownMini,
+  ArrowUturnLeftMini,
+  ArrowUturnRightMini,
+  ArrowUturnUpMini,
+  ArrowsExpandMini,
+  ArrowsPointingInMini,
+  ArrowsPointingOutMini,
+  ArrowsRightLeftMini,
+  ArrowsUpDownMini,
+  AtSymbolMini,
+  BackspaceMini,
+  BackwardMini,
+  BadgeCheckMini,
+  BanMini,
+  BanknotesMini,
+  Bars2Mini,
+  Bars3Mini,
+  Bars3BottomLeftMini,
+  Bars3BottomRightMini,
+  Bars3CenterLeftMini,
+  Bars4Mini,
+  BarsArrowDownMini,
+  BarsArrowUpMini,
+  BarsShrinkMini,
+  Battery0Mini,
+  Battery100Mini,
+  Battery50Mini,
+  BeakerMini,
+  BellMini,
+  BellAlertMini,
+  BellOffMini,
+  BellSlashMini,
+  BellSnoozeMini,
+  BlockExplorerMini,
+  BoltMini,
+  BoltSlashMini,
+  BookOpenMini,
+  BookmarkMini,
+  BookmarkAltMini,
+  BookmarkSlashMini,
+  BookmarkSquareMini,
+  BriefcaseMini,
+  BugAntMini,
+  BuildingLibraryMini,
+  BuildingOfficeMini,
+  BuildingOffice2Mini,
+  BuildingStorefrontMini,
+  BulkSenderMini,
+  CakeMini,
+  CalculatorMini,
+  CalendarMini,
+  CalendarDaysMini,
+  CameraMini,
+  ChartBarMini,
+  ChartBarSquareMini,
+  ChartPieMini,
+  ChartSquareBarMini,
+  ChatMini,
+  ChatAltMini,
+  ChatAlt2Mini,
+  ChatBubbleBottomCenterMini,
+  ChatBubbleBottomCenterTextMini,
+  ChatBubbleLeftMini,
+  ChatBubbleLeftEllipsisMini,
+  ChatBubbleLeftRightMini,
+  ChatBubbleOvalLeftMini,
+  ChatBubbleOvalLeftEllipsisMini,
+  CheckMini,
+  CheckBadgeMini,
+  CheckBoxIconCheckedMini,
+  CheckBoxIconCheckedDisableMini,
+  CheckBoxIconDefaultMini,
+  CheckBoxIconDefaultDisableMini,
+  CheckCircleMini,
+  ChevronDoubleDownMini,
+  ChevronDoubleLeftMini,
+  ChevronDoubleRightMini,
+  ChevronDoubleUpMini,
+  ChevronDownMini,
+  ChevronLeftMini,
+  ChevronRightMini,
+  ChevronUpMini,
+  ChevronUpDownMini,
+  ChipMini,
+  CircleStackMini,
+  ClipboardMini,
+  ClipboardCheckMini,
+  ClipboardCopyMini,
+  ClipboardDocumentMini,
+  ClipboardDocumentCheckMini,
+  ClipboardDocumentListMini,
+  ClipboardListMini,
+  ClockMini,
+  CloseCircleMini,
+  CloudMini,
+  CloudArrowDownMini,
+  CloudArrowUpMini,
+  CloudDownloadMini,
+  CloudUploadMini,
+  CodeMini,
+  CodeBracketMini,
+  CodeBracketSquareMini,
+  CogMini,
+  Cog6ToothMini,
+  Cog8ToothMini,
+  CollectionMini,
+  ColorSwatchMini,
+  CommandLineMini,
+  ComputerDesktopMini,
+  CpuChipMini,
+  CreditCardMini,
+  CubeMini,
+  CubeTransparentMini,
+  CurrencyBangladeshiMini,
+  CurrencyDollarMini,
+  CurrencyEuroMini,
+  CurrencyPoundMini,
+  CurrencyRupeeMini,
+  CurrencyYenMini,
+  CursorArrowRaysMini,
+  CursorArrowRippleMini,
+  CursorClickMini,
+  DatabaseMini,
+  DesktopComputerMini,
+  DeviceMobileMini,
+  DevicePhoneMobileMini,
+  DeviceTabletMini,
+  DialogIconTypeDangerMini,
+  DialogIconTypeInfoMini,
+  DocumentMini,
+  DocumentAddMini,
+  DocumentArrowDownMini,
+  DocumentArrowUpMini,
+  DocumentChartBarMini,
+  DocumentCheckMini,
+  DocumentDownloadMini,
+  DocumentDuplicateMini,
+  DocumentMagnifyingGlassMini,
+  DocumentMinusMini,
+  DocumentPlusMini,
+  DocumentRemoveMini,
+  DocumentReportMini,
+  DocumentSearchMini,
+  DocumentTextMini,
+  DotsCircleHorizontalMini,
+  DotsHorizontalMini,
+  DownloadMini,
+  DuplicateMini,
+  EllipsisHorizontalMini,
+  EllipsisHorizontalCircleMini,
+  EllipsisVerticalMini,
+  EmojiHappyMini,
+  EmojiSadMini,
+  EnvelopeMini,
+  EnvelopeOpenMini,
+  ExclamationMini,
+  ExclamationCircleMini,
+  ExclamationTriangleMini,
+  ExtensionsMini,
+  ExternalLinkMini,
+  EyeMini,
+  EyeDropperMini,
+  EyeOffMini,
+  EyeSlashMini,
+  FaceFrownMini,
+  FaceSmileMini,
+  FastForwardMini,
+  FilmMini,
+  FilterMini,
+  FingerPrintMini,
+  FireMini,
+  FlagMini,
+  FolderMini,
+  FolderAddMini,
+  FolderArrowDownMini,
+  FolderDownloadMini,
+  FolderMinusMini,
+  FolderOpenMini,
+  FolderPlusMini,
+  FolderRemoveMini,
+  ForwardMini,
+  FunnelMini,
+  GifMini,
+  GiftMini,
+  GiftTopMini,
+  GlobeMini,
+  GlobeAltMini,
+  GlobeAmericasMini,
+  GlobeAsiaAustraliaMini,
+  GlobeEuropeAfricaMini,
+  HandMini,
+  HandRaisedMini,
+  HandThumbDownMini,
+  HandThumbUpMini,
+  HashtagMini,
+  HeartMini,
+  HomeMini,
+  HomeModernMini,
+  IdentificationMini,
+  InboxMini,
+  InboxArrowDownMini,
+  InboxInMini,
+  InboxStackMini,
+  InformationCircleMini,
+  KeyMini,
+  LanguageMini,
+  LibraryMini,
+  LifebuoyMini,
+  LightBulbMini,
+  LightningBoltMini,
+  LinkMini,
+  ListBulletMini,
+  LocationMarkerMini,
+  LockClosedMini,
+  LockOpenMini,
+  LoginMini,
+  LogoutMini,
+  MagnifyingGlassMini,
+  MagnifyingGlassCircleMini,
+  MagnifyingGlassMinusMini,
+  MagnifyingGlassPlusMini,
+  MailMini,
+  MailOpenMini,
+  MapMini,
+  MapPinMini,
+  MegaphoneMini,
+  MenuMini,
+  MenuAlt1Mini,
+  MenuAlt2Mini,
+  MenuAlt3Mini,
+  MenuAlt4Mini,
+  MicrophoneMini,
+  MinusMini,
+  MinusCircleMini,
+  MinusSmMini,
+  MinusSmallMini,
+  MoonMini,
+  MusicNoteMini,
+  MusicalNoteMini,
+  NavActivityMini,
+  NavBankCardMini,
+  NavBuyMini,
+  NavDiscoveryMini,
+  NavHomeMini,
+  NavMenuMini,
+  NavReceiveMini,
+  NavSellMini,
+  NavSendMini,
+  NavSettingsMini,
+  NavSwapMini,
+  NewspaperMini,
+  NoSymbolMini,
+  OfficeBuildingMini,
+  OfflineMini,
+  OptionListAllMini,
+  PaintBrushMini,
+  PaperAirplaneMini,
+  PaperClipMini,
+  PauseMini,
+  PauseCircleMini,
+  PencilMini,
+  PencilAltMini,
+  PencilSquareMini,
+  PhoneMini,
+  PhoneArrowDownLeftMini,
+  PhoneArrowUpRightMini,
+  PhoneIncomingMini,
+  PhoneMissedCallMini,
+  PhoneOutgoingMini,
+  PhoneXMarkMini,
+  PhotoMini,
+  PhotographMini,
+  PinMini,
+  PlayMini,
+  PlayCircleMini,
+  PlayPauseMini,
+  PlusMini,
+  PlusCircleMini,
+  PlusSmMini,
+  PlusSmallMini,
+  PowerMini,
+  PresentationChartBarMini,
+  PresentationChartLineMini,
+  PrinterMini,
+  PuzzleMini,
+  PuzzlePieceMini,
+  QrCodeMini,
+  QuestionMarkCircleMini,
+  QueueListMini,
+  RadioMini,
+  ReceiptPercentMini,
+  ReceiptRefundMini,
+  ReceiptTaxMini,
+  RectangleGroupMini,
+  RectangleStackMini,
+  ReplyMini,
+  RestoreMini,
+  RewindMini,
+  RocketLaunchMini,
+  RssMini,
+  SaveMini,
+  SaveAsMini,
+  ScaleMini,
+  ScissorsMini,
+  SearchCircleMini,
+  ServerMini,
+  ServerStackMini,
+  ShareMini,
+  ShieldCheckMini,
+  ShieldExclamationMini,
+  ShoppingBagMini,
+  ShoppingCartMini,
+  SignalMini,
+  SignalSlashMini,
+  SortAscendingMini,
+  SortDescendingMini,
+  SparklesMini,
+  SpeakerWaveMini,
+  SpeakerXMarkMini,
+  SpeakerphoneMini,
+  Square2StackMini,
+  Square3Stack3Dmini,
+  Squares2X2Mini,
+  SquaresPlusMini,
+  StarMini,
+  StatusOfflineMini,
+  StatusOnlineMini,
+  StopMini,
+  StopCircleMini,
+  SunMini,
+  SupportMini,
+  SwatchMini,
+  SwitchHorizontalMini,
+  SwitchVerticalMini,
+  TableMini,
+  TableCellsMini,
+  TagMini,
+  TemplateMini,
+  TerminalMini,
+  ThumbDownMini,
+  ThumbUpMini,
+  TicketMini,
+  TranslateMini,
+  TrashMini,
+  TrendingDownMini,
+  TrendingUpMini,
+  TrophyMini,
+  TruckMini,
+  TvMini,
+  UploadMini,
+  UserMini,
+  UserAddMini,
+  UserCircleMini,
+  UserGroupMini,
+  UserMinusMini,
+  UserPlusMini,
+  UserRemoveMini,
+  UsersMini,
+  VariableMini,
+  VideoCameraMini,
+  VideoCameraSlashMini,
+  ViewBoardsMini,
+  ViewColumnsMini,
+  ViewGridMini,
+  ViewGridAddMini,
+  ViewListMini,
+  ViewfinderCircleMini,
+  VolumeOffMini,
+  VolumeUpMini,
+  WalletMini,
+  WifiMini,
+  WindowMini,
+  WrenchMini,
+  WrenchScrewdriverMini,
+  XCircleMini,
+  XMarkMini,
+  ZoomInMini,
+  ZoomOutMini,
   AcademicCapOutline,
   ActivityOutline,
   AdjustmentsOutline,
@@ -805,265 +1416,6 @@ const icons = {
   WifiOutline,
   ZoomInOutline,
   ZoomOutOutline,
-  AcademicCapSolid,
-  AdjustmentsSolid,
-  AndroidSolid,
-  AnnotationSolid,
-  AppStoreSolid,
-  ArchiveSolid,
-  ArrowCircleDownSolid,
-  ArrowCircleLeftSolid,
-  ArrowCircleRightSolid,
-  ArrowCircleUpSolid,
-  ArrowDownSolid,
-  ArrowLeftSolid,
-  ArrowNarrowDownSolid,
-  ArrowNarrowLeftSolid,
-  ArrowNarrowRightSolid,
-  ArrowNarrowUpSolid,
-  ArrowRightSolid,
-  ArrowSmDownSolid,
-  ArrowSmLeftSolid,
-  ArrowSmRightSolid,
-  ArrowSmUpSolid,
-  ArrowUpSolid,
-  ArrowUpTopSolid,
-  ArrowsExpandSolid,
-  AtSymbolSolid,
-  BackspaceSolid,
-  BadgeCheckSolid,
-  BanSolid,
-  BeakerSolid,
-  BellSolid,
-  BellOffSolid,
-  BlockExplorerSolid,
-  BookOpenSolid,
-  BookmarkSolid,
-  BookmarkAltSolid,
-  BriefcaseSolid,
-  BulkSenderSolid,
-  CakeSolid,
-  CalculatorSolid,
-  CalendarSolid,
-  CameraSolid,
-  CashSolid,
-  ChartBarSolid,
-  ChartPieSolid,
-  ChartSquareBarSolid,
-  ChatSolid,
-  ChatAltSolid,
-  ChatAlt2Solid,
-  CheckSolid,
-  CheckBoxIconCheckedSolid,
-  CheckBoxIconCheckedDisableSolid,
-  CheckBoxIconDefaultSolid,
-  CheckBoxIconDefaultDisableSolid,
-  CheckCircleSolid,
-  ChevronDoubleDownSolid,
-  ChevronDoubleLeftSolid,
-  ChevronDoubleRightSolid,
-  ChevronDoubleUpSolid,
-  ChevronDownSolid,
-  ChevronLeftSolid,
-  ChevronRightSolid,
-  ChevronUpSolid,
-  ChipSolid,
-  ClipboardSolid,
-  ClipboardCheckSolid,
-  ClipboardCopySolid,
-  ClipboardListSolid,
-  ClockSolid,
-  CloseSolid,
-  CloseCircleSolid,
-  CloudSolid,
-  CloudDownloadSolid,
-  CloudUploadSolid,
-  CodeSolid,
-  CogSolid,
-  CollectionSolid,
-  ColorSwatchSolid,
-  CreditCardSolid,
-  CubeSolid,
-  CubeTransparentSolid,
-  CurrencyBangladeshiSolid,
-  CurrencyDollarSolid,
-  CurrencyEuroSolid,
-  CurrencyPoundSolid,
-  CurrencyRupeeSolid,
-  CurrencyYenSolid,
-  CursorClickSolid,
-  DatabaseSolid,
-  DesktopComputerSolid,
-  DeviceMobileSolid,
-  DeviceTabletSolid,
-  DialogIconTypeDangerSolid,
-  DialogIconTypeInfoSolid,
-  DocumentSolid,
-  DocumentAddSolid,
-  DocumentDownloadSolid,
-  DocumentDuplicateSolid,
-  DocumentRemoveSolid,
-  DocumentReportSolid,
-  DocumentSearchSolid,
-  DocumentTextSolid,
-  DotsCircleHorizontalSolid,
-  DotsHorizontalSolid,
-  DotsVerticalSolid,
-  DownloadSolid,
-  DuplicateSolid,
-  EmojiHappySolid,
-  EmojiSadSolid,
-  ExclamationSolid,
-  ExclamationCircleSolid,
-  ExtensionsSolid,
-  ExternalLinkSolid,
-  EyeSolid,
-  EyeOffSolid,
-  FastForwardSolid,
-  FilmSolid,
-  FilterSolid,
-  FingerPrintSolid,
-  FireSolid,
-  FlagSolid,
-  FolderSolid,
-  FolderAddSolid,
-  FolderDownloadSolid,
-  FolderOpenSolid,
-  FolderRemoveSolid,
-  GiftSolid,
-  GlobeSolid,
-  GlobeAltSolid,
-  HandSolid,
-  HashtagSolid,
-  HeartSolid,
-  HomeSolid,
-  IdentificationSolid,
-  InboxSolid,
-  InboxInSolid,
-  InformationCircleSolid,
-  KeySolid,
-  LibrarySolid,
-  LightBulbSolid,
-  LightningBoltSolid,
-  LinkSolid,
-  LocationMarkerSolid,
-  LockClosedSolid,
-  LockOpenSolid,
-  LoginSolid,
-  LogoutSolid,
-  MailSolid,
-  MailOpenSolid,
-  MapSolid,
-  MenuSolid,
-  MenuAlt1Solid,
-  MenuAlt2Solid,
-  MenuAlt3Solid,
-  MenuAlt4Solid,
-  MicrophoneSolid,
-  MinusSolid,
-  MinusCircleSolid,
-  MinusSmSolid,
-  MoonSolid,
-  MusicNoteSolid,
-  NavActivitySolid,
-  NavBankCardSolid,
-  NavBuySolid,
-  NavDiscoverySolid,
-  NavHomeSolid,
-  NavMenuSolid,
-  NavReceiveSolid,
-  NavSellSolid,
-  NavSendSolid,
-  NavSettingsSolid,
-  NavSwapSolid,
-  NewspaperSolid,
-  OfficeBuildingSolid,
-  OfflineSolid,
-  OptionListAllSolid,
-  PaperAirplaneSolid,
-  PaperClipSolid,
-  PauseSolid,
-  PencilSolid,
-  PencilAltSolid,
-  PhoneSolid,
-  PhoneIncomingSolid,
-  PhoneMissedCallSolid,
-  PhoneOutgoingSolid,
-  PhotographSolid,
-  PinSolid,
-  PlaySolid,
-  PlusSolid,
-  PlusCircleSolid,
-  PlusSmSolid,
-  PresentationChartBarSolid,
-  PresentationChartLineSolid,
-  PrinterSolid,
-  PuzzleSolid,
-  QrcodeSolid,
-  QuestionMarkCircleSolid,
-  ReceiptRefundSolid,
-  ReceiptTaxSolid,
-  RefreshSolid,
-  ReplySolid,
-  RestoreSolid,
-  RewindSolid,
-  RssSolid,
-  SaveSolid,
-  SaveAsSolid,
-  ScaleSolid,
-  ScanSolid,
-  ScissorsSolid,
-  SearchSolid,
-  SearchCircleSolid,
-  SelectorSolid,
-  ServerSolid,
-  ShareSolid,
-  ShieldCheckSolid,
-  ShieldExclamationSolid,
-  ShoppingBagSolid,
-  ShoppingCartSolid,
-  SortAscendingSolid,
-  SortDescendingSolid,
-  SparklesSolid,
-  SpeakerphoneSolid,
-  StarSolid,
-  StatusOfflineSolid,
-  StatusOnlineSolid,
-  StopSolid,
-  SunSolid,
-  SupportSolid,
-  SwitchHorizontalSolid,
-  SwitchVerticalSolid,
-  TableSolid,
-  TagSolid,
-  TemplateSolid,
-  TerminalSolid,
-  ThumbDownSolid,
-  ThumbUpSolid,
-  TicketSolid,
-  TranslateSolid,
-  TrashSolid,
-  TrendingDownSolid,
-  TrendingUpSolid,
-  TruckSolid,
-  UploadSolid,
-  UserSolid,
-  UserAddSolid,
-  UserCircleSolid,
-  UserGroupSolid,
-  UserRemoveSolid,
-  UsersSolid,
-  VariableSolid,
-  VideoCameraSolid,
-  ViewBoardsSolid,
-  ViewGridSolid,
-  ViewGridAddSolid,
-  ViewListSolid,
-  VolumeOffSolid,
-  VolumeUpSolid,
-  WifiSolid,
-  ZoomInSolid,
-  ZoomOutSolid,
 };
 export type ICON_NAMES = keyof typeof icons;
 export default icons;

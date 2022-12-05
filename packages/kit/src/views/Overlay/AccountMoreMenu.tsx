@@ -88,7 +88,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
     if (isVerticalLayout) {
       return enabledNotification ? 'BellOffOutline' : 'BellOutline';
     }
-    return enabledNotification ? 'BellOffSolid' : 'BellSolid';
+    return enabledNotification ? 'BellOffMini' : 'BellMini';
   }, [isVerticalLayout, enabledNotification]);
 
   const onChangeAccountSubscribe = useCallback(async () => {
@@ -155,7 +155,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             .activateAccount(account.id, network.id)
             .catch(() => {});
         },
-        icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbSolid',
+        icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbMini',
       },
       // TODO Connected Sites
       walletType !== 'watching' && {
@@ -172,7 +172,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             },
           });
         },
-        icon: isVerticalLayout ? 'PlusOutline' : 'PlusSolid',
+        icon: isVerticalLayout ? 'PlusOutline' : 'PlusMini',
       },
       walletType !== 'watching' && {
         id: 'action__sell_crypto',
@@ -189,7 +189,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             },
           });
         },
-        icon: isVerticalLayout ? 'CashOutline' : 'CashSolid',
+        icon: isVerticalLayout ? 'CashOutline' : 'BanknotesMini',
       },
       {
         id: 'action__copy_address',
@@ -198,7 +198,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             copyAddress(account?.address);
           });
         },
-        icon: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
+        icon: isVerticalLayout ? 'DuplicateOutline' : 'Square2StackMini',
       },
       showSubscriptionIcon && {
         id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',

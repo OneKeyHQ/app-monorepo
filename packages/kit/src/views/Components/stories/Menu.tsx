@@ -29,14 +29,14 @@ const MenuGallery = () => (
         </NBPressable>
       )}
     >
-      <Menu.CustomItem icon="PencilSolid">Edit</Menu.CustomItem>
-      <Menu.CustomItem variant="desctructive" icon="TrashSolid">
+      <Menu.CustomItem icon="PencilMini">Edit</Menu.CustomItem>
+      <Menu.CustomItem variant="desctructive" icon="TrashMini">
         Delete
       </Menu.CustomItem>
-      <Menu.CustomItem variant="highlight" icon="ArrowNarrowUpSolid">
+      <Menu.CustomItem variant="highlight" icon="ArrowNarrowUpMini">
         Update
       </Menu.CustomItem>
-      <Menu.CustomItem isDisabled icon="ArrowNarrowUpSolid">
+      <Menu.CustomItem isDisabled icon="ArrowNarrowUpMini">
         Update
       </Menu.CustomItem>
     </Menu>

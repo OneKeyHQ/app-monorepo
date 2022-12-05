@@ -34,7 +34,7 @@ const Tab: FC<
       w="52px"
       borderRadius={0}
       bg={isCurrent ? 'background-default' : 'background-hovered'}
-      leftIconName="HomeSolid"
+      leftIconName="HomeMini"
       iconSize={16}
       iconColor={isCurrent ? 'icon-hovered' : 'icon-default'}
       onPress={setCurrentTab}
@@ -69,7 +69,7 @@ const Tab: FC<
         size="xs"
         type="plain"
         iconSize={12}
-        leftIconName="CloseSolid"
+        leftIconName="XMarkMini"
         onPress={closeTab}
       />
     </Pressable>
@@ -90,7 +90,7 @@ const AddTabButton: FC = () => (
     flex={1}
     borderRadius={0}
     type="plain"
-    leftIconName="PlusSolid"
+    leftIconName="PlusMini"
     onPress={addNewTab}
   />
 );

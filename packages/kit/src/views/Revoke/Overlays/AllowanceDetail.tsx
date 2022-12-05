@@ -31,7 +31,7 @@ const actions: { icon: any; key: ActionKey; label: any }[] = [
     label: 'action__copy_contract_address',
   },
   {
-    icon: 'PencilAltSolid',
+    icon: 'PencilAltMini',
     key: 'change',
     label: 'action__change_allowance',
   },

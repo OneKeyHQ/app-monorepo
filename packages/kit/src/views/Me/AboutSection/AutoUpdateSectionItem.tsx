@@ -99,7 +99,7 @@ const AutoUpdateSectionItem: FC = () => {
             <Spinner size="sm" />
           ) : (
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" size={20} />
             </Box>
           )}
         </Pressable>
@@ -151,7 +151,7 @@ const AutoUpdateSectionItem: FC = () => {
             </Box>
           )}
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
       );
@@ -183,7 +183,7 @@ const AutoUpdateSectionItem: FC = () => {
             )}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
       );

@@ -24,7 +24,7 @@ export type ToastStatusProps = {
 };
 
 const InfoToastProps: ToastStatusProps = {
-  iconName: 'RefreshSolid',
+  iconName: 'ArrowPathMini',
   iconColor: 'icon-default',
   borderColor: 'surface-neutral-subdued',
 };

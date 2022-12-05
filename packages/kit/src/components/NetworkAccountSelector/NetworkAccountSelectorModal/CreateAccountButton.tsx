@@ -86,7 +86,7 @@ export function CreateAccountButton({
         isLoading={buttonIsLoading}
         onPress={buttonOnPress}
         type="plain"
-        name={isCreateAccountSupported ? 'PlusSolid' : 'BanSolid'}
+        name={isCreateAccountSupported ? 'PlusMini' : 'BanMini'}
         circle
         hitSlop={8}
       />

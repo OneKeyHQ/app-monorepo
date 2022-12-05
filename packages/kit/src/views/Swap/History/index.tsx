@@ -137,7 +137,7 @@ const TrashButton = () => {
       <Dialog
         visible={visible}
         contentProps={{
-          iconName: 'TrashSolid',
+          iconName: 'TrashMini',
           iconType: 'danger',
           title: intl.formatMessage({ id: 'action__clear_swap_history' }),
           content: intl.formatMessage({

@@ -182,7 +182,7 @@ export function DialogConfirmMismatchOrContinue(
                         <Text color="text-subdued">
                           {intl.formatMessage({ id: 'action__connect' })}
                         </Text>
-                        <Icon name="ChevronRightSolid" size={20} />
+                        <Icon name="ChevronRightMini" size={20} />
                       </HStack>
                     </Pressable>
                   ) : null}

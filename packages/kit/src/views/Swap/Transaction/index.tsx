@@ -100,7 +100,7 @@ const TransactionModal = () => {
       }}
       primaryActionTranslationId="action__share"
       primaryActionProps={{
-        leftIconName: 'ShareSolid',
+        leftIconName: 'ShareMini',
         type: 'basic',
         onPress: onShare,
       }}

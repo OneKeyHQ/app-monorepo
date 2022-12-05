@@ -169,7 +169,7 @@ function Header({
           </TouchableOpacity>
         </VStack>
         <IconButton
-          name="CloseSolid"
+          name="XMarkMini"
           type="plain"
           circle
           onPress={() => {

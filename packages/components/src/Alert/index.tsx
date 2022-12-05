@@ -33,35 +33,35 @@ type AlertTypeProps = {
 };
 
 const InfoAlertProps: AlertTypeProps = {
-  iconName: 'InformationCircleSolid',
+  iconName: 'InformationCircleMini',
   iconColor: 'icon-default',
   bgColor: 'surface-neutral-subdued',
   borderColor: 'border-subdued',
 };
 
 const WarnAlertProps: AlertTypeProps = {
-  iconName: 'ExclamationSolid',
+  iconName: 'ExclamationMini',
   iconColor: 'icon-warning',
   bgColor: 'surface-warning-subdued',
   borderColor: 'border-warning-subdued',
 };
 
 const ErrorAlertProps: AlertTypeProps = {
-  iconName: 'CloseCircleSolid',
+  iconName: 'CloseCircleMini',
   iconColor: 'icon-critical',
   bgColor: 'surface-critical-subdued',
   borderColor: 'border-critical-subdued',
 };
 
 const SuccessAlertProps: AlertTypeProps = {
-  iconName: 'CheckCircleSolid',
+  iconName: 'CheckCircleMini',
   iconColor: 'icon-success',
   bgColor: 'surface-success-subdued',
   borderColor: 'border-success-subdued',
 };
 
 const SeriousWarningAlertProps: AlertTypeProps = {
-  iconName: 'ExclamationSolid',
+  iconName: 'ExclamationMini',
   iconColor: 'icon-critical',
   bgColor: 'surface-critical-subdued',
   borderColor: 'border-critical-subdued',

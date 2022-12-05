@@ -107,7 +107,7 @@ const ScanQrcodeResult: FC = () => {
               })}
             </Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" size={20} />
         </Pressable>
       )}
       {(type === UserInputCategory.WATCHING ||
@@ -134,7 +134,7 @@ const ScanQrcodeResult: FC = () => {
                 })}
               </Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Pressable>
           <Divider />
           <Pressable
@@ -154,14 +154,14 @@ const ScanQrcodeResult: FC = () => {
             }}
           >
             <HStack space="4">
-              <Icon name="PlusSolid" />
+              <Icon name="PlusMini" />
               <Typography.Body1>
                 {intl.formatMessage({
                   id: 'form__add_to_address_book',
                 })}
               </Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Pressable>
         </>
       )}
@@ -193,7 +193,7 @@ const ScanQrcodeResult: FC = () => {
               })}
             </Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" size={20} />
         </Pressable>
       )}
       <CopyButton data={data} />

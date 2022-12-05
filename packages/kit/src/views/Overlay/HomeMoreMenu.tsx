@@ -40,7 +40,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
       {
         id: 'action__scan',
         onPress: () => gotoScanQrcode(),
-        icon: isVerticalLayout ? 'ScanOutline' : 'ScanSolid',
+        icon: isVerticalLayout ? 'ScanOutline' : 'ViewfinderCircleMini',
       },
       platformEnv.isExtensionUiPopup && {
         id: 'form__expand_view',
@@ -54,7 +54,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
       isPasswordSet && {
         id: 'action__lock_now',
         onPress: () => backgroundApiProxy.serviceApp.lock(true),
-        icon: isVerticalLayout ? 'LockClosedOutline' : 'LockClosedSolid',
+        icon: isVerticalLayout ? 'LockClosedOutline' : 'LockClosedMini',
       },
     ],
     [isVerticalLayout, isPasswordSet],
