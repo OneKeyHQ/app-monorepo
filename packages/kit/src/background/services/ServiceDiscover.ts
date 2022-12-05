@@ -95,6 +95,22 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
+  async searchDappsWithUrl(urls: string[]) {
+    const url = `${this.baseUrl}/search_dapps_by_url`;
+    const res = await this.client.post(url, { urls });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async searchDappsWithRegExp(urls: string[]) {
+    const url = `${this.baseUrl}/search_dapps_by_url_regexp`;
+    const res = await this.client.post(url, { urls });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
   async getCompactList() {
     const url = `${this.baseUrl}/compact_list`;
     this.getList(url);
