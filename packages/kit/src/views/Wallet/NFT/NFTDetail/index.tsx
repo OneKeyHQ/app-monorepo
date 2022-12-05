@@ -94,9 +94,11 @@ const NFTDetailModal: FC = () => {
   const [asset, updateAsset] = useState(outerAsset);
   const { serviceNFT } = backgroundApiProxy;
 
-  const hasBlurViewBG =
-    isImage(asset.contentType) ||
-    (asset.nftscanUri && asset.nftscanUri?.length > 0);
+  let hasBlurViewBG = isImage(asset.contentType);
+  if (asset.nftscanUri && asset.nftscanUri?.length > 0) {
+    hasBlurViewBG = true;
+  }
+  hasBlurViewBG = !!(asset.nftscanUri && asset.nftscanUri?.length > 0);
   useEffect(() => {
     (async () => {
       if (network.id) {
@@ -230,7 +232,7 @@ const NFTDetailModal: FC = () => {
       </>
     ),
     content: asset && (
-      <VStack space="24px">
+      <VStack space="24px" mb="50px">
         {/* Asset name and collection name */}
         <Box>
           <Typography.DisplayLarge fontWeight="700">
