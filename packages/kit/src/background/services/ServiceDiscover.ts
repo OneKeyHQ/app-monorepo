@@ -130,29 +130,25 @@ class ServicDiscover extends ServiceBase {
   @backgroundMethod()
   async addFavorite(url: string) {
     const { dispatch, appSelector } = this.backgroundApi;
-    dispatch(addFavorite(url));
+    const base = addFavorite(url);
     const tabs = appSelector((s) => s.webTabs.tabs);
     const list = tabs.filter((tab) => tab.url === url);
-    if (list.length) {
-      const actions = list.map((tab) =>
-        setWebTabData({ ...tab, isBookmarked: true }),
-      );
-      dispatch(...actions);
-    }
+    const actions = list.map((tab) =>
+      setWebTabData({ ...tab, isBookmarked: true }),
+    );
+    dispatch(base, ...actions);
   }
 
   @backgroundMethod()
   async removeFavorite(url: string) {
     const { dispatch, appSelector } = this.backgroundApi;
-    dispatch(removeFavorite(url));
+    const base = removeFavorite(url);
     const tabs = appSelector((s) => s.webTabs.tabs);
     const list = tabs.filter((tab) => tab.url === url);
-    if (list.length) {
-      const actions = list.map((tab) =>
-        setWebTabData({ ...tab, isBookmarked: false }),
-      );
-      dispatch(...actions);
-    }
+    const actions = list.map((tab) =>
+      setWebTabData({ ...tab, isBookmarked: false }),
+    );
+    dispatch(base, ...actions);
   }
 
   @backgroundMethod()
