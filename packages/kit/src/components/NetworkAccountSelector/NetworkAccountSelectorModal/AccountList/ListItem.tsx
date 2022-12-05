@@ -193,10 +193,14 @@ const ListItem: FC<ListItemProps> = ({
                 </Text>
                 <Box w={1} h={1} m={2} bgColor="icon-disabled" rounded="full" />
                 {nativeBalance ? (
-                  <Text typography="Body2" color="text-subdued" isTruncated>
-                    {formatAmount(nativeBalance, 2)}{' '}
-                    {network?.symbol.toUpperCase()}
-                  </Text>
+                  <>
+                    <Text typography="Body2" color="text-subdued" isTruncated>
+                      {formatAmount(nativeBalance, 6)}
+                    </Text>
+                    <Text typography="Body2" color="text-subdued" ml="2px">
+                      {network?.symbol.toUpperCase()}
+                    </Text>
+                  </>
                 ) : (
                   <Skeleton shape="Body2" />
                 )}
