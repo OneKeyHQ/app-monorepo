@@ -119,10 +119,12 @@ export const useRpcMeasureStatus = (networkId: string) => {
 
   useEffect(() => {
     refresh();
+    isMounted.current = true;
     const interval = setInterval(() => {
       refresh();
     }, getTimeDurationMs({ minute: 1 }));
     if (!isFocused) {
+      isMounted.current = false;
       clearInterval(interval);
     }
     return () => {
