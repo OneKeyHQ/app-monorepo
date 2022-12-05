@@ -195,7 +195,7 @@ export const discoverSlice = createSlice({
       if (state.dappFavorites.includes(action.payload)) {
         return;
       }
-      state.dappFavorites.push(action.payload);
+      state.dappFavorites = [action.payload].concat(state.dappFavorites);
     },
     removeFavorite(state, action: PayloadAction<string>) {
       if (!state.dappFavorites) {
