@@ -108,7 +108,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           <Box mt={6}>
             <Box flexDirection="row">
               <Box>
-                <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
+                <Icon name="EyeSlashOutline" size={20} color="icon-subdued" />
               </Box>
               <Text flex={1} ml={3} typography="Body2" color="text-default">
                 {intl.formatMessage({
@@ -119,7 +119,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
             <Box flexDirection="row" mt={4}>
               <Box>
                 <Icon
-                  name="ExclamationOutline"
+                  name="ExclamationTriangleOutline"
                   size={20}
                   color="icon-warning"
                 />

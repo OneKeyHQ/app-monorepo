@@ -60,14 +60,14 @@ const ItemRow: FC<ItemRowProps> = ({
           <IconButton
             type="plain"
             circle
-            name="ArrowUpTopSolid"
+            name="ArrowUpTopMini"
             onPress={onFixTop}
           />
         ) : null}
         <IconButton
           type="plain"
           circle
-          name="MenuOutline"
+          name="Bars3Mini"
           onPressIn={() => onDrag()}
         />
       </HStack>
@@ -78,7 +78,7 @@ const ItemRow: FC<ItemRowProps> = ({
 // eslint-disable-next-line
 type RenderItemProps = {
   item: Network;
-  index: number;
+  getIndex: () => number;
   drag: () => void;
   isActive: boolean;
 };
@@ -123,17 +123,21 @@ export const SortableView: FC = () => {
   );
 
   const renderItem = useCallback(
-    ({ item, drag, index, isActive }: RenderItemProps) => (
-      <ItemRow
-        index={index}
-        key={item.id}
-        total={list.length}
-        network={item}
-        isActive={isActive}
-        onDrag={drag}
-        onFixTop={() => handleFixTop(item)}
-      />
-    ),
+    (props: RenderItemProps) => {
+      const { item, drag, isActive, getIndex } = props;
+      const index = getIndex();
+      return (
+        <ItemRow
+          index={index}
+          key={item.id}
+          total={list.length}
+          network={item}
+          isActive={isActive}
+          onDrag={drag}
+          onFixTop={() => handleFixTop(item)}
+        />
+      );
+    },
     [list.length, handleFixTop],
   ) as any;
 

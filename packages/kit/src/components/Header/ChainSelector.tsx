@@ -75,7 +75,7 @@ const ChainSelector: FC = () => {
         options={options}
         isTriggerPlain
         footerText={intl.formatMessage({ id: 'action__customize_network' })}
-        footerIcon="PencilSolid"
+        footerIcon="PencilMini"
         onPressFooter={() => {
           setTimeout(() => {
             navigation.navigate(RootRoutes.Modal, {
@@ -113,7 +113,7 @@ const ChainSelector: FC = () => {
                 {activeOption.label}
               </Typography.Body2Strong>
             </HStack>
-            <Icon size={20} name="ChevronDownSolid" />
+            <Icon size={20} name="ChevronDownMini" />
           </HStack>
         )}
       />

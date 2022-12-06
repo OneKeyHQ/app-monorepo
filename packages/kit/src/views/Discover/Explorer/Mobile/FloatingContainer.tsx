@@ -179,14 +179,14 @@ const FloatingContainer: FC<
           <Box flex={1} bg="background-default">
             <Pressable
               h="48px"
-              onPress={() =>
+              onPress={() => {
                 toggleFloatingWindow({
                   beforeMinimize,
                   afterMaximize,
                   beforeMaximize: innerBeforeMaximize,
                   afterMinimize: innerAfterMinimize,
-                })
-              }
+                });
+              }}
             >
               <FloatingBar
                 favicon={currentTab?.favicon}

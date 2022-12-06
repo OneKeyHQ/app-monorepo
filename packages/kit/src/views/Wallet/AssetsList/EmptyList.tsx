@@ -89,7 +89,7 @@ function EmptyListOfAccount({
             bg="surface-neutral-default"
             mb="24px"
           >
-            <Icon name="ViewGridAddSolid" />
+            <Icon name="ViewGridAddMini" />
           </Center>
           <Typography.DisplayMedium mb="4px" textAlign="center">
             {intl.formatMessage({ id: 'action__add_tokens' })}

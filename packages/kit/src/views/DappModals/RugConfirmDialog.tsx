@@ -49,7 +49,7 @@ const RugConfirmDialog: FC<RugDialogProps> = ({
           size="48px"
           backgroundColor="surface-neutral-default"
         >
-          <Icon name="ExclamationOutline" size={24} />
+          <Icon name="ExclamationTriangleOutline" size={24} />
         </Center>
         <Text
           typography={{ sm: 'Heading', md: 'DisplayMedium' }}

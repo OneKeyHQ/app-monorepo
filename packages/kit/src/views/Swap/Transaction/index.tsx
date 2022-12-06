@@ -65,7 +65,7 @@ const TransactionModal = () => {
   const secondaryActionProps = useMemo(() => {
     if (tx.quoterType !== 'swftc') {
       return {
-        leftIconName: 'CustomerSupportOutline' as const,
+        leftIconName: 'ChatBubbleLeftEllipsisMini' as const,
         onPress: onOpenCustomerSupport,
       };
     }
@@ -82,7 +82,7 @@ const TransactionModal = () => {
               right={-4}
               borderRadius="full"
             >
-              <Icon name="CustomerSupportOutline" size={14} />
+              <Icon name="ChatBubbleLeftEllipsisMini" size={14} />
             </Box>
           </Box>
           <Typography.Button1 ml="2">
@@ -100,7 +100,7 @@ const TransactionModal = () => {
       }}
       primaryActionTranslationId="action__share"
       primaryActionProps={{
-        leftIconName: 'ShareSolid',
+        leftIconName: 'ShareMini',
         type: 'basic',
         onPress: onShare,
       }}

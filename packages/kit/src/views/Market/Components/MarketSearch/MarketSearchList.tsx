@@ -59,7 +59,7 @@ const MarketSearchList: FC<{
           actionProps={{
             type: 'basic',
             size: 'lg',
-            rightIcon: <Icon name="ExternalLinkSolid" size={20} />,
+            rightIcon: <Icon name="ArrowTopRightOnSquareMini" size={20} />,
             borderRadius: '12px',
             borderWidth: '1px',
           }}

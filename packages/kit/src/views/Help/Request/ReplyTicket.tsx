@@ -198,7 +198,7 @@ export const ReplyTicket: FC = () => {
             borderWidth={1}
             borderColor="border-default"
           >
-            <Icon size={20} name="PlusSolid" />
+            <Icon size={20} name="PlusMini" />
           </Center>
         </Pressable>
       ) : null}
@@ -229,7 +229,7 @@ export const ReplyTicket: FC = () => {
                   <IconButton
                     type="plain"
                     size="xs"
-                    name="PhotographSolid"
+                    name="PhotoMini"
                     onPress={() => {
                       if (imageArr.length < 4) {
                         pickImage();

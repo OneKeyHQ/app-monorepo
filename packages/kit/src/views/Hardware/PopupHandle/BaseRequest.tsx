@@ -78,7 +78,7 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({
             right={1}
             type="plain"
             circle
-            name="CloseSolid"
+            name="XMarkMini"
           />
         )}
 

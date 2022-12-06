@@ -1,3 +1,24 @@
-import { Beta } from './Beta';
+import { useContext } from 'react';
 
-export const Mobile = Beta;
+import { Box } from '@onekeyhq/components';
+
+import { useShowFullLayout } from '../../hooks';
+import { DiscoverContext } from '../context';
+
+import { Beta } from './Beta';
+import { Mine } from './Mine';
+import { Others } from './Others';
+
+export const MobileFull = () => {
+  const { categoryId } = useContext(DiscoverContext);
+  return (
+    <Box flex="1" bg="background-default">
+      {categoryId ? <Others /> : <Mine />}
+    </Box>
+  );
+};
+
+export const Mobile = () => {
+  const showFullLayout = useShowFullLayout();
+  return !showFullLayout ? <Beta /> : <MobileFull />;
+};

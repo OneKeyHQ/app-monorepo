@@ -94,9 +94,11 @@ const NFTDetailModal: FC = () => {
   const [asset, updateAsset] = useState(outerAsset);
   const { serviceNFT } = backgroundApiProxy;
 
-  const hasBlurViewBG =
-    isImage(asset.contentType) ||
-    (asset.nftscanUri && asset.nftscanUri?.length > 0);
+  let hasBlurViewBG = isImage(asset.contentType);
+  if (asset.nftscanUri && asset.nftscanUri?.length > 0) {
+    hasBlurViewBG = true;
+  }
+  hasBlurViewBG = !!(asset.nftscanUri && asset.nftscanUri?.length > 0);
   useEffect(() => {
     (async () => {
       if (network.id) {
@@ -230,7 +232,7 @@ const NFTDetailModal: FC = () => {
       </>
     ),
     content: asset && (
-      <VStack space="24px">
+      <VStack space="24px" mb="50px">
         {/* Asset name and collection name */}
         <Box>
           <Typography.DisplayLarge fontWeight="700">
@@ -323,7 +325,7 @@ const NFTDetailModal: FC = () => {
                     )}
                   </Box>
                 </Box>
-                <Icon name="ChevronRightSolid" />
+                <Icon name="ChevronRightMini" />
               </HStack>
             )}
           </Pressable>
@@ -336,7 +338,7 @@ const NFTDetailModal: FC = () => {
               isDisabled={isDisabled}
               width="full"
               size="lg"
-              leftIconName="ArrowUpSolid"
+              leftIconName="ArrowUpMini"
               onPress={sendAction}
             >
               {intl.formatMessage({
@@ -458,7 +460,7 @@ const NFTDetailModal: FC = () => {
                   <Typography.Body2Strong mr="8px">
                     {shortenAddress(asset.contractAddress, 6)}
                   </Typography.Body2Strong>
-                  <Icon name="DuplicateSolid" size={20} />
+                  <Icon name="Square2StackMini" size={20} />
                 </Pressable>
               </HStack>
             )}
@@ -479,7 +481,7 @@ const NFTDetailModal: FC = () => {
                   <Typography.Body2Strong mr="8px" isTruncated maxW="160px">
                     {asset.tokenAddress}
                   </Typography.Body2Strong>
-                  <Icon name="DuplicateSolid" size={20} />
+                  <Icon name="Square2StackMini" size={20} />
                 </Pressable>
               </HStack>
             )}
@@ -500,7 +502,7 @@ const NFTDetailModal: FC = () => {
                   <Typography.Body2Strong mr="8px" isTruncated maxW="160px">
                     {asset.tokenId}
                   </Typography.Body2Strong>
-                  <Icon name="DuplicateSolid" size={20} />
+                  <Icon name="Square2StackMini" size={20} />
                 </Pressable>
               </HStack>
             )}
@@ -560,7 +562,7 @@ const NFTDetailModal: FC = () => {
       staticChildrenProps={{ p: 0, flex: 1 }}
     >
       <IconButton
-        name="CloseSolid"
+        name="XMarkMini"
         size="xs"
         position="absolute"
         top={platformEnv.isExtension ? '8px' : '24px'}

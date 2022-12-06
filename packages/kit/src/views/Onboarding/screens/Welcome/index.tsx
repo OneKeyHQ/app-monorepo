@@ -138,7 +138,7 @@ const Welcome = () => {
               onPress={onPressCreateWallet}
             />
             <PressableListItem
-              icon="SaveOutline"
+              icon="InboxArrowDownOutline"
               label={intl.formatMessage({
                 id: 'action__import_wallet',
               })}
@@ -155,7 +155,7 @@ const Welcome = () => {
           >
             <Box flex={1}>
               <PressableListItem
-                icon="ConnectOutline"
+                icon="LinkOutline"
                 label={intl.formatMessage({
                   id: 'action__connect_wallet',
                 })}

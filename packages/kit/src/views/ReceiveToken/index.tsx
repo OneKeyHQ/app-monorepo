@@ -305,7 +305,7 @@ const ReceiveToken = () => {
                       mt="24px"
                       type="plain"
                       size={isVerticalLayout ? 'xl' : 'base'}
-                      leftIconName="DuplicateSolid"
+                      leftIconName="Square2StackMini"
                       onPress={() => {
                         copyAddressToClipboard();
                       }}

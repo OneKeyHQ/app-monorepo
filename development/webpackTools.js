@@ -5,6 +5,7 @@ const lodash = require('lodash');
 const notifier = require('node-notifier');
 const { getPathsAsync } = require('@expo/webpack-config/env');
 const path = require('path');
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
 
@@ -74,12 +75,11 @@ async function modifyExpoEnv({ env, platform }) {
 function normalizeConfig({ platform, config, env }) {
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
+    const isDev = process.env.NODE_ENV !== 'production';
 
     config.plugins = [
       ...config.plugins,
-      process.env.NODE_ENV === 'production'
-        ? null
-        : new BuildDoneNotifyPlugin(),
+      isDev ? new BuildDoneNotifyPlugin() : null,
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
         'process.env.ONEKEY_BUILD_TYPE': JSON.stringify(platform),
@@ -88,6 +88,9 @@ function normalizeConfig({ platform, config, env }) {
         ),
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
+      isDev
+        ? new ReactRefreshWebpackPlugin({ overlay: platform !== 'desktop' })
+        : null,
     ].filter(Boolean);
 
     // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
@@ -108,6 +111,7 @@ function normalizeConfig({ platform, config, env }) {
     'framer-motion': 'framer-motion/dist/framer-motion',
     '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
   };
+  config.devtool = 'cheap-module-source-map';
 
   return config;
 }

@@ -21,7 +21,7 @@ const ErrorView: FC<ErrorViewProps> = ({ onRefresh }) => {
         mt={6}
         size="lg"
         type="primary"
-        leftIconName="RefreshOutline"
+        leftIconName="ArrowPathOutline"
         onPress={onRefresh}
       >
         {intl.formatMessage({ id: 'action__refresh' })}

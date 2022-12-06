@@ -25,7 +25,7 @@ export function FormErrorMessage({
   return (
     <Box display="flex" flexDirection="row" mt="2">
       <Box mr="2">
-        <Icon size={20} name="ExclamationCircleSolid" color="icon-critical" />
+        <Icon size={20} name="ExclamationTriangleMini" color="icon-critical" />
       </Box>
       <Typography.Body2 color="text-critical">{message}</Typography.Body2>
     </Box>
