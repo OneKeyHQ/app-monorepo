@@ -1,3 +1,4 @@
+export { default as Restore } from './Restore';
 export { default as Shrink } from './Shrink';
 export { default as AcademicCap } from './AcademicCap';
 export { default as Activity } from './Activity';
@@ -324,7 +325,6 @@ export { default as ReceiptTax } from './ReceiptTax';
 export { default as RectangleGroup } from './RectangleGroup';
 export { default as RectangleStack } from './RectangleStack';
 export { default as Reply } from './Reply';
-export { default as Restore } from './Restore';
 export { default as Rewind } from './Rewind';
 export { default as RocketLaunch } from './RocketLaunch';
 export { default as Rss } from './Rss';

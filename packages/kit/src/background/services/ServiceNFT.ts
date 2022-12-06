@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import { getNFTSymbolPrice } from '@onekeyhq/engine/src/managers/nft';
+import * as nft from '@onekeyhq/engine/src/managers/nft';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import {
   Collection,
@@ -56,36 +56,13 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchAsset({
-    chain,
-    contractAddress,
-    tokenId,
-    showAttribute,
-  }: {
+  async fetchAsset(params: {
     chain: string;
     contractAddress?: string;
     tokenId: string;
     showAttribute?: boolean;
   }) {
-    let apiUrl;
-    if (OnekeyNetwork.sol === chain) {
-      apiUrl = `${this.baseUrl}/asset?chain=${chain}&tokenId=${tokenId}`;
-    } else {
-      apiUrl = `${this.baseUrl}/asset?chain=${chain}&contractAddress=${
-        contractAddress as string
-      }&tokenId=${tokenId}`;
-      if (showAttribute) {
-        apiUrl += '&showAttribute=true';
-      }
-    }
-    const { data, success } = await axios
-      .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
-      .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: undefined }));
-    if (!success) {
-      return undefined;
-    }
-    return data;
+    return nft.fetchAsset(params);
   }
 
   @backgroundMethod()
@@ -338,19 +315,11 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getLocalNFTs({
-    networkId,
-    accountId,
-  }: {
+  async getLocalNFTs(params: {
     networkId: string;
     accountId: string;
   }): Promise<Collection[]> {
-    const key = getNFTListKey(accountId, networkId);
-    const items = await simpleDb.nft.getNFTs(key);
-    if (items) {
-      return items;
-    }
-    return [];
+    return nft.getLocalNFTs(params);
   }
 
   @backgroundMethod()
@@ -397,46 +366,22 @@ class ServiceNFT extends ServiceBase {
     tokenId: string;
     local: boolean;
   }) {
-    const { local, networkId, contractAddress, tokenId } = params;
-    const localAsset = await this.getAssetFromLocal(params);
-    if (localAsset && local) {
-      return localAsset;
-    }
-    const resp = await this.fetchAsset({
-      chain: networkId,
-      contractAddress,
-      tokenId,
-    });
-    if (resp) {
-      return resp;
-    }
+    return nft.getAsset(params);
   }
 
   @backgroundMethod()
-  async getAssetFromLocal({
-    accountId,
-    networkId,
-    contractAddress,
-    tokenId,
-  }: {
+  async getAssetFromLocal(params: {
     accountId?: string;
     networkId: string;
     contractAddress?: string;
     tokenId: string;
   }) {
-    if (!accountId) {
-      return;
-    }
-    const collections = await this.getLocalNFTs({ networkId, accountId });
-    const collection = collections.find(
-      (item) => item.contractAddress === contractAddress,
-    );
-    return collection?.assets.find((item) => item.tokenId === tokenId);
+    return nft.getAssetFromLocal(params);
   }
 
   @backgroundMethod()
   async fetchSymbolPrice(networkId: string) {
-    const priceStr = await getNFTSymbolPrice(networkId);
+    const priceStr = await nft.getNFTSymbolPrice(networkId);
     if (priceStr) {
       const price = parseFloat(priceStr);
       const { dispatch } = this.backgroundApi;

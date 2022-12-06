@@ -9,8 +9,8 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../routes/types';
+import { setHomePageCheckBoarding } from '../store/reducers/data';
 import { setOnBoardingLoadingBehindModal } from '../store/reducers/runtime';
-import { setHomePageCheckBoarding } from '../store/reducers/status';
 import { wait } from '../utils/helper';
 
 import { useAppSelector } from './redux';
@@ -30,7 +30,7 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
   const homePageCheckBoarding = useAppSelector(
-    (s) => s.status.homePageCheckBoarding,
+    (s) => s.data.homePageCheckBoarding,
   );
   useEffect(() => {
     if (!boardingCompleted) {

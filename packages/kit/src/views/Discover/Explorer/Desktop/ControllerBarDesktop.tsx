@@ -203,8 +203,8 @@ const ControllerBarDesktop: FC = () => {
                 <IconButton
                   onPress={() =>
                     currentTab &&
-                    backgroundApiProxy.serviceDiscover.toggleBookmark(
-                      currentTab,
+                    backgroundApiProxy.serviceDiscover.toggleFavorite(
+                      currentTab.url,
                     )
                   }
                   type="plain"

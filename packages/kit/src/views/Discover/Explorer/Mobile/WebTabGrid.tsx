@@ -43,7 +43,7 @@ const WebTabCard: FC<
   WebTab & {
     width: number;
   }
-> = ({ width, isCurrent, title, favicon, id, thumbnail, url }) => (
+> = ({ width, isCurrent, title, favicon, id, thumbnail }) => (
   <Pressable
     w={width}
     h={width}
@@ -56,7 +56,6 @@ const WebTabCard: FC<
     onPress={() => {
       if (!isCurrent) {
         backgroundApiProxy.dispatch(setCurrentWebTab(id));
-        backgroundApiProxy.serviceDiscover.updateBookmark({ tabId: id, url });
       }
       hideTabGrid(id);
     }}
