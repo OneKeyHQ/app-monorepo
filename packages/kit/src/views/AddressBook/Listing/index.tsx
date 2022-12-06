@@ -110,21 +110,21 @@ const ListingItem: FC<ListingItemValues> = ({
           label: intl.formatMessage({ id: 'action__edit' }),
           value: 'Edit',
           iconProps: {
-            name: isVertical ? 'PencilOutline' : 'PencilSolid',
+            name: isVertical ? 'PencilOutline' : 'PencilMini',
           },
         },
         {
           label: intl.formatMessage({ id: 'action__copy_address' }),
           value: 'Duplicate',
           iconProps: {
-            name: isVertical ? 'DuplicateOutline' : 'DuplicateSolid',
+            name: isVertical ? 'Square2StackOutline' : 'Square2StackMini',
           },
         },
         {
           label: intl.formatMessage({ id: 'action__delete' }),
           value: 'Delete',
           iconProps: {
-            name: isVertical ? 'TrashOutline' : 'TrashSolid',
+            name: isVertical ? 'TrashOutline' : 'TrashMini',
           },
           destructive: true,
         },
@@ -172,7 +172,7 @@ const ListingItem: FC<ListingItemValues> = ({
           </Box>
           <IconButton
             pointerEvents="none"
-            name="DotsHorizontalSolid"
+            name="DotsHorizontalMini"
             type="plain"
           />
         </Box>
@@ -211,7 +211,7 @@ const Listing = () => {
         title={intl.formatMessage({ id: 'title__no_cantact' })}
         subTitle={intl.formatMessage({ id: 'title__no_cantact_desc' })}
         actionTitle={intl.formatMessage({ id: 'action__add_new_address' })}
-        actionProps={{ leftIconName: 'PlusSolid' }}
+        actionProps={{ leftIconName: 'PlusMini' }}
         handleAction={onNew}
         emoji="📇"
       />

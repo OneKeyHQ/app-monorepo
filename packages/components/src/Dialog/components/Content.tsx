@@ -72,10 +72,10 @@ const getIcon = (iconType: IconType, iconName?: ICON_NAMES) => {
       icon = 'CheckCircleOutline';
     }
     if (iconType === 'danger') {
-      icon = 'ExclamationOutline';
+      icon = 'ExclamationTriangleOutline';
     }
     if (iconType === 'warning') {
-      icon = 'ExclamationOutline';
+      icon = 'ExclamationTriangleOutline';
     }
     if (iconType === 'info') {
       icon = 'InformationCircleOutline';

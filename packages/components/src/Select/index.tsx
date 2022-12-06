@@ -22,7 +22,7 @@ import { GestureResponderEvent } from 'react-native-modal';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
-import { ChevronDown } from '../Icon/react/solid';
+import { ChevronDown } from '../Icon/react/mini';
 import { OverlayContainer } from '../OverlayContainer';
 import Pressable from '../Pressable';
 import { useUserDevice } from '../Provider/hooks';
@@ -60,7 +60,7 @@ export type SelectItem<T = string> = {
   tokenProps?: ComponentProps<typeof Token>;
   iconProps?: ComponentProps<typeof Icon>;
   OutlineIcon?: string;
-  SolidIcon?: string;
+  MiniIcon?: string;
   destructive?: boolean;
   color?: ColorType;
   badge?: string;

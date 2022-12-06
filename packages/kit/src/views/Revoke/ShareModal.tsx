@@ -102,7 +102,7 @@ export const ShareModal: FC = () => {
           >
             <Text flex="1">{shareText}</Text>
             <IconButton
-              name="RefreshSolid"
+              name="ArrowPathMini"
               type="plain"
               onPress={() => setIndex(index >= 3 ? 0 : index + 1)}
             />

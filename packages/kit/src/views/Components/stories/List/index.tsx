@@ -61,17 +61,17 @@ const GroupingListData = [
       {
         iconName: 'ColorSwatchOutline',
         label: 'Item 1',
-        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
+        rightContent: () => <Icon name="ChevronRightMini" size={20} />,
       },
       {
         iconName: 'CreditCardOutline',
         label: 'Item 2',
-        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
+        rightContent: () => <Icon name="ChevronRightMini" size={20} />,
       },
       {
         iconName: 'CubeTransparentOutline',
         label: 'Item 3',
-        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
+        rightContent: () => <Icon name="ChevronRightMini" size={20} />,
       },
     ],
   },
@@ -88,12 +88,12 @@ const GroupingListData = [
       {
         iconName: 'CreditCardOutline',
         label: 'Item 2',
-        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
+        rightContent: () => <Icon name="ChevronRightMini" size={20} />,
       },
       {
         iconName: 'CubeTransparentOutline',
         label: 'Item 3',
-        rightContent: () => <Icon name="ChevronRightSolid" size={20} />,
+        rightContent: () => <Icon name="ChevronRightMini" size={20} />,
       },
     ],
   },
@@ -289,7 +289,7 @@ const ListGallery = () => (
                     _hover={{ bgColor: 'surface-hovered' }}
                     _pressed={{ bgColor: 'surface-pressed' }}
                   >
-                    <Icon name="StarSolid" size={20} />
+                    <Icon name="StarMini" size={20} />
                   </Pressable>
                   <Text typography="Body2Strong" color="text-subdued" ml={1}>
                     {item.order}
@@ -352,7 +352,7 @@ const ListGallery = () => (
               <ListItem.Column>
                 <IconButton
                   size="xs"
-                  name="DotsVerticalSolid"
+                  name="EllipsisVerticalMini"
                   type="plain"
                   circle
                 />

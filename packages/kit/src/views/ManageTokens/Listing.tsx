@@ -128,7 +128,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   }
                 />
                 <IconButton
-                  name="TrashSolid"
+                  name="TrashMini"
                   type="plain"
                   circle
                   onPress={() => onDelete?.(item)}
@@ -380,7 +380,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     if (isOwned) {
       return (
         <Box p={2}>
-          <Icon name="CheckSolid" color="interactive-disabled" />
+          <Icon name="CheckMini" color="interactive-disabled" />
         </Box>
       );
     }
@@ -393,7 +393,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     }
     return (
       <IconButton
-        name="PlusSolid"
+        name="PlusMini"
         type="plain"
         circle
         p="4"

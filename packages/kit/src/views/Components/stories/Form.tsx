@@ -55,7 +55,7 @@ const FormGallery = () => {
         <Icon size={16} name="BookOpenOutline" />
       </Pressable>
       <Pressable>
-        <Icon size={16} name="FilterSolid" />
+        <Icon size={16} name="BarsShrinkMini" />
       </Pressable>
     </Stack>
   );

@@ -152,7 +152,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
-            name="ArrowUpOutline"
+            name="PaperAirplaneOutline"
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
@@ -187,7 +187,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
-            name="ArrowDownOutline"
+            name="QrCodeOutline"
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {

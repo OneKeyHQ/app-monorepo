@@ -89,7 +89,7 @@ const PriceItem: FC<{
             <Spinner size="sm" />
           ) : (
             <IconButton
-              name="TrashSolid"
+              name="TrashMini"
               type="plain"
               circle
               onPress={onRemove}

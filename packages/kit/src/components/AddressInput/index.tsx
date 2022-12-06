@@ -113,7 +113,7 @@ const AddressInput: FC<AddressInputProps> = ({
             onPress={onPaste}
             flexDirection="row"
           >
-            <Icon size={20} name="ClipboardSolid" />
+            <Icon size={20} name="ClipboardMini" />
             <Typography.Body2 ml="3">
               {intl.formatMessage({ id: 'action__paste' })}
             </Typography.Body2>
@@ -128,7 +128,7 @@ const AddressInput: FC<AddressInputProps> = ({
             onPress={onContacts}
             flexDirection="row"
           >
-            <Icon size={20} name="BookOpenSolid" />
+            <Icon size={20} name="BookOpenMini" />
             <Typography.Body2 ml="3">
               {intl.formatMessage({ id: 'action__contact' })}
             </Typography.Body2>
@@ -143,7 +143,7 @@ const AddressInput: FC<AddressInputProps> = ({
             onPress={onScan}
             flexDirection="row"
           >
-            <Icon size={20} name="ScanSolid" />
+            <Icon size={20} name="ViewfinderCircleMini" />
             <Typography.Body2 ml="3">
               {intl.formatMessage({ id: 'action__scan' })}
             </Typography.Body2>

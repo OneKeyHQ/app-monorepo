@@ -3,15 +3,21 @@ const SvgTag = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
+    strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="M7 7h.01M7 3h5a1.99 1.99 0 0 1 1.414.586l7 7a2 2 0 0 1 0 2.828l-7 7a2 2 0 0 1-2.828 0l-7-7A1.994 1.994 0 0 1 3 12V7a4 4 0 0 1 4-4z"
+      d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607l-9.58-9.58A2.25 2.25 0 0 0 9.568 3z"
+    />
+    <Path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6 6h.008v.008H6V6z"
     />
   </Svg>
 );

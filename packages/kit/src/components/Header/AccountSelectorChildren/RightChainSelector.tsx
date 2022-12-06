@@ -83,7 +83,7 @@ const RightChainSelector: FC<Props> = ({
       label: intl.formatMessage({ id: 'option__all' }),
       value: AllNetwork,
       iconProps: {
-        name: 'OptionListAllSolid',
+        name: 'OptionListAllMini',
         size: isVerticalLayout ? 32 : 24,
         color: 'surface-neutral-default',
       },
@@ -104,7 +104,7 @@ const RightChainSelector: FC<Props> = ({
       options={options}
       isTriggerPlain
       footerText={intl.formatMessage({ id: 'action__customize_network' })}
-      footerIcon="PencilSolid"
+      footerIcon="PencilMini"
       onPressFooter={() => {
         setTimeout(() => {
           navigation.navigate(RootRoutes.Modal, {
@@ -175,7 +175,7 @@ const RightChainSelector: FC<Props> = ({
               </Text>
             </Box>
           </Box>
-          <Icon size={20} name="ChevronDownSolid" />
+          <Icon size={20} name="ChevronDownMini" />
         </Box>
       )}
     />

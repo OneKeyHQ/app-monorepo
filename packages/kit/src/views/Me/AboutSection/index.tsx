@@ -129,7 +129,7 @@ export const AboutSection = () => {
             );
           }}
         >
-          <Icon name="BookmarkAltOutline" />
+          <Icon name="HashtagOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -168,7 +168,7 @@ export const AboutSection = () => {
             )
           }
         >
-          <Icon name="UserOutline" />
+          <Icon name="UserCircleOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -179,7 +179,7 @@ export const AboutSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -199,7 +199,7 @@ export const AboutSection = () => {
             )
           }
         >
-          <Icon name="ShieldCheckOutline" />
+          <Icon name="EllipsisHorizontalCircleOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -210,7 +210,7 @@ export const AboutSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -240,7 +240,7 @@ export const AboutSection = () => {
               id: 'form__website',
             })}
           </Text>
-          <Icon name="ExternalLinkSolid" size={20} />
+          <Icon name="ArrowTopRightOnSquareMini" size={20} />
         </Pressable>
         <Pressable
           display="flex"
@@ -260,7 +260,7 @@ export const AboutSection = () => {
           >
             Discord
           </Text>
-          <Icon name="ExternalLinkSolid" size={20} />
+          <Icon name="ArrowTopRightOnSquareMini" size={20} />
         </Pressable>
         <Pressable
           display="flex"
@@ -278,7 +278,7 @@ export const AboutSection = () => {
           >
             Twitter
           </Text>
-          <Icon name="ExternalLinkSolid" size={20} />
+          <Icon name="ArrowTopRightOnSquareMini" size={20} />
         </Pressable>
       </Box>
     </Box>

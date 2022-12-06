@@ -65,7 +65,7 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
         <Box mt={6}>
           <Box flexDirection="row">
             <Box>
-              <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
+              <Icon name="EyeSlashOutline" size={20} color="icon-subdued" />
             </Box>
             <Text flex={1} ml={3} typography="Body2" color="text-default">
               {intl.formatMessage({
@@ -75,7 +75,11 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
           </Box>
           <Box flexDirection="row" mt={4}>
             <Box>
-              <Icon name="ExclamationOutline" size={20} color="icon-warning" />
+              <Icon
+                name="ExclamationTriangleOutline"
+                size={20}
+                color="icon-warning"
+              />
             </Box>
             <Text flex={1} typography="Body2" ml={3} color="text-default">
               {intl.formatMessage({
