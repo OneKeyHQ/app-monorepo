@@ -3,6 +3,7 @@ import {
   CurveName,
   batchGetPublicKeys,
 } from '@onekeyfe/blockchain-libs/dist/secret';
+import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
 import { COINTYPE_FIL as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
@@ -50,9 +51,10 @@ export class KeyringHd extends KeyringHdBase {
         path,
         extendedKey: { key: pubkey },
       } = info;
-      const pub = pubkey.toString('hex');
+      const pubUncompressed = secp256k1.transformPublicKey(pubkey);
+      const pubHex = pubUncompressed.toString('hex');
       const address = newSecp256k1Address(
-        pubkey,
+        pubUncompressed,
         network.isTestnet ? CoinType.TEST : CoinType.MAIN,
       ).toString();
       const name =
@@ -63,8 +65,8 @@ export class KeyringHd extends KeyringHdBase {
         type: AccountType.VARIANT,
         path,
         coinType: COIN_TYPE,
-        pub,
-        address,
+        pub: pubHex,
+        address: pubHex,
         addresses: { [this.networkId]: address },
       });
       index += 1;
