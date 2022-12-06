@@ -108,9 +108,11 @@ const ChainsSelector: FC<{ networkIds: string[] }> = ({ networkIds }) => {
   );
 };
 
-const DappsContainer = () => {
-  const { categoryId } = useContext(DiscoverContext);
-  const dapps = useCategoryDapps(categoryId);
+type DappsContainerProps = {
+  dapps: DAppItemType[];
+};
+
+const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
   const { selectedNetworkId } = useContext(SelectedNetworkContext);
 
   const { onItemSelect } = useContext(DiscoverContext);
@@ -221,7 +223,7 @@ export function Container() {
         </Box>
         <Divider orientation="vertical" />
         <Box flex="1">
-          <DappsContainer />
+          <DappsContainer dapps={dapps} />
         </Box>
       </Box>
     </Box>
