@@ -155,6 +155,11 @@ jobs:
           name: release
           path: |
             ./packages/desktop/build-electron/*
+            !./packages/desktop/build-electron/win-unpacked
+            !./packages/desktop/build-electron/mac-arm64
+            !./packages/desktop/build-electron/mac
+            !./packages/desktop/build-electron/linux-unpacked
+            !./packages/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main
