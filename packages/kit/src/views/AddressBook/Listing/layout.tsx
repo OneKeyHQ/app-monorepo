@@ -31,7 +31,7 @@ const MobileLayout: FC<LayoutProps> = ({ children, onNew }) => {
         borderColor="border-subdued"
         bg="surface-subdued"
       >
-        <Button leftIconName="PlusSolid" onPress={onNew} size="xl">
+        <Button leftIconName="PlusMini" onPress={onNew} size="xl">
           {intl.formatMessage({ id: 'action__add_new_address' })}
         </Button>
       </Box>
@@ -59,7 +59,7 @@ const LaptopLayout: FC<LayoutProps> = ({ children, onNew }) => {
           <Typography.DisplayXLarge>
             {intl.formatMessage({ id: 'title__address_book' })}
           </Typography.DisplayXLarge>
-          <Button leftIconName="PlusSolid" onPress={onNew}>
+          <Button leftIconName="PlusMini" onPress={onNew}>
             {intl.formatMessage({ id: 'action__add_new_address' })}
           </Button>
         </Box>

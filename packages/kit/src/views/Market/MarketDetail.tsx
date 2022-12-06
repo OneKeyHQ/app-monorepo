@@ -58,9 +58,9 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const intl = useIntl();
   const iconName = useMemo(() => {
     if (tokenItem?.favorited) {
-      return 'StarSolid';
+      return 'StarMini';
     }
-    return isVertical ? 'StarOutline' : 'StarSolid';
+    return isVertical ? 'StarOutline' : 'StarMini';
   }, [isVertical, tokenItem?.favorited]);
   return (
     <Box>
@@ -111,7 +111,7 @@ const SwapButton = ({
       ml={4}
       isDisabled={!tokenItem?.tokens?.length}
       type="basic"
-      name="SwitchHorizontalSolid"
+      name="ArrowsRightLeftMini"
       size="base"
       circle
       iconColor="icon-default"
@@ -130,7 +130,7 @@ const StakeButton = ({
     <IconButton
       ml={4}
       type="basic"
-      name="SaveSolid"
+      name="InboxArrowDownMini"
       size="base"
       circle
       iconColor="icon-default"
@@ -144,7 +144,7 @@ const PurchaseButton = ({ onPress }: { onPress: () => void }) => (
     <IconButton
       ml={4}
       type="basic"
-      name="PlusSolid"
+      name="PlusMini"
       size="base"
       circle
       iconColor="icon-default"
@@ -190,7 +190,7 @@ const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
         ml={4}
         isDisabled={!tokenItem.coingeckoId.length}
         type="basic"
-        name="BellSolid"
+        name="BellMini"
         size="base"
         circle
         iconColor="icon-default" // get subscribe status

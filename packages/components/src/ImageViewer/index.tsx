@@ -139,7 +139,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
           borderColor="border-default"
           bg="action-secondary-default"
         >
-          <Icon name="DownloadSolid" size={20} />
+          <Icon name="ArrowDownTrayMini" size={20} />
         </Box>
       )}
       containerProps={{
@@ -150,7 +150,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
           label: intl.formatMessage({ id: 'action__save' }),
           value: 'save',
           iconProps: {
-            name: 'SaveOutline',
+            name: 'InboxArrowDownOutline',
           },
         },
         {

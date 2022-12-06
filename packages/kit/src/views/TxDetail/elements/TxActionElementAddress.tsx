@@ -68,12 +68,14 @@ export function TxActionElementAddress(
               }
             : undefined
         }
-        icon={isCopy ? <Icon name="DuplicateOutline" size={20} /> : undefined}
+        icon={
+          isCopy ? <Icon name="Square2StackOutline" size={20} /> : undefined
+        }
       >
         <HStack alignItems="center">
           {securityInfo?.length ? (
             <Icon
-              name="ShieldExclamationSolid"
+              name="ShieldExclamationMini"
               size={20}
               color="icon-critical"
             />

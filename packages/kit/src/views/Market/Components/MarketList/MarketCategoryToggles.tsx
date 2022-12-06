@@ -32,7 +32,7 @@ const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
           text: c.name ?? '',
         };
         if (c.categoryId === MARKET_FAVORITES_CATEGORYID) {
-          // buttonData.leftIcon = 'StarSolid';
+          // buttonData.leftIcon = 'StarMini';
           // buttonData.leftIconSelectedColor = 'icon-warning';
           buttonData.text = intl.formatMessage({ id: 'form__Watchlist' });
         }

@@ -3,15 +3,16 @@ const SvgHashtag = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
+    strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="m7 20 4-16m2 16 4-16M6 9h14M4 15h14"
+      d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5"
     />
   </Svg>
 );

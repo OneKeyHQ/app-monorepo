@@ -203,7 +203,7 @@ export const ERC20Allowance: FC<Props> = ({
         <IconButton
           bg="action-secondary-default"
           size="xs"
-          name="CloseSolid"
+          name="XMarkMini"
           iconSize={20}
           px="3"
           py="2"

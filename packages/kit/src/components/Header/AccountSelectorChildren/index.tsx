@@ -222,7 +222,7 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
           {isPasswordSet ? (
             <IconButton
               ml="3"
-              name="LockOutline"
+              name="LockClosedOutline"
               size="lg"
               minW="50px"
               minH="50px"

@@ -75,7 +75,7 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
           : 'transparent'
       }
     >
-      <Icon size={20} name="DotsHorizontalSolid" />
+      <Icon size={20} name="DotsHorizontalMini" />
     </Box>
 
     {!!isNotification && (
@@ -183,7 +183,7 @@ const RightHeader: FC<RightHeaderProps> = ({
         label: intl.formatMessage({ id: 'action__edit' }),
         value: 'rename',
         iconProps: {
-          name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+          name: isVerticalLayout ? 'PencilOutline' : 'PencilMini',
         },
       });
     }
@@ -195,7 +195,7 @@ const RightHeader: FC<RightHeaderProps> = ({
         }),
         value: 'details',
         iconProps: {
-          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextSolid',
+          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextMini',
         },
       },
       // {
@@ -204,7 +204,7 @@ const RightHeader: FC<RightHeaderProps> = ({
       //   }),
       //   value: 'restore',
       //   iconProps: {
-      //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
+      //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreMini',
       //   },
       // },
       {
@@ -213,7 +213,7 @@ const RightHeader: FC<RightHeaderProps> = ({
         }),
         value: 'remove',
         iconProps: {
-          name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+          name: isVerticalLayout ? 'TrashOutline' : 'TrashMini',
         },
         destructive: true,
       },
@@ -237,7 +237,7 @@ const RightHeader: FC<RightHeaderProps> = ({
             color: 'text-warning',
             iconProps: {
               color: 'icon-warning',
-              name: isVerticalLayout ? 'UploadOutline' : 'UploadSolid',
+              name: isVerticalLayout ? 'UploadOutline' : 'UploadMini',
             },
           },
         ],
@@ -319,7 +319,7 @@ const RightHeader: FC<RightHeaderProps> = ({
               label: intl.formatMessage({ id: 'action__edit' }),
               value: 'rename',
               iconProps: {
-                name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+                name: isVerticalLayout ? 'PencilOutline' : 'PencilMini',
               },
             },
             {
@@ -328,7 +328,7 @@ const RightHeader: FC<RightHeaderProps> = ({
               iconProps: {
                 name: isVerticalLayout
                   ? 'ShieldCheckOutline'
-                  : 'ShieldCheckSolid',
+                  : 'ShieldCheckMini',
               },
             },
             // {
@@ -337,14 +337,14 @@ const RightHeader: FC<RightHeaderProps> = ({
             //   }),
             //   value: 'restore',
             //   iconProps: {
-            //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
+            //     name: isVerticalLayout ? 'RestoreOutline' : 'RestoreMini',
             //   },
             // },
             {
               label: intl.formatMessage({ id: 'action__delete_wallet' }),
               value: 'remove',
               iconProps: {
-                name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+                name: isVerticalLayout ? 'TrashOutline' : 'TrashMini',
               },
               destructive: true,
             },

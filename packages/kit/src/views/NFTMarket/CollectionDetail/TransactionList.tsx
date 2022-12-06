@@ -200,7 +200,7 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
           ),
         }}
       />
-      <Icon name="ChevronDoubleRightSolid" size={20} />
+      <Icon name="ChevronDoubleRightMini" size={20} />
       <ListItem.Column
         flex={1}
         text={{

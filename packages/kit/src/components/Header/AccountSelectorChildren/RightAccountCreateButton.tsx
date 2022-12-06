@@ -65,7 +65,7 @@ const RightAccountCreateButton: FC<Props> = ({
       {initWalletServiceRef.current}
       <Button
         testID="AccountSelectorChildren-RightAccountCreateButton"
-        leftIconName="UserAddSolid"
+        leftIconName="UserAddMini"
         size="xl"
         isLoading={isLoading || isCreatLoading}
         onPress={async () => {

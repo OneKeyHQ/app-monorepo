@@ -32,7 +32,7 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
         content: intl.formatMessage({
           id: 'dialog__device_has_enabled_passphrase_desc',
         }),
-        iconName: 'LockClosedSolid',
+        iconName: 'LockClosedMini',
         iconType: 'success',
       }}
       footerButtonProps={{

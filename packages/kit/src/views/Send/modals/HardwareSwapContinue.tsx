@@ -92,7 +92,7 @@ export function HardwareSwapContinue() {
               borderRadius="full"
               mr="6"
             >
-              <Icon name="CheckSolid" size={20} color="text-on-primary" />
+              <Icon name="CheckMini" size={20} color="text-on-primary" />
             </Center>
             <Box>
               <Typography.Body1Strong>

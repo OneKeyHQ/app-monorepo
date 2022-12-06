@@ -274,7 +274,7 @@ export const AmountInput: FC = () => {
                 {intl.formatMessage({ id: 'form__third_party_provider' })}
               </Text>
             </Box>
-            {/* <Icon name="ChevronRightSolid" size={20} /> */}
+            {/* <Icon name="ChevronRightMini" size={20} /> */}
           </Pressable>
           {platformEnv.isNative ? (
             <Keyboard

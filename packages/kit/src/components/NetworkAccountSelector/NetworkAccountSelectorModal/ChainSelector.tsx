@@ -152,7 +152,7 @@ function ChainSelector({
               type="plain"
               size="xl"
               circle
-              name="SortAscendingOutline"
+              name="BarsArrowUpOutline"
               onPress={() => {
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.ManageNetwork,

@@ -22,7 +22,7 @@ const ExplorerBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
       borderRadius="12px"
     >
       <Pressable px="13px" py="13px" onPress={onSearch} flex={1}>
-        <Icon name="SearchSolid" size={20} color="icon-subdued" />
+        <Icon name="MagnifyingGlassMini" size={20} color="icon-subdued" />
         <Typography.Caption flex={1} color="text-subdued" numberOfLines={1}>
           {intl.formatMessage({
             id: 'content__search_dapps_or_type_url',
@@ -38,7 +38,7 @@ const ExplorerBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
           gotoScanQrcode();
         }}
       >
-        <Icon name="ScanSolid" size={20} color="icon-subdued" />
+        <Icon name="ViewfinderCircleMini" size={20} color="icon-subdued" />
       </Pressable>
     </Box>
   );

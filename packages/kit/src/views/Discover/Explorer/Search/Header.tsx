@@ -36,7 +36,7 @@ const HeaderHistories: FC<HeaderHistoriesProps> = ({
           <Container.Item
             title={keyword}
             titleColor="text-default"
-            customArrowIconName="ArrowCircleRightSolid"
+            customArrowIconName="ArrowCircleRightMini"
             onPress={() => onSelectHistory?.(keyword)}
           />
         </Container.Box>

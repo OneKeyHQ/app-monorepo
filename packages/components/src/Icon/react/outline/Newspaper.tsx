@@ -3,15 +3,16 @@ const SvgNewspaper = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
+    strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1m2 13a2 2 0 0 1-2-2V7m2 13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"
+      d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3z"
     />
   </Svg>
 );

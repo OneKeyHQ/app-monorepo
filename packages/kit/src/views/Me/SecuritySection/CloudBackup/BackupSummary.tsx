@@ -40,7 +40,7 @@ const BackupSummary: FC<BackupSummaryDisplayProps> = ({
         count: numOfHDWallets,
       },
       {
-        iconName: 'SaveOutline',
+        iconName: 'InboxArrowDownOutline',
         count: numOfImportedAccounts,
       },
       {

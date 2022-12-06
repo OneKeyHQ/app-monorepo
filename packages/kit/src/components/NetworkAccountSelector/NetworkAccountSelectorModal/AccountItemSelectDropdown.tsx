@@ -68,28 +68,28 @@ function AccountItemSelectDropdown({
         label: intl.formatMessage({ id: 'action__rename' }),
         value: EAccountSelectorItemSelectOptions.rename,
         iconProps: {
-          name: isVerticalLayout ? 'TagOutline' : 'TagSolid',
+          name: isVerticalLayout ? 'TagOutline' : 'TagMini',
         },
       },
       [EAccountSelectorItemSelectOptions.copy]: {
         label: intl.formatMessage({ id: 'action__copy_address' }),
         value: EAccountSelectorItemSelectOptions.copy,
         iconProps: {
-          name: isVerticalLayout ? 'DuplicateOutline' : 'DuplicateSolid',
+          name: isVerticalLayout ? 'Square2StackOutline' : 'Square2StackMini',
         },
       },
       [EAccountSelectorItemSelectOptions.detail]: {
         label: intl.formatMessage({ id: 'action__view_details' }),
         value: EAccountSelectorItemSelectOptions.detail,
         iconProps: {
-          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextSolid',
+          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextMini',
         },
       },
       [EAccountSelectorItemSelectOptions.remove]: {
         label: intl.formatMessage({ id: 'action__remove_account' }),
         value: EAccountSelectorItemSelectOptions.remove,
         iconProps: {
-          name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+          name: isVerticalLayout ? 'TrashOutline' : 'TrashMini',
         },
         destructive: true,
       },
@@ -185,7 +185,7 @@ function AccountItemSelectDropdown({
         }}
         renderTrigger={({ onPress }) => (
           <IconButton
-            name="DotsVerticalSolid"
+            name="EllipsisVerticalMini"
             type="plain"
             circle
             onPress={onPress}

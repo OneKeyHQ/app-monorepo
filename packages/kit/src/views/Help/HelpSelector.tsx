@@ -84,14 +84,16 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__submit_a_request' }),
           value: 'submit_request',
           iconProps: {
-            name: isSmallScreen ? 'AnnotationOutline' : 'AnnotationSolid',
+            name: isSmallScreen
+              ? 'ChatBubbleBottomCenterTextOutline'
+              : 'ChatBubbleBottomCenterTextMini',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__s_request_history' }),
           value: 'history',
           iconProps: {
-            name: isSmallScreen ? 'ClockOutline' : 'ClockSolid',
+            name: isSmallScreen ? 'ClockOutline' : 'ClockMini',
           },
         },
       ],
@@ -103,21 +105,21 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__help_support' }),
           value: 'support',
           iconProps: {
-            name: isSmallScreen ? 'SupportOutline' : 'SupportSolid',
+            name: isSmallScreen ? 'LifebuoyOutline' : 'LifebuoyMini',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__beginner_guide' }),
           value: 'guide',
           iconProps: {
-            name: isSmallScreen ? 'MapOutline' : 'MapSolid',
+            name: isSmallScreen ? 'MapOutline' : 'MapMini',
           },
         },
         {
           label: intl.formatMessage({ id: 'form__hardware_wallet_manuals' }),
           value: 'hardware_wallet',
           iconProps: {
-            name: isSmallScreen ? 'BookmarkAltOutline' : 'BookmarkAltSolid',
+            name: isSmallScreen ? 'BookOpenOutline' : 'BookOpenMini',
           },
         },
       ],
@@ -129,21 +131,21 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'title__official_website' }),
           value: 'website',
           iconProps: {
-            name: isSmallScreen ? 'GlobeAltOutline' : 'GlobeAltSolid',
+            name: isSmallScreen ? 'GlobeAltOutline' : 'GlobeAltMini',
           },
         },
         {
           label: intl.formatMessage({ id: 'title__buy_onekey_hardware' }),
           value: 'shop',
           iconProps: {
-            name: isSmallScreen ? 'ShoppingBagOutline' : 'ShoppingBagSolid',
+            name: isSmallScreen ? 'ShoppingBagOutline' : 'ShoppingBagMini',
           },
         },
         {
           label: intl.formatMessage({ id: 'title__client_download' }),
           value: 'download',
           iconProps: {
-            name: isSmallScreen ? 'DownloadOutline' : 'DownloadSolid',
+            name: isSmallScreen ? 'ArrowDownTrayOutline' : 'ArrowDownTrayMini',
           },
         },
       ],
@@ -244,7 +246,7 @@ const HelpSelector: FC = () => {
             borderWidth="1px"
             borderColor="border-default"
           >
-            <Icon size={24} name="QuestionMarkCircleSolid" />
+            <Icon size={24} name="QuestionMarkCircleMini" />
           </Center>
         )}
       />
