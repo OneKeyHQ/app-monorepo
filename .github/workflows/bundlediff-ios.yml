@@ -39,6 +39,7 @@ jobs:
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           npm i -g expo-cli && yarn
 
@@ -81,6 +82,7 @@ jobs:
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           npm i -g expo-cli && yarn
 
