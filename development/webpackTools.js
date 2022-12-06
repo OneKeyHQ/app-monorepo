@@ -88,7 +88,9 @@ function normalizeConfig({ platform, config, env }) {
         ),
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
-      isDev ? new ReactRefreshWebpackPlugin() : null,
+      isDev
+        ? new ReactRefreshWebpackPlugin({ overlay: platform !== 'desktop' })
+        : null,
     ].filter(Boolean);
 
     // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
