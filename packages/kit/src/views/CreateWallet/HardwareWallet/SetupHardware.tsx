@@ -109,7 +109,7 @@ const SetupHardwareModal: FC = () => {
 
   // const footer = (
   //   <Center pt={4} pb={8}>
-  //     <Button type="plain" size="lg" rightIconName="ChevronRightSolid">
+  //     <Button type="plain" size="lg" rightIconName="ChevronRightMini">
   //       {intl.formatMessage({ id: 'action__view_device_details' })}
   //     </Button>
   //   </Center>

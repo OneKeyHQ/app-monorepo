@@ -140,7 +140,7 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
         </Box>
         <Box flexDirection="row" alignItems="center" width="35%">
           <Center h="4" w="8" my="1">
-            <Icon name="ArrowRightSolid" size={16} />
+            <Icon name="ArrowRightMini" size={16} />
           </Center>
           <Box flexDirection="row" alignItems="center">
             <Box mr="4">
@@ -257,7 +257,7 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
           </Box>
         </Box>
         <Center h="4" w="8" my="1">
-          <Icon name="ArrowDownSolid" size={16} />
+          <Icon name="ArrowDownMini" size={16} />
         </Center>
         <Box flexDirection="row" width="full">
           <Box mr="4">

@@ -77,7 +77,7 @@ const NFTListHeader = ({
             disabled
             onPress={showSelectNFTPriceType}
             size="sm"
-            name="CogSolid"
+            name="CogMini"
             type="plain"
             mr={-2}
           /> */}
@@ -93,7 +93,7 @@ const NFTListHeader = ({
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
         <IconButton
-          name={expand ? 'PackupOutline' : 'ExpandOutline'}
+          name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'}
           size="sm"
           circle
           type="plain"

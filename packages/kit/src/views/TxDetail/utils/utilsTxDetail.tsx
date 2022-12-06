@@ -32,7 +32,7 @@ export function getTxStatusInfo({ decodedTx }: { decodedTx: IDecodedTx }) {
     | 'transaction__success' = 'transaction__failed';
   let textColor = 'text-critical';
 
-  // TxStatusFailureCircleIllus CloseCircleOutline
+  // TxStatusFailureCircleIllus XCircleOutline
   let iconName: ICON_NAMES = 'TxStatusFailureCircleIllus';
   let iconColor: keyof ThemeValues = 'icon-critical';
   let iconContainerColor = 'surface-critical-default';

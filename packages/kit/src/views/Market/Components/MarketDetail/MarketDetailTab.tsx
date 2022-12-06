@@ -79,7 +79,7 @@ const MarketDetailActionButton = ({
       </Button>
       {/* <IconButton
         ml={2}
-        name="DotsHorizontalSolid"
+        name="DotsHorizontalMini"
         onPress={() => {
           if (marketTokenItem) {
             showMarketDetailActionMoreMenu(marketTokenItem, {

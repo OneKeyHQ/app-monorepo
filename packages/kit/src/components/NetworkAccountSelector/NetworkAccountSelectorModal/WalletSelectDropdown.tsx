@@ -145,7 +145,7 @@ export function WalletSelectDropdown({
                     intl,
                   })}
                 </Text>
-                <Icon name="SelectorSolid" size={20} />
+                <Icon name="ChevronUpDownMini" size={20} />
               </Box>
             )}
           </Pressable>
@@ -196,7 +196,7 @@ export function WalletSelectDropdown({
                 </Text>
                 {isActive ? (
                   <Icon
-                    name={isVerticalLayout ? 'CheckOutline' : 'CheckSolid'}
+                    name={isVerticalLayout ? 'CheckOutline' : 'CheckMini'}
                     size={isVerticalLayout ? 24 : 20}
                     color="interactive-default"
                   />

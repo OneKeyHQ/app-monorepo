@@ -177,7 +177,7 @@ const DesktopModal = ({
             {navIndex ? (
               <IconButton
                 size="base"
-                name="ArrowLeftSolid"
+                name="ArrowLeftMini"
                 type="plain"
                 opacity={hideBackButton ? 0 : 1}
                 circle
@@ -212,7 +212,7 @@ const DesktopModal = ({
             {!!closeable && (
               <IconButton
                 size="base"
-                name="CloseSolid"
+                name="XMarkMini"
                 type="plain"
                 circle
                 onPress={close}

@@ -26,7 +26,7 @@ const WebAuthnButton = () => {
     }
   }, [intl, toast]);
   return isContextSupportWebAuthn && enableWebAuthn ? (
-    <IconButton size="xl" name="FingerPrintIllus" onPromise={onPress} />
+    <IconButton size="xl" name="FingerPrintOutline" onPromise={onPress} />
   ) : null;
 };
 

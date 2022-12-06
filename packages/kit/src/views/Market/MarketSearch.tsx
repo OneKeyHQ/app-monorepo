@@ -125,7 +125,7 @@ const MarketSearch: FC<{
                   <Button
                     type="plain"
                     size="xs"
-                    leftIconName="TrashSolid"
+                    leftIconName="TrashMini"
                     iconSize={16}
                     mr="2"
                     onPress={() => {

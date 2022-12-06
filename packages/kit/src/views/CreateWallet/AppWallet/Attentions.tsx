@@ -35,7 +35,7 @@ export const Attentions: FC<AttentionsProps> = ({ onPress }) => {
           <Center mb={8}>
             <Center p={4} mb={4} bg="surface-warning-default" rounded="full">
               <Icon
-                name="ExclamationOutline"
+                name="ExclamationTriangleOutline"
                 width={24}
                 height={24}
                 color="icon-warning"

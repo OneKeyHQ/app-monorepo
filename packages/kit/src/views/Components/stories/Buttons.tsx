@@ -18,7 +18,7 @@ const ButtonSet: FC<SetProps> = ({ size }) => (
       isLoading
       type="primary"
       size={size}
-      rightIconName="AcademicCapSolid"
+      rightIconName="AcademicCapMini"
       mb="2"
     >
       Button
@@ -27,23 +27,23 @@ const ButtonSet: FC<SetProps> = ({ size }) => (
       isDisabled
       type="primary"
       size={size}
-      rightIconName="AcademicCapSolid"
+      rightIconName="AcademicCapMini"
       mb="2"
     >
       Button
     </Button>
-    <Button type="primary" size={size} leftIconName="AcademicCapSolid" mb="2">
+    <Button type="primary" size={size} leftIconName="AcademicCapMini" mb="2">
       Button
     </Button>
-    <Button type="basic" size={size} rightIconName="AcademicCapSolid" mb="2">
+    <Button type="basic" size={size} rightIconName="AcademicCapMini" mb="2">
       Button
     </Button>
-    <Button type="plain" size={size} rightIconName="AcademicCapSolid" mb="2">
+    <Button type="plain" size={size} rightIconName="AcademicCapMini" mb="2">
       Button
     </Button>
     <Button
       type="destructive"
-      rightIconName="AcademicCapSolid"
+      rightIconName="AcademicCapMini"
       size={size}
       mb="2"
     >
@@ -78,7 +78,7 @@ const ButtonUsePromise = () => {
     >
       <Button
         type="primary"
-        rightIconName="AcademicCapSolid"
+        rightIconName="AcademicCapMini"
         size="xl"
         mb="2"
         onPromise={onPromise}
@@ -87,7 +87,7 @@ const ButtonUsePromise = () => {
       </Button>
       <Button
         type="primary"
-        rightIconName="AcademicCapSolid"
+        rightIconName="AcademicCapMini"
         size="xl"
         mb="2"
         isLoading={false}
@@ -97,7 +97,7 @@ const ButtonUsePromise = () => {
       </Button>
       <Button
         type="primary"
-        rightIconName="AcademicCapSolid"
+        rightIconName="AcademicCapMini"
         size="xl"
         mb="2"
         onPress={() => {}}

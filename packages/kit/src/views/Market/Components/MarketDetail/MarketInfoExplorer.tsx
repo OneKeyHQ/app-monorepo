@@ -50,7 +50,7 @@ export const MarketInfoExplorer: FC<MarketInfoExplorerProps> = ({
         ) : null}
       </Box>
       <Box mr="2">
-        <Icon name="ExternalLinkSolid" size={20} />
+        <Icon name="ArrowTopRightOnSquareMini" size={20} />
       </Box>
     </Pressable>
   );

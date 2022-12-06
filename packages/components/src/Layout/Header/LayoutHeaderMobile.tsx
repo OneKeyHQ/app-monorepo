@@ -16,7 +16,7 @@ export function LayoutHeaderMobile() {
         <HStack space={2}>
           <NetworkAccountSelectorTrigger type="basic" />
           <IconButton
-            name="DotsVerticalSolid"
+            name="EllipsisVerticalMini"
             onPress={() => showHomeMoreMenu()}
             circle
             size="sm"

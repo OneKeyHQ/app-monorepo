@@ -43,7 +43,7 @@ const HistoryPopoverButton: FC<{ onPress?: () => void }> = ({ onPress }) => {
   }, []);
   return (
     <Box position="relative">
-      <IconButton ml={2} type="plain" name="ClockSolid" onPress={onPress} />
+      <IconButton ml={2} type="plain" name="ClockMini" onPress={onPress} />
       <Box
         position="absolute"
         zIndex={1}
@@ -97,7 +97,7 @@ const HistoryButton = () => {
       {!swapPopoverShown && pendings.length > 0 ? (
         <HistoryPopoverButton onPress={onPress} />
       ) : (
-        <IconButton ml={2} type="plain" name="ClockSolid" onPress={onPress} />
+        <IconButton ml={2} type="plain" name="ClockMini" onPress={onPress} />
       )}
       {pendings.length > 0 ? (
         <Box
@@ -141,7 +141,7 @@ const RefreshButton = () => {
           ],
         }}
       >
-        <Icon name="RefreshSolid" size={20} />
+        <Icon name="ArrowPathMini" size={20} />
       </Animated.View>
     </Button>
   );

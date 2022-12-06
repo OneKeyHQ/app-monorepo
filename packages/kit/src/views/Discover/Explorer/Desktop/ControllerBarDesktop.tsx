@@ -75,20 +75,20 @@ BrowserURLInput.displayName = 'BrowserURLInput';
 function getHttpSafeState(searchContent?: string): ICON_NAMES {
   try {
     if (!searchContent) {
-      return 'SearchCircleSolid';
+      return 'SearchCircleMini';
     }
 
     const url = new URL(searchContent);
     if (url.protocol === 'https:') {
-      return 'LockClosedSolid';
+      return 'LockClosedMini';
     }
     if (url.protocol === 'http:') {
-      return 'ExclamationCircleSolid';
+      return 'ExclamationTriangleMini';
     }
   } catch (e) {
-    return 'SearchCircleSolid';
+    return 'SearchCircleMini';
   }
-  return 'SearchCircleSolid';
+  return 'SearchCircleMini';
 }
 const ControllerBarDesktop: FC = () => {
   const intl = useIntl();
@@ -145,7 +145,7 @@ const ControllerBarDesktop: FC = () => {
         />
         <IconButton
           type="plain"
-          name={loading ? 'CloseOutline' : 'RefreshOutline'}
+          name={loading ? 'XMarkOutline' : 'ArrowPathOutline'}
           onPress={loading ? stopLoading : reload}
         />
 
@@ -208,7 +208,7 @@ const ControllerBarDesktop: FC = () => {
                     )
                   }
                   type="plain"
-                  name="StarSolid"
+                  name="StarMini"
                   iconColor={
                     currentTab?.isBookmarked ? 'icon-warning' : 'icon-default'
                   }

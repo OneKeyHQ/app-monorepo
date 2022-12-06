@@ -26,7 +26,7 @@ const Hash: FC<HashProps> = (props) => {
       {...props}
       title={intl.formatMessage({ id: 'content__hash' })}
       describe={shortenAddress(hash ?? '', 8)}
-      customArrowIconName="DuplicateSolid"
+      customArrowIconName="Square2StackMini"
       onArrowIconPress={copyHashToClipboard}
     />
   );

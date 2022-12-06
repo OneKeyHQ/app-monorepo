@@ -93,7 +93,7 @@ export const ControllerBarMobile: FC = () => {
         disabled={reachedTabLimit}
         onPress={addNewTab}
         iconSize={26}
-        name="PlusCircleSolid"
+        name="PlusCircleMini"
       />
       <Button type="plain" flex={1} onPress={showTabGrid}>
         <Center
@@ -151,7 +151,7 @@ export const ControllerBarMobile: FC = () => {
         disabled={reachedTabLimit}
         onPress={addNewTab}
         iconSize={26}
-        name="PlusCircleSolid"
+        name="PlusCircleMini"
       />
       <IconButton
         name="TrashOutline"
@@ -175,7 +175,7 @@ export const ControllerBarMobile: FC = () => {
                   dispatch(closeAllWebTabs());
                 }}
               >
-                <Icon color="text-critical" size={24} name="CloseSolid" />
+                <Icon color="text-critical" size={24} name="XMarkMini" />
                 <Typography.Body1Strong ml="12px" color="text-critical">
                   {intl.formatMessage({
                     id: 'action__close_all_tabs',

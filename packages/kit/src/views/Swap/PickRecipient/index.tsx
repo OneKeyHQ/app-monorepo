@@ -258,7 +258,7 @@ const PickRecipient = () => {
       footer={selectedIndex === 0 ? undefined : null}
       primaryActionTranslationId="form__enter_address"
       primaryActionProps={{
-        leftIconName: 'PencilSolid',
+        leftIconName: 'PencilMini',
         type: 'basic',
         onPress: onPrimaryPress,
       }}

@@ -35,7 +35,7 @@ const RightContent: FC<Partial<ListItemProps>> = ({
     walletImage === 'external' ? (
       <Badge title={NumberOfAccounts || '0'} size="sm" mr={2} />
     ) : (
-      <IconButton name="DotsVerticalSolid" circle type="plain" />
+      <IconButton name="EllipsisVerticalMini" circle type="plain" />
     )}
     {!circular ? <SelectedIndicator /> : undefined}
   </>

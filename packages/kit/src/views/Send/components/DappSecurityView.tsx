@@ -44,13 +44,13 @@ export const DappSecurityView: FC<{
 
   const dappIcon = useMemo(() => {
     if (typeof securityItems === 'undefined') {
-      return <Icon name="QuestionMarkCircleSolid" size={32} />;
+      return <Icon name="QuestionMarkCircleMini" size={32} />;
     }
     if (securityItems?.length === 0) {
-      return <Icon name="BadgeCheckSolid" size={32} color="icon-success" />;
+      return <Icon name="BadgeCheckMini" size={32} color="icon-success" />;
     }
     return (
-      <Icon name="ShieldExclamationSolid" size={32} color="icon-critical" />
+      <Icon name="ShieldExclamationMini" size={32} color="icon-critical" />
     );
   }, [securityItems]);
 

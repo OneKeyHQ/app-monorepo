@@ -12,7 +12,7 @@ const Searchbar: FC<
     SearchbarProps
 > = ({ value, onClear, onChangeText, ...props }) => {
   const [innerValue, setInnerValue] = useState(value);
-  const rightIconName = innerValue || value ? 'CloseCircleSolid' : undefined;
+  const rightIconName = innerValue || value ? 'XCircleMini' : undefined;
   const handleChangeText = useCallback(
     (text: string) => {
       if (typeof value === 'undefined') {

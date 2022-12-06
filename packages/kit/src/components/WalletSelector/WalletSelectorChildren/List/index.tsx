@@ -120,7 +120,7 @@ function SectionHeader({
               <IconButton
                 onPress={onPress}
                 type="plain"
-                name="PlusSolid"
+                name="PlusMini"
                 circle
                 hitSlop={8}
               />
@@ -242,7 +242,7 @@ function Body() {
                 >
                   <Icon
                     size={platformEnv.isNative ? 24 : 20}
-                    name={platformEnv.isNative ? 'PlusOutline' : 'PlusSolid'}
+                    name={platformEnv.isNative ? 'PlusOutline' : 'PlusMini'}
                   />
                 </Center>
               );
@@ -261,7 +261,7 @@ function Body() {
                 >
                   <Icon
                     size={platformEnv.isNative ? 24 : 20}
-                    name={platformEnv.isNative ? 'LinkOutline' : 'LinkSolid'}
+                    name={platformEnv.isNative ? 'LinkOutline' : 'LinkMini'}
                   />
                 </Center>
               );

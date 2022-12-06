@@ -121,7 +121,7 @@ const Layout: FC<LayoutProps> = ({
           right={{ base: 4, sm: 8 }}
           type="plain"
           size="lg"
-          name="CloseOutline"
+          name="XMarkOutline"
           circle
           zIndex={9999}
         />

@@ -75,7 +75,7 @@ const MarketSearchTokenDestopCell: FC<{
               h="24px"
               borderRadius="6px"
             >
-              <Icon name="ReplySolid" size={16} />
+              <Icon name="ReplyMini" size={16} />
             </Center>
           ) : null}
         </Box>

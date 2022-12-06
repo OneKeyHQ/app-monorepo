@@ -24,20 +24,20 @@ export type ToastStatusProps = {
 };
 
 const InfoToastProps: ToastStatusProps = {
-  iconName: 'RefreshSolid',
+  iconName: 'ArrowPathMini',
   iconColor: 'icon-default',
   borderColor: 'surface-neutral-subdued',
 };
 
 const WarnToastProps: ToastStatusProps = {
-  iconName: 'ExclamationOutline',
+  iconName: 'ExclamationTriangleOutline',
   iconColor: 'icon-warning',
   // @ts-expect-error
   borderColor: '#7A6200',
 };
 
 const DangerToastProps: ToastStatusProps = {
-  iconName: 'CloseCircleOutline',
+  iconName: 'XCircleOutline',
   iconColor: 'icon-critical',
   borderColor: 'border-critical-subdued',
 };
@@ -139,7 +139,7 @@ export const Toast: FC<ToastProps> = ({
         >
           <Icon
             size={20}
-            name="CloseOutline"
+            name="XMarkOutline"
             color={status ? 'icon-default' : iconColor}
           />
         </Pressable>
