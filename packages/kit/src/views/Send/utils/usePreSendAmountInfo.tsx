@@ -70,7 +70,6 @@ export function usePreSendAmountInfo({
       new BigNumber(tokenPrice ?? 0),
     [tokenPrice],
   );
-  console.log('tokenPriceBN--', tokenPriceBN);
   const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
   const getInputText = useCallback(
     (isFiatMode0: boolean, amount0: string, roundMode = undefined) => {
