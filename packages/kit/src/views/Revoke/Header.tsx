@@ -101,7 +101,7 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
       <HStack my="18px">
         <IconButton
           type="plain"
-          name="InformationCircleSolid"
+          name="InformationCircleMini"
           iconSize={16}
           onPress={showAboutOverlay}
         >
@@ -111,7 +111,7 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
         </IconButton>
         <IconButton
           type="plain"
-          name="PaperAirplaneSolid"
+          name="PaperAirplaneMini"
           iconSize={16}
           onPress={share}
         >
@@ -140,7 +140,7 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
         </HStack>
         {accountAddress !== addressOrName && (
           <HStack alignItems="center" justifyContent="center" mt="14">
-            <Icon name="InformationCircleSolid" size={16} />
+            <Icon name="InformationCircleMini" size={16} />
             <Typography.CaptionStrong ml="10px">
               {intl.formatMessage({
                 id: 'content__connect_this_wallet_to_make_further_action',

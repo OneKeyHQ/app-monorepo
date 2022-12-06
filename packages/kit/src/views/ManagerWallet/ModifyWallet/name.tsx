@@ -127,7 +127,7 @@ const ModifyWalletNameViewModal: FC = () => {
                 right="-12px"
                 bottom="-12px"
               >
-                <Icon name="PencilSolid" size={16} />
+                <Icon name="PencilMini" size={16} />
               </Box>
             </ZStack>
           )}

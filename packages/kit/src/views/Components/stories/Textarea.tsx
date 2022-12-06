@@ -17,7 +17,7 @@ const TextareaGallery = () => (
           display="flex"
           flexDirection="row"
         >
-          <Icon name="QrcodeOutline" size={14} />
+          <Icon name="QrCodeOutline" size={14} />
           <Box ml="1">
             <Icon name="ArchiveOutline" size={14} />
           </Box>

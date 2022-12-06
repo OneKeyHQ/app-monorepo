@@ -60,14 +60,14 @@ const ItemRow: FC<ItemRowProps> = ({
           <IconButton
             type="plain"
             circle
-            name="ArrowUpTopSolid"
+            name="ArrowUpTopMini"
             onPress={onFixTop}
           />
         ) : null}
         <IconButton
           type="plain"
           circle
-          name="MenuOutline"
+          name="Bars3Mini"
           onPressIn={() => onDrag()}
         />
       </HStack>

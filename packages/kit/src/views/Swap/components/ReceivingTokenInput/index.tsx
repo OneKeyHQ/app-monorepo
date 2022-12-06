@@ -166,7 +166,7 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             )}
             <Center w="5" h="5">
-              <Icon size={20} name="ChevronDownSolid" />
+              <Icon size={20} name="ChevronDownMini" />
             </Center>
           </Pressable>
           <Box

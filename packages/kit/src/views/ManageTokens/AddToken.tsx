@@ -191,7 +191,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                   <Typography.Body1 mr="18px">
                     {sourceInfo?.origin?.split('://')[1] ?? 'DApp'}
                   </Typography.Body1>
-                  <Icon size={20} name="SwitchHorizontalSolid" />
+                  <Icon size={20} name="ArrowsRightLeftMini" />
                   <Image
                     src={activeNetwork?.logoURI}
                     ml="18px"

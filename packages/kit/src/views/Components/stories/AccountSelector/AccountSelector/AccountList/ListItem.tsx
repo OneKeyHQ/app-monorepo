@@ -44,7 +44,7 @@ const ListItem: FC<ListItemProps> = ({ isActive, label, address, balance }) => (
               </Text>
             </Box>
           </Box>
-          <IconButton name="DotsVerticalSolid" type="plain" circle />
+          <IconButton name="EllipsisVerticalMini" type="plain" circle />
         </Box>
       </>
     )}

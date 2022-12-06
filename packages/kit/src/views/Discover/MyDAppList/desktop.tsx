@@ -107,7 +107,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
           <Box position="absolute" top="0" right={0} ref={ref} zIndex="1">
             <IconButton
               type="plain"
-              name="DotsHorizontalSolid"
+              name="DotsHorizontalMini"
               onPress={() => callback({ triggerEle: ref.current, dapp: item })}
             />
           </Box>

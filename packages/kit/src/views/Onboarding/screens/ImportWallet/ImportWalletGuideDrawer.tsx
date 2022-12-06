@@ -123,7 +123,7 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
             type="plain"
             circle
             size="lg"
-            name="CloseOutline"
+            name="XMarkOutline"
             alignSelf="flex-end"
             onPress={onClose}
             mr={4}

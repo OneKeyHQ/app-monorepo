@@ -161,7 +161,7 @@ const TxHistoryDetail: FC<{
         onPress={() => {
           openBlockBrowser.openTransactionDetails(tx.txHash);
         }}
-        rightIconName="ArrowNarrowRightSolid"
+        rightIconName="ArrowNarrowRightMini"
       >
         {intl.formatMessage({ id: 'action__view_in_explorer' })}
       </Button>

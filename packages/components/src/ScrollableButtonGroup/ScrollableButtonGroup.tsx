@@ -170,7 +170,7 @@ const ScrollableButtonGroup = forwardRef<
               <IconButton
                 type="plain"
                 circle
-                name="ChevronLeftSolid"
+                name="ChevronLeftMini"
                 size="sm"
                 onPress={onLeftArrowPress}
                 {...leftButtonProps}
@@ -251,7 +251,7 @@ const ScrollableButtonGroup = forwardRef<
               <IconButton
                 type="plain"
                 circle
-                name="ChevronRightSolid"
+                name="ChevronRightMini"
                 size="sm"
                 onPress={onRightArrowPress}
                 {...rightButtonProps}

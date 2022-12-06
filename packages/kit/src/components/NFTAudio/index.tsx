@@ -87,7 +87,7 @@ const NFTAudio: FC<Props> = ({ url, size, poster }) => {
             }}
           >
             <Icon
-              name={isPlaying ? 'PauseSolid' : 'PlaySolid'}
+              name={isPlaying ? 'PauseMini' : 'PlayMini'}
               size={53}
               color="text-on-primary"
             />

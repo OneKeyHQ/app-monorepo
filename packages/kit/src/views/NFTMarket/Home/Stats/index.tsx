@@ -88,7 +88,7 @@ const ListHeader: FC = () => {
                 id: 'action__see_all',
               })}
             </Text>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Pressable>
         </Box>
       </HStack>

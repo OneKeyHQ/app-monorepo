@@ -1,14 +1,15 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgLockClosed = (props: SvgProps) => (
   <Svg
-    viewBox="0 0 20 20"
+    viewBox="0 0 24 24"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       fillRule="evenodd"
-      d="M5 9V7a5 5 0 0 1 10 0v2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2zm8-2v2H7V7a3 3 0 0 1 6 0z"
+      d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5z"
       clipRule="evenodd"
     />
   </Svg>

@@ -46,7 +46,7 @@ const FallbackElement: FC<Props> = ({ ...props }) => {
           right={`${size * (28 / 256)}px`}
         >
           <Icon
-            name="PlaySolid"
+            name="PlayMini"
             size={size * (32 / 256)}
             color="text-on-primary"
           />

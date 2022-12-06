@@ -10,7 +10,7 @@ const buttons: ToggleButtonProps[] = [
   },
   {
     text: '',
-    leftIcon: 'StarSolid',
+    leftIcon: 'StarMini',
   },
   {
     text: '',

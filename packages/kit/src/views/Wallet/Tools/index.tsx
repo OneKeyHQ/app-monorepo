@@ -52,7 +52,7 @@ const data: DataItem[] = [
   {
     key: 'revoke',
     icon: {
-      name: 'ShieldCheckSolid',
+      name: 'ShieldCheckMini',
       color: 'icon-success',
       size: 32,
     },
@@ -62,7 +62,7 @@ const data: DataItem[] = [
   {
     key: 'explorer',
     icon: {
-      name: 'BlockExplorerSolid',
+      name: 'BlockExplorerMini',
       color: 'icon-success',
       size: 32,
     },

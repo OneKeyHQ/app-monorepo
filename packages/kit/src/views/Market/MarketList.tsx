@@ -128,7 +128,7 @@ const MarketList: FC = () => {
       {goToTopBtnShow ? (
         <IconButton
           circle
-          name="UploadSolid"
+          name="UploadMini"
           position="absolute"
           size="base"
           type="basic"

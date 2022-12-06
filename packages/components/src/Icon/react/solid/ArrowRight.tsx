@@ -1,14 +1,15 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgArrowRight = (props: SvgProps) => (
   <Svg
-    viewBox="0 0 20 20"
+    viewBox="0 0 24 24"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       fillRule="evenodd"
-      d="M10.293 3.293a1 1 0 0 1 1.414 0l6 6a1 1 0 0 1 0 1.414l-6 6a1 1 0 0 1-1.414-1.414L14.586 11H3a1 1 0 1 1 0-2h11.586l-4.293-4.293a1 1 0 0 1 0-1.414z"
+      d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06z"
       clipRule="evenodd"
     />
   </Svg>

@@ -117,7 +117,7 @@ const ScanQrcode: FC = () => {
             onPress={pickImage}
             h={isApp ? '55px' : '45px'}
             variant="unstyled"
-            leftIcon={<Icon name="PhotographSolid" size={isApp ? 19 : 15} />}
+            leftIcon={<Icon name="PhotoMini" size={isApp ? 19 : 15} />}
           >
             <ChooseImageText>
               {intl.formatMessage({ id: 'action__choose_an_image' })}
