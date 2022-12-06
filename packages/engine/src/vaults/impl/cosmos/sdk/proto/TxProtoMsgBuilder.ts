@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
@@ -5,13 +6,13 @@ import {
   AuthInfo,
   SignDoc,
   TxBody,
-  TxRaw,
 } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
 
-import { MessageType } from './message';
+import { ITxMsgBuilder } from '../ITxMsgBuilder';
+import { MessageType } from '../message';
 
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import type { SignerInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
@@ -220,16 +221,67 @@ export function makeTerraMsgExecuteContract(
   };
 }
 
-export function makeTxRawBytes(
-  bodyBytes: Uint8Array,
-  authInfoBytes: Uint8Array,
-  signatures: Uint8Array[],
-): Uint8Array {
-  return TxRaw.encode(
-    TxRaw.fromPartial({
-      bodyBytes,
-      authInfoBytes,
-      signatures,
-    }),
-  ).finish();
+export class TxProtoMsgBuilder implements ITxMsgBuilder {
+  makeExecuteContractMsg(
+    sender: string,
+    contract: string,
+    msg: object,
+    funds?: Coin[] | undefined,
+  ) {
+    const value = MsgExecuteContract.encode(
+      MsgExecuteContract.fromPartial({
+        sender,
+        contract,
+        msg: Buffer.from(JSON.stringify(removeNull(msg))),
+        funds,
+      }),
+    ).finish();
+    return {
+      typeUrl: MessageType.EXECUTE_CONTRACT,
+      value: bytesToHex(value),
+    };
+  }
+
+  makeSendNativeMsg(
+    fromAddress: string,
+    toAddress: string,
+    value: string,
+    denom: string,
+  ) {
+    const valueU8 = MsgSend.encode(
+      MsgSend.fromPartial({
+        fromAddress,
+        toAddress,
+        amount: [
+          {
+            amount: value,
+            denom,
+          },
+        ],
+      }),
+    ).finish();
+    return {
+      typeUrl: MessageType.SEND,
+      value: bytesToHex(valueU8),
+    };
+  }
+
+  makeSendCwTokenMsg(
+    sender: string,
+    contract: string,
+    toAddress: string,
+    value: string,
+  ) {
+    return this.makeExecuteContractMsg(
+      sender,
+      contract,
+      {
+        transfer: {
+          recipient: toAddress,
+          amount: value,
+        },
+      },
+      [],
+    );
+  }
 }

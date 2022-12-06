@@ -7,12 +7,12 @@ import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError } from '../../../errors';
+import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { stripHexPrefix } from '../../utils/hexUtils';
 
 import { baseAddressToAddress, pubkeyToBaseAddress } from './sdk/address';
-import { generateSignBytes, generateSignedTx } from './utils';
+import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';
 
 import type {
   IHardwareGetAddressParams,
@@ -150,9 +150,15 @@ export class KeyringHardware extends KeyringHardwareBase {
     debugLogger.common.info('signTransaction', unsignedTx);
     const dbAccount = await this.getDbAccount();
 
+    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+    if (!senderPublicKey) {
+      throw new OneKeyInternalError('Unable to get sender public key.');
+    }
+
     const encodedTx = unsignedTx.payload.encodedTx as IEncodedTxCosmos;
     const signBytes = generateSignBytes(encodedTx);
-    const unSignTx = stripHexPrefix(bytesToHex(signBytes));
+    // hardware Only supported amino
+    const unSignTx = bytesToHex(signBytes);
 
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -170,7 +176,16 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (response.success) {
       const { signature } = response.payload;
-      const rawTx = generateSignedTx(encodedTx, Buffer.from(signature, 'hex'));
+
+      const rawTx = serializeSignedTx({
+        txWrapper: encodedTx,
+        signature: {
+          signatures: [hexToBytes(stripHexPrefix(signature))],
+        },
+        publicKey: {
+          pubKey: senderPublicKey,
+        },
+      });
 
       return {
         txid: '',

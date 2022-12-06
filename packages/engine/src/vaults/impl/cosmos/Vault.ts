@@ -1,10 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { hexToBytes } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
-import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 import { get } from 'lodash';
 import memoizee from 'memoizee';
 
@@ -47,14 +45,11 @@ import {
   isValidAddress,
   isValidContractAddress,
 } from './sdk/address';
+import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
-import {
-  fastMakeSignDoc,
-  makeMsgExecuteContract,
-  makeMsgSend,
-  makeTxRawBytes,
-} from './sdk/signing';
+import { serializeSignedTx } from './sdk/txBuilder';
+import { TxMsgBuilder } from './sdk/txMsgBuilder';
 import {
   getFee,
   getMsgs,
@@ -82,6 +77,7 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import type { TxBuilder } from './sdk/txBuilder';
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
 import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
@@ -107,13 +103,17 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
-  getClientCache = memoizee(async (rpcUrl) => this.getNodeClient(rpcUrl), {
+  getClientCache = memoizee((rpcUrl) => this.getNodeClient(rpcUrl), {
     promise: true,
     max: 1,
   });
 
+  msgBuilder = new TxMsgBuilder();
+
+  txBuilder: TxBuilder = new TxAminoBuilder();
+
   async getContractClient() {
-    return queryRegistry.get(this.networkId);
+    return Promise.resolve(queryRegistry.get(this.networkId));
   }
 
   getNodeClient(url: string) {
@@ -155,12 +155,36 @@ export default class Vault extends VaultBase {
   }: {
     prefix?: boolean;
   } = {}): Promise<string> {
-    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     let publicKey = dbAccount.pub;
     if (prefix) {
       publicKey = addHexPrefix(publicKey);
     }
     return Promise.resolve(publicKey);
+  }
+
+  async getKey(networkId: string, accountId: string) {
+    const account = (await this.engine.dbApi.getAccount(
+      accountId,
+    )) as DBVariantAccount;
+
+    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
+      this.networkId,
+    );
+
+    const address = baseAddressToAddress(
+      chainInfo.implOptions?.addressPrefix ?? 'cosmos',
+      account.address,
+    );
+
+    return {
+      name: account.name,
+      algo: 'ed25519',
+      pubKey: account.pub,
+      address: account.address,
+      bech32Address: address,
+      isNanoLedger: false,
+    };
   }
 
   override async validateAddress(address: string) {
@@ -328,7 +352,7 @@ export default class Vault extends VaultBase {
     _payload?: any,
   ): Promise<IDecodedTx> {
     const network = await this.engine.getNetwork(this.networkId);
-    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     let token: Token | undefined = await this.engine.getNativeTokenInfo(
       this.networkId,
     );
@@ -451,39 +475,19 @@ export default class Vault extends VaultBase {
         .shiftedBy(token.decimals)
         .toFixed();
 
-      MsgExecuteContract.encode(
-        MsgExecuteContract.fromPartial({
-          sender: from,
-          contract: tokenAddress,
-          msg: Buffer.from(
-            JSON.stringify({
-              transfer: {
-                recipient: to,
-                amount: amountValue,
-              },
-            }),
-          ),
-          funds: [],
-        }),
-      );
-
-      message = makeMsgExecuteContract(
+      message = this.msgBuilder.makeSendCwTokenMsg(
         from,
         tokenAddress,
-        {
-          transfer: {
-            recipient: to,
-            amount: amountValue,
-          },
-        },
-        [],
+        to,
+        amountValue,
       );
     } else {
       const network = await this.getNetwork();
       const amountValue = new BigNumber(amount)
         .shiftedBy(network.decimals)
         .toFixed();
-      message = makeMsgSend(
+
+      message = this.msgBuilder.makeSendNativeMsg(
         from,
         to,
         amountValue,
@@ -498,24 +502,17 @@ export default class Vault extends VaultBase {
     }
 
     const pubkey = hexToBytes(stripHexPrefix(await this._getPublicKey()));
-    const signDoc = fastMakeSignDoc(
-      [message],
-      '',
-      '0',
-      '1',
-      pubkey,
-      chainInfo?.implOptions?.mainCoinDenom,
-      chainId,
-      accountInfo.account_number,
-      accountInfo.sequence,
-    );
 
-    return {
-      bodyBytes: bytesToHex(signDoc.bodyBytes),
-      authInfoBytes: bytesToHex(signDoc.authInfoBytes),
-      chainId: signDoc.chainId,
-      accountNumber: signDoc.accountNumber.toString(),
-    };
+    return this.txBuilder.makeTxWrapper(message, {
+      memo: '',
+      gasLimit: '0',
+      feeAmount: '1',
+      pubkey,
+      mainCoinDenom: chainInfo?.implOptions?.mainCoinDenom,
+      chainId,
+      accountNumber: accountInfo.account_number,
+      nonce: accountInfo.sequence,
+    });
   }
 
   override buildEncodedTxFromApprove(
@@ -580,12 +577,17 @@ export default class Vault extends VaultBase {
     try {
       const client = await this.getClient();
 
-      const { bodyBytes, authInfoBytes } = newEncodedTx;
-      const rawTxBytes = makeTxRawBytes(
-        hexToBytes(bodyBytes),
-        hexToBytes(authInfoBytes),
-        [new Uint8Array(64)],
-      );
+      const publicKey = await this._getPublicKey();
+
+      const rawTxBytes = serializeSignedTx({
+        txWrapper: newEncodedTx,
+        signature: {
+          signatures: [new Uint8Array(64)],
+        },
+        publicKey: {
+          pubKey: publicKey,
+        },
+      });
 
       if (!rawTxBytes) throw new Error('Invalid rawTxBytes');
 
@@ -725,7 +727,7 @@ export default class Vault extends VaultBase {
     }
 
     const { getTimeStamp } = await CoreSDKLoader();
-    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const chainInfo = await this.getChainInfo();
     let token: Token | undefined = await this.engine.getNativeTokenInfo(
       this.networkId,

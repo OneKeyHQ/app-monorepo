@@ -14,7 +14,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 import { baseAddressToAddress, pubkeyToBaseAddress } from './sdk/address';
-import { generateSignBytes, generateSignedTx } from './utils';
+import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';
 
 import type {
   IPrepareImportedAccountsParams,
@@ -122,7 +122,16 @@ export class KeyringImported extends KeyringImportedBase {
     const encodedTx = unsignedTx.payload.encodedTx as IEncodedTxCosmos;
     const signBytes = generateSignBytes(encodedTx);
     const [signature] = await signer.sign(Buffer.from(sha256(signBytes)));
-    const rawTx = generateSignedTx(encodedTx, signature);
+
+    const rawTx = serializeSignedTx({
+      txWrapper: encodedTx,
+      signature: {
+        signatures: [signature],
+      },
+      publicKey: {
+        pubKey: senderPublicKey,
+      },
+    });
 
     return {
       txid: '',
