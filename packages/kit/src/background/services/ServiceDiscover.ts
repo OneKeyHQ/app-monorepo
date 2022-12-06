@@ -18,7 +18,7 @@ import {
   // setTagDapps,
   setHomeData,
 } from '../../store/reducers/discover';
-import { WebTab, setWebTabData } from '../../store/reducers/webTabs';
+import { setWebTabData } from '../../store/reducers/webTabs';
 import { MatchDAppItemType } from '../../views/Discover/Explorer/explorerUtils';
 import { DAppItemType } from '../../views/Discover/type';
 import { backgroundClass, backgroundMethod } from '../decorators';
@@ -95,6 +95,22 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
+  async searchDappsWithUrl(urls: string[]) {
+    const url = `${this.baseUrl}/search_dapps_by_url`;
+    const res = await this.client.post(url, { urls });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
+  async searchDappsWithRegExp(urls: string[]) {
+    const url = `${this.baseUrl}/search_dapps_by_url_regexp`;
+    const res = await this.client.post(url, { urls });
+    const data = res.data as DAppItemType[];
+    return data;
+  }
+
+  @backgroundMethod()
   async getCompactList() {
     const url = `${this.baseUrl}/compact_list`;
     this.getList(url);
@@ -112,15 +128,41 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addFavorite(key: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(addFavorite(key));
+  async addFavorite(url: string) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const base = addFavorite(url);
+    const tabs = appSelector((s) => s.webTabs.tabs);
+    const list = tabs.filter((tab) => tab.url === url);
+    const actions = list.map((tab) =>
+      setWebTabData({ ...tab, isBookmarked: true }),
+    );
+    dispatch(base, ...actions);
   }
 
   @backgroundMethod()
-  async removeFavorite(key: string) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(removeFavorite(key));
+  async removeFavorite(url: string) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const base = removeFavorite(url);
+    const tabs = appSelector((s) => s.webTabs.tabs);
+    const list = tabs.filter((tab) => tab.url === url);
+    const actions = list.map((tab) =>
+      setWebTabData({ ...tab, isBookmarked: false }),
+    );
+    dispatch(base, ...actions);
+  }
+
+  @backgroundMethod()
+  async toggleFavorite(url?: string) {
+    if (!url) {
+      return;
+    }
+    const { appSelector } = this.backgroundApi;
+    const dappFavorites = appSelector((s) => s.discover.dappFavorites);
+    if (!dappFavorites || !dappFavorites.includes(url)) {
+      this.addFavorite(url);
+    } else {
+      this.removeFavorite(url);
+    }
   }
 
   @backgroundMethod()
@@ -133,41 +175,6 @@ class ServicDiscover extends ServiceBase {
   async removeDappHistory(dappId: string) {
     const { dispatch } = this.backgroundApi;
     dispatch(removeDappHistory(dappId));
-  }
-
-  @backgroundMethod()
-  async toggleBookmark(tab: WebTab) {
-    if (tab.isBookmarked) {
-      this.removeBookmark(tab);
-    } else {
-      this.addBookmark(tab);
-    }
-  }
-
-  @backgroundMethod()
-  async addBookmark(tab: WebTab) {
-    const { dispatch } = this.backgroundApi;
-    if (tab.isBookmarked) {
-      return;
-    }
-    const newTab: WebTab = { ...tab, isBookmarked: !tab.isBookmarked };
-    dispatch(setWebTabData(newTab));
-    if (newTab.url) {
-      this.addFavorite(newTab.url);
-    }
-  }
-
-  @backgroundMethod()
-  async removeBookmark(tab: WebTab) {
-    const { dispatch } = this.backgroundApi;
-    if (!tab.isBookmarked) {
-      return;
-    }
-    const newTab: WebTab = { ...tab, isBookmarked: !tab.isBookmarked };
-    dispatch(setWebTabData(newTab));
-    if (newTab.url) {
-      this.removeFavorite(newTab.url);
-    }
   }
 
   @backgroundMethod()

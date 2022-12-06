@@ -37,12 +37,23 @@ export type ICovalentHistoryListItemLogEvent = {
   sender_logo_url: string;
   raw_log_data?: string;
   decoded?: {
-    name: 'Transfer' | 'Approval'; // "Transfer"
+    name: 'Transfer' | 'Approval' | 'TransferSingle'; // "Transfer"
     signature: string; // "Transfer(indexed address from, indexed address to, uint256 value)"
     params: Array<{
       decoded: boolean;
       indexed: boolean;
-      name: 'from' | 'to' | 'value' | 'owner' | 'spender' | 'tokenId'; // "from" "to" "value"
+      name:
+        | 'from'
+        | 'to'
+        | 'value'
+        | 'owner'
+        | 'spender'
+        | 'tokenId'
+        | '_from'
+        | '_to'
+        | '_id'
+        | '_amount'
+        | '_operator'; // "from" "to" "value"
       type: string; // "address"   "uint256"
       value: string; // "0xa9b4d559a98ff47c83b74522b7986146538cd4df" "1200"
     }>;

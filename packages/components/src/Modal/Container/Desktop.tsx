@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, { isValidElement, useCallback, useEffect, useMemo } from 'react';
+import { isValidElement, useEffect, useMemo } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
-import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import { useCloseOnEsc } from '@onekeyhq/kit/src/hooks/useOnKeydown';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
@@ -87,21 +87,7 @@ const DesktopModal = ({
     };
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (platformEnv.isRuntimeBrowser) {
-        const closeOnEsc = (e: KeyboardEvent) => {
-          if (e.code === 'Escape') {
-            close();
-          }
-        };
-        document.addEventListener('keydown', closeOnEsc);
-        return () => {
-          document.removeEventListener('keydown', closeOnEsc);
-        };
-      }
-    }, [close]),
-  );
+  useCloseOnEsc(close);
 
   return (
     <Box

@@ -29,6 +29,7 @@ import * as covalentApi from '../../../managers/covalent';
 import {
   buildEncodeDataWithABI,
   createOutputActionFromNFTTransaction,
+  getAsset,
   getNFTTransactionHistory,
 } from '../../../managers/nft';
 import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
@@ -284,23 +285,35 @@ export default class Vault extends VaultBase {
       }
       case 'disperseNFT': {
         const recipient = txDesc.args[0];
+        const tokens: string[] = txDesc.args[1];
+        const tokenIds: string[] = txDesc.args[2];
         const amounts: string[] = txDesc.args[3];
-        if (!payload?.nftInfos) break;
         for (let i = 0; i < amounts.length; i += 1) {
-          extraActions.push({
-            type: IDecodedTxActionType.NFT_TRANSFER,
-            direction: await this.buildTxActionDirection({
-              from: encodedTx.from,
-              to: recipient,
-              address,
-            }),
-            nftTransfer: await this.buildNFTTransferAcion({
-              asset: payload.nftInfos[i].asset,
-              amount: new BigNumber(amounts[i].toString()).toFixed(),
-              from: encodedTx.from,
-              to: recipient,
-            }),
-          });
+          const asset =
+            payload?.nftInfos?.[i].asset ||
+            (await getAsset({
+              accountId: this.accountId,
+              networkId: this.networkId,
+              contractAddress: tokens[i],
+              tokenId: new BigNumber(tokenIds[i].toString()).toFixed(),
+              local: true,
+            }));
+          if (asset) {
+            extraActions.push({
+              type: IDecodedTxActionType.NFT_TRANSFER,
+              direction: await this.buildTxActionDirection({
+                from: encodedTx.from,
+                to: recipient,
+                address,
+              }),
+              nftTransfer: await this.buildNFTTransferAcion({
+                asset,
+                amount: new BigNumber(amounts[i].toString()).toFixed(),
+                from: encodedTx.from,
+                to: recipient,
+              }),
+            });
+          }
         }
         break;
       }
@@ -443,13 +456,36 @@ export default class Vault extends VaultBase {
       };
     }
     if (
-      (decodedTxLegacy.txType === EVMDecodedTxType.ERC721_TRANSFER ||
-        decodedTxLegacy.txType === EVMDecodedTxType.ERC1155_TRANSFER) &&
-      payload?.nftInfo
+      decodedTxLegacy.txType === EVMDecodedTxType.ERC721_TRANSFER ||
+      decodedTxLegacy.txType === EVMDecodedTxType.ERC1155_TRANSFER
     ) {
-      action.type = IDecodedTxActionType.NFT_TRANSFER;
-      action.nftTransfer = await this.buildNFTTransferAcion(payload.nftInfo);
-      extraNativeTransferAction = undefined;
+      let nftInfo: INFTInfo | null = null;
+      if (payload?.nftInfo) {
+        nftInfo = payload?.nftInfo;
+      } else if (decodedTxLegacy.contractCallInfo) {
+        const contractInfo = decodedTxLegacy.contractCallInfo;
+        const [from, to, tokenId, amount] = contractInfo.args || [];
+        const asset = await getAsset({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          contractAddress: contractInfo.contractAddress,
+          tokenId,
+          local: true,
+        });
+        if (asset) {
+          nftInfo = {
+            from,
+            to,
+            amount: new BigNumber(amount).toFixed(),
+            asset,
+          };
+        }
+      }
+
+      if (nftInfo) {
+        action.type = IDecodedTxActionType.NFT_TRANSFER;
+        action.nftTransfer = await this.buildNFTTransferAcion(nftInfo);
+      }
     }
     if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
       action.internalSwap = {

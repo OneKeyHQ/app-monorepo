@@ -151,7 +151,7 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Me,
-    component: toFocusedLazy(MeScreen, { freezeWhenBlur: true }),
+    component: toFocusedLazy(MeScreen, { unmountWhenBlur: false }),
     tabBarIcon: () => 'MenuOutline',
     translationId: 'title__menu',
     children: [

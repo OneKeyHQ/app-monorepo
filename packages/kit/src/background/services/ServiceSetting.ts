@@ -5,7 +5,7 @@ import semver from 'semver';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
-import { setEnableIOSDappSearch } from '../../store/reducers/discover';
+import { setShowFullLayout } from '../../store/reducers/discover';
 import {
   disableExtSwitchTips,
   toggleDisableExt,
@@ -44,7 +44,7 @@ export default class ServiceSetting extends ServiceBase {
     if (data.helloVersion && semver.valid(data.helloVersion)) {
       const version = appSelector((s) => s.settings.version);
       if (semver.lte(version, data.helloVersion)) {
-        dispatch(setEnableIOSDappSearch(true));
+        dispatch(setShowFullLayout(true));
       }
     }
   }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
@@ -108,11 +108,13 @@ export const useRpcMeasureStatus = (networkId: string) => {
   const refresh = useCallback(() => {
     setLoading(true);
     measureRpc(network?.id ?? '', network?.rpcURL ?? '')
-      .then(setStatus)
+      .then((newStatus) => {
+        if (isFocused) setStatus(newStatus);
+      })
       .finally(() => {
-        setLoading(false);
+        if (isFocused) setLoading(false);
       });
-  }, [network]);
+  }, [network, isFocused]);
 
   useEffect(() => {
     refresh();
