@@ -10,6 +10,7 @@ export type DataInitialState = {
   isAppRenderReady: boolean;
   isUnlock: boolean;
   isPasswordSet: boolean;
+  homePageCheckBoarding: boolean;
   isReduxReady?: boolean;
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
@@ -23,6 +24,7 @@ const initialState: DataInitialState = {
   isUnlock: !!platformEnv.isDev, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
   isPasswordSet: false,
   isReduxReady: false,
+  homePageCheckBoarding: false,
   onekeySupportList: [],
   currencyList: [],
   isAppRenderReady: false,
@@ -72,6 +74,9 @@ export const dataSlice = createSlice({
     setHandOperatedLock(state, action: PayloadAction<boolean>) {
       state.handOperatedLock = action.payload;
     },
+    setHomePageCheckBoarding(state) {
+      state.homePageCheckBoarding = true;
+    },
     setFeePresetIndex(
       state,
       action: PayloadAction<{ networkId: string; index: string }>,
@@ -90,6 +95,7 @@ export const dataSlice = createSlice({
 export const {
   release,
   passwordSet,
+  setHomePageCheckBoarding,
   currenciesSet,
   setAppRenderReady,
   setIsReduxReady,
