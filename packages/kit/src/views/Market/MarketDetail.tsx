@@ -111,7 +111,7 @@ const SwapButton = ({
       ml={4}
       isDisabled={!tokenItem?.tokens?.length}
       type="basic"
-      name="SwitchHorizontalMini"
+      name="ArrowsRightLeftMini"
       size="base"
       circle
       iconColor="icon-default"
@@ -130,7 +130,7 @@ const StakeButton = ({
     <IconButton
       ml={4}
       type="basic"
-      name="SaveMini"
+      name="InboxArrowDownMini"
       size="base"
       circle
       iconColor="icon-default"

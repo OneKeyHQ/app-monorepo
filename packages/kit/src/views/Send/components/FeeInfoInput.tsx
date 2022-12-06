@@ -588,7 +588,11 @@ function FeeInfoInputForConfirmLite({
             borderRadius="12px"
           >
             <Box>
-              <Icon name="ExclamationOutline" size={20} color="icon-warning" />
+              <Icon
+                name="ExclamationTriangleOutline"
+                size={20}
+                color="icon-warning"
+              />
             </Box>
           </Tooltip>
         </>

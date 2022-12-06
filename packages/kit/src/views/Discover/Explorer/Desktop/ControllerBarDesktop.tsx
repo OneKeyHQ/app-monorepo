@@ -83,7 +83,7 @@ function getHttpSafeState(searchContent?: string): ICON_NAMES {
       return 'LockClosedMini';
     }
     if (url.protocol === 'http:') {
-      return 'ExclamationCircleMini';
+      return 'ExclamationTriangleMini';
     }
   } catch (e) {
     return 'SearchCircleMini';
@@ -145,7 +145,7 @@ const ControllerBarDesktop: FC = () => {
         />
         <IconButton
           type="plain"
-          name={loading ? 'CloseOutline' : 'RefreshOutline'}
+          name={loading ? 'XMarkOutline' : 'ArrowPathOutline'}
           onPress={loading ? stopLoading : reload}
         />
 

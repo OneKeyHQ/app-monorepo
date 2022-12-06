@@ -55,7 +55,7 @@ function CopyButton({ data }: { data: string }) {
   return (
     <Pressable {...pressableProps} onPress={onPress}>
       <HStack space="4">
-        <Icon name="DuplicateOutline" />
+        <Icon name="Square2StackOutline" />
         <Typography.Body1>
           {intl.formatMessage({
             id: 'action__copy',
@@ -127,7 +127,7 @@ const ScanQrcodeResult: FC = () => {
             }}
           >
             <HStack space="4">
-              <Icon name="ArrowUpOutline" />
+              <Icon name="PaperAirplaneOutline" />
               <Typography.Body1>
                 {intl.formatMessage({
                   id: 'form__send_tokens',

@@ -28,7 +28,7 @@ const getHeaderIconInfo = (
     | 'transaction__pending'
     | 'transaction__dropped'
     | 'transaction__success' = 'transaction__failed';
-  let statusIconName: ICON_NAMES = 'CloseCircleOutline';
+  let statusIconName: ICON_NAMES = 'XCircleOutline';
   let iconColor: keyof ThemeValues = 'icon-critical';
   let iconContainerColor = 'surface-critical-default';
   let textColor = 'text-critical';

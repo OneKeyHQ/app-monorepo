@@ -123,7 +123,7 @@ export const GenaralSection = () => {
                     defaultMessage: 'Theme',
                   })}
                   activeOption={activeOption}
-                  iconName="MoonOutline"
+                  iconName="SunOutline"
                 />
               )}
             />
@@ -152,7 +152,7 @@ export const GenaralSection = () => {
                     defaultMessage: 'Language',
                   })}
                   activeOption={activeOption}
-                  iconName="GlobeOutline"
+                  iconName="LanguageOutline"
                 />
               )}
             />

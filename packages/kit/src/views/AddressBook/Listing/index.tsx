@@ -117,7 +117,7 @@ const ListingItem: FC<ListingItemValues> = ({
           label: intl.formatMessage({ id: 'action__copy_address' }),
           value: 'Duplicate',
           iconProps: {
-            name: isVertical ? 'DuplicateOutline' : 'Square2StackMini',
+            name: isVertical ? 'Square2StackOutline' : 'Square2StackMini',
           },
         },
         {

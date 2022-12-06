@@ -207,7 +207,7 @@ export const SecuritySection = () => {
                 // navigation.navigate(HomeRoutes.CloudBackup);
               }}
             >
-              <Icon name="FingerPrintIllus" />
+              <Icon name="FingerPrintOutline" />
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 flex="1"
@@ -353,7 +353,7 @@ export const SecuritySection = () => {
               navigation.navigate(HomeRoutes.Protected);
             }}
           >
-            <Icon name="UmbrellaOutline" />
+            <Icon name="ShieldCheckOutline" />
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               flex="1"

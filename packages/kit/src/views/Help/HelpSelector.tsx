@@ -84,7 +84,9 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__submit_a_request' }),
           value: 'submit_request',
           iconProps: {
-            name: isSmallScreen ? 'AnnotationOutline' : 'AnnotationMini',
+            name: isSmallScreen
+              ? 'ChatBubbleBottomCenterTextOutline'
+              : 'ChatBubbleBottomCenterTextMini',
           },
         },
         {
@@ -103,7 +105,7 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__help_support' }),
           value: 'support',
           iconProps: {
-            name: isSmallScreen ? 'SupportOutline' : 'SupportMini',
+            name: isSmallScreen ? 'LifebuoyOutline' : 'LifebuoyMini',
           },
         },
         {
@@ -117,7 +119,7 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'form__hardware_wallet_manuals' }),
           value: 'hardware_wallet',
           iconProps: {
-            name: isSmallScreen ? 'BookmarkAltOutline' : 'BookmarkAltMini',
+            name: isSmallScreen ? 'BookOpenOutline' : 'BookOpenMini',
           },
         },
       ],
@@ -143,7 +145,7 @@ const HelpSelector: FC = () => {
           label: intl.formatMessage({ id: 'title__client_download' }),
           value: 'download',
           iconProps: {
-            name: isSmallScreen ? 'DownloadOutline' : 'DownloadMini',
+            name: isSmallScreen ? 'ArrowDownTrayOutline' : 'ArrowDownTrayMini',
           },
         },
       ],

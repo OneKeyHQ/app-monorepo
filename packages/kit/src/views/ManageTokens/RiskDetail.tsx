@@ -67,7 +67,7 @@ const RiskDetail: FC = () => {
 
       return (
         <Center mt="6" mb="8">
-          <Icon name="ExclamationMini" color="icon-warning" size={44} />
+          <Icon name="ExclamationTriangleMini" color="icon-warning" size={44} />
           <Typography.DisplayLarge mt="2">
             {intl.formatMessage({ id: 'title__attention_token' })}
           </Typography.DisplayLarge>
@@ -120,7 +120,13 @@ const RiskDetail: FC = () => {
       let icon = <Icon size={20} name="BadgeCheckMini" color="icon-success" />;
       if (hasSecurity) {
         if (isWarnItem) {
-          icon = <Icon size={20} name="ExclamationMini" color="icon-warning" />;
+          icon = (
+            <Icon
+              size={20}
+              name="ExclamationTriangleMini"
+              color="icon-warning"
+            />
+          );
         } else {
           icon = (
             <Icon

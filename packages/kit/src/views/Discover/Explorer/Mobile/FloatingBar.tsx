@@ -46,7 +46,7 @@ const InfoBar: FC<{
     >
       {text}
     </Typography.Body2Strong>
-    <Icon name="ExpandOutline" />
+    <Icon name="ArrowsPointingOutOutline" />
   </Box>
 );
 

@@ -129,7 +129,7 @@ const EnabledContent = ({
       <IconButton
         type="plain"
         size="lg"
-        name="DotsVerticalOutline"
+        name="EllipsisVerticalOutline"
         circle
         onPress={openDisableBackupDialog}
       />

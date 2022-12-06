@@ -47,7 +47,7 @@ export function getTxActionSwapInfo(props: ITxActionCardProps) {
 
   const iconInfo: ITxActionMetaIcon = {
     icon: {
-      name: 'SwitchHorizontalMini',
+      name: 'ArrowsRightLeftMini',
     },
   };
 

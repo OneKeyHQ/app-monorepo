@@ -110,7 +110,11 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         type="plain"
                         size="xs"
                         circle
-                        name={small ? 'ScanOutline' : 'ViewfinderCircleMini'}
+                        name={
+                          small
+                            ? 'ViewfinderCircleOutline'
+                            : 'ViewfinderCircleMini'
+                        }
                         onPress={onScanClick}
                       />
                     );

@@ -81,7 +81,7 @@ const InputGallery = () => {
               Must be at least 6 characters.
             </FormControl.HelperText>
             <FormControl.ErrorMessage
-              leftIcon={<Icon size={16} name="ExclamationCircleOutline" />}
+              leftIcon={<Icon size={16} name="ExclamationTriangleOutline" />}
             >
               Try different from previous passwords.
             </FormControl.ErrorMessage>

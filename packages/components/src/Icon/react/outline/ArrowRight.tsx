@@ -3,15 +3,16 @@ const SvgArrowRight = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
+    strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="m14 5 7 7m0 0-7 7m7-7H3"
+      d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
     />
   </Svg>
 );

@@ -83,7 +83,9 @@ export const SecurityIcon: FC<{ token: Partial<IToken>; size: number }> = ({
     );
   }
   if (data?.warn?.length) {
-    return <Icon size={size} name="ExclamationMini" color="icon-warning" />;
+    return (
+      <Icon size={size} name="ExclamationTriangleMini" color="icon-warning" />
+    );
   }
   return null;
 };

@@ -188,7 +188,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
             ml={3}
             p={2}
             size="sm"
-            name="ExternalLinkMini"
+            name="ArrowTopRightOnSquareMini"
             type="plain"
             circle
           />
@@ -222,7 +222,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
           }}
           p={2}
           size="sm"
-          name="ExternalLinkMini"
+          name="ArrowTopRightOnSquareMini"
           type="plain"
           circle
         />

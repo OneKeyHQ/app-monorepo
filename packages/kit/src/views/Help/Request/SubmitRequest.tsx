@@ -140,7 +140,7 @@ export const ImageView: FC<ImageProps> = ({ imageModel, onDelete }) => {
         }}
       >
         <Box ml={`${imageWidth - 20}px`}>
-          <Icon size={20} name="CloseCircleMini" />
+          <Icon size={20} name="XCircleMini" />
         </Box>
       </Pressable>
     </ZStack>
@@ -459,7 +459,7 @@ export const SubmitRequest: FC = () => {
                   <IconButton
                     type="plain"
                     size="xs"
-                    name="PhotographMini"
+                    name="PhotoMini"
                     onPress={() => {
                       if (imageArr.length < 4) {
                         pickImage();

@@ -258,7 +258,7 @@ const AssetsListHeader: FC<{
               <IconButton
                 onPress={showHomeBalanceSettings}
                 size="sm"
-                name="Cog8ToothMini"
+                name="CogMini"
                 type="plain"
                 mr={-2}
               />

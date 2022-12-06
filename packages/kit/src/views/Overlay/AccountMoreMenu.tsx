@@ -86,9 +86,9 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
 
   const accountSubscriptionIcon = useMemo(() => {
     if (isVerticalLayout) {
-      return enabledNotification ? 'BellOffOutline' : 'BellOutline';
+      return enabledNotification ? 'BellSlashOutline' : 'BellOutline';
     }
-    return enabledNotification ? 'BellOffMini' : 'BellMini';
+    return enabledNotification ? 'BellSlashMini' : 'BellMini';
   }, [isVerticalLayout, enabledNotification]);
 
   const onChangeAccountSubscribe = useCallback(async () => {
@@ -189,7 +189,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             },
           });
         },
-        icon: isVerticalLayout ? 'CashOutline' : 'BanknotesMini',
+        icon: isVerticalLayout ? 'BanknotesOutline' : 'BanknotesMini',
       },
       {
         id: 'action__copy_address',
@@ -198,7 +198,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             copyAddress(account?.address);
           });
         },
-        icon: isVerticalLayout ? 'DuplicateOutline' : 'Square2StackMini',
+        icon: isVerticalLayout ? 'Square2StackOutline' : 'Square2StackMini',
       },
       showSubscriptionIcon && {
         id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',

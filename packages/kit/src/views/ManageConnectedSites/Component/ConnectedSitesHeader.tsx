@@ -86,7 +86,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
                 </Typography.Body2>
               </Box>
               <IconButton
-                name="CloseCircleMini"
+                name="XCircleMini"
                 type="plain"
                 circle
                 onPress={() => {

@@ -85,7 +85,7 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomColor="divider"
           onPress={onCheckUpdate}
         >
-          <Icon name="RefreshOutline" />
+          <Icon name="RocketLaunchOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -132,7 +132,7 @@ const AutoUpdateSectionItem: FC = () => {
             }
           }}
         >
-          <Icon name="RefreshOutline" />
+          <Icon name="RocketLaunchOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -169,7 +169,7 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomColor="divider"
           disabled
         >
-          <Icon name="RefreshOutline" />
+          <Icon name="RocketLaunchOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -214,7 +214,7 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
         >
-          <Icon name="DownloadOutline" />
+          <Icon name="ArrowDownTrayOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}

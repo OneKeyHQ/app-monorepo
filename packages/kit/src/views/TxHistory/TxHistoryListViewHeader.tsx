@@ -49,7 +49,7 @@ export function TxHistoryListViewHeaderBar({
             ml={3}
             p={2}
             size="sm"
-            name="ExternalLinkMini"
+            name="ArrowTopRightOnSquareMini"
             type="plain"
             circle
           />

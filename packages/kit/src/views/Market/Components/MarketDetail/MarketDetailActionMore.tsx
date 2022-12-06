@@ -70,7 +70,7 @@ const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
           id: 'form__price_alert',
         }),
         onPress: () => {}, // TODO market  price subscribe
-        // icon: priceSubscribeEnable ? 'BellOffOutline' : 'BellOutline',
+        // icon: priceSubscribeEnable ? 'BellSlashOutline' : 'BellOutline',
         icon: 'BellOutline',
       },
       //   {

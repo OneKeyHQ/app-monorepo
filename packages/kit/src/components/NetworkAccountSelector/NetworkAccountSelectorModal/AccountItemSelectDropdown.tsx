@@ -75,7 +75,7 @@ function AccountItemSelectDropdown({
         label: intl.formatMessage({ id: 'action__copy_address' }),
         value: EAccountSelectorItemSelectOptions.copy,
         iconProps: {
-          name: isVerticalLayout ? 'DuplicateOutline' : 'Square2StackMini',
+          name: isVerticalLayout ? 'Square2StackOutline' : 'Square2StackMini',
         },
       },
       [EAccountSelectorItemSelectOptions.detail]: {

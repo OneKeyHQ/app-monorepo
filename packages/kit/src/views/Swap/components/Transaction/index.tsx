@@ -140,7 +140,7 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
           position="relative"
           mr="3"
         >
-          <Icon name="SwitchHorizontalMini" size={25} color="text-on-primary" />
+          <Icon name="ArrowsRightLeftMini" size={25} color="text-on-primary" />
           <Box position="absolute" bottom="0" right="0">
             <StatusIcon status={tx.status} />
           </Box>
@@ -349,7 +349,11 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
             <Typography.Caption mr="1" color="text-subdued">
               {intl.formatMessage({ id: 'action__view_in_browser' })}
             </Typography.Caption>
-            <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
+            <Icon
+              name="ArrowTopRightOnSquareOutline"
+              size={16}
+              color="text-subdued"
+            />
           </Box>
         )}
       />
@@ -378,7 +382,11 @@ const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
       <Typography.Caption mr="1" color="text-subdued">
         {intl.formatMessage({ id: 'action__view_in_browser' })}
       </Typography.Caption>
-      <Icon name="ExternalLinkOutline" size={16} color="text-subdued" />
+      <Icon
+        name="ArrowTopRightOnSquareOutline"
+        size={16}
+        color="text-subdued"
+      />
     </Pressable>
   );
 };
@@ -477,7 +485,11 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Typography.Caption mr="1" color="text-subdued">
                   {formatAddressName(account.address, account.name)}
                 </Typography.Caption>
-                <Icon name="DuplicateOutline" size={16} color="text-subdued" />
+                <Icon
+                  name="Square2StackOutline"
+                  size={16}
+                  color="text-subdued"
+                />
               </Pressable>
             </TransactionField>
             <TransactionField
@@ -492,7 +504,11 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Typography.Caption mr="1" color="text-subdued">
                   {formatAddressName(tx.receivingAddress, receivingName)}
                 </Typography.Caption>
-                <Icon name="DuplicateOutline" size={16} color="text-subdued" />
+                <Icon
+                  name="Square2StackOutline"
+                  size={16}
+                  color="text-subdued"
+                />
               </Pressable>
             </TransactionField>
           </VStack>
@@ -507,7 +523,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption mr="1" color="text-subdued">
                 {formatAddressName(account.address, account.name)}
               </Typography.Caption>
-              <Icon name="DuplicateOutline" size={16} color="text-subdued" />
+              <Icon name="Square2StackOutline" size={16} color="text-subdued" />
             </Pressable>
           </TransactionField>
         )}
@@ -548,7 +564,11 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             <Typography.Caption color="text-subdued" mr="1">
               {utils.shortenAddress(tx.hash)}
             </Typography.Caption>
-            <Icon name="ExternalLinkOutline" color="text-subdued" size={16} />
+            <Icon
+              name="ArrowTopRightOnSquareOutline"
+              color="text-subdued"
+              size={16}
+            />
           </Pressable>
         </TransactionField>
         {swftcOrderId ? (
@@ -563,7 +583,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption color="text-subdued">
                 {utils.shortenAddress(swftcOrderId)}
               </Typography.Caption>
-              <Icon name="DuplicateOutline" size={16} />
+              <Icon name="Square2StackOutline" size={16} />
             </Pressable>
           </TransactionField>
         ) : null}

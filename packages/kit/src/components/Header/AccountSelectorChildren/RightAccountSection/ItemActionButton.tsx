@@ -67,7 +67,9 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
                 label: intl.formatMessage({ id: 'action__copy_address' }),
                 value: 'copy',
                 iconProps: {
-                  name: isVerticalLayout ? 'DuplicateOutline' : 'Square2StackMini',
+                  name: isVerticalLayout
+                    ? 'Square2StackOutline'
+                    : 'Square2StackMini',
                 },
               },
               {
@@ -100,7 +102,9 @@ const ItemActionButton: FC<Props> = ({ onChange, type }) => {
                 label: intl.formatMessage({ id: 'action__copy_address' }),
                 value: 'copy',
                 iconProps: {
-                  name: isVerticalLayout ? 'DuplicateOutline' : 'Square2StackMini',
+                  name: isVerticalLayout
+                    ? 'Square2StackOutline'
+                    : 'Square2StackMini',
                 },
               },
             ]

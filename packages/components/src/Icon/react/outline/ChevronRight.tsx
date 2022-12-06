@@ -3,15 +3,16 @@ const SvgChevronRight = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
+    strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="m9 5 7 7-7 7"
+      d="m8.25 4.5 7.5 7.5-7.5 7.5"
     />
   </Svg>
 );

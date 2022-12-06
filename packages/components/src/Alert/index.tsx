@@ -40,14 +40,14 @@ const InfoAlertProps: AlertTypeProps = {
 };
 
 const WarnAlertProps: AlertTypeProps = {
-  iconName: 'ExclamationMini',
+  iconName: 'ExclamationTriangleMini',
   iconColor: 'icon-warning',
   bgColor: 'surface-warning-subdued',
   borderColor: 'border-warning-subdued',
 };
 
 const ErrorAlertProps: AlertTypeProps = {
-  iconName: 'CloseCircleMini',
+  iconName: 'XCircleMini',
   iconColor: 'icon-critical',
   bgColor: 'surface-critical-subdued',
   borderColor: 'border-critical-subdued',
@@ -61,7 +61,7 @@ const SuccessAlertProps: AlertTypeProps = {
 };
 
 const SeriousWarningAlertProps: AlertTypeProps = {
-  iconName: 'ExclamationMini',
+  iconName: 'ExclamationTriangleMini',
   iconColor: 'icon-critical',
   bgColor: 'surface-critical-subdued',
   borderColor: 'border-critical-subdued',
@@ -161,7 +161,7 @@ const Alert: FC<AlertProps> = ({
             <IconButton
               size="sm"
               type="plain"
-              name="CloseOutline"
+              name="XMarkOutline"
               iconColor={alertTypeProps.iconColor}
               onPress={() => {
                 onDismiss?.();

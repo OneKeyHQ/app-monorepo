@@ -30,7 +30,7 @@ const Header: React.FC = () => {
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   const [searchInput, setSearchInput] = useState(() => '');
   const [searchFocused, setSearchFocused] = useState(() => false);
-  const rightIconName = searchInput ? 'CloseCircleMini' : undefined;
+  const rightIconName = searchInput ? 'XCircleMini' : undefined;
   const inputRef = useRef(null);
   const searchBarRef = useRef();
   useFocusEffect(

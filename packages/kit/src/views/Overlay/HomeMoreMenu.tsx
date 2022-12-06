@@ -40,7 +40,9 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
       {
         id: 'action__scan',
         onPress: () => gotoScanQrcode(),
-        icon: isVerticalLayout ? 'ScanOutline' : 'ViewfinderCircleMini',
+        icon: isVerticalLayout
+          ? 'ViewfinderCircleOutline'
+          : 'ViewfinderCircleMini',
       },
       platformEnv.isExtensionUiPopup && {
         id: 'form__expand_view',
@@ -49,7 +51,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
             routes: '',
           });
         },
-        icon: 'ArrowsExpandOutline',
+        icon: 'ArrowsPointingOutOutline',
       },
       isPasswordSet && {
         id: 'action__lock_now',

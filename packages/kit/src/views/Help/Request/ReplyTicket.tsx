@@ -229,7 +229,7 @@ export const ReplyTicket: FC = () => {
                   <IconButton
                     type="plain"
                     size="xs"
-                    name="PhotographMini"
+                    name="PhotoMini"
                     onPress={() => {
                       if (imageArr.length < 4) {
                         pickImage();

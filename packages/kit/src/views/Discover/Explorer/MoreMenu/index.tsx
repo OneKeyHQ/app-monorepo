@@ -26,7 +26,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
         id: 'action__refresh',
       }),
       value: reload,
-      iconProps: { name: 'RefreshOutline' },
+      iconProps: { name: 'ArrowPathOutline' },
     },
     {
       label: intl.formatMessage({

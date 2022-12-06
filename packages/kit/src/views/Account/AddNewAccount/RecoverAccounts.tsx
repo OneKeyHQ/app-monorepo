@@ -161,7 +161,7 @@ const AccountCell: FC<CellProps> = ({
         <ListItem.Column>
           <IconButton
             type="plain"
-            name="ExternalLinkMini"
+            name="ArrowTopRightOnSquareMini"
             size="xs"
             hitSlop={12}
             circle

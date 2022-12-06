@@ -67,7 +67,7 @@ const ItemRow: FC<ItemRowProps> = ({
         <IconButton
           type="plain"
           circle
-          name="MenuOutline"
+          name="Bars3Mini"
           onPressIn={() => onDrag()}
         />
       </HStack>
