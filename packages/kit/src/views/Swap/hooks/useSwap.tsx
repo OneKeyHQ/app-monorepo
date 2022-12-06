@@ -149,7 +149,7 @@ export const useSwapQuoteCallback = function (
           if (res.data) {
             backgroundApiProxy.serviceSwap.setQuote(res.data);
           }
-          backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
+          backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
         } else {
           backgroundApiProxy.dispatch(
             setError(SwapError.NotSupport),

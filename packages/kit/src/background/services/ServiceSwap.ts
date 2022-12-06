@@ -19,9 +19,11 @@ import {
   setInputToken,
   setOutputToken,
   setQuote,
+  setQuoteLimited,
   setQuoteTime,
   setRecipient,
   setSendingAccount,
+  setShowMoreQuoteDetail,
   setTypedValue,
   switchTokens,
 } from '../../store/reducers/swap';
@@ -29,7 +31,12 @@ import {
   clearTransactions,
   updateTokenList,
 } from '../../store/reducers/swapTransactions';
-import { FieldType, QuoteData, Recipient } from '../../views/Swap/typings';
+import {
+  FieldType,
+  QuoteData,
+  QuoteLimited,
+  Recipient,
+} from '../../views/Swap/typings';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
@@ -197,6 +204,12 @@ export default class ServiceSwap extends ServiceBase {
       actions.push(setQuoteTime(undefined));
     }
     dispatch(...actions);
+  }
+
+  @backgroundMethod()
+  async setQuoteLimited(limited?: QuoteLimited) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setQuoteLimited(limited));
   }
 
   @backgroundMethod()
@@ -389,5 +402,28 @@ export default class ServiceSwap extends ServiceBase {
       }));
       dispatch(updateTokenList(items));
     }
+  }
+
+  @backgroundMethod()
+  async setShowMoreQuoteDetail(show: boolean) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setShowMoreQuoteDetail(show));
+  }
+
+  @backgroundMethod()
+  async recipientIsUnknown(recipient?: Recipient) {
+    if (!recipient) {
+      return false;
+    }
+    if (!recipient.accountId) {
+      return true;
+    }
+    const { engine } = this.backgroundApi;
+    const wallets = await engine.getWallets();
+    const watchingWallet = wallets.find((wallet) => wallet.type === 'watching');
+    if (watchingWallet) {
+      return watchingWallet.accounts.includes(recipient.accountId);
+    }
+    return false;
   }
 }
