@@ -137,7 +137,7 @@ export function usePreSendAmountInfo({
   );
   const titleActionButton = (
     <IconButton
-      name="SwitchVerticalOutline"
+      name="ArrowsUpDownOutline"
       size="lg"
       type="plain"
       circle

@@ -71,7 +71,7 @@ function NoAssetsOnKele() {
     >
       <Box flexDirection="row" alignItems="center" flex={1}>
         <Center w="8" h="8" bg="interactive-default" mr="3" borderRadius="full">
-          <Icon name="DatabaseSolid" color="icon-on-primary" />
+          <Icon name="DatabaseMini" color="icon-on-primary" />
         </Center>
         <Box mr="4" flex={1}>
           <Typography.Body1Strong>

@@ -117,7 +117,7 @@ const SwapContent = () => {
               w="10"
               h="10"
               isDisabled={loading}
-              name="SwitchVerticalOutline"
+              name="ArrowsUpDownOutline"
               borderRadius="full"
               borderColor="border-disabled"
               borderWidth="0.5"

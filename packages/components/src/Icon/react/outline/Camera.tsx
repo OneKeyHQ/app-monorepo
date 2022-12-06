@@ -3,21 +3,21 @@ const SvgCamera = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
+    strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 9a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 10.07 4h3.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 18.07 7H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"
+      d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316z"
     />
     <Path
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"
+      d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0zm2.25-2.25h.008v.008h-.008V10.5z"
     />
   </Svg>
 );

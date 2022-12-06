@@ -46,7 +46,7 @@ const InfoBar: FC<{
     >
       {text}
     </Typography.Body2Strong>
-    <Icon name="ExpandOutline" />
+    <Icon name="ArrowsPointingOutOutline" />
   </Box>
 );
 
@@ -62,7 +62,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
       justifyContent="space-between"
       pb="7px"
     >
-      <Icon name="ChevronDownSolid" />
+      <Icon name="ChevronDownMini" />
       <Pressable
         flex="1"
         bg="action-secondary-default"

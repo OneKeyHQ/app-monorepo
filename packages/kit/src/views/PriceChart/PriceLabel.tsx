@@ -37,7 +37,7 @@ const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
   } else {
     displayInfo = (
       <>
-        <Icon name="ExclamationCircleSolid" size={16} />
+        <Icon name="ExclamationTriangleMini" size={16} />
         <Typography.Body2Strong color="text-subdued" ml="8px">
           {intl.formatMessage({
             id: 'content__data_for_this_token_is_not_included_yet',

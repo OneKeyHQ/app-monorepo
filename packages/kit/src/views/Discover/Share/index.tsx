@@ -146,7 +146,7 @@ export const ShareView = () => {
                 w="full"
                 type="plain"
                 size="xl"
-                leftIconName="DuplicateSolid"
+                leftIconName="Square2StackMini"
                 onPress={onCopy}
               >
                 Copy URL
@@ -156,7 +156,7 @@ export const ShareView = () => {
                 mt="6"
                 type="basic"
                 size="xl"
-                leftIconName="ShareSolid"
+                leftIconName="ShareMini"
                 onPress={onCapture}
               >
                 Share

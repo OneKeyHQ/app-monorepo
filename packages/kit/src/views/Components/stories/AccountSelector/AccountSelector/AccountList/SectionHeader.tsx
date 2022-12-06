@@ -17,7 +17,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({
   // eslint-disable-next-line @typescript-eslint/ban-types
   const AddAccountAction: FC<{}> = () => (
     <>
-      <IconButton type="plain" name="PlusCircleSolid" circle />
+      <IconButton type="plain" name="PlusCircleMini" circle />
     </>
   );
 

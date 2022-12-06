@@ -53,7 +53,7 @@ export const DefaultSection = () => {
                 })}
               </Text>
               <Box>
-                <Icon name="ChevronRightSolid" size={20} />
+                <Icon name="ChevronRightMini" size={20} />
               </Box>
             </Pressable>
             <Divider />
@@ -82,7 +82,7 @@ export const DefaultSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Box>
         </Pressable>
       </Box>

@@ -17,7 +17,7 @@ import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
 import bs58 from 'bs58';
 import bs58check from 'bs58check';
-import { cloneDeep, isEmpty, uniqBy } from 'lodash';
+import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
@@ -784,18 +784,25 @@ class Engine {
     withMain = true,
   ): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
     // Get account balance, main token balance is always included.
-    const [network, tokens] = await Promise.all([
+    const [network, tokens, accountTokens] = await Promise.all([
       this.getNetwork(networkId),
       this.getTokens(networkId, undefined, false),
+      this.getTokens(networkId, accountId, withMain, true, false),
     ]);
     const decimalsMap: Record<string, number> = {};
     // TODO performance
     tokens.forEach((token) => {
-      if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
+      if (
+        tokenIdsOnNetwork.includes(token.tokenIdOnNetwork) ||
+        accountTokens.some((t) => t.tokenIdOnNetwork === token.tokenIdOnNetwork)
+      ) {
         decimalsMap[token.tokenIdOnNetwork] = token.decimals;
       }
     });
-    const tokensToGet = tokenIdsOnNetwork
+    const tokensToGet = uniq([
+      ...tokenIdsOnNetwork,
+      ...accountTokens.map((t) => t.tokenIdOnNetwork),
+    ])
       .filter((address) => {
         if (withMain && address === '') {
           return false;

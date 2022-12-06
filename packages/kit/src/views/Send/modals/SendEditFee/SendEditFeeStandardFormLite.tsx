@@ -30,8 +30,8 @@ export function SendEditFeeStandardFormLite({
 
   return (
     <RadioFee
-      padding="0px"
-      mt={5}
+      padding={0}
+      pb={6}
       items={gasItems}
       name="standard fee group"
       value={value}

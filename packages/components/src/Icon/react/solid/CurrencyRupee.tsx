@@ -1,14 +1,15 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgCurrencyRupee = (props: SvgProps) => (
   <Svg
-    viewBox="0 0 20 20"
+    viewBox="0 0 24 24"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       fillRule="evenodd"
-      d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM7 5a1 1 0 1 0 0 2h1a2 2 0 0 1 1.732 1H7a1 1 0 1 0 0 2h2.732A2 2 0 0 1 8 11H7a1 1 0 0 0-.707 1.707l3 3a1 1 0 0 0 1.414-1.414l-1.483-1.484A4.008 4.008 0 0 0 11.874 10H13a1 1 0 1 0 0-2h-1.126a3.976 3.976 0 0 0-.41-1H13a1 1 0 1 0 0-2H7z"
+      d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM9 7.5A.75.75 0 0 0 9 9h1.5c.98 0 1.813.626 2.122 1.5H9A.75.75 0 0 0 9 12h3.622a2.251 2.251 0 0 1-2.122 1.5H9a.75.75 0 0 0-.53 1.28l3 3a.75.75 0 1 0 1.06-1.06l-1.73-1.732A3.752 3.752 0 0 0 14.175 12H15a.75.75 0 0 0 0-1.5h-.825A3.733 3.733 0 0 0 13.5 9H15a.75.75 0 0 0 0-1.5H9z"
       clipRule="evenodd"
     />
   </Svg>

@@ -31,7 +31,7 @@ export function LayoutHeaderDesktop() {
           <NetworkAccountSelectorTrigger size="lg" />
           <Box ref={moreBtnRef}>
             <IconButton
-              name="DotsVerticalOutline"
+              name="EllipsisVerticalOutline"
               size="lg"
               onPress={() => showHomeMoreMenu(moreBtnRef.current)}
               type="plain"

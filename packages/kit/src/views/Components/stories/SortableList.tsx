@@ -45,7 +45,7 @@ const SortableListGallery = () => {
           >
             <Box display="flex" flexDirection="row" alignItems="center">
               <Pressable onPressIn={() => drag()}>
-                <Icon name="MenuOutline" size={16} />
+                <Icon name="Bars3Mini" size={16} />
               </Pressable>
               <Typography.Body1 ml="2">{item.text}</Typography.Body1>
             </Box>

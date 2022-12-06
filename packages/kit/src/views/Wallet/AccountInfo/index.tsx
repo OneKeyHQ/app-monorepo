@@ -88,7 +88,7 @@ const AccountAmountInfo: FC = () => {
       prices,
       vsCurrency,
       hideSmallBalance,
-    });
+    }).toNumber();
 
     return [
       displayValue,
@@ -104,7 +104,7 @@ const AccountAmountInfo: FC = () => {
             />
           </Typography.Display2XLarge>
           <IconButton
-            name="ChevronDownSolid"
+            name="ChevronDownMini"
             onPress={showAccountValueSettings}
             type="plain"
             circle
@@ -145,7 +145,7 @@ const AccountAmountInfo: FC = () => {
       prices: basePrices,
       vsCurrency,
       hideSmallBalance,
-    });
+    }).toNumber();
     const { gain, percentageGain, gainTextColor } = calculateGains({
       basePrice: displayBaseValue,
       price: summedValue,
@@ -196,7 +196,7 @@ const AccountAmountInfo: FC = () => {
           >
             {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
           </Text>
-          <Icon name="DuplicateOutline" size={16} />
+          <Icon name="Square2StackOutline" size={16} />
         </Pressable>
       </Box>
       <Box flexDirection="row" alignItems="center" mt={1}>
@@ -225,7 +225,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowUpOutline"
+          name="PaperAirplaneOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -249,7 +249,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowDownOutline"
+          name="QrCodeOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -278,7 +278,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="SwitchHorizontalOutline"
+          name="ArrowsRightLeftOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
@@ -315,7 +315,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
-          name="DotsVerticalOutline"
+          name="EllipsisVerticalOutline"
           type="basic"
           onPress={() => showAccountMoreMenu(moreButtonRef.current)}
         />

@@ -43,7 +43,7 @@ const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
       <Hidden from="md">
         <IconButton
           isDisabled={isDisabled}
-          name="FilterOutline"
+          name="BarsShrinkOutline"
           size="lg"
           type="plain"
           circle
@@ -53,7 +53,7 @@ const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
       <Hidden till="md">
         <Button
           isDisabled={isDisabled}
-          leftIconName="FilterSolid"
+          leftIconName="BarsShrinkMini"
           onPress={onPress}
         >
           {intl.formatMessage({ id: 'title__filter' })}

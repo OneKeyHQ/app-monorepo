@@ -13,7 +13,7 @@ const Header: FC<HeaderProps> = ({ title }) => (
     <Text typography="Heading" flex={1} mr={3} isTruncated>
       {title}
     </Text>
-    <IconButton name="CloseSolid" type="plain" circle />
+    <IconButton name="XMarkMini" type="plain" circle />
   </Box>
 );
 

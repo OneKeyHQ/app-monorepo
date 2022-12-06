@@ -26,7 +26,8 @@ type InitialState = {
 
   history: Record<string, DiscoverHistory>;
   firstRemindDAPP: boolean;
-  enableIOSDappSearch?: boolean;
+  // enableIOSDappSearch?: boolean;
+  showFullLayout?: boolean;
 };
 
 const initialState: InitialState = {
@@ -195,7 +196,7 @@ export const discoverSlice = createSlice({
       if (state.dappFavorites.includes(action.payload)) {
         return;
       }
-      state.dappFavorites.push(action.payload);
+      state.dappFavorites = [action.payload].concat(state.dappFavorites);
     },
     removeFavorite(state, action: PayloadAction<string>) {
       if (!state.dappFavorites) {
@@ -234,9 +235,11 @@ export const discoverSlice = createSlice({
     // ) {
     //   state.tagDapps = action.payload;
     // },
-
-    setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
-      state.enableIOSDappSearch = action.payload;
+    // setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
+    //   state.enableIOSDappSearch = action.payload;
+    // },
+    setShowFullLayout(state, action: PayloadAction<boolean>) {
+      state.showFullLayout = action.payload;
     },
     cleanOldState(state) {
       state.dappItems = undefined;
@@ -273,7 +276,8 @@ export const {
   // setCategoryDapps,
   // setTagDapps,
   clearHistory,
-  setEnableIOSDappSearch,
+  // setEnableIOSDappSearch,
+  setShowFullLayout,
   cleanOldState,
   setHomeData,
 } = discoverSlice.actions;

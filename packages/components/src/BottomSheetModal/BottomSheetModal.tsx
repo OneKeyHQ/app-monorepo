@@ -52,7 +52,7 @@ const Header: FC<{
     <Box ml="auto" flexDirection="row" alignItems="center">
       {headerRight?.()}
       {showCloseButton && (
-        <IconButton circle size="xs" name="CloseSolid" onPress={closeOverlay} />
+        <IconButton circle size="xs" name="XMarkMini" onPress={closeOverlay} />
       )}
     </Box>
   </Box>

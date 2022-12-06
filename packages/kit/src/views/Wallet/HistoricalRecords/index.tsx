@@ -176,7 +176,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
           isLoading={isLoading}
           p={2}
           size="sm"
-          name="RefreshSolid"
+          name="ArrowPathMini"
           type="plain"
           circle
         />
@@ -188,7 +188,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
             ml={3}
             p={2}
             size="sm"
-            name="ExternalLinkSolid"
+            name="ArrowTopRightOnSquareMini"
             type="plain"
             circle
           />
@@ -222,7 +222,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
           }}
           p={2}
           size="sm"
-          name="ExternalLinkSolid"
+          name="ArrowTopRightOnSquareMini"
           type="plain"
           circle
         />

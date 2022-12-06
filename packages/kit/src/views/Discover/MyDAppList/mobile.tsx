@@ -80,7 +80,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
           <Box ref={ref}>
             <IconButton
               type="plain"
-              name="DotsHorizontalSolid"
+              name="DotsHorizontalMini"
               onPress={() => callback({ triggerEle: ref.current, dapp: item })}
             />
           </Box>
@@ -164,7 +164,7 @@ const TrashButton = () => {
       <Dialog
         visible={visible}
         contentProps={{
-          iconName: 'TrashSolid',
+          iconName: 'TrashMini',
           iconType: 'danger',
           title: intl.formatMessage({ id: 'modal__clear_history' }),
           content: intl.formatMessage({

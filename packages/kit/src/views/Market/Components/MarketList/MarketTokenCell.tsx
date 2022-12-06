@@ -163,7 +163,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       }}
                     >
                       <Icon
-                        name="StarSolid"
+                        name="StarMini"
                         size={20}
                         color={
                           marketTokenItem.favorited
@@ -441,7 +441,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                     <IconButton
                       isDisabled={Boolean(!marketTokenItem)}
                       size="xs"
-                      name="DotsVerticalSolid"
+                      name="EllipsisVerticalMini"
                       type="plain"
                       ml="2"
                       circle

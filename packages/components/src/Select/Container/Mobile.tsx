@@ -75,7 +75,7 @@ function Mobile<T>({
             <Typography.Heading numberOfLines={1}>{title}</Typography.Heading>
           </Box>
           <IconButton
-            name="CloseOutline"
+            name="XMarkOutline"
             type="plain"
             size="xl"
             onPress={toggleVisible}

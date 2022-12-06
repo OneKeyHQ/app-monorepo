@@ -1,4 +1,4 @@
-import { ComponentProps, FC, useCallback } from 'react';
+import { ComponentProps, forwardRef, useCallback } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
@@ -9,27 +9,32 @@ import { autoHideSelectFunc } from '../utils/SelectAutoHide';
 
 export type PressableItemProps = ComponentProps<typeof NBPressable>;
 
-const PressableCapture: FC<PressableItemProps> = ({ onPress, ...props }) => {
-  const { hapticsEnabled } = useProviderValue();
-  const onPressOverride = useCallback(
-    (e) => {
-      if (hapticsEnabled && onPress) {
-        enableHaptics();
-      }
-      autoHideSelectFunc(e);
-      onPress?.(e);
-    },
-    [onPress, hapticsEnabled],
-  );
+const PressableCapture = forwardRef<typeof NBPressable, PressableItemProps>(
+  ({ onPress, ...props }: PressableItemProps, ref) => {
+    const { hapticsEnabled } = useProviderValue();
+    const onPressOverride = useCallback(
+      (e) => {
+        if (hapticsEnabled && onPress) {
+          enableHaptics();
+        }
+        autoHideSelectFunc(e);
+        onPress?.(e);
+      },
+      [onPress, hapticsEnabled],
+    );
 
-  return (
-    <NBPressable
-      {...props}
-      onPress={props.disabled ? null : onPressOverride}
-      // @ts-ignore
-      cursor={props.disabled ? 'not-allowed' : 'pointer'}
-    />
-  );
-};
+    return (
+      <NBPressable
+        ref={ref}
+        {...props}
+        onPress={props.disabled ? null : onPressOverride}
+        // @ts-ignore
+        cursor={props.disabled ? 'not-allowed' : 'pointer'}
+      />
+    );
+  },
+);
+
+PressableCapture.displayName = 'Pressable';
 
 export default PressableCapture;

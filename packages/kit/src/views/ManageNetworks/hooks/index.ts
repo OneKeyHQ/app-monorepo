@@ -104,18 +104,17 @@ export const useRpcMeasureStatus = (networkId: string) => {
   const { network } = useNetwork({ networkId });
   const [status, setStatus] = useState<MeasureResult>();
   const isFocused = useIsFocused();
-  const isMounted = useRef(true);
 
   const refresh = useCallback(() => {
     setLoading(true);
     measureRpc(network?.id ?? '', network?.rpcURL ?? '')
       .then((newStatus) => {
-        if (isMounted.current) setStatus(newStatus);
+        if (isFocused) setStatus(newStatus);
       })
       .finally(() => {
-        if (isMounted.current) setLoading(false);
+        if (isFocused) setLoading(false);
       });
-  }, [network]);
+  }, [network, isFocused]);
 
   useEffect(() => {
     refresh();
@@ -126,7 +125,6 @@ export const useRpcMeasureStatus = (networkId: string) => {
       clearInterval(interval);
     }
     return () => {
-      isMounted.current = false;
       clearInterval(interval);
     };
   }, [refresh, isFocused]);

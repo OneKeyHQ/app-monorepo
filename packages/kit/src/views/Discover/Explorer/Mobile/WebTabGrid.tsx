@@ -98,7 +98,7 @@ const WebTabCard: FC<
         <IconButton
           size="sm"
           type="plain"
-          name="CloseSolid"
+          name="XMarkMini"
           onPress={() => {
             backgroundApiProxy.dispatch(closeWebTab(id));
           }}

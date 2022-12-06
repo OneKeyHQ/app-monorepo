@@ -90,7 +90,7 @@ const Header: FC<{
           <Box m="-6px">
             <IconButton
               size="sm"
-              name="CloseSolid"
+              name="XMarkMini"
               type="plain"
               circle
               onPress={modalClose}

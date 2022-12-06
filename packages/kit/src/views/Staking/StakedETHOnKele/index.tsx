@@ -87,13 +87,13 @@ const ListHeaderComponent = () => {
           )}
         />
         <Stack direction="row" space="2" my="6">
-          <Button leftIconName="MinusCircleSolid" isDisabled>
+          <Button leftIconName="MinusCircleMini" isDisabled>
             {intl.formatMessage({ id: 'action__unstake' })}
           </Button>
           <Button
             isDisabled={wallet?.type === 'watching'}
             isLoading={!!activeStakingActivity}
-            leftIconName="SaveSolid"
+            leftIconName="InboxArrowDownMini"
             onPress={onStake}
           >
             {intl.formatMessage({ id: 'action__stake' })}
@@ -148,7 +148,7 @@ const ListHeaderComponent = () => {
             borderRadius="full"
             mr="2"
           >
-            <Icon name="SaveSolid" size={16} />
+            <Icon name="InboxArrowDownMini" size={16} />
           </Center>
           <Box flex="1">
             <Typography.Body1>

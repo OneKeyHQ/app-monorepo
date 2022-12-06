@@ -26,7 +26,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
         id: 'action__refresh',
       }),
       value: reload,
-      iconProps: { name: 'RefreshOutline' },
+      iconProps: { name: 'ArrowPathOutline' },
     },
     {
       label: intl.formatMessage({
@@ -58,9 +58,9 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
       value: () => {
         if (!currentTab) return;
         if (currentTab.isBookmarked) {
-          backgroundApiProxy.serviceDiscover.removeBookmark(currentTab);
+          backgroundApiProxy.serviceDiscover.removeFavorite(currentTab.url);
         } else {
-          backgroundApiProxy.serviceDiscover.addBookmark(currentTab);
+          backgroundApiProxy.serviceDiscover.addFavorite(currentTab.url);
         }
         Toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
       },

@@ -161,7 +161,7 @@ const AccountCell: FC<CellProps> = ({
         <ListItem.Column>
           <IconButton
             type="plain"
-            name="ExternalLinkSolid"
+            name="ArrowTopRightOnSquareMini"
             size="xs"
             hitSlop={12}
             circle
@@ -257,7 +257,7 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
       <Button
         maxW="200px"
         type="basic"
-        leftIconName="AdjustmentsSolid"
+        leftIconName="AdjustmentsMini"
         alignItems="flex-start"
         onPress={onAdvancedPress}
         overflow="hidden"
@@ -269,13 +269,13 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
       <HStack space={2} alignItems="flex-end">
         <Button
           type="basic"
-          leftIconName="ChevronLeftSolid"
+          leftIconName="ChevronLeftMini"
           onPress={onPrevPagePress}
           isDisabled={prevButtonDisabled}
         />
         <Button
           type="basic"
-          leftIconName="ChevronRightSolid"
+          leftIconName="ChevronRightMini"
           onPress={onNextPagePress}
           isDisabled={nextButtonDisabled}
         />

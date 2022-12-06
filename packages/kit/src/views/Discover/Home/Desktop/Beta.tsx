@@ -7,7 +7,6 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Button,
-  Empty,
   FlatList,
   Image,
   Pressable,
@@ -24,8 +23,6 @@ import { useDiscoverFavorites, useDiscoverHistory } from '../../hooks';
 import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
-
-import { EmptySkeleton } from './EmptySkeleton';
 
 import type { SectionDataType } from '../../type';
 
@@ -171,7 +168,7 @@ const ListHeaderItems = () => {
           height="32px"
           type="plain"
           size="sm"
-          rightIconName="ChevronRightSolid"
+          rightIconName="ChevronRightMini"
           textProps={{ color: 'text-subdued' }}
         >
           {intl.formatMessage({ id: 'action__see_all' })}
@@ -187,8 +184,8 @@ const ListHeaderItems = () => {
 };
 
 const ListHeaderComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  if (!dappItems) {
+  const home = useAppSelector((s) => s.discover.home);
+  if (!home) {
     return null;
   }
   return (
@@ -197,12 +194,6 @@ const ListHeaderComponent = () => {
       {platformEnv.isWeb ? null : <ListHeaderItems />}
     </Box>
   );
-};
-
-const ListEmptyComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
-  const listedCategories = useAppSelector((s) => s.discover.listedCategories);
-  return dappItems && listedCategories ? <Empty title="" /> : <EmptySkeleton />;
 };
 
 export const Beta: FC = () => {
@@ -237,7 +228,6 @@ export const Beta: FC = () => {
         renderItem={renderItem}
         keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
         ListHeaderComponent={ListHeaderComponent}
-        ListEmptyComponent={ListEmptyComponent}
       />
     </Box>
   );

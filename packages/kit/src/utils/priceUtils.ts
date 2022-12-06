@@ -142,15 +142,22 @@ export function getSummedValues({
   vsCurrency?: string;
   hideSmallBalance?: boolean;
 }) {
-  if (!prices) return NaN;
-  return getTokenValues({ tokens, prices, balances, vsCurrency })
-    .reduce((acc, value) => {
+  if (
+    !balances ||
+    Object.values(balances).every((b) => typeof b === 'undefined') ||
+    !prices
+  ) {
+    return new BigNumber(NaN);
+  }
+  return getTokenValues({ tokens, prices, balances, vsCurrency }).reduce(
+    (acc, value) => {
       if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
         return acc;
       }
       return acc.plus(value);
-    }, new BigNumber(0))
-    .toNumber();
+    },
+    new BigNumber(0),
+  );
 }
 
 export function formatAmount(
