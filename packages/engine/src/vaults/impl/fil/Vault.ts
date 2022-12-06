@@ -1,12 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
+import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
+import {
+  InvalidAddress,
+  NotImplemented,
+  OneKeyInternalError,
+} from '../../../errors';
 import { Account, DBVariantAccount } from '../../../types/account';
+import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -42,6 +49,29 @@ export default class Vault extends VaultBase {
   async getClient(url?: string) {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     return this.getClientCache(url ?? rpcURL);
+  }
+
+  async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const [encryptedPrivateKey] = Object.values(
+        await keyring.getPrivateKeys(password),
+      );
+      const privateKey = decrypt(password, encryptedPrivateKey).toString(
+        'base64',
+      );
+      // export lotus type private key by default
+      return Buffer.from(
+        JSON.stringify({
+          'Type': 'secp256k1',
+          'PrivateKey': privateKey,
+        }),
+      ).toString('hex');
+    }
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {
