@@ -12,6 +12,7 @@ import {
   Image,
   List,
   Modal,
+  Pressable,
   Spinner,
   Typography,
   VStack,
@@ -21,6 +22,8 @@ import { tokenSecurityRiskItems } from '@onekeyhq/engine/src/managers/goplus';
 import { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
 import goPlus from '@onekeyhq/kit/assets/goPlus.png';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
+
+import { openUrl } from '../../utils/openUrl';
 
 import { useTokenSecurityInfo } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
@@ -47,6 +50,10 @@ const RiskDetail: FC = () => {
     }
     return !danger?.length || !warn?.length;
   }, [danger, warn, hasSecurity]);
+
+  const linkToGoPlus = useCallback(() => {
+    openUrl('https://gopluslabs.io/');
+  }, []);
 
   const header = useMemo(() => {
     if (hasSecurity) {
@@ -95,11 +102,13 @@ const RiskDetail: FC = () => {
     () => (
       <VStack pb={`${insets.bottom}px`}>
         <Divider />
-        <HStack alignItems="center" justifyContent="center" mt="4">
-          <Typography.Body2 color="text-subdued">Powered By</Typography.Body2>
-          <Image size="20px" source={goPlus} ml="2" mr="1" />
-          <Typography.Body2>Go Plus</Typography.Body2>
-        </HStack>
+        <Pressable onPress={linkToGoPlus}>
+          <HStack alignItems="center" justifyContent="center" mt="4">
+            <Typography.Body2 color="text-subdued">Powered By</Typography.Body2>
+            <Image size="20px" source={goPlus} ml="2" mr="1" />
+            <Typography.Body2>Go Plus</Typography.Body2>
+          </HStack>
+        </Pressable>
       </VStack>
     ),
     [insets],
