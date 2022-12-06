@@ -52,16 +52,4 @@ export default class Vault extends VaultBtcFork {
   override getDefaultBlockTime(): number {
     return 600;
   }
-
-  override isMyTransaction(
-    item:
-      | ArrayElement<IBlockBookTransaction['vin']>
-      | ArrayElement<IBlockBookTransaction['vout']>,
-    accountAddress: string,
-  ) {
-    if ('isOwn' in item) {
-      return item.isOwn ?? false;
-    }
-    return item.addresses.some((address) => address === accountAddress);
-  }
 }
