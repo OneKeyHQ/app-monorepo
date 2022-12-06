@@ -36,7 +36,7 @@ import {
 } from '../../hooks';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
-import { getTokenValues } from '../../utils/priceUtils';
+import { getTokenValue } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
@@ -300,23 +300,16 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       activeNetworkId: networkId,
     });
     if (hideSmallBalance) {
-      const [balances, prices] = await Promise.all([
-        backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          tokenIds: [item.tokenIdOnNetwork],
-        }),
-        backgroundApiProxy.serviceToken.fetchPrices({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          tokenIds: [item.tokenIdOnNetwork],
-        }),
-      ]);
-      const [value] = getTokenValues({
-        balances,
-        prices,
-        tokens: [item],
+      const balances = await backgroundApiProxy.serviceToken.fetchTokenBalance({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        tokenIds: [item.tokenIdOnNetwork],
       });
+      const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+        networkId,
+        tokenId: item.tokenIdOnNetwork,
+      });
+      const value = getTokenValue({ token: item, price, balances });
       if (value.isLessThan(1)) {
         toast.show(
           {

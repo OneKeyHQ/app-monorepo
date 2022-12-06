@@ -150,6 +150,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   serviceTransaction = new ServiceTransaction({ backgroundApi: this });
 
-  ServicePrice = new ServicePrice({ backgroundApi: this });
+  servicePrice = new ServicePrice({ backgroundApi: this });
 }
 export default BackgroundApi;

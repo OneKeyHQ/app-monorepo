@@ -36,12 +36,12 @@ import {
   useNetworkSimple,
 } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { StakingRoutes, StakingRoutesParams } from '../typing';
-import { useSimpleTokenPrice } from '../../../hooks/useManegeTokenPrice';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
 
@@ -137,7 +137,7 @@ function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [textInputDecimals]);
 
-  const price = useSimpleTokenPrice({
+  const price = useSimpleTokenPriceValue({
     networkId: tokenInfo?.networkId,
     contractAdress: tokenInfo?.tokenIdOnNetwork,
   });

@@ -114,11 +114,16 @@ export const getNFTSymbolPrice = async (networkId: string) => {
     return null;
   }
 
-  const prices = await backgroundApiProxy.serviceToken.getPrices({
+  // const prices = await backgroundApiProxy.serviceToken.getPrices({
+  //   networkId,
+  //   tokenIds: [tokenId],
+  // });
+  // return prices?.[tokenId];
+  const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
     networkId,
-    tokenIds: [tokenId],
+    tokenId,
   });
-  return prices?.[tokenId];
+  return price;
 };
 
 function mergeLocalAsset({

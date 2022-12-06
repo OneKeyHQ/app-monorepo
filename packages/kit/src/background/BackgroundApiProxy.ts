@@ -140,7 +140,7 @@ class BackgroundApiProxy
     'serviceTransaction',
   ) as ServiceTransaction;
 
-  ServicePrice = this._createProxyService('servicePrice') as ServicePrice;
+  servicePrice = this._createProxyService('servicePrice') as ServicePrice;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

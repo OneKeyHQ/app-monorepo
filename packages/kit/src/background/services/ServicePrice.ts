@@ -1,9 +1,17 @@
-import { uniq } from 'lodash';
+import { debounce, uniq } from 'lodash';
 
 import { setTokenPriceMap } from '../../store/reducers/tokens';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
 import ServiceBase from './ServiceBase';
+
+type FetchSimpTokenPriceType = {
+  networkId: string;
+  accountId?: string;
+  tokenIds?: string[];
+  fetchMain?: boolean;
+  vsCurrency?: string;
+};
 
 @backgroundClass()
 export default class ServicePrice extends ServiceBase {
@@ -14,13 +22,7 @@ export default class ServicePrice extends ServiceBase {
     tokenIds,
     fetchMain = true,
     vsCurrency = 'usd',
-  }: {
-    networkId: string;
-    accountId?: string;
-    tokenIds?: string[];
-    fetchMain?: boolean;
-    vsCurrency?: string;
-  }) {
+  }: FetchSimpTokenPriceType) {
     const { appSelector, dispatch, engine } = this.backgroundApi;
     const { tokens, accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
@@ -38,7 +40,47 @@ export default class ServicePrice extends ServiceBase {
       vsCurrency,
       fetchMain,
     );
-    dispatch(setTokenPriceMap({ networkId, prices: datas }));
+    if (Object.keys(datas).length > 0) {
+      dispatch(setTokenPriceMap({ networkId, prices: datas }));
+    }
     return datas;
+  }
+
+  _fetchSimpleTokenPriceDebounced = debounce(
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    this.fetchSimpleTokenPrice,
+    600,
+    { leading: false, trailing: true },
+  );
+
+  @backgroundMethod()
+  fetchSimpleTokenPriceDebounced(params: FetchSimpTokenPriceType) {
+    this._fetchSimpleTokenPriceDebounced(params);
+  }
+
+  @backgroundMethod()
+  async getSimpleTokenPrice({
+    networkId,
+    tokenId,
+  }: {
+    networkId: string;
+    tokenId?: string;
+  }) {
+    const { appSelector } = this.backgroundApi;
+    const priceMap = appSelector((s) => s.tokens.tokenPriceMap);
+    const priceId = `${networkId}${tokenId ? `-${tokenId}` : ''}`;
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    if (priceMap?.[priceId] && priceMap[priceId]?.[vsCurrency]) {
+      return priceMap[priceId][vsCurrency];
+    }
+    const params: FetchSimpTokenPriceType = { networkId, vsCurrency };
+    if (tokenId) params.tokenIds = [tokenId];
+    const data = await this.fetchSimpleTokenPrice(params);
+    if (Object.keys(Object).length > 0) {
+      return tokenId
+        ? data[tokenId]?.[vsCurrency]
+        : data[networkId]?.[vsCurrency];
+    }
+    return 0;
   }
 }

@@ -38,7 +38,12 @@ import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
-import { calculateGains, getSummedValues } from '../../../utils/priceUtils';
+import { SimpleTokenPrices } from '../../../store/reducers/tokens';
+import {
+  calculateGains,
+  getPreBaseValue,
+  getSummedValues,
+} from '../../../utils/priceUtils';
 import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
@@ -55,17 +60,22 @@ const AccountAmountInfo: FC = () => {
     (s) => s.settings,
   );
 
-  const { account, wallet, network } = useActiveWalletAccount();
+  const { account, wallet, network, networkId, accountId } =
+    useActiveWalletAccount();
   const nftPrice = useNFTPrice({
     accountId: account?.address,
     networkId: network?.id,
   });
 
-  const { accountTokens, balances, charts } = useManageTokens({
+  const { accountTokens, balances } = useManageTokens({
     pollingInterval: 15000,
   });
 
-  const { prices } = useManageTokenprices();
+  const { prices } = useManageTokenprices({
+    networkId,
+    accountId,
+    pollingInterval: 600,
+  });
 
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
 
@@ -78,7 +88,7 @@ const AccountAmountInfo: FC = () => {
       prices,
       vsCurrency,
       hideSmallBalance,
-    }).toNumber();
+    });
 
     return [
       displayValue,
@@ -114,27 +124,34 @@ const AccountAmountInfo: FC = () => {
   ]);
 
   const changedValueComp = useMemo(() => {
-    const basePrices: Record<string, number> = {};
+    const basePrices: Record<string, SimpleTokenPrices> = {};
     accountTokens.forEach((token) => {
-      const tokenId = token.tokenIdOnNetwork || 'main';
+      const tokenId = token?.tokenIdOnNetwork || 'main';
+      const priceId = token?.tokenIdOnNetwork
+        ? `${token?.networkId}-${token.tokenIdOnNetwork}`
+        : token?.networkId ?? '';
       const balance = balances[tokenId];
+      const priceInfo = prices?.[priceId];
       if (typeof balance !== 'undefined') {
-        basePrices[tokenId] = charts[tokenId]?.[0]?.[1] ?? 0;
+        basePrices[priceId] = getPreBaseValue({
+          priceInfo,
+          vsCurrency,
+        });
       }
     });
     const displayBaseValue = getSummedValues({
       tokens: accountTokens,
       balances,
       prices: basePrices,
+      vsCurrency,
       hideSmallBalance,
-    }).toNumber();
-
+    });
     const { gain, percentageGain, gainTextColor } = calculateGains({
       basePrice: displayBaseValue,
       price: summedValue,
     });
 
-    return Number.isNaN(displayBaseValue) ? (
+    return Number.isNaN(summedValue) ? (
       <Skeleton shape="Body1" />
     ) : (
       <>
@@ -147,7 +164,15 @@ const AccountAmountInfo: FC = () => {
         </Typography.Body1Strong>
       </>
     );
-  }, [accountTokens, balances, charts, hideSmallBalance, intl, summedValue]);
+  }, [
+    accountTokens,
+    balances,
+    hideSmallBalance,
+    intl,
+    prices,
+    summedValue,
+    vsCurrency,
+  ]);
 
   return (
     <Box alignItems="flex-start">

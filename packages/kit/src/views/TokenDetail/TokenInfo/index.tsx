@@ -49,7 +49,7 @@ export type TokenInfoProps = {
 const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const { wallet, network } = useActiveWalletAccount();
+  const { wallet, network, networkId, accountId } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const currencies = useFiatPay(network?.id ?? '');
@@ -62,7 +62,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
 
   const { balances } = useManageTokens();
 
-  const { prices } = useManageTokenprices();
+  const { prices } = useManageTokenprices({ accountId, networkId });
 
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
 
@@ -155,6 +155,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       amount,
       prices,
       balances,
+      vsCurrency,
     ],
   );
 
@@ -169,7 +170,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
-              const { accountId, networkId } = getActiveWalletAccount();
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Send,
                 params: {

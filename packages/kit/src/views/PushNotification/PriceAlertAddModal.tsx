@@ -23,7 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
-import { useSimpleTokenPrice } from '../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import {
   ManageTokenRoutes,
@@ -58,7 +58,7 @@ export const PriceAlertAddModal: FC = () => {
   const { selectedFiatMoneySymbol } = useSettings();
   // const fiat = map[selectedFiatMoneySymbol];
   const originalPrice =
-    useSimpleTokenPrice({
+    useSimpleTokenPriceValue({
       networkId: token.networkId,
       contractAdress: token.tokenIdOnNetwork,
     }) ?? 0;

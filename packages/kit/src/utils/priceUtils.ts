@@ -63,6 +63,24 @@ export function getSuggestedDecimals(price: number) {
     : 2;
 }
 
+export function getTokenValue({
+  token,
+  price,
+  balances,
+}: {
+  token: Token | undefined | null;
+  price: number | undefined | null;
+  balances: Record<string, TokenBalanceValue>;
+}) {
+  const tokenId = token?.tokenIdOnNetwork || 'main';
+  const balance = balances[tokenId] || 0;
+  if (balance !== undefined) {
+    const priceValue = new BigNumber(price || 0);
+    return new BigNumber(balance).times(priceValue);
+  }
+  return new BigNumber(0);
+}
+
 export function getTokenValues({
   tokens,
   prices,
@@ -70,7 +88,7 @@ export function getTokenValues({
   vsCurrency,
 }: {
   tokens: (Token | undefined | null)[];
-  prices: Record<string, SimpleTokenPrices | number>;
+  prices?: Record<string, SimpleTokenPrices | number>;
   balances: Record<string, TokenBalanceValue>;
   vsCurrency: string;
 }) {
@@ -82,19 +100,33 @@ export function getTokenValues({
     const balance = balances[tokenId] || 0;
     if (balance !== undefined) {
       let price = new BigNumber(0);
-      if (prices[priceId]) {
-        if (typeof prices[priceId] === 'number') {
-          price = new BigNumber((prices[priceId] as number) || 0);
+      if (prices?.[priceId]) {
+        if (typeof prices?.[priceId] === 'number') {
+          price = new BigNumber((prices?.[priceId] as number) || 0);
         } else {
           price = new BigNumber(
-            (prices[priceId] as SimpleTokenPrices)?.[vsCurrency] || 0,
+            (prices?.[priceId] as SimpleTokenPrices)?.[vsCurrency] || 0,
           );
         }
       }
-      return new BigNumber(balance).times(price);
+      return new BigNumber(balance).times(price ?? 0);
     }
     return new BigNumber(0);
   });
+}
+
+export function getPreBaseValue({
+  priceInfo,
+  vsCurrency = 'usd',
+}: {
+  priceInfo?: SimpleTokenPrices;
+  vsCurrency: string;
+}) {
+  const change = new BigNumber(priceInfo?.[`${vsCurrency}_24h_change`] || 0);
+  const price = new BigNumber(priceInfo?.[vsCurrency] || 0);
+  const res: Record<string, number> = {};
+  res[vsCurrency] = price.dividedBy(change.plus(100)).times(100).toNumber();
+  return res;
 }
 
 export function getSummedValues({
@@ -105,20 +137,20 @@ export function getSummedValues({
   hideSmallBalance = false,
 }: {
   tokens: Token[];
-  prices: Record<string, SimpleTokenPrices | number>;
+  prices?: Record<string, SimpleTokenPrices | number>;
   balances: Record<string, TokenBalanceValue>;
   vsCurrency?: string;
   hideSmallBalance?: boolean;
 }) {
-  return getTokenValues({ tokens, prices, balances, vsCurrency }).reduce(
-    (acc, value) => {
+  if (!prices) return NaN;
+  return getTokenValues({ tokens, prices, balances, vsCurrency })
+    .reduce((acc, value) => {
       if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
         return acc;
       }
       return acc.plus(value);
-    },
-    new BigNumber(0),
-  );
+    }, new BigNumber(0))
+    .toNumber();
 }
 
 export function formatAmount(

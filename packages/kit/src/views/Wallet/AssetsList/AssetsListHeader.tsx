@@ -51,14 +51,14 @@ const ListHeader: FC<{
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network } = useActiveWalletAccount();
+  const { account, network, networkId, accountId } = useActiveWalletAccount();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
 
   const { accountTokens, balances } = useManageTokens();
-  const { prices } = useManageTokenprices();
+  const { prices } = useManageTokenprices({ networkId, accountId });
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
   const summedValue = useMemo(() => {
     const displayValue = getSummedValues({
@@ -67,7 +67,7 @@ const ListHeader: FC<{
       prices,
       vsCurrency,
       hideSmallBalance,
-    }).toNumber();
+    });
 
     return (
       <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>

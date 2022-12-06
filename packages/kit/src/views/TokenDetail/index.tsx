@@ -14,7 +14,7 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
-import { useSimpleTokenPrice } from '../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import {
   HomeRoutes,
@@ -45,20 +45,22 @@ const TokenDetail: React.FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const isVertical = useIsVerticalLayout();
-  const { charts } = useManageTokens();
+  // const { charts } = useManageTokens();
   const { accountId, networkId, tokenId } = route.params;
-  const price = useSimpleTokenPrice({ networkId, contractAdress: tokenId });
+  const price = useSimpleTokenPriceValue({
+    networkId,
+    contractAdress: tokenId,
+  });
   const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
 
   const priceReady = useMemo(() => {
-    const id = tokenId || 'main';
     if (!token) {
       return false;
     }
-    return !!(charts?.[id] && price);
-  }, [charts, price, tokenId, token]);
+    return !!price;
+  }, [price, token]);
 
   useLayoutEffect(() => {
     if (firstUpdate.current) {

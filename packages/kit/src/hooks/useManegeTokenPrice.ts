@@ -6,7 +6,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useActiveWalletAccount, useAppSelector } from './redux';
 
-export const useSimpleTokenPrice = ({
+export const useSimpleTokenPriceInfo = ({
   networkId,
   contractAdress,
 }: {
@@ -14,43 +14,60 @@ export const useSimpleTokenPrice = ({
   contractAdress?: string;
 }) => {
   const priceMap = useAppSelector((s) => s.tokens.tokenPriceMap);
+  return useMemo(() => {
+    if (!networkId || !priceMap) return undefined;
+    const priceInfo =
+      priceMap[`${networkId}${contractAdress ? `-${contractAdress}` : ''}`];
+    return priceInfo;
+  }, [contractAdress, networkId, priceMap]);
+};
+
+export const useSimpleTokenPriceValue = ({
+  networkId,
+  contractAdress,
+}: {
+  networkId?: string;
+  contractAdress?: string;
+}) => {
+  const priceInfo = useSimpleTokenPriceInfo({ networkId, contractAdress });
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
   return useMemo(() => {
     if (!networkId) return 0;
-    const price =
-      priceMap[`${networkId}${contractAdress ? `-${contractAdress}` : ''}`];
-    if (price && price[vsCurrency]) {
-      return price[vsCurrency];
+    if (priceInfo && priceInfo[vsCurrency]) {
+      return priceInfo[vsCurrency];
     }
-    // backgroundApiProxy.ServicePrice.fetchSimpleTokenPrice({
+    // backgroundApiProxy.servicePrice.fetchSimpleTokenPriceDebounced({
     //   networkId,
     //   tokenIds: contractAdress ? [contractAdress] : undefined,
     //   fetchMain: false,
     //   vsCurrency,
     // });
-  }, [contractAdress, networkId, priceMap, vsCurrency]);
+  }, [networkId, priceInfo, vsCurrency]);
 };
 
 export const useManageTokenprices = ({
-  pollingInterval = 300,
+  pollingInterval = 0,
+  accountId,
+  networkId,
 }: {
   pollingInterval?: number;
-} = {}) => {
+  accountId: string;
+  networkId: string;
+}) => {
   const isFocused = useIsFocused();
-  const { accountId, networkId } = useActiveWalletAccount();
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (isFocused) {
-      backgroundApiProxy.ServicePrice.fetchSimpleTokenPrice({
+    if (pollingInterval && isFocused) {
+      backgroundApiProxy.servicePrice.fetchSimpleTokenPriceDebounced({
         networkId,
         accountId,
         fetchMain: true,
         vsCurrency,
       });
       timer = setInterval(() => {
-        backgroundApiProxy.ServicePrice.fetchSimpleTokenPrice({
+        backgroundApiProxy.servicePrice.fetchSimpleTokenPriceDebounced({
           networkId,
           accountId,
           fetchMain: true,

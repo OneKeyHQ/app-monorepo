@@ -140,6 +140,7 @@ export const tokensSlice = createSlice({
       Object.keys(prices).forEach((key) => {
         const tokenPriceKey =
           key === networkId ? networkId : `${networkId}-${key}`;
+        if (!state.tokenPriceMap) state.tokenPriceMap = {};
         const cachePrice = state.tokenPriceMap[tokenPriceKey] || {};
         state.tokenPriceMap[tokenPriceKey] = { ...cachePrice, ...prices[key] };
       });

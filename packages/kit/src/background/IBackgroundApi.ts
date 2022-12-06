@@ -25,6 +25,7 @@ import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNotification from './services/serviceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePassword from './services/ServicePassword';
+import type ServicePrice from './services/ServicePrice';
 import type ServicePromise from './services/ServicePromise';
 import type ServiceRevoke from './services/ServiceRevoke';
 import type ServiceSetting from './services/ServiceSetting';
@@ -88,6 +89,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSetting: ServiceSetting;
   serviceBatchTransfer: ServiceBatchTransfer;
   serviceTransaction: ServiceTransaction;
+  servicePrice: ServicePrice;
 }
 
 export type IDappSourceInfo = {
