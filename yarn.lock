@@ -3702,7 +3702,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@glif/filecoin-address@npm:2.0.20":
+"@glif/filecoin-address@npm:^2.0.20":
   version: 2.0.20
   resolution: "@glif/filecoin-address@npm:2.0.20"
   dependencies:
@@ -3713,6 +3713,15 @@ __metadata:
     node-int64: ^0.4.0
     uint8arrays: 3.0.0
   checksum: 572d9acfff037abb29cca4493b36eb847e92c0c028b377f8f581e9db8a0d00678524307e7217b5028532dc13a9697555acdef4c49256c8b35be5781fc5a155c6
+  languageName: node
+  linkType: hard
+
+"@glif/filecoin-rpc-client@npm:^2.0.8":
+  version: 2.0.8
+  resolution: "@glif/filecoin-rpc-client@npm:2.0.8"
+  dependencies:
+    axios: ^0.27.2
+  checksum: b1ae5c3aed6e8e8136e3e2a9b093803f479ab153def3c984ff8076bc0b9399651fbea1873abbf16073a230ffa21e4425ead04d6fe47927951eef26e6ee897fa5
   languageName: node
   linkType: hard
 
@@ -5514,7 +5523,8 @@ __metadata:
     "@conflux-dev/conflux-address-js": ^1.3.13
     "@ethersproject/keccak256": ^5.6.0
     "@ethersproject/transactions": ^5.6.0
-    "@glif/filecoin-address": 2.0.20
+    "@glif/filecoin-address": ^2.0.20
+    "@glif/filecoin-rpc-client": ^2.0.8
     "@metamask/eth-sig-util": ^4.0.0
     "@mysten/sui.js": ^0.17.1
     "@noble/hashes": 1.1.2

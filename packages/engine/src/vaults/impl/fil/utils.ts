@@ -1,7 +1,3 @@
-export function baseAddressFromPub(
-  networkId: string,
-  pubkey: Buffer,
-  protocol: string,
-) {
+export function addressFromPub(networkId: string) {
   return 'test';
 }

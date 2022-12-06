@@ -8,6 +8,7 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
+import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
 import {
@@ -67,6 +68,7 @@ import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
 import { baseAddressToAddress } from './vaults/impl/cosmos/sdk/address';
+import { ChainId as FilChainId } from './vaults/impl/fil/types';
 
 // IMPL naming aren't necessarily the same.
 export const IMPL_MAPPINGS: Record<
@@ -437,6 +439,13 @@ class ProviderController extends BaseProviderController {
     switch (impl) {
       case IMPL_CFX:
         return Promise.resolve(toCfxAddress(baseAddress, parseInt(chainId)));
+      case IMPL_FIL:
+        return Promise.resolve(
+          newSecp256k1Address(
+            Buffer.from(baseAddress),
+            chainId === FilChainId.MAIN ? CoinType.MAIN : CoinType.TEST,
+          ).toString(),
+        );
       case IMPL_COSMOS:
         // eslint-disable-next-line no-case-declarations
         const chainInfo = await this.getChainInfoByNetworkId(networkId);

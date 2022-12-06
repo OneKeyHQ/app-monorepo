@@ -29,10 +29,9 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<Array<DBVariantAccount>> {
     const { name, privateKey } = params;
     const network = await this.getNetwork();
-    if (privateKey.length !== 32 && privateKey.length !== 80) {
+    if (privateKey.length !== 32) {
       throw new OneKeyInternalError('Invalid private key.');
     }
-    debugger;
     const pub = secp256k1.publicFromPrivate(privateKey);
     const pubUncompressed = secp256k1.transformPublicKey(pub);
     const pubHex = pub.toString('hex');
@@ -49,8 +48,8 @@ export class KeyringImported extends KeyringImportedBase {
         type: AccountType.VARIANT,
         path: '',
         coinType: COIN_TYPE,
-        pub: pub.toString('hex'),
-        address: address.toString(),
+        pub: pubHex,
+        address: pubHex,
         addresses: { [this.networkId]: address.toString() },
       },
     ]);

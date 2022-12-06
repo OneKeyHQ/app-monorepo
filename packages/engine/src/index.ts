@@ -1121,11 +1121,20 @@ class Engine {
           break;
         }
         case IMPL_FIL: {
-          const temp = JSON.parse(
-            Buffer.from(credential, 'hex').toString(),
-          ) as { Type: string; PrivateKey: string };
-          if (temp.PrivateKey) {
-            privateKey = Buffer.from(temp.PrivateKey, 'base64');
+          if (credential.length === 160) {
+            // Lotus type private key:
+            try {
+              const result = JSON.parse(
+                Buffer.from(credential, 'hex').toString(),
+              ) as { Type: string; PrivateKey: string };
+              if (result.PrivateKey) {
+                privateKey = Buffer.from(result.PrivateKey, 'base64');
+              }
+            } catch {
+              // pass
+            }
+          } else if (credential.length === 64) {
+            privateKey = Buffer.from(credential, 'hex');
           }
           break;
         }
