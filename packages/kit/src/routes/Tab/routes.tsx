@@ -45,7 +45,7 @@ export interface TabRouteConfig {
   name: TabRoutes;
   translationId: LocaleIds;
   component: React.FC;
-  tabBarIcon: () => string;
+  tabBarIcon: (props: { focused?: boolean }) => string;
   children?: {
     name: HomeRoutes;
     component: React.FC<any>;
@@ -57,7 +57,8 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
     component: toFocusedLazy(HomeScreen),
-    tabBarIcon: () => 'CreditCardOutline',
+    tabBarIcon: (focused) =>
+      focused ? 'CreditCardSolid' : 'CreditCardOutline',
     translationId: 'form__account',
     children: [
       {
@@ -87,7 +88,8 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Market,
     component: MarketScreen,
-    tabBarIcon: () => 'ChartSquareLineOutline',
+    tabBarIcon: (focused) =>
+      focused ? 'ChartLineSquareSolid' : 'ChartLineSquareOutline',
     translationId: 'title__market',
     children: [
       {
@@ -100,7 +102,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Swap,
     component: SwapScreen,
-    tabBarIcon: () => 'SwitchHorizontalSolid',
+    tabBarIcon: () => 'ArrowsRightLeftOutline',
     translationId: 'title__swap',
     children: [
       {
@@ -112,7 +114,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.NFT,
     component: toFocusedLazy(NFTMarket),
-    tabBarIcon: () => 'Square3Stack3Doutline',
+    tabBarIcon: (focused) => (focused ? 'PhotoSolid' : 'PhotoOutline'),
     translationId: 'title__nft',
     children: [
       {
@@ -132,7 +134,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Discover,
     component: toFocusedLazy(DiscoverScreen),
-    tabBarIcon: () => 'CompassOutline',
+    tabBarIcon: (focused) => (focused ? 'CompassSolid' : 'CompassOutline'),
     translationId: 'title__explore',
     children: [
       {
@@ -152,7 +154,7 @@ export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Me,
     component: toFocusedLazy(MeScreen, { unmountWhenBlur: false }),
-    tabBarIcon: () => 'MenuOutline',
+    tabBarIcon: (focused) => (focused ? 'Bars4Solid' : 'Bars4Outline'),
     translationId: 'title__menu',
     children: [
       {

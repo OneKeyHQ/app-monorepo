@@ -34,7 +34,7 @@ const Header: FC<HeaderProps> = ({ title }) => {
         </Text>
         <IconButton
           circle
-          name="PlusSolid"
+          name="PlusMini"
           onPress={() => {
             navigation.navigate(RootRoutes.Onboarding);
             setTimeout(() => {

@@ -48,7 +48,7 @@ const TabNavigator = () => {
           navigationRef.current?.navigate(TabRoutes.Swap);
         },
         tabBarLabel: intl.formatMessage({ id: 'title__swap' }),
-        tabBarIcon: () => 'SwitchHorizontalSolid',
+        tabBarIcon: () => 'ArrowsRightLeftOutline',
         description: intl.formatMessage({
           id: 'content__exchange_any_tokens',
         }),
@@ -64,7 +64,7 @@ const TabNavigator = () => {
           navigationRef.current?.navigate(TabRoutes.Market);
         },
         tabBarLabel: intl.formatMessage({ id: 'title__market' }),
-        tabBarIcon: () => 'ChartSquareLineOutline',
+        tabBarIcon: () => 'ChartLineSquareOutline',
         description: intl.formatMessage({
           id: 'content__exchange_any_tokens',
         }),
@@ -80,7 +80,7 @@ const TabNavigator = () => {
           sendToken({ accountId, networkId });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__send' }),
-        tabBarIcon: () => 'ArrowUpOutline',
+        tabBarIcon: () => 'PaperAirplaneOutline',
         description: intl.formatMessage({
           id: 'content__transfer_tokens_to_another_wallet',
         }),
@@ -100,7 +100,7 @@ const TabNavigator = () => {
           });
         },
         tabBarLabel: intl.formatMessage({ id: 'action__receive' }),
-        tabBarIcon: () => 'ArrowDownOutline',
+        tabBarIcon: () => 'QrCodeOutline',
         description: intl.formatMessage({
           id: 'content__deposit_tokens_to_your_wallet',
         }),

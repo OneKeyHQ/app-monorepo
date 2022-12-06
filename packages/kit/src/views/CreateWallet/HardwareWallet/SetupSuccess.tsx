@@ -52,7 +52,7 @@ const SetupSuccessModal: FC = () => {
           type="plain"
           size={isSmallScreen ? 'lg' : 'base'}
           mt={6}
-          rightIconName="ChevronRightSolid"
+          rightIconName="ChevronRightMini"
         >
           {intl.formatMessage({ id: 'action__view_device_details' })}
         </Button> */}

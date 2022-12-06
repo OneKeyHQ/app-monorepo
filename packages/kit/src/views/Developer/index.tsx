@@ -219,10 +219,10 @@ export const Debug = () => {
             }}
           >
             <HStack space="4">
-              <Icon name="DesktopComputerSolid" />
+              <Icon name="DesktopComputerMini" />
               <Typography.Body1>Components</Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" size={20} />
           </Pressable>
           <VStack space="3">
             <Pressable
@@ -601,7 +601,7 @@ export const DebugSection = () => {
       >
         <Typography.Body1Strong>Developer</Typography.Body1Strong>
         <Box>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" size={20} />
         </Box>
       </Pressable>
     </Box>

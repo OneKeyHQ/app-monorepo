@@ -97,7 +97,7 @@ function ConnectedSiteItemIcon({ item }: { item: DappSiteConnection }) {
         src={favicon}
         key={favicon}
         alt={favicon}
-        fallbackElement={<Icon name="ConnectOutline" size={32} />}
+        fallbackElement={<Icon name="LinkOutline" size={32} />}
       />
     </Box>
   );
@@ -213,7 +213,7 @@ export default function ConnectedSites() {
               <ConnectedSiteItemAddress item={item} />
             </Box>
             <IconButton
-              name="CloseCircleSolid"
+              name="XCircleMini"
               type="plain"
               circle
               onPress={() => {

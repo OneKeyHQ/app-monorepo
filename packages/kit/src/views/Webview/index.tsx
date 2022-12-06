@@ -116,7 +116,7 @@ export const SettingsWebViews: FC = () => {
                 id: 'action__refresh',
               }),
               value: 'refresh',
-              iconProps: { name: 'RefreshOutline' },
+              iconProps: { name: 'ArrowPathOutline' },
             },
             {
               label: intl.formatMessage({

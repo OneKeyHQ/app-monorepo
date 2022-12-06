@@ -135,7 +135,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
             titleColor="text-default"
             title={intl.formatMessage({ id: 'action__update_available' })}
             subDescribeCustom={
-              <Icon name="InformationCircleSolid" color="icon-success" />
+              <Icon name="InformationCircleMini" color="icon-success" />
             }
           />
         </Container.Box>

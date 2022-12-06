@@ -53,7 +53,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
         );
         toast.show({ title: intl.formatMessage({ id: 'msg__removed' }) });
       },
-      icon: 'TrashSolid',
+      icon: 'TrashMini',
       textColor: 'text-critical',
       iconColor: 'icon-critical',
     };
@@ -70,7 +70,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
               token.coingeckoId,
             );
           },
-          icon: 'ArrowUpSolid',
+          icon: 'ArrowUpMini',
         },
       ];
     }

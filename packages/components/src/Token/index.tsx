@@ -79,11 +79,13 @@ export const SecurityIcon: FC<{ token: Partial<IToken>; size: number }> = ({
   }
   if (data?.danger?.length) {
     return (
-      <Icon size={size} name="ShieldExclamationSolid" color="icon-critical" />
+      <Icon size={size} name="ShieldExclamationMini" color="icon-critical" />
     );
   }
   if (data?.warn?.length) {
-    return <Icon size={size} name="ExclamationSolid" color="icon-warning" />;
+    return (
+      <Icon size={size} name="ExclamationTriangleMini" color="icon-warning" />
+    );
   }
   return null;
 };
@@ -101,7 +103,7 @@ export const TokenVerifiedIcon: React.FC<{
       return <SecurityIcon token={token} size={size} />;
     }
     if (String(token?.verified) === 'true' || token?.isNative) {
-      return <Icon size={size} name="BadgeCheckSolid" color="icon-success" />;
+      return <Icon size={size} name="BadgeCheckMini" color="icon-success" />;
     }
     return null;
   }, [token, size]);

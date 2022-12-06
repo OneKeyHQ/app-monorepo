@@ -86,7 +86,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
                 </Typography.Body2>
               </Box>
               <IconButton
-                name="CloseCircleSolid"
+                name="XCircleMini"
                 type="plain"
                 circle
                 onPress={() => {
@@ -117,7 +117,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
             >
               <Button
                 type="basic"
-                leftIconName="PlusSolid"
+                leftIconName="PlusMini"
                 iconSize={20}
                 size="lg"
                 flex={1}
@@ -132,7 +132,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
                 type="basic"
                 size="lg"
                 flex={1}
-                leftIconName="ScanSolid"
+                leftIconName="ViewfinderCircleMini"
                 iconSize={20}
                 onPress={() => {
                   gotoScanQrcode();
@@ -194,7 +194,7 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
                 rounded="full"
                 backgroundColor="surface-neutral-default"
               >
-                <Icon name="ScanSolid" size={20} />
+                <Icon name="ViewfinderCircleMini" size={20} />
               </Box>
               <Typography.Body2Strong ml="3">
                 {intl.formatMessage({

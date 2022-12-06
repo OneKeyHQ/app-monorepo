@@ -96,7 +96,9 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
   if (walletImage === 'imported' || walletImage === 'watching')
     return (
       <Icon
-        name={walletImage === 'imported' ? 'SaveOutline' : 'EyeOutline'}
+        name={
+          walletImage === 'imported' ? 'InboxArrowDownOutline' : 'EyeOutline'
+        }
         size={iconFontSizeMap[(size as string) ?? 'lg'] ?? 24}
         color="icon-default"
       />
@@ -104,7 +106,7 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
   if (walletImage === 'external') {
     return (
       <Icon
-        name="ConnectOutline" // ConnectOutline LinkOutline
+        name="LinkOutline" // LinkOutline LinkOutline
         size={iconFontSizeMap[(size as string) ?? 'lg'] ?? 24}
         color="icon-default"
       />
@@ -161,7 +163,7 @@ const PassphraseStatus: FC<Partial<WalletAvatarProps>> = ({ size }) => (
     bgColor="background-default"
   >
     <Icon
-      name="LockClosedSolid"
+      name="LockClosedMini"
       color="icon-default"
       size={size === 'xl' || size === 'lg' ? 12 : 10}
     />

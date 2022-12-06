@@ -10,57 +10,47 @@ const IconButtons = () => (
           isLoading
           type="primary"
           size="base"
-          name="AcademicCapSolid"
+          name="AcademicCapMini"
         />
         <IconButton
           isDisabled
           type="primary"
           size="base"
-          name="AcademicCapSolid"
+          name="AcademicCapMini"
         />
-        <IconButton type="primary" size="base" name="AcademicCapSolid" />
-        <IconButton type="basic" size="base" name="AcademicCapSolid" />
-        <IconButton type="plain" size="base" name="AcademicCapSolid" />
-        <IconButton type="destructive" name="AcademicCapSolid" />
-        <IconButton type="outline" name="AcademicCapSolid" />
+        <IconButton type="primary" size="base" name="AcademicCapMini" />
+        <IconButton type="basic" size="base" name="AcademicCapMini" />
+        <IconButton type="plain" size="base" name="AcademicCapMini" />
+        <IconButton type="destructive" name="AcademicCapMini" />
+        <IconButton type="outline" name="AcademicCapMini" />
       </Stack>
       <Stack direction="column" space="2" mb="2" alignItems="center">
-        <IconButton
-          isLoading
-          type="primary"
-          size="xs"
-          name="AcademicCapSolid"
-        />
+        <IconButton isLoading type="primary" size="xs" name="AcademicCapMini" />
         <IconButton
           isDisabled
           type="primary"
           size="xs"
-          name="AcademicCapSolid"
+          name="AcademicCapMini"
         />
-        <IconButton type="primary" size="xs" name="AcademicCapSolid" />
-        <IconButton type="basic" size="xs" name="AcademicCapSolid" />
-        <IconButton type="plain" size="xs" name="AcademicCapSolid" />
-        <IconButton type="destructive" size="xs" name="AcademicCapSolid" />
-        <IconButton type="outline" size="xs" name="AcademicCapSolid" />
+        <IconButton type="primary" size="xs" name="AcademicCapMini" />
+        <IconButton type="basic" size="xs" name="AcademicCapMini" />
+        <IconButton type="plain" size="xs" name="AcademicCapMini" />
+        <IconButton type="destructive" size="xs" name="AcademicCapMini" />
+        <IconButton type="outline" size="xs" name="AcademicCapMini" />
       </Stack>
       <Stack direction="column" space="2" mb="2" alignItems="center">
-        <IconButton
-          isLoading
-          type="primary"
-          size="xl"
-          name="AcademicCapSolid"
-        />
+        <IconButton isLoading type="primary" size="xl" name="AcademicCapMini" />
         <IconButton
           isDisabled
           type="primary"
           size="xl"
-          name="AcademicCapSolid"
+          name="AcademicCapMini"
         />
-        <IconButton type="primary" size="xl" name="AcademicCapSolid" />
-        <IconButton type="basic" size="xl" name="AcademicCapSolid" />
-        <IconButton type="plain" size="xl" name="AcademicCapSolid" />
-        <IconButton type="destructive" size="xl" name="AcademicCapSolid" />
-        <IconButton type="outline" size="xl" name="AcademicCapSolid" />
+        <IconButton type="primary" size="xl" name="AcademicCapMini" />
+        <IconButton type="basic" size="xl" name="AcademicCapMini" />
+        <IconButton type="plain" size="xl" name="AcademicCapMini" />
+        <IconButton type="destructive" size="xl" name="AcademicCapMini" />
+        <IconButton type="outline" size="xl" name="AcademicCapMini" />
       </Stack>
     </Stack>
   </Center>

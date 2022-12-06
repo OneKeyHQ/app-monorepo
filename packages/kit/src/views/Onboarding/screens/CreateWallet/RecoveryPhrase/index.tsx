@@ -75,7 +75,7 @@ const RecoveryPhrase = () => {
         },
         {
           type: 'critical',
-          icon: 'EyeOffOutline',
+          icon: 'EyeSlashOutline',
           para: intl.formatMessage({ id: 'modal__attention_shh' }),
         },
       ] as const,

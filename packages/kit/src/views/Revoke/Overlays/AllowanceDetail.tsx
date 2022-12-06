@@ -26,17 +26,17 @@ type Props = {
 
 const actions: { icon: any; key: ActionKey; label: any }[] = [
   {
-    icon: 'DuplicateOutline',
+    icon: 'Square2StackOutline',
     key: 'copy',
     label: 'action__copy_contract_address',
   },
   {
-    icon: 'PencilAltSolid',
+    icon: 'PencilAltMini',
     key: 'change',
     label: 'action__change_allowance',
   },
   {
-    icon: 'CloseOutline',
+    icon: 'XMarkOutline',
     key: 'revoke',
     label: 'action__revoke',
   },

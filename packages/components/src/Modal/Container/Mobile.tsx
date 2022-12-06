@@ -126,7 +126,7 @@ const MobileModal: FC<ModalProps> = ({
           </Box>
           <IconButton
             size="xl"
-            name="CloseOutline"
+            name="XMarkOutline"
             type="plain"
             circle
             onPress={closeAction || close}

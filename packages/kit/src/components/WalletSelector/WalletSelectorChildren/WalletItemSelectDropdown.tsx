@@ -206,14 +206,14 @@ function WalletItemSelectDropdown({
         label: intl.formatMessage({ id: 'action__edit' }),
         value: EWalletSelectorListItemSelectOptions.rename,
         iconProps: {
-          name: isVerticalLayout ? 'PencilOutline' : 'PencilSolid',
+          name: isVerticalLayout ? 'PencilOutline' : 'PencilMini',
         },
       },
       [EWalletSelectorListItemSelectOptions.backup]: {
         label: intl.formatMessage({ id: 'action__backup' }),
         value: EWalletSelectorListItemSelectOptions.backup,
         iconProps: {
-          name: isVerticalLayout ? 'ShieldCheckOutline' : 'ShieldCheckSolid',
+          name: isVerticalLayout ? 'ShieldCheckOutline' : 'ShieldCheckMini',
         },
       },
       [EWalletSelectorListItemSelectOptions.restore]: {
@@ -222,14 +222,14 @@ function WalletItemSelectDropdown({
         }),
         value: EWalletSelectorListItemSelectOptions.restore,
         iconProps: {
-          name: isVerticalLayout ? 'RestoreOutline' : 'RestoreSolid',
+          name: isVerticalLayout ? 'RestoreOutline' : 'RestoreMini',
         },
       },
       [EWalletSelectorListItemSelectOptions.remove]: {
         label: intl.formatMessage({ id: 'action__delete_wallet' }),
         value: EWalletSelectorListItemSelectOptions.remove,
         iconProps: {
-          name: isVerticalLayout ? 'TrashOutline' : 'TrashSolid',
+          name: isVerticalLayout ? 'TrashOutline' : 'TrashMini',
         },
         destructive: true,
       },
@@ -239,7 +239,7 @@ function WalletItemSelectDropdown({
         }),
         value: EWalletSelectorListItemSelectOptions.details,
         iconProps: {
-          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextSolid',
+          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextMini',
         },
       },
       [EWalletSelectorListItemSelectOptions.update]: {
@@ -250,7 +250,7 @@ function WalletItemSelectDropdown({
         color: 'text-warning',
         iconProps: {
           color: 'icon-warning',
-          name: isVerticalLayout ? 'UploadOutline' : 'UploadSolid',
+          name: isVerticalLayout ? 'UploadOutline' : 'UploadMini',
         },
       },
     };
@@ -307,7 +307,7 @@ function WalletItemSelectDropdown({
             ) : null}
 
             <IconButton
-              name="DotsVerticalSolid"
+              name="EllipsisVerticalMini"
               circle
               type="plain"
               onPress={onPress}

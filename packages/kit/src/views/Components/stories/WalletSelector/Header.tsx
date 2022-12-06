@@ -32,7 +32,7 @@ const Header: FC<HeaderProps> = ({ title }) => {
         >
           {title}
         </Text>
-        <IconButton circle name="PlusSolid" />
+        <IconButton circle name="PlusMini" />
       </Box>
     </>
   );

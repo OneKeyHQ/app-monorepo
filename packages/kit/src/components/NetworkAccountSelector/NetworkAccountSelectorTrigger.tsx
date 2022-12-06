@@ -123,7 +123,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
                 </Typography.Body2Strong>
               </HStack>
               {type === 'plain' ? (
-                <Icon size={20} name="ChevronDownSolid" />
+                <Icon size={20} name="ChevronDownMini" />
               ) : null}
             </HStack>
           );
