@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MatchDAppItemType } from '../Explorer/explorerUtils';
@@ -210,4 +211,15 @@ export function useCategories() {
     }
     return home.categories;
   }, [home]);
+}
+
+export function useShowFullLayout() {
+  const isApple = platformEnv.isNativeIOS || platformEnv.isMas;
+  const showFullLayout = useAppSelector((s) => s.discover.showFullLayout);
+  return useMemo(() => {
+    if (!isApple) {
+      return true;
+    }
+    return showFullLayout;
+  }, [showFullLayout, isApple]);
 }

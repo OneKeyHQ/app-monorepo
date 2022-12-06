@@ -136,12 +136,12 @@ const DappsContainerItem: FC<{ item: DAppItemType }> = ({ item }) => {
   );
 };
 
-const DappsContainer = () => {
-  const { categoryId } = useContext(DiscoverContext);
-  const fullDapps = useCategoryDapps(categoryId);
-  const [dapps, setDapps] = useState<DAppItemType[]>([]);
-  const { selectedNetworkId } = useContext(SelectedNetworkContext);
+type DappsContainerProps = {
+  dapps: DAppItemType[];
+};
 
+const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
+  const { selectedNetworkId } = useContext(SelectedNetworkContext);
   const data = useMemo(() => {
     if (!selectedNetworkId) {
       return dapps;
@@ -153,10 +153,6 @@ const DappsContainer = () => {
     ({ item }) => <DappsContainerItem item={item} />,
     [],
   );
-
-  useEffect(() => {
-    setDapps(fullDapps);
-  }, [fullDapps]);
 
   return (
     <FlatList
@@ -194,7 +190,7 @@ export function Container() {
         </Box>
         <Divider orientation="vertical" />
         <Box flex="1">
-          <DappsContainer />
+          <DappsContainer dapps={dapps} />
         </Box>
       </Box>
     </Box>
