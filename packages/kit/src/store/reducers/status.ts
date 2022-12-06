@@ -3,7 +3,6 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 type StatusState = {
   isUnlock: boolean;
   boardingCompleted: boolean;
-  homePageCheckBoarding?: boolean;
   webviewGlobalKey: number;
   authenticationType?: 'FINGERPRINT' | 'FACIAL';
   hideAddressBookAttention?: boolean;
@@ -18,7 +17,6 @@ type StatusState = {
 const initialState: StatusState = {
   isUnlock: false,
   boardingCompleted: false,
-  homePageCheckBoarding: false,
   webviewGlobalKey: 0,
   hideAddressBookAttention: false,
   homeTabName: undefined,
@@ -41,9 +39,6 @@ export const slice = createSlice({
     },
     setBoardingNotCompleted: (state) => {
       state.boardingCompleted = false;
-    },
-    setHomePageCheckBoarding: (state) => {
-      state.homePageCheckBoarding = true;
     },
     setAuthenticationType(
       state,
@@ -97,7 +92,6 @@ export const slice = createSlice({
 });
 
 export const {
-  setHomePageCheckBoarding,
   setBoardingCompleted,
   setBoardingNotCompleted,
   setAuthenticationType,
