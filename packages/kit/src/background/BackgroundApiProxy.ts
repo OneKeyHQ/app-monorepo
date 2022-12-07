@@ -25,7 +25,7 @@ import type ServiceMarket from './services/ServiceMarket';
 import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
-import type ServiceNotification from './services/serviceNotification';
+import type ServiceNotification from './services/ServiceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePromise from './services/ServicePromise';
