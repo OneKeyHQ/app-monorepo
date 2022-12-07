@@ -21,7 +21,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { DBUTXOAccount } from '../../../types/account';
+import { Account, DBAccount, DBUTXOAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
   IApproveInfo,
@@ -116,6 +116,10 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringWatching,
   };
+
+  override getFetchBalanceAddress(account: DBUTXOAccount): Promise<string> {
+    return Promise.resolve(account.xpub);
+  }
 
   attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxBtc;

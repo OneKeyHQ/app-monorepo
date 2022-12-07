@@ -12,6 +12,8 @@ config.resolver.sourceExts = [
 ];
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
+  fs: require.resolve('react-native-level-fs'),
+  path: require.resolve('path-browserify'),
   stream: require.resolve('readable-stream'),
   crypto: require.resolve('react-native-crypto'),
   http: require.resolve('stream-http'),

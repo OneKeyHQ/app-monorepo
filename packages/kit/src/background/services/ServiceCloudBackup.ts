@@ -34,7 +34,7 @@ import {
 } from '../../utils/localAuthentication';
 import { backgroundClass, backgroundMethod } from '../decorators';
 
-import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import ServiceBase from './ServiceBase';
 import {
   BackupedContacts,
   IBackupItemSummary,
@@ -65,7 +65,10 @@ function getContactUUID({
 class ServiceCloudBackup extends ServiceBase {
   private backupUUID = '';
 
-  private deviceInfo: { osName: string; deviceName: string };
+  private deviceInfo = {
+    osName: Device.osName ?? 'unknown',
+    deviceName: Device.deviceName ?? 'unknown',
+  };
 
   private getBackupFilename(backupUUID: string) {
     return `${backupUUID}.backup`;
@@ -192,12 +195,8 @@ class ServiceCloudBackup extends ServiceBase {
     { leading: false, trailing: true },
   );
 
-  constructor(props: IServiceBaseProps) {
-    super(props);
-    this.deviceInfo = {
-      osName: Device.osName ?? 'unknown',
-      deviceName: Device.deviceName ?? 'unknown',
-    };
+  @backgroundMethod()
+  initCloudBackup() {
     appEventBus.on(AppEventBusNames.BackupRequired, this.onBackupRequired);
     appEventBus.emit(AppEventBusNames.BackupRequired);
   }

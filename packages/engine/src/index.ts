@@ -35,7 +35,9 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
+  COINTYPE_ADA,
   COINTYPE_BTC,
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_BCH,
   IMPL_BTC,
@@ -130,6 +132,7 @@ import {
 } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
+import { decodePrivateKeyByXprv } from './vaults/impl/ada/helper/bip32';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
@@ -767,6 +770,7 @@ class Engine {
       '283': OnekeyNetwork.algo,
       '144': OnekeyNetwork.xrp,
       '118': OnekeyNetwork.cosmoshub,
+      '1815': OnekeyNetwork.ada,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -816,10 +820,9 @@ class Engine {
     let newTokens: Token[] | undefined;
     if (balanceSupprtedNetwork.includes(networkId)) {
       try {
-        const { address: accountAddress } = await this.getAccount(
-          accountId,
-          networkId,
-        );
+        const account = await this.getAccount(accountId, networkId);
+        const accountAddress = await vault.getFetchBalanceAddress(account);
+
         const balancesFromApi =
           (await getBalancesFromApi(networkId, accountAddress)) || [];
         const missedTokenIds: string[] = [];
@@ -967,8 +970,8 @@ class Engine {
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
         if (a.type === AccountType.UTXO) {
-          const { xpub } = a as DBUTXOAccount;
-          return { address: xpub };
+          const address = await vault.getFetchBalanceAddress(a);
+          return { address };
         }
         if (a.type === AccountType.VARIANT) {
           let address = (a as DBVariantAccount).addresses[networkId];
@@ -1105,6 +1108,10 @@ class Engine {
         }
         case IMPL_ALGO: {
           privateKey = Buffer.from(algosdk.seedFromMnemonic(credential));
+          break;
+        }
+        case IMPL_ADA: {
+          privateKey = decodePrivateKeyByXprv(credential);
           break;
         }
         default:

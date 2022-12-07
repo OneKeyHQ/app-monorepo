@@ -1,4 +1,5 @@
 import {
+  COINTYPE_ADA,
   COINTYPE_ALGO,
   COINTYPE_APTOS,
   COINTYPE_BCH,
@@ -15,6 +16,7 @@ import {
   COINTYPE_TBTC,
   COINTYPE_TRON,
   COINTYPE_XRP,
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_BCH,
@@ -57,6 +59,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_BCH]: COINTYPE_BCH,
   [IMPL_XRP]: COINTYPE_XRP,
   [IMPL_COSMOS]: COINTYPE_COSMOS,
+  [IMPL_ADA]: COINTYPE_ADA,
   [IMPL_SUI]: COINTYPE_SUI,
 };
 
@@ -80,6 +83,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_BCH]: AccountType.UTXO,
   [IMPL_XRP]: AccountType.SIMPLE,
   [IMPL_COSMOS]: AccountType.VARIANT,
+  [IMPL_ADA]: AccountType.UTXO,
   [IMPL_SUI]: AccountType.SIMPLE,
 };
 
@@ -103,6 +107,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_BCH]: Curve.SECP256K1,
   [IMPL_XRP]: Curve.SECP256K1,
   [IMPL_COSMOS]: Curve.SECP256K1,
+  [IMPL_ADA]: Curve.ED25519,
   [IMPL_SUI]: Curve.ED25519,
 };
 
@@ -206,6 +211,9 @@ const defaultAccountNameInfo: Record<
   [IMPL_XRP]: { default: { prefix: 'XRP', category: `44'/${COINTYPE_XRP}'` } },
   [IMPL_COSMOS]: {
     default: { prefix: 'COSMOS', category: `44'/${COINTYPE_COSMOS}'` },
+  },
+  [IMPL_ADA]: {
+    default: { prefix: 'ADA', category: `1852'/${COINTYPE_ADA}'` },
   },
   [IMPL_SUI]: {
     default: { prefix: 'SUI', category: `44'/${COINTYPE_SUI}'` },
