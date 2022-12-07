@@ -44,30 +44,32 @@ export async function signTransaction(
   });
 }
 
-export function getTxStatus(status: number | null | undefined) {
-  switch (status) {
-    case 0:
-      return TransactionStatus.CONFIRM_AND_SUCCESS;
-    case 1:
-      return TransactionStatus.CONFIRM_BUT_FAILED;
-    case 2:
-    case null:
-      return TransactionStatus.INVALID;
-    default:
-      return TransactionStatus.PENDING;
+export function getTxStatus(
+  status: number | null | undefined,
+  cid: string | undefined,
+) {
+  if (status !== 0 && status !== -1) {
+    return TransactionStatus.CONFIRM_BUT_FAILED;
   }
+
+  if (cid && status === 0) {
+    return TransactionStatus.CONFIRM_AND_SUCCESS;
+  }
+
+  return TransactionStatus.PENDING;
 }
 
-export function getDecodedTxStatus(status: number | null | undefined) {
-  switch (status) {
-    case 0:
-      return IDecodedTxStatus.Confirmed;
-    case 1:
-      return IDecodedTxStatus.Failed;
-    case 2:
-    case null:
-      return IDecodedTxStatus.Dropped;
-    default:
-      return IDecodedTxStatus.Pending;
+export function getDecodedTxStatus(
+  status: number | null | undefined,
+  cid: string | undefined,
+) {
+  if (status !== 0 && status !== -1) {
+    return IDecodedTxStatus.Failed;
   }
+
+  if (cid && status === 0) {
+    return IDecodedTxStatus.Confirmed;
+  }
+
+  return IDecodedTxStatus.Pending;
 }

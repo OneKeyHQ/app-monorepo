@@ -32,6 +32,7 @@ export type IEncodedTxFil = {
 
 export type IOnChainHistoryTx = {
   cid: string;
+  signed_cid: string;
   from: string;
   to: string;
   exit_code: number;

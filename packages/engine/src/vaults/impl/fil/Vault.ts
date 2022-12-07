@@ -15,11 +15,7 @@ import memoizee from 'memoizee';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import {
-  InvalidAddress,
-  NotImplemented,
-  OneKeyInternalError,
-} from '../../../errors';
+import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import { Account, DBVariantAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
@@ -30,6 +26,8 @@ import {
   IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -106,6 +104,20 @@ export default class Vault extends VaultBase {
     return message.toLotusType();
   }
 
+  async updateEncodedTx(
+    encodedTx: IEncodedTxFil,
+    payload: IEncodedTxUpdatePayloadTransfer,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTx> {
+    if (options.type === IEncodedTxUpdateType.transfer) {
+      const network = await this.getNetwork();
+      encodedTx.Value = new BigNumber(payload.amount)
+        .shiftedBy(network.decimals)
+        .toFixed();
+    }
+    return Promise.resolve(encodedTx);
+  }
+
   override async decodeTx(
     encodedTx: IEncodedTxFil,
     payload?: any,
@@ -115,7 +127,8 @@ export default class Vault extends VaultBase {
     const token = await this.engine.getNativeTokenInfo(this.networkId);
 
     const decodedTx: IDecodedTx = {
-      txid: '',
+      txid:
+        (isObject(encodedTx.CID) ? encodedTx.CID['/'] : encodedTx.CID) || '',
       owner: encodedTx.From,
       signer: encodedTx.From,
       nonce: 0,
@@ -252,7 +265,7 @@ export default class Vault extends VaultBase {
           'MessageDetails',
           txid,
         );
-        return getTxStatus(response.exit_code);
+        return getTxStatus(response.exit_code, response.signed_cid);
       }),
     );
   }
@@ -284,7 +297,7 @@ export default class Vault extends VaultBase {
     const promises = txs.map((tx) => {
       try {
         const historyTxToMerge = localHistory.find(
-          (item) => item.decodedTx.txid === tx?.cid,
+          (item) => item.decodedTx.txid === tx.signed_cid,
         );
         if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
           return null;
@@ -303,7 +316,7 @@ export default class Vault extends VaultBase {
         const amountBN = new BigNumber(tx.value);
 
         const decodedTx: IDecodedTx = {
-          txid: tx.cid ?? '',
+          txid: tx.signed_cid ?? '',
           owner: tx.from,
           signer: tx.from,
           nonce: tx.nonce ?? 0,
@@ -321,7 +334,7 @@ export default class Vault extends VaultBase {
               },
             },
           ],
-          status: getDecodedTxStatus(tx.exit_code),
+          status: getDecodedTxStatus(tx.exit_code, tx.signed_cid),
           networkId: this.networkId,
           accountId: this.accountId,
           extraInfo: null,
