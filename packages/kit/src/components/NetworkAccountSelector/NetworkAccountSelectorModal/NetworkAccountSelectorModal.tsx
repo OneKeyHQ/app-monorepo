@@ -1,9 +1,16 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Modal } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  IconButton,
+  Modal,
+  Pressable,
+  Typography,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -17,11 +24,11 @@ import Header from './Header';
 import SideChainSelector from './SideChainSelector';
 
 const { updateIsOpenDelay, updateIsOpen } = reducerAccountSelector.actions;
-const showSideChainSelector = true;
 // use Modal header or custom header
 const showCustomLegacyHeader = false;
 function NetworkAccountSelectorModal() {
   const { dispatch } = backgroundApiProxy;
+  const [showSideChainSelector, setShowSideChainSelector] = useState(false);
   const isMountedRef = useRef(false);
   const intl = useIntl();
   useEffect(() => {
@@ -58,7 +65,17 @@ function NetworkAccountSelectorModal() {
       headerShown={!showCustomLegacyHeader}
       header={intl.formatMessage({ id: 'title__accounts' })}
       // TODO loading
-      headerDescription={accountSelectorInfo?.selectedNetwork?.name || '-'}
+      headerDescription={
+        <Pressable
+          onPress={() => {
+            setShowSideChainSelector(!showSideChainSelector);
+          }}
+        >
+          <Typography.Caption textAlign="center" color="text-subdued">
+            {accountSelectorInfo?.selectedNetwork?.name || '-'}
+          </Typography.Caption>
+        </Pressable>
+      }
       footer={null}
       staticChildrenProps={{
         flex: 1,

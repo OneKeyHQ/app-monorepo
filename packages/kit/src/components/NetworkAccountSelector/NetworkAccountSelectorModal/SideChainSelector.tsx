@@ -189,7 +189,7 @@ function SideChainSelector({
                 type="plain"
                 size="xl"
                 circle
-                name="SortAscendingOutline"
+                name="BarsArrowUpOutline"
                 onPress={() => {
                   navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.ManageNetwork,
@@ -214,7 +214,7 @@ function SideChainSelector({
             type="plain"
             size="xl"
             circle
-            name="SortAscendingOutline"
+            name="BarsArrowUpOutline"
             onPress={() => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.ManageNetwork,
