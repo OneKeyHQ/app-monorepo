@@ -59,7 +59,7 @@ const DateSelector: FC<Props> = ({ title, onChange }) => {
               {title}
             </Text>
             <Box ml="4px">
-              <Icon size={20} name="ChevronDownMini" />
+              <Icon size={20} name="ChevronDownMini" color="icon-subdued" />
             </Box>
           </Row>
         )}

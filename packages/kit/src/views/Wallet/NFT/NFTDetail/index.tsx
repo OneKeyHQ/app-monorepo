@@ -325,7 +325,7 @@ const NFTDetailModal: FC = () => {
                     )}
                   </Box>
                 </Box>
-                <Icon name="ChevronRightMini" />
+                <Icon name="ChevronRightMini" color="icon-subdued" />
               </HStack>
             )}
           </Pressable>

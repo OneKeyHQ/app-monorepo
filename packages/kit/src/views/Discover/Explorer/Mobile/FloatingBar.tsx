@@ -62,7 +62,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
       justifyContent="space-between"
       pb="7px"
     >
-      <Icon name="ChevronDownMini" />
+      <Icon name="ChevronDownMini" color="icon-subdued" />
       <Pressable
         flex="1"
         bg="action-secondary-default"

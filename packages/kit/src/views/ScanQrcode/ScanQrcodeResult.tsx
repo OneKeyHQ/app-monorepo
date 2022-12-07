@@ -107,7 +107,7 @@ const ScanQrcodeResult: FC = () => {
               })}
             </Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightMini" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Pressable>
       )}
       {(type === UserInputCategory.WATCHING ||
@@ -134,7 +134,7 @@ const ScanQrcodeResult: FC = () => {
                 })}
               </Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightMini" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Pressable>
           <Divider />
           <Pressable
@@ -161,7 +161,7 @@ const ScanQrcodeResult: FC = () => {
                 })}
               </Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightMini" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Pressable>
         </>
       )}
@@ -193,7 +193,7 @@ const ScanQrcodeResult: FC = () => {
               })}
             </Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightMini" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Pressable>
       )}
       <CopyButton data={data} />

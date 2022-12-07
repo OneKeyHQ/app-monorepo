@@ -90,10 +90,10 @@ const Provider: FC<UIProviderProps> = ({
               shadowColor: '#000',
               shadowOffset: {
                 width: 0,
-                height: 1,
+                height: 0.5,
               },
               shadowOpacity: 0.05,
-              shadowRadius: 1.0,
+              shadowRadius: 0.25,
               elevation: 1,
             },
             2: {

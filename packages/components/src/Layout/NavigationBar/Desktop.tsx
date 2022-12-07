@@ -74,7 +74,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
                 <Icon
                   // @ts-expect-error
                   name={options?.tabBarIcon?.() as ICON_NAMES}
-                  color={isActive ? 'icon-pressed' : 'icon-default'}
+                  color={isActive ? 'icon-default' : 'icon-subdued'}
                   size={24}
                 />
 
@@ -120,7 +120,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
               <Box display="flex" flexDirection="row" alignItems="center">
                 <Icon
                   name={foldable?.tabBarIcon?.() as ICON_NAMES}
-                  color={foldable.disabled ? 'icon-disabled' : 'icon-default'}
+                  color={foldable.disabled ? 'icon-disabled' : 'icon-subdued'}
                   size={24}
                 />
 

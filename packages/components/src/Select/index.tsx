@@ -343,13 +343,13 @@ function Select<T = string>({
               bg={
                 // eslint-disable-next-line no-nested-ternary
                 visible
-                  ? 'surface-selected'
+                  ? 'action-secondary-pressed'
                   : // eslint-disable-next-line no-nested-ternary
                   isHovered
-                  ? 'surface-hovered'
+                  ? 'action-secondary-hovered'
                   : isTriggerPlain
                   ? undefined
-                  : 'surface-default'
+                  : 'action-secondary-default'
               }
             >
               <Box
@@ -393,12 +393,7 @@ function Select<T = string>({
                   )}
                 </Box>
               </Box>
-              <NBIcon
-                as={ChevronDown}
-                size={5}
-                color="icon-default"
-                ml="auto"
-              />
+              <NBIcon as={ChevronDown} size={5} ml="auto" />
             </Box>
           )
         }

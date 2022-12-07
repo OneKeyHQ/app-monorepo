@@ -145,7 +145,7 @@ export function WalletSelectDropdown({
                     intl,
                   })}
                 </Text>
-                <Icon name="ChevronUpDownMini" size={20} />
+                <Icon name="ChevronUpDownMini" color="icon-subdued" size={20} />
               </Box>
             )}
           </Pressable>
