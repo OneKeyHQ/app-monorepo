@@ -25,6 +25,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { getTimeDurationMs, wait } from '../../utils/helper';
+import {
+  getCurrentModalRouteData,
+  isSendModalRouteExisting,
+} from '../../utils/routeUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {
@@ -255,15 +259,7 @@ class ServiceDapp extends ServiceBase {
   }
 
   isSendModalExisting() {
-    return (
-      (
-        global.$navigationRef.current
-          ?.getState()
-          ?.routes?.find((item) => item?.name === RootRoutes.Modal)?.params as {
-          screen?: ModalRoutes;
-        }
-      )?.screen === ModalRoutes.Send
-    );
+    return isSendModalRouteExisting();
   }
 
   _openModalByRouteParams = ({
