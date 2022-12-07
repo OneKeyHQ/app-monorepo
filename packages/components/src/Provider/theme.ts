@@ -28,7 +28,7 @@ export const dark = {
   'text-success': '#34C759',
   'text-on-primary': '#FFFFFF',
   'text-on-critical': '#FFFFFF',
-  'icon-default': '#8C8CA1',
+  'icon-default': '#E2E2E8',
   'icon-subdued': '#636378',
   'icon-hovered': '#F4F4F7',
   'icon-pressed': '#E2E2E8',

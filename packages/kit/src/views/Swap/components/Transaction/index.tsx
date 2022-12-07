@@ -352,7 +352,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
             <Icon
               name="ArrowTopRightOnSquareOutline"
               size={16}
-              color="text-subdued"
+              color="icon-subdued"
             />
           </Box>
         )}
@@ -385,7 +385,7 @@ const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
       <Icon
         name="ArrowTopRightOnSquareOutline"
         size={16}
-        color="text-subdued"
+        color="icon-subdued"
       />
     </Pressable>
   );
@@ -566,7 +566,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             </Typography.Caption>
             <Icon
               name="ArrowTopRightOnSquareOutline"
-              color="text-subdued"
+              color="icon-subdued"
               size={16}
             />
           </Pressable>
