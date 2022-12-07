@@ -179,7 +179,7 @@ export const AboutSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightMini" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -210,7 +210,7 @@ export const AboutSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightMini" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
         <Pressable
@@ -240,7 +240,11 @@ export const AboutSection = () => {
               id: 'form__website',
             })}
           </Text>
-          <Icon name="ArrowTopRightOnSquareMini" size={20} />
+          <Icon
+            name="ArrowTopRightOnSquareMini"
+            color="icon-subdued"
+            size={20}
+          />
         </Pressable>
         <Pressable
           display="flex"
@@ -260,7 +264,11 @@ export const AboutSection = () => {
           >
             Discord
           </Text>
-          <Icon name="ArrowTopRightOnSquareMini" size={20} />
+          <Icon
+            name="ArrowTopRightOnSquareMini"
+            color="icon-subdued"
+            size={20}
+          />
         </Pressable>
         <Pressable
           display="flex"
@@ -278,7 +286,11 @@ export const AboutSection = () => {
           >
             Twitter
           </Text>
-          <Icon name="ArrowTopRightOnSquareMini" size={20} />
+          <Icon
+            name="ArrowTopRightOnSquareMini"
+            color="icon-subdued"
+            size={20}
+          />
         </Pressable>
       </Box>
     </Box>

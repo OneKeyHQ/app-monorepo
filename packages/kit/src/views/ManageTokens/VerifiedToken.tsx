@@ -93,7 +93,7 @@ const VerifiedTokens: React.FC = () => {
                   </Typography.Body2>
                 )}
               </VStack>
-              <Icon name="ChevronRightMini" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </HStack>
           </Pressable>
         )}

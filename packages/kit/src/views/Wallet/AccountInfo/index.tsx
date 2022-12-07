@@ -164,7 +164,7 @@ const AccountAmountInfo: FC = () => {
           >
             {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
           </Text>
-          <Icon name="Square2StackOutline" size={16} />
+          <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
         </Pressable>
       </Box>
       <Box flexDirection="row" alignItems="center" mt={1}>

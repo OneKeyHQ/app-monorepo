@@ -152,7 +152,7 @@ export const SupportTokenList: FC = () => {
         <Text typography="Body1Strong" color="text-subdued" mr="4px">
           {item.balance ?? 0}
         </Text>
-        <Icon name="ChevronRightMini" size={20} />
+        <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
       </Pressable>
     ),
     [flatListData.length, navigation, type],
