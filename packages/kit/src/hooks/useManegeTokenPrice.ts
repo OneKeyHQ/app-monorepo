@@ -4,7 +4,7 @@ import { useIsFocused } from '@react-navigation/core';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import { useActiveWalletAccount, useAppSelector } from './redux';
+import { useAppSelector } from './redux';
 
 export const useSimpleTokenPriceInfo = ({
   networkId,

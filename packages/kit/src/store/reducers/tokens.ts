@@ -144,6 +144,13 @@ export const tokensSlice = createSlice({
         const cachePrice = state.tokenPriceMap[tokenPriceKey] || {};
         state.tokenPriceMap[tokenPriceKey] = { ...cachePrice, ...prices[key] };
       });
+      // check old data
+      if (Object.keys(state.tokensPrice).length) {
+        state.tokensPrice = {};
+      }
+      if (Object.keys(state.charts).length) {
+        state.charts = {};
+      }
     },
     setAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {
       const { activeAccountId, activeNetworkId, tokens } = action.payload;
