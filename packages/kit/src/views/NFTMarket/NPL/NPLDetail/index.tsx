@@ -293,7 +293,7 @@ const Header: FC<HeaderProps> = ({
             flex={1}
             type="primary"
             size="lg"
-            leftIconName="ExternalLinkSolid"
+            leftIconName="ArrowTopRightOnSquareSolid"
             onPress={shareAction}
           >
             Share
