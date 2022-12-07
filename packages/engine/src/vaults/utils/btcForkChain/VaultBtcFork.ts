@@ -641,7 +641,10 @@ export default class VaultBtcFork extends VaultBase {
       | ArrayElement<IBlockBookTransaction['vout']>,
     accountAddress: string,
   ) {
-    return item.isOwn ?? false;
+    if ('isOwn' in item) {
+      return item.isOwn ?? false;
+    }
+    return item.addresses.some((address) => address === accountAddress);
   }
 
   collectUTXOs = memoizee(
