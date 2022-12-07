@@ -56,7 +56,12 @@ const BackupItem: FC<BackupItemProps> = ({
       >
         <Image size={16} source={imageSrc} />
         <Box>
-          <Icon title={badge} size={24} name="ChevronRightMini" />
+          <Icon
+            title={badge}
+            size={24}
+            name="ChevronRightMini"
+            color="icon-subdued"
+          />
         </Box>
       </Box>
       <Typography.Body1Strong mt={4}>{title}</Typography.Body1Strong>

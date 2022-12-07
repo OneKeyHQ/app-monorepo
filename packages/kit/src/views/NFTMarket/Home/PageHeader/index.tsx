@@ -71,7 +71,7 @@ const PageHeader = () => {
               _hover={{ bg: 'surface-hovered' }}
               _pressed={{ bg: 'surface-pressed' }}
             >
-              <Icon name="MagnifyingGlassMini" size={20} />
+              <Icon name="MagnifyingGlassMini" size={20} color="icon-subdued" />
               <Text typography="Body2" color="text-subdued" ml={2}>
                 {intl.formatMessage({ id: 'form__nft_search_placeholder' })}
               </Text>

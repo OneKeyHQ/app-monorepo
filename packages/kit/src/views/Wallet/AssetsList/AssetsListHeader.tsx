@@ -90,7 +90,7 @@ const ListHeader: FC<{
           >
             {accountTokens.length}
           </Text>
-          <Icon name="ChevronRightMini" />
+          <Icon name="ChevronRightMini" color="icon-subdued" />
         </>
       ) : (
         tokenEnabled && (
