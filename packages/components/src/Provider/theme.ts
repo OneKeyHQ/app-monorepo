@@ -29,7 +29,7 @@ export const dark = {
   'text-on-primary': '#FFFFFF',
   'text-on-critical': '#FFFFFF',
   'icon-default': '#E2E2E8',
-  'icon-subdued': '#636378',
+  'icon-subdued': '#8C8CA1',
   'icon-hovered': '#F4F4F7',
   'icon-pressed': '#E2E2E8',
   'icon-disabled': '#48485B',
