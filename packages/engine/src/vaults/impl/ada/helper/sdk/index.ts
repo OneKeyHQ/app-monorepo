@@ -1,4 +1,4 @@
-import { onekeyUtils, trezorUtils } from 'cardano-coin-selection';
+import { dAppUtils, onekeyUtils, trezorUtils } from 'cardano-coin-selection';
 
 const CardanoApi = {
   composeTxPlan: onekeyUtils.composeTxPlan,
@@ -6,4 +6,4 @@ const CardanoApi = {
   hwSignTransaction: trezorUtils.signTransaction,
 };
 
-export { CardanoApi };
+export { CardanoApi, dAppUtils };

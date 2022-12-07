@@ -19,6 +19,7 @@ import {
 import { batch } from 'react-redux';
 
 import {
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_CFX,
@@ -303,6 +304,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'tron': IMPL_TRON,
     'algo': IMPL_ALGO,
     'sui': IMPL_SUI,
+    'cardano': IMPL_ADA,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };

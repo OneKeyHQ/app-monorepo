@@ -69,6 +69,13 @@ class Client {
       .then((i) => i.data);
   }
 
+  async getAssociatedAddresses(stakeAddress: string): Promise<string[]> {
+    const res = await this.request
+      .get<{ address: string }[]>(`/accounts/${stakeAddress}/addresses`)
+      .then((i) => i.data);
+    return res.map((i) => i.address);
+  }
+
   async getBalance(stakeAddress: string): Promise<BigNumber> {
     const res = await this.request
       .get<IAdaAccount>(`/accounts/${stakeAddress}`)

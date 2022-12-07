@@ -16,12 +16,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import {
-  Account,
-  AccountType,
-  DBAccount,
-  DBUTXOAccount,
-} from '../../../types/account';
+import { Account, AccountType, DBUTXOAccount } from '../../../types/account';
 import { Token } from '../../../types/token';
 import {
   IApproveInfo,
@@ -40,7 +35,6 @@ import {
   ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
-  IUtxoAddressInfo,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -48,7 +42,7 @@ import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
 import { generateExportedCredential } from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
 import Client from './helper/client';
-import { CardanoApi } from './helper/sdk';
+import { CardanoApi, dAppUtils } from './helper/sdk';
 import { transformToOneKeyInputs } from './helper/transformations';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -695,4 +689,29 @@ export default class Vault extends VaultBase {
       promise: true,
     },
   );
+
+  // Dapp Function
+
+  async getBalanceForDapp(address: string) {
+    const [balance] = await this.getBalances([{ address }]);
+    return dAppUtils.getBalance(balance ?? new BigNumber(0));
+  }
+
+  async getUtxosForDapp(amount?: string) {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const client = await this.getClient();
+    const utxos = await client.getUTXOs(dbAccount);
+    return dAppUtils.getUtxos(dbAccount.address, utxos, amount);
+  }
+
+  async getAccountAddressForDapp() {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    return dAppUtils.getAddresses([dbAccount.address]);
+  }
+
+  async getStakeAddressForDapp() {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const stakeAddress = await this.getStakeAddress(dbAccount.address);
+    return dAppUtils.getAddresses([stakeAddress]);
+  }
 }
