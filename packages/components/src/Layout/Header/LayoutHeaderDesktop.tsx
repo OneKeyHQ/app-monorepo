@@ -3,10 +3,7 @@ import { useEffect, useRef } from 'react';
 import LayoutHeader from './index';
 
 import { Box, HStack, IconButton } from '@onekeyhq/components';
-import {
-  NetworkAccountSelectorTrigger,
-  NetworkAccountSelectorTriggerDesktop,
-} from '@onekeyhq/kit/src/components/NetworkAccountSelector';
+import { NetworkAccountSelectorTriggerDesktop } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
 import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';

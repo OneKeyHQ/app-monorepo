@@ -1,10 +1,7 @@
 import LayoutHeader from './index';
 
 import { HStack, IconButton } from '@onekeyhq/components';
-import {
-  NetworkAccountSelectorTrigger,
-  NetworkAccountSelectorTriggerMobile,
-} from '@onekeyhq/kit/src/components/NetworkAccountSelector';
+import { NetworkAccountSelectorTriggerMobile } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 

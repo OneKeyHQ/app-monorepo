@@ -10,10 +10,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import {
-  NetworkAccountSelectorTrigger,
-  NetworkAccountSelectorTriggerMobile,
-} from '../../../../components/NetworkAccountSelector';
+import { NetworkAccountSelectorTriggerMobile } from '../../../../components/NetworkAccountSelector';
 import { useWebTabs } from '../Controller/useWebTabs';
 import { MIN_OR_HIDE, expandAnim } from '../explorerAnimation';
 

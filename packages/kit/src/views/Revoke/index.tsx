@@ -28,7 +28,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
-  NetworkAccountSelectorTrigger,
   NetworkAccountSelectorTriggerDesktop,
   NetworkAccountSelectorTriggerMobile,
 } from '../../components/NetworkAccountSelector';

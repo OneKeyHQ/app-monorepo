@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Box, Token, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Token } from '@onekeyhq/components';
 
 import { useActiveWalletAccount, useNavigationActions } from '../../../hooks';
 import { useRpcMeasureStatus } from '../../../views/ManageNetworks/hooks';
@@ -12,6 +12,7 @@ import {
 } from './BaseSelectorTrigger';
 
 function NetworkSelectorTrigger({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   type = 'plain',
   size = 'sm',
   bg,

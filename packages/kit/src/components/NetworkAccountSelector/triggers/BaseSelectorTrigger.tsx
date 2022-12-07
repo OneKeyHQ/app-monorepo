@@ -2,7 +2,6 @@ import { ColorType } from 'native-base/lib/typescript/components/types';
 import { StyleSheet } from 'react-native';
 
 import {
-  Box,
   Center,
   HStack,
   Icon,

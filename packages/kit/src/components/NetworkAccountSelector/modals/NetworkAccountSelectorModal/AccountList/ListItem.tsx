@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { FC, useCallback, useLayoutEffect, useMemo } from 'react';
+import React, { FC, useLayoutEffect, useMemo } from 'react';
 
 import {
   Box,
@@ -10,10 +10,6 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import {
@@ -23,18 +19,10 @@ import {
 } from '../../../../../hooks';
 import useAppNavigation from '../../../../../hooks/useAppNavigation';
 import { useNativeTokenBalance } from '../../../../../hooks/useTokens';
-import {
-  ModalRoutes,
-  RootRoutes,
-  SendRoutes,
-} from '../../../../../routes/routesEnum';
-import reducerAccountSelector, {
-  EAccountSelectorMode,
-} from '../../../../../store/reducers/reducerAccountSelector';
-import { wait } from '../../../../../utils/helper';
+import reducerAccountSelector from '../../../../../store/reducers/reducerAccountSelector';
 import { formatAmount } from '../../../../../utils/priceUtils';
 import ExternalAccountImg from '../../../../../views/ExternalAccount/components/ExternalAccountImg';
-import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
 import { AccountItemSelectDropdown } from '../AccountItemSelectDropdown';
 
 type ListItemProps = {
@@ -103,67 +91,19 @@ const ListItem: FC<ListItemProps> = ({
     ],
   );
 
-  const onPress = useCallback(async () => {
-    closeModal();
-    closeWalletSelector();
-    await wait(0);
-    const accountId = account?.id || '';
-
-    if (accountSelectorMode === EAccountSelectorMode.Transfer) {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendRoutes.PreSendToken,
-          params: {
-            accountId,
-            networkId: networkId || '',
-            from: '',
-            to: '',
-            amount: '',
-          },
-        },
-      });
-      return;
-    }
-    if (accountSelectorMode === EAccountSelectorMode.Wallet) {
-      dispatch(updateIsRefreshDisabled(true));
-
-      try {
-        if (isVertical) {
-          await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
-        }
-
-        if (networkId) {
-          await serviceNetwork.changeActiveNetwork(networkId);
-        }
-        await serviceAccount.changeActiveAccount({
-          accountId,
-          walletId: walletId ?? '',
-        });
-        await serviceAccountSelector.setSelectedWalletToActive();
-        appUIEventBus.emit(AppUIEventBusNames.AccountChanged);
-      } finally {
-        await wait(100);
-        dispatch(updateIsRefreshDisabled(false));
-      }
-    }
-  }, [
-    account?.id,
-    accountSelectorMode,
-    closeModal,
-    closeWalletSelector,
-    dispatch,
-    isVertical,
-    navigation,
-    networkId,
-    serviceAccount,
-    serviceAccountSelector,
-    serviceNetwork,
-    walletId,
-  ]);
+  const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
 
   return (
-    <Pressable onPress={onPress}>
+    <Pressable
+      onPress={() =>
+        onPressChangeAccount({
+          accountId: account?.id,
+          networkId,
+          walletId,
+          accountSelectorMode,
+        })
+      }
+    >
       {({ isHovered, isPressed }) => (
         <>
           <Box
