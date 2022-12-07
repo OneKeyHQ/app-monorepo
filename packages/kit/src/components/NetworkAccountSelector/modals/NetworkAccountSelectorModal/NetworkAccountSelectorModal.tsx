@@ -13,22 +13,22 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { LazyDisplayView } from '../../LazyDisplayView';
-import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
+import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { LazyDisplayView } from '../../../LazyDisplayView';
+import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
 import AccountList from './AccountList';
 import Header from './Header';
 import SideChainSelector from './SideChainSelector';
 
 const { updateIsOpenDelay, updateIsOpen } = reducerAccountSelector.actions;
-// use Modal header or custom header
-const showCustomLegacyHeader = false;
 function NetworkAccountSelectorModal() {
   const { dispatch } = backgroundApiProxy;
   const [showSideChainSelector, setShowSideChainSelector] = useState(false);
+  // use Modal header or custom header
+  const [showCustomLegacyHeader, setShowCustomLegacyHeader] = useState(false);
   const isMountedRef = useRef(false);
   const intl = useIntl();
   useEffect(() => {
@@ -67,6 +67,9 @@ function NetworkAccountSelectorModal() {
       // TODO loading
       headerDescription={
         <Pressable
+          onLongPress={() => {
+            setShowCustomLegacyHeader(!showCustomLegacyHeader);
+          }}
           onPress={() => {
             setShowSideChainSelector(!showSideChainSelector);
           }}

@@ -15,12 +15,12 @@ import {
 import { IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useRuntime } from '../../../hooks/redux';
-import { useIsMounted } from '../../../hooks/useIsMounted';
-import { getWalletName } from '../../../hooks/useWalletName';
-import { WalletAvatarPro } from '../../WalletSelector/WalletAvatar';
-import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useRuntime } from '../../../../hooks/redux';
+import { useIsMounted } from '../../../../hooks/useIsMounted';
+import { getWalletName } from '../../../../hooks/useWalletName';
+import { WalletAvatarPro } from '../../../WalletSelector/WalletAvatar';
+import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
 import { CreateAccountButton } from './CreateAccountButton';
 

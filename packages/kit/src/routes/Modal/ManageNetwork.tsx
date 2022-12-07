@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
 import { NetworkAccountSelectorModal } from '../../components/NetworkAccountSelector';
-import { NetworkSelectorModal } from '../../components/NetworkAccountSelector/NetworkSelectorModal/NetworkSelectorModal';
+import { NetworkSelectorModal } from '../../components/NetworkAccountSelector/modals/NetworkSelectorModal/NetworkSelectorModal';
 import { AddNetworkConfirm } from '../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
 import { ManageNetworkQuickAdd } from '../../views/ManageNetworks/QuickAdd';
 import { SwitchNetwork } from '../../views/ManageNetworks/SwitchNetwork';

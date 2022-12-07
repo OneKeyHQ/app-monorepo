@@ -15,26 +15,26 @@ import {
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
   useAppSelector,
   useNavigationActions,
-} from '../../../../hooks';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { useNativeTokenBalance } from '../../../../hooks/useTokens';
+} from '../../../../../hooks';
+import useAppNavigation from '../../../../../hooks/useAppNavigation';
+import { useNativeTokenBalance } from '../../../../../hooks/useTokens';
 import {
   ModalRoutes,
   RootRoutes,
   SendRoutes,
-} from '../../../../routes/routesEnum';
+} from '../../../../../routes/routesEnum';
 import reducerAccountSelector, {
   EAccountSelectorMode,
-} from '../../../../store/reducers/reducerAccountSelector';
-import { wait } from '../../../../utils/helper';
-import { formatAmount } from '../../../../utils/priceUtils';
-import ExternalAccountImg from '../../../../views/ExternalAccount/components/ExternalAccountImg';
-import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+} from '../../../../../store/reducers/reducerAccountSelector';
+import { wait } from '../../../../../utils/helper';
+import { formatAmount } from '../../../../../utils/priceUtils';
+import ExternalAccountImg from '../../../../../views/ExternalAccount/components/ExternalAccountImg';
+import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountItemSelectDropdown } from '../AccountItemSelectDropdown';
 
 type ListItemProps = {

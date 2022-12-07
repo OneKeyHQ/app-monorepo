@@ -19,18 +19,18 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../hooks';
-import { useStatus } from '../../../hooks/redux';
-import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { setFistTimeShowCheckRPCNodeTooltip } from '../../../store/reducers/status';
-import { wait } from '../../../utils/helper';
-import { useRpcMeasureStatus } from '../../../views/ManageNetworks/hooks';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../../hooks';
+import { useStatus } from '../../../../hooks/redux';
+import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
+import { setFistTimeShowCheckRPCNodeTooltip } from '../../../../store/reducers/status';
+import { wait } from '../../../../utils/helper';
+import { useRpcMeasureStatus } from '../../../../views/ManageNetworks/hooks';
 import {
   ManageNetworkRoutes,
   ManageNetworkRoutesParams,
-} from '../../../views/ManageNetworks/types';
-import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
+} from '../../../../views/ManageNetworks/types';
+import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
 import Speedindicator from './SpeedIndicator';
 import { WalletSelectDropdown } from './WalletSelectDropdown';
@@ -175,7 +175,8 @@ function Header({
               </TouchableOpacity>
             </VStack>
             <IconButton
-              name="CloseSolid"
+              size="xl"
+              name="XMarkOutline"
               type="plain"
               circle
               onPress={() => {

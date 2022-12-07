@@ -7,12 +7,12 @@ import { Box, Modal } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../../hooks';
-import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { LazyDisplayView } from '../../LazyDisplayView';
-import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../../../hooks';
+import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
+import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { LazyDisplayView } from '../../../LazyDisplayView';
+import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 import SideChainSelector from '../NetworkAccountSelectorModal/SideChainSelector';
 
 const { updateIsOpenDelay, updateIsOpen } = reducerAccountSelector.actions;

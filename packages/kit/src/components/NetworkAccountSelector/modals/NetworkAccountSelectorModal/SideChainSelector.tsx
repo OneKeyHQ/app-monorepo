@@ -19,15 +19,15 @@ import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import { INetwork } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useManageNetworks } from '../../../hooks';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
-import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
-import { RpcStatusButton } from '../RpcStatusButton';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useManageNetworks } from '../../../../hooks';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
+import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+import { RpcStatusButton } from '../../RpcStatusButton';
 
 function ChainNetworkIcon({
   onLastItemRender,

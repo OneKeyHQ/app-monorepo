@@ -4,7 +4,7 @@ import { Box, Token, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useActiveWalletAccount, useNavigationActions } from '../../../hooks';
 import { useRpcMeasureStatus } from '../../../views/ManageNetworks/hooks';
-import Speedindicator from '../NetworkAccountSelectorModal/SpeedIndicator';
+import Speedindicator from '../modals/NetworkAccountSelectorModal/SpeedIndicator';
 
 import {
   BaseSelectorTrigger,
