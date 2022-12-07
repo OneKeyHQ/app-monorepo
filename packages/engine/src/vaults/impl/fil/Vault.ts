@@ -7,6 +7,7 @@ import {
 import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { isObject } from 'lodash';
 import memoizee from 'memoizee';
@@ -43,7 +44,8 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { CID, IEncodedTxFil } from './types';
+import { CID, IEncodedTxFil, IOnChainHistoryTx } from './types';
+import { getDecodedTxStatus, getTxStatus } from './utils';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -58,12 +60,12 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   getClientCache = memoizee(
-    async (rpcUrl) =>
+    async (rpcUrl, namespace) =>
       new LotusRpcEngine({
         apiAddress: rpcUrl,
+        namespace,
       }),
     {
-      max: 1,
       primitive: true,
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
@@ -71,7 +73,15 @@ export default class Vault extends VaultBase {
 
   async getClient(url?: string) {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    return this.getClientCache(url ?? rpcURL);
+    return this.getClientCache(url ?? rpcURL, 'Filecoin');
+  }
+
+  async getScanClient() {
+    const { isTestnet } = await this.engine.getNetwork(this.networkId);
+    const rpcURL = isTestnet
+      ? 'https://wallaby.filscan.io:8890/rpc/v1'
+      : 'https://api.filscan.io:8700/rpc/v1';
+    return this.getClientCache(rpcURL, 'filscan');
   }
 
   async buildEncodedTxFromTransfer(
@@ -230,6 +240,110 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );
+  }
+
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    return Promise.all(
+      txids.map(async (txid) => {
+        const scanClient = await this.getScanClient();
+        const response = await scanClient.request<IOnChainHistoryTx>(
+          'MessageDetails',
+          txid,
+        );
+        return getTxStatus(response.exit_code);
+      }),
+    );
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const scanClient = await this.getScanClient();
+    const { localHistory } = options;
+
+    const address = await this.getAccountAddress();
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    let txs: IOnChainHistoryTx[] = [];
+    try {
+      const list = await scanClient.request<{ data: IOnChainHistoryTx[] }>(
+        'MessageByAddress',
+        {
+          address,
+          offset_range: { start: 0, count: 50 },
+        },
+      );
+
+      txs = list.data;
+    } catch (e) {
+      console.error(e);
+    }
+
+    const promises = txs.map((tx) => {
+      try {
+        const historyTxToMerge = localHistory.find(
+          (item) => item.decodedTx.txid === tx?.cid,
+        );
+        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+          return null;
+        }
+        if (tx.method_name !== 'transfer') {
+          return null;
+        }
+
+        let direction = IDecodedTxDirection.OUT;
+        if (tx.to === address) {
+          direction =
+            tx.from === address
+              ? IDecodedTxDirection.SELF
+              : IDecodedTxDirection.IN;
+        }
+        const amountBN = new BigNumber(tx.value);
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.cid ?? '',
+          owner: tx.from,
+          signer: tx.from,
+          nonce: tx.nonce ?? 0,
+          actions: [
+            {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: token,
+                from: tx.from,
+                to: tx.to,
+                amount: amountBN.shiftedBy(-token.decimals).toFixed(),
+                amountValue: amountBN.toFixed(),
+                extraInfo: null,
+              },
+            },
+          ],
+          status: getDecodedTxStatus(tx.exit_code),
+          networkId: this.networkId,
+          accountId: this.accountId,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(tx.gas_used ?? 0)
+            .shiftedBy(-token.decimals)
+            .toFixed(),
+        };
+        decodedTx.updatedAt = new Date(tx.last_modified).getTime();
+        decodedTx.createdAt =
+          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+        return this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
+        console.error(e);
+        return Promise.resolve(null);
+      }
+    });
+
+    return (await Promise.all(promises)).filter(Boolean);
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {

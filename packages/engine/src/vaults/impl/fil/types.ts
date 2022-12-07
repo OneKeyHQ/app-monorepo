@@ -29,3 +29,19 @@ export type IEncodedTxFil = {
   To: string;
   Value: string;
 };
+
+export type IOnChainHistoryTx = {
+  cid: string;
+  from: string;
+  to: string;
+  exit_code: number;
+  gas_burned: string;
+  gas_fee_cap: string;
+  gas_limit: number;
+  gas_premium: string;
+  gas_used: string;
+  last_modified: string;
+  method_name: string;
+  nonce: number;
+  value: string;
+};
