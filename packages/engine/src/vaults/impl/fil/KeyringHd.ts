@@ -4,10 +4,15 @@ import {
   batchGetPublicKeys,
 } from '@onekeyfe/blockchain-libs/dist/secret';
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
+import {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_FIL as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
+import { Signer } from '../../../proxy';
 import { AccountType, DBVariantAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import {
@@ -16,11 +21,50 @@ import {
   IUnsignedTxPro,
 } from '../../types';
 
+import { signTransaction } from './utils';
+
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
-  override async prepareAccounts(
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+      this.networkId
+    ];
+
+    const signers = await this.getSigners(options.password || '', [
+      selectedAddress,
+    ]);
+    const signer = signers[selectedAddress];
+
+    return signTransaction(unsignedTx, signer);
+  }
+
+  async getSigners(password: string, addresses: Array<string>) {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const selectedAddress = dbAccount.addresses[this.networkId];
+
+    if (addresses.length !== 1) {
+      throw new OneKeyInternalError('CFX signers number should be 1.');
+    } else if (addresses[0] !== selectedAddress) {
+      throw new OneKeyInternalError('Wrong address required for signing.');
+    }
+
+    const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
+      password,
+    );
+    if (typeof privateKey === 'undefined') {
+      throw new OneKeyInternalError('Unable to get signer.');
+    }
+
+    return { [selectedAddress]: new Signer(privateKey, password, 'secp256k1') };
+  }
+
+  async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const curve: CurveName = 'secp256k1';

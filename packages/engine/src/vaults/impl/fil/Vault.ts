@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
+import {
+  CoinType,
+  newSecp256k1Address,
+  validateAddressString,
+} from '@glif/filecoin-address';
+import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
+import { isObject } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
   InvalidAddress,
@@ -14,6 +21,21 @@ import {
 } from '../../../errors';
 import { Account, DBVariantAccount } from '../../../types/account';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import {
+  IDecodedTx,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxLegacy,
+  IDecodedTxStatus,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -21,6 +43,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { CID, IEncodedTxFil } from './types';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -49,6 +72,141 @@ export default class Vault extends VaultBase {
   async getClient(url?: string) {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     return this.getClientCache(url ?? rpcURL);
+  }
+
+  async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxFil> {
+    const { from, to, amount } = transferInfo;
+    const network = await this.getNetwork();
+
+    let amountBN = new BigNumber(amount);
+    if (amountBN.isNaN()) {
+      amountBN = new BigNumber('0');
+    }
+
+    const message = new Message({
+      from,
+      to,
+      nonce: 0,
+      value: amountBN.shiftedBy(network.decimals),
+      method: 0,
+      params: '',
+    });
+    return message.toLotusType();
+  }
+
+  override async decodeTx(
+    encodedTx: IEncodedTxFil,
+    payload?: any,
+  ): Promise<IDecodedTx> {
+    const network = await this.engine.getNetwork(this.networkId);
+    const address = await this.getAccountAddress();
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: encodedTx.From,
+      signer: encodedTx.From,
+      nonce: 0,
+      actions: [
+        {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          nativeTransfer: {
+            tokenInfo: token,
+            from: encodedTx.From,
+            to: encodedTx.To,
+            amount: new BigNumber(encodedTx.Value)
+              .shiftedBy(-network.decimals)
+              .toFixed(),
+            amountValue: encodedTx.Value,
+            extraInfo: null,
+          },
+          direction:
+            encodedTx.To === address
+              ? IDecodedTxDirection.SELF
+              : IDecodedTxDirection.OUT,
+        },
+      ],
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      payload,
+      extraInfo: null,
+    };
+
+    return decodedTx;
+  }
+
+  async fetchFeeInfo(encodedTx: IEncodedTxFil): Promise<IFeeInfo> {
+    const client = await this.getClient();
+    const network = await this.engine.getNetwork(this.networkId);
+
+    const encodedTxWithFeeInfo: IEncodedTxFil = await client.request(
+      'GasEstimateMessageGas',
+      encodedTx,
+      {},
+      [],
+    );
+
+    const limit = BigNumber.max(
+      encodedTx.GasLimit,
+      encodedTxWithFeeInfo.GasLimit,
+    );
+
+    return {
+      customDisabled: true,
+      limit: new BigNumber(limit).toFixed(),
+      prices: [
+        new BigNumber(encodedTxWithFeeInfo.GasFeeCap)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed(),
+      ],
+      defaultPresetIndex: '0',
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      tx: null, // Must be null if network not support feeInTx
+    };
+  }
+
+  async attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxFil;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTxFil> {
+    const { encodedTx } = params;
+    const client = await this.getClient();
+
+    const encodedTxWithFeeInfo: IEncodedTxFil = await client.request(
+      'GasEstimateMessageGas',
+      encodedTx,
+      {},
+      [],
+    );
+
+    return Promise.resolve(encodedTxWithFeeInfo);
+  }
+
+  async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxFil,
+  ): Promise<IUnsignedTxPro> {
+    const client = await this.getClient();
+    const nonce = await client.request('MpoolGetNonce', encodedTx.From);
+
+    encodedTx.Nonce = Number(nonce);
+
+    return Promise.resolve({
+      inputs: [],
+      outputs: [],
+      payload: { encodedTx },
+      encodedTx,
+    });
+  }
+
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    return Promise.resolve({} as IDecodedTxLegacy);
   }
 
   async getExportedCredential(password: string): Promise<string> {
@@ -130,9 +288,9 @@ export default class Vault extends VaultBase {
   override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
+    const client = await this.getClient();
     const result = await Promise.all(
       requests.map(async ({ address }) => {
-        const client = await this.getClient();
         try {
           const balance = await client.request('WalletBalance', address);
 
@@ -148,5 +306,41 @@ export default class Vault extends VaultBase {
     );
 
     return result;
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const isValid = validateAddressString(address);
+    const normalizedAddress = isValid ? address.toLowerCase() : undefined;
+
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const client = await this.getClient();
+    let result: CID;
+    try {
+      result = await client.request('MpoolPush', JSON.parse(signedTx.rawTx));
+      console.log(result);
+    } catch (err) {
+      debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+
+    return {
+      ...signedTx,
+      txid: isObject(result) ? result['/'] : result,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }
