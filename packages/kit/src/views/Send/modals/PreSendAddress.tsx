@@ -444,7 +444,7 @@ function PreSendAddress() {
               >
                 <AddressInput
                   // TODO different max length in network
-                  maxLength={80}
+                  maxLength={103}
                   networkId={networkId}
                   // numberOfLines={10}
                   h={{ base: 120, md: 120 }}

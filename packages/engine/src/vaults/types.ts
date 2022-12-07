@@ -9,6 +9,7 @@ import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
 import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
+import type { IEncodedTxADA } from './impl/ada/types';
 import type { IEncodedTxAlgo } from './impl/algo/types';
 import type { IEncodedTxAptos } from './impl/apt/types';
 import type {
@@ -144,7 +145,9 @@ export type IEncodedTx =
   | IEncodedTxAlgo
   | IEncodedTxXrp
   | IEncodedTxCosmos
+  | IEncodedTxADA
   | IEncodedTxSUI;
+
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear

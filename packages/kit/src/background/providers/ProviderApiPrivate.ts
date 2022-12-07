@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
 import {
   IInjectedProviderNames,
@@ -183,6 +185,36 @@ class ProviderApiPrivate extends ProviderApiBase {
       walletInfo: this.getWalletInfo(),
       providerState,
     };
+  }
+
+  @providerApiMethod()
+  callCardanoWebEmbedMethod(payload: any) {
+    console.log('$privide provide request ===> callCardanoWebEmbedMethod');
+    console.log('callCardanoWebEmbedMethod =====>>>>>>>');
+    console.log(payload);
+    const data = ({ origin }: { origin: string }) => {
+      console.log(origin);
+      const result = {
+        method: payload.data?.method,
+        params: {
+          event: payload.data?.event,
+          promiseId: payload.data?.promiseId,
+          params: { ...payload.data?.params },
+        },
+      };
+      return result;
+    };
+    payload.data?.send?.(data);
+  }
+
+  @providerApiMethod()
+  cardanoWebEmbedResponse(payload: any) {
+    console.log('cardanoWebEmbedResponse =====<<<<<<<');
+    console.log(payload);
+    this.backgroundApi.servicePromise.resolveCallback({
+      id: payload?.data?.promiseId,
+      data: { ...(payload?.data?.data ?? {}) },
+    });
   }
 }
 

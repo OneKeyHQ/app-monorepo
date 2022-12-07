@@ -9,6 +9,7 @@ import { Network } from '@onekeyhq/kit/src/store/typings';
 
 import {
   COINTYPE_BTC,
+  IMPL_ADA,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_DOGE,
@@ -587,7 +588,7 @@ class Validators {
       this.engine.getNetwork(networkId),
     ]);
     if (
-      [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(
+      [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH, IMPL_ADA].includes(
         network.impl,
       )
     ) {
@@ -602,7 +603,9 @@ class Validators {
         if (typeof lastAccount !== 'undefined') {
           const vault = await this.engine.getChainOnlyVault(networkId);
           const accountExisted = await vault.checkAccountExistence(
-            (lastAccount as DBUTXOAccount).xpub,
+            network.impl === IMPL_ADA
+              ? lastAccount.address
+              : (lastAccount as DBUTXOAccount).xpub,
           );
           if (!accountExisted) {
             const accountTypeStr =

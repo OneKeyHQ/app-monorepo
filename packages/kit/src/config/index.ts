@@ -11,7 +11,7 @@ export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
 
 export const HARDWARE_SDK_IFRAME_SRC =
-  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.2.8/';
+  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.2.10/';
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';

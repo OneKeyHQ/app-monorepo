@@ -19,6 +19,9 @@ cp ./packages/shared/src/web/index.html.ejs ./packages/shared/src/web/index.html
 mkdir -p ./packages/desktop/public/static/js-sdk/
 rsync ./node_modules/@onekeyfe/js-sdk/dist/js-sdk-desktop/ ./packages/desktop/public/static/js-sdk/ --checksum  --recursive --verbose
 
+# remove the invalid fs library dependence by starcoin, to fix fs polyfill issue in native
+rm -rf ./node_modules/fs/
+
 # build and copy web-embed
 if [ "$EAS_BUILD" == "true" ];
   then

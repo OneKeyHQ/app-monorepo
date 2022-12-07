@@ -86,6 +86,7 @@ jobs:
       - name: Install Dep
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: "--max_old_space_size=8192"
         run: |
           npm i -g expo-cli && yarn
       
@@ -146,7 +147,7 @@ jobs:
 
       - name: Build and Sign Static MAS
         env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
+          NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}

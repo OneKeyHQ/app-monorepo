@@ -45,6 +45,7 @@ import type {
 export interface IBackgroundApiBridge {
   bridge: JsBridgeBase | null;
   connectBridge(bridge: JsBridgeBase): void;
+  connectWebEmbedBridge(bridge: JsBridgeBase): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   store: IStore;

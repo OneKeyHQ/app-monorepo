@@ -30,6 +30,7 @@ export const balanceSupprtedNetwork: string[] = [
   OnekeyNetwork.near,
   OnekeyNetwork.stc,
   OnekeyNetwork.apt,
+  OnekeyNetwork.ada,
 ];
 
 export type TokenBalancesQuery = {
