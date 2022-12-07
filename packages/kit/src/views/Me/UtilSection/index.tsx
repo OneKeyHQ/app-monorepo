@@ -108,7 +108,7 @@ export const UtilSection = () => {
               })}
             </Text>
             <Box>
-              <Icon name="ChevronRightMini" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           </Pressable>
         ) : null}
@@ -140,7 +140,7 @@ export const UtilSection = () => {
                 })}
               </Text>
               <Box>
-                <Icon name="ChevronRightMini" size={20} />
+                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
               </Box>
             </Pressable>
           </>
@@ -171,7 +171,7 @@ export const UtilSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightMini" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
         <>
@@ -205,7 +205,7 @@ export const UtilSection = () => {
               })}
             </Text>
             <Box>
-              <Icon name="ChevronRightMini" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           </Pressable>
         </>

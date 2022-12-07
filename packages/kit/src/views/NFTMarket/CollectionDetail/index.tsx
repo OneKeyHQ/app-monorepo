@@ -43,9 +43,8 @@ const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
       <Hidden from="md">
         <IconButton
           isDisabled={isDisabled}
-          name="BarsShrinkOutline"
-          size="lg"
-          type="plain"
+          name="BarsShrinkMini"
+          size="sm"
           circle
           onPress={onPress}
         />

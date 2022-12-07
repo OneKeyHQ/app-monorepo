@@ -67,7 +67,7 @@ const Collapse = ({
             from={{ rotate: '90deg' }}
             animate={{ rotate: collapsed ? '0deg' : '90deg' }}
           >
-            <Icon name="ChevronRightMini" size={20} />
+            <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
           </MotiView>
           {arrowPosition === 'left' && (
             <Box ml="7px" {...triggerProps}>

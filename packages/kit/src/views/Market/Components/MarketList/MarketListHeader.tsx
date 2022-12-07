@@ -93,7 +93,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                     color={
                       listSort && listSort.id === tag.id
                         ? 'icon-success'
-                        : 'icon-default'
+                        : 'icon-subdued'
                     }
                   />
                 </Pressable>

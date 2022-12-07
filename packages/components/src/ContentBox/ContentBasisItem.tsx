@@ -164,6 +164,7 @@ const Item: FC<Omit<ContentItemProps, 'onPress'>> = ({
             <Box ml={3}>
               <Icon
                 name={customArrowIconName ?? 'ChevronRightMini'}
+                color="icon-subdued"
                 size={20}
               />
             </Box>
