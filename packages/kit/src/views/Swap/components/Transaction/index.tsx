@@ -488,7 +488,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Icon
                   name="Square2StackOutline"
                   size={16}
-                  color="text-subdued"
+                  color="icon-subdued"
                 />
               </Pressable>
             </TransactionField>
@@ -507,7 +507,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Icon
                   name="Square2StackOutline"
                   size={16}
-                  color="text-subdued"
+                  color="icon-subdued"
                 />
               </Pressable>
             </TransactionField>
@@ -523,7 +523,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption mr="1" color="text-subdued">
                 {formatAddressName(account.address, account.name)}
               </Typography.Caption>
-              <Icon name="Square2StackOutline" size={16} color="text-subdued" />
+              <Icon name="Square2StackOutline" size={16} color="icon-subdued" />
             </Pressable>
           </TransactionField>
         )}
@@ -583,7 +583,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption color="text-subdued">
                 {utils.shortenAddress(swftcOrderId)}
               </Typography.Caption>
-              <Icon name="Square2StackOutline" size={16} />
+              <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
             </Pressable>
           </TransactionField>
         ) : null}

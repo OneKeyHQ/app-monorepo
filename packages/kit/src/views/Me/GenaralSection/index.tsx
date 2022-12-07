@@ -200,7 +200,7 @@ export const GenaralSection = () => {
                 navigation.navigate(HomeRoutes.VolumeHaptic);
               }}
             >
-              <Icon name="VolumeUpOutline" />
+              <Icon name="SpeakerWaveOutline" />
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 flex="1"
@@ -212,7 +212,7 @@ export const GenaralSection = () => {
                 })}
               </Text>
               <Box>
-                <Icon name="ChevronRightMini" size={20} />
+                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
               </Box>
             </Pressable>
           ) : null}

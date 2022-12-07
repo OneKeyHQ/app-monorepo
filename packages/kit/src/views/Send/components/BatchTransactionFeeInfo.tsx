@@ -196,7 +196,11 @@ function BatchTransactionFeeInfo(props: Props) {
               </VStack>
               {!disabled && (
                 <Box>
-                  <Icon name="ChevronRightMini" size={20} />
+                  <Icon
+                    name="ChevronRightMini"
+                    color="icon-subdued"
+                    size={20}
+                  />
                 </Box>
               )}
             </HStack>

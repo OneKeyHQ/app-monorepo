@@ -119,7 +119,7 @@ const SwapQuote = () => {
             <Typography.Caption mr="1" color="text-subdued">
               Auto({swapSlippagePercent}%)
             </Typography.Caption>
-            <Icon size={16} name="PencilAltOutline" />
+            <Icon size={16} name="PencilAltOutline" color="icon-subdued" />
           </Pressable>
         </Box>
       </Box>

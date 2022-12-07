@@ -205,17 +205,17 @@ export const tabRoutes: TabRouteConfig[] = [
   },
 ];
 
-if (process.env.NODE_ENV !== 'production') {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const DevelopScreen = require('@onekeyhq/kit/src/views/Developer').default;
+// if (process.env.NODE_ENV !== 'production') {
+//   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+//   const DevelopScreen = require('@onekeyhq/kit/src/views/Developer').default;
 
-  tabRoutes.push({
-    name: TabRoutes.Developer,
-    component: DevelopScreen,
-    tabBarIcon: () => 'ChipOutline',
-    translationId: 'form__dev_mode',
-  });
-}
+//   tabRoutes.push({
+//     name: TabRoutes.Developer,
+//     component: DevelopScreen,
+//     tabBarIcon: () => 'ChipOutline',
+//     translationId: 'form__dev_mode',
+//   });
+// }
 
 const Stack = createNativeStackNavigator();
 

@@ -220,7 +220,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
           >
             {intl.formatMessage({ id: 'action__quick_add' })}
           </Text>
-          <Icon name="ChevronRightMini" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Pressable>
         <Divider my="6" />
       </>
