@@ -158,7 +158,7 @@ const DesktopModal = ({
         maxHeight={maxHeight}
         alignSelf="center"
         borderRadius="24px"
-        bg="surface-subdued"
+        bg="background-default"
         zIndex={1}
       >
         {!!headerShown && (

@@ -23,7 +23,7 @@ type Props = {
 
 const SendTokenTabView: FC<Props> = ({ onIndexChange, options }) => {
   const [index, setIndex] = useState(0);
-  const bgColor = useThemeValue('surface-subdued');
+  const bgColor = useThemeValue('background-default');
   const routes = useMemo(
     () =>
       options.map(
