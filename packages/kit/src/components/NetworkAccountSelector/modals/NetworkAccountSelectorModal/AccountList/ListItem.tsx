@@ -1,25 +1,11 @@
 /* eslint-disable no-nested-ternary */
 import React, { FC, useLayoutEffect, useMemo } from 'react';
 
-import {
-  Box,
-  Pressable,
-  Skeleton,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { Box, Pressable, Skeleton, Text } from '@onekeyhq/components';
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 
-import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useNavigationActions,
-} from '../../../../../hooks';
-import useAppNavigation from '../../../../../hooks/useAppNavigation';
+import { useActiveWalletAccount, useAppSelector } from '../../../../../hooks';
 import { useNativeTokenBalance } from '../../../../../hooks/useTokens';
-import reducerAccountSelector from '../../../../../store/reducers/reducerAccountSelector';
 import { formatAmount } from '../../../../../utils/priceUtils';
 import ExternalAccountImg from '../../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
@@ -39,7 +25,6 @@ type ListItemProps = {
 
 const defaultProps = {} as const;
 
-const { updateIsRefreshDisabled } = reducerAccountSelector.actions;
 const ListItem: FC<ListItemProps> = ({
   account,
   network,
@@ -51,12 +36,6 @@ const ListItem: FC<ListItemProps> = ({
   wallet,
   onLastItemRender,
 }) => {
-  const { dispatch, serviceNetwork, serviceAccount, serviceAccountSelector } =
-    backgroundApiProxy;
-  const isVertical = useIsVerticalLayout();
-  const closeModal = useModalClose();
-  const { closeWalletSelector } = useNavigationActions();
-  const navigation = useAppNavigation();
   const accountSelectorMode = useAppSelector(
     (s) => s.accountSelector.accountSelectorMode,
   );
