@@ -31,6 +31,7 @@ export type IEncodedTxFil = {
 };
 
 export type IOnChainHistoryTx = {
+  all_gas_fee: string;
   cid: string;
   signed_cid: string;
   from: string;

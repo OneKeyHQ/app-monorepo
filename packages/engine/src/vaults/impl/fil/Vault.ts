@@ -294,7 +294,7 @@ export default class Vault extends VaultBase {
       console.error(e);
     }
 
-    const promises = txs.map((tx) => {
+    const promises = txs.map(async (tx) => {
       try {
         const historyTxToMerge = localHistory.find(
           (item) => item.decodedTx.txid === tx.signed_cid,
@@ -314,6 +314,11 @@ export default class Vault extends VaultBase {
               : IDecodedTxDirection.IN;
         }
         const amountBN = new BigNumber(tx.value);
+
+        const txDetail = await scanClient.request<IOnChainHistoryTx>(
+          'MessageDetails',
+          tx.signed_cid,
+        );
 
         const decodedTx: IDecodedTx = {
           txid: tx.signed_cid ?? '',
@@ -338,7 +343,7 @@ export default class Vault extends VaultBase {
           networkId: this.networkId,
           accountId: this.accountId,
           extraInfo: null,
-          totalFeeInNative: new BigNumber(tx.gas_used ?? 0)
+          totalFeeInNative: new BigNumber(txDetail.all_gas_fee ?? 0)
             .shiftedBy(-token.decimals)
             .toFixed(),
         };
@@ -346,7 +351,7 @@ export default class Vault extends VaultBase {
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-        return this.buildHistoryTx({
+        return await this.buildHistoryTx({
           decodedTx,
           historyTxToMerge,
         });
