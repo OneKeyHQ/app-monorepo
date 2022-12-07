@@ -1,0 +1,13 @@
+/* eslint-disable no-nested-ternary */
+import type { HeaderOptions } from './types';
+
+export default function getHeaderTitle(
+  options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },
+  fallback: string,
+): string {
+  return typeof options.headerTitle === 'string'
+    ? options.headerTitle
+    : options.title !== undefined
+    ? options.title
+    : fallback;
+}
