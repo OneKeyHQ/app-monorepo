@@ -9,6 +9,7 @@ import {
   NFTAsset,
   NFTMarketCapCollection,
   NFTMarketRanking,
+  NFTNPL,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
@@ -265,6 +266,42 @@ class ServiceNFT extends ServiceBase {
       .get<NFTServiceResp<NFTAsset[]>>(url)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: [] as NFTAsset[] }));
+    if (!success) {
+      return [];
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async batchAsset(params: {
+    chain: string;
+    items: { contract_address?: string; token_id?: any }[];
+  }) {
+    const apiUrl = `${this.baseUrl}/batchAsset`;
+    const { data, success } = await axios
+      .post<NFTServiceResp<NFTAsset[]>>(apiUrl, params)
+      .then((resp) => resp.data)
+      .catch(() => ({
+        success: false,
+        data: [] as NFTAsset[],
+      }));
+
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getNPLData({ chain, address }: { chain?: string; address: string }) {
+    const url = `${this.baseUrl}/account/pnl?chain=${
+      chain ?? OnekeyNetwork.eth
+    }&address=${address}`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<NFTNPL[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as NFTNPL[] }));
+
     if (!success) {
       return [];
     }

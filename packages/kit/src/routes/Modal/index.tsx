@@ -41,6 +41,7 @@ import Revoke from './Revoke';
 import ScanQrcode from './ScanQrcode';
 import SearchNFT from './SearchNFTCollection';
 import Send from './Send';
+import ShareNFTNPL from './ShareNFTNPL';
 import StakingModal from './Staking';
 import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
@@ -189,6 +190,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.NFTAttributeFilter,
     component: NFTAttributeFilter,
+  },
+  {
+    name: ModalRoutes.ShareNFTNPL,
+    component: ShareNFTNPL,
   },
 ];
 

@@ -16,7 +16,7 @@ import { useLiveMintContext } from '../context';
 
 const Mobile = () => {
   const context = useLiveMintContext()?.context;
-  const { formatDistance } = useFormatDate();
+  const { formatDistanceToNow } = useFormatDate();
   const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
@@ -58,7 +58,7 @@ const Mobile = () => {
               }),
               labelProps: { textAlign: 'right', numberOfLines: 1 },
               description: item.mintTimestamp
-                ? formatDistance(item.mintTimestamp)
+                ? formatDistanceToNow(item.mintTimestamp)
                 : '–',
               descriptionProps: {
                 textAlign: 'right',
@@ -69,7 +69,7 @@ const Mobile = () => {
         </ListItem>
       </>
     ),
-    [context?.selectedNetwork?.id, formatDistance, goToCollectionDetail],
+    [context?.selectedNetwork?.id, formatDistanceToNow, goToCollectionDetail],
   );
 
   if (

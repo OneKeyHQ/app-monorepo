@@ -45,6 +45,7 @@ export enum ModalRoutes {
   Revoke = 'Revoke',
   SearchNFT = 'SearchNFT',
   NFTAttributeFilter = 'NFTAttributeFilter',
+  ShareNFTNPL = 'ShareNFTNPL',
 }
 
 export enum RootRoutes {
@@ -89,6 +90,7 @@ export enum HomeRoutes {
   NFTMarketStatsList = 'NFTMarketStatsList',
   NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
+  NFTNPLScreen = 'NFTNPLScreen',
 }
 export enum TabRoutes {
   // Overview = 'overview',

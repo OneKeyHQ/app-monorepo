@@ -42,6 +42,7 @@ import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
+import NPLDetailScreen from '../../views/NFTMarket/NPL/NPLDetail';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
 import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
 import SwapHistory from '../../views/Swap/History';
@@ -150,6 +151,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.RevokeRedirect,
     component: RevokeRedirectPage,
+  },
+  {
+    name: HomeRoutes.NFTNPLScreen,
+    component: NPLDetailScreen,
   },
 ];
 

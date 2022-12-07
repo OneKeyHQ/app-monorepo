@@ -1,8 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  Duration,
   format as fnsFormat,
-  formatDistance as fnsFormatDistance,
+  formatDistanceStrict as fnsFormatDistanceStrict,
+  formatDistanceToNow as fnsFormatDistanceToNow,
+  formatDuration as fnsFormatDuration,
   parseISO,
 } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
@@ -112,17 +115,47 @@ export default function useFormatDate() {
     [format],
   );
 
-  const formatDistance = useCallback(
+  const formatDistanceStrict = useCallback(
+    (date: Date | number, baseDate: Date | number) =>
+      fnsFormatDistanceStrict(date, baseDate, {
+        locale: parseLocal(locale),
+      }) ?? '',
+    [locale],
+  );
+
+  const formatDistanceToNow = useCallback(
     (date: Date | number) =>
-      fnsFormatDistance(Date.now(), date, {
+      fnsFormatDistanceToNow(date, {
         addSuffix: true,
         locale: parseLocal(locale),
       }) ?? '',
     [locale],
   );
 
+  const formatDuration = useCallback(
+    (duration: Duration) =>
+      fnsFormatDuration(duration, {
+        locale: parseLocal(locale),
+      }) ?? '',
+    [locale],
+  );
+
   return useMemo(
-    () => ({ format, formatDate, formatMonth, formatDistance }),
-    [format, formatDate, formatMonth, formatDistance],
+    () => ({
+      format,
+      formatDate,
+      formatMonth,
+      formatDistanceToNow,
+      formatDuration,
+      formatDistanceStrict,
+    }),
+    [
+      format,
+      formatDate,
+      formatMonth,
+      formatDistanceToNow,
+      formatDuration,
+      formatDistanceStrict,
+    ],
   );
 }

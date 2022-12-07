@@ -6,6 +6,7 @@ import BrandLogoIllus from "./react/illus/BrandLogo";
 import CrownBadgeIllus from "./react/illus/CrownBadge";
 import DiamondBadgeIllus from "./react/illus/DiamondBadge";
 import EmptyNftIllus from "./react/illus/EmptyNft";
+import GasIllus from "./react/illus/Gas";
 import ImageBrokenIllus from "./react/illus/ImageBroken";
 import LogoIllus from "./react/illus/Logo";
 import LogoPrimaryIllus from "./react/illus/LogoPrimary";
@@ -1143,6 +1144,7 @@ const icons = {
   CrownBadgeIllus,
   DiamondBadgeIllus,
   EmptyNftIllus,
+  GasIllus,
   ImageBrokenIllus,
   LogoIllus,
   LogoPrimaryIllus,

@@ -59,6 +59,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Revoke]: NavigatorScreenParams<SubModalRoutesParams.RevokeRoutesParams>;
   [ModalRoutes.SearchNFT]: NavigatorScreenParams<SubModalRoutesParams.SearchNFTCollectionRoutesParams>;
   [ModalRoutes.NFTAttributeFilter]: NavigatorScreenParams<SubModalRoutesParams.NFTAttributeFilterRoutesParams>;
+  [ModalRoutes.ShareNFTNPL]: NavigatorScreenParams<SubModalRoutesParams.ShareNFTNPLRoutesParams>;
 };
 /** Modal */
 
@@ -144,6 +145,9 @@ export type HomeRoutesParams = {
     title?: string;
   };
   [HomeRoutes.RevokeRedirect]: undefined;
+  [HomeRoutes.NFTNPLScreen]: {
+    accountAddress?: string;
+  };
 };
 /** HomeStack */
 

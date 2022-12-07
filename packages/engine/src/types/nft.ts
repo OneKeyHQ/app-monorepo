@@ -189,3 +189,33 @@ export type NFTMarketRanking = {
   } | null;
   openseaVerified?: boolean;
 };
+
+export type NFTNPL = {
+  contractAddress?: string;
+  asset?: NFTAsset;
+  contractName?: string;
+  ercType?: string;
+  tokenId: string;
+  entry: {
+    hash?: string;
+    tradeSymbol?: string;
+    eventType: string;
+    timestamp: number;
+    tradePrice?: number;
+    exchangeName?: string;
+    gasPrice?: string;
+    gasPriceNative?: string;
+  };
+  exit: {
+    hash?: string;
+    tradeSymbol?: string;
+    eventType: string;
+    timestamp: number;
+    tradePrice?: number;
+    exchangeName?: string;
+    gasPrice?: string;
+    gasPriceNative?: string;
+  };
+
+  profit: number;
+};

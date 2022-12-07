@@ -4,6 +4,7 @@ export { default as BrandLogo } from './BrandLogo';
 export { default as CrownBadge } from './CrownBadge';
 export { default as DiamondBadge } from './DiamondBadge';
 export { default as EmptyNft } from './EmptyNft';
+export { default as Gas } from './Gas';
 export { default as ImageBroken } from './ImageBroken';
 export { default as LogoPrimary } from './LogoPrimary';
 export { default as Logo } from './Logo';
