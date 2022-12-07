@@ -29,7 +29,6 @@ function NetworkAccountSelectorModal() {
     <Modal
       headerShown={!showCustomLegacyHeader}
       header={intl.formatMessage({ id: 'title__accounts' })}
-      // TODO loading
       headerDescription={
         <Pressable
           onLongPress={() => {

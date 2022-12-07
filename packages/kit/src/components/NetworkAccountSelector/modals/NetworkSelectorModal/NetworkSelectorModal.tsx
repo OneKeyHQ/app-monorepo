@@ -9,10 +9,6 @@ import { useAccountSelectorChangeAccountOnPress } from '../../hooks/useAccountSe
 import { useAccountSelectorModalInfo } from '../../hooks/useAccountSelectorModalInfo';
 import SideChainSelector from '../NetworkAccountSelectorModal/SideChainSelector';
 
-// TODO account not found test:
-// - first select COSMOS Secret network
-// - then select EVM network
-// - account not found
 function NetworkSelectorModal() {
   const intl = useIntl();
   const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
@@ -26,7 +22,6 @@ function NetworkSelectorModal() {
   return (
     <Modal
       header={intl.formatMessage({ id: 'network__networks' })}
-      // TODO loading
       headerDescription={accountSelectorInfo?.selectedNetwork?.name || '-'}
       footer={null}
       staticChildrenProps={{
