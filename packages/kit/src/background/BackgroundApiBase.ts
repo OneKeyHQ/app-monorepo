@@ -43,6 +43,7 @@ const PRIVATE_WHITE_LIST_ORIGIN = [
         // origin allowed in DEV
         'http://192.168.31.215:3008',
         'http://192.168.31.96:3008',
+        'http://192.168.50.36:3008',
       ]
     : []),
 ].filter(Boolean);
@@ -94,6 +95,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   appSelector = appSelector;
 
   bridge: JsBridgeBase | null = null;
+
+  webEmbedBridge: JsBridgeBase | null = null;
 
   bridgeExtBg: JsBridgeExtBackground | null = null;
 
@@ -163,6 +166,10 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       this.bridgeExtBg = bridge as JsBridgeExtBackground;
     }
     this.bridge = bridge;
+  }
+
+  connectWebEmbedBridge(bridge: JsBridgeBase) {
+    this.webEmbedBridge = bridge;
   }
 
   protected rpcResult(
@@ -315,7 +322,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     scope: IInjectedProviderNamesStrings,
     data: unknown,
   ) => {
-    if (!this.bridge) {
+    if (!this.bridge && !this.webEmbedBridge) {
       if (!platformEnv.isWeb) {
         console.warn(
           `sendMessagesToInjectedBridge ERROR: bridge should be connected first. scope=${scope}`,
@@ -328,8 +335,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
       // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
       this.bridgeExtBg?.requestToAllCS(scope, data);
-    } else {
-      // console.log('sendMessagesToInjectedBridge', { data, scope });
+    } else if (this.bridge) {
       if (isFunction(data)) {
         // eslint-disable-next-line no-param-reassign
         data = await data({ origin: this.bridge.remoteInfo.origin });
@@ -339,6 +345,17 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       // this.bridge.requestSync({ scope, data });
       if (this.bridge.globalOnMessageEnabled) {
         this.bridge.requestSync({ scope, data });
+      }
+    } else if (this.webEmbedBridge) {
+      if (isFunction(data)) {
+        // eslint-disable-next-line no-param-reassign
+        data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
+      }
+      ensureSerializable(data);
+
+      // this.bridge.requestSync({ scope, data });
+      if (this.webEmbedBridge.globalOnMessageEnabled) {
+        this.webEmbedBridge.requestSync({ scope, data });
       }
     }
   };
