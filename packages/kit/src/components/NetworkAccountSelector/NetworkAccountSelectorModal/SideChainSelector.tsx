@@ -7,8 +7,11 @@ import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  HStack,
+  Icon,
   IconButton,
   Pressable,
+  Text,
   Token,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -24,6 +27,7 @@ import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
+import { RpcStatusButton } from '../RpcStatusButton';
 
 function ChainNetworkIcon({
   onLastItemRender,
@@ -45,10 +49,14 @@ function ChainNetworkIcon({
   );
 }
 
-function ChainSelector({
+function SideChainSelector({
   accountSelectorInfo,
+  onPress,
+  fullWidthMode,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
+  onPress?: (payload: { networkId: string }) => void;
+  fullWidthMode?: boolean;
 }) {
   const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
@@ -98,8 +106,9 @@ function ChainSelector({
   return (
     <Box
       alignSelf="stretch"
-      borderRightWidth={StyleSheet.hairlineWidth}
-      borderColor="border-subdued"
+      borderRightWidth={fullWidthMode ? 0 : StyleSheet.hairlineWidth}
+      borderColor={fullWidthMode ? undefined : 'border-subdued'}
+      flex={fullWidthMode ? 1 : undefined}
     >
       <FlatListRef
         initialNumToRender={20}
@@ -116,22 +125,31 @@ function ChainSelector({
               onPress={() => {
                 const id = (item.id === AllNetwork ? '' : item.id) || '';
                 serviceAccountSelector.updateSelectedNetwork(id);
+                onPress?.({ networkId: id });
               }}
             >
               {({ isHovered, isPressed }) => (
-                <Box
+                <HStack
+                  alignItems="center"
+                  space={2}
                   p={1.5}
                   m={1}
                   borderWidth={2}
-                  borderColor={
-                    isActive
+                  bgColor={
+                    fullWidthMode && isHovered ? 'surface-hovered' : undefined
+                  }
+                  borderColor={(() => {
+                    if (fullWidthMode) {
+                      return 'transparent';
+                    }
+                    return isActive
                       ? 'interactive-default'
                       : isPressed
                       ? 'border-default'
                       : isHovered
                       ? 'border-subdued'
-                      : 'transparent'
-                  }
+                      : 'transparent';
+                  })()}
                   rounded="full"
                 >
                   <ChainNetworkIcon
@@ -139,7 +157,25 @@ function ChainSelector({
                     isLastItem={isLastItem}
                     onLastItemRender={scrollToItemDebounced}
                   />
-                </Box>
+                  {fullWidthMode ? (
+                    <>
+                      <Text
+                        flex={1}
+                        typography="Body1Strong"
+                        isTruncated
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                      {item.id === selectedNetworkId ? (
+                        <>
+                          <RpcStatusButton networkId={item.id} />
+                          <Icon color="icon-success" name="CheckCircleSolid" />
+                        </>
+                      ) : null}
+                    </>
+                  ) : null}
+                </HStack>
               )}
             </Pressable>
           );
@@ -147,28 +183,46 @@ function ChainSelector({
         showsVerticalScrollIndicator={false}
         style={{ flex: 1, padding: 4 }}
         ListFooterComponent={
-          <Box p="4px">
-            <IconButton
-              type="plain"
-              size="xl"
-              circle
-              name="BarsArrowUpOutline"
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ManageNetwork,
-                  params: { screen: ManageNetworkRoutes.Sort },
-                });
-              }}
-            />
-          </Box>
+          fullWidthMode ? null : (
+            <Box p="4px">
+              <IconButton
+                type="plain"
+                size="xl"
+                circle
+                name="SortAscendingOutline"
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManageNetwork,
+                    params: { screen: ManageNetworkRoutes.Sort },
+                  });
+                }}
+              />
+            </Box>
+          )
         }
       />
-      <Box
+      <HStack
         p={2}
         mb={`${insets.bottom}px`}
         borderTopWidth={StyleSheet.hairlineWidth}
         borderColor="border-subdued"
+        space={2}
+        justifyContent="flex-end"
       >
+        {fullWidthMode ? (
+          <IconButton
+            type="plain"
+            size="xl"
+            circle
+            name="SortAscendingOutline"
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.ManageNetwork,
+                params: { screen: ManageNetworkRoutes.Sort },
+              });
+            }}
+          />
+        ) : null}
         <IconButton
           name="CogOutline"
           size="xl"
@@ -181,9 +235,9 @@ function ChainSelector({
             });
           }}
         />
-      </Box>
+      </HStack>
     </Box>
   );
 }
 
-export default ChainSelector;
+export default SideChainSelector;

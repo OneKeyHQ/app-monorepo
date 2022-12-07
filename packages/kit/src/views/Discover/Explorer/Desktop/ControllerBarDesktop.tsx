@@ -20,7 +20,10 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
+import {
+  NetworkAccountSelectorTrigger,
+  NetworkAccountSelectorTriggerDesktop,
+} from '../../../../components/NetworkAccountSelector';
 import { homeTab } from '../../../../store/reducers/webTabs';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
@@ -218,7 +221,7 @@ const ControllerBarDesktop: FC = () => {
           />
         </Pressable>
 
-        <NetworkAccountSelectorTrigger size="lg" />
+        <NetworkAccountSelectorTriggerDesktop />
       </HStack>
       <SearchView
         ref={searchView}

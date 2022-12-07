@@ -46,14 +46,18 @@ type NavigationProps = NativeStackNavigationProp<
 
 function Header({
   accountSelectorInfo,
+  showCustomLegacyHeader,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
+  showCustomLegacyHeader?: boolean;
 }) {
   const intl = useIntl();
   const { firstTimeShowCheckRPCNodeTooltip } = useStatus();
   const [isOpen, setIsOpen] = useState(false);
   const { selectedNetwork, isLoading } = accountSelectorInfo;
-  const { loading, status } = useRpcMeasureStatus(selectedNetwork?.id ?? '');
+  const { loading, status } = useRpcMeasureStatus(
+    (showCustomLegacyHeader ? selectedNetwork?.id : '') ?? '',
+  );
   const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps>();
   const close = useModalClose();
@@ -145,37 +149,41 @@ function Header({
   return (
     <Box pr={3.5}>
       <Box flexDirection="row" alignItems="center" pt={2.5} pl={4}>
-        <VStack flex={1} mr={3}>
-          <TouchableOpacity onPress={toCheckNodePage}>
-            <Box flexDirection="row" alignItems="center">
-              <Text typography="Heading" isTruncated>
-                {selectedNetwork?.name || '-'}
-              </Text>
+        {showCustomLegacyHeader ? (
+          <>
+            <VStack flex={1} mr={3}>
+              <TouchableOpacity onPress={toCheckNodePage}>
+                <Box flexDirection="row" alignItems="center">
+                  <Text typography="Heading" isTruncated>
+                    {selectedNetwork?.name || '-'}
+                  </Text>
 
-              {isLoading ? (
-                <Pressable
-                  ml={2}
-                  onPress={() => {
-                    dispatch(updateIsLoading(false));
-                  }}
-                >
-                  <Spinner size="sm" />
-                </Pressable>
-              ) : null}
-            </Box>
-            <HStack alignItems="center" position="relative" pb="3">
-              {rpcStatusElement}
-            </HStack>
-          </TouchableOpacity>
-        </VStack>
-        <IconButton
-          name="XMarkMini"
-          type="plain"
-          circle
-          onPress={() => {
-            close();
-          }}
-        />
+                  {isLoading ? (
+                    <Pressable
+                      ml={2}
+                      onPress={() => {
+                        dispatch(updateIsLoading(false));
+                      }}
+                    >
+                      <Spinner size="sm" />
+                    </Pressable>
+                  ) : null}
+                </Box>
+                <HStack alignItems="center" position="relative" pb="3">
+                  {rpcStatusElement}
+                </HStack>
+              </TouchableOpacity>
+            </VStack>
+            <IconButton
+              name="CloseSolid"
+              type="plain"
+              circle
+              onPress={() => {
+                close();
+              }}
+            />
+          </>
+        ) : null}
       </Box>
       <Box flexDirection="row" alignItems="center" pl={2}>
         <WalletSelectDropdown accountSelectorInfo={accountSelectorInfo} />

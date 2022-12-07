@@ -4,24 +4,28 @@ import { useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Modal } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../../hooks';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { LazyDisplayView } from '../../LazyDisplayView';
 import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
-
-import AccountList from './AccountList';
-import Header from './Header';
-import SideChainSelector from './SideChainSelector';
+import SideChainSelector from '../NetworkAccountSelectorModal/SideChainSelector';
 
 const { updateIsOpenDelay, updateIsOpen } = reducerAccountSelector.actions;
-const showSideChainSelector = true;
-// use Modal header or custom header
-const showCustomLegacyHeader = false;
-function NetworkAccountSelectorModal() {
-  const { dispatch } = backgroundApiProxy;
+// TODO account not found test:
+// - first select COSMOS Secret network
+// - then select EVM network
+// - account not found
+function NetworkSelectorModal() {
+  const closeModal = useModalClose();
+  const { closeWalletSelector } = useNavigationActions();
+  // TODO move to hooks
+  const { dispatch, serviceNetwork } = backgroundApiProxy;
+  // TODO merge logic with packages/kit/src/components/NetworkAccountSelector/NetworkAccountSelectorModal/NetworkAccountSelectorModal.tsx
   const isMountedRef = useRef(false);
   const intl = useIntl();
   useEffect(() => {
@@ -55,8 +59,7 @@ function NetworkAccountSelectorModal() {
 
   return (
     <Modal
-      headerShown={!showCustomLegacyHeader}
-      header={intl.formatMessage({ id: 'title__accounts' })}
+      header={intl.formatMessage({ id: 'network__networks' })}
       // TODO loading
       headerDescription={accountSelectorInfo?.selectedNetwork?.name || '-'}
       footer={null}
@@ -68,20 +71,24 @@ function NetworkAccountSelectorModal() {
     >
       <LazyDisplayView delay={0}>
         <Box flex={1} flexDirection="row">
-          {showSideChainSelector ? (
-            <SideChainSelector accountSelectorInfo={accountSelectorInfo} />
-          ) : null}
-          <Box alignSelf="stretch" flex={1}>
-            <Header
-              accountSelectorInfo={accountSelectorInfo}
-              showCustomLegacyHeader={showCustomLegacyHeader}
-            />
-            <AccountList accountSelectorInfo={accountSelectorInfo} />
-          </Box>
+          <SideChainSelector
+            fullWidthMode // should be fullWidthMode here
+            accountSelectorInfo={accountSelectorInfo}
+            onPress={async ({ networkId }) => {
+              // TODO merge onPress logic with packages/kit/src/components/NetworkAccountSelector/NetworkAccountSelectorModal/AccountList/ListItem.tsx
+              // TODO accountSelectorMode === EAccountSelectorMode.Wallet
+              closeModal();
+              closeWalletSelector();
+              if (networkId) {
+                await serviceNetwork.changeActiveNetwork(networkId);
+              }
+              // appUIEventBus.emit(AppUIEventBusNames.AccountChanged);
+            }}
+          />
         </Box>
       </LazyDisplayView>
     </Modal>
   );
 }
 
-export { NetworkAccountSelectorModal };
+export { NetworkSelectorModal };

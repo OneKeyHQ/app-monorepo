@@ -1,2 +1,2 @@
-export * from './NetworkAccountSelectorTrigger';
+export * from './trigger/NetworkAccountSelectorTrigger';
 export * from './NetworkAccountSelectorModal';
