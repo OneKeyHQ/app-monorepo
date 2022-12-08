@@ -38,6 +38,9 @@ import type {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // Options ----------------------------------------------
+export type IVaultSubNetworkSettings = {
+  isIntegerGasPrice?: boolean;
+};
 export type IVaultSettings = {
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
@@ -58,6 +61,10 @@ export type IVaultSettings = {
   minGasLimit?: number;
 
   cannotSendToSelf?: boolean;
+
+  subNetworkSettings?: {
+    [networkId: string]: IVaultSubNetworkSettings;
+  };
 };
 export type IVaultFactoryOptions = {
   networkId: string;
