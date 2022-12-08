@@ -58,7 +58,7 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   getClientCache = memoizee(
-    async (rpcUrl, namespace) =>
+    async (rpcUrl: string, namespace: string) =>
       new LotusRpcEngine({
         apiAddress: rpcUrl,
         namespace,
@@ -129,9 +129,9 @@ export default class Vault extends VaultBase {
     const decodedTx: IDecodedTx = {
       txid:
         (isObject(encodedTx.CID) ? encodedTx.CID['/'] : encodedTx.CID) || '',
-      owner: encodedTx.From,
-      signer: encodedTx.From,
-      nonce: 0,
+      owner: address,
+      signer: encodedTx.From || address,
+      nonce: encodedTx.Nonce || 0,
       actions: [
         {
           type: IDecodedTxActionType.NATIVE_TRANSFER,

@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
-import {
-  IMPL_CFX,
-  IMPL_FIL,
-  SEPERATOR,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getWalletIdFromAccountId } from '../managers/account';
+import {
+  getWalletIdFromAccountId,
+  isAccountCompatibleWithNetwork,
+} from '../managers/account';
 import { AccountType, DBAccount, DBVariantAccount } from '../types/account';
 import { Network } from '../types/network';
 
@@ -65,8 +64,6 @@ export class VaultContext extends VaultContextBase {
   // TODO resetCache after dbAccount and network DB updated
 
   async getDbAccount(params?: { noCache?: boolean }) {
-    const networkImpl = await this.getNetworkImpl();
-
     const { noCache } = { noCache: false, ...params };
     if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {
       this._dbAccount = await this.engine.dbApi.getAccount(this.accountId);
@@ -75,7 +72,7 @@ export class VaultContext extends VaultContextBase {
     let { address, type } = this._dbAccount;
     if (
       type === AccountType.VARIANT &&
-      ![IMPL_CFX, IMPL_FIL].includes(networkImpl)
+      isAccountCompatibleWithNetwork(this.accountId, this.networkId)
     ) {
       const accountAddress = ((this._dbAccount as DBVariantAccount).addresses ||
         {})[this.networkId];

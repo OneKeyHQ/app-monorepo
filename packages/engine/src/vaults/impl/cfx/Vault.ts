@@ -388,17 +388,16 @@ export default class Vault extends VaultBase {
       address: dbAccount.addresses?.[this.networkId] || '',
     };
     if (ret.address.length === 0) {
-      // TODO: remove selectAccountAddress from proxy
-      const address = await this.engine.providerManager.selectAccountAddress(
+      const addressOnNetwork = await this.engine.providerManager.addressFromPub(
         this.networkId,
-        dbAccount,
+        dbAccount.pub,
       );
       await this.engine.dbApi.addAccountAddress(
         dbAccount.id,
         this.networkId,
-        address,
+        addressOnNetwork,
       );
-      ret.address = address;
+      ret.address = addressOnNetwork;
     }
     return ret;
   }

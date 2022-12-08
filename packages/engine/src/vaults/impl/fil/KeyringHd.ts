@@ -49,7 +49,7 @@ export class KeyringHd extends KeyringHdBase {
     const selectedAddress = dbAccount.addresses[this.networkId];
 
     if (addresses.length !== 1) {
-      throw new OneKeyInternalError('CFX signers number should be 1.');
+      throw new OneKeyInternalError('FIL signers number should be 1.');
     } else if (addresses[0] !== selectedAddress) {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
