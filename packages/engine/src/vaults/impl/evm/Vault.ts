@@ -951,7 +951,18 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
 
     // RPC: eth_gasPrice
-    const prices = await this.engine.getGasPrice(this.networkId);
+    let prices = await this.engine.getGasPrice(this.networkId);
+
+    const subNetworkSetting =
+      this.settings.subNetworkSettings?.[this.networkId];
+    if (subNetworkSetting?.isIntegerGasPrice) {
+      prices = prices.map((p) => {
+        if (isString(p)) {
+          return new BigNumber(p).toFixed(0);
+        }
+        return p;
+      });
+    }
 
     const { actions } = await this.decodeTxMemoizee(encodedTx);
 
