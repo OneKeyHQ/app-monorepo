@@ -17,7 +17,7 @@ import {
 } from '../../types';
 
 import { getPathIndex, getXprvString } from './helper/bip32';
-import { CardanoApi } from './helper/sdk';
+import { CardanoApi, dAppUtils } from './helper/sdk';
 import { batchGetShelleyAddresses } from './helper/shelley-address';
 import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
 
@@ -136,5 +136,28 @@ export class KeyringHd extends KeyringHdBase {
       rawTx: signedTx,
       txid,
     };
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    console.log(messages);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const { password = '' } = options;
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+    const xprv = await getXprvString(password, entropy);
+    const accountIndex = getPathIndex(dbAccount.path);
+
+    const result = await Promise.all(
+      messages.map(
+        ({ payload }: { payload: { addr: string; payload: string } }) =>
+          dAppUtils.signData(payload.addr, payload.payload, xprv, accountIndex),
+      ),
+    );
+    return result.map((ret) => JSON.stringify(ret));
   }
 }

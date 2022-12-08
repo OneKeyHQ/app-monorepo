@@ -6,6 +6,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 import { IMPL_ADA } from '@onekeyhq/engine/src/constants';
+import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 import AdaVault from '@onekeyhq/engine/src/vaults/impl/ada/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -162,6 +163,27 @@ class ProviderApiCardano extends ProviderApiBase {
 
     console.log(txWitnessSetHex);
     return txWitnessSetHex;
+  }
+
+  @providerApiMethod()
+  async signData(
+    request: IJsBridgeMessagePayload,
+    params: {
+      addr: string;
+      payload: string;
+    },
+  ) {
+    const signature =
+      await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
+        unsignedMessage: {
+          // Use ETH_SIGN to sign plain message
+          type: ETHMessageTypes.ETH_SIGN,
+          message: Buffer.from(params.payload, 'hex').toString('utf8'),
+          payload: params,
+        },
+      });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return JSON.parse(signature as string);
   }
 
   @providerApiMethod()

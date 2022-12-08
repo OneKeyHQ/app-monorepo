@@ -17,7 +17,7 @@ import {
 } from '../../types';
 
 import { encodePrivateKey, getPathIndex, getXprvString } from './helper/bip32';
-import { CardanoApi } from './helper/sdk';
+import { CardanoApi, dAppUtils } from './helper/sdk';
 import { batchGetShelleyAddressByRootKey } from './helper/shelley-address';
 import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
 
@@ -111,9 +111,6 @@ export class KeyringImported extends KeyringImportedBase {
     debugLogger.sendTx.info('signTransaction result', unsignedTx);
     const encodedTx = unsignedTx.payload.encodedTx as unknown as IEncodedTxADA;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    // const { [dbAccount.path]: privateKey } = await this.getPrivateKeys(
-    //   options.password ?? '',
-    // );
 
     const signers = await this.getSigners(options.password || '', [
       dbAccount.address,
@@ -139,5 +136,31 @@ export class KeyringImported extends KeyringImportedBase {
       rawTx: signedTx,
       txid,
     };
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+    const privateKey = await signer.getPrvkey();
+
+    const encodeKey = encodePrivateKey(privateKey);
+
+    const xprv = await getXprvString(encodeKey.rootKey);
+    const accountIndex = getPathIndex(dbAccount.path);
+
+    const result = await Promise.all(
+      messages.map(
+        ({ payload }: { payload: { addr: string; payload: string } }) =>
+          dAppUtils.signData(payload.addr, payload.payload, xprv, accountIndex),
+      ),
+    );
+    return result.map((ret) => JSON.stringify(ret));
   }
 }
