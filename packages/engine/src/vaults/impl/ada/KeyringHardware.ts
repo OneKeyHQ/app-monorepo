@@ -179,6 +179,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signedTx = await CardanoApi.hwSignTransaction(
       tx.body,
       res.payload.witnesses,
+      {
+        signOnly: !!encodedTx.signOnly,
+      },
     );
 
     return {

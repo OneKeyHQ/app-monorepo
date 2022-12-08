@@ -131,6 +131,7 @@ export class KeyringImported extends KeyringImportedBase {
       Number(accountIndex),
       encodedTx.inputs as unknown as IAdaUTXO[],
       xprv,
+      !!encodedTx.signOnly,
       false,
     );
 

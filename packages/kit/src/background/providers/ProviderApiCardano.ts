@@ -165,7 +165,7 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async submitTx(request: IJsBridgeMessagePayload, params: string) {
+  async submitTx(_: IJsBridgeMessagePayload, params: string) {
     const vault = await this.getAdaVault();
     const client = await vault.getClient();
     const txid = await client.submitTx(params);
