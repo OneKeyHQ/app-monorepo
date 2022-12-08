@@ -89,7 +89,7 @@
         "ascApiKeyPath": "./AscApiKey.p8"
       },
       "android": {
-        "serviceAccountKeyPath": "./pc-api-8644398719570171123-0-dcae07e2afab.json",
+        "serviceAccountKeyPath": "./pc-api-5587200230963439615-825-6bf40e0a900c.json",
         "track": "internal"
       }
     }
