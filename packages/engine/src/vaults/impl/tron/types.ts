@@ -22,3 +22,14 @@ export type IOnChainHistoryTokenTx = {
   type: string;
   value: number;
 };
+
+export type IRPCCallResponse = {
+  jsonrpc: string;
+  id: number;
+  result?: any;
+  error?: {
+    code: number;
+    data: string;
+    message: string;
+  };
+};
