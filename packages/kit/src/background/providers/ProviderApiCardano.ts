@@ -140,13 +140,28 @@ class ProviderApiCardano extends ProviderApiBase {
   async getChangeAddress() {
     const vault = await this.getAdaVault();
     const [address] = await vault.getAccountAddressForDapp();
-    return address as string;
+    return address;
   }
 
   @providerApiMethod()
   async getRewardAddresses() {
     const vault = await this.getAdaVault();
     return vault.getStakeAddressForDapp();
+  }
+
+  @providerApiMethod()
+  async signTx(request: IJsBridgeMessagePayload, params: { tx: string }) {
+    const vault = await this.getAdaVault();
+    const encodedTx = await vault.buildTxCborToEncodeTx(params.tx);
+
+    const txWitnessSetHex =
+      (await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
+        encodedTx,
+        signOnly: true,
+      })) as string;
+
+    console.log(txWitnessSetHex);
+    return txWitnessSetHex;
   }
 }
 

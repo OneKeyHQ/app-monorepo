@@ -69,12 +69,18 @@ class Client {
       .then((i) => i.data);
   }
 
-  async getAssociatedAddresses(stakeAddress: string): Promise<string[]> {
-    const res = await this.request
-      .get<{ address: string }[]>(`/accounts/${stakeAddress}/addresses`)
-      .then((i) => i.data);
-    return res.map((i) => i.address);
-  }
+  getAssociatedAddresses = memoizee(
+    async (stakeAddress: string): Promise<string[]> => {
+      const res = await this.request
+        .get<{ address: string }[]>(`/accounts/${stakeAddress}/addresses`)
+        .then((i) => i.data);
+      return res.map((i) => i.address);
+    },
+    {
+      promise: true,
+      maxAge: 1000 * 60 * 5,
+    },
+  );
 
   async getBalance(stakeAddress: string): Promise<BigNumber> {
     const res = await this.request

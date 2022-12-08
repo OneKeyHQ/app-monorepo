@@ -120,12 +120,15 @@ export class KeyringHd extends KeyringHdBase {
     )) as ExportedSeedCredential;
     const xprv = await getXprvString(password, entropy);
     const accountIndex = getPathIndex(dbAccount.path);
+
+    // sign for dapp if signOnly
     const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
       dbAccount.address,
       Number(accountIndex),
       encodedTx.inputs as unknown as IAdaUTXO[],
       xprv,
+      !!encodedTx.signOnly,
       false,
     );
 

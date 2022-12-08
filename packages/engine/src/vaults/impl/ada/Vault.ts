@@ -399,6 +399,7 @@ export default class Vault extends VaultBase {
       transferInfo,
       tx,
       changeAddress,
+      signOnly: false,
     };
   }
 
@@ -713,5 +714,23 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
     return dAppUtils.getAddresses([stakeAddress]);
+  }
+
+  async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxADA> {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const changeAddress = getChangeAddress(dbAccount);
+    const client = await this.getClient();
+    const stakeAddress = await this.getStakeAddress(dbAccount.address);
+    const addresses = await client.getAssociatedAddresses(stakeAddress);
+    const utxos = await client.getUTXOs(dbAccount);
+    const encodeTx = await dAppUtils.convertCborTxToEncodeTx(
+      txHex,
+      utxos,
+      addresses,
+    );
+    return {
+      ...encodeTx,
+      changeAddress,
+    };
   }
 }

@@ -319,6 +319,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
   IInjectedProviderNames.sui,
+  IInjectedProviderNames.cardano,
 ];
 
 export function getNetworkImplFromDappScope(
