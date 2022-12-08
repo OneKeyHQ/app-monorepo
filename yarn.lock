@@ -1924,6 +1924,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@emurgo/cardano-message-signing-asmjs@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@emurgo/cardano-message-signing-asmjs@npm:1.0.1"
+  checksum: 2cdb4c2fbf78632b6256e2300dab6cab0bdbae7c9e80d3f619e1f09fc53b3ec7ab659ae4c9094dac3e1cbdb756d0bc0d2927f4619b34b1766e97a7d198aa9e3a
+  languageName: node
+  linkType: hard
+
 "@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0":
   version: 11.1.0
   resolution: "@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0"
@@ -5076,6 +5083,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/onekey-cardano-provider@file:.yalc/@onekeyfe/onekey-cardano-provider::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
+  version: 1.1.11
+  resolution: "@onekeyfe/onekey-cardano-provider@file:.yalc/@onekeyfe/onekey-cardano-provider#.yalc/@onekeyfe/onekey-cardano-provider::hash=108306&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+  dependencies:
+    "@onekeyfe/cross-inpage-provider-core": 1.1.11
+    "@onekeyfe/cross-inpage-provider-errors": 1.1.11
+    "@onekeyfe/cross-inpage-provider-types": 1.1.11
+    "@onekeyfe/extension-bridge-injected": 1.1.11
+  checksum: 72849c0d2bac3de0a5df59ead290bc544b264718e988aaeb40443ba3af1c451ec46f440efc4a4c1d22f5274db41158ab34b13a0db7247634cdb71eb42d9af0c8
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/onekey-conflux-provider@npm:1.1.11":
   version: 1.1.11
   resolution: "@onekeyfe/onekey-conflux-provider@npm:1.1.11"
@@ -5224,6 +5243,7 @@ __metadata:
     "@onekeyfe/extension-bridge-hosted": 1.1.11
     "@onekeyfe/inpage-providers-hub": 1.1.11
     "@onekeyfe/onekey-aptos-provider": 1.1.11
+    "@onekeyfe/onekey-cardano-provider": "file:.yalc/@onekeyfe/onekey-cardano-provider"
     "@onekeyfe/onekey-cross-webview": 1.1.11
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
     "@types/chrome": ^0.0.161
@@ -5490,7 +5510,7 @@ __metadata:
     bs58check: ^2.1.2
     buffer: ^6.0.3
     camelcase-keys: ^7.0.2
-    cardano-coin-selection: 1.0.6
+    cardano-coin-selection: 1.1.0
     cardano-crypto.js: ^6.1.1
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
@@ -11917,6 +11937,18 @@ __metadata:
   peerDependencies:
     bignumber.js: ^9.0.1
   checksum: bc9082b1f4d44839146499e64503a7f551235ba6d4f8cf9c1cebdae499806513aa47477cc2b13a87627e3a3e170cc56ed266fd80c246df7c954756015f7c4e6d
+  languageName: node
+  linkType: hard
+
+"cardano-coin-selection@npm:1.1.0":
+  version: 1.1.0
+  resolution: "cardano-coin-selection@npm:1.1.0"
+  dependencies:
+    "@emurgo/cardano-message-signing-asmjs": ^1.0.1
+    "@emurgo/cardano-serialization-lib-asmjs": 11.1.0
+  peerDependencies:
+    bignumber.js: ^9.0.1
+  checksum: 198b63f3bc13957d41b9734dc1e5148cbf1853d224eb24728b647d155fc08d3616ad066b63dc272e0b8086790a9fa6ef18a52a84290c3561318b1c76296301a2
   languageName: node
   linkType: hard
 

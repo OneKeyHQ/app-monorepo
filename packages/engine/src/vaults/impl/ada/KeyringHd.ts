@@ -155,7 +155,12 @@ export class KeyringHd extends KeyringHdBase {
     const result = await Promise.all(
       messages.map(
         ({ payload }: { payload: { addr: string; payload: string } }) =>
-          dAppUtils.signData(payload.addr, payload.payload, xprv, accountIndex),
+          dAppUtils.signData(
+            payload.addr,
+            payload.payload,
+            xprv,
+            Number(accountIndex),
+          ),
       ),
     );
     return result.map((ret) => JSON.stringify(ret));
