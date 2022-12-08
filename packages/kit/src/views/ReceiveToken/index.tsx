@@ -218,8 +218,7 @@ const ReceiveToken = () => {
         contentContainerStyle: {
           flex: 1,
           justifyContent: 'center',
-          paddingTop: 24,
-          paddingBottom: 24,
+          paddingVertical: isVerticalLayout ? 16 : 24,
         },
         children: shownAddress ? (
           <>

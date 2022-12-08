@@ -8,7 +8,6 @@ import {
   Badge,
   Box,
   Center,
-  Divider,
   Empty,
   FlatList,
   Modal,

@@ -225,7 +225,7 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
 
   const { dataSources, renderItem } = useMemo(() => {
     const tokens = searchedTokens ?? listedTokens;
-    const renderFn: ListRenderItem<Token> = ({ item, index }) => (
+    const renderFn: ListRenderItem<Token> = ({ item }) => (
       <ListRenderToken
         token={item}
         onSelect={onSelect}

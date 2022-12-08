@@ -89,7 +89,13 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     );
   }
   return (
-    <Box bg="surface-default" borderRadius={12} p={4}>
+    <Box
+      bg="surface-default"
+      borderRadius={12}
+      borderWidth={1}
+      borderColor="border-subdued"
+      p={4}
+    >
       {titleView}
       {contentView}
     </Box>

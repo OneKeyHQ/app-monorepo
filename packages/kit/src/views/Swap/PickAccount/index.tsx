@@ -6,7 +6,6 @@ import { SectionListRenderItem } from 'react-native';
 
 import {
   Box,
-  Divider,
   Modal,
   Pressable,
   SectionList,

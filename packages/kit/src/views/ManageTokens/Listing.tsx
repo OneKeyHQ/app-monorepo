@@ -103,7 +103,6 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                 p="8px"
                 borderRadius="12px"
                 alignItems="center"
-                bg="surface-default"
                 _hover={{ bgColor: 'surface-hovered' }}
                 _pressed={{ bgColor: 'surface-pressed' }}
               >
