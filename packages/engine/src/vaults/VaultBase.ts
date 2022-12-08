@@ -173,6 +173,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     );
   }
 
+  getTransactionFeeInNative(txid: string): Promise<string> {
+    return Promise.resolve('');
+  }
+
   async isContractAddress(address: string): Promise<boolean> {
     return false;
   }

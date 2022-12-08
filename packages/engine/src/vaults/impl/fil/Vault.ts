@@ -255,6 +255,22 @@ export default class Vault extends VaultBase {
     );
   }
 
+  override async getTransactionFeeInNative(txid: string) {
+    try {
+      const scanClient = await this.getScanClient();
+      const token = await this.engine.getNativeTokenInfo(this.networkId);
+      const tx = await scanClient.request<IOnChainHistoryTx>(
+        'MessageDetails',
+        txid,
+      );
+      return new BigNumber(tx.all_gas_fee ?? 0)
+        .shiftedBy(-token.decimals)
+        .toFixed();
+    } catch {
+      return '';
+    }
+  }
+
   override async getTransactionStatuses(
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
@@ -315,11 +331,6 @@ export default class Vault extends VaultBase {
         }
         const amountBN = new BigNumber(tx.value);
 
-        const txDetail = await scanClient.request<IOnChainHistoryTx>(
-          'MessageDetails',
-          tx.signed_cid,
-        );
-
         const decodedTx: IDecodedTx = {
           txid: tx.signed_cid ?? '',
           owner: tx.from,
@@ -343,9 +354,6 @@ export default class Vault extends VaultBase {
           networkId: this.networkId,
           accountId: this.accountId,
           extraInfo: null,
-          totalFeeInNative: new BigNumber(txDetail.all_gas_fee ?? 0)
-            .shiftedBy(-token.decimals)
-            .toFixed(),
         };
         decodedTx.updatedAt = new Date(tx.last_modified).getTime();
         decodedTx.createdAt =
