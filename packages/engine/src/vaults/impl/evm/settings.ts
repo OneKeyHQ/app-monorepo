@@ -12,6 +12,13 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
+
+  subNetworkSettings: {
+    // GateChain
+    'evm--86': {
+      isIntegerGasPrice: true,
+    },
+  },
 };
 
 export default settings;
