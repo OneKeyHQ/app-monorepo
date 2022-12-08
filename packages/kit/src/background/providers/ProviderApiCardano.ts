@@ -163,6 +163,14 @@ class ProviderApiCardano extends ProviderApiBase {
     console.log(txWitnessSetHex);
     return txWitnessSetHex;
   }
+
+  @providerApiMethod()
+  async submitTx(request: IJsBridgeMessagePayload, params: string) {
+    const vault = await this.getAdaVault();
+    const client = await vault.getClient();
+    const txid = await client.submitTx(params);
+    return txid;
+  }
 }
 
 export default ProviderApiCardano;
