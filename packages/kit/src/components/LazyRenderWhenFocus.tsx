@@ -5,6 +5,8 @@ import { Freeze } from 'react-freeze';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { isModalRouteExisting } from '../utils/routeUtils';
+
 export interface ILazyRenderWhenFocusProps {
   unmountWhenBlur?: boolean;
   freezeWhenBlur?: boolean;
@@ -25,7 +27,8 @@ export function LazyRenderWhenFocus({
     }
   }, [isFocused]);
   let shouldFreeze = false;
-  if (!isFocused) {
+  const isModalOpen = isModalRouteExisting();
+  if (!isFocused && !isModalOpen) {
     if (!platformEnv.isNative || (platformEnv.isNative && isNativeEnabled)) {
       if (unmountWhenBlur) {
         return null;
