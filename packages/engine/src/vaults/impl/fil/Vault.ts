@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import {
   CoinType,
+  decode,
+  encode,
   newSecp256k1Address,
   validateAddressString,
 } from '@glif/filecoin-address';
@@ -395,11 +397,11 @@ export default class Vault extends VaultBase {
     };
     if (ret.address.length === 0) {
       const network = await this.getNetwork();
-
-      const address = newSecp256k1Address(
-        Buffer.from(dbAccount.pub, 'hex'),
+      const addressObj = decode(dbAccount.address);
+      const address = encode(
         network.isTestnet ? CoinType.TEST : CoinType.MAIN,
-      ).toString();
+        addressObj,
+      );
 
       await this.engine.dbApi.addAccountAddress(
         dbAccount.id,
@@ -446,6 +448,16 @@ export default class Vault extends VaultBase {
     );
 
     return result;
+  }
+
+  override async validateWatchingCredential(address: string): Promise<boolean> {
+    const isValid = validateAddressString(address);
+    const normalizedAddress = isValid ? address.toLowerCase() : undefined;
+
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      return false;
+    }
+    return true;
   }
 
   override async validateAddress(address: string): Promise<string> {

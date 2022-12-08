@@ -39,7 +39,7 @@ export class KeyringImported extends KeyringImportedBase {
     const address = newSecp256k1Address(
       pubUncompressed,
       network.isTestnet ? CoinType.TEST : CoinType.MAIN,
-    );
+    ).toString();
 
     return Promise.resolve([
       {
@@ -49,8 +49,8 @@ export class KeyringImported extends KeyringImportedBase {
         path: '',
         coinType: COIN_TYPE,
         pub: pubHex,
-        address: pubHex,
-        addresses: { [this.networkId]: address.toString() },
+        address,
+        addresses: { [this.networkId]: address },
       },
     ]);
   }

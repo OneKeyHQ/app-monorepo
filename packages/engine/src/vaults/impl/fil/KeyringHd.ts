@@ -110,7 +110,7 @@ export class KeyringHd extends KeyringHdBase {
         path,
         coinType: COIN_TYPE,
         pub: pubHex,
-        address: pubHex,
+        address,
         addresses: { [this.networkId]: address },
       });
       index += 1;

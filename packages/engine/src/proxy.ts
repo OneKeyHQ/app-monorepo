@@ -8,7 +8,12 @@ import {
   encode as toCfxAddress,
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
-import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
+import {
+  CoinType,
+  decode as filDecode,
+  encode as filEncode,
+  newSecp256k1Address,
+} from '@glif/filecoin-address';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
 import {
@@ -441,10 +446,10 @@ class ProviderController extends BaseProviderController {
         return Promise.resolve(toCfxAddress(baseAddress, parseInt(chainId)));
       case IMPL_FIL:
         return Promise.resolve(
-          newSecp256k1Address(
-            Buffer.from(baseAddress),
+          filEncode(
             chainId === FilChainId.MAIN ? CoinType.MAIN : CoinType.TEST,
-          ).toString(),
+            filDecode(baseAddress),
+          ),
         );
       case IMPL_COSMOS:
         // eslint-disable-next-line no-case-declarations
