@@ -12,8 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import MaskedView from '../MaskedView';
-import PlatformPressable from '../PlatformPressable';
+import { Pressable } from '@onekeyhq/components';
 
 import type { HeaderBackButtonProps } from './types';
 
@@ -143,7 +142,7 @@ export default function HeaderBackButton({
   const handlePress = () => onPress && requestAnimationFrame(onPress);
 
   return (
-    <PlatformPressable
+    <Pressable
       disabled={disabled}
       accessible
       accessibilityRole="button"
@@ -159,11 +158,9 @@ export default function HeaderBackButton({
         default: { top: 16, right: 16, bottom: 16, left: 16 },
       })}
     >
-      <>
-        {renderBackImage()}
-        {renderLabel()}
-      </>
-    </PlatformPressable>
+      {renderBackImage()}
+      {renderLabel()}
+    </Pressable>
   );
 }
 

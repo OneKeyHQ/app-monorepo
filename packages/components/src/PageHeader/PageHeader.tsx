@@ -1,287 +1,72 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable no-nested-ternary */
-import { ComponentProps } from 'react';
+import { ReactNode } from 'react';
 
-import { Animated, Platform, StyleSheet, View, ViewStyle } from 'react-native';
-import {
-  useSafeAreaFrame,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import HeaderBackground from './HeaderBackground';
+import { useIsVerticalLayout } from '../Provider/hooks';
+
+import HeaderBackButton from './HeaderBackButton';
 import HeaderTitle from './HeaderTitle';
 
-import type { HeaderOptions, Layout } from './types';
-
-interface Props extends HeaderOptions {
-  /**
-   * Layout of the screen.
-   */
-  layout?: Layout;
-  /**
-   * Title text for the header.
-   */
-  title: string;
+interface PageHeaderProps {
+  title?: string;
+  subtitle?: string;
+  headerTitle?: () => ReactNode;
+  headerLeft?: () => ReactNode;
+  headerRight?: () => ReactNode;
 }
 
-const warnIfHeaderStylesDefined = (styles: Record<string, any>) => {
-  Object.keys(styles).forEach((styleProp) => {
-    const value = styles[styleProp];
+const defaultMobileHeight = 56;
+const defaultDesktopHeight = 64;
 
-    if (styleProp === 'position' && value === 'absolute') {
-      console.warn(
-        "position: 'absolute' is not supported on headerStyle. If you would like to render content under the header, use the 'headerTransparent' option.",
-      );
-    } else if (value !== undefined) {
-      console.warn(
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        `${styleProp} was given a value of ${value}, this has no effect on headerStyle.`,
-      );
-    }
-  });
-};
-
-const defaultHeight = 56;
-
-export default function PageHeader(props: Props) {
+export default function PageHeader({
+  title,
+  subtitle,
+  headerLeft,
+  headerRight,
+  headerTitle,
+}: PageHeaderProps) {
   const insets = useSafeAreaInsets();
-  const frame = useSafeAreaFrame();
+  const isVertical = useIsVerticalLayout();
 
-  const {
-    layout = frame,
-    title,
-    headerTitle: customTitle,
-    headerTitleAlign = Platform.select({
-      ios: 'center',
-      default: 'left',
-    }),
-    headerLeft,
-    headerLeftLabelVisible,
-    headerTransparent,
-    headerTintColor,
-    headerBackground,
-    headerRight,
-    headerTitleAllowFontScaling: titleAllowFontScaling,
-    headerTitleStyle: titleStyle,
-    headerLeftContainerStyle: leftContainerStyle,
-    headerRightContainerStyle: rightContainerStyle,
-    headerTitleContainerStyle: titleContainerStyle,
-    headerBackgroundContainerStyle: backgroundContainerStyle,
-    headerStyle: customHeaderStyle,
-    headerShadowVisible,
-    headerPressColor,
-    headerPressOpacity,
-    headerStatusBarHeight = insets.top,
-  } = props;
+  const height = isVertical ? defaultMobileHeight : defaultDesktopHeight;
 
-  const {
-    height = defaultHeight,
-    minHeight,
-    maxHeight,
-    backgroundColor,
-    borderBottomColor,
-    borderBottomEndRadius,
-    borderBottomLeftRadius,
-    borderBottomRightRadius,
-    borderBottomStartRadius,
-    borderBottomWidth,
-    borderColor,
-    borderEndColor,
-    borderEndWidth,
-    borderLeftColor,
-    borderLeftWidth,
-    borderRadius,
-    borderRightColor,
-    borderRightWidth,
-    borderStartColor,
-    borderStartWidth,
-    borderStyle,
-    borderTopColor,
-    borderTopEndRadius,
-    borderTopLeftRadius,
-    borderTopRightRadius,
-    borderTopStartRadius,
-    borderTopWidth,
-    borderWidth,
-    // @ts-expect-error: web support for shadow
-    boxShadow,
-    elevation,
-    shadowColor,
-    shadowOffset,
-    shadowOpacity,
-    shadowRadius,
-    opacity,
-    transform,
-    ...unsafeStyles
-  } = StyleSheet.flatten(customHeaderStyle || {}) as ViewStyle;
+  const leftButton = headerLeft ? headerLeft() : <HeaderBackButton />;
 
-  if (process.env.NODE_ENV !== 'production') {
-    warnIfHeaderStylesDefined(unsafeStyles);
-  }
-
-  const safeStyles: ViewStyle = {
-    backgroundColor,
-    borderBottomColor,
-    borderBottomEndRadius,
-    borderBottomLeftRadius,
-    borderBottomRightRadius,
-    borderBottomStartRadius,
-    borderBottomWidth,
-    borderColor,
-    borderEndColor,
-    borderEndWidth,
-    borderLeftColor,
-    borderLeftWidth,
-    borderRadius,
-    borderRightColor,
-    borderRightWidth,
-    borderStartColor,
-    borderStartWidth,
-    borderStyle,
-    borderTopColor,
-    borderTopEndRadius,
-    borderTopLeftRadius,
-    borderTopRightRadius,
-    borderTopStartRadius,
-    borderTopWidth,
-    borderWidth,
-    // @ts-expect-error: boxShadow is only for Web
-    boxShadow,
-    elevation,
-    shadowColor,
-    shadowOffset,
-    shadowOpacity,
-    shadowRadius,
-    opacity,
-    transform,
-  };
-
-  // Setting a property to undefined triggers default style
-  // So we need to filter them out
-  // Users can use `null` instead
-  // eslint-disable-next-line no-restricted-syntax
-  for (const styleProp in safeStyles) {
-    // @ts-expect-error: typescript wrongly complains that styleProp cannot be used to index safeStyles
-    if (safeStyles[styleProp] === undefined) {
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete safeStyles[styleProp];
-    }
-  }
-
-  const backgroundStyle = [
-    safeStyles,
-    headerShadowVisible === false && {
-      elevation: 0,
-      shadowOpacity: 0,
-      borderBottomWidth: 0,
-    },
-  ];
-
-  const leftButton = headerLeft
-    ? headerLeft({
-        tintColor: headerTintColor,
-        pressColor: headerPressColor,
-        pressOpacity: headerPressOpacity,
-        labelVisible: headerLeftLabelVisible,
-      })
-    : null;
-
-  const rightButton = headerRight
-    ? headerRight({
-        tintColor: headerTintColor,
-        pressColor: headerPressColor,
-        pressOpacity: headerPressOpacity,
-      })
-    : null;
-
-  const headerTitle =
-    typeof customTitle !== 'function'
-      ? // eslint-disable-next-line @typescript-eslint/no-shadow
-        (props: ComponentProps<typeof HeaderTitle>) => (
-          <HeaderTitle {...props} />
-        )
-      : customTitle;
+  const titleComponent = headerTitle ? (
+    headerTitle()
+  ) : title ? (
+    <HeaderTitle title={title} subtitle={subtitle} />
+  ) : null;
 
   return (
-    <>
-      <Animated.View
-        pointerEvents="box-none"
-        style={[
-          StyleSheet.absoluteFill,
-          { zIndex: 0 },
-          backgroundContainerStyle,
-        ]}
-      >
-        {headerBackground ? (
-          headerBackground({ style: backgroundStyle })
-        ) : headerTransparent ? null : (
-          <HeaderBackground style={backgroundStyle} />
-        )}
-      </Animated.View>
-      <Animated.View
-        pointerEvents="box-none"
-        style={[{ height, minHeight, maxHeight, opacity, transform }]}
-      >
-        <View pointerEvents="none" style={{ height: headerStatusBarHeight }} />
-        <View pointerEvents="box-none" style={styles.content}>
-          <Animated.View
-            pointerEvents="box-none"
-            style={[
-              styles.left,
-              headerTitleAlign === 'center' && styles.expand,
-              { marginStart: insets.left },
-              leftContainerStyle,
-            ]}
-          >
-            {leftButton}
-          </Animated.View>
-          <Animated.View
-            pointerEvents="box-none"
-            style={[
-              styles.title,
-              {
-                // Avoid the title from going offscreen or overlapping buttons
-                maxWidth:
-                  headerTitleAlign === 'center'
-                    ? layout.width -
-                      ((leftButton
-                        ? headerLeftLabelVisible !== false
-                          ? 80
-                          : 32
-                        : 16) +
-                        Math.max(insets.left, insets.right)) *
-                        2
-                    : layout.width -
-                      ((leftButton ? 72 : 16) +
-                        (rightButton ? 72 : 16) +
-                        insets.left -
-                        insets.right),
-              },
-              titleContainerStyle,
-            ]}
-          >
-            {headerTitle({
-              children: title,
-              allowFontScaling: titleAllowFontScaling,
-              tintColor: headerTintColor,
-              style: titleStyle,
-            })}
-          </Animated.View>
-          <Animated.View
-            pointerEvents="box-none"
-            style={[
-              styles.right,
-              styles.expand,
-              { marginEnd: insets.right },
-              rightContainerStyle,
-            ]}
-          >
-            {rightButton}
-          </Animated.View>
+    <View
+      pointerEvents="box-none"
+      style={{
+        height,
+        paddingTop: insets.top,
+      }}
+    >
+      <View pointerEvents="box-none" style={styles.content}>
+        <View
+          pointerEvents="box-none"
+          style={[styles.left, { marginStart: insets.left }]}
+        >
+          {leftButton}
         </View>
-      </Animated.View>
-    </>
+        <View pointerEvents="box-none" style={styles.title}>
+          {titleComponent}
+        </View>
+        <View
+          pointerEvents="box-none"
+          style={[styles.right, styles.expand, { marginEnd: insets.right }]}
+        >
+          {headerRight?.()}
+        </View>
+      </View>
+    </View>
   );
 }
 
