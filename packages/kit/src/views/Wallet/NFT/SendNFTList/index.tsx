@@ -16,6 +16,7 @@ import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
@@ -182,7 +183,7 @@ function SendButton({
     <Box pt="16px" pb={{ base: `${16 + bottom}px`, md: '24px' }}>
       <Button
         isDisabled={isDisabled}
-        size={isVerticalLayout ? 'xl' : 'lg'}
+        size={platformEnv.isNative ? 'xl' : 'lg'}
         type="primary"
         onPress={sendAction}
       >
