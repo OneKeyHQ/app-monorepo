@@ -22,12 +22,11 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
-import { FormatCurrencyNumber } from '../../../components/Format';
 import { useManageTokens, useNavigation } from '../../../hooks';
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
-import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
-import { getSummedValues } from '../../../utils/priceUtils';
+import { useActiveWalletAccount } from '../../../hooks/redux';
 import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
+
+import { AssetsSummedValues } from './AssetsSummedValues';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -52,33 +51,11 @@ const ListHeader: FC<{
   const navigation = useNavigation<NavigationProps>();
   const isVerticalLayout = useIsVerticalLayout();
   const { account, network, networkId, accountId } = useActiveWalletAccount();
-  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
 
   const { accountTokens, balances } = useManageTokens();
-  const { prices } = useManageTokenprices({ networkId, accountId });
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
-  const summedValue = useMemo(() => {
-    const displayValue = getSummedValues({
-      tokens: accountTokens,
-      balances,
-      prices,
-      vsCurrency,
-      hideSmallBalance,
-    }).toNumber();
-
-    return (
-      <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-        {Number.isNaN(displayValue) ? (
-          ' '
-        ) : (
-          <FormatCurrencyNumber decimals={2} value={displayValue} />
-        )}
-      </Text>
-    );
-  }, [accountTokens, balances, hideSmallBalance, prices, vsCurrency]);
 
   const tokenCountOrAddToken = useMemo(
     () =>
@@ -168,7 +145,12 @@ const ListHeader: FC<{
               borderRadius="2px"
               bg="text-default"
             />
-            {summedValue}
+            <AssetsSummedValues
+              accountId={accountId}
+              networkId={networkId}
+              balances={balances}
+              accountTokens={accountTokens}
+            />
           </Box>
         )}
         <Box ml="auto" flexDirection="row" alignItems="center">
@@ -177,7 +159,12 @@ const ListHeader: FC<{
       </Box>
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
         {isVerticalLayout ? (
-          summedValue
+          <AssetsSummedValues
+            accountId={accountId}
+            networkId={networkId}
+            balances={balances}
+            accountTokens={accountTokens}
+          />
         ) : (
           <Box flexDirection="row" w="full">
             <Typography.Subheading color="text-subdued" flex={1}>

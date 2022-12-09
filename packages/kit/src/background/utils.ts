@@ -4,6 +4,7 @@ import {
   IInjectedProviderNamesStrings,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { PayloadAction } from '@reduxjs/toolkit';
+import axios, { Method } from 'axios';
 import {
   isArray,
   isBoolean,
@@ -16,6 +17,7 @@ import {
   isString,
   isUndefined,
 } from 'lodash';
+import qs from 'qs';
 import { batch } from 'react-redux';
 
 import {
@@ -29,9 +31,11 @@ import {
   IMPL_SUI,
   IMPL_TRON,
 } from '@onekeyhq/engine/src/constants';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { AnyAction } from 'redux';
+
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -373,4 +377,26 @@ export function buildReduxBatchAction(...actions: AnyAction[]) {
   }
 
   return singleAction;
+}
+
+export async function fetchData<T>(
+  path: string,
+  query: Record<string, unknown> = {},
+  fallback: T,
+  method: Method = 'GET',
+): Promise<T> {
+  const endpoint = getFiatEndpoint();
+  try {
+    const isPost = method === 'POST' || method === 'post';
+    const apiUrl = `${endpoint}${path}${
+      !isPost ? `?${qs.stringify(query)}` : ''
+    }`;
+    const postData = isPost ? query : undefined;
+    const requestConfig = { url: apiUrl, method, data: postData };
+    const { data } = await axios.request<T>(requestConfig);
+    return data;
+  } catch (e) {
+    console.error(e);
+    return fallback;
+  }
 }

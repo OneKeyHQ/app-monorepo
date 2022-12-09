@@ -78,7 +78,6 @@ export function getTokenValue({
     const priceValue = new BigNumber(price || 0);
     return new BigNumber(balance).times(priceValue);
   }
-  return new BigNumber(0);
 }
 
 export function getTokenValues({

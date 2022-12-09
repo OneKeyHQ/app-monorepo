@@ -310,7 +310,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         tokenId: item.tokenIdOnNetwork,
       });
       const value = getTokenValue({ token: item, price, balances });
-      if (value.isLessThan(1)) {
+      if (value && value.isLessThan(1)) {
         toast.show(
           {
             title: intl.formatMessage({

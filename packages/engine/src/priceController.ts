@@ -17,13 +17,6 @@ export type ChartQueryParams = {
   points?: string;
 };
 
-export type PriceQueryParams = {
-  networkId: string;
-  addresses?: string[];
-  vs_currency?: string;
-  withMain?: boolean;
-};
-
 export class PriceController {
   CACHE_DURATION = 1000 * 30;
 
@@ -77,38 +70,6 @@ export class PriceController {
       }
     });
     return ret;
-  }
-
-  async getCgkTokenPrice({
-    networkId,
-    addresses,
-    vs_currency = 'usd',
-    withMain,
-  }: PriceQueryParams) {
-    const params: {
-      platform: string;
-      vs_currency: string;
-      contracts?: string;
-    } = { platform: networkId, vs_currency };
-    if (addresses?.length && addresses[0] !== 'main') {
-      params.contracts = addresses.join(',');
-    }
-    try {
-      let data = await this.fetchApi<Record<string, Record<string, number>>>(
-        `/simple/price`,
-        params,
-      );
-      if (withMain) {
-        delete params.contracts;
-        const mainPrice = await this.fetchApi<
-          Record<string, Record<string, number>>
-        >(`/simple/price`, params);
-        data = { ...data, ...mainPrice };
-      }
-      return data;
-    } catch {
-      return {};
-    }
   }
 
   async getCgkTokensChart({

@@ -39,6 +39,7 @@ import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { SimpleTokenPrices } from '../../../store/reducers/tokens';
+import { getTimeDurationMs } from '../../../utils/helper';
 import {
   calculateGains,
   getPreBaseValue,
@@ -74,7 +75,7 @@ const AccountAmountInfo: FC = () => {
   const { prices } = useManageTokenprices({
     networkId,
     accountId,
-    pollingInterval: 600,
+    pollingInterval: getTimeDurationMs({ minute: 5 }),
   });
 
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);

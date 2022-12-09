@@ -33,6 +33,7 @@ import {
 import { ServerToken } from '../../store/typings';
 import { getDefaultLocale } from '../../utils/locale';
 import { backgroundClass, backgroundMethod } from '../decorators';
+import { fetchData } from '../utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -43,7 +44,7 @@ export default class ServiceMarket extends ServiceBase {
     const { appSelector, dispatch } = this.backgroundApi;
     const locale = appSelector((s) => s.settings.locale);
     const path = '/market/category/list';
-    const datas: MarketCategory[] = await this.fetchData(
+    const datas: MarketCategory[] = await fetchData(
       path,
       { locale: locale === 'system' ? getDefaultLocale() : locale },
       [],
@@ -93,7 +94,7 @@ export default class ServiceMarket extends ServiceBase {
     const path = '/market/tokens';
     const coingeckoIds = ids && ids.length > 0 ? ids : undefined;
     const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
-    const data = await this.fetchData<MarketTokenItem[]>(
+    const data = await fetchData<MarketTokenItem[]>(
       path,
       {
         category: categoryId,
@@ -121,7 +122,7 @@ export default class ServiceMarket extends ServiceBase {
 
   async fetchMarketTokensBaseInfo(marketTokenIds: string) {
     const path = '/market/tokens/base/';
-    const data = await this.fetchData<
+    const data = await fetchData<
       {
         coingeckoId: string;
         tokens: ServerToken[];
@@ -142,7 +143,7 @@ export default class ServiceMarket extends ServiceBase {
     const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const locale = appSelector((s) => s.settings.locale);
     const path = '/market/detail';
-    const data = await this.fetchData(
+    const data = await fetchData(
       path,
       {
         vs_currency: vsCurrency ?? 'usd',
@@ -174,7 +175,7 @@ export default class ServiceMarket extends ServiceBase {
     const path = '/notification/favorite';
     const { appSelector } = this.backgroundApi;
     const instanceId = appSelector((s) => s.settings.instanceId);
-    const data = await this.fetchData<{
+    const data = await fetchData<{
       acknowledged: boolean;
       deletedCount: number;
     } | null>(path, { instanceId, coingeckoId }, null, 'DELETE');
@@ -189,7 +190,7 @@ export default class ServiceMarket extends ServiceBase {
     const path = '/notification/favorite';
     const { appSelector } = this.backgroundApi;
     const instanceId = appSelector((s) => s.settings.instanceId);
-    const data = await this.fetchData<{ coingeckoId: string } | null>(
+    const data = await fetchData<{ coingeckoId: string } | null>(
       path,
       { instanceId, coingeckoId, symbol },
       null,
@@ -214,7 +215,7 @@ export default class ServiceMarket extends ServiceBase {
     const path = '/market/token/chart';
     const { appSelector, dispatch } = this.backgroundApi;
     const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
-    const data = await this.fetchData(
+    const data = await fetchData(
       path,
       {
         coingeckoId,
@@ -239,7 +240,7 @@ export default class ServiceMarket extends ServiceBase {
   async fetchMarketSearchTokens({ searchKeyword }: { searchKeyword: string }) {
     if (searchKeyword.length === 0) return;
     const path = '/market/search/';
-    const data = await this.fetchData(path, { query: searchKeyword }, []);
+    const data = await fetchData(path, { query: searchKeyword }, []);
     this.backgroundApi.dispatch(
       updateSearchTokens({ searchKeyword, coingeckoIds: data }),
     );
@@ -249,28 +250,6 @@ export default class ServiceMarket extends ServiceBase {
         ids: data.join(','),
         sparkline: false,
       });
-    }
-  }
-
-  async fetchData<T>(
-    path: string,
-    query: Record<string, unknown> = {},
-    fallback: T,
-    method: Method = 'GET',
-  ): Promise<T> {
-    const endpoint = getFiatEndpoint();
-    try {
-      const isPost = method === 'POST' || method === 'post';
-      const apiUrl = `${endpoint}${path}${
-        !isPost ? `?${qs.stringify(query)}` : ''
-      }`;
-      const postData = isPost ? query : undefined;
-      const requestConfig = { url: apiUrl, method, data: postData };
-      const { data } = await axios.request<T>(requestConfig);
-      return data;
-    } catch (e) {
-      console.error(e);
-      return fallback;
     }
   }
 

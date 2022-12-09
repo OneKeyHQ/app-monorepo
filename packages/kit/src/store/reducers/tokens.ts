@@ -67,7 +67,6 @@ type TokenBalancePayloadAction = {
 };
 
 type TokenPrivePayloadAction = {
-  networkId: string;
   prices: Record<string, SimpleTokenPrices>;
 };
 
@@ -136,13 +135,11 @@ export const tokensSlice = createSlice({
       state.tokensPrice[activeNetworkId] = { ...oldPrices, ...prices };
     },
     setTokenPriceMap(state, action: PayloadAction<TokenPrivePayloadAction>) {
-      const { networkId, prices } = action.payload;
+      const { prices } = action.payload;
       Object.keys(prices).forEach((key) => {
-        const tokenPriceKey =
-          key === networkId ? networkId : `${networkId}-${key}`;
         if (!state.tokenPriceMap) state.tokenPriceMap = {};
-        const cachePrice = state.tokenPriceMap[tokenPriceKey] || {};
-        state.tokenPriceMap[tokenPriceKey] = { ...cachePrice, ...prices[key] };
+        const cachePrice = state.tokenPriceMap[key] || {};
+        state.tokenPriceMap[key] = { ...cachePrice, ...prices[key] };
       });
       // check old data
       if (Object.keys(state.tokensPrice).length) {

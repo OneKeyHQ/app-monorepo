@@ -298,7 +298,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     const value = new ServicePrice.default({
       backgroundApi: this,
     });
-    Object.defineProperty(this, 'ServicePrice', { value });
+    Object.defineProperty(this, 'servicePrice', { value });
     return value;
   }
 

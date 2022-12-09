@@ -32,16 +32,10 @@ export const useSimpleTokenPriceValue = ({
   const priceInfo = useSimpleTokenPriceInfo({ networkId, contractAdress });
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
   return useMemo(() => {
-    if (!networkId) return 0;
+    if (!networkId) return undefined;
     if (priceInfo && priceInfo[vsCurrency]) {
       return priceInfo[vsCurrency];
     }
-    // backgroundApiProxy.servicePrice.fetchSimpleTokenPriceDebounced({
-    //   networkId,
-    //   tokenIds: contractAdress ? [contractAdress] : undefined,
-    //   fetchMain: false,
-    //   vsCurrency,
-    // });
   }, [networkId, priceInfo, vsCurrency]);
 };
 
@@ -63,17 +57,15 @@ export const useManageTokenprices = ({
       backgroundApiProxy.servicePrice.fetchSimpleTokenPriceDebounced({
         networkId,
         accountId,
-        fetchMain: true,
         vsCurrency,
       });
       timer = setInterval(() => {
         backgroundApiProxy.servicePrice.fetchSimpleTokenPriceDebounced({
           networkId,
           accountId,
-          fetchMain: true,
           vsCurrency,
         });
-      }, pollingInterval * 1000);
+      }, pollingInterval);
     }
     return () => {
       if (timer) {

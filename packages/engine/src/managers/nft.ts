@@ -127,7 +127,6 @@ export const getNFTSymbolPrice = async (networkId: string) => {
   // return prices?.[tokenId];
   const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
     networkId,
-    tokenId,
   });
   return price;
 };

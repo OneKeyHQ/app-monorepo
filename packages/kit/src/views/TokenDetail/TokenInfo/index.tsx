@@ -35,8 +35,8 @@ import {
 import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
-import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
-import { getTokenValues } from '../../../utils/priceUtils';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { getTokenValue } from '../../../utils/priceUtils';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
@@ -62,9 +62,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
 
   const { balances } = useManageTokens();
 
-  const { prices } = useManageTokenprices({ accountId, networkId });
-
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+  const price = useSimpleTokenPriceValue({
+    networkId,
+    contractAdress: token?.tokenIdOnNetwork,
+  });
 
   const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
 
@@ -132,14 +133,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
           </Box>
           <Typography.Body2 mt={1}>
             <FormatCurrencyNumber
-              value={
-                getTokenValues({
-                  tokens: [token],
-                  prices,
-                  balances,
-                  vsCurrency,
-                })[0]
-              }
+              value={getTokenValue({
+                token,
+                price,
+                balances,
+              })}
             />
           </Typography.Body2>
         </Box>
@@ -153,9 +151,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       network?.tokenDisplayDecimals,
       network?.nativeDisplayDecimals,
       amount,
-      prices,
+      price,
       balances,
-      vsCurrency,
     ],
   );
 
