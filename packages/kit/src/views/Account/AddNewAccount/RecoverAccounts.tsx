@@ -647,7 +647,6 @@ const RecoverAccounts: FC = () => {
       staticChildrenProps={{
         flex: 1,
         padding: '16px',
-        background: 'surface-subdued',
         onLayout: (e) => {
           if (pageWidth === 0) {
             setPageWidth(e.nativeEvent.layout.width);

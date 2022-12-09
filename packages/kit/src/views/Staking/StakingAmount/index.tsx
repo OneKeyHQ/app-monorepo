@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -476,11 +476,13 @@ export default function StakingAmount() {
           </Box>
           <Box
             borderRadius={12}
-            bg="surface-default"
             flexDirection="row"
-            p="4"
+            px="16px"
+            py="12px"
             mt="3"
             mb="3"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-subdued"
           >
             <Image w="10" h="10" source={KeleLogoPNG} mr="4" />
             <Box>
