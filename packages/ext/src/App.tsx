@@ -1,4 +1,7 @@
-import { Provider } from '@onekeyhq/kit';
+import { createLazyKitProvider } from '@onekeyhq/kit/src/provider/createLazyKitProvider';
 import '@onekeyhq/shared/src/web/index.css';
 
-export default Provider;
+const KitProviderExt = createLazyKitProvider({
+  displayName: 'KitProviderExt',
+});
+export default KitProviderExt;

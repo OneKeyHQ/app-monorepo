@@ -8,6 +8,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { Provider as ReduxProvider } from 'react-redux';
 import { SWRConfig } from 'swr';
 
+import { Box } from '@onekeyhq/components';
 import CustomToast from '@onekeyhq/components/src/Toast/Custom';
 import { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
 import { ErrorBoundary } from '@onekeyhq/kit/src/components/ErrorBoundary';
@@ -43,7 +44,8 @@ const swrConfig = {
 const flexStyle = { flex: 1 };
 
 // TODO: detect network change & APP in background mode
-const KitProvider: FC<LaunchProps> = (props) => {
+const KitProvider: FC<LaunchProps> = (propsRaw) => {
+  const props = propsRaw || {};
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
   } = props;

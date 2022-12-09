@@ -53,7 +53,7 @@ function createMultipleEntryConfigs(createConfig, multipleEntryConfigs) {
   });
   return configs;
 }
-
+// firefox chrome
 function getBuildTargetBrowser() {
   console.log('getBuildTargetBrowser: process.argv', process.argv);
   const buildTargetBrowser =

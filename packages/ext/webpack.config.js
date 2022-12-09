@@ -16,6 +16,7 @@ const { extModuleTranspile } = require('../../development/webpackTranspiles');
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
+// firefox chrome
 const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 
 sourcemapServer.start();
@@ -202,10 +203,15 @@ function createConfig() {
 }
 
 function enableCodeSplitChunks({ config, name }) {
+  let maxSizeMb = 8;
+  const isFirefox = buildTargetBrowser === 'firefox';
+  if (isFirefox) {
+    maxSizeMb = 1;
+  }
   config.optimization.splitChunks = {
-    chunks: 'all',
+    chunks: isFirefox ? 'all' : 'initial', // all, async, and initial
     minSize: 0, // 2000000
-    maxSize: 1000 * 1000, // limit to max 2MB to ignore firefox lint error
+    maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
     // auto-gen chunk file name by module name or just increasing number
     name: name ? `vendors-${name}` : true,
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
