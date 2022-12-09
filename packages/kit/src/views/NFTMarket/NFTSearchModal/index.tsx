@@ -10,7 +10,6 @@ import {
   Center,
   Empty,
   HStack,
-  IconButton,
   KeyboardAvoidingView,
   List,
   ListItem,
@@ -21,6 +20,7 @@ import {
   Text,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collection, NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
@@ -79,24 +79,14 @@ const Header: FC<{
         borderLeftColor="border-subdued"
         mr="12px"
       />
-      <HStack space="20px">
+      <HStack space="16px" alignItems="center">
         <ChainSelector
           selectedNetwork={selectNetwork}
           onChange={(n) => {
             onSelectNetWork(n);
           }}
         />
-        {!platformEnv.isNativeIOS && (
-          <Box m="-6px">
-            <IconButton
-              size="sm"
-              name="XMarkMini"
-              type="plain"
-              circle
-              onPress={modalClose}
-            />
-          </Box>
-        )}
+        {!platformEnv.isNativeIOS && <NavigationButton onPress={modalClose} />}
       </HStack>
     </HStack>
   );
