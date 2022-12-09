@@ -59,6 +59,16 @@ const resolveExtensions = fileExtensions
   .map((extension) => `.${extension}`)
   .concat(['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.css']);
 
+class HtmlLazyScriptPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
+      console.log('HtmlLazyScriptPlugin >>>>>>>> ');
+      const doTask = require('./development/htmlLazyScript');
+      doTask();
+    });
+  }
+}
+
 function createConfig() {
   let webpackConfig = {
     // add custom config, will be deleted later
@@ -143,6 +153,7 @@ function createConfig() {
       new webpack.ProvidePlugin({
         process: 'process/browser',
       }),
+      new HtmlLazyScriptPlugin(),
     ],
     infrastructureLogging: {
       level: 'info',
@@ -159,6 +170,7 @@ function createConfig() {
   if (IS_DEV) {
     // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
     webpackConfig.devtool = 'cheap-module-source-map';
+
     //
     // Reset sourcemap here, withExpo will change this value
     //    only inline-source-map supported in extension
@@ -167,16 +179,18 @@ function createConfig() {
     //
 
     webpackConfig.devtool = false;
-    webpackConfig.plugins.push(
-      new webpack.SourceMapDevToolPlugin({
-        append: `\n//# sourceMappingURL=http://127.0.0.1:${sourcemapServer.port}/[url]`,
-        filename: '[file].map',
-        // TODO eval is NOT support in Ext.
-        //      sourcemap building is very very very SLOW
-        module: true,
-        columns: true,
-      }),
-    );
+    if (process.env.GENERATE_SOURCEMAP === 'true') {
+      webpackConfig.plugins.push(
+        new webpack.SourceMapDevToolPlugin({
+          append: `\n//# sourceMappingURL=http://127.0.0.1:${sourcemapServer.port}/[url]`,
+          filename: '[file].map',
+          // TODO eval is NOT support in Ext.
+          //      sourcemap building is very very very SLOW
+          module: true,
+          columns: true,
+        }),
+      );
+    }
   } else {
     webpackConfig.optimization = {
       ...webpackConfig.optimization,
@@ -205,8 +219,9 @@ function createConfig() {
 }
 
 function enableCodeSplitChunks({ config, name }) {
-  let maxSizeMb = 8;
+  let maxSizeMb = 1;
   const isFirefox = buildTargetBrowser === 'firefox';
+  const isChrome = buildTargetBrowser === 'chrome';
   if (isFirefox) {
     maxSizeMb = 1;
   }
@@ -219,21 +234,25 @@ function enableCodeSplitChunks({ config, name }) {
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
     automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
-    maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
-    maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
-    cacheGroups: {
-      vendors: {
-        test: /[\\/]node_modules[\\/]/,
-        priority: -10,
-        enforce: true, // seperate vendor from our code
-      },
-      default: {
-        minChunks: 2,
-        priority: -20,
-        reuseExistingChunk: true,
-      },
-    },
+    // maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
+    // maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
+    // cacheGroups: {
+    //   vendors: {
+    //     test: /[\\/]node_modules[\\/]/,
+    //     priority: -10,
+    //     enforce: true, // seperate vendor from our code
+    //   },
+    //   default: {
+    //     minChunks: 2,
+    //     priority: -20,
+    //     reuseExistingChunk: true,
+    //   },
+    // },
   };
+  if (isChrome) {
+    // memory leak
+    // config.optimization.splitChunks = undefined;
+  }
 }
 
 // https://webpack.js.org/configuration/configuration-types/#exporting-multiple-configurations
@@ -244,18 +263,6 @@ const multipleEntryConfigs = [
       name: 'ui',
       entry: {
         'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
-        'ui-expand-tab': path.join(__dirname, 'src/entry/ui-expand-tab.tsx'),
-        'ui-standalone-window': path.join(
-          __dirname,
-          'src/entry/ui-standalone-window.tsx',
-        ),
-        // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
-        // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
-        'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
-        'ui-devtools-panel': path.join(
-          __dirname,
-          'src/entry/ui-devtools-panel.tsx',
-        ),
       },
     },
     configUpdater(config) {

@@ -10,11 +10,11 @@ export function createLazyKitProvider({
     const [cmp, setCmp] = useState<any>(null);
     useEffect(() => {
       setTimeout(() => {
-        import('@onekeyhq/kit').then((module) => {
-          const { Provider } = module;
-          setCmp(<Provider {...propsRef.current} />);
+        import('./index').then((module) => {
+          const KitProvider = module.default;
+          setCmp(<KitProvider {...propsRef.current} />);
         });
-      }, 5000);
+      }, 0);
     }, []);
     if (cmp) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return

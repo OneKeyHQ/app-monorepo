@@ -8,6 +8,7 @@ const path = require('path');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
+const DuplicatePackageCheckerPlugin = require("duplicate-package-checker-webpack-plugin");
 
 const { PUBLIC_URL } = process.env;
 
@@ -79,6 +80,7 @@ function normalizeConfig({ platform, config, env }) {
 
     config.plugins = [
       ...config.plugins,
+      new DuplicatePackageCheckerPlugin(),
       isDev ? new BuildDoneNotifyPlugin() : null,
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
@@ -111,7 +113,12 @@ function normalizeConfig({ platform, config, env }) {
     'framer-motion': 'framer-motion/dist/framer-motion',
     '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
   };
-  config.devtool = 'cheap-module-source-map';
+
+  // Why? do not change original config directly
+  // - Production build do not need sourcemap
+  // - Ext do not need devtool sourcemap, use SourceMapDevToolPlugin instead.
+  // - building slow
+  // config.devtool = 'cheap-module-source-map';
 
   return config;
 }
