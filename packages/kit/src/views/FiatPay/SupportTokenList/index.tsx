@@ -7,7 +7,6 @@ import { ListRenderItem } from 'react-native';
 
 import {
   Box,
-  Divider,
   Empty,
   Icon,
   Modal,
@@ -62,14 +61,13 @@ const Header: FC<HeaderProps> = ({ onChange }) => {
   const intl = useIntl();
   const [value, setValue] = useState('');
   return (
-    <Box>
+    <Box px="8px" mb="16px">
       <Searchbar
         w="full"
         placeholder={intl.formatMessage({
           id: 'form__search_tokens',
           defaultMessage: 'Search Tokens',
         })}
-        mb="6"
         value={value}
         onClear={() => {
           onChange('');
@@ -122,16 +120,15 @@ export const SupportTokenList: FC = () => {
     [currencies, searchResult, searchText.length],
   );
   const renderItem: ListRenderItem<CurrencyType> = useCallback(
-    ({ item, index }) => (
+    ({ item }) => (
       <Pressable
-        height="64px"
-        bgColor="surface-default"
-        borderTopRadius={index === 0 ? '12px' : 0}
-        borderBottomRadius={index === flatListData.length - 1 ? '12px' : 0}
         flex={1}
         flexDirection="row"
         alignItems="center"
-        padding="16px"
+        p="8px"
+        borderRadius="12px"
+        _hover={{ bgColor: 'surface-hovered' }}
+        _pressed={{ bgColor: 'surface-pressed' }}
         onPress={() => {
           navigation.navigate(FiatPayRoutes.AmountInputModal, {
             token: item,
@@ -149,13 +146,13 @@ export const SupportTokenList: FC = () => {
             {item.symbol}
           </Text>
         </Box>
-        <Text typography="Body1Strong" color="text-subdued" mr="4px">
+        <Text typography="Body1" color="text-subdued" mr="4px">
           {item.balance ?? 0}
         </Text>
         <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
       </Pressable>
     ),
-    [flatListData.length, navigation, type],
+    [navigation, type],
   );
 
   return (
@@ -173,9 +170,9 @@ export const SupportTokenList: FC = () => {
         data: flatListData,
         // @ts-ignore
         renderItem,
-        ItemSeparatorComponent: () => <Divider />,
         showsVerticalScrollIndicator: false,
         keyExtractor: (item) => (item as CurrencyType).tokenName,
+        ItemSeparatorComponent: () => <Box h="8px" />,
         ListEmptyComponent: () => (
           <Box>
             <Empty
@@ -200,6 +197,7 @@ export const SupportTokenList: FC = () => {
             }}
           />
         ),
+        mx: '-8px',
       }}
     />
   );

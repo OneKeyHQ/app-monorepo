@@ -6,7 +6,6 @@ import { SectionListRenderItem } from 'react-native';
 
 import {
   Box,
-  Divider,
   Modal,
   Pressable,
   SectionList,
@@ -72,7 +71,6 @@ const MyWallet = () => {
     <Pressable
       flexDirection="row"
       p="4"
-      bg="surface-default"
       mx={{ base: 4, md: 6 }}
       borderTopLeftRadius={index === 0 ? '12' : undefined}
       borderTopRightRadius={index === 0 ? '12' : undefined}
@@ -82,6 +80,9 @@ const MyWallet = () => {
       borderBottomRightRadius={
         index === section.data.length - 1 ? '12' : undefined
       }
+      borderBottomWidth={index === section.data.length - 1 ? 1 : 0}
+      borderWidth={1}
+      borderColor="divider"
       onPress={() => onPress(item)}
       alignItems="center"
     >
@@ -112,14 +113,13 @@ const MyWallet = () => {
       sections={sections}
       keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
-      ItemSeparatorComponent={() => (
-        <Box mx={{ base: 4, md: 6 }}>
-          <Divider />
-        </Box>
-      )}
       // eslint-disable-next-line
       renderSectionHeader={({ section }: { section: WalletAccount }) => (
-        <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>
+        <Typography.Subheading
+          my="2"
+          mx={{ base: 4, md: 6 }}
+          color="text-subdued"
+        >
           {section.wallet.name}
         </Typography.Subheading>
       )}
@@ -132,6 +132,7 @@ const PickAccount = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__choose_an_account' })}
+      footer={null}
       primaryActionTranslationId="form__enter_address"
       hideSecondaryAction
       hidePrimaryAction

@@ -222,7 +222,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
     ],
   );
   return (
-    <Box bg="surface-subdued" flexDirection="column">
+    <Box flexDirection="column">
       {options.filter(Boolean).map(({ onPress, icon, id }) => (
         <PressableItem
           key={id}

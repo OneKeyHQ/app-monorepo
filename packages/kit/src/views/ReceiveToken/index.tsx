@@ -162,7 +162,7 @@ const ReceiveToken = () => {
           <Button
             mt="24px"
             type="primary"
-            size={isVerticalLayout ? 'xl' : 'base'}
+            size={isVerticalLayout ? 'lg' : 'base'}
             isLoading={isLoadingForHardware}
             onPress={() => confirmOnDevice()}
           >
@@ -171,9 +171,8 @@ const ReceiveToken = () => {
             })}
           </Button>
           <Button
-            mt={2}
-            type="plain"
-            size={isVerticalLayout ? 'xl' : 'base'}
+            mt={4}
+            size={isVerticalLayout ? 'lg' : 'base'}
             onPress={() => setIgnoreDeviceCheck(true)}
           >
             {intl.formatMessage({
@@ -219,8 +218,7 @@ const ReceiveToken = () => {
         contentContainerStyle: {
           flex: 1,
           justifyContent: 'center',
-          paddingTop: 24,
-          paddingBottom: 24,
+          paddingVertical: isVerticalLayout ? 16 : 24,
         },
         children: shownAddress ? (
           <>
@@ -228,14 +226,7 @@ const ReceiveToken = () => {
               renderHiddenAddress
             ) : (
               <>
-                <Box
-                  p={3}
-                  mb={4}
-                  rounded="xl"
-                  bgColor="surface-default"
-                  w="auto"
-                  mx="auto"
-                >
+                <Box mb={4} w="auto" mx="auto">
                   <Text
                     typography={platformEnv.isExtension ? 'Caption' : 'Body2'}
                     color="text-subdued"
@@ -303,8 +294,7 @@ const ReceiveToken = () => {
                     </Text>
                     <Button
                       mt="24px"
-                      type="plain"
-                      size={isVerticalLayout ? 'xl' : 'base'}
+                      size={isVerticalLayout ? 'lg' : 'base'}
                       leftIconName="Square2StackMini"
                       onPress={() => {
                         copyAddressToClipboard();
