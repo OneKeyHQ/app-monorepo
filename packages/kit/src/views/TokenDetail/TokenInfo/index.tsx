@@ -35,9 +35,9 @@ import {
 import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { getTokenValue } from '../../../utils/priceUtils';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
+
+import { PriceCurrencyNumber } from './PriceCurrencyNumber';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
@@ -61,11 +61,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
   });
 
   const { balances } = useManageTokens();
-
-  const price = useSimpleTokenPriceValue({
-    networkId,
-    contractAdress: token?.tokenIdOnNetwork,
-  });
 
   const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
 
@@ -132,12 +127,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
             />
           </Box>
           <Typography.Body2 mt={1}>
-            <FormatCurrencyNumber
-              value={getTokenValue({
-                token,
-                price,
-                balances,
-              })}
+            <PriceCurrencyNumber
+              networkId={networkId}
+              token={token}
+              contractAdress={token?.tokenIdOnNetwork}
+              balances={balances}
             />
           </Typography.Body2>
         </Box>
@@ -151,7 +145,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       network?.tokenDisplayDecimals,
       network?.nativeDisplayDecimals,
       amount,
-      price,
+      networkId,
       balances,
     ],
   );
@@ -315,13 +309,15 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       </Box>
     ),
     [
-      priceReady,
       isVertical,
       wallet?.type,
       intl,
       cryptoCurrency,
       sellEnable,
+      priceReady,
       navigation,
+      accountId,
+      networkId,
       token,
     ],
   );
