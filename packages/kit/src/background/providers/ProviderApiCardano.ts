@@ -23,11 +23,11 @@ class ProviderApiCardano extends ProviderApiBase {
   public providerName = IInjectedProviderNames.cardano;
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
-          accounts: null,
+          accounts: await this.getConnectedAccount({ origin }),
         },
       };
       return result;
@@ -77,7 +77,7 @@ class ProviderApiCardano extends ProviderApiBase {
       });
 
     console.log(account);
-    return Promise.resolve({ address: account.address });
+    return Promise.resolve({ address: account?.address ?? null });
   }
 
   // ----------------------------------------------
