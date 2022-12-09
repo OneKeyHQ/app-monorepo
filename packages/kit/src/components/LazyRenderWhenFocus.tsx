@@ -42,10 +42,10 @@ export function LazyRenderWhenFocus({
     if (!shouldFreezeOrUnmount) {
       const tabRouteState = getRootTabRouteState();
       if (tabRouteState && rootTabName) {
-        const tabIndex = tabRouteState.routes.findIndex(
+        const tabIndex = tabRouteState?.routes?.findIndex?.(
           (item) => item.name === rootTabName,
         );
-        if (tabIndex !== tabRouteState.index) {
+        if (tabIndex !== tabRouteState?.index) {
           shouldFreezeOrUnmount = true;
         }
       }
