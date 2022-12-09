@@ -1,30 +1,27 @@
-import { FC, useCallback, useMemo } from 'react';
+import { FC } from 'react';
 
-import { ListRenderItem, useWindowDimensions } from 'react-native';
+import { chunk } from 'lodash';
+import { useWindowDimensions } from 'react-native';
 
-import { Box, FlatList, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Pressable, Typography } from '@onekeyhq/components';
 
+import { useDebounce } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../DAppIcon';
 import { DAppItemType, SectionDataType } from '../../type';
 import { SectionTitle } from '../TitleView';
 
-export const Desktop: FC<SectionDataType> = ({
-  title,
-  data,
-  onItemSelect,
-  tagId,
-}) => {
-  const { width } = useWindowDimensions();
-  const screenWidth = width - 270 - 48;
-  const minWidth = 250;
-  const numColumns = Math.floor(screenWidth / minWidth);
-  const cardWidth = screenWidth / numColumns;
-  const filterData = data.slice(0, 8);
+type RowProps = {
+  items: DAppItemType[];
+  cardWidth: number;
+  onItemSelect?: (o: DAppItemType) => void;
+};
 
-  const renderItem: ListRenderItem<DAppItemType> = useCallback(
-    ({ item }) => (
+const Row: FC<RowProps> = ({ items, cardWidth, onItemSelect }) => (
+  <Box flexDirection="row" alignItems="center">
+    {items.map((item) => (
       <Box
+        key={item._id}
         width={cardWidth}
         maxWidth={cardWidth}
         minWidth={cardWidth}
@@ -44,9 +41,7 @@ export const Desktop: FC<SectionDataType> = ({
           _hover={{ bgColor: 'surface-hovered' }}
           borderColor="border-subdued"
           onPress={() => {
-            if (onItemSelect) {
-              onItemSelect(item);
-            }
+            onItemSelect?.(item);
           }}
         >
           <Box flexDirection="row">
@@ -72,30 +67,55 @@ export const Desktop: FC<SectionDataType> = ({
           </Typography.Caption>
         </Pressable>
       </Box>
-    ),
-    [cardWidth, onItemSelect],
-  );
+    ))}
+  </Box>
+);
 
-  const flatList = useMemo(
-    () => (
-      <FlatList
-        paddingLeft="24px"
-        data={filterData}
-        removeClippedSubviews
-        windowSize={5}
-        renderItem={renderItem}
-        numColumns={numColumns}
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item, index) => `${numColumns}key${index}${item._id}`}
-        key={`key${numColumns}`}
-      />
-    ),
-    [filterData, numColumns, renderItem],
-  );
+type SectionsProps = {
+  width: number;
+  data: DAppItemType[];
+  onItemSelect?: (o: DAppItemType) => void;
+};
+
+const Sections: FC<SectionsProps> = (props) => {
+  const { width, data, onItemSelect } = props;
+  const screenWidth = width - 270 - 48;
+  const minWidth = 250;
+  const numColumns = Math.floor(screenWidth / minWidth);
+  const cardWidth = screenWidth / numColumns;
+  const filterData = data.slice(0, 8);
+  const sections = chunk(filterData, numColumns).map((items) => ({
+    key: items[0]._id,
+    items,
+  }));
+
   return (
-    <Box width="100%" mt="32px">
+    <Box pl="6">
+      {sections?.map((section) => (
+        <Row
+          items={section.items}
+          key={section.key}
+          onItemSelect={onItemSelect}
+          cardWidth={cardWidth}
+        />
+      ))}
+    </Box>
+  );
+};
+
+export const Desktop: FC<SectionDataType> = ({
+  title,
+  data,
+  onItemSelect,
+  tagId,
+}) => {
+  const { width } = useWindowDimensions();
+  const w = useDebounce(width, 1000);
+
+  return (
+    <Box width="100%" mt="8">
       <SectionTitle title={title} tagId={tagId} onItemSelect={onItemSelect} />
-      {flatList}
+      <Sections data={data} onItemSelect={onItemSelect} width={w} />
     </Box>
   );
 };

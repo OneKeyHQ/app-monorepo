@@ -1,16 +1,16 @@
-import { FC, useCallback, useContext, useLayoutEffect, useMemo } from 'react';
+import { FC, useContext, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
   Empty,
-  FlatList,
   Image,
   Pressable,
+  ScrollView,
   Typography,
 } from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
@@ -37,8 +37,14 @@ import { DiscoverContext } from '../context';
 import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
-import type { SectionDataType } from '../../type';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+const styles = StyleSheet.create({
+  container: {
+    paddingBottom: 12,
+    paddingTop: 12,
+  },
+});
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
@@ -254,24 +260,20 @@ export const Mine: FC = () => {
     }
   }, [navigation, intl]);
 
-  const renderItem: ListRenderItem<SectionDataType> = useCallback(
-    ({ item }) => <CardView {...item} onItemSelect={onItemSelect} />,
-    [onItemSelect],
-  );
+  if (dapps.length === 0) {
+    return <ListEmptyComponent />;
+  }
 
   return (
     <Box flex="1" bg="background-default">
-      <FlatList
-        contentContainerStyle={{
-          paddingBottom: 12,
-          paddingTop: 12,
-        }}
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.title ?? ''}${index}`}
-        ListHeaderComponent={ListHeaderComponent}
-        ListEmptyComponent={ListEmptyComponent}
-      />
+      <ScrollView contentContainerStyle={styles.container}>
+        <ListHeaderComponent />
+        <Box>
+          {data.map((item) => (
+            <CardView key={item.title} {...item} onItemSelect={onItemSelect} />
+          ))}
+        </Box>
+      </ScrollView>
     </Box>
   );
 };
