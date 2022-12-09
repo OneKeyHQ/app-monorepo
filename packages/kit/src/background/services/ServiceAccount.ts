@@ -1,6 +1,6 @@
 import { find, flatten } from 'lodash';
 
-import { IMPL_COSMOS } from '@onekeyhq/engine/src/constants';
+import { COINTYPE_ETH, IMPL_COSMOS } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -806,13 +806,13 @@ class ServiceAccount extends ServiceBase {
       serviceCloudBackup,
     } = this.backgroundApi;
     const wallet = await engine.getWallet(walletId);
-    const accounts = await engine.getAccounts(wallet.accounts);
-    for (const account of accounts) {
-      await serviceNotification.removeAccountDynamic({
-        address: account.address,
-      });
-    }
     const activeWalletId = appSelector((s) => s.general.activeWalletId);
+    const accounts = await engine.getAccounts(wallet.accounts);
+    serviceNotification.removeAccountDynamicBatch({
+      addressList: accounts
+        .filter((a) => a.coinType === COINTYPE_ETH)
+        .map((a) => a.address),
+    });
     await engine.removeWallet(walletId, password ?? '');
 
     if (activeWalletId === walletId) {
@@ -845,8 +845,8 @@ class ServiceAccount extends ServiceBase {
       accountId,
     });
     if (account) {
-      await serviceNotification.removeAccountDynamic({
-        address: account.address,
+      serviceNotification.removeAccountDynamicBatch({
+        addressList: [account.address],
       });
     }
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
