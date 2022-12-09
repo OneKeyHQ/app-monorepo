@@ -137,8 +137,8 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
               )}
             </Row>
             <Row space="4px" alignItems="center">
-              <Icon name="GasIllus" size={16} />
-              <Text typography="Body2" numberOfLines={1}>
+              <Icon name="GasIllus" size={16} color="icon-subdued" />
+              <Text typography="Body2" numberOfLines={1} color="text-subdued">
                 {PriceString({
                   price: entry.gasPriceNative,
                   networkId: network.id,
@@ -157,8 +157,8 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
               })}
             </Text>
             <Row space="4px" alignItems="center">
-              <Icon name="GasIllus" size={16} />
-              <Text typography="Body2" numberOfLines={1}>
+              <Icon name="GasIllus" size={16} color="icon-subdued" />
+              <Text typography="Body2" numberOfLines={1} color="text-subdued">
                 {PriceString({
                   price: exit.gasPriceNative,
                   networkId: network.id,
