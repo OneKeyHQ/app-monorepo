@@ -107,14 +107,9 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   ]);
 
   return (
-    <Box
-      flexDirection="column"
-      p={0.5}
-      alignItems="center"
-      mb={{ base: 4, md: 0 }}
-    >
+    <Box alignItems="center" mb={{ base: 4, md: 0 }}>
       {(updates?.ble || updates?.firmware) && (
-        <Container.Box mb={4}>
+        <Container.Box mb={4} borderWidth={1} borderColor="border-subdued">
           <Container.Item
             onPress={() => {
               navigation.navigate(RootRoutes.Modal, {
@@ -141,7 +136,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         </Container.Box>
       )}
 
-      <Container.Box>
+      <Container.Box borderWidth={1} borderColor="border-subdued">
         <Container.Item
           titleColor="text-default"
           describeColor="text-subdued"
@@ -197,7 +192,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
         )}
       </Container.Box>
 
-      <Container.Box mt={6}>
+      <Container.Box mt={6} borderWidth={1} borderColor="border-subdued">
         <Container.Item
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {

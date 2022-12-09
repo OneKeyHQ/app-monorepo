@@ -162,7 +162,7 @@ function AssetsList({
       borderRadius={
         !flatStyle && index === valueSortedTokens?.length - 1 ? '12px' : '0px'
       }
-      borderTopWidth={0}
+      borderTopWidth={!flatStyle && showRoundTop && index === 0 ? 1 : 0}
       borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
       borderColor={flatStyle ? 'transparent' : 'border-subdued'}
       onPress={() => {
