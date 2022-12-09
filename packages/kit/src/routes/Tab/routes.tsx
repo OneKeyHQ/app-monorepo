@@ -103,7 +103,7 @@ export const tabRoutes: TabRouteConfig[] = [
     name: TabRoutes.Swap,
     component: SwapScreen,
     tabBarIcon: () => 'ArrowsRightLeftOutline',
-    translationId: 'title__swap',
+    translationId: 'title__Swap_Bridge',
     children: [
       {
         name: HomeRoutes.SwapHistory,

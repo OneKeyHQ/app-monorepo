@@ -166,7 +166,11 @@ const MyWallet = () => {
 
   const onPress = useCallback(
     (item: { address: string; name?: string; accountId?: string }) => {
-      onSelected?.({ address: item.address, name: item.name });
+      onSelected?.({
+        address: item.address,
+        name: item.name,
+        accountId: item.accountId,
+      });
       navigation.goBack();
     },
     [onSelected, navigation],

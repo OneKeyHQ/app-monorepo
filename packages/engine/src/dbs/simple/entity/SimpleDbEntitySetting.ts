@@ -5,6 +5,9 @@ export type ISimpleDbEntitySettings = {
   webAuthnCredentialID?: string;
   enableAppRatings?: boolean;
   swapMaintain?: boolean;
+  swapWelcomeShown?: boolean;
+  swapReceivingIsNotSendingAccountShown?: boolean;
+  swapReceivingUnknownShown?: boolean;
 };
 
 export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySettings> {
@@ -48,5 +51,38 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
   async getSwapMaintain() {
     const data = await this.getRawData();
     return Boolean(data?.swapMaintain);
+  }
+
+  async setSwapWelcomeShown(swapWelcomeShown: boolean) {
+    const rawData = await this.getRawData();
+    return this.setRawData({ ...rawData, swapWelcomeShown });
+  }
+
+  async getSwapWelcomeShown() {
+    const data = await this.getRawData();
+    return Boolean(data?.swapWelcomeShown);
+  }
+
+  async setSwapReceivingIsNotSendingAccountShown(value: boolean) {
+    const rawData = await this.getRawData();
+    return this.setRawData({
+      ...rawData,
+      swapReceivingIsNotSendingAccountShown: value,
+    });
+  }
+
+  async getSwapReceivingIsNotSendingAccountShown() {
+    const data = await this.getRawData();
+    return Boolean(data?.swapReceivingIsNotSendingAccountShown);
+  }
+
+  async setSwapReceivingUnknownShown(value: boolean) {
+    const rawData = await this.getRawData();
+    return this.setRawData({ ...rawData, swapReceivingUnknownShown: value });
+  }
+
+  async getSwapReceivingUnknownShown() {
+    const data = await this.getRawData();
+    return Boolean(data?.swapReceivingUnknownShown);
   }
 }

@@ -167,7 +167,7 @@ const SwapHeader = () => {
         width="full"
       >
         <Typography.DisplayLarge>
-          {intl.formatMessage({ id: 'title__swap' })}
+          {intl.formatMessage({ id: 'title__Swap_Bridge' })}
         </Typography.DisplayLarge>
         <SwapHeaderButtons />
       </Box>

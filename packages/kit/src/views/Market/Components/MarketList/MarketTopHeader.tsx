@@ -125,7 +125,7 @@ const HeaderSmall: React.FC = () => {
           <Typography.DisplayMedium
             color={tabName === SWAP_TAB_NAME ? 'text-default' : 'text-disabled'}
           >
-            {intl.formatMessage({ id: 'title__swap' })}
+            {intl.formatMessage({ id: 'title__Swap_Bridge' })}
           </Typography.DisplayMedium>
         </Pressable>
       </Box>

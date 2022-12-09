@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
@@ -7,7 +8,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../hooks';
+import { useAppSelector, useNavigation } from '../../hooks';
+import { ModalRoutes, RootRoutes } from '../../routes/types';
+
+import { SwapRoutes } from './typings';
 
 const NetworkObserver = () => {
   useEffect(() => {
@@ -40,11 +44,32 @@ const TokenUpdater = () => {
   return null;
 };
 
+const WelcomeObserver = () => {
+  const navigation = useNavigation();
+  useEffect(() => {
+    async function main() {
+      const swapWelcomeShown = await simpleDb.setting.getSwapWelcomeShown();
+      if (swapWelcomeShown) {
+        return;
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Swap,
+        params: {
+          screen: SwapRoutes.Welcome,
+        },
+      });
+    }
+    main();
+  }, [navigation]);
+  return null;
+};
+
 const SwapListener = () => (
   <>
     <NetworkObserver />
     <AccountsObserver />
     <TokenUpdater />
+    <WelcomeObserver />
   </>
 );
 
