@@ -3,6 +3,7 @@ import { isValidElement, useEffect, useMemo } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import { useCloseOnEsc } from '@onekeyhq/kit/src/hooks/useOnKeydown';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,11 +11,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
-import IconButton from '../../IconButton';
 import PresenceTransition from '../../PresenceTransition';
 import Pressable from '../../Pressable';
-import Typography from '../../Typography';
 
+import Header from './Header/Header';
 import useModalClose from './useModalClose';
 
 import type { ModalProps } from '..';
@@ -158,95 +158,46 @@ const DesktopModal = ({
         maxHeight={maxHeight}
         alignSelf="center"
         borderRadius="24px"
-        bg="surface-subdued"
+        bg="background-default"
         zIndex={1}
       >
         {!!headerShown && (
-          <Box
-            pt={4}
-            pr={4}
-            pl={navIndex ? 4 : 6}
-            pb={header ? 4 : 0}
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            borderBottomColor="border-subdued"
-            borderBottomWidth={header ? 1 : undefined}
-          >
-            {navIndex ? (
-              <IconButton
-                size="base"
-                name="ArrowLeftMini"
-                type="plain"
-                opacity={hideBackButton ? 0 : 1}
-                circle
-                onPress={() => {
-                  if (hideBackButton) {
-                    return;
-                  }
-                  if (onBackActionPress) {
-                    onBackActionPress();
-                    return;
-                  }
-                  if (navigation?.canGoBack?.()) {
-                    navigation.goBack();
-                  }
-                }}
-              />
-            ) : null}
-            <Box flex="1" ml={navIndex ? 4 : undefined}>
-              <Typography.Heading>{header}</Typography.Heading>
-              {!!headerDescription && (
-                <Box>
-                  {typeof headerDescription === 'string' ? (
-                    <Typography.Caption color="text-subdued">
-                      {headerDescription}
-                    </Typography.Caption>
-                  ) : (
-                    headerDescription
-                  )}
-                </Box>
-              )}
-            </Box>
-            {!!closeable && (
-              <IconButton
-                size="base"
-                name="XMarkMini"
-                type="plain"
-                circle
-                onPress={close}
-              />
-            )}
-          </Box>
+          <Header
+            header={header}
+            headerDescription={headerDescription}
+            firstIndex={!navIndex}
+            hideBackButton={hideBackButton}
+            onPressBackButton={() => {
+              if (hideBackButton) {
+                return;
+              }
+              if (onBackActionPress) {
+                onBackActionPress();
+                return;
+              }
+              if (navigation?.canGoBack?.()) {
+                navigation.goBack();
+              }
+            }}
+            closeable={closeable}
+            onPressCloseButton={close}
+          />
         )}
         {children}
         {isValidElement(footer) || footer === null ? (
           footer
         ) : (
-          <Box borderTopWidth={1} borderTopColor="border-subdued">
+          <Box
+            borderTopWidth={StyleSheet.hairlineWidth}
+            borderTopColor="divider"
+          >
             <HStack
               py="4"
               px="6"
-              display="flex"
-              flexDirection="row-reverse"
               alignItems="center"
               space="3"
+              justifyContent="flex-end"
             >
-              {!hidePrimaryAction && (
-                <Button
-                  type="primary"
-                  onPress={() => {
-                    onPrimaryActionPress?.({ onClose, close });
-                  }}
-                  {...primaryActionProps}
-                >
-                  {primaryActionProps?.children ??
-                    intl.formatMessage({
-                      id: primaryActionTranslationId ?? 'action__ok',
-                    })}
-                </Button>
-              )}
               {!hideSecondaryAction && (
                 <Button
                   onPress={() => {
@@ -258,6 +209,20 @@ const DesktopModal = ({
                   {secondaryActionProps?.children ??
                     intl.formatMessage({
                       id: secondaryActionTranslationId ?? 'action__cancel',
+                    })}
+                </Button>
+              )}
+              {!hidePrimaryAction && (
+                <Button
+                  type="primary"
+                  onPress={() => {
+                    onPrimaryActionPress?.({ onClose, close });
+                  }}
+                  {...primaryActionProps}
+                >
+                  {primaryActionProps?.children ??
+                    intl.formatMessage({
+                      id: primaryActionTranslationId ?? 'action__ok',
                     })}
                 </Button>
               )}

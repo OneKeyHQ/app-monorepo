@@ -2,7 +2,7 @@ import React, { FC, useCallback, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import useSWR from 'swr';
 
 import {
@@ -249,15 +249,17 @@ export const AmountInput: FC = () => {
 
         <Box paddingBottom="24px">
           <Pressable
-            mb={space}
-            mt={space}
-            height="76px"
-            padding="16px"
-            bgColor="surface-default"
-            borderRadius="12px"
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
+            mb={space}
+            mt={space}
+            px="16px"
+            py="12px"
+            bgColor="surface-default"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-subdued"
+            borderRadius="12px"
             disabled
           >
             <Image

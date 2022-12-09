@@ -96,7 +96,11 @@ const ManagerAccountModal: FC = () => {
               <Typography.Subheading w="100%" color="text-subdued">
                 {intl.formatMessage({ id: 'content__info' })}
               </Typography.Subheading>
-              <Container.Box mt={2}>
+              <Container.Box
+                mt={2}
+                borderWidth={1}
+                borderColor="border-subdued"
+              >
                 <Container.Item
                   hasArrow
                   title={intl.formatMessage({ id: 'form__name' })}
@@ -113,7 +117,11 @@ const ManagerAccountModal: FC = () => {
               <Typography.Subheading mt={6} w="100%" color="text-subdued">
                 {intl.formatMessage({ id: 'form__security_uppercase' })}
               </Typography.Subheading>
-              <Container.Box mt={2}>
+              <Container.Box
+                mt={2}
+                borderWidth={1}
+                borderColor="border-subdued"
+              >
                 {(wallet?.type === 'hd' || wallet?.type === 'imported') && (
                   <Container.Item
                     hasArrow={canExportPrivateKey}
