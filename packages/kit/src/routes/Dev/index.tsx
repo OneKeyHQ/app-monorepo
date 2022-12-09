@@ -56,6 +56,7 @@ import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typogr
 import WalletSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/WalletSelector/index';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
+import NavHeaderGallery from '../../views/Components/stories/NavHeader';
 import PriceChart from '../../views/Components/stories/PriceChart';
 import renderCustomSubStackHeader from '../Stack/Header';
 
@@ -120,6 +121,7 @@ export enum StackRoutes {
   ComponentToggleButtonGroup = 'component/ToggleButtonGroup',
   ComponentCollapse = 'component/Collapse',
   ComponentBottomSheetModal = 'component/BottomSheetModal',
+  ComponentNavHeaderGallery = 'component/NavHeader',
 }
 
 export type StackBasicRoutesParams = {
@@ -183,6 +185,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentToggleButtonGroup]: undefined;
   [StackRoutes.ComponentCollapse]: undefined;
   [StackRoutes.ComponentBottomSheetModal]: undefined;
+  [StackRoutes.ComponentNavHeaderGallery]: undefined;
 };
 
 export const stackScreenList = [
@@ -277,6 +280,7 @@ export const stackScreenList = [
     name: StackRoutes.ComponentBottomSheetModal,
     component: BottomSheetModalGallery,
   },
+  { name: StackRoutes.ComponentNavHeaderGallery, component: NavHeaderGallery },
 ];
 
 const DevStack = createNativeStackNavigator();
