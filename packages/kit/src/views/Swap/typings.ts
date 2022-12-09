@@ -18,6 +18,8 @@ export enum SwapRoutes {
   PickRecipient = 'PickRecipient',
   PickAccount = 'PickAccount',
   EnterAddress = 'EnterAddress',
+  Welcome = 'Welcome',
+  SelectRoutes = 'SelectRoutes',
 }
 
 export type SwapRoutesParams = {
@@ -57,6 +59,8 @@ export type SwapRoutesParams = {
   [SwapRoutes.Share]: {
     txid: string;
   };
+  [SwapRoutes.Welcome]: undefined;
+  [SwapRoutes.SelectRoutes]: undefined;
 };
 
 export enum SwapError {

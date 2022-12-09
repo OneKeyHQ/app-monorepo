@@ -1,8 +1,6 @@
-import { FC, useCallback } from 'react';
+import { FC } from 'react';
 
-import { ListRenderItem, StyleSheet } from 'react-native';
-
-import { Box, FlatList, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
 import DAppIcon from '../../DAppIcon';
 import { DAppItemType, SectionDataType } from '../../type';
@@ -10,26 +8,15 @@ import { SectionTitle } from '../TitleView';
 
 type DappTypeTuple = [DAppItemType | undefined, DAppItemType | undefined];
 
-type CardBaseViewCardProps = {
+type SimpleCardViewProps = {
   item: DAppItemType;
   onItemSelect: SectionDataType['onItemSelect'];
 };
 
-const styles = StyleSheet.create({
-  listContentContainer: {
-    paddingRight: 16,
-  },
-});
-
-const CardBaseViewCard: FC<CardBaseViewCardProps> = ({
-  item,
-  onItemSelect,
-}) => (
+const SimpleCardView: FC<SimpleCardViewProps> = ({ item, onItemSelect }) => (
   <Pressable
     onPress={() => {
-      if (onItemSelect) {
-        onItemSelect(item);
-      }
+      onItemSelect?.(item);
     }}
   >
     <Box
@@ -57,6 +44,30 @@ const CardBaseViewCard: FC<CardBaseViewCardProps> = ({
   </Pressable>
 );
 
+type PairCardViewProps = {
+  items: DappTypeTuple;
+  onItemSelect: SectionDataType['onItemSelect'];
+};
+
+const PairCardView: FC<PairCardViewProps> = ({ items, onItemSelect }) => {
+  const itemA = items[0];
+  const itemB = items[1];
+  return (
+    <Box>
+      {itemA ? (
+        <Box>
+          <SimpleCardView item={itemA} onItemSelect={onItemSelect} />
+        </Box>
+      ) : null}
+      {itemB ? (
+        <Box mt="5">
+          <SimpleCardView item={itemB} onItemSelect={onItemSelect} />
+        </Box>
+      ) : null}
+    </Box>
+  );
+};
+
 const group = (items: DAppItemType[]) => {
   const result: DappTypeTuple[] = [];
   for (let i = 0; i < items.length; i += 2) {
@@ -71,42 +82,21 @@ export const Mobile: FC<SectionDataType> = ({
   tagId,
   onItemSelect,
 }) => {
-  const items = group(data);
-
-  const renderItem: ListRenderItem<DappTypeTuple> = useCallback(
-    ({ item }) => {
-      const itemA = item[0];
-      const itemB = item[1];
-      return (
-        <Box>
-          {itemA ? (
-            <Box key={itemA._id}>
-              <CardBaseViewCard item={itemA} onItemSelect={onItemSelect} />
-            </Box>
-          ) : null}
-          {itemB ? (
-            <Box key={itemB._id} mt="5">
-              <CardBaseViewCard item={itemB} onItemSelect={onItemSelect} />
-            </Box>
-          ) : null}
-        </Box>
-      );
-    },
-    [onItemSelect],
-  );
+  const sections = group(data);
   return (
     <Box width="100%" mt="8">
       <SectionTitle tagId={tagId} title={title} onItemSelect={onItemSelect} />
-      <FlatList
-        contentContainerStyle={styles.listContentContainer}
-        removeClippedSubviews
-        windowSize={5}
-        showsHorizontalScrollIndicator={false}
-        horizontal
-        data={items}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item[0]?._id ?? index}`}
-      />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <Box flexDirection="row">
+          {sections.map((section) => (
+            <PairCardView
+              key={section[0]?._id ?? ''}
+              items={section}
+              onItemSelect={onItemSelect}
+            />
+          ))}
+        </Box>
+      </ScrollView>
     </Box>
   );
 };

@@ -206,27 +206,16 @@ export class SwapQuoter {
     return result;
   }
 
-  async fetchQuote(
-    params: FetchQuoteParams,
-  ): Promise<FetchQuoteResponse | undefined> {
-    const urlParams = this.convertParams(params) as
-      | FetchQuoteHttpParams
-      | undefined;
-
-    if (!urlParams) {
-      return;
-    }
-    const serverEndPont =
-      await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/quote`;
-
-    const res = await this.httpClient.get(url, { params: urlParams });
-    const data = res.data as FetchQuoteHttpResponse | undefined;
-
+  async buildQuote({
+    params,
+    data,
+  }: {
+    data: FetchQuoteHttpResponse | undefined;
+    params: FetchQuoteParams;
+  }): Promise<FetchQuoteResponse | undefined> {
     if (!data || !data.result) {
       return undefined;
     }
-
     const fetchQuote = data.result;
 
     const result = {
@@ -242,6 +231,7 @@ export class SwapQuoter {
       arrivalTime: fetchQuote.arrivalTime,
       needApproved: false,
     };
+
     if (result.allowanceTarget) {
       const allowance = await backgroundApiProxy.engine.getTokenAllowance({
         networkId: params.tokenIn.networkId,
@@ -266,6 +256,61 @@ export class SwapQuoter {
       data: result,
       limited,
     };
+  }
+
+  async fetchQuote(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse | undefined> {
+    const urlParams = this.convertParams(params) as
+      | FetchQuoteHttpParams
+      | undefined;
+
+    if (!urlParams) {
+      return;
+    }
+    const serverEndPont =
+      await backgroundApiProxy.serviceSwap.getServerEndPoint();
+    const url = `${serverEndPont}/swap/v2/quote`;
+
+    const res = await this.httpClient.get(url, { params: urlParams });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const data = res.data?.data as FetchQuoteHttpResponse | undefined;
+    if (!data) {
+      return undefined;
+    }
+    return this.buildQuote({ params, data });
+  }
+
+  async fetchQuotes(
+    params: FetchQuoteParams,
+  ): Promise<FetchQuoteResponse[] | undefined> {
+    const urlParams = this.convertParams(params) as
+      | FetchQuoteHttpParams
+      | undefined;
+
+    if (!urlParams) {
+      return;
+    }
+
+    const serverEndPont =
+      await backgroundApiProxy.serviceSwap.getServerEndPoint();
+    const url = `${serverEndPont}/swap/quote_all`;
+
+    const res = await this.httpClient.get(url, { params: urlParams });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const data = res.data?.data as FetchQuoteHttpResponse[] | undefined;
+
+    if (!data) {
+      return;
+    }
+
+    const promises = data.map((item) =>
+      this.buildQuote({ params, data: item }),
+    );
+
+    const result = await Promise.all(promises);
+
+    return result.filter((o) => Boolean(o)) as FetchQuoteResponse[];
   }
 
   async buildTransaction(
@@ -351,9 +396,19 @@ export class SwapQuoter {
     return QuoterType.zeroX;
   }
 
+  isSimpileTx(tx: TransactionDetails) {
+    const from = tx.tokens?.from;
+    const to = tx.tokens?.to;
+    const quoterType = this.getQuoteType(tx);
+    return from?.networkId === to?.networkId && quoterType !== QuoterType.swftc;
+  }
+
   async queryTransactionProgress(
     tx: TransactionDetails,
   ): Promise<TransactionProgress> {
+    if (this.isSimpileTx(tx)) {
+      return this.simple.queryTransactionProgress(tx);
+    }
     const quoterType = this.getQuoteType(tx);
     for (let i = 0; i < this.quoters.length; i += 1) {
       const quoter = this.quoters[i];
