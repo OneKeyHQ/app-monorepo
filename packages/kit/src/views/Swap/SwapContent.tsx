@@ -5,8 +5,8 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
-  Divider,
   IconButton,
+  useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -27,6 +27,7 @@ import { SwapRoutes } from './typings';
 const SwapContent = () => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
+  const isSmall = useIsVerticalLayout();
   const navigation = useNavigation();
   const {
     inputToken,
@@ -85,60 +86,79 @@ const SwapContent = () => {
   }, [onSwapQuoteCallback]);
 
   return (
-    <Box
-      bg="surface-default"
-      w="full"
-      borderRadius="xl"
-      py={4}
-      px={2}
-      borderWidth={themeVariant === 'light' ? 1 : undefined}
-      borderColor="border-subdued"
-    >
+    <Box w="full">
       <Box position="relative">
-        <TokenInput
-          type="INPUT"
-          label={intl.formatMessage({ id: 'form__pay' })}
-          token={inputToken}
-          account={sendingAccount}
-          inputValue={formattedAmounts.INPUT}
-          onChange={onChangeInput}
-          onPress={onSelectInput}
-          containerProps={{ pb: '0' }}
-          isDisabled={loading && independentField === 'OUTPUT'}
-        />
-        <Box w="full" h="10" position="relative">
-          <Box position="absolute" w="full" h="full">
-            <Center w="full" h="full">
-              <Divider />
+        <Box
+          px={4}
+          py="5"
+          bg="surface-default"
+          borderWidth={themeVariant === 'light' ? 1 : undefined}
+          borderColor="border-subdued"
+          overflow="hidden"
+          borderRadius={isSmall ? undefined : '12'}
+        >
+          <TokenInput
+            type="INPUT"
+            label={intl.formatMessage({ id: 'form__pay' })}
+            token={inputToken}
+            account={sendingAccount}
+            inputValue={formattedAmounts.INPUT}
+            onChange={onChangeInput}
+            onPress={onSelectInput}
+            containerProps={{ pb: '0' }}
+            isDisabled={loading && independentField === 'OUTPUT'}
+          />
+        </Box>
+        <Box w="full" position="relative" zIndex={1}>
+          <Box position="absolute" w="full" h="10" top={-20} left={0}>
+            <Center w="full" h="full" position="absolute" left={0} top={0}>
+              <Box h="1" w="full" bg="background-default" />
+            </Center>
+            <Center>
+              <Center
+                w="10"
+                h="10"
+                bg="background-default"
+                borderRadius="full"
+                overflow="hidden"
+              >
+                <IconButton
+                  w={35}
+                  h={35}
+                  borderColor="background-default"
+                  isDisabled={loading}
+                  name="ArrowDownOutline"
+                  borderRadius="full"
+                  _disabled={{ borderColor: 'background-default' }}
+                  onPress={onSwitchTokens}
+                  size="lg"
+                  bgColor="surface-neutral-subdued"
+                />
+              </Center>
             </Center>
           </Box>
-          <Center>
-            <IconButton
-              w="10"
-              h="10"
-              isDisabled={loading}
-              name="ArrowsUpDownOutline"
-              borderRadius="full"
-              borderColor="border-disabled"
-              borderWidth="0.5"
-              bg="surface-default"
-              onPress={onSwitchTokens}
-              size="lg"
-              bgColor="surface-neutral-subdued"
-            />
-          </Center>
         </Box>
-        <ReceivingTokenInput
-          type="OUTPUT"
-          label={intl.formatMessage({ id: 'action__receive' })}
-          token={outputToken}
-          tokenNetwork={outputTokenNetwork}
-          inputValue={formattedAmounts.OUTPUT}
-          onChange={onChangeOutput}
-          onPress={onSelectOutput}
-          containerProps={{ pt: '0' }}
-          isDisabled={loading && independentField === 'INPUT'}
-        />
+        <Box
+          px={4}
+          py="5"
+          bg="surface-default"
+          borderWidth={themeVariant === 'light' ? 1 : undefined}
+          borderColor="border-subdued"
+          overflow="hidden"
+          borderRadius={isSmall ? undefined : '12'}
+        >
+          <ReceivingTokenInput
+            type="OUTPUT"
+            label={intl.formatMessage({ id: 'action__receive' })}
+            token={outputToken}
+            tokenNetwork={outputTokenNetwork}
+            inputValue={formattedAmounts.OUTPUT}
+            onChange={onChangeOutput}
+            onPress={onSelectOutput}
+            containerProps={{ pt: '0' }}
+            isDisabled={loading && independentField === 'INPUT'}
+          />
+        </Box>
         {isDisabled ? (
           <Box w="full" h="full" position="absolute" zIndex={1} />
         ) : null}

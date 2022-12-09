@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   Icon,
   NumberInput,
   Pressable,
@@ -29,7 +28,8 @@ import { useSwapQuoteCallback } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
-import { TokenImage } from '../TokenImage';
+import { NetworkName } from '../NetworkName';
+import { TokenDisplay } from '../TokenDisplay';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -97,18 +97,36 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
   }
 
   return (
-    <Pressable onPress={onPickAccount}>
+    <Pressable
+      borderRadius="12"
+      overflow="hidden"
+      onPress={onPickAccount}
+      _hover={{ bg: 'surface-hovered' }}
+      _pressed={{ bg: 'surface-pressed' }}
+    >
       {!account ? (
-        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
+        <Box py="1" px="2" borderRadius="12">
           <Typography.CaptionStrong color="text-default">
             {intl.formatMessage({ id: 'title__choose_an_account' })}
           </Typography.CaptionStrong>
         </Box>
       ) : (
-        <Box py="1" px="2" bg="surface-neutral-subdued" borderRadius="12">
-          <Typography.Caption color="text-default" mr="1" numberOfLines={1}>
-            {`${account.name}(${account.address.slice(-4)})`}
-          </Typography.Caption>
+        <Box
+          py="1"
+          px="2"
+          flexDirection="row"
+          borderRadius="12"
+          alignItems="center"
+        >
+          <Box flexDirection="row" mr="1">
+            <Typography.Body2Strong mr="1">
+              {account.name}
+            </Typography.Body2Strong>
+            <Typography.Body2 color="text-subdued">
+              {account.address.slice(-4)}
+            </Typography.Body2>
+          </Box>
+          <Icon size={16} name="ChevronDownSolid" />
         </Box>
       )}
     </Pressable>
@@ -116,7 +134,6 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
 };
 
 const TokenInput: FC<TokenInputProps> = ({
-  label,
   inputValue,
   onPress,
   account,
@@ -167,87 +184,7 @@ const TokenInput: FC<TokenInputProps> = ({
           justifyContent="space-between"
           alignItems="center"
         >
-          <Typography.Caption p="2" color="text-default" fontWeight={500}>
-            {label}
-          </Typography.Caption>
           <TokenInputSendingAccount account={account} token={token} />
-        </Box>
-        <Box
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          mt="1"
-        >
-          <Pressable
-            onPress={() => {
-              if (isDisabled) {
-                return;
-              }
-              onPress?.();
-            }}
-            flexDirection="row"
-            alignItems="center"
-            _hover={{ bg: 'surface-hovered' }}
-            _pressed={{ bg: 'surface-pressed' }}
-            borderRadius={12}
-            p="2"
-          >
-            {token && tokenNetwork ? (
-              <TokenImage token={token} />
-            ) : (
-              <Box>
-                <Typography.DisplayMedium fontWeight={600}>
-                  {intl.formatMessage({ id: 'title__select_a_token' })}
-                </Typography.DisplayMedium>
-              </Box>
-            )}
-            <Center w="5" h="5">
-              <Icon size={20} name="ChevronDownMini" color="icon-subdued" />
-            </Center>
-          </Pressable>
-          <Box
-            flex="1"
-            flexDirection="row"
-            h="full"
-            justifyContent="flex-end"
-            position="relative"
-          >
-            <Box position="absolute" w="full" top="0" right="0">
-              <NumberInput
-                w="full"
-                h="auto"
-                borderWidth={0}
-                placeholder="0.00"
-                fontSize={24}
-                fontWeight="600"
-                fontFamily="PlusJakartaSans-SemiBold"
-                bg="transparent"
-                _disabled={{ bg: 'transparent' }}
-                _hover={{ bg: 'transparent' }}
-                _focus={{ bg: 'transparent' }}
-                value={inputValue}
-                borderRadius={0}
-                onChangeText={onChange}
-                pt="3"
-                pb="12"
-                focusOutlineColor="transparent"
-                // py="1"
-                pr="2"
-                textAlign="right"
-                isDisabled={isDisabled}
-                rightCustomElement={null}
-              />
-            </Box>
-          </Box>
-        </Box>
-        <Box
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          zIndex="-1"
-        >
           <Pressable
             onPress={() => {
               if (isDisabled) {
@@ -279,6 +216,82 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             </Box>
           </Pressable>
+        </Box>
+        <Box
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mt="1"
+        >
+          <Pressable
+            onPress={() => {
+              if (isDisabled) {
+                return;
+              }
+              onPress?.();
+            }}
+            flexDirection="row"
+            alignItems="center"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            borderRadius={12}
+            p="2"
+          >
+            {token ? (
+              <TokenDisplay token={token} />
+            ) : (
+              <Box>
+                <Typography.DisplayMedium fontWeight={600}>
+                  {intl.formatMessage({ id: 'title__select_a_token' })}
+                </Typography.DisplayMedium>
+              </Box>
+            )}
+          </Pressable>
+          <Box
+            flex="1"
+            flexDirection="row"
+            h="full"
+            justifyContent="flex-end"
+            position="relative"
+          >
+            <Box position="absolute" w="full" top="0" right="0">
+              <NumberInput
+                w="full"
+                h="auto"
+                borderWidth={0}
+                placeholder="0.00"
+                fontSize={24}
+                fontWeight="700"
+                fontFamily="PlusJakartaSans-Bold"
+                bg="transparent"
+                _disabled={{ bg: 'transparent' }}
+                _hover={{ bg: 'transparent' }}
+                _focus={{ bg: 'transparent' }}
+                value={inputValue}
+                borderRadius={0}
+                onChangeText={onChange}
+                pb="12"
+                focusOutlineColor="transparent"
+                // py="1"
+                pr="2"
+                textAlign="right"
+                isDisabled={isDisabled}
+                rightCustomElement={null}
+              />
+            </Box>
+          </Box>
+        </Box>
+        <Box
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          zIndex="-1"
+          mt="2"
+          px={2}
+        >
+          <NetworkName networkId={token?.networkId} />
           <Box pointerEvents="none">
             <Typography.Caption color="text-subdued" numberOfLines={2}>
               <FormatCurrency

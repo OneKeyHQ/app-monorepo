@@ -38,11 +38,15 @@ const Swap = () => {
     >
       {!isSmall ? <SwapHeader /> : <Box h="6" />}
       <SwapObserver />
-      <Center px="4">
-        <Box maxW="420" width="full">
-          <SwapContent />
-          <SwapAlert />
-          <Box my="6">
+      <Center>
+        <Box maxW="480" width="full">
+          <Box px={isSmall ? 0 : '4'}>
+            <SwapContent />
+          </Box>
+          <Box px="4">
+            <SwapAlert />
+          </Box>
+          <Box my="6" px="4">
             <SwapButton />
           </Box>
           <SwapQuote />
