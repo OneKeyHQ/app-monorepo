@@ -20,10 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { HomeRoutes } from '../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../routes/types';
-import {
-  NFTAttributeFilterRoutes,
-  NFTAttributeFilterRoutesParams,
-} from '../NFTAttributesModal/type';
+import { NFTMarketRoutes, NFTMarketRoutesParams } from '../Modals/type';
 
 import {
   CollectionDetailContext,
@@ -31,7 +28,7 @@ import {
 } from './context';
 import Screen from './Screen';
 
-type NavigationProps = ModalScreenProps<NFTAttributeFilterRoutesParams>;
+type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
 const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
   onPress,
@@ -109,9 +106,9 @@ const CollectionDetail = () => {
               }
               onPress={() => {
                 navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.NFTAttributeFilter,
+                  screen: ModalRoutes.NFTMarket,
                   params: {
-                    screen: NFTAttributeFilterRoutes.FilterModal,
+                    screen: NFTMarketRoutes.FilterModal,
                     params: {
                       collection: ctxCollection,
                       attributes: context.attributes,

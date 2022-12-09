@@ -20,15 +20,13 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { CollectionAttribute } from '@onekeyhq/engine/src/types/nft';
 
+import { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
+
 import {
   NFTAttributesContext,
   NFTAttributesContextValue,
   useNFTAttributesContext,
 } from './context';
-import {
-  NFTAttributeFilterRoutes,
-  NFTAttributeFilterRoutesParams,
-} from './type';
 
 type SubItemProps = {
   attributeName: string;
@@ -160,12 +158,7 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
 const NFTAttributesModal: FC = () => {
   const intl = useIntl();
   const route =
-    useRoute<
-      RouteProp<
-        NFTAttributeFilterRoutesParams,
-        NFTAttributeFilterRoutes.FilterModal
-      >
-    >();
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.FilterModal>>();
 
   const {
     collection,

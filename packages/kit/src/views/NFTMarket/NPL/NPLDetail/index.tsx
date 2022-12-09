@@ -11,7 +11,6 @@ import React, {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
 import { Row } from 'native-base';
-import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -39,15 +38,15 @@ import { HomeRoutes } from '../../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../../routes/types';
 import ChainSelector from '../../ChainSelector';
 import { useDefaultNetWork } from '../../Home/hook';
+import { NFTMarketRoutes, NFTMarketRoutesParams } from '../../Modals/type';
 import { PriceString } from '../../PriceText';
-import { ShareNFTNPLRoutes, ShareNFTNPLRoutesParams } from '../Share/type';
 
 import { useSearchAddress } from './hook';
 import Desktop from './List/Desktop';
 import Mobile from './List/Mobile';
 import SearchAddress from './SearchAddress';
 
-type NavigationProps = ModalScreenProps<ShareNFTNPLRoutesParams>;
+type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
 type NPLData = {
   totalProfit?: BigNumber;
@@ -198,9 +197,9 @@ const Header: FC<HeaderProps> = ({
 
   const shareAction = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.ShareNFTNPL,
+      screen: ModalRoutes.NFTMarket,
       params: {
-        screen: ShareNFTNPLRoutes.ShareNFTNPLModal,
+        screen: NFTMarketRoutes.ShareNFTNPLModal,
         params: {
           totalProfit,
           win,
@@ -328,7 +327,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
           mr={{ base: 4, md: 8 }}
         >
           <ChainSelector
-            tiggerProps={{ display: 'none' }}
+            // tiggerProps={{ display: 'none' }}
             triggerSize="lg"
             selectedNetwork={selectNetwork}
             onChange={setSelectNetwork}

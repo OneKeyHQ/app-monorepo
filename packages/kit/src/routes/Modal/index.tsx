@@ -33,15 +33,13 @@ import ManageNetworkModal from './ManageNetwork';
 import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
 import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
 import ManageTokenModal from './ManageToken';
-import NFTAttributeFilter from './NFTAttributeFilter';
+import NFTMarket from './NFTMarket';
 import PasswordModal from './Password';
 import PushNotification from './PushNotification';
 import ReceiveToken from './ReceiveToken';
 import Revoke from './Revoke';
 import ScanQrcode from './ScanQrcode';
-import SearchNFT from './SearchNFTCollection';
 import Send from './Send';
-import ShareNFTNPL from './ShareNFTNPL';
 import StakingModal from './Staking';
 import SubmitRequestModal from './SubmitRequest';
 import SwapModal from './Swap';
@@ -184,16 +182,8 @@ const modalStackScreenList = [
     component: Revoke,
   },
   {
-    name: ModalRoutes.SearchNFT,
-    component: SearchNFT,
-  },
-  {
-    name: ModalRoutes.NFTAttributeFilter,
-    component: NFTAttributeFilter,
-  },
-  {
-    name: ModalRoutes.ShareNFTNPL,
-    component: ShareNFTNPL,
+    name: ModalRoutes.NFTMarket,
+    component: NFTMarket,
   },
 ];
 

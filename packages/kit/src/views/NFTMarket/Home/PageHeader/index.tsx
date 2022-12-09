@@ -23,15 +23,12 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import { useActiveWalletAccount } from '../../../../hooks';
-import {
-  SearchNFTCollectionRoutes,
-  SearchNFTCollectionRoutesParams,
-} from '../../NFTSearchModal/type';
+import { NFTMarketRoutes, NFTMarketRoutesParams } from '../../Modals/type';
 import { useCollectionDetail } from '../hook';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type ModalNavigationProps = ModalScreenProps<SearchNFTCollectionRoutesParams>;
+type ModalNavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
   HomeRoutes.NFTNPLScreen
@@ -44,9 +41,9 @@ const PageHeader = () => {
 
   const searchAction = useCallback(() => {
     modalNavigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.SearchNFT,
+      screen: ModalRoutes.NFTMarket,
       params: {
-        screen: SearchNFTCollectionRoutes.SearchModal,
+        screen: NFTMarketRoutes.SearchModal,
         params: {
           onSelectCollection: ({ networkId, contractAddress, collection }) => {
             goToCollectionDetail({
@@ -100,13 +97,13 @@ const PageHeader = () => {
                 </Text>
               </Pressable>
             </HStack>
-            {/* <Button
+            <Button
               onPress={() => {
                 nplAction();
               }}
             >
               PnL
-            </Button> */}
+            </Button>
           </HStack>
         </Hidden>
       </HStack>

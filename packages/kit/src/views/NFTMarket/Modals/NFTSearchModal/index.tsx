@@ -26,17 +26,14 @@ import { Network } from '@onekeyhq/engine/src/types/network';
 import { Collection, NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../../hooks';
-import ChainSelector from '../ChainSelector';
-import CollectionLogo from '../CollectionLogo';
-import { useDefaultNetWork } from '../Home/hook';
-import RankingList from '../Home/Stats/Ranking/Container/Mobile';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useDebounce } from '../../../../hooks';
+import ChainSelector from '../../ChainSelector';
+import CollectionLogo from '../../CollectionLogo';
+import { useDefaultNetWork } from '../../Home/hook';
+import RankingList from '../../Home/Stats/Ranking/Container/Mobile';
+import { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 
-import {
-  SearchNFTCollectionRoutes,
-  SearchNFTCollectionRoutesParams,
-} from './type';
 import { useCollectionSearch } from './useCollectionSearch';
 
 const Header: FC<{
@@ -148,12 +145,7 @@ const SearchResultList: FC<Props> = ({
 }) => {
   const intl = useIntl();
   const route =
-    useRoute<
-      RouteProp<
-        SearchNFTCollectionRoutesParams,
-        SearchNFTCollectionRoutes.SearchModal
-      >
-    >();
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
   const { onSelectCollection } = route.params;
   const renderItem: ListRenderItem<Collection> = useCallback(
     ({ item }) => {

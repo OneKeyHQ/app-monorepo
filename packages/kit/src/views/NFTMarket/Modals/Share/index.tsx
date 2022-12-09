@@ -11,13 +11,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { PriceString } from '../../PriceText';
+import { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 
 import { NPLCardGroup } from './NPLCard';
-import { ShareNFTNPLRoutes, ShareNFTNPLRoutesParams } from './type';
 
 type RouteProps = RouteProp<
-  ShareNFTNPLRoutesParams,
-  ShareNFTNPLRoutes.ShareNFTNPLModal
+  NFTMarketRoutesParams,
+  NFTMarketRoutes.ShareNFTNPLModal
 >;
 
 const getShareModule = async () => {
