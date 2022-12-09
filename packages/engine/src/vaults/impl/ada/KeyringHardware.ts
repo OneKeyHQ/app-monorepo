@@ -99,9 +99,10 @@ export class KeyringHardware extends KeyringHardwareBase {
         if (stakeAddress) {
           addresses[stakingAddressRelPath] = stakeAddress;
         }
+        const accountPath = serializedPath.slice(0, -4);
         if (!ignoreFirst || index > 0) {
           ret.push({
-            id: `${this.walletId}--${serializedPath}`,
+            id: `${this.walletId}--${accountPath}`,
             name,
             type: AccountType.UTXO,
             path: serializedPath,
