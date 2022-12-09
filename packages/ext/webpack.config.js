@@ -78,7 +78,9 @@ function createConfig() {
     },
     output: {
       path: path.resolve(__dirname, 'build', buildTargetBrowser),
+      // do not include [hash] here, as `content-script.bundle.js` filename should be stable
       filename: '[name].bundle.js',
+      chunkFilename: '[name].[chunkhash:6].chunk.js',
       publicPath: ASSET_PATH,
       globalObject: 'this', // FIX: window is not defined in service-worker background
     },
@@ -209,7 +211,7 @@ function enableCodeSplitChunks({ config, name }) {
     maxSizeMb = 1;
   }
   config.optimization.splitChunks = {
-    chunks: isFirefox ? 'all' : 'initial', // all, async, and initial
+    chunks: isFirefox ? 'all' : 'all', // all, async, and initial
     minSize: 0, // 2000000
     maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
     // auto-gen chunk file name by module name or just increasing number
@@ -217,6 +219,20 @@ function enableCodeSplitChunks({ config, name }) {
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
     automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
+    maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
+    maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
+    cacheGroups: {
+      vendors: {
+        test: /[\\/]node_modules[\\/]/,
+        priority: -10,
+        enforce: true, // seperate vendor from our code
+      },
+      default: {
+        minChunks: 2,
+        priority: -20,
+        reuseExistingChunk: true,
+      },
+    },
   };
 }
 
