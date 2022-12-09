@@ -36,7 +36,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { AnyAction } from 'redux';
 
-
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
     // `throw new Error()` won't print error object in iOS/Android,
