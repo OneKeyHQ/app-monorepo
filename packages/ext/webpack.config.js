@@ -69,6 +69,7 @@ class HtmlLazyScriptPlugin {
   }
 }
 
+const isManifestV3 = manifest.manifest_version >= 3;
 function createConfig() {
   let webpackConfig = {
     // add custom config, will be deleted later
@@ -76,7 +77,7 @@ function createConfig() {
       notHotReload: [
         // disable background webpackDevServer hotReload in manifest V3, it will cause error
         //    manifest V3 background will reload automatically after UI reloaded
-        manifest.manifest_version >= 3 ? 'background' : '',
+        isManifestV3 ? 'background' : '',
         'content-script',
         'ui-devtools',
       ].filter(Boolean),
@@ -219,7 +220,7 @@ function createConfig() {
 }
 
 function enableCodeSplitChunks({ config, name }) {
-  let maxSizeMb = 1;
+  let maxSizeMb = 4;
   const isFirefox = buildTargetBrowser === 'firefox';
   const isChrome = buildTargetBrowser === 'chrome';
   if (isFirefox) {
@@ -263,16 +264,26 @@ const multipleEntryConfigs = [
       name: 'ui',
       entry: {
         'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
+        ...(isManifestV3
+          ? {}
+          : {
+              'background': path.join(__dirname, 'src/entry/background.ts'),
+            }),
       },
     },
     configUpdater(config) {
       enableCodeSplitChunks({ config, name: 'ui' });
-      config.plugins = [...config.plugins, ...pluginsHtml.uiHtml];
+      config.plugins = [
+        ...config.plugins,
+        ...pluginsHtml.uiHtml,
+        ...(isManifestV3 ? [] : pluginsHtml.backgroundHtml),
+      ].filter(Boolean);
+
       return config;
     },
   },
-  // background build (code-split ONLY manifest v2)
-  {
+  // manifest v3 background standalone build without code-split
+  isManifestV3 && {
     config: {
       name: 'bg',
       dependencies: ['ui'],
@@ -281,10 +292,6 @@ const multipleEntryConfigs = [
       },
     },
     configUpdater(config) {
-      // background code split only works in manifest v2
-      if (manifest.manifest_version < 3) {
-        enableCodeSplitChunks({ config, name: 'bg' });
-      }
       config.plugins = [...config.plugins, ...pluginsHtml.backgroundHtml];
       return config;
     },
@@ -293,7 +300,7 @@ const multipleEntryConfigs = [
   {
     config: {
       name: 'cs',
-      dependencies: ['ui', 'bg'],
+      dependencies: isManifestV3 ? ['ui', 'bg'] : ['ui'],
       entry: {
         'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
       },
@@ -303,7 +310,7 @@ const multipleEntryConfigs = [
       return config;
     },
   },
-];
+].filter(Boolean);
 
 const configs = devUtils.createMultipleEntryConfigs(
   createConfig,
