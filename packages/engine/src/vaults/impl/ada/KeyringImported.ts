@@ -17,7 +17,7 @@ import {
 } from '../../types';
 
 import { encodePrivateKey, getPathIndex, getXprvString } from './helper/bip32';
-import { CardanoApi } from './helper/sdk';
+import { getCardanoApi } from './helper/sdk';
 import { batchGetShelleyAddressByRootKey } from './helper/shelley-address';
 import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
 
@@ -125,6 +125,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const xprv = await getXprvString(encodeKey.rootKey);
     const accountIndex = getPathIndex(dbAccount.path);
+    const CardanoApi = await getCardanoApi();
     const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
       dbAccount.address,
