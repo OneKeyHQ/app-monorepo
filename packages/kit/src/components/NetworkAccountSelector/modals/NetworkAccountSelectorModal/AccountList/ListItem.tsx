@@ -101,7 +101,7 @@ const ListItem: FC<ListItemProps> = ({
                 : 'transparent'
             }
           >
-            <ExternalAccountImg mr={2} accountId={account?.id} />
+            <ExternalAccountImg mr={3} accountId={account?.id} />
             <Box flex={1} mr={3}>
               <Text typography="Body2Strong" isTruncated numberOfLines={1}>
                 {label}

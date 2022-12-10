@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { GestureResponderEvent } from 'react-native';
 
@@ -7,7 +8,7 @@ import {
   Box,
   Button,
   HStack,
-  Skeleton,
+  Spinner,
   Text,
   Tooltip,
 } from '@onekeyhq/components';
@@ -50,44 +51,50 @@ function RpcStatusButton({ networkId }: IRpcStatusButtonProps) {
     if (!status || loading) {
       return (
         <>
-          <Skeleton shape="Caption" />
+          <Spinner />
         </>
       );
     }
     return (
       <>
-        <Speedindicator
-          mr="6px"
-          borderWidth="0"
-          backgroundColor={status.iconColor}
-        />
-        <Tooltip
-          isOpen={false}
-          hasArrow
-          label={intl.formatMessage({
-            id: 'content__click_here_to_switch_node',
-          })}
-          bg="interactive-default"
-          _text={{ color: 'text-on-primary', fontSize: '14px' }}
-          px="16px"
-          py="8px"
-          borderRadius="12px"
-        >
-          <Box>
-            <Text typography="Caption" isTruncated color={status.textColor}>
-              {intl.formatMessage({ id: status.text })}
-            </Text>
-          </Box>
-        </Tooltip>
+        <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <Button hitSlop={16} size="xs" onPress={toCheckNodePage as any} h={8}>
+            <HStack alignItems="center">
+              <Speedindicator
+                mr="8px"
+                borderWidth="0"
+                backgroundColor={status.iconColor}
+              />
+              <Tooltip
+                isOpen={false}
+                hasArrow
+                label={intl.formatMessage({
+                  id: 'content__click_here_to_switch_node',
+                })}
+                bg="interactive-default"
+                _text={{ color: 'text-on-primary', fontSize: '14px' }}
+                px="16px"
+                py="8px"
+                borderRadius="12px"
+              >
+                <Box>
+                  <Text
+                    typography="Body2Strong"
+                    isTruncated
+                    color={status.textColor}
+                  >
+                    {intl.formatMessage({ id: status.text })}
+                  </Text>
+                </Box>
+              </Tooltip>
+            </HStack>
+          </Button>
+        </MotiView>
       </>
     );
-  }, [status, intl, loading]);
+  }, [status, loading, toCheckNodePage, intl]);
 
-  return (
-    <Button hitSlop={16} size="sm" onPress={toCheckNodePage as any}>
-      <HStack alignItems="center">{rpcStatusElement}</HStack>
-    </Button>
-  );
+  return <>{rpcStatusElement}</>;
 }
 
 export { RpcStatusButton };

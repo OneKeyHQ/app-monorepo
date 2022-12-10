@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Modal, Pressable, Typography } from '@onekeyhq/components';
+import { Box, Image, Modal, Pressable, Typography } from '@onekeyhq/components';
 
 import { LazyDisplayView } from '../../../LazyDisplayView';
 import { useAccountSelectorModalInfo } from '../../hooks/useAccountSelectorModalInfo';
@@ -37,8 +37,19 @@ function NetworkAccountSelectorModal() {
           onPress={() => {
             setShowSideChainSelector(!showSideChainSelector);
           }}
+          flexDirection="row"
+          alignItems="center"
+          hitSlop={8}
         >
-          <Typography.Caption textAlign="center" color="text-subdued">
+          {accountSelectorInfo?.selectedNetwork?.logoURI ? (
+            <Image
+              source={{ uri: accountSelectorInfo?.selectedNetwork?.logoURI }}
+              size={4}
+              borderRadius="full"
+              mr={2}
+            />
+          ) : null}
+          <Typography.Caption color="text-subdued">
             {accountSelectorInfo?.selectedNetwork?.name || '-'}
           </Typography.Caption>
         </Pressable>

@@ -13,13 +13,15 @@ export function LayoutHeaderMobile() {
       headerLeft={() => <WalletSelectorTrigger />}
       // headerRight={() => <ChainSelector />}
       headerRight={() => (
-        <HStack space={2}>
+        <HStack space={3} alignItems="center">
           <NetworkAccountSelectorTriggerMobile />
           <IconButton
-            name="EllipsisVerticalMini"
+            name="EllipsisVerticalOutline"
+            type="plain"
+            size="lg"
             onPress={() => showHomeMoreMenu()}
             circle
-            size="sm"
+            m={-2}
           />
         </HStack>
       )}

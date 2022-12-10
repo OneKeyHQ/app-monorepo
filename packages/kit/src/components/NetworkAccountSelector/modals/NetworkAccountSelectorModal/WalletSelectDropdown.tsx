@@ -115,12 +115,13 @@ export function WalletSelectDropdown({
         }}
         options={data}
         renderTrigger={({ visible, onPress }) => (
-          <Pressable minW="150px" onPress={onPress}>
+          <Pressable onPress={onPress}>
             {({ isHovered, isPressed }) => (
               <Box
                 flexDirection="row"
-                p={2}
                 alignItems="center"
+                maxW="240px"
+                p={2}
                 rounded="xl"
                 bgColor={
                   visible
@@ -139,13 +140,25 @@ export function WalletSelectDropdown({
                     deviceStatus={undefined}
                   />
                 ) : null}
-                <Text typography="Body1Strong" mx={2} isTruncated>
+                <Text
+                  typography="Body2Strong"
+                  ml={2}
+                  mr={1}
+                  color="text-subdued"
+                  isTruncated
+                >
                   {getWalletName({
                     wallet: selectedWallet,
                     intl,
                   })}
                 </Text>
-                <Icon name="ChevronUpDownMini" color="icon-subdued" size={20} />
+                <Box>
+                  <Icon
+                    name="ChevronUpDownMini"
+                    color="icon-subdued"
+                    size={20}
+                  />
+                </Box>
               </Box>
             )}
           </Pressable>

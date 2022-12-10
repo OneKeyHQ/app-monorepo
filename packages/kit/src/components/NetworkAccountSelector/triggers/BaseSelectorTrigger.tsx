@@ -7,14 +7,12 @@ import {
   Icon,
   Pressable,
   Typography,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
 
 export interface ISelectorTriggerSharedProps {
   type?: 'basic' | 'plain'; // basic with outline border
-  size?: 'sm' | 'lg' | string;
   bg?: ColorType;
 }
 export interface INetworkAccountSelectorTriggerProps
@@ -25,61 +23,70 @@ interface IBaseSelectorTriggerProps extends ISelectorTriggerSharedProps {
   onPress?: () => void;
   icon: any;
   label: any;
+  description?: any;
   disabledInteractiveBg?: boolean;
 }
 function BaseSelectorTrigger({
   type = 'plain',
-  size = 'sm',
   bg,
   icon,
   label,
+  description,
   onPress,
-  disabledInteractiveBg,
 }: IBaseSelectorTriggerProps) {
-  const isVertical = useIsVerticalLayout();
-
   return (
     <Pressable onPress={onPress}>
       {(status) => {
         let bgColor: string | undefined;
         bgColor =
           bg ?? type === 'basic' ? 'action-secondary-default' : undefined;
-        if (!disabledInteractiveBg) {
-          if (status.isPressed) {
-            bgColor =
-              type === 'basic' ? 'action-secondary-pressed' : 'surface-hovered';
-          }
-          if (status.isHovered) {
-            bgColor =
-              type === 'basic' ? 'action-secondary-hovered' : 'surface-hovered';
-          }
-          if (status.isFocused) {
-            bgColor = 'surface-selected';
-          }
+        if (status.isPressed) {
+          bgColor =
+            type === 'basic' ? 'action-secondary-pressed' : 'surface-hovered';
+        }
+        if (status.isHovered) {
+          bgColor =
+            type === 'basic' ? 'action-secondary-hovered' : 'surface-hovered';
+        }
+        if (status.isFocused) {
+          bgColor = 'surface-selected';
         }
         return (
           <HStack
             alignItems="center"
-            p={1.5}
-            pr={2.5}
-            space={1}
+            p={1}
             bg={bgColor}
             borderRadius="full"
             borderWidth={type === 'basic' ? StyleSheet.hairlineWidth : 0}
             borderColor="border-default"
           >
-            <HStack space={size === 'sm' ? 2 : 3} alignItems="center">
-              {icon ? <Center minH={7}>{icon}</Center> : null}
-
+            <HStack space={0.5} alignItems="center">
+              {icon ? <Center minH={5}>{icon}</Center> : null}
               {label ? (
-                <Typography.Body2Strong isTruncated maxW="120px">
-                  {label}
-                </Typography.Body2Strong>
+                <HStack
+                  py={0.5}
+                  px={1.5}
+                  space={0.5}
+                  {...(type === 'plain' && { pr: 0.5 })}
+                >
+                  <Typography.Body2Strong isTruncated maxW="120px">
+                    {label}
+                  </Typography.Body2Strong>
+                  {description ? (
+                    <Typography.Body2 color="text-subdued" ml="0.5">
+                      {description}
+                    </Typography.Body2>
+                  ) : null}
+                  {type === 'plain' ? (
+                    <Icon
+                      size={20}
+                      name="ChevronDownMini"
+                      color="icon-subdued"
+                    />
+                  ) : null}
+                </HStack>
               ) : null}
             </HStack>
-            {type === 'plain' && !isVertical ? (
-              <Icon size={20} name="ChevronDownSolid" />
-            ) : null}
           </HStack>
         );
       }}

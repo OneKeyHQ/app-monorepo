@@ -94,7 +94,7 @@ export const light = {
   'surface-neutral-pressed': '#D3D3DE',
   'surface-neutral-disabled': '#D4D4DD',
   'text-default': '#1F1F38',
-  'text-subdued': '#75758A',
+  'text-subdued': '#737387',
   'text-disabled': '#A0A0B0',
   'text-critical': '#CC2F26',
   'text-warning': '#C7A10A',

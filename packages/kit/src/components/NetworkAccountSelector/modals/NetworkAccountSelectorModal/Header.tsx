@@ -147,8 +147,13 @@ function Header({
   }, [status, intl, isOpen, loading]);
 
   return (
-    <Box pr={3.5}>
-      <Box flexDirection="row" alignItems="center" pt={2.5} pl={4}>
+    <Box
+      pt={{ base: 2, md: 4 }}
+      pb={2}
+      pl={{ base: 2, md: 4 }}
+      pr={{ base: '14px', md: '22px' }}
+    >
+      <Box flexDirection="row" alignItems="center">
         {showCustomLegacyHeader ? (
           <>
             <VStack flex={1} mr={3}>
@@ -186,7 +191,7 @@ function Header({
           </>
         ) : null}
       </Box>
-      <Box flexDirection="row" alignItems="center" pl={2}>
+      <Box flexDirection="row" alignItems="center">
         <WalletSelectDropdown accountSelectorInfo={accountSelectorInfo} />
       </Box>
     </Box>

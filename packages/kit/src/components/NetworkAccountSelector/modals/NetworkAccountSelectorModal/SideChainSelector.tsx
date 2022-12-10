@@ -13,11 +13,11 @@ import {
   Pressable,
   Text,
   Token,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import { INetwork } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../../hooks';
@@ -63,7 +63,6 @@ function SideChainSelector({
   const { enabledNetworks } = useManageNetworks();
   const { selectedNetworkId } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
-  const insets = useSafeAreaInsets();
 
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
@@ -106,8 +105,10 @@ function SideChainSelector({
   return (
     <Box
       alignSelf="stretch"
-      borderRightWidth={fullWidthMode ? 0 : StyleSheet.hairlineWidth}
-      borderColor={fullWidthMode ? undefined : 'border-subdued'}
+      borderRightWidth={
+        fullWidthMode || platformEnv.isNativeIOS ? 0 : StyleSheet.hairlineWidth
+      }
+      borderColor={fullWidthMode ? undefined : 'divider'}
       flex={fullWidthMode ? 1 : undefined}
     >
       <FlatListRef
@@ -131,26 +132,24 @@ function SideChainSelector({
               {({ isHovered, isPressed }) => (
                 <HStack
                   alignItems="center"
-                  space={2}
+                  space={3}
                   p={1.5}
-                  m={1}
+                  m={fullWidthMode ? 0 : 1}
                   borderWidth={2}
                   bgColor={
-                    fullWidthMode && isHovered ? 'surface-hovered' : undefined
+                    isPressed
+                      ? 'surface-pressed'
+                      : isHovered
+                      ? 'surface-hovered'
+                      : undefined
                   }
                   borderColor={(() => {
                     if (fullWidthMode) {
                       return 'transparent';
                     }
-                    return isActive
-                      ? 'interactive-default'
-                      : isPressed
-                      ? 'border-default'
-                      : isHovered
-                      ? 'border-subdued'
-                      : 'transparent';
+                    return isActive ? 'interactive-default' : 'transparent';
                   })()}
-                  rounded="full"
+                  rounded={fullWidthMode ? '12px' : 'full'}
                 >
                   <ChainNetworkIcon
                     item={item}
@@ -170,7 +169,10 @@ function SideChainSelector({
                       {item.id === selectedNetworkId ? (
                         <>
                           <RpcStatusButton networkId={item.id} />
-                          <Icon color="icon-success" name="CheckCircleSolid" />
+                          <Icon
+                            color="interactive-default"
+                            name="CheckCircleSolid"
+                          />
                         </>
                       ) : null}
                     </>
@@ -181,7 +183,8 @@ function SideChainSelector({
           );
         }}
         showsVerticalScrollIndicator={false}
-        style={{ flex: 1, padding: 4 }}
+        flex={1}
+        p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
         ListFooterComponent={
           fullWidthMode ? null : (
             <Box p="4px">
@@ -201,41 +204,6 @@ function SideChainSelector({
           )
         }
       />
-      <HStack
-        p={2}
-        mb={`${insets.bottom}px`}
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderColor="border-subdued"
-        space={2}
-        justifyContent="flex-end"
-      >
-        {fullWidthMode ? (
-          <IconButton
-            type="plain"
-            size="xl"
-            circle
-            name="BarsArrowUpOutline"
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageNetwork,
-                params: { screen: ManageNetworkRoutes.Sort },
-              });
-            }}
-          />
-        ) : null}
-        <IconButton
-          name="CogOutline"
-          size="xl"
-          type="plain"
-          circle
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.ManageNetwork,
-              params: { screen: ManageNetworkRoutes.Listing },
-            });
-          }}
-        />
-      </HStack>
     </Box>
   );
 }

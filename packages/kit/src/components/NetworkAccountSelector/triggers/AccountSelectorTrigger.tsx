@@ -1,22 +1,28 @@
-import { useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useActiveWalletAccount, useNavigationActions } from '../../../hooks';
+import ExternalAccountImg from '../../../views/ExternalAccount/components/ExternalAccountImg';
 
 import {
   BaseSelectorTrigger,
   INetworkAccountSelectorTriggerProps,
 } from './BaseSelectorTrigger';
 
-function AccountSelectorTrigger({
+interface AccountSelectorTriggerProps
+  extends INetworkAccountSelectorTriggerProps {
+  showAddress?: boolean;
+}
+
+const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
+  showAddress = true,
   type = 'plain',
-  size = 'sm',
   bg,
   mode,
-}: INetworkAccountSelectorTriggerProps) {
+}) => {
   const { account } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
   const intl = useIntl();
@@ -24,24 +30,30 @@ function AccountSelectorTrigger({
     () => ({
       label:
         account?.name || intl.formatMessage({ id: 'empty__no_account_title' }),
+      description: account?.address.slice(-4) || '',
       value: account?.id,
     }),
-    [account?.id, account?.name, intl],
+    [account?.address, account?.id, account?.name, intl],
   );
   const isVertical = useIsVerticalLayout();
 
   return (
     <BaseSelectorTrigger
       type={type}
-      size={size}
       bg={bg}
-      icon={isVertical ? null : <Box position="relative">ICON</Box>}
+      icon={
+        // eslint-disable-next-line no-nested-ternary
+        isVertical ? null : account?.id ? (
+          <ExternalAccountImg accountId={account?.id} />
+        ) : null
+      }
       label={activeOption.label}
+      description={showAddress && activeOption.description}
       onPress={() => {
         openAccountSelector({ mode });
       }}
     />
   );
-}
+};
 
 export { AccountSelectorTrigger };

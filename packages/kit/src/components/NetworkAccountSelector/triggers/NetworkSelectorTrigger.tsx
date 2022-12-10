@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { Box, Token } from '@onekeyhq/components';
 
@@ -11,19 +11,23 @@ import {
   INetworkAccountSelectorTriggerProps,
 } from './BaseSelectorTrigger';
 
-function NetworkSelectorTrigger({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface NetworkSelectorTriggerProps
+  extends INetworkAccountSelectorTriggerProps {
+  showName?: boolean;
+}
+
+const NetworkSelectorTrigger: FC<NetworkSelectorTriggerProps> = ({
+  showName = true,
   type = 'plain',
-  size = 'sm',
   bg,
   mode,
-}: INetworkAccountSelectorTriggerProps) {
+}) => {
   const { network } = useActiveWalletAccount();
   const { openNetworkSelector } = useNavigationActions();
   const { status: rpcStatus } = useRpcMeasureStatus(network?.id ?? '');
   const activeOption = useMemo(
     () => ({
-      label: network?.shortName,
+      label: network?.name,
       value: network?.id,
       tokenProps: {
         token: {
@@ -33,36 +37,39 @@ function NetworkSelectorTrigger({
       },
       badge: network?.impl === 'evm' ? 'EVM' : undefined,
     }),
-    [network?.id, network?.impl, network?.logoURI, network?.shortName],
+    [
+      network?.id,
+      network?.impl,
+      network?.logoURI,
+      network?.name,
+      network?.shortName,
+    ],
   );
-  const isSmallSize = size === 'sm';
 
   return (
     <BaseSelectorTrigger
-      type="plain"
-      size={size}
+      type={type}
       bg={bg}
-      disabledInteractiveBg={isSmallSize}
       icon={
         <Box position="relative">
-          <Token size={isSmallSize ? 7 : 7} {...activeOption.tokenProps} />
+          <Token size={6} {...activeOption.tokenProps} />
           {rpcStatus && (
             <Speedindicator
               position="absolute"
-              top={isSmallSize ? '-4px' : '-2px'}
-              right={isSmallSize ? '-4px' : '-2px'}
+              top={-1}
+              right={-1}
               size="10px"
               backgroundColor={rpcStatus?.iconColor}
             />
           )}
         </Box>
       }
-      label={isSmallSize ? null : activeOption.label}
+      label={showName && activeOption.label}
       onPress={() => {
         openNetworkSelector({ mode });
       }}
     />
   );
-}
+};
 
 export { NetworkSelectorTrigger };

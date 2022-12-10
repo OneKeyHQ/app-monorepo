@@ -265,7 +265,7 @@ function AccountList({
           );
         }}
         ListFooterComponent={<Box h={`${insets.bottom}px`} />}
-        p={2}
+        px={{ base: 2, md: 4 }}
       />
     </>
   );

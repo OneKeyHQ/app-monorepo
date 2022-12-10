@@ -30,7 +30,7 @@ function ExternalAccountImg({
   accountId,
   account,
   size = 6,
-  radius = '6px',
+  radius = '6',
   ...others
 }: ComponentProps<typeof Image> & {
   accountId: string;

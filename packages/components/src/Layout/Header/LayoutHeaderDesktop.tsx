@@ -27,7 +27,7 @@ export function LayoutHeaderDesktop() {
       // headerRight={() => <ChainSelector />}
       // headerRight={() => <NetworkAccountSelectorTrigger />}
       headerRight={() => (
-        <HStack space={2}>
+        <HStack space={2} alignItems="center">
           <NetworkAccountSelectorTriggerDesktop />
           <Box ref={moreBtnRef}>
             <IconButton
@@ -36,6 +36,7 @@ export function LayoutHeaderDesktop() {
               onPress={() => showHomeMoreMenu(moreBtnRef.current)}
               type="plain"
               circle
+              m={-2}
             />
             {showUpdateBadge && (
               <Box

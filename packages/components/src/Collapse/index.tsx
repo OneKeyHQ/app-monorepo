@@ -63,10 +63,7 @@ const Collapse = ({
       >
         <HStack alignItems="center">
           {arrowPosition === 'right' && <Box {...triggerProps}>{trigger}</Box>}
-          <MotiView
-            from={{ rotate: '90deg' }}
-            animate={{ rotate: collapsed ? '0deg' : '90deg' }}
-          >
+          <MotiView animate={{ rotate: collapsed ? '0deg' : '90deg' }}>
             <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
           </MotiView>
           {arrowPosition === 'left' && (
