@@ -47,7 +47,7 @@ function writePreviewWebpackConfigJson(webpackConfig, filename) {
 
 function createMultipleEntryConfigs(createConfig, multipleEntryConfigs) {
   const configs = multipleEntryConfigs.map(({ config, configUpdater }) => {
-    const webpackConfig = createConfig();
+    const webpackConfig = createConfig({ config });
     const configMerged = lodash.merge(webpackConfig, config);
     return configUpdater(configMerged);
   });

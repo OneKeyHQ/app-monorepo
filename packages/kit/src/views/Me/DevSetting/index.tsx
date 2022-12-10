@@ -251,7 +251,12 @@ export const DevSettingSection = () => {
               <Button
                 size="xs"
                 onPress={() => {
-                  copyToClipboard(JSON.stringify(perfCheckResult));
+                  copyToClipboard(
+                    JSON.stringify({
+                      $$onekeyPerfTrace: global?.$$onekeyPerfTrace,
+                      perfCheckResult,
+                    }),
+                  );
                   toast.show({
                     title: intl.formatMessage({ id: 'msg__copied' }),
                   });

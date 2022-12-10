@@ -70,7 +70,7 @@ class HtmlLazyScriptPlugin {
 }
 
 const isManifestV3 = manifest.manifest_version >= 3;
-function createConfig() {
+function createConfig({ config }) {
   let webpackConfig = {
     // add custom config, will be deleted later
     chromeExtensionBoilerplate: {
@@ -214,6 +214,8 @@ function createConfig() {
   webpackConfig = webpackTools.normalizeConfig({
     platform: webpackTools.developmentConsts.platforms.ext,
     config: webpackConfig,
+    configName: config.name,
+    enableAnalyzerHtmlReport: true,
   });
 
   return webpackConfig;
@@ -251,7 +253,7 @@ function enableCodeSplitChunks({ config, name }) {
     // },
   };
   if (isChrome) {
-    // memory leak
+    // memory leak issue
     // config.optimization.splitChunks = undefined;
   }
 }

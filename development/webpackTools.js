@@ -6,9 +6,9 @@ const notifier = require('node-notifier');
 const { getPathsAsync } = require('@expo/webpack-config/env');
 const path = require('path');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
-const DuplicatePackageCheckerPlugin = require("duplicate-package-checker-webpack-plugin");
 
 const { PUBLIC_URL } = process.env;
 
@@ -73,7 +73,13 @@ async function modifyExpoEnv({ env, platform }) {
   return newEnv;
 }
 
-function normalizeConfig({ platform, config, env }) {
+function normalizeConfig({
+  platform,
+  config,
+  env,
+  configName,
+  enableAnalyzerHtmlReport,
+}) {
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
     const isDev = process.env.NODE_ENV !== 'production';
@@ -94,6 +100,39 @@ function normalizeConfig({ platform, config, env }) {
         ? new ReactRefreshWebpackPlugin({ overlay: platform !== 'desktop' })
         : null,
     ].filter(Boolean);
+
+    if (process.env.ENABLE_ANALYZER) {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          ...(enableAnalyzerHtmlReport
+            ? {
+                analyzerMode: 'static',
+                reportFilename: `report${
+                  configName ? `-${configName}` : ''
+                }.html`,
+                openAnalyzer: false,
+              }
+            : {
+                analyzerMode: 'disabled',
+                generateStatsFile: true,
+                statsOptions: {
+                  reasons: false,
+                  warnings: false,
+                  errors: false,
+                  optimizationBailout: false,
+                  usedExports: false,
+                  providedExports: false,
+                  source: false,
+                  ids: false,
+                  children: false,
+                  chunks: false,
+                  modules: process.env.ANALYSE_MODULE === 'module',
+                },
+              }),
+        }),
+      );
+    }
 
     // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
     resolveExtensions.unshift(
