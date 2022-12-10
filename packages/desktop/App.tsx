@@ -13,6 +13,10 @@ const KitProviderDesktop = createLazyKitProvider({
 });
 
 const App: FC = function () {
+  global.$$onekeyPerfTrace?.log({
+    name: '[DESKTOP]: App.tsx KitProviderDesktop render()',
+  });
+
   return (
     <>
       <DesktopDragZoneBox

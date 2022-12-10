@@ -3,8 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
 
-function doTask() {
-  const folder = path.resolve(__dirname, '../build/chrome');
+function doTaskInFolder({ folder }) {
+  if (!fs.existsSync(folder)) {
+    return;
+  }
   const files = fs.readdirSync(folder);
 
   const htmls = files.filter(
@@ -70,6 +72,7 @@ function doTask() {
     console.log(lazyJsFile);
   });
 
+  // TODO body data-filename replacement
   fse.copySync(
     path.resolve(folder, 'ui-popup.html'),
     path.resolve(folder, 'ui-standalone-window.html'),
@@ -80,5 +83,14 @@ function doTask() {
     path.resolve(folder, 'ui-expand-tab.html'),
     { overwrite: true },
   );
+}
+
+function doTask() {
+  doTaskInFolder({
+    folder: path.resolve(__dirname, '../build/chrome'),
+  });
+  doTaskInFolder({
+    folder: path.resolve(__dirname, '../build/firefox'),
+  });
 }
 module.exports = doTask;
