@@ -62,6 +62,7 @@ const Header: FC<{
         w="auto"
         bgColor="transparent"
         borderWidth={0}
+        focusOutlineColor="transparent"
         placeholder={`${intl.formatMessage({
           id: 'form__nft_search_placeholder',
         })}...`}
