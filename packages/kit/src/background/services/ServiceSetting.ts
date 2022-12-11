@@ -4,8 +4,9 @@ import semver from 'semver';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { setShowFullLayout } from '../../store/reducers/discover';
+import { setShowBookmark } from '../../store/reducers/discover';
 import {
   disableExtSwitchTips,
   toggleDisableExt,
@@ -21,6 +22,7 @@ type RemoteSetting = {
   enableAppRatings: boolean;
   swapMaintain: boolean;
   helloVersion: string;
+  bookmarkVersion: string;
 };
 
 @backgroundClass()
@@ -41,10 +43,18 @@ export default class ServiceSetting extends ServiceBase {
     await simpleDb.setting.setEnableAppRatings(data.enableAppRatings);
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
     dispatch(setSwapMaintain(data.swapMaintain));
-    if (data.helloVersion && semver.valid(data.helloVersion)) {
-      const version = appSelector((s) => s.settings.version);
-      if (semver.lte(version, data.helloVersion)) {
-        dispatch(setShowFullLayout(true));
+    let v = '';
+    if (platformEnv.isNativeIOS || platformEnv.isMas) {
+      if (platformEnv.isNativeIOS && data.helloVersion) {
+        v = data.helloVersion;
+      } else if (platformEnv.isMas && data.bookmarkVersion) {
+        v = data.bookmarkVersion;
+      }
+      if (v && semver.valid(v)) {
+        const version = appSelector((s) => s.settings.version);
+        if (semver.lte(version, v)) {
+          dispatch(setShowBookmark(true));
+        }
       }
     }
   }

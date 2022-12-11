@@ -213,9 +213,9 @@ export function useCategories() {
   }, [home]);
 }
 
-export function useShowFullLayout() {
+export function useShowBookmark() {
   const isApple = platformEnv.isNativeIOS || platformEnv.isMas;
-  const showFullLayout = useAppSelector((s) => s.discover.showFullLayout);
+  const showFullLayout = useAppSelector((s) => s.discover.showBookmark);
   return useMemo(() => {
     if (!isApple) {
       return true;
