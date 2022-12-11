@@ -98,6 +98,16 @@ function normalizeConfig({ platform, config, env }) {
       ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
     );
   }
+
+  // lit file-loader skip handle wasm files
+  config.module.rules.forEach((rule) => {
+    (rule.oneOf || []).forEach((oneOf) => {
+      if (oneOf.loader && oneOf.loader.indexOf('file-loader') >= 0) {
+        oneOf.exclude.push(/\.wasm$/);
+      }
+    });
+  });
+
   config.resolve.extensions = lodash
     .uniq(config.resolve.extensions.concat(resolveExtensions))
     // sort platform specific extensions to the beginning
