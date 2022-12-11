@@ -43,12 +43,13 @@ module.exports = async function (env, argv) {
           ids: false,
           children: false,
           chunks: false,
-          modules: process.env.ANALYSE_MODULE === 'module',
+          modules: !!process.env.ANALYSE_MODULE,
         },
       }),
     );
   }
-  if (process.env.NODE_ENV === 'production') {
+
+  if (process.env.NODE_ENV === 'production' && !process.env.ANALYSE_MODULE) {
     config.devtool = false;
   }
   return config;
