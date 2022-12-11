@@ -123,6 +123,27 @@ function normalizeConfig({ platform, config, env }) {
   };
   config.devtool = 'cheap-module-source-map';
 
+  config.optimization.splitChunks = {
+    ...config.optimization.splitChunks,
+    cacheGroups: {
+      kit_assets: {
+        test: /\/kit\/assets/,
+        name: 'kit_assets',
+        chunks: 'all',
+      },
+      kit_routes: {
+        test: /\/kit\/src\/routes/,
+        name: 'kit_routes',
+        chunks: 'all',
+      },
+      // lodash: {
+      //   test: /\/node_modules\/lodash/,
+      //   name: 'lodash',
+      //   chunks: 'all',
+      // },
+    },
+  };
+
   return config;
 }
 
