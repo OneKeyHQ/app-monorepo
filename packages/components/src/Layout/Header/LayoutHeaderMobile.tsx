@@ -1,7 +1,7 @@
 import LayoutHeader from './index';
 
 import { HStack, IconButton } from '@onekeyhq/components';
-import { NetworkAccountSelectorTrigger } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
+import { NetworkAccountSelectorTriggerMobile } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 
@@ -13,13 +13,15 @@ export function LayoutHeaderMobile() {
       headerLeft={() => <WalletSelectorTrigger />}
       // headerRight={() => <ChainSelector />}
       headerRight={() => (
-        <HStack space={2}>
-          <NetworkAccountSelectorTrigger type="basic" />
+        <HStack space={3} alignItems="center">
+          <NetworkAccountSelectorTriggerMobile />
           <IconButton
-            name="EllipsisVerticalMini"
+            name="EllipsisVerticalOutline"
+            type="plain"
+            size="lg"
             onPress={() => showHomeMoreMenu()}
             circle
-            size="sm"
+            m={-2}
           />
         </HStack>
       )}

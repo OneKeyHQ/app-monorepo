@@ -22,7 +22,7 @@ export class PriceController {
   cache = lru(300);
 
   get req() {
-    return new RestfulRequest(getFiatEndpoint());
+    return new RestfulRequest(getFiatEndpoint(), {}, 60 * 1000);
   }
 
   async fetchApi<T>(path: string, params?: Record<string, string>) {

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { FC, isValidElement, useMemo, useState } from 'react';
+import { FC, isValidElement, useState } from 'react';
 
 import {
   useFocusEffect,
@@ -38,6 +38,7 @@ const MobileModal: FC<ModalProps> = ({
   headerDescription,
   closeAction,
   hideBackButton,
+  rightContent,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -75,6 +76,7 @@ const MobileModal: FC<ModalProps> = ({
           }}
           onPressCloseButton={closeAction || close}
           closeable
+          rightContent={rightContent}
         />
       )}
       {children}

@@ -16,21 +16,21 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IAccount } from '@onekeyhq/engine/src/types';
 
-import { useNetwork } from '../../../../hooks';
-import { useActiveWalletAccount } from '../../../../hooks/redux';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { AccountSectionLoadingSkeleton } from '../../../Header/AccountSelectorChildren/RightAccountSection';
-import { scrollToSectionItem } from '../../../WalletSelector';
-import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+import { useNetwork } from '../../../../../hooks';
+import { useActiveWalletAccount } from '../../../../../hooks/redux';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { AccountSectionLoadingSkeleton } from '../../../../Header/AccountSelectorChildren/RightAccountSection';
+import { scrollToSectionItem } from '../../../../WalletSelector';
+import { useAccountSelectorInfo } from '../../../hooks/useAccountSelectorInfo';
 import {
   INetworkAccountSelectorAccountListSectionData,
   isListAccountsSingleWalletMode,
   useAccountSelectorSectionData,
-} from '../../hooks/useAccountSelectorSectionData';
+} from '../../../hooks/useAccountSelectorSectionData';
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
-} from '../../hooks/useCreateAccountInWallet';
+} from '../../../hooks/useCreateAccountInWallet';
 
 import ListItem from './ListItem';
 import SectionHeader from './SectionHeader';
@@ -265,7 +265,7 @@ function AccountList({
           );
         }}
         ListFooterComponent={<Box h={`${insets.bottom}px`} />}
-        p={2}
+        px={{ base: 2, md: 4 }}
       />
     </>
   );

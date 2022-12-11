@@ -12,14 +12,14 @@ import { SelectItem } from '@onekeyhq/components/src/Select';
 import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useCopyAddress } from '../../../hooks/useCopyAddress';
-import { ManagerAccountModalRoutes } from '../../../routes/Modal/ManagerAccount';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { refreshAccountSelector } from '../../../store/reducers/refresher';
-import AccountModifyNameDialog from '../../../views/ManagerAccount/ModifyAccount';
-import useRemoveAccountDialog from '../../../views/ManagerAccount/RemoveAccount';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { useCopyAddress } from '../../../../hooks/useCopyAddress';
+import { ManagerAccountModalRoutes } from '../../../../routes/Modal/ManagerAccount';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { refreshAccountSelector } from '../../../../store/reducers/refresher';
+import AccountModifyNameDialog from '../../../../views/ManagerAccount/ModifyAccount';
+import useRemoveAccountDialog from '../../../../views/ManagerAccount/RemoveAccount';
 
 enum EAccountSelectorItemSelectOptions {
   rename = 'rename',

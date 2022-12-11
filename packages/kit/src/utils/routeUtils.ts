@@ -26,3 +26,8 @@ export function isSendModalRouteExisting() {
   const existing = currentRoute?.params?.screen === ModalRoutes.Send;
   return existing;
 }
+
+export function getRootTabRouteState() {
+  return global?.$navigationRef?.current?.getState?.()?.routes?.[0]?.state
+    ?.routes?.[0]?.state?.routes?.[0]?.state;
+}

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import LayoutHeader from './index';
 
 import { Box, HStack, IconButton } from '@onekeyhq/components';
-import { NetworkAccountSelectorTrigger } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
+import { NetworkAccountSelectorTriggerDesktop } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
 import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -27,8 +27,8 @@ export function LayoutHeaderDesktop() {
       // headerRight={() => <ChainSelector />}
       // headerRight={() => <NetworkAccountSelectorTrigger />}
       headerRight={() => (
-        <HStack space={2}>
-          <NetworkAccountSelectorTrigger size="lg" />
+        <HStack space={2} alignItems="center">
+          <NetworkAccountSelectorTriggerDesktop />
           <Box ref={moreBtnRef}>
             <IconButton
               name="EllipsisVerticalOutline"
@@ -36,6 +36,7 @@ export function LayoutHeaderDesktop() {
               onPress={() => showHomeMoreMenu(moreBtnRef.current)}
               type="plain"
               circle
+              m={-2}
             />
             {showUpdateBadge && (
               <Box
