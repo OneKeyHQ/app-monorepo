@@ -6,6 +6,7 @@ export { ManageNetworkRoutes };
 
 export type ManageNetworkRoutesParams = {
   [ManageNetworkRoutes.NetworkAccountSelector]: undefined;
+  [ManageNetworkRoutes.NetworkSelector]: undefined;
   [ManageNetworkRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkRoutes.AddNetwork]: {
     mode?: 'add' | 'edit';

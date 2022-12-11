@@ -54,7 +54,7 @@ const getBalances = async (
   if (!balanceSupprtedNetwork.includes(networkId)) {
     return;
   }
-  const req = new RestfulRequest(getFiatEndpoint());
+  const req = new RestfulRequest(getFiatEndpoint(), {}, 60 * 1000);
   const query: TokenBalancesQuery = {
     network: networkId,
     address,

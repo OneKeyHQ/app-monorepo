@@ -77,17 +77,18 @@ class ServiceAccount extends ServiceBase {
   async changeActiveAccount({
     accountId,
     walletId,
+    extraActions,
+    shouldReloadAccountsWhenWalletChanged = true,
   }: {
     accountId: string | null;
     walletId: string | null;
+    extraActions?: any[];
+    shouldReloadAccountsWhenWalletChanged?: boolean;
   }) {
     const { dispatch, appSelector } = this.backgroundApi;
     const { activeNetworkId, activeWalletId } = appSelector((s) => s.general);
     // await this.initWallets();
-    if (
-      activeWalletId !== walletId ||
-      this.forceRefreshAccount(activeNetworkId)
-    ) {
+    if (shouldReloadAccountsWhenWalletChanged && activeWalletId !== walletId) {
       await this.reloadAccountsByWalletIdNetworkId(walletId, activeNetworkId);
     }
     dispatch(
@@ -95,6 +96,7 @@ class ServiceAccount extends ServiceBase {
         activeAccountId: accountId,
         activeWalletId: walletId,
       }),
+      ...(extraActions || []),
     );
     this.notifyAccountsChanged();
   }
