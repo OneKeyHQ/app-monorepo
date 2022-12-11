@@ -5,10 +5,18 @@ import {
   DESKTOP_TOP_DRAG_BAR_HEIGHT,
   DESKTOP_TOP_DRAG_BAR_ID,
 } from '@onekeyhq/components/src/DesktopDragZoneBox/useDesktopTopDragBarController.desktop';
-import { Provider } from '@onekeyhq/kit';
+import { createLazyKitProvider } from '@onekeyhq/kit/src/provider/createLazyKitProvider';
 import '@onekeyhq/shared/src/web/index.css';
 
+const KitProviderDesktop = createLazyKitProvider({
+  displayName: 'KitProviderDesktop',
+});
+
 const App: FC = function () {
+  global.$$onekeyPerfTrace?.log({
+    name: '[DESKTOP]: App.tsx KitProviderDesktop render()',
+  });
+
   return (
     <>
       <DesktopDragZoneBox
@@ -22,7 +30,7 @@ const App: FC = function () {
           zIndex: 9999,
         }}
       />
-      <Provider />
+      <KitProviderDesktop />
     </>
   );
 };

@@ -48,7 +48,7 @@ interface IOneKeyPerfCheckPayload {
     perfCheckContentLength?: number;
   };
 }
-const perfInfo: Record<string, IOneKeyPerfCheckPayload> = {};
+const perfCheckResult: Record<string, IOneKeyPerfCheckPayload> = {};
 function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
   useEffect(() => {
     if (enablePerfCheck && platformEnv.isRuntimeBrowser) {
@@ -60,7 +60,7 @@ function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
             .filter(Boolean)
             .join('--');
         if (id && payload) {
-          perfInfo[id] = payload;
+          perfCheckResult[id] = payload;
         }
       }) as any;
       window.addEventListener('OneKeyEventPerfCheck', handler);
@@ -251,11 +251,17 @@ export const DevSettingSection = () => {
               <Button
                 size="xs"
                 onPress={() => {
-                  console.log(perfInfo);
-                  copyToClipboard(JSON.stringify(perfInfo));
+                  copyToClipboard(
+                    JSON.stringify({
+                      $$onekeyPerfTrace: global?.$$onekeyPerfTrace,
+                      perfCheckResult,
+                    }),
+                  );
                   toast.show({
                     title: intl.formatMessage({ id: 'msg__copied' }),
                   });
+                  console.log('perfCheckResult', perfCheckResult);
+                  console.log('$$onekeyPerfTrace', global?.$$onekeyPerfTrace);
                 }}
               >
                 Export

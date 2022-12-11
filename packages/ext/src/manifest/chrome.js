@@ -17,8 +17,8 @@ module.exports = {
   'author': 'https://www.onekey.so',
   // 'default_locale': 'en', // enable this after locale file exists
   'content_security_policy': `
-script-src 'self' 'wasm-unsafe-eval'; 
-object-src 'self'; 
+script-src 'self' 'wasm-unsafe-eval';
+object-src 'self';
 `
     .split('\n')
     .join(''),
@@ -30,8 +30,8 @@ object-src 'self';
       '128': 'icon-128.png',
     },
     'default_title': 'OneKey',
-    'default_popup': 'ui-popup-boot.html',
-    // 'default_popup': 'ui-popup.html',
+    // 'default_popup': 'ui-popup-boot.html',
+    'default_popup': 'ui-popup.html',
   },
   'background': {
     'page': 'background.html',
