@@ -2,7 +2,7 @@ import { useContext } from 'react';
 
 import { Box } from '@onekeyhq/components';
 
-import { useShowFullLayout } from '../../hooks';
+import { useShowBookmark } from '../../hooks';
 import { DiscoverContext } from '../context';
 
 import { Beta } from './Beta';
@@ -19,6 +19,6 @@ export const MobileFull = () => {
 };
 
 export const Mobile = () => {
-  const showFullLayout = useShowFullLayout();
+  const showFullLayout = useShowBookmark();
   return !showFullLayout ? <Beta /> : <MobileFull />;
 };
