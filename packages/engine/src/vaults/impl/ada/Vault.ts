@@ -452,7 +452,7 @@ export default class Vault extends VaultBase {
     let txs: IAdaHistory[] = [];
 
     try {
-      txs = (await client.getHistory(stakeAddress)) ?? [];
+      txs = (await client.getHistory(stakeAddress, dbAccount.address)) ?? [];
     } catch (e) {
       console.error(e);
     }
