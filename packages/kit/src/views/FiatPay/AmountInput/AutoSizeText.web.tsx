@@ -20,7 +20,7 @@ export const AutoSizeText: FC<{
     placeholderTextColor="text-disabled"
     lineHeight="64px"
     fontWeight="bold"
-    bgColor="surface-subdued"
+    bgColor="transparent"
     onChangeText={onChangeText}
     value={text}
   />

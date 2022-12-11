@@ -3,6 +3,7 @@ import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -328,13 +329,16 @@ const ConnectHardwareModal: FC = () => {
         </Typography.Body2>
         {devices.map((device, index) => (
           <PressableItem
-            p="4"
-            key={`${index}-${device?.connectId ?? ''}`}
-            bg="surface-default"
-            borderRadius="12px"
             flexDirection="row"
-            alignItems="center"
             justifyContent="space-between"
+            alignItems="center"
+            px="16px"
+            py="12px"
+            key={`${index}-${device?.connectId ?? ''}`}
+            bgColor="action-secondary-default"
+            borderRadius="12px"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-default"
             // disabled={!!device.using}
             onPress={() => {
               handleConnectDeviceWithDevice(device);
@@ -372,7 +376,7 @@ const ConnectHardwareModal: FC = () => {
               {isConnectingDeviceId === device.connectId && (
                 <Spinner size="sm" />
               )}
-              <Icon name="ChevronRightOutline" />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </HStack>
             {/* )} */}
           </PressableItem>

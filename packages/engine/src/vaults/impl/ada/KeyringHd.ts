@@ -17,7 +17,7 @@ import {
 } from '../../types';
 
 import { getPathIndex, getXprvString } from './helper/bip32';
-import { CardanoApi } from './helper/sdk';
+import { getCardanoApi } from './helper/sdk';
 import { batchGetShelleyAddresses } from './helper/shelley-address';
 import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
 
@@ -120,6 +120,7 @@ export class KeyringHd extends KeyringHdBase {
     )) as ExportedSeedCredential;
     const xprv = await getXprvString(password, entropy);
     const accountIndex = getPathIndex(dbAccount.path);
+    const CardanoApi = await getCardanoApi();
     const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
       dbAccount.address,

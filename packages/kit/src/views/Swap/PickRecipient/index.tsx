@@ -8,7 +8,6 @@ import {
   Badge,
   Box,
   Center,
-  Divider,
   Empty,
   FlatList,
   Modal,
@@ -76,6 +75,9 @@ const AddressBook = () => {
         bg="surface-default"
         borderTopRadius={index === 0 ? '12' : undefined}
         borderBottomRadius={index === items.length - 1 ? '12' : undefined}
+        borderBottomWidth={index === items.length - 1 ? 1 : 0}
+        borderWidth={1}
+        borderColor="divider"
         onPress={() => onPress(item)}
       >
         <Box
@@ -125,11 +127,6 @@ const AddressBook = () => {
     <FlatList
       ListEmptyComponent={listEmptyComponent}
       data={items}
-      ItemSeparatorComponent={() => (
-        <Box mx={{ base: 4, md: 6 }}>
-          <Divider />
-        </Box>
-      )}
       renderItem={renderItem}
       keyExtractor={(item) => item.address}
     />
@@ -169,7 +166,11 @@ const MyWallet = () => {
 
   const onPress = useCallback(
     (item: { address: string; name?: string; accountId?: string }) => {
-      onSelected?.({ address: item.address, name: item.name });
+      onSelected?.({
+        address: item.address,
+        name: item.name,
+        accountId: item.accountId,
+      });
       navigation.goBack();
     },
     [onSelected, navigation],
@@ -193,6 +194,9 @@ const MyWallet = () => {
       borderBottomRightRadius={
         index === section.data.length - 1 ? '12' : undefined
       }
+      borderBottomWidth={index === section.data.length - 1 ? 1 : 0}
+      borderWidth={1}
+      borderColor="divider"
       onPress={() =>
         onPress({ address: item.address, name: item.name, accountId: item.id })
       }
@@ -225,14 +229,13 @@ const MyWallet = () => {
       keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
       stickySectionHeadersEnabled={false}
-      ItemSeparatorComponent={() => (
-        <Box mx={{ base: 4, md: 6 }}>
-          <Divider />
-        </Box>
-      )}
       // eslint-disable-next-line
       renderSectionHeader={({ section }: { section: WalletAccount }) => (
-        <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>
+        <Typography.Subheading
+          my="2"
+          mx={{ base: 4, md: 6 }}
+          color="text-subdued"
+        >
           {section.wallet.name}
         </Typography.Subheading>
       )}

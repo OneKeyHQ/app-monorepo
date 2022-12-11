@@ -12,7 +12,6 @@ import {
   CustomSkeleton,
   HStack,
   Icon,
-  IconButton,
   Modal,
   Pressable,
   ScrollView,
@@ -25,6 +24,7 @@ import {
   useTheme,
   useToast,
 } from '@onekeyhq/components';
+import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -282,10 +282,10 @@ const NFTDetailModal: FC = () => {
                 bgColor={
                   // eslint-disable-next-line no-nested-ternary
                   isPressed
-                    ? 'surface-pressed'
+                    ? 'action-secondary-pressed'
                     : isHovered
-                    ? 'surface-hovered'
-                    : 'surface-default'
+                    ? 'action-secondary-hovered'
+                    : 'action-secondary-default'
                 }
               >
                 {collection ? (
@@ -561,13 +561,10 @@ const NFTDetailModal: FC = () => {
       headerShown={false}
       staticChildrenProps={{ p: 0, flex: 1 }}
     >
-      <IconButton
-        name="XMarkMini"
-        size="xs"
+      <NavigationButton
         position="absolute"
         top={platformEnv.isExtension ? '8px' : '24px'}
         right={platformEnv.isExtension ? '8px' : '24px'}
-        circle
         zIndex={1}
         onPress={modalClose}
       />

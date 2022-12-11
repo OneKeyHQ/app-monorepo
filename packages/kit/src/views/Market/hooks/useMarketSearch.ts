@@ -56,8 +56,8 @@ export const useMarketSearchContainerStyle = () => {
   const isVertical = useIsVerticalLayout();
   const { screenHeight } = useUserDevice();
   const [desktopBgColor, verticalBgColor] = useThemeValue([
-    'surface-default',
-    'surface-subdued',
+    'background-default',
+    'background-default',
   ]);
   const w = useMemo(() => (isVertical ? 'full' : 360), [isVertical]);
   const h = useMemo(
