@@ -2,9 +2,19 @@
 import React, { useCallback, useEffect } from 'react';
 
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { onekeyUtils, trezorUtils } from 'cardano-coin-selection';
 
 import { Box } from '@onekeyhq/components';
+
+const LibLoader = async () => import('cardano-coin-selection');
+
+const getCardanoApi = async () => {
+  const Loader = await LibLoader();
+  return {
+    composeTxPlan: Loader.onekeyUtils.composeTxPlan,
+    signTransaction: Loader.onekeyUtils.signTransaction,
+    hwSignTransaction: Loader.trezorUtils.signTransaction,
+  };
+};
 
 const ProvideResponseMethod = 'cardanoWebEmbedResponse';
 
@@ -35,13 +45,14 @@ function CardanoProvider() {
 
       const { params: eventParams, promiseId, event } = params as any;
 
+      const CardanoApi = await getCardanoApi();
       switch (event) {
         case CardanoEvent.composeTxPlan: {
           console.log('Cardano_composeTxPlan');
           const { transferInfo, xpub, utxos, changeAddress, outputs } =
             eventParams;
           try {
-            const txPlan = await onekeyUtils.composeTxPlan(
+            const txPlan = await CardanoApi.composeTxPlan(
               transferInfo,
               xpub,
               utxos,
@@ -60,7 +71,7 @@ function CardanoProvider() {
           const { txBodyHex, address, accountIndex, utxos, xprv, partialSign } =
             eventParams;
           try {
-            const result = await onekeyUtils.signTransaction(
+            const result = await CardanoApi.signTransaction(
               txBodyHex,
               address,
               accountIndex,
@@ -78,7 +89,7 @@ function CardanoProvider() {
         case CardanoEvent.hwSignTransaction: {
           const { txBodyHex, signedWitnesses } = eventParams;
           try {
-            const result = await trezorUtils.signTransaction(
+            const result = await CardanoApi.hwSignTransaction(
               txBodyHex,
               signedWitnesses,
             );

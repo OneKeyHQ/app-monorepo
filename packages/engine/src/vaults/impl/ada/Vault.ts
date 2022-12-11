@@ -48,7 +48,7 @@ import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
 import { generateExportedCredential } from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
 import Client from './helper/client';
-import { CardanoApi } from './helper/sdk';
+import { getCardanoApi } from './helper/sdk';
 import { transformToOneKeyInputs } from './helper/transformations';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -380,6 +380,7 @@ export default class Vault extends VaultBase {
           amount: amountBN.toFixed(),
           assets: [],
         };
+    const CardanoApi = await getCardanoApi();
     const txPlan = await CardanoApi.composeTxPlan(
       transferInfo,
       dbAccount.xpub,
