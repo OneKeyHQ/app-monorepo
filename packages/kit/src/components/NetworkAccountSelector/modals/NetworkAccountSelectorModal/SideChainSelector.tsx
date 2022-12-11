@@ -7,23 +7,27 @@ import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  HStack,
+  Icon,
   IconButton,
   Pressable,
+  Text,
   Token,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import { INetwork } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useManageNetworks } from '../../../hooks';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { ManageNetworkRoutes } from '../../../views/ManageNetworks/types';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { AllNetwork } from '../../Header/AccountSelectorChildren/RightChainSelector';
-import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useManageNetworks } from '../../../../hooks';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
+import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+import { RpcStatusButton } from '../../RpcStatusButton';
 
 function ChainNetworkIcon({
   onLastItemRender,
@@ -45,17 +49,20 @@ function ChainNetworkIcon({
   );
 }
 
-function ChainSelector({
+function SideChainSelector({
   accountSelectorInfo,
+  onPress,
+  fullWidthMode,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
+  onPress?: (payload: { networkId: string }) => void;
+  fullWidthMode?: boolean;
 }) {
   const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
   const { selectedNetworkId } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
-  const insets = useSafeAreaInsets();
 
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
@@ -98,8 +105,11 @@ function ChainSelector({
   return (
     <Box
       alignSelf="stretch"
-      borderRightWidth={StyleSheet.hairlineWidth}
-      borderColor="border-subdued"
+      borderRightWidth={
+        fullWidthMode || platformEnv.isNativeIOS ? 0 : StyleSheet.hairlineWidth
+      }
+      borderColor={fullWidthMode ? undefined : 'divider'}
+      flex={fullWidthMode ? 1 : undefined}
     >
       <FlatListRef
         initialNumToRender={20}
@@ -116,74 +126,86 @@ function ChainSelector({
               onPress={() => {
                 const id = (item.id === AllNetwork ? '' : item.id) || '';
                 serviceAccountSelector.updateSelectedNetwork(id);
+                onPress?.({ networkId: id });
               }}
             >
               {({ isHovered, isPressed }) => (
-                <Box
+                <HStack
+                  alignItems="center"
+                  space={3}
                   p={1.5}
-                  m={1}
+                  m={fullWidthMode ? 0 : 1}
                   borderWidth={2}
-                  borderColor={
-                    isActive
-                      ? 'interactive-default'
-                      : isPressed
-                      ? 'border-default'
+                  bgColor={
+                    isPressed
+                      ? 'surface-pressed'
                       : isHovered
-                      ? 'border-subdued'
-                      : 'transparent'
+                      ? 'surface-hovered'
+                      : undefined
                   }
-                  rounded="full"
+                  borderColor={(() => {
+                    if (fullWidthMode) {
+                      return 'transparent';
+                    }
+                    return isActive ? 'interactive-default' : 'transparent';
+                  })()}
+                  rounded={fullWidthMode ? '12px' : 'full'}
                 >
                   <ChainNetworkIcon
                     item={item}
                     isLastItem={isLastItem}
                     onLastItemRender={scrollToItemDebounced}
                   />
-                </Box>
+                  {fullWidthMode ? (
+                    <>
+                      <Text
+                        flex={1}
+                        typography="Body1Strong"
+                        isTruncated
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                      {item.id === selectedNetworkId ? (
+                        <>
+                          <RpcStatusButton networkId={item.id} />
+                          <Icon
+                            color="interactive-default"
+                            name="CheckCircleSolid"
+                          />
+                        </>
+                      ) : null}
+                    </>
+                  ) : null}
+                </HStack>
               )}
             </Pressable>
           );
         }}
         showsVerticalScrollIndicator={false}
-        style={{ flex: 1, padding: 4 }}
+        flex={1}
+        p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
         ListFooterComponent={
-          <Box p="4px">
-            <IconButton
-              type="plain"
-              size="xl"
-              circle
-              name="BarsArrowUpOutline"
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ManageNetwork,
-                  params: { screen: ManageNetworkRoutes.Sort },
-                });
-              }}
-            />
-          </Box>
+          fullWidthMode ? null : (
+            <Box p="4px">
+              <IconButton
+                type="plain"
+                size="xl"
+                circle
+                name="BarsArrowUpOutline"
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManageNetwork,
+                    params: { screen: ManageNetworkRoutes.Sort },
+                  });
+                }}
+              />
+            </Box>
+          )
         }
       />
-      <Box
-        p={2}
-        mb={`${insets.bottom}px`}
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderColor="border-subdued"
-      >
-        <IconButton
-          name="CogOutline"
-          size="xl"
-          type="plain"
-          circle
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.ManageNetwork,
-              params: { screen: ManageNetworkRoutes.Listing },
-            });
-          }}
-        />
-      </Box>
     </Box>
   );
 }
 
-export default ChainSelector;
+export default SideChainSelector;

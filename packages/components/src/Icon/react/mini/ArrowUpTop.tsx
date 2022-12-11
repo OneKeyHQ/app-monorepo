@@ -6,11 +6,7 @@ const SvgArrowUpTop = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M3 3a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1Zm3.293 7.707a1 1 0 0 1 0-1.414l3-3a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1-1.414 1.414L11 9.414V17a1 1 0 1 1-2 0V9.414l-1.293 1.293a1 1 0 0 1-1.414 0Z"
-    />
+    <Path d="M9.25 17.25a.75.75 0 0 0 1.5 0V8.636l2.955 3.129a.75.75 0 0 0 1.09-1.03l-4.25-4.5a.75.75 0 0 0-1.09 0l-4.25 4.5a.75.75 0 0 0 1.09 1.03L9.25 8.636v8.614ZM2 2.75A.75.75 0 0 1 2.75 2h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 2.75Z" />
   </Svg>
 );
 export default SvgArrowUpTop;

@@ -12,7 +12,7 @@ const Speedindicator = (props: Props) => (
     size="8px"
     borderRadius="full"
     borderWidth="2px"
-    borderColor="action-secondary-default"
+    borderColor="background-default"
     {...props}
   />
 );
