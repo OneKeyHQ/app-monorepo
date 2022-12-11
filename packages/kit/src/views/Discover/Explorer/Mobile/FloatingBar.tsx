@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { NetworkAccountSelectorTrigger } from '../../../../components/NetworkAccountSelector';
+import { NetworkAccountSelectorTriggerMobile } from '../../../../components/NetworkAccountSelector';
 import { useWebTabs } from '../Controller/useWebTabs';
 import { MIN_OR_HIDE, expandAnim } from '../explorerAnimation';
 
@@ -85,11 +85,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         >
           {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
         </Typography.Body1>
-        <NetworkAccountSelectorTrigger
-          size="sm"
-          type="basic"
-          bg="surface-neutral-default"
-        />
+        <NetworkAccountSelectorTriggerMobile bg="surface-neutral-default" />
       </Pressable>
     </Box>
   );

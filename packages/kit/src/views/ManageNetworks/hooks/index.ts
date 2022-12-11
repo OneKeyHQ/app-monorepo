@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
@@ -99,6 +99,7 @@ export const useRPCUrls = (networkId?: string) => {
   };
 };
 
+// TODO debounce and cache, multiple setInterval created
 export const useRpcMeasureStatus = (networkId: string) => {
   const [loading, setLoading] = useState(false);
   const { network } = useNetwork({ networkId });
@@ -117,15 +118,17 @@ export const useRpcMeasureStatus = (networkId: string) => {
   }, [network, isFocused]);
 
   useEffect(() => {
-    refresh();
+    const timer = setTimeout(() => refresh(), 600);
     const interval = setInterval(() => {
       refresh();
     }, getTimeDurationMs({ minute: 1 }));
     if (!isFocused) {
       clearInterval(interval);
+      clearTimeout(timer);
     }
     return () => {
       clearInterval(interval);
+      clearTimeout(timer);
     };
   }, [refresh, isFocused]);
 

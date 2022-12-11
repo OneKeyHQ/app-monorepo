@@ -15,7 +15,6 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { HomeRoutes } from '../../../routes/routesEnum';
@@ -43,8 +42,9 @@ const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
       <Hidden from="md">
         <IconButton
           isDisabled={isDisabled}
-          name="BarsShrinkMini"
-          size="sm"
+          name="BarsShrinkOutline"
+          size="lg"
+          type="plain"
           circle
           onPress={onPress}
         />
@@ -95,13 +95,9 @@ const CollectionDetail = () => {
   const { collection: ctxCollection } = context;
   useEffect(() => {
     if (ctxCollection) {
-      let mr = platformEnv.isWeb ? '32px' : '16px';
-      if (platformEnv.isNativeAndroid) {
-        mr = '0px';
-      }
       navigation.setOptions({
         headerRight: () => (
-          <Box mr={mr}>
+          <Box mr={{ base: 2.5, md: 8 }}>
             <FilterButton
               isDisabled={
                 ctxCollection.attributes &&
@@ -129,13 +125,13 @@ const CollectionDetail = () => {
             />
             {isFilter && (
               <Box
-                top="-2px"
-                right="0px"
+                top={{ base: 1, md: -1.5 }}
+                right={{ base: 1, md: -1.5 }}
                 position="absolute"
-                size="10px"
+                size="12px"
                 bgColor="interactive-default"
                 borderRadius="full"
-                borderWidth="1px"
+                borderWidth="2px"
                 borderColor="background-default"
               />
             )}

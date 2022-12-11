@@ -79,17 +79,8 @@ function List({
   accountId: string;
   networkId: string;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { bottom } = useSafeAreaInsets();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const isSmallScreen = useIsVerticalLayout();
-
-  const { network } = useNetwork({ networkId });
-
-  const intl = useIntl();
   const content = useSendNFTContent();
   const { listData } = content?.context ?? { listData: [] };
-  const multiSelect = content?.context.multiSelect;
   const [pageWidth, setPageWidth] = useState<number>(0);
   const { cardWidth, numColumns } = useGridListLayout({
     maxCardWidth: 112,

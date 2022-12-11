@@ -53,7 +53,8 @@ const PageHeader = () => {
     <HStack
       height={{ base: '56px', md: '64px' }}
       alignItems="center"
-      px={{ base: '16px', md: '32px' }}
+      pl={{ base: '16px', md: '32px' }}
+      pr={{ base: '10px', md: '32px' }}
     >
       {/* Left */}
       <HStack flex={1} alignItems="center">
@@ -82,11 +83,10 @@ const PageHeader = () => {
       {/* Right */}
       <Hidden from="md">
         <IconButton
-          type="basic"
-          size="sm"
-          name="MagnifyingGlassMini"
+          type="plain"
+          size="lg"
+          name="MagnifyingGlassOutline"
           circle
-          hitSlop={8}
           onPress={() => {
             searchAction();
           }}

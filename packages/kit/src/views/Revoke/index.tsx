@@ -27,7 +27,10 @@ import {
 } from '@onekeyhq/engine/src/managers/revoke';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
+import {
+  NetworkAccountSelectorTriggerDesktop,
+  NetworkAccountSelectorTriggerMobile,
+} from '../../components/NetworkAccountSelector';
 import { useActiveWalletAccount } from '../../hooks';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
@@ -142,11 +145,11 @@ const RevokePage: FC = () => {
           return walletConnectButton;
         }
         if (isVertical) {
-          return <NetworkAccountSelectorTrigger />;
+          return <NetworkAccountSelectorTriggerMobile />;
         }
         return (
           <Box pr="6">
-            <NetworkAccountSelectorTrigger />
+            <NetworkAccountSelectorTriggerDesktop />
           </Box>
         );
       },
