@@ -119,15 +119,6 @@ function normalizeConfig({ platform, config }) {
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
 
-  if (platform !== developmentConsts.platforms.app) {
-    config.plugins.push([
-      'react-native-web',
-      // {
-      //   commonjs: true,
-      // },
-    ]);
-  }
-
   // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
 
   // https://babeljs.io/docs/en/options#no-targets

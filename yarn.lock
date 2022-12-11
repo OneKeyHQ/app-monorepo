@@ -5245,7 +5245,6 @@ __metadata:
     babel-loader: 8.3.0
     babel-plugin-inline-import: ^3.0.0
     babel-plugin-lodash: ^3.3.4
-    babel-plugin-react-native-web: ^0.18.10
     babel-plugin-transform-inline-environment-variables: ^0.4.3
     copy-webpack-plugin: ^6.0.2
     css-loader: ^5.2.7
@@ -10540,7 +10539,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"babel-plugin-react-native-web@npm:^0.18.10, babel-plugin-react-native-web@npm:~0.18.2":
+"babel-plugin-react-native-web@npm:~0.18.2":
   version: 0.18.10
   resolution: "babel-plugin-react-native-web@npm:0.18.10"
   checksum: e5ffc55ea44ace0b7b0d89b5d3e5d84a08244fb30cc79581c45f41639574f393f090a1ad0ac98d094bbec1ed0300c7b69c638bdab3356394d1b3255e81be562b
