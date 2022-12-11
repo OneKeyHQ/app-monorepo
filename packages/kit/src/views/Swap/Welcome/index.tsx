@@ -3,15 +3,15 @@ import { useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Center, Modal, Typography } from '@onekeyhq/components';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
 
 const SwapFeatures = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   useEffect(() => {
-    simpleDb.setting.setSwapWelcomeShown(true);
+    backgroundApiProxy.serviceSwap.setSwapWelcomeShown(true);
   }, []);
   return (
     <Box>
