@@ -104,8 +104,8 @@ function normalizeConfig({
     if (process.env.ENABLE_ANALYZER) {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
       config.plugins.push(
-        new BundleAnalyzerPlugin({
-          ...(enableAnalyzerHtmlReport
+        new BundleAnalyzerPlugin(
+          enableAnalyzerHtmlReport
             ? {
                 analyzerMode: 'static',
                 reportFilename: `report${
@@ -127,10 +127,10 @@ function normalizeConfig({
                   ids: false,
                   children: false,
                   chunks: false,
-                  modules: process.env.ANALYSE_MODULE === 'module',
+                  modules: !!process.env.ANALYSE_MODULE,
                 },
-              }),
-        }),
+              },
+        ),
       );
     }
 
