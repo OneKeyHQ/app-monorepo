@@ -96,10 +96,11 @@ const hwSignTransaction = async (
   return result.result;
 };
 
-const CardanoApi = {
-  composeTxPlan,
-  signTransaction,
-  hwSignTransaction,
-};
+const getCardanoApi = async () =>
+  Promise.resolve({
+    composeTxPlan,
+    signTransaction,
+    hwSignTransaction,
+  });
 
-export { CardanoApi };
+export { getCardanoApi };

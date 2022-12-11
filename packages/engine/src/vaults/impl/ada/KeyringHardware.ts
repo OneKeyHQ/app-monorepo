@@ -21,7 +21,7 @@ import {
 } from '../../types';
 
 import { getChangeAddress } from './helper/cardanoUtils';
-import { CardanoApi } from './helper/sdk';
+import { getCardanoApi } from './helper/sdk';
 import {
   transformToOneKeyInputs,
   transformToOneKeyOutputs,
@@ -176,6 +176,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw deviceUtils.convertDeviceError(res.payload);
     }
 
+    const CardanoApi = await getCardanoApi();
     const signedTx = await CardanoApi.hwSignTransaction(
       tx.body,
       res.payload.witnesses,
