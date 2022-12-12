@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import {
@@ -12,6 +13,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { COINTYPE_ADA } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import {
+  InsufficientBalance,
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
@@ -381,13 +383,22 @@ export default class Vault extends VaultBase {
           assets: [],
         };
     const CardanoApi = await getCardanoApi();
-    const txPlan = await CardanoApi.composeTxPlan(
-      transferInfo,
-      dbAccount.xpub,
-      utxos,
-      dbAccount.address,
-      [output as any],
-    );
+    let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
+    try {
+      txPlan = await CardanoApi.composeTxPlan(
+        transferInfo,
+        dbAccount.xpub,
+        utxos,
+        dbAccount.address,
+        [output as any],
+      );
+    } catch (e: any) {
+      const utxoVauleTooSmall = 'UTXO_VALUE_TOO_SMALL';
+      if (e.code === utxoVauleTooSmall || e.message === utxoVauleTooSmall) {
+        throw new InsufficientBalance();
+      }
+      throw e;
+    }
 
     const changeAddress = getChangeAddress(dbAccount);
 
@@ -453,7 +464,7 @@ export default class Vault extends VaultBase {
     let txs: IAdaHistory[] = [];
 
     try {
-      txs = (await client.getHistory(stakeAddress)) ?? [];
+      txs = (await client.getHistory(stakeAddress, dbAccount.address)) ?? [];
     } catch (e) {
       console.error(e);
     }
