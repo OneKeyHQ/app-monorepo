@@ -4,7 +4,6 @@ import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import { Contract } from 'ethers';
 import { groupBy, keys } from 'lodash';
-import memoizee from 'memoizee';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
@@ -15,7 +14,6 @@ import {
   ISignedTx,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
@@ -32,36 +30,6 @@ const ERC1155 = ERC1155MetadataArtifact.abi;
 
 @backgroundClass()
 export default class ServiceBatchTransfer extends ServiceBase {
-  checkIsApprovedForAllMemoizee = memoizee(
-    async (
-      networkId: string,
-      owner: string,
-      spender: string,
-      token: string,
-      type?: string,
-    ): Promise<boolean> => {
-      try {
-        const readProvider = await this.getReadProvider(networkId);
-        const contract = new Contract(
-          token,
-          type === 'erc1155' ? ERC1155 : ERC721,
-          readProvider,
-        );
-
-        const [isApprovedForAll]: boolean[] =
-          await contract.functions.isApprovedForAll(owner, spender);
-        return isApprovedForAll;
-      } catch {
-        return false;
-      }
-    },
-    {
-      promise: true,
-      primitive: true,
-      maxAge: getTimeDurationMs({ minute: 3 }),
-    },
-  );
-
   @backgroundMethod()
   async getProvider(networkId: string) {
     const { engine } = this.backgroundApi;
@@ -238,12 +206,19 @@ export default class ServiceBatchTransfer extends ServiceBase {
     type?: string;
   }): Promise<boolean> {
     const { networkId, owner, spender, token, type } = params;
-    return this.checkIsApprovedForAllMemoizee(
-      networkId,
-      owner,
-      spender,
-      token,
-      type,
-    );
+    try {
+      const readProvider = await this.getReadProvider(networkId);
+      const contract = new Contract(
+        token,
+        type === 'erc1155' ? ERC1155 : ERC721,
+        readProvider,
+      );
+
+      const [isApprovedForAll]: boolean[] =
+        await contract.functions.isApprovedForAll(owner, spender);
+      return isApprovedForAll;
+    } catch {
+      return false;
+    }
   }
 }
