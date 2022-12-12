@@ -62,7 +62,7 @@ const UpdateAlert: FC = () => {
         shadow="depth.4"
       >
         <Box mr="12px">
-          <Icon size={24} name="DownloadOutline" color="icon-success" />
+          <Icon size={24} name="ArrowDownTrayOutline" color="icon-success" />
         </Box>
         <Box flex={1} mt={0.5}>
           <Text flex={1} typography="Body2Strong" color="text-default">
@@ -92,7 +92,7 @@ const UpdateAlert: FC = () => {
           _pressed={{ bgColor: 'surface-pressed' }}
           alignSelf="flex-start"
         >
-          <Icon size={20} name="CloseOutline" color="icon-default" />
+          <Icon size={20} name="XMarkOutline" color="icon-default" />
         </Pressable>
       </Box>
     </Box>

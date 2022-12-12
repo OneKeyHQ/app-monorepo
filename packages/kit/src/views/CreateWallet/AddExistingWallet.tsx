@@ -400,7 +400,7 @@ function AddExistingWalletView(
             <Button
               size="xl"
               type="plain"
-              leftIconName="DuplicateSolid"
+              leftIconName="Square2StackMini"
               onPromise={onPaste}
             >
               {intl.formatMessage({ id: 'action__paste' })}

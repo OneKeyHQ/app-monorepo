@@ -14,7 +14,7 @@ const FormPasswordInput = React.forwardRef<
   FormInputProps & ComponentProps<typeof Input>
 >(({ onChange, ...props }, ref) => {
   const [show, setShow] = useState(false);
-  const rightIconName = show ? 'EyeOutline' : 'EyeOffOutline';
+  const rightIconName = show ? 'EyeOutline' : 'EyeSlashOutline';
   return (
     <Input
       w="full"

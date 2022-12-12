@@ -96,7 +96,7 @@ function Desktop<T>({
             >
               <Typography.Body2Strong>{title}</Typography.Body2Strong>
               <IconButton
-                name="CloseSolid"
+                name="XMarkMini"
                 type="plain"
                 size="xs"
                 onPress={toggleVisible}

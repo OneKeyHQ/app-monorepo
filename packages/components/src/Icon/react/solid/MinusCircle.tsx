@@ -1,14 +1,15 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgMinusCircle = (props: SvgProps) => (
   <Svg
-    viewBox="0 0 20 20"
+    viewBox="0 0 24 24"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
     <Path
       fillRule="evenodd"
-      d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM7 9a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H7z"
+      d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm3 10.5a.75.75 0 0 0 0-1.5H9a.75.75 0 0 0 0 1.5h6z"
       clipRule="evenodd"
     />
   </Svg>

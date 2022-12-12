@@ -16,10 +16,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import { DiscoverModalRoutes } from '../../../../routes/Modal/Discover';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverFavorites, useDiscoverHistory } from '../../hooks';
+import { DiscoverModalRoutes } from '../../type';
 import { DiscoverContext } from '../context';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
@@ -165,7 +165,7 @@ const ListHeaderItems = () => {
           height="32px"
           type="plain"
           size="sm"
-          rightIconName="ChevronRightSolid"
+          rightIconName="ChevronRightMini"
           textProps={{ color: 'text-subdued' }}
         >
           {intl.formatMessage({ id: 'action__see_all' })}
@@ -181,7 +181,7 @@ const ListHeaderItems = () => {
 };
 
 const ListHeaderComponent = () => {
-  const dappItems = useAppSelector((s) => s.discover.dappItems);
+  const dappItems = useAppSelector((s) => s.discover.home);
   const intl = useIntl();
   if (!dappItems) {
     return null;

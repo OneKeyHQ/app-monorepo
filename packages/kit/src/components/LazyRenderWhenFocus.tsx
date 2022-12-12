@@ -3,15 +3,26 @@ import { useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { Freeze } from 'react-freeze';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  getRootTabRouteState,
+  isModalRouteExisting,
+} from '../utils/routeUtils';
+
 export interface ILazyRenderWhenFocusProps {
   unmountWhenBlur?: boolean;
   freezeWhenBlur?: boolean;
   children?: any | null;
+  isNativeEnabled?: boolean; // native app render Freeze as white screen when route navigation
+  rootTabName?: string;
 }
 export function LazyRenderWhenFocus({
   children,
   unmountWhenBlur,
   freezeWhenBlur = true,
+  isNativeEnabled = false,
+  rootTabName,
 }: ILazyRenderWhenFocusProps) {
   const isFocusedRef = useRef(false);
   const isFocused = useIsFocused();
@@ -21,14 +32,38 @@ export function LazyRenderWhenFocus({
     }
   }, [isFocused]);
   let shouldFreeze = false;
-  if (!isFocused) {
-    if (unmountWhenBlur) {
-      return null;
+
+  const isModalOpen = isModalRouteExisting();
+
+  if (!isFocused && !isModalOpen) {
+    let shouldFreezeOrUnmount =
+      !platformEnv.isNative || (platformEnv.isNative && isNativeEnabled);
+    // shouldFreezeOrUnmount = false;
+    if (!shouldFreezeOrUnmount) {
+      const tabRouteState = getRootTabRouteState();
+      if (tabRouteState && rootTabName) {
+        const tabIndex = tabRouteState?.routes?.findIndex?.(
+          (item) => item.name === rootTabName,
+        );
+        if (tabIndex !== tabRouteState?.index) {
+          shouldFreezeOrUnmount = true;
+        }
+      }
     }
-    if (freezeWhenBlur) {
-      shouldFreeze = true;
+    if (shouldFreezeOrUnmount) {
+      if (unmountWhenBlur) {
+        return null;
+      }
+      if (freezeWhenBlur) {
+        shouldFreeze = true;
+      }
     }
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  // const childrenRouteKey = children?.props?.route?.key;
+  // console.log('Component freeze:', { cmp: childrenRouteKey, shouldFreeze });
+
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return (
     <Freeze freeze={shouldFreeze}>

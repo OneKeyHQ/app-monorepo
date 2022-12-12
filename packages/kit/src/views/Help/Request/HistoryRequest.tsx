@@ -197,7 +197,7 @@ export const HistoryRequest: FC = () => {
                   })}
                 </Text>
               </Column>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Row>
           </Row>
         </Pressable>

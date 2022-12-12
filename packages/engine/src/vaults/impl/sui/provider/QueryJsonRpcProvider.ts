@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import {
   Coin,
@@ -8,12 +9,14 @@ import {
   getMoveObject,
   getObjectExistsResponse,
   isGetObjectDataResponse,
+  isSuiMoveTypeParameterIndex,
+  isTransactionDigest,
 } from '@mysten/sui.js';
 import { get } from 'lodash';
 
 import { Nft } from './NFT';
 
-import type { CoinObject, NftObject } from '../types';
+import type { CoinMetadata, CoinObject, NftObject } from '../types';
 
 function getCoinObject(obj: SuiMoveObject): CoinObject {
   const arg = Coin.getCoinTypeArg(obj);
@@ -60,6 +63,36 @@ export class QueryJsonRpcProvider extends JsonRpcProvider {
       );
     } catch (err) {
       throw new Error(`Error fetching object info: ${err} for id ${objects}`);
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  isCoinMetadata(obj: any, _argumentName?: string): obj is CoinMetadata {
+    return (
+      ((obj !== null && typeof obj === 'object') ||
+        typeof obj === 'function') &&
+      isSuiMoveTypeParameterIndex(obj.decimals) &&
+      isTransactionDigest(obj.name) &&
+      isTransactionDigest(obj.symbol) &&
+      isTransactionDigest(obj.description) &&
+      (obj.iconUrl === null || isTransactionDigest(obj.iconUrl)) &&
+      (obj.id === null || isTransactionDigest(obj.id))
+    );
+  }
+
+  async getCoinMetadata(coinType: string) {
+    try {
+      return await this.client.requestWithType(
+        'sui_getCoinMetadata',
+        [coinType],
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        this.isCoinMetadata,
+        this.options.skipDataValidation,
+      );
+    } catch (err) {
+      throw new Error(
+        `Error fetching coin Metadata: ${err} for id ${coinType}`,
+      );
     }
   }
 

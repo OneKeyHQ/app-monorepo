@@ -17,7 +17,7 @@ import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 import { EAccountSelectorMode } from '../../store/reducers/reducerAccountSelector';
 import { useRpcMeasureStatus } from '../../views/ManageNetworks/hooks';
 
-import Speedindicator from './NetworkAccountSelectorModal/SpeedIndicator';
+import Speedindicator from './modals/NetworkAccountSelectorModal/SpeedIndicator';
 
 type NetworkAccountSelectorTriggerProps = {
   size?: 'sm' | 'lg' | string;
@@ -123,7 +123,7 @@ const NetworkAccountSelectorTrigger: FC<NetworkAccountSelectorTriggerProps> = ({
                 </Typography.Body2Strong>
               </HStack>
               {type === 'plain' ? (
-                <Icon size={20} name="ChevronDownSolid" />
+                <Icon size={20} name="ChevronDownMini" color="icon-subdued" />
               ) : null}
             </HStack>
           );

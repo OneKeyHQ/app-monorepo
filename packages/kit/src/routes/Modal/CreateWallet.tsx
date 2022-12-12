@@ -67,6 +67,7 @@ export type IAddImportedAccountDoneModalParams = {
   networkId: string;
   name: string;
   onSuccess?: (options: { account: Account }) => void;
+  onFailure?: () => void;
 };
 export type CreateWalletRoutesParams = {
   [CreateWalletModalRoutes.ConnectHardwareModal]: undefined;

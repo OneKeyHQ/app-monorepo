@@ -18,6 +18,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
+import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
+import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
@@ -131,6 +133,7 @@ const WalletTabs: FC = () => {
               ListFooterComponent={<Box h={16} />}
               limitSize={20}
             />
+            <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
             <GuideToPushFirstTimeCheck />
           </>
         </Tabs.Tab>
@@ -164,6 +167,7 @@ const WalletTabs: FC = () => {
 };
 
 export default function Wallet() {
+  useOnboardingRequired(true);
   return (
     <>
       <IdentityAssertion>

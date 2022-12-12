@@ -41,7 +41,14 @@ function TxTitleDetailView({
       ) : (
         detail
       )}
-      {arrow && <Icon key="edit icon" size={20} name="ChevronRightSolid" />}
+      {arrow && (
+        <Icon
+          key="edit icon"
+          size={20}
+          name="ChevronRightMini"
+          color="icon-subdued"
+        />
+      )}
     </Row>
   );
 }

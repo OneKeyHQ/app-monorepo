@@ -25,6 +25,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { getTimeDurationMs, wait } from '../../utils/helper';
+import {
+  getCurrentModalRouteData,
+  isSendModalRouteExisting,
+} from '../../utils/routeUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {
@@ -255,15 +259,7 @@ class ServiceDapp extends ServiceBase {
   }
 
   isSendModalExisting() {
-    return (
-      (
-        global.$navigationRef.current
-          ?.getState()
-          ?.routes?.find((item) => item?.name === RootRoutes.Modal)?.params as {
-          screen?: ModalRoutes;
-        }
-      )?.screen === ModalRoutes.Send
-    );
+    return isSendModalRouteExisting();
   }
 
   _openModalByRouteParams = ({
@@ -406,6 +402,29 @@ class ServiceDapp extends ServiceBase {
           modalParams,
         });
       }
+    });
+  }
+
+  @backgroundMethod()
+  sendWebEmbedMessage(payload: {
+    method: string;
+    event: string;
+    params: Record<string, any>;
+  }) {
+    return new Promise((resolve, reject) => {
+      const id = this.backgroundApi.servicePromise.createCallback({
+        resolve,
+        reject,
+      });
+      this.backgroundApi.providers.$private.handleMethods({
+        data: {
+          method: payload.method,
+          event: payload.event,
+          send: this.backgroundApi.sendForProvider('$private'),
+          promiseId: id,
+          params: payload.params,
+        },
+      });
     });
   }
 }

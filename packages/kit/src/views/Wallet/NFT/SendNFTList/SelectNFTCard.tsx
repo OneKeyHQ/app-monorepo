@@ -45,7 +45,7 @@ function SelectedIndicator({
           transition={{ type: 'timing', duration: 150 }}
         >
           <Icon
-            name="CheckCircleSolid"
+            name="CheckCircleMini"
             color="interactive-default"
             size={width}
           />

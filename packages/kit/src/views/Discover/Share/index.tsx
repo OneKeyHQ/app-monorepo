@@ -18,10 +18,7 @@ import LogoPrimary from '@onekeyhq/components/src/Icon/react/illus/LogoPrimary';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  DiscoverModalRoutes,
-  DiscoverRoutesParams,
-} from '../../../routes/Modal/Discover';
+import { DiscoverModalRoutes, DiscoverRoutesParams } from '../type';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -149,7 +146,7 @@ export const ShareView = () => {
                 w="full"
                 type="plain"
                 size="xl"
-                leftIconName="DuplicateSolid"
+                leftIconName="Square2StackMini"
                 onPress={onCopy}
               >
                 Copy URL
@@ -159,7 +156,7 @@ export const ShareView = () => {
                 mt="6"
                 type="basic"
                 size="xl"
-                leftIconName="ShareSolid"
+                leftIconName="ShareMini"
                 onPress={onCapture}
               >
                 Share

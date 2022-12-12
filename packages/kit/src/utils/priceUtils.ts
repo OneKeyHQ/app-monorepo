@@ -94,10 +94,31 @@ export function getSummedValues({
   balances: Record<string, TokenBalanceValue>;
   hideSmallBalance?: boolean;
 }) {
+  if (
+    !balances ||
+    Object.values(balances).every((b) => typeof b === 'undefined')
+  ) {
+    return new BigNumber(NaN);
+  }
   return getTokenValues({ tokens, prices, balances }).reduce((acc, value) => {
     if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
       return acc;
     }
     return acc.plus(value);
   }, new BigNumber(0));
+}
+
+export function formatAmount(
+  value?: BigNumber.Value,
+  precision = 4,
+  roundingMode: BigNumber.RoundingMode = 1,
+) {
+  if (!value) {
+    return '';
+  }
+  const bn = new BigNumber(value);
+  if (bn.isNaN()) {
+    return '';
+  }
+  return bn.decimalPlaces(precision, roundingMode).toFixed();
 }

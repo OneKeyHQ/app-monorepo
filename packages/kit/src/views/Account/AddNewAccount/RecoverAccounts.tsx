@@ -161,7 +161,7 @@ const AccountCell: FC<CellProps> = ({
         <ListItem.Column>
           <IconButton
             type="plain"
-            name="ExternalLinkSolid"
+            name="ArrowTopRightOnSquareMini"
             size="xs"
             hitSlop={12}
             circle
@@ -257,7 +257,7 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
       <Button
         maxW="200px"
         type="basic"
-        leftIconName="AdjustmentsSolid"
+        leftIconName="AdjustmentsMini"
         alignItems="flex-start"
         onPress={onAdvancedPress}
         overflow="hidden"
@@ -269,13 +269,13 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
       <HStack space={2} alignItems="flex-end">
         <Button
           type="basic"
-          leftIconName="ChevronLeftSolid"
+          leftIconName="ChevronLeftMini"
           onPress={onPrevPagePress}
           isDisabled={prevButtonDisabled}
         />
         <Button
           type="basic"
-          leftIconName="ChevronRightSolid"
+          leftIconName="ChevronRightMini"
           onPress={onNextPagePress}
           isDisabled={nextButtonDisabled}
         />
@@ -439,6 +439,23 @@ const RecoverAccounts: FC = () => {
         setLoadedAccounts(addedAccounts);
         setSelectState(addedSelectState);
         setLoading(false);
+        return { currentPageAccounts: accounts, loadedAccounts: addedAccounts };
+      })
+      .then(async (accounts) => {
+        const accountsWithBalance =
+          await backgroundApiProxy.engine.queryBalanceFillAccounts(
+            walletId,
+            network,
+            accounts.currentPageAccounts,
+          );
+
+        const addedAccounts = new Map(accounts.loadedAccounts);
+        accountsWithBalance.forEach((i) => {
+          addedAccounts.set(i.index, i);
+        });
+
+        updateCurrentPageData(accountsWithBalance);
+        setLoadedAccounts(addedAccounts);
       })
       .catch((e) => {
         isFetchingData.current = false;
@@ -630,7 +647,6 @@ const RecoverAccounts: FC = () => {
       staticChildrenProps={{
         flex: 1,
         padding: '16px',
-        background: 'surface-subdued',
         onLayout: (e) => {
           if (pageWidth === 0) {
             setPageWidth(e.nativeEvent.layout.width);

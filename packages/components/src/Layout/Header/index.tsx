@@ -49,7 +49,7 @@ const Header: FC<HeaderProps> = ({
         pt={`${insets.top}px`}
         alignItems="center"
         justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
-        px={2}
+        px={{ base: 4, md: 8 }}
         style={{ backgroundColor: temporaryBg }} // TODO remove this line after add ScrollUp event
       >
         {headerLeftNode ? (
@@ -74,7 +74,6 @@ const Header: FC<HeaderProps> = ({
           flex={isHorizontal ? undefined : 1}
           alignItems="center"
           justifyContent="flex-end"
-          pr={{ md: 6 }}
         >
           {headerRight()}
         </HStack>

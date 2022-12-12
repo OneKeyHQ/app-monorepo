@@ -57,7 +57,7 @@ const TransactionRate: FC<TransactionRateProps> = ({
       <Text typography={typography} color={color} textAlign="right" mr="1">
         {title}
       </Text>
-      <Icon size={16} name="SwitchHorizontalSolid" />
+      <Icon size={16} name="ArrowsRightLeftMini" color="icon-subdued" />
     </Pressable>
   );
 };

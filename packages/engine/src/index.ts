@@ -17,7 +17,7 @@ import * as bip39 from 'bip39';
 import { baseDecode } from 'borsh';
 import bs58 from 'bs58';
 import bs58check from 'bs58check';
-import { cloneDeep, isEmpty, uniqBy } from 'lodash';
+import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
@@ -35,7 +35,9 @@ import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
+  COINTYPE_ADA,
   COINTYPE_BTC,
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_BCH,
   IMPL_BTC,
@@ -130,6 +132,7 @@ import {
 } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
+import { decodePrivateKeyByXprv } from './vaults/impl/ada/helper/bip32';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
@@ -767,6 +770,7 @@ class Engine {
       '283': OnekeyNetwork.algo,
       '144': OnekeyNetwork.xrp,
       '118': OnekeyNetwork.cosmoshub,
+      '1815': OnekeyNetwork.ada,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -784,18 +788,25 @@ class Engine {
     withMain = true,
   ): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
     // Get account balance, main token balance is always included.
-    const [network, tokens] = await Promise.all([
+    const [network, tokens, accountTokens] = await Promise.all([
       this.getNetwork(networkId),
       this.getTokens(networkId, undefined, false),
+      this.getTokens(networkId, accountId, withMain, true, false),
     ]);
     const decimalsMap: Record<string, number> = {};
     // TODO performance
     tokens.forEach((token) => {
-      if (tokenIdsOnNetwork.includes(token.tokenIdOnNetwork)) {
+      if (
+        tokenIdsOnNetwork.includes(token.tokenIdOnNetwork) ||
+        accountTokens.some((t) => t.tokenIdOnNetwork === token.tokenIdOnNetwork)
+      ) {
         decimalsMap[token.tokenIdOnNetwork] = token.decimals;
       }
     });
-    const tokensToGet = tokenIdsOnNetwork
+    const tokensToGet = uniq([
+      ...tokenIdsOnNetwork,
+      ...accountTokens.map((t) => t.tokenIdOnNetwork),
+    ])
       .filter((address) => {
         if (withMain && address === '') {
           return false;
@@ -809,10 +820,9 @@ class Engine {
     let newTokens: Token[] | undefined;
     if (balanceSupprtedNetwork.includes(networkId)) {
       try {
-        const { address: accountAddress } = await this.getAccount(
-          accountId,
-          networkId,
-        );
+        const account = await this.getAccount(accountId, networkId);
+        const accountAddress = await vault.getFetchBalanceAddress(account);
+
         const balancesFromApi =
           (await getBalancesFromApi(networkId, accountAddress)) || [];
         const missedTokenIds: string[] = [];
@@ -879,6 +889,38 @@ class Engine {
   }
 
   @backgroundMethod()
+  async queryBalanceFillAccounts(
+    walletId: string,
+    networkId: string,
+    accounts: ImportableHDAccount[],
+  ): Promise<ImportableHDAccount[]> {
+    const dbNetwork = await this.dbApi.getNetwork(networkId);
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
+
+    let balances: Array<BigNumber | undefined>;
+    try {
+      const balancesAddress = accounts.map((a) => ({
+        // @ts-expect-error
+        address: a.balancesAddress,
+      }));
+      balances = await vault.getBalances(balancesAddress);
+    } catch (e) {
+      balances = accounts.map(() => undefined);
+    }
+
+    return accounts.map((account, index) => {
+      const balance = balances[index];
+      return {
+        ...account,
+        mainBalance:
+          typeof balance === 'undefined'
+            ? '0'
+            : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
+      };
+    });
+  }
+
+  @backgroundMethod()
   async searchHDAccounts(
     walletId: string,
     networkId: string,
@@ -888,10 +930,7 @@ class Engine {
     purpose?: number,
   ): Promise<Array<ImportableHDAccount>> {
     // Search importable HD accounts.
-    const [wallet, dbNetwork] = await Promise.all([
-      this.dbApi.getWallet(walletId),
-      this.dbApi.getNetwork(networkId),
-    ]);
+    const wallet = await this.dbApi.getWallet(walletId);
     if (typeof wallet === 'undefined') {
       throw new OneKeyInternalError(`Wallet ${walletId} not found.`);
     }
@@ -928,40 +967,33 @@ class Engine {
       }),
     );
 
-    let balances: Array<BigNumber | undefined>;
-    try {
-      const balancesAddresss = await Promise.all(
-        accounts.map(async (a) => {
-          if (a.type === AccountType.UTXO) {
-            const { xpub } = a as DBUTXOAccount;
-            return { address: xpub };
+    const balancesAddress = await Promise.all(
+      accounts.map(async (a) => {
+        if (a.type === AccountType.UTXO) {
+          const address = await vault.getFetchBalanceAddress(a);
+          return { address };
+        }
+        if (a.type === AccountType.VARIANT) {
+          let address = (a as DBVariantAccount).addresses[networkId];
+          if (!address) {
+            address = await this.providerManager.addressFromBase(
+              networkId,
+              a.address,
+            );
           }
-          if (a.type === AccountType.VARIANT) {
-            let address = (a as DBVariantAccount).addresses[networkId];
-            if (!address) {
-              address = await this.providerManager.addressFromBase(
-                networkId,
-                a.address,
-              );
-            }
-            return { address };
-          }
-          return { address: a.address };
-        }),
-      );
-      balances = await vault.getBalances(balancesAddresss);
-    } catch (e) {
-      balances = accounts.map(() => undefined);
-    }
-    return balances.map((balance, index) => ({
+          return { address };
+        }
+        return { address: a.address };
+      }),
+    );
+
+    return accounts.map((account, index) => ({
       index: start + index,
-      path: accounts[index].path,
-      defaultName: accounts[index].name,
+      path: account.path,
+      defaultName: account.name,
       displayAddress: addresses[index],
-      mainBalance:
-        typeof balance === 'undefined'
-          ? '0'
-          : balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed(),
+      balancesAddress: balancesAddress[index].address,
+      mainBalance: '0',
     }));
   }
 
@@ -1076,6 +1108,10 @@ class Engine {
         }
         case IMPL_ALGO: {
           privateKey = Buffer.from(algosdk.seedFromMnemonic(credential));
+          break;
+        }
+        case IMPL_ADA: {
+          privateKey = decodePrivateKeyByXprv(credential);
           break;
         }
         default:
@@ -2750,14 +2786,23 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getFrozenBalance(networkId: string) {
-    if (!networkId) return 0;
-    return this._getFrozenBalance(networkId);
+  async getFrozenBalance({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    if (!networkId || !accountId) return 0;
+    return this._getFrozenBalance(accountId, networkId);
   }
 
   _getFrozenBalance = memoizee(
-    async (networkId: string) => {
-      const vault = await this.getChainOnlyVault(networkId);
+    async (accountId: string, networkId: string) => {
+      const vault = await this.getVault({
+        accountId,
+        networkId,
+      });
       return vault.getFrozenBalance();
     },
     {

@@ -196,6 +196,16 @@ export const removeAccountDynamic = async (
     'delete',
   );
 
+export const removeAccountDynamicBatch = async (body: {
+  addressList: string[];
+}) =>
+  fetchData<AccountDynamicItem | null>(
+    '/notification/account-dynamic-batch',
+    body,
+    null,
+    'put',
+  );
+
 export const queryAccountDynamic = async () =>
   fetchData<AccountDynamicItem[]>(
     '/notification/account-dynamic',

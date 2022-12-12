@@ -86,14 +86,14 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                       listSort &&
                       listSort.id === tag.id &&
                       listSort.direction === 'up'
-                        ? 'ChevronUpSolid'
-                        : 'ChevronDownSolid'
+                        ? 'ChevronUpMini'
+                        : 'ChevronDownMini'
                     }
                     size={16}
                     color={
                       listSort && listSort.id === tag.id
                         ? 'icon-success'
-                        : 'icon-default'
+                        : 'icon-subdued'
                     }
                   />
                 </Pressable>

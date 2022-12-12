@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   FlatList,
-  Icon,
   Text,
   useIsVerticalLayout,
   useSafeAreaInsets,
@@ -17,11 +16,17 @@ import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { SendRoutes } from '../../../../routes/routesEnum';
+import {
+  ModalRoutes,
+  ModalScreenProps,
+  RootRoutes,
+} from '../../../../routes/types';
 import { PreSendParams } from '../../../Send/types';
 
 import SelectNFTCard from './SelectNFTCard';
@@ -32,12 +37,8 @@ import {
 } from './SendNFTContent';
 
 import type { SendRoutesParams } from '../../../../routes';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = NativeStackNavigationProp<
-  SendRoutesParams,
-  SendRoutes.PreSendToken
->;
+type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
 export function useGridListLayout({
   maxCardWidth,
@@ -78,17 +79,8 @@ function List({
   accountId: string;
   networkId: string;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { bottom } = useSafeAreaInsets();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const isSmallScreen = useIsVerticalLayout();
-
-  const { network } = useNetwork({ networkId });
-
-  const intl = useIntl();
   const content = useSendNFTContent();
   const { listData } = content?.context ?? { listData: [] };
-  const multiSelect = content?.context.multiSelect;
   const [pageWidth, setPageWidth] = useState<number>(0);
   const { cardWidth, numColumns } = useGridListLayout({
     maxCardWidth: 112,
@@ -97,7 +89,7 @@ function List({
     pageWidth,
   });
 
-  const renderItem = React.useCallback<
+  const renderItem = useCallback<
     NonNullable<FlatListProps<SelectAsset>['renderItem']>
   >(
     ({ item }) => (
@@ -126,35 +118,6 @@ function List({
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
       py="24px"
-      ListHeaderComponent={
-        multiSelect ? (
-          <Box
-            mb="16px"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'row',
-            }}
-          >
-            <Icon size={12} name="DocumentDuplicateSolid" />
-            <Text
-              typography="CaptionStrong"
-              textAlign="center"
-              position="relative"
-              color="text-subdued"
-              ml="10px"
-            >
-              {intl.formatMessage(
-                {
-                  id: 'form__supports_multi_send_nfts_on_network_name',
-                },
-                { network_name: network?.name },
-              )}
-            </Text>
-          </Box>
-        ) : null
-      }
     />
   );
 }
@@ -171,7 +134,7 @@ function SendButton({
   const content = useSendNFTContent();
   const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const listData = content?.context.listData ?? [];
   const multiSelect = content?.context.multiSelect;
@@ -198,14 +161,20 @@ function SendButton({
       networkId,
       transferInfos,
     };
-    navigation.navigate(SendRoutes.PreSendAddress, params);
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Send,
+      params: {
+        screen: SendRoutes.PreSendAddress,
+        params,
+      },
+    });
   };
 
   return (
     <Box pt="16px" pb={{ base: `${16 + bottom}px`, md: '24px' }}>
       <Button
         isDisabled={isDisabled}
-        size={isVerticalLayout ? 'xl' : 'lg'}
+        size={platformEnv.isNative ? 'xl' : 'lg'}
         type="primary"
         onPress={sendAction}
       >

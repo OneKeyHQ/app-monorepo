@@ -65,7 +65,7 @@ const VerifiedTokens: React.FC = () => {
   const header = useMemo(
     () => (
       <Box flexDirection="column" alignItems="center" mb={4}>
-        <Icon size={44} name="BadgeCheckSolid" color="icon-success" />
+        <Icon size={44} name="BadgeCheckMini" color="icon-success" />
         <Text typography="DisplayXLarge" mt={3} mb="1">
           {intl.formatMessage({ id: 'title__verified_token' })}
         </Text>
@@ -93,7 +93,7 @@ const VerifiedTokens: React.FC = () => {
                   </Typography.Body2>
                 )}
               </VStack>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </HStack>
           </Pressable>
         )}
@@ -132,7 +132,7 @@ const VerifiedTokens: React.FC = () => {
             }}
           />
           {active && (
-            <Icon size={16} name="BadgeCheckSolid" color="icon-success" />
+            <Icon size={16} name="BadgeCheckMini" color="icon-success" />
           )}
         </Box>
       );

@@ -61,7 +61,7 @@ const PressableListItem: FC<PressableListItemProps> = ({
       {children}
       <Hidden from="sm">
         <Box py={0.5}>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
         </Box>
       </Hidden>
     </Pressable>

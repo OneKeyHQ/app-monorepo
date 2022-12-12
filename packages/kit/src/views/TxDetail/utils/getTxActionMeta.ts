@@ -47,7 +47,7 @@ import {
   ITxActionMetaTitle,
 } from '../types';
 
-// ClipboardListSolid, ClipboardListOutline, ActivityOutline
+// ClipboardListMini, ClipboardListOutline, ActivityOutline
 export const UNKNOWN_ACTION_ICON_NAME = 'ClipboardListOutline';
 
 /*

@@ -1,6 +1,7 @@
 import { FC } from 'react';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
+import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, LottieView, Text } from '@onekeyhq/components';
@@ -8,6 +9,7 @@ import EnterPassphraseOnClassic from '@onekeyhq/kit/assets/animations/lottie-one
 import EnterPassphraseOnMini from '@onekeyhq/kit/assets/animations/lottie-onekey-mini-enter-passphrase-on-device.json';
 import EnterPassphraseOnPro from '@onekeyhq/kit/assets/animations/lottie-onekey-pro-enter-passphrase-on-device.json';
 import EnterPassphraseOnTouch from '@onekeyhq/kit/assets/animations/lottie-onekey-touch-enter-passphrase-on-device.json';
+import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
@@ -38,9 +40,12 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
   ...props
 }) => {
   const intl = useIntl();
+  // Prevents screen locking
+  useKeepAwake();
 
   return (
     <BaseRequestView {...props}>
+      <SkipAppLock />
       <LottieView
         source={getEnterPassphraseAnimation(deviceType)}
         autoPlay
@@ -60,7 +65,7 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
         <Box mt={6}>
           <Box flexDirection="row">
             <Box>
-              <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
+              <Icon name="EyeSlashOutline" size={20} color="icon-subdued" />
             </Box>
             <Text flex={1} ml={3} typography="Body2" color="text-default">
               {intl.formatMessage({
@@ -70,7 +75,11 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
           </Box>
           <Box flexDirection="row" mt={4}>
             <Box>
-              <Icon name="ExclamationOutline" size={20} color="icon-warning" />
+              <Icon
+                name="ExclamationTriangleOutline"
+                size={20}
+                color="icon-warning"
+              />
             </Box>
             <Text flex={1} typography="Body2" ml={3} color="text-default">
               {intl.formatMessage({

@@ -46,6 +46,7 @@ import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
 
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
 import { SendEditFeeStandardForm } from './SendEditFeeStandardForm';
+import { SendEditFeeStandardFormLite } from './SendEditFeeStandardFormLite';
 import { SendEditFeeTabs } from './SendEditFeeTabs';
 
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -316,13 +317,23 @@ function ScreenSendEditFee({ ...rest }) {
       if (customValues) {
         // build fee customValues for speedUp & cancel tx
         if (autoConfirmAfterFeeSaved) {
+          const actionType = oldSendConfirmParams?.actionType;
           const highPriceData = last(feeInfoPayload?.info?.prices ?? []);
-          // TODO set limit to feeInfoPayload?.info?.limit (21000 in L1) if cancel action
+          const originalTxFeeLimit = customValues.limit;
+          const rpcEstimateFeeLimit = feeInfoPayload?.info?.limit;
           customValues.limit = selectMaxValue(
-            customValues.limit,
-            feeInfoPayload?.info?.limit,
+            originalTxFeeLimit,
+            rpcEstimateFeeLimit,
             1,
           );
+          if (actionType === 'cancel') {
+            customValues.limit = selectMaxValue(
+              '21000', // cancel action do NOT select originalTxFeeLimit
+              rpcEstimateFeeLimit,
+              1,
+            );
+          }
+
           if (customValues?.eip1559) {
             const eip1559Price = customValues.price as EIP1559Fee;
             if (eip1559Price) {
@@ -377,7 +388,15 @@ function ScreenSendEditFee({ ...rest }) {
         useFormReturn={useFormReturn}
       />
     );
-    const presetFeeForm = (
+    const presetFeeForm = forBatchSend ? (
+      <SendEditFeeStandardFormLite
+        feeInfoPayload={feeInfoPayload}
+        value={radioValue}
+        onChange={(value) => {
+          setRadioValue(value);
+        }}
+      />
+    ) : (
       <SendEditFeeStandardForm
         accountId={accountId}
         networkId={networkId}
@@ -448,12 +467,9 @@ function ScreenSendEditFee({ ...rest }) {
             {platformEnv.isDev && (
               <Button
                 onPress={() => {
-                  useFormReturn.setValue(
-                    'maxPriorityFeePerGas',
-                    '0.000000000001',
-                  );
-                  useFormReturn.setValue('maxFeePerGas', '0.000000000001');
-                  useFormReturn.setValue('gasPrice', '0.000000000001');
+                  useFormReturn.setValue('maxPriorityFeePerGas', '0.00001');
+                  useFormReturn.setValue('maxFeePerGas', '0.00001');
+                  useFormReturn.setValue('gasPrice', '0.00001');
                   setFeeType(ESendEditFeeTypes.advanced);
                 }}
               >

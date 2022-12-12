@@ -55,7 +55,7 @@ function CopyButton({ data }: { data: string }) {
   return (
     <Pressable {...pressableProps} onPress={onPress}>
       <HStack space="4">
-        <Icon name="DuplicateOutline" />
+        <Icon name="Square2StackOutline" />
         <Typography.Body1>
           {intl.formatMessage({
             id: 'action__copy',
@@ -107,7 +107,7 @@ const ScanQrcodeResult: FC = () => {
               })}
             </Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Pressable>
       )}
       {(type === UserInputCategory.WATCHING ||
@@ -127,14 +127,14 @@ const ScanQrcodeResult: FC = () => {
             }}
           >
             <HStack space="4">
-              <Icon name="ArrowUpOutline" />
+              <Icon name="PaperAirplaneOutline" />
               <Typography.Body1>
                 {intl.formatMessage({
                   id: 'form__send_tokens',
                 })}
               </Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Pressable>
           <Divider />
           <Pressable
@@ -154,14 +154,14 @@ const ScanQrcodeResult: FC = () => {
             }}
           >
             <HStack space="4">
-              <Icon name="PlusSolid" />
+              <Icon name="PlusMini" />
               <Typography.Body1>
                 {intl.formatMessage({
                   id: 'form__add_to_address_book',
                 })}
               </Typography.Body1>
             </HStack>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Pressable>
         </>
       )}
@@ -193,7 +193,7 @@ const ScanQrcodeResult: FC = () => {
               })}
             </Typography.Body1>
           </HStack>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Pressable>
       )}
       <CopyButton data={data} />

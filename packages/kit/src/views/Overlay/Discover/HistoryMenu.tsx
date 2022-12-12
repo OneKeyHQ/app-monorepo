@@ -16,9 +16,9 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
-import { DiscoverModalRoutes } from '../../../routes/Modal/Discover';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { showOverlay } from '../../../utils/overlayUtils';
+import { DiscoverModalRoutes } from '../../Discover/type';
 import { OverlayPanel } from '../OverlayPanel';
 
 import { ShowMenuProps } from './type';
@@ -72,7 +72,7 @@ const DiscoverHistoryMenu: FC<{
           copyToClipboard(item?.dapp?.url ?? item?.webSite?.url ?? '');
           toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
         },
-        icon: 'LinkSolid',
+        icon: 'LinkMini',
       },
       {
         id: 'action__remove',
@@ -82,7 +82,7 @@ const DiscoverHistoryMenu: FC<{
             title: intl.formatMessage({ id: 'transaction__success' }),
           });
         },
-        icon: 'TrashSolid',
+        icon: 'TrashMini',
         isDanger: true,
       },
     ],

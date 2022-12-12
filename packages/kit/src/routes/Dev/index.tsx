@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
@@ -11,6 +9,7 @@ import AlertGallery from '@onekeyhq/kit/src/views/Components/stories/Alert';
 import AppUpdateGallery from '@onekeyhq/kit/src/views/Components/stories/AppUpdate';
 import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
+import BottomSheetModalGallery from '@onekeyhq/kit/src/views/Components/stories/BottomSheetModal';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
 import CheckBoxGallery from '@onekeyhq/kit/src/views/Components/stories/CheckBox';
 import CollapseGallery from '@onekeyhq/kit/src/views/Components/stories/Collapse';
@@ -28,6 +27,7 @@ import KeyboardGallery from '@onekeyhq/kit/src/views/Components/stories/Keyboard
 import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
+import MenuGallery from '@onekeyhq/kit/src/views/Components/stories/Menu';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
 import NFTImageGallery from '@onekeyhq/kit/src/views/Components/stories/NFTImage';
@@ -57,6 +57,7 @@ import WalletSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/Wa
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
 import DotMapGallery from '../../views/Components/stories/DotMap';
+import NavHeaderGallery from '../../views/Components/stories/NavHeader';
 import PriceChart from '../../views/Components/stories/PriceChart';
 import renderCustomSubStackHeader from '../Stack/Header';
 
@@ -75,6 +76,7 @@ export enum StackRoutes {
   ComponentTheme = 'component/theme',
   ComponentIcon = 'component/icon',
   ComponentBadge = 'component/badge',
+  ComponentMenu = 'component/menu',
   ComponentList = 'component/List',
   ComponentAlert = 'component/alert',
   ComponentButton = 'component/button',
@@ -120,6 +122,8 @@ export enum StackRoutes {
   ComponentToggleButtonGroup = 'component/ToggleButtonGroup',
   ComponentCollapse = 'component/Collapse',
   ComponentDotMap = 'component/DotMap',
+  ComponentBottomSheetModal = 'component/BottomSheetModal',
+  ComponentNavHeaderGallery = 'component/NavHeader',
 }
 
 export type StackBasicRoutesParams = {
@@ -137,6 +141,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentTheme]: undefined;
   [StackRoutes.ComponentIcon]: undefined;
   [StackRoutes.ComponentBadge]: undefined;
+  [StackRoutes.ComponentMenu]: undefined;
   [StackRoutes.ComponentAlert]: undefined;
   [StackRoutes.ComponentButton]: undefined;
   [StackRoutes.ComponentIconButton]: undefined;
@@ -182,6 +187,8 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentToggleButtonGroup]: undefined;
   [StackRoutes.ComponentCollapse]: undefined;
   [StackRoutes.ComponentDotMap]: undefined;
+  [StackRoutes.ComponentBottomSheetModal]: undefined;
+  [StackRoutes.ComponentNavHeaderGallery]: undefined;
 };
 
 export const stackScreenList = [
@@ -197,6 +204,7 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
   { name: StackRoutes.ComponentIcon, component: IconGallery },
   { name: StackRoutes.ComponentBadge, component: BadgeGallery },
+  { name: StackRoutes.ComponentMenu, component: MenuGallery },
   { name: StackRoutes.ComponentList, component: ListGallery },
   { name: StackRoutes.ComponentAlert, component: AlertGallery },
   { name: StackRoutes.ComponentButton, component: ButtonsGallery },
@@ -272,6 +280,11 @@ export const stackScreenList = [
     component: CollapseGallery,
   },
   { name: StackRoutes.ComponentDotMap, component: DotMapGallery },
+  {
+    name: StackRoutes.ComponentBottomSheetModal,
+    component: BottomSheetModalGallery,
+  },
+  { name: StackRoutes.ComponentNavHeaderGallery, component: NavHeaderGallery },
 ];
 
 const DevStack = createNativeStackNavigator();

@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { useAllDapps } from '.';
+import { useShowBookmark } from '.';
 
 import Fuse from 'fuse.js';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { useAppSelector } from '../../../hooks';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { DAppItemType } from '../type';
 
@@ -42,15 +40,21 @@ export const useSearchLocalDapp = (
   keyword: string,
 ): { loading: boolean; searchedDapps: MatchDAppItemType[] } => {
   const [loading, setLoading] = useState(false);
-  const allDapps = useAllDapps();
-  const enableIOSDappSearch = useAppSelector(
-    (s) => s.discover.enableIOSDappSearch,
-  );
+  const [allDapps, setAllDapps] = useState<DAppItemType[]>([]);
+  const showFullLayout = useShowBookmark();
 
   useEffect(() => {
-    if (terms !== keyword) {
-      setLoading(true);
+    async function main() {
+      if (terms) {
+        const item = await backgroundApiProxy.serviceDiscover.searchDapps(
+          terms,
+        );
+        setAllDapps(item);
+      } else {
+        setAllDapps([]);
+      }
     }
+    main();
   }, [terms, keyword]);
 
   const searchedDapps = useMemo(() => {
@@ -61,17 +65,14 @@ export const useSearchLocalDapp = (
     setLoading(true);
     try {
       let items = allDapps;
-      if (
-        (platformEnv.isNativeIOS || platformEnv.isMas) &&
-        !enableIOSDappSearch
-      ) {
+      if (!showFullLayout) {
         items = [];
       }
       return searchDapps(items, terms);
     } finally {
       setLoading(false);
     }
-  }, [allDapps, terms, enableIOSDappSearch]);
+  }, [allDapps, terms, showFullLayout]);
 
   return {
     loading,

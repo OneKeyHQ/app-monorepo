@@ -37,7 +37,7 @@ export function TxHistoryListViewHeaderBar({
           isLoading={Boolean(isLoading)}
           p={2}
           size="sm"
-          name="RefreshSolid"
+          name="ArrowPathMini"
           type="plain"
           circle
         />
@@ -49,7 +49,7 @@ export function TxHistoryListViewHeaderBar({
             ml={3}
             p={2}
             size="sm"
-            name="ExternalLinkSolid"
+            name="ArrowTopRightOnSquareMini"
             type="plain"
             circle
           />

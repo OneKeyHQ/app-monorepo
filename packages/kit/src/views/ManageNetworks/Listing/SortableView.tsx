@@ -9,6 +9,7 @@ import {
   HStack,
   IconButton,
   Modal,
+  Text,
   Token,
   useIsVerticalLayout,
   useToast,
@@ -36,7 +37,7 @@ const ItemRow: FC<ItemRowProps> = ({
   onDrag,
   onFixTop,
 }) => (
-  <MotiView from={{ scale: 1 }} animate={{ scale: isActive ? 1.05 : 1 }}>
+  <MotiView from={{ scale: 1 }} animate={{ scale: isActive ? 0.8 : 1 }}>
     <Box
       flexDirection="row"
       justifyContent="space-between"
@@ -45,29 +46,31 @@ const ItemRow: FC<ItemRowProps> = ({
     >
       <Token
         size={8}
-        flex={1}
         token={{
           logoURI: network.logoURI,
-          name: network.name,
           symbol: network.name,
         }}
         showInfo
         showDescription={false}
-        infoBoxProps={{ flex: 1 }}
       />
+      <Text typography="Body1Strong" flex={1}>
+        {network.name}
+      </Text>
       <HStack alignItems="center" space={2}>
         {index > 0 ? (
           <IconButton
             type="plain"
+            size="sm"
             circle
-            name="ArrowUpTopSolid"
+            name="ArrowUpTopMini"
             onPress={onFixTop}
           />
         ) : null}
         <IconButton
           type="plain"
+          size="sm"
           circle
-          name="MenuOutline"
+          name="Bars3Mini"
           onPressIn={() => onDrag()}
         />
       </HStack>
@@ -78,7 +81,7 @@ const ItemRow: FC<ItemRowProps> = ({
 // eslint-disable-next-line
 type RenderItemProps = {
   item: Network;
-  index: number;
+  getIndex: () => number;
   drag: () => void;
   isActive: boolean;
 };
@@ -123,17 +126,21 @@ export const SortableView: FC = () => {
   );
 
   const renderItem = useCallback(
-    ({ item, drag, index, isActive }: RenderItemProps) => (
-      <ItemRow
-        index={index}
-        key={item.id}
-        total={list.length}
-        network={item}
-        isActive={isActive}
-        onDrag={drag}
-        onFixTop={() => handleFixTop(item)}
-      />
-    ),
+    (props: RenderItemProps) => {
+      const { item, drag, isActive, getIndex } = props;
+      const index = getIndex();
+      return (
+        <ItemRow
+          index={index}
+          key={item.id}
+          total={list.length}
+          network={item}
+          isActive={isActive}
+          onDrag={drag}
+          onFixTop={() => handleFixTop(item)}
+        />
+      );
+    },
     [list.length, handleFixTop],
   ) as any;
 

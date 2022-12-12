@@ -103,14 +103,19 @@ export const DescriptionListItem = ({
             ),
             detailContent,
             editable && (
-              <Icon key="edit icon" size={20} name="ChevronRightSolid" />
+              <Icon
+                key="edit icon"
+                size={20}
+                name="ChevronRightMini"
+                color="icon-subdued"
+              />
             ),
             // TODO: Waiting for Tooltip and add message here, id=msg__this_site_is_identified_as_a_scam
             isRug && (
               <Icon
                 key="rug icon"
                 size={20}
-                name="ShieldExclamationSolid"
+                name="ShieldExclamationMini"
                 color="icon-critical"
               />
             ),

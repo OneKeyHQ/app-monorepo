@@ -152,7 +152,7 @@ function ConnectOneKeyLiteButton() {
         >
           OneKey Lite
         </Text>
-        <Icon name="ChevronRightSolid" size={20} />
+        <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
       </Pressable>
     </Box>
   );

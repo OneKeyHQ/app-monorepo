@@ -12,6 +12,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -86,14 +87,14 @@ const ListHeader: FC<{
           >
             {accountTokens.length}
           </Text>
-          <Icon name="ChevronRightSolid" />
+          <Icon name="ChevronRightMini" color="icon-subdued" />
         </>
       ) : (
         tokenEnabled && (
           <IconButton
             size="sm"
             borderRadius={17}
-            name="PlusSolid"
+            name="PlusMini"
             bg="action-secondary-default"
             onPress={() =>
               navigation.navigate(RootRoutes.Modal, {
@@ -216,8 +217,17 @@ const AssetsListHeader: FC<{
 }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const { network } = useActiveWalletAccount();
-  const { tokenEnabled } = network?.settings ?? { tokenEnabled: false };
+  const { network, wallet } = useActiveWalletAccount();
+  const { tokenEnabled: networkTokenEnabled, activateTokenRequired } =
+    network?.settings ?? { tokenEnabled: false, activateTokenRequired: false };
+
+  const tokenEnabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING && activateTokenRequired) {
+      return false;
+    }
+    return networkTokenEnabled;
+  }, [activateTokenRequired, networkTokenEnabled, wallet?.type]);
+
   return (
     <>
       {showOuterHeader && (
@@ -240,7 +250,7 @@ const AssetsListHeader: FC<{
                   })
                 }
                 size="sm"
-                name="PlusSolid"
+                name="PlusMini"
                 type="plain"
                 ml="auto"
                 mr={3}
@@ -248,7 +258,7 @@ const AssetsListHeader: FC<{
               <IconButton
                 onPress={showHomeBalanceSettings}
                 size="sm"
-                name="CogSolid"
+                name="CogMini"
                 type="plain"
                 mr={-2}
               />

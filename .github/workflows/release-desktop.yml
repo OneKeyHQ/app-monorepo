@@ -86,6 +86,7 @@ jobs:
       - name: Install Dep
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: "--max_old_space_size=8192"
         run: |
           npm i -g expo-cli && yarn
 
@@ -108,7 +109,7 @@ jobs:
       - name: Publish and Sign Static Linux / Macos / Windows Installer
         if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
         env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
+          NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
@@ -119,7 +120,7 @@ jobs:
 
       - name: Build and Sign Static Linux / Macos / Windows Installer
         env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
+          NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
@@ -155,6 +156,11 @@ jobs:
           name: release
           path: |
             ./packages/desktop/build-electron/*
+            !./packages/desktop/build-electron/win-unpacked
+            !./packages/desktop/build-electron/mac-arm64
+            !./packages/desktop/build-electron/mac
+            !./packages/desktop/build-electron/linux-unpacked
+            !./packages/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main

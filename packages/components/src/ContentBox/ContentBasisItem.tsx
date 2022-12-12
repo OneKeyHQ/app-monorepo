@@ -155,7 +155,7 @@ const Item: FC<Omit<ContentItemProps, 'onPress'>> = ({
               <IconButton
                 size="xs"
                 circle
-                name={customArrowIconName ?? 'ChevronRightSolid'}
+                name={customArrowIconName ?? 'ChevronRightMini'}
                 type="plain"
                 onPress={onArrowIconPress}
               />
@@ -163,7 +163,8 @@ const Item: FC<Omit<ContentItemProps, 'onPress'>> = ({
           ) : (
             <Box ml={3}>
               <Icon
-                name={customArrowIconName ?? 'ChevronRightSolid'}
+                name={customArrowIconName ?? 'ChevronRightMini'}
+                color="icon-subdued"
                 size={20}
               />
             </Box>

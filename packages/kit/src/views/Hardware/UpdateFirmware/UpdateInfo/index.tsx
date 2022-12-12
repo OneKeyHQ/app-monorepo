@@ -145,7 +145,7 @@ const UpdateInfoModal: FC = () => {
               <Alert
                 dismiss={false}
                 alertType="info"
-                customIconName="LightningBoltSolid"
+                customIconName="LightningBoltMini"
                 title={intl.formatMessage({
                   id: 'modal__firmware_update_hint',
                 })}

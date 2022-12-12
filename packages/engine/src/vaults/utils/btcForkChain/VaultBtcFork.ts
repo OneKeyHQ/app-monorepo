@@ -108,6 +108,10 @@ export default class VaultBtcFork extends VaultBase {
     return this.provider;
   }
 
+  override getFetchBalanceAddress(account: DBUTXOAccount): Promise<string> {
+    return Promise.resolve(account.xpub);
+  }
+
   override async validateAddress(address: string): Promise<string> {
     const provider = await this.getProvider();
     const { normalizedAddress, isValid } = provider.verifyAddress(address);
@@ -598,7 +602,15 @@ export default class VaultBtcFork extends VaultBase {
                 utxoFrom,
                 utxoTo,
                 from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
-                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
+                // For out transaction, use first address as to.
+                // For in or self transaction, use first owned address as to.
+                to:
+                  utxoTo.find((utxo) =>
+                    direction === IDecodedTxDirection.IN ||
+                    direction === IDecodedTxDirection.SELF
+                      ? utxo.isMine
+                      : !!utxo.address,
+                  )?.address ?? '',
                 amount: amountValue.shiftedBy(-decimals).toFixed(),
                 amountValue: amountValue.toFixed(),
                 extraInfo: null,
@@ -641,7 +653,10 @@ export default class VaultBtcFork extends VaultBase {
       | ArrayElement<IBlockBookTransaction['vout']>,
     accountAddress: string,
   ) {
-    return item.isOwn ?? false;
+    if ('isOwn' in item) {
+      return item.isOwn ?? false;
+    }
+    return item.addresses.some((address) => address === accountAddress);
   }
 
   collectUTXOs = memoizee(

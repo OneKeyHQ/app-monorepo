@@ -1,5 +1,6 @@
 import { FC } from 'react';
 
+import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,6 +12,7 @@ import {
   Text,
   useForm,
 } from '@onekeyhq/components';
+import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 
 import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
 
@@ -30,6 +32,9 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
 }) => {
   const intl = useIntl();
 
+  // Prevents screen locking
+  useKeepAwake();
+
   const { control, handleSubmit } = useForm<FieldValues>({
     mode: 'onChange',
     defaultValues: { value: '' },
@@ -41,6 +46,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
 
   return (
     <BaseRequestView {...props} closeWay="now">
+      <SkipAppLock />
       <Form mt={4}>
         <Form.Item
           control={control}
@@ -102,7 +108,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           <Box mt={6}>
             <Box flexDirection="row">
               <Box>
-                <Icon name="EyeOffOutline" size={20} color="icon-subdued" />
+                <Icon name="EyeSlashOutline" size={20} color="icon-subdued" />
               </Box>
               <Text flex={1} ml={3} typography="Body2" color="text-default">
                 {intl.formatMessage({
@@ -113,7 +119,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
             <Box flexDirection="row" mt={4}>
               <Box>
                 <Icon
-                  name="ExclamationOutline"
+                  name="ExclamationTriangleOutline"
                   size={20}
                   color="icon-warning"
                 />

@@ -133,7 +133,7 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
           mt={isSmallScreen ? '32px' : '24px'}
           type="plain"
           size={isSmallScreen ? 'xl' : 'base'}
-          leftIconName="DuplicateSolid"
+          leftIconName="Square2StackMini"
           onPress={copyDataToClipboard}
         >
           {intl.formatMessage({

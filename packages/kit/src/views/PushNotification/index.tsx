@@ -65,8 +65,7 @@ const Options: FC<OptionsProps> = ({
     flexDirection="row"
     justifyContent="space-between"
     alignItems="center"
-    py={4}
-    px={{ base: 4, md: 6 }}
+    p={4}
     borderBottomWidth={divider ? '1 ' : undefined}
     borderBottomColor="divider"
     borderBottomRadius={divider ? undefined : '12px'}
@@ -97,7 +96,7 @@ const SelectTrigger = ({ title, desc }: { title: string; desc: string }) => (
       {title}
     </Text>
     <Text mr="19px">{desc}</Text>
-    <Icon name="ChevronRightSolid" size={20} />
+    <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
   </Box>
 );
 
@@ -116,7 +115,7 @@ const PressabelFooter = ({
         {title}
       </Text>
       <Text mr="19px">{desc}</Text>
-      <Icon name="ChevronRightSolid" size={20} />
+      <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
     </Box>
   </Pressable>
 );

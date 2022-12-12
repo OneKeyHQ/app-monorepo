@@ -18,10 +18,10 @@ const FormControlMessage: FC<FormControlMessageProps> = ({ message, type }) => {
   const [iconName, iconColor, textColor]: [ICON_NAMES, ThemeToken, ThemeToken] =
     // eslint-disable-next-line no-nested-ternary
     type === 'error'
-      ? ['ExclamationCircleSolid', 'icon-critical', 'text-critical']
+      ? ['ExclamationTriangleMini', 'icon-critical', 'text-critical']
       : type === 'warning'
-      ? ['ExclamationCircleSolid', 'icon-warning', 'text-warning']
-      : ['CheckCircleSolid', 'icon-success', 'text-success'];
+      ? ['ExclamationTriangleMini', 'icon-warning', 'text-warning']
+      : ['CheckCircleMini', 'icon-success', 'text-success'];
 
   if (!message) {
     return null;

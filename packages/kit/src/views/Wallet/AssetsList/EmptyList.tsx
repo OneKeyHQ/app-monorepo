@@ -20,8 +20,6 @@ function EmptyListOfAccount({
   return (
     <Box flexDirection="row" justifyContent="space-between">
       <Button
-        borderWidth={0}
-        bg="surface-default"
         flex={1}
         mr="16px"
         alignItems="flex-start"
@@ -70,8 +68,6 @@ function EmptyListOfAccount({
       </Button>
 
       <Button
-        borderWidth={0}
-        bg="surface-default"
         flex={1}
         alignItems="flex-start"
         onPress={() => {
@@ -89,7 +85,7 @@ function EmptyListOfAccount({
             bg="surface-neutral-default"
             mb="24px"
           >
-            <Icon name="ViewGridAddSolid" />
+            <Icon name="ViewGridAddMini" />
           </Center>
           <Typography.DisplayMedium mb="4px" textAlign="center">
             {intl.formatMessage({ id: 'action__add_tokens' })}

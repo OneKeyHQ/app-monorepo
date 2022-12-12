@@ -1,14 +1,15 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 
 import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { throttle } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useIsFocusedInTab } from '../../../../hooks/useIsFocusedInTab';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
+import { TabRoutes } from '../../../../routes/routesEnum';
 import { getWebviewWrapperRef } from '../explorerUtils';
 
 import { useWebTabs } from './useWebTabs';
@@ -27,23 +28,6 @@ const notifyChanges = throttle(
 );
 
 export const useNotifyChanges = () => {
-  const isFocused = useIsFocused();
-  const navigation = useNavigation();
-
-  const isFocusedInDiscoverTab = useMemo(() => {
-    let $isFocused = isFocused;
-    if (!isFocused) {
-      // getFocusedRouteNameFromRoute(route)
-      let tabNav = navigation;
-      if (tabNav.getState().type !== 'tab') {
-        tabNav = navigation.getParent();
-      }
-      const { routeNames, index: navIndex } = tabNav.getState();
-      $isFocused = (routeNames[navIndex] as string) === 'discover';
-    }
-    return $isFocused;
-  }, [isFocused, navigation]);
-
   const isMountedRef = useIsMounted();
   const { tab } = useWebTabs();
 
@@ -53,6 +37,8 @@ export const useNotifyChanges = () => {
   const webviewRef = getWebviewWrapperRef({
     tabId,
   });
+
+  const isFocusedInDiscoverTab = useIsFocusedInTab(TabRoutes.Discover);
   useEffect(() => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return;

@@ -85,7 +85,7 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomColor="divider"
           onPress={onCheckUpdate}
         >
-          <Icon name="RefreshOutline" />
+          <Icon name="RocketLaunchOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -99,7 +99,7 @@ const AutoUpdateSectionItem: FC = () => {
             <Spinner size="sm" />
           ) : (
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           )}
         </Pressable>
@@ -132,7 +132,7 @@ const AutoUpdateSectionItem: FC = () => {
             }
           }}
         >
-          <Icon name="RefreshOutline" />
+          <Icon name="RocketLaunchOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -151,7 +151,7 @@ const AutoUpdateSectionItem: FC = () => {
             </Box>
           )}
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
       );
@@ -169,7 +169,7 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomColor="divider"
           disabled
         >
-          <Icon name="RefreshOutline" />
+          <Icon name="RocketLaunchOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
@@ -183,7 +183,7 @@ const AutoUpdateSectionItem: FC = () => {
             )}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
       );
@@ -214,7 +214,7 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
         >
-          <Icon name="DownloadOutline" />
+          <Icon name="ArrowDownTrayOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}

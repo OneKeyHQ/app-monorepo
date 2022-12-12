@@ -20,26 +20,18 @@
       /* add global styles to packages/shared/src/web/index.css */
     </style>
 
-<!--    <script>-->
-<!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
-<!--      // document.documentElement.style.backgroundColor = 'black';-->
-<!--    </script>-->
+
       <% if ( platform === 'ext' ) { %>
-          <script src="/theme-preload.js"></script>
+      <!--    <script>-->
+      <!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
+      <!--    </script>-->
+          <script src="/preload-html-head.js?<%=Date.now() %>"></script>
       <% } %>
 
-      <% if ( platform === 'desktop' ) { %>
+      <% if ( platform === 'desktop' || platform === 'web' ) { %>
           <script>
-            // copy code from theme-preload.js
-            (function () {
-              const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
-              if (theme === 'dark') {
-                document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
-              }
-              if (theme === 'light' || theme === 'system') {
-                document.documentElement.style.backgroundColor = 'white';
-              }
-            })();
+// >>>>>>> automatic copy code from preload-html-head.js <<<<<<<<<
+            <%= htmlHeadPreloadCode %>
           </script>
       <% } %>
   </head>
@@ -49,7 +41,7 @@
 
         data-platform="<%= platform %>"
         data-browser="<%= browser %>"
-        data-filename="<%= filename %>"
+        data-filename="<%= filename %>-not-correct-in-ext"
 
     <% if ( platform === 'ext' && browser === 'firefox' && filename === 'ui-popup.html' ) { %>
         style="min-height: 600px; min-width: 375px; margin: 0;"

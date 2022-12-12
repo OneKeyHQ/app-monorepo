@@ -134,7 +134,7 @@ const Dialog: FC<DialogProps> = ({
             p={{ base: '4', lg: '6' }}
             shadow="depth.5"
             borderRadius="24px"
-            bg="surface-subdued"
+            bg="background-default"
           >
             {props.children ? (
               props.children

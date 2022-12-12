@@ -27,6 +27,7 @@ type SwapState = {
   recipient?: Recipient;
 
   sendingAccount?: Account | null;
+  showMoreQuoteDetail?: boolean;
 };
 
 const initialState: SwapState = {
@@ -86,7 +87,7 @@ export const swapSlice = createSlice({
       state.quoteTime = undefined;
       state.error = undefined;
       state.quoteLimited = undefined;
-      state.recipient = undefined;
+      state.showMoreQuoteDetail = false;
     },
     resetState(state) {
       state.inputToken = undefined;
@@ -130,6 +131,9 @@ export const swapSlice = createSlice({
     ) {
       state.sendingAccount = action.payload;
     },
+    setShowMoreQuoteDetail(state, action: PayloadAction<boolean>) {
+      state.showMoreQuoteDetail = action.payload;
+    },
   },
 });
 
@@ -148,6 +152,7 @@ export const {
   resetState,
   setRecipient,
   setSendingAccount,
+  setShowMoreQuoteDetail,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

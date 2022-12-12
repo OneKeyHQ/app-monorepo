@@ -1,6 +1,13 @@
-import React, { FC, useLayoutEffect, useMemo, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -20,7 +27,10 @@ import {
 } from '@onekeyhq/engine/src/managers/revoke';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
+import {
+  NetworkAccountSelectorTriggerDesktop,
+  NetworkAccountSelectorTriggerMobile,
+} from '../../components/NetworkAccountSelector';
 import { useActiveWalletAccount } from '../../hooks';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
@@ -61,6 +71,19 @@ const RevokePage: FC = () => {
     headerParams?.networkId ?? '',
     headerParams?.address ?? '',
     filters.assetType,
+  );
+
+  const onHeaderParamsChange = useCallback(
+    (params: typeof headerParams) => {
+      if (!params?.address) {
+        return;
+      }
+      if (isEqual(params, headerParams)) {
+        return;
+      }
+      setHeaderParams(params);
+    },
+    [setHeaderParams, headerParams],
   );
 
   const isLoading = loading || !!headerParams?.loading;
@@ -122,11 +145,11 @@ const RevokePage: FC = () => {
           return walletConnectButton;
         }
         if (isVertical) {
-          return <NetworkAccountSelectorTrigger />;
+          return <NetworkAccountSelectorTriggerMobile />;
         }
         return (
           <Box pr="6">
-            <NetworkAccountSelectorTrigger />
+            <NetworkAccountSelectorTriggerDesktop />
           </Box>
         );
       },
@@ -134,19 +157,6 @@ const RevokePage: FC = () => {
   }, [navigation, isVertical, account?.id, walletConnectButton]);
 
   const content = useMemo(() => {
-    if (headerParams && !headerParams?.address && !isLoading) {
-      return (
-        <Empty
-          emoji="💁‍♀️️"
-          title={intl.formatMessage({
-            id: 'title__enter_address_or_connect_wallet',
-          })}
-          subTitle={intl.formatMessage({
-            id: 'title__enter_address_or_connect_wallet_desc',
-          })}
-        />
-      );
-    }
     if (network && network?.impl !== IMPL_EVM && !isLoading) {
       return (
         <Empty
@@ -161,6 +171,19 @@ const RevokePage: FC = () => {
           )}
           subTitle={intl.formatMessage({
             id: 'title__str_network_is_not_supported_yet_desc',
+          })}
+        />
+      );
+    }
+    if (headerParams && !headerParams?.address && !isLoading) {
+      return (
+        <Empty
+          emoji="💁‍♀️️"
+          title={intl.formatMessage({
+            id: 'title__enter_address_or_connect_wallet',
+          })}
+          subTitle={intl.formatMessage({
+            id: 'title__enter_address_or_connect_wallet_desc',
           })}
         />
       );
@@ -192,7 +215,7 @@ const RevokePage: FC = () => {
       }}
     >
       <Center flex="1" pb="108px">
-        <RevokeHeader onChange={setHeaderParams} />
+        <RevokeHeader onChange={onHeaderParamsChange} />
         <VStack maxW="1030px" w="100%">
           <FilterBar {...filters} isFromRpc={isFromRpc} onChange={setFilters} />
           {content}

@@ -6,6 +6,7 @@ export type IAccountInformation = {
   address: string;
   amount: number;
   assets: Array<{ amount: number; 'asset-id': number }>;
+  'min-balance': number;
 };
 
 export type IPendingTransactionInformation = {

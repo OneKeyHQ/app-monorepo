@@ -8,7 +8,6 @@ import {
   Box,
   Center,
   Dialog,
-  Divider,
   Empty,
   Icon,
   IconButton,
@@ -34,6 +33,7 @@ import {
   useDebounce,
   useNetworkTokens,
 } from '../../hooks';
+import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValues } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
@@ -87,28 +87,22 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
     <Box>
       {tokens.length ? (
         <Box>
-          <Typography.Subheading color="text-subdued">
+          <Typography.Subheading px="8px" color="text-subdued">
             {intl.formatMessage({
               id: 'form__my_tokens',
               defaultMessage: 'MY TOKENS',
             })}
           </Typography.Subheading>
           <Box mt="2" mb="6">
-            {tokens.map((item, index) => (
+            {tokens.map((item) => (
               <Pressable
                 onPress={() => onDetail(item)}
                 key={item.tokenIdOnNetwork}
-                borderTopRadius={index === 0 ? '12' : undefined}
-                borderBottomRadius={
-                  index === tokens.length - 1 ? '12' : undefined
-                }
                 flexDirection="row"
                 justifyContent="space-between"
-                p="4"
+                p="8px"
+                borderRadius="12px"
                 alignItems="center"
-                borderTopColor="divider"
-                borderTopWidth={index !== 0 ? '1' : undefined}
-                bg="surface-default"
                 _hover={{ bgColor: 'surface-hovered' }}
                 _pressed={{ bgColor: 'surface-pressed' }}
               >
@@ -127,7 +121,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   }
                 />
                 <IconButton
-                  name="TrashSolid"
+                  name="TrashMini"
                   type="plain"
                   circle
                   onPress={() => onDelete?.(item)}
@@ -138,7 +132,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
         </Box>
       ) : null}
       {showTopsLabel ? (
-        <Typography.Subheading color="text-subdued" mb="2">
+        <Typography.Subheading px="8px" color="text-subdued" mb="2">
           {intl.formatMessage({
             id: 'form__top_50_tokens',
             defaultMessage: 'TOP 50 TOKENS',
@@ -167,17 +161,18 @@ const Header: FC<HeaderProps> = ({
   const intl = useIntl();
   return (
     <Box>
-      <Searchbar
-        w="full"
-        placeholder={intl.formatMessage({
-          id: 'form__search_tokens',
-          defaultMessage: 'Search Tokens',
-        })}
-        mb="6"
-        value={keyword}
-        onClear={() => onChange('')}
-        onChangeText={(text) => onChange(text)}
-      />
+      <Box px="8px" mb="6">
+        <Searchbar
+          w="full"
+          placeholder={intl.formatMessage({
+            id: 'form__search_tokens',
+            defaultMessage: 'Search Tokens',
+          })}
+          value={keyword}
+          onClear={() => onChange('')}
+          onChangeText={(text) => onChange(text)}
+        />
+      </Box>
       {keyword ? null : (
         <HeaderTokens
           tokens={tokens}
@@ -239,11 +234,7 @@ type ListRenderTokenProps = {
   borderBottomRadius?: string;
 };
 
-const ListRenderToken: FC<ListRenderTokenProps> = ({
-  item,
-  borderTopRadius,
-  borderBottomRadius,
-}) => {
+const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   const intl = useIntl();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -256,8 +247,32 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     (t) => item.tokenIdOnNetwork === t.tokenIdOnNetwork && !t.autoDetected,
   );
 
+  const checkIfShouldActiveToken = useCallback(async () => {
+    const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+      networkId,
+    );
+    if (!vaultSettings?.activateTokenRequired) {
+      return;
+    }
+    return new Promise((resolve, reject) => {
+      navigation.navigate(ManageTokenRoutes.ActivateToken, {
+        walletId,
+        accountId,
+        networkId,
+        tokenId: item.tokenIdOnNetwork,
+        onSuccess: () => {
+          resolve(true);
+        },
+        onFailure: (e) => {
+          reject(e);
+        },
+      });
+    });
+  }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
+
   const onAddToken = useCallback(async () => {
     try {
+      await checkIfShouldActiveToken();
       await backgroundApiProxy.engine.quickAddToken(
         accountId,
         networkId,
@@ -267,14 +282,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       );
     } catch (e) {
       debugLogger.common.error('add token error', e);
-      toast.show(
-        {
-          title: intl.formatMessage({ id: 'msg__failed_to_add_token' }),
-        },
-        {
-          type: 'error',
-        },
-      );
+      deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
       return;
     }
     backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -320,41 +328,27 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
       }
     }
     toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
-  }, [accountId, networkId, toast, intl, hideSmallBalance, item]);
-
-  const checkIfShouldActiveToken = useCallback(async () => {
-    const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
-      networkId,
-    );
-    if (!vaultSettings?.activateTokenRequired) {
-      return;
-    }
-    return new Promise((resolve) => {
-      navigation.navigate(ManageTokenRoutes.ActivateToken, {
-        walletId,
-        accountId,
-        networkId,
-        tokenId: item.tokenIdOnNetwork,
-        onSuccess: () => {
-          resolve(true);
-        },
-      });
-    });
-  }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
+  }, [
+    accountId,
+    networkId,
+    hideSmallBalance,
+    toast,
+    intl,
+    checkIfShouldActiveToken,
+    item,
+  ]);
 
   const onPress = useCallback(async () => {
     if (!accountId || !networkId) {
       return;
     }
     setLoading(true);
-    await checkIfShouldActiveToken();
-    onAddToken().finally(() => {
-      notifyIfRiskToken(item);
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
-    });
-  }, [item, accountId, networkId, onAddToken, checkIfShouldActiveToken]);
+    await onAddToken();
+    notifyIfRiskToken(item);
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+  }, [item, accountId, networkId, onAddToken]);
 
   const onDetail = useCallback(() => {
     const routeName = isOwned
@@ -376,7 +370,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     if (isOwned) {
       return (
         <Box p={2}>
-          <Icon name="CheckSolid" color="interactive-disabled" />
+          <Icon name="CheckMini" color="interactive-disabled" />
         </Box>
       );
     }
@@ -389,7 +383,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
     }
     return (
       <IconButton
-        name="PlusSolid"
+        name="PlusMini"
         type="plain"
         circle
         p="4"
@@ -399,16 +393,15 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   }, [loading, onPress, isOwned]);
   return (
     <Pressable
-      borderTopRadius={borderTopRadius}
-      borderBottomRadius={borderBottomRadius}
+      borderTopRadius="12px"
+      borderBottomRadius="12px"
       flexDirection="row"
       justifyContent="space-between"
-      p={4}
+      p={2}
       alignItems="center"
       overflow="hidden"
       key={item.tokenIdOnNetwork}
       onPress={onDetail}
-      bg="surface-default"
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
     >
@@ -472,14 +465,8 @@ export const ListingModal: FC<ListingModalProps> = ({
   );
 
   const renderItem: ListRenderItem<Token> = useCallback(
-    ({ item, index }) => (
-      <ListRenderToken
-        item={item}
-        borderTopRadius={index === 0 ? '12' : undefined}
-        borderBottomRadius={index === listItems.length - 1 ? '12' : undefined}
-      />
-    ),
-    [listItems.length],
+    ({ item }) => <ListRenderToken item={item} />,
+    [],
   );
 
   return (
@@ -501,7 +488,6 @@ export const ListingModal: FC<ListingModalProps> = ({
           data: listItems,
           // @ts-ignore
           renderItem,
-          ItemSeparatorComponent: Divider,
           keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
           showsVerticalScrollIndicator: false,
           ListEmptyComponent: (
@@ -516,6 +502,7 @@ export const ListingModal: FC<ListingModalProps> = ({
               onDelete={onRemoveAccountToken}
             />
           ),
+          mx: '-8px',
         }}
       />
     </>

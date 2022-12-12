@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
+
 import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -36,7 +38,7 @@ const getRpcStatusByResponseTime = (speed?: number) => {
   if (typeof speed === 'undefined') {
     return RpcSpeed.Unavailable;
   }
-  if (speed <= 300) {
+  if (speed <= 800) {
     return RpcSpeed.Fast;
   }
   return RpcSpeed.Slow;
@@ -97,29 +99,38 @@ export const useRPCUrls = (networkId?: string) => {
   };
 };
 
+// TODO debounce and cache, multiple setInterval created
 export const useRpcMeasureStatus = (networkId: string) => {
   const [loading, setLoading] = useState(false);
   const { network } = useNetwork({ networkId });
   const [status, setStatus] = useState<MeasureResult>();
+  const isFocused = useIsFocused();
 
   const refresh = useCallback(() => {
     setLoading(true);
     measureRpc(network?.id ?? '', network?.rpcURL ?? '')
-      .then(setStatus)
+      .then((newStatus) => {
+        if (isFocused) setStatus(newStatus);
+      })
       .finally(() => {
-        setLoading(false);
+        if (isFocused) setLoading(false);
       });
-  }, [network]);
+  }, [network, isFocused]);
 
   useEffect(() => {
-    refresh();
+    const timer = setTimeout(() => refresh(), 600);
     const interval = setInterval(() => {
       refresh();
     }, getTimeDurationMs({ minute: 1 }));
+    if (!isFocused) {
+      clearInterval(interval);
+      clearTimeout(timer);
+    }
     return () => {
       clearInterval(interval);
+      clearTimeout(timer);
     };
-  }, [refresh]);
+  }, [refresh, isFocused]);
 
   return {
     loading,

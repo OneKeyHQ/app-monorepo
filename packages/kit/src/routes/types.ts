@@ -101,7 +101,7 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.DAppListScreen]: {
     title: string;
-    data: DAppItemType[];
+    tagId: string;
     onItemSelect?: (item: DAppItemType) => void;
   };
   [HomeRoutes.MyDAppListScreen]: {

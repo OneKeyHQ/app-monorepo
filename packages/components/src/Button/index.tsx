@@ -4,12 +4,14 @@ import {
   memo,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
 import { Text } from 'native-base';
 import { StyleSheet } from 'react-native';
 
+import { usePrevious } from '@onekeyhq/kit/src/hooks';
 import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
 import Icon, { ICON_NAMES } from '../Icon';
@@ -467,6 +469,8 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
   ...props
 }) => {
   const [loading, setLoading] = useState(isLoading);
+  // Handling when isLoading and onPromise are present at the same time
+  const prevLoadingState = usePrevious<boolean | undefined>(loading);
   const { hapticsEnabled } = useProviderValue();
   const handlePress = useCallback(() => {
     if (hapticsEnabled) {
@@ -486,10 +490,14 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
     }
   }, [hapticsEnabled, onPromise, isLoading, onPress]);
   useEffect(() => {
-    if (typeof isLoading !== 'undefined') {
-      setLoading(isLoading);
+    if (
+      typeof isLoading !== 'undefined' ||
+      (typeof prevLoadingState === 'boolean' &&
+        typeof isLoading === 'undefined')
+    ) {
+      setLoading(!!isLoading);
     }
-  }, [isLoading]);
+  }, [isLoading, prevLoadingState]);
   return <Button {...props} onPress={handlePress} isLoading={loading} />;
 };
 

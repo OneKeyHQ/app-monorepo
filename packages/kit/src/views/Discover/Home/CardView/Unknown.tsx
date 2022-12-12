@@ -1,13 +1,20 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
 import { FC } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { SectionDataType } from '../../type';
 
-import { Desktop } from './Desktop';
-import { Mobile } from './Mobile';
+let Mobile: any;
+let Desktop: any;
 
 export const Unknown: FC<SectionDataType> = ({ ...rest }) => {
   const isSmall = useIsVerticalLayout();
+  if (isSmall && !Mobile) {
+    Mobile = require('./Mobile').Mobile;
+  } else if (!isSmall && !Desktop) {
+    Desktop = require('./Desktop').Desktop;
+  }
   return isSmall ? <Mobile {...rest} /> : <Desktop {...rest} />;
 };

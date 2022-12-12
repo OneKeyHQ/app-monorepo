@@ -24,22 +24,13 @@ import SectionList, { SectionListProps } from '../SectionList';
 import SortableList from '../SortableList';
 
 import Desktop from './Container/Desktop';
+import { HeaderProps } from './Container/Header/type';
 import Mobile from './Container/Mobile';
 
 export type ModalProps = {
-  /*
-    we might change Header to Title in future
-  */
-  header?: string;
-  /*
-    we might change headerShown to Header in future
-  */
-  hideBackButton?: boolean;
   headerShown?: boolean;
-  headerDescription?: string | ReactNode;
   trigger?: ReactElement<any>;
   visible?: boolean;
-  closeable?: boolean;
   closeAction?: () => void;
   closeOnOverlayClick?: boolean;
   primaryActionTranslationId?: LocaleIds;
@@ -78,7 +69,7 @@ export type ModalProps = {
   children?: ReactNode;
 
   forceDesktop?: boolean;
-};
+} & HeaderProps;
 
 const defaultProps = {
   closeable: true,
@@ -116,6 +107,7 @@ const Modal = ({
   headerShown,
   modalHeight,
   forceDesktop,
+  rightContent,
   ...rest
 }: ModalProps) => {
   const { size } = useUserDevice();
@@ -261,6 +253,7 @@ const Modal = ({
                 onClose={onModalClose}
                 headerShown={headerShown}
                 header={header}
+                rightContent={rightContent}
                 {...rest}
               >
                 {modalContent}
@@ -276,6 +269,7 @@ const Modal = ({
         onClose={onModalClose}
         headerShown={headerShown}
         header={header}
+        rightContent={rightContent}
         {...rest}
       >
         {modalContent}
@@ -286,6 +280,7 @@ const Modal = ({
     onModalClose,
     headerShown,
     header,
+    rightContent,
     rest,
     modalContent,
     size,

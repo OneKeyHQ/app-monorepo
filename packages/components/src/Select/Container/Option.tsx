@@ -84,7 +84,7 @@ function RenderSingleOption<T>({
     const isSmallScreen = useIsVerticalLayout();
     return (
       <Icon
-        name={isSmallScreen ? 'CheckOutline' : 'CheckSolid'}
+        name={isSmallScreen ? 'CheckOutline' : 'CheckMini'}
         color="interactive-default"
         size={isSmallScreen ? 24 : 20}
       />

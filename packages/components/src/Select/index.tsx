@@ -22,7 +22,7 @@ import { GestureResponderEvent } from 'react-native-modal';
 
 import Box from '../Box';
 import Icon, { ICON_NAMES } from '../Icon';
-import { ChevronDown } from '../Icon/react/solid';
+import { ChevronDown } from '../Icon/react/mini';
 import { OverlayContainer } from '../OverlayContainer';
 import Pressable from '../Pressable';
 import { useUserDevice } from '../Provider/hooks';
@@ -32,15 +32,23 @@ import { Text } from '../Typography';
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
 
-export interface CloseButtonProps {
+interface CloseButtonProps {
   onClose: (event: GestureResponderEvent) => void;
+  backgroundColor?: string;
 }
 
-export function CloseBackDrop({ onClose }: CloseButtonProps) {
+export function CloseBackDrop({ onClose, backgroundColor }: CloseButtonProps) {
   const { width, height } = useWindowDimensions();
   return (
     <TouchableWithoutFeedback onPress={onClose}>
-      <View style={{ width, height, ...StyleSheet.absoluteFillObject }} />
+      <View
+        style={{
+          width,
+          height,
+          backgroundColor,
+          ...StyleSheet.absoluteFillObject,
+        }}
+      />
     </TouchableWithoutFeedback>
   );
 }
@@ -52,7 +60,7 @@ export type SelectItem<T = string> = {
   tokenProps?: ComponentProps<typeof Token>;
   iconProps?: ComponentProps<typeof Icon>;
   OutlineIcon?: string;
-  SolidIcon?: string;
+  MiniIcon?: string;
   destructive?: boolean;
   color?: ColorType;
   badge?: string;
@@ -335,13 +343,13 @@ function Select<T = string>({
               bg={
                 // eslint-disable-next-line no-nested-ternary
                 visible
-                  ? 'surface-selected'
+                  ? 'action-secondary-pressed'
                   : // eslint-disable-next-line no-nested-ternary
                   isHovered
-                  ? 'surface-hovered'
+                  ? 'action-secondary-hovered'
                   : isTriggerPlain
                   ? undefined
-                  : 'surface-default'
+                  : 'action-secondary-default'
               }
             >
               <Box
@@ -385,12 +393,7 @@ function Select<T = string>({
                   )}
                 </Box>
               </Box>
-              <NBIcon
-                as={ChevronDown}
-                size={5}
-                color="icon-default"
-                ml="auto"
-              />
+              <NBIcon as={ChevronDown} size={5} ml="auto" />
             </Box>
           )
         }

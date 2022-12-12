@@ -119,7 +119,7 @@ const ContainerBox1: FC = () => (
           0x5528d8242...1c014ebd5e2
         </Text>
         <Pressable ml={3} onPress={() => {}}>
-          <Icon size={20} name="DuplicateSolid" />
+          <Icon size={20} name="Square2StackMini" />
         </Pressable>
       </Box>
     </Container.Item>
@@ -127,14 +127,14 @@ const ContainerBox1: FC = () => (
     <Container.Item
       title="Custom Right Icon"
       describe="0x5528d8242...1c014ebd5e2"
-      customArrowIconName="DuplicateSolid"
+      customArrowIconName="Square2StackMini"
     />
 
     <Container.Item
       title="Custom Icon"
       titleColor="text-default"
       subDescribeCustom={
-        <Icon name="InformationCircleSolid" color="icon-success" />
+        <Icon name="InformationCircleMini" color="icon-success" />
       }
     />
   </Container.Box>

@@ -101,7 +101,7 @@ function SendConfirm({
     return false;
   }, [decodedTx, isFromDapp, payload]);
 
-  const { feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
+  const { feeInfoError, feeInfoPayload, feeInfoLoading } = useFeeInfoPayload({
     accountId,
     networkId,
     encodedTx,
@@ -184,6 +184,7 @@ function SendConfirm({
             type,
             closeModal: close,
             onDetail: routeParams.onDetail,
+            isSingleTransformMode: true,
           };
           navigation.navigate(SendRoutes.SendFeedbackReceipt, params);
         }
@@ -250,6 +251,7 @@ function SendConfirm({
       encodedTx={encodedTx}
       feeInfoPayload={feeInfoPayload}
       loading={feeInfoLoading}
+      feeInfoError={feeInfoError}
     />
   );
   const sharedProps: ITxConfirmViewProps = {

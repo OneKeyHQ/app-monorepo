@@ -11,7 +11,7 @@ import { useWalletConnectPrepareConnection } from '../../../../components/Wallet
 import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
-import { wait } from '../../../../utils/helper';
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
@@ -52,6 +52,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     accountId,
     feeInfoUseFeeInTx,
     feeInfoEditable,
+    transferCount,
   } = batchSendConfirmParamsParsed;
   const intl = useIntl();
   useOnboardingRequired();
@@ -83,17 +84,22 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
   });
   const decodedTx = decodedTxs[0];
 
-  const { feeInfoPayloads, feeInfoLoading, totalFeeInNative } =
-    useBatchSendConfirmFeeInfoPayload({
-      accountId,
-      networkId,
-      encodedTxs,
-      decodedTxs,
-      useFeeInTx: feeInfoUseFeeInTx,
-      pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
-      signOnly: routeParams.signOnly,
-      forBatchSend: true,
-    });
+  const {
+    feeInfoPayloads,
+    feeInfoLoading,
+    totalFeeInNative,
+    minTotalFeeInNative,
+  } = useBatchSendConfirmFeeInfoPayload({
+    accountId,
+    networkId,
+    encodedTxs,
+    decodedTxs,
+    useFeeInTx: feeInfoUseFeeInTx,
+    pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
+    signOnly: routeParams.signOnly,
+    forBatchSend: true,
+    transferCount,
+  });
   useWalletConnectPrepareConnection({
     accountId,
     networkId,
@@ -167,7 +173,14 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           onDetail: routeParams.onDetail,
           isSingleTransformMode,
         };
-        navigation.navigate(SendRoutes.SendFeedbackReceipt, params);
+
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendFeedbackReceipt,
+            params,
+          },
+        });
 
         if (routeParams.onSuccess) {
           routeParams.onSuccess(txs, data);
@@ -192,18 +205,13 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         onModalClose,
       };
 
-      // @ts-ignore
-      delete nextRouteParams._disabledAnimationOfNavigate;
-      let nextRouteAction: 'replace' | 'navigate' = 'navigate';
-      if (routeParams.autoConfirmAfterFeeSaved) {
-        // add delay to avoid white screen when navigation replace
-        await wait(600);
-        nextRouteAction = 'replace';
-      }
-      return navigation[nextRouteAction](
-        SendRoutes.BatchSendProgress,
-        nextRouteParams,
-      );
+      return navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.BatchSendProgress,
+          params: nextRouteParams,
+        },
+      });
     },
     [
       accountId,
@@ -230,6 +238,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       feeInfoPayloads={feeInfoPayloads}
       feeInfoLoading={feeInfoLoading}
       totalFeeInNative={totalFeeInNative}
+      minTotalFeeInNative={minTotalFeeInNative}
       batchSendConfirmParams={routeParams}
       editable={feeInfoEditable}
       isSingleTransformMode={isSingleTransformMode}

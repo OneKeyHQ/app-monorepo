@@ -38,6 +38,14 @@ export function useAccountTokensBalance(
   }, [networkId, accountId, balances]);
 }
 
+export const useNativeTokenBalance = (
+  networkId?: string,
+  accountId?: string,
+) => {
+  const balances = useAccountTokensBalance(networkId, accountId);
+  return useMemo(() => balances?.main, [balances]);
+};
+
 export function useNetworkTokens(networkId?: string) {
   const tokens = useAppSelector((s) => s.tokens.tokens);
   return useMemo(() => {

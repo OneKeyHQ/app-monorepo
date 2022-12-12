@@ -313,7 +313,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
                     w="full"
                     size={isSmallScreen ? 'xl' : 'lg'}
                     type="outline"
-                    leftIconName="TrashSolid"
+                    leftIconName="TrashMini"
                     onPress={onShowRemoveModal}
                   >
                     {intl.formatMessage({

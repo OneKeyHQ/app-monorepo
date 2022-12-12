@@ -22,7 +22,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
-import { useManageTokens } from '../../hooks';
+import { useAccountTokens, useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
@@ -191,7 +191,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                   <Typography.Body1 mr="18px">
                     {sourceInfo?.origin?.split('://')[1] ?? 'DApp'}
                   </Typography.Body1>
-                  <Icon size={20} name="SwitchHorizontalSolid" />
+                  <Icon size={20} name="ArrowsRightLeftMini" />
                   <Image
                     src={activeNetwork?.logoURI}
                     ml="18px"
@@ -206,7 +206,13 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                 </HStack>
               </Box>
 
-              <Box bg="surface-default" borderRadius="12" mt="2" mb="3">
+              <Box
+                borderRadius="12px"
+                borderWidth={1}
+                borderColor="border-subdued"
+                mt="2"
+                mb="3"
+              >
                 {items.map((item, index) => (
                   <Box
                     display="flex"
@@ -215,10 +221,6 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                     p="4"
                     alignItems="center"
                     key={index}
-                    borderTopRadius={index === 0 ? '12' : undefined}
-                    borderBottomRadius={
-                      index === items.length - 1 ? '12' : undefined
-                    }
                     borderTopColor="divider"
                     borderTopWidth={index !== 0 ? '1' : undefined}
                   >
@@ -256,6 +258,7 @@ function AddTokenModal() {
   } = useActiveWalletAccount();
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
+  const accountTokens = useAccountTokens(activeNetwork?.id, activeAccount?.id);
   const navigation = useNavigation<NavigationProps>();
   const token = useRouteParams();
   const queryInfo = useDappParams();
@@ -273,30 +276,42 @@ function AddTokenModal() {
       }
       try {
         setLoading(true);
-        const addedToken =
-          await backgroundApiProxy.serviceToken.addAccountToken(
+
+        let addedToken = {
+          address,
+        } as TokenType | undefined;
+        if (accountTokens.some((t) => t.tokenIdOnNetwork === address)) {
+          toast.show({
+            title: intl.formatMessage({
+              id: 'msg__token_already_existed',
+            }),
+          });
+        } else {
+          addedToken = await backgroundApiProxy.serviceToken.addAccountToken(
             activeNetwork.id,
             activeAccount.id,
             address,
             logoURI,
           );
+          toast.show({
+            title: intl.formatMessage({
+              id: 'msg__token_added',
+              defaultMessage: 'Token Added',
+            }),
+          });
+        }
         await wait(1000);
         await dappApprove.resolve({ close, result: addedToken });
         if (navigation.canGoBack()) {
           navigation.goBack();
         }
-        toast.show({
-          title: intl.formatMessage({
-            id: 'msg__token_added',
-            defaultMessage: 'Token Added',
-          }),
-        });
       } catch (error) {
         debugLogger.common.error('add token faild', error, address);
       }
       setLoading(false);
     },
     [
+      accountTokens,
       activeAccount,
       activeNetwork,
       address,

@@ -46,6 +46,7 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
+  InsufficientBalance,
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
@@ -260,13 +261,12 @@ export default class Vault extends VaultBase {
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          const [address, moduleName, structName] = tokenAddress.split('::');
-          await client.getNormalizedMoveStruct(address, moduleName, structName);
+          const coinInfo = await client.getCoinMetadata(tokenAddress);
 
           return await Promise.resolve({
-            name: structName,
-            symbol: structName,
-            decimals: 1,
+            name: coinInfo.name,
+            symbol: coinInfo.symbol,
+            decimals: coinInfo.decimals,
           });
         } catch (e) {
           // pass
@@ -549,6 +549,10 @@ export default class Vault extends VaultBase {
       amountAndGasBudget,
     ) as GetObjectDataResponse[];
 
+    if (inputCoins.length === 0) {
+      throw new InsufficientBalance();
+    }
+
     const selectCoinIds = inputCoins.map((object) => getObjectId(object));
 
     const txCommon = {
@@ -623,7 +627,8 @@ export default class Vault extends VaultBase {
         return Promise.resolve({
           kind: 'payAllSui',
           data: {
-            inputCoins: data.inputCoins,
+            // TODO: Don't have to flip it, wait for official restoration
+            inputCoins: data.inputCoins.reverse(),
             recipient: data.recipients[0],
             gasBudget: data.gasBudget,
           },
@@ -795,9 +800,20 @@ export default class Vault extends VaultBase {
         txid,
       };
     } catch (error: any) {
-      const { errorCode, message } = error || {};
+      const { errorCode, message }: { errorCode: any; message: string } =
+        error || {};
+
+      // payAllSui problem https://github.com/MystenLabs/sui/issues/6364
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new OneKeyInternalError(`${errorCode ?? ''} ${message}`);
+      const errorMessage = `${errorCode ?? ''} ${message}`;
+      if (message.indexOf('Insufficient gas:') !== -1) {
+        throw new OneKeyInternalError(
+          errorMessage,
+          'msg__broadcast_tx_Insufficient_fee',
+        );
+      } else {
+        throw new OneKeyInternalError(errorMessage);
+      }
     }
   }
 

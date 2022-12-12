@@ -12,6 +12,10 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
@@ -63,16 +67,24 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
   }, [address, networkId, onChange, loading]);
 
   useEffect(() => {
-    if (accountAddress) {
-      setAddressOrName(accountAddress);
-    }
-  }, [accountAddress]);
-
-  useEffect(() => {
     if (activeNetworkId) {
       setNetworkId(activeNetworkId);
     }
   }, [activeNetworkId]);
+
+  useEffect(() => {
+    setAddressOrName(accountAddress);
+    const onActiveAccountChange = () => {
+      setAddressOrName(accountAddress);
+    };
+    appUIEventBus.on(AppUIEventBusNames.AccountChanged, onActiveAccountChange);
+    return () => {
+      appUIEventBus.off(
+        AppUIEventBusNames.AccountChanged,
+        onActiveAccountChange,
+      );
+    };
+  }, [accountAddress]);
 
   const share = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -89,7 +101,7 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
       <HStack my="18px">
         <IconButton
           type="plain"
-          name="InformationCircleSolid"
+          name="InformationCircleMini"
           iconSize={16}
           onPress={showAboutOverlay}
         >
@@ -99,7 +111,7 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
         </IconButton>
         <IconButton
           type="plain"
-          name="PaperAirplaneSolid"
+          name="PaperAirplaneMini"
           iconSize={16}
           onPress={share}
         >
@@ -128,7 +140,7 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
         </HStack>
         {accountAddress !== addressOrName && (
           <HStack alignItems="center" justifyContent="center" mt="14">
-            <Icon name="InformationCircleSolid" size={16} />
+            <Icon name="InformationCircleMini" size={16} />
             <Typography.CaptionStrong ml="10px">
               {intl.formatMessage({
                 id: 'content__connect_this_wallet_to_make_further_action',

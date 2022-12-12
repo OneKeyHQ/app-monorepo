@@ -45,25 +45,17 @@ type ListDataType = {
 
 function generateListArray(originData: Collection): ListDataType {
   let result: ListDataType = [];
-  // if (originData.logoUrl) {
-  result.push({
-    viewType: ViewTypes.LOGO,
-    data: originData.logoUrl,
-  });
-  // }
-  // if (originData.contractName) {
+  if (originData?.logoUrl && originData?.logoUrl.length > 0) {
+    result.push({
+      viewType: ViewTypes.LOGO,
+      data: originData.logoUrl,
+    });
+  }
+
   result.push({
     viewType: ViewTypes.NAME,
     data: originData.contractName,
   });
-  // }
-  // if (originData.description) {
-  // result.push({
-  //   viewType: ViewTypes.DESC,
-  //   data: originData.description,
-  // });
-  // }
-  // if (originData.assets) {
   result = result.concat(
     originData.assets.map((item) => ({
       viewType: ViewTypes.NFTCard,
@@ -168,16 +160,19 @@ const CollectionModal: FC<CollectionModalProps> = () => {
       const { data } = item;
       switch (type) {
         case ViewTypes.LOGO:
-          return (
-            <Box alignItems="center">
-              <NetImage
-                src={data}
-                width="56px"
-                height="56px"
-                borderRadius="28px"
-              />
-            </Box>
-          );
+          if (data) {
+            return (
+              <Box alignItems="center">
+                <NetImage
+                  src={data}
+                  width="56px"
+                  height="56px"
+                  borderRadius="28px"
+                />
+              </Box>
+            );
+          }
+          return null;
         case ViewTypes.NAME:
           return (
             <Typography.Heading mt="3" width="full" textAlign="center">

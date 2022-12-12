@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -53,19 +53,13 @@ const TokenCell: FC<TokenCellProps> = ({
   const { network } = useActiveSideAccount({ accountId, networkId });
 
   const tokenId = token.tokenIdOnNetwork || 'main';
-  const balance = balances[tokenId] || 0;
+  const balance = balances[tokenId];
   const chart = charts[tokenId] || [];
   const price = prices[tokenId];
   let basePrice;
-  let tokenValue;
   if (chart.length > 0) {
     // eslint-disable-next-line prefer-destructuring
     basePrice = chart[0][1];
-  }
-  if (typeof price === 'string') {
-    tokenValue = new BigNumber(balance).times(price).toNumber() || 0;
-  } else if (price === null) {
-    tokenValue = 0;
   }
 
   const { percentageGain, gainTextBg, gainTextColor } = calculateGains({
@@ -77,6 +71,31 @@ const TokenCell: FC<TokenCellProps> = ({
     tokenId === 'main'
       ? network?.nativeDisplayDecimals
       : network?.tokenDisplayDecimals;
+
+  const tokenValue = useMemo(() => {
+    if (typeof balance === 'undefined' || typeof price === 'undefined')
+      return undefined;
+    if (price === null) return 0;
+    return new BigNumber(balance).times(price).toNumber() || 0;
+  }, [balance, price]);
+
+  const formatedBalance = useMemo(() => {
+    if (typeof balance === 'undefined') {
+      return <Skeleton shape="Body2" />;
+    }
+    return (
+      <FormatBalance
+        balance={balance}
+        suffix={token.symbol}
+        formatOptions={{
+          fixed: decimal ?? 4,
+        }}
+        render={(ele) => (
+          <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
+        )}
+      />
+    );
+  }, [balance, decimal, token.symbol]);
 
   return (
     <Pressable.Item
@@ -100,25 +119,7 @@ const TokenCell: FC<TokenCellProps> = ({
         showInfo
         token={token}
         showExtra={false}
-        description={
-          balance ? (
-            <FormatBalance
-              balance={balance}
-              suffix={token.symbol}
-              formatOptions={{
-                fixed: decimal ?? 4,
-              }}
-              render={(ele) => (
-                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
-              )}
-            />
-          ) : (
-            <Typography.Body2 color="text-subdued">
-              {balance}
-              {token.symbol ? ` ${token.symbol}` : null}
-            </Typography.Body2>
-          )
-        }
+        description={formatedBalance}
       />
       {!isVerticalLayout && !hidePriceInfo && (
         <Box flexDirection="column" flex={1} alignItems="flex-end">
