@@ -92,9 +92,6 @@ const TokenInputReceivingAddress: FC = () => {
 
   useEffect(() => {
     async function main() {
-      if (label) {
-        return;
-      }
       let isDirty = false;
       async function checkRecipientUnknown() {
         const isUnknown =
@@ -145,7 +142,7 @@ const TokenInputReceivingAddress: FC = () => {
       }
     }
     main();
-  }, [sendingAccount, recipient, label, intl]);
+  }, [sendingAccount, recipient, intl]);
 
   useEffect(() => {
     if (label) {
