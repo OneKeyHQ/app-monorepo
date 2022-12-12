@@ -43,15 +43,6 @@ export const useNativeTokenBalance = (
   accountId?: string,
 ) => {
   const balances = useAccountTokensBalance(networkId, accountId);
-  useEffect(() => {
-    if (networkId && accountId) {
-      backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        tokenIds: [],
-      });
-    }
-  }, [networkId, accountId]);
   return useMemo(() => balances?.main, [balances]);
 };
 
