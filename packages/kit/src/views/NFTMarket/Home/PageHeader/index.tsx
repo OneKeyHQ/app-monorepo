@@ -102,6 +102,7 @@ const PageHeader = () => {
               onPress={() => {
                 nplAction();
               }}
+              leftIconName="DocumentChartBarMini"
             >
               PnL
             </Button>
@@ -111,19 +112,19 @@ const PageHeader = () => {
       {/* Right */}
       <Hidden from="md">
         <HStack space="8px">
-          <Button
+          <IconButton
+            name="DocumentChartBarOutline"
+            type="plain"
+            size="lg"
+            circle
             onPress={() => {
               nplAction();
             }}
-            type="basic"
-            size="sm"
-          >
-            PnL
-          </Button>
+          />
           <IconButton
+            name="MagnifyingGlassOutline"
             type="plain"
             size="lg"
-            name="MagnifyingGlassOutline"
             circle
             onPress={() => {
               searchAction();

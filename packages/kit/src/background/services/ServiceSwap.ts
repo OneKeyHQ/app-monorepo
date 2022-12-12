@@ -426,4 +426,34 @@ export default class ServiceSwap extends ServiceBase {
     }
     return false;
   }
+
+  @backgroundMethod()
+  async setSwapWelcomeShown(value: boolean) {
+    simpleDb.setting.setSwapWelcomeShown(value);
+  }
+
+  @backgroundMethod()
+  async getSwapWelcomeShown() {
+    return simpleDb.setting.getSwapWelcomeShown();
+  }
+
+  @backgroundMethod()
+  async setSwapReceivingUnknownShown(value: boolean) {
+    simpleDb.setting.setSwapReceivingUnknownShown(value);
+  }
+
+  @backgroundMethod()
+  async getSwapReceivingUnknownShown() {
+    return simpleDb.setting.getSwapReceivingUnknownShown();
+  }
+
+  @backgroundMethod()
+  async getSwapReceivingIsNotSendingAccountShown() {
+    return simpleDb.setting.getSwapReceivingIsNotSendingAccountShown();
+  }
+
+  @backgroundMethod()
+  async setSwapReceivingIsNotSendingAccountShown(value: boolean) {
+    return simpleDb.setting.setSwapReceivingIsNotSendingAccountShown(value);
+  }
 }
