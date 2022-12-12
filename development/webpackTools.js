@@ -6,6 +6,7 @@ const notifier = require('node-notifier');
 const { getPathsAsync } = require('@expo/webpack-config/env');
 const path = require('path');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
 
@@ -72,13 +73,20 @@ async function modifyExpoEnv({ env, platform }) {
   return newEnv;
 }
 
-function normalizeConfig({ platform, config, env }) {
+function normalizeConfig({
+  platform,
+  config,
+  env,
+  configName,
+  enableAnalyzerHtmlReport,
+}) {
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
     const isDev = process.env.NODE_ENV !== 'production';
 
     config.plugins = [
       ...config.plugins,
+      new DuplicatePackageCheckerPlugin(),
       isDev ? new BuildDoneNotifyPlugin() : null,
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
@@ -92,6 +100,39 @@ function normalizeConfig({ platform, config, env }) {
         ? new ReactRefreshWebpackPlugin({ overlay: platform !== 'desktop' })
         : null,
     ].filter(Boolean);
+
+    if (process.env.ENABLE_ANALYZER) {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          ...(enableAnalyzerHtmlReport
+            ? {
+                analyzerMode: 'static',
+                reportFilename: `report${
+                  configName ? `-${configName}` : ''
+                }.html`,
+                openAnalyzer: false,
+              }
+            : {
+                analyzerMode: 'disabled',
+                generateStatsFile: true,
+                statsOptions: {
+                  reasons: false,
+                  warnings: false,
+                  errors: false,
+                  optimizationBailout: false,
+                  usedExports: false,
+                  providedExports: false,
+                  source: false,
+                  ids: false,
+                  children: false,
+                  chunks: false,
+                  modules: process.env.ANALYSE_MODULE === 'module',
+                },
+              }),
+        }),
+      );
+    }
 
     // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
     resolveExtensions.unshift(
@@ -121,7 +162,12 @@ function normalizeConfig({ platform, config, env }) {
     'framer-motion': 'framer-motion/dist/framer-motion',
     '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
   };
-  config.devtool = 'cheap-module-source-map';
+
+  // Why? do not change original config directly
+  // - Production build do not need sourcemap
+  // - Ext do not need devtool sourcemap, use SourceMapDevToolPlugin instead.
+  // - building slow
+  // config.devtool = 'cheap-module-source-map';
 
   return config;
 }

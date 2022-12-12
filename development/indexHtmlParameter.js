@@ -1,8 +1,19 @@
+const fs = require('fs');
+const path = require('path');
+
 function createEjsParams({ filename = '', platform = '', browser = '' }) {
+  const htmlHeadPreloadCode = fs.readFileSync(
+    path.resolve(__dirname, '../packages/ext/src/assets/preload-html-head.js'),
+    {
+      encoding: 'utf-8',
+    },
+  );
+
   return {
     filename,
     platform,
     browser,
+    htmlHeadPreloadCode,
   };
 }
 

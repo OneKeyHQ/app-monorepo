@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
 import { NetworkAccountSelectorModal } from '../../components/NetworkAccountSelector';
+import { NetworkSelectorModal } from '../../components/NetworkAccountSelector/modals/NetworkSelectorModal/NetworkSelectorModal';
 import { AddNetworkConfirm } from '../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
 import { ManageNetworkQuickAdd } from '../../views/ManageNetworks/QuickAdd';
 import { SwitchNetwork } from '../../views/ManageNetworks/SwitchNetwork';
@@ -27,6 +28,10 @@ const modalRoutes = [
   {
     name: ManageNetworkRoutes.NetworkAccountSelector,
     component: NetworkAccountSelectorModal,
+  },
+  {
+    name: ManageNetworkRoutes.NetworkSelector,
+    component: NetworkSelectorModal,
   },
   {
     name: ManageNetworkRoutes.Listing,

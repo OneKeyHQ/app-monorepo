@@ -63,6 +63,7 @@ const DesktopModal = ({
   closeAction,
   closeOnOverlayClick,
   hideBackButton,
+  rightContent,
 }: ModalProps) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -181,6 +182,7 @@ const DesktopModal = ({
             }}
             closeable={closeable}
             onPressCloseButton={close}
+            rightContent={rightContent}
           />
         )}
         {children}

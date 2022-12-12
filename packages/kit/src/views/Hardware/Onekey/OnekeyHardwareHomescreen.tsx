@@ -36,7 +36,6 @@ import {
   imageCache,
 } from '@onekeyhq/kit/src/utils/hardware/homescreens';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,

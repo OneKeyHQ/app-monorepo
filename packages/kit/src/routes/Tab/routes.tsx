@@ -57,7 +57,9 @@ export interface TabRouteConfig {
 export const tabRoutes: TabRouteConfig[] = [
   {
     name: TabRoutes.Home,
-    component: toFocusedLazy(HomeScreen),
+    component: toFocusedLazy(HomeScreen, {
+      rootTabName: TabRoutes.Home,
+    }),
     tabBarIcon: (focused) =>
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
     translationId: 'form__account',
@@ -114,7 +116,9 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.NFT,
-    component: toFocusedLazy(NFTMarket),
+    component: toFocusedLazy(NFTMarket, {
+      rootTabName: TabRoutes.NFT,
+    }),
     tabBarIcon: (focused) => (focused ? 'PhotoSolid' : 'PhotoOutline'),
     translationId: 'title__nft',
     children: [
@@ -138,7 +142,9 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Discover,
-    component: toFocusedLazy(DiscoverScreen),
+    component: toFocusedLazy(DiscoverScreen, {
+      rootTabName: TabRoutes.Discover,
+    }),
     tabBarIcon: (focused) => (focused ? 'CompassSolid' : 'CompassOutline'),
     translationId: 'title__explore',
     children: [
@@ -158,7 +164,9 @@ export const tabRoutes: TabRouteConfig[] = [
   },
   {
     name: TabRoutes.Me,
-    component: toFocusedLazy(MeScreen, { unmountWhenBlur: false }),
+    component: toFocusedLazy(MeScreen, {
+      rootTabName: TabRoutes.Me,
+    }),
     tabBarIcon: (focused) => (focused ? 'Bars4Solid' : 'Bars4Outline'),
     translationId: 'title__menu',
     children: [
@@ -216,7 +224,9 @@ if (process.env.NODE_ENV !== 'production') {
 
   tabRoutes.push({
     name: TabRoutes.Developer,
-    component: DevelopScreen,
+    component: toFocusedLazy(DevelopScreen, {
+      rootTabName: TabRoutes.Developer,
+    }),
     tabBarIcon: () => 'ChipOutline',
     translationId: 'form__dev_mode',
   });

@@ -555,7 +555,7 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => handleBatchTransfer()}
             >
-              <Typography.Body1>Batch Transfer ETH</Typography.Body1>
+              <Typography.Body1>Batch Transfer ETH 0</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}
