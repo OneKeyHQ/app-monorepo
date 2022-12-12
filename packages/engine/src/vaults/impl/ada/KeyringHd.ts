@@ -79,7 +79,7 @@ export class KeyringHd extends KeyringHdBase {
     for (const info of addressInfos) {
       const { baseAddress, stakingAddress } = info;
       const { address, path, xpub } = baseAddress;
-      const name = (names || [])[index] || `Cardano #${usedIndexes[index] + 1}`;
+      const name = (names || [])[index] || `CARDANO #${usedIndexes[index] + 1}`;
       const accountPath = path.slice(0, -4);
       if (!ignoreFirst || index > 0) {
         ret.push({

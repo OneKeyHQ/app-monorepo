@@ -92,7 +92,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { address, xpub, serializedPath, stakeAddress } = addressInfo;
       if (address) {
         const name =
-          (names || [])[index] || `Cardano #${usedIndexes[index] + 1}`;
+          (names || [])[index] || `CARDANO #${usedIndexes[index] + 1}`;
         const addresses: Record<string, string> = {
           [firstAddressRelPath]: address,
         };

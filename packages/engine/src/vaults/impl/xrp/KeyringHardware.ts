@@ -52,7 +52,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of response.payload) {
       const { address, path, publicKey } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `XRP #${indexes[index] + 1}`;
+        const name = (names || [])[index] || `RIPPLE #${indexes[index] + 1}`;
         ret.push({
           id: `${this.walletId}--${path}`,
           name,
