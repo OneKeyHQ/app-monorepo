@@ -109,6 +109,7 @@ function BehindTheSceneCreatingWallet({
 
       return true;
     } catch (e: any) {
+      debugLogger.common.error(e);
       // safeGoBack();
       const { className, message, data } = e || {};
       if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {

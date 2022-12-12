@@ -275,6 +275,11 @@ export const fetchSecurityInfo = async <T>(
 export const isTrustToken = (info: GoPlusTokenSecurity) =>
   info?.trust_list === '1';
 
+const isDropedPermission = (info: GoPlusTokenSecurity) =>
+  info.owner_address === '0x0000000000000000000000000000000000000000' &&
+  info.can_take_back_ownership === '0' &&
+  info.hidden_owner === '0';
+
 export const getTokenRiskyItems = async (params: CheckParams) => {
   const info = await fetchSecurityInfo<GoPlusTokenSecurity>(params);
   if (!info) {
@@ -291,7 +296,7 @@ export const getTokenRiskyItems = async (params: CheckParams) => {
       items: safeItems,
     },
     { localeKey: 'danger', items: dangerItems },
-    { localeKey: 'warn', items: warnItems },
+    { localeKey: 'warn', items: isDropedPermission(info) ? [] : warnItems },
   ].map(({ localeKey, items }) =>
     uniq(items.filter(([k, func]) => func(info?.[k])).map(([k]) => k)).filter(
       // @ts-ignore

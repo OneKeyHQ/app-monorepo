@@ -12,6 +12,9 @@ function init() {
   // **** must be after popupSizeFix();
   // resizeEventOptimize();
 
+  global.$$onekeyPerfTrace?.log({
+    name: '[EXT]: ui.tsx init() / KitProviderExt render()',
+  });
   renderApp();
 
   if (process.env.NODE_ENV !== 'production') {

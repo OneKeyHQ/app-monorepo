@@ -14,7 +14,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 
-import Speedindicator from '../../../components/NetworkAccountSelector/NetworkAccountSelectorModal/SpeedIndicator';
+import Speedindicator from '../../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/SpeedIndicator';
 import { MeasureResult } from '../hooks';
 
 export const RPCItem = ({

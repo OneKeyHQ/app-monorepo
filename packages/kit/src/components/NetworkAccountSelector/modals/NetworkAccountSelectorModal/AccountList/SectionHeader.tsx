@@ -2,9 +2,9 @@ import React, { FC } from 'react';
 
 import { Box, Text } from '@onekeyhq/components';
 import { IWallet } from '@onekeyhq/engine/src/types';
-import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 
-import { useWalletName } from '../../../../hooks/useWalletName';
+import { useWalletName } from '../../../../../hooks/useWalletName';
+import { WalletAvatarPro } from '../../../../WalletSelector/WalletAvatar';
 import { CreateAccountButton } from '../CreateAccountButton';
 
 type SectionHeaderProps = {

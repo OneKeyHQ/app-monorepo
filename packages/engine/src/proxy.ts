@@ -516,6 +516,8 @@ class ProviderController extends BaseProviderController {
           `https://gas-api.metaswap.codefi.network/networks/${parseInt(
             chainId,
           )}/suggestedGasFees`,
+          {},
+          60 * 1000,
         );
         const { low, medium, high, estimatedBaseFee } = await request
           .get('')

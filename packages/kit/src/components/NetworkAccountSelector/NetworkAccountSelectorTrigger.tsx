@@ -17,7 +17,7 @@ import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 import { EAccountSelectorMode } from '../../store/reducers/reducerAccountSelector';
 import { useRpcMeasureStatus } from '../../views/ManageNetworks/hooks';
 
-import Speedindicator from './NetworkAccountSelectorModal/SpeedIndicator';
+import Speedindicator from './modals/NetworkAccountSelectorModal/SpeedIndicator';
 
 type NetworkAccountSelectorTriggerProps = {
   size?: 'sm' | 'lg' | string;

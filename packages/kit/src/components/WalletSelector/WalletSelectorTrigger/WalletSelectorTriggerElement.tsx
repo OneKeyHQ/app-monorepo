@@ -21,7 +21,6 @@ import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { useWalletName } from '../../../hooks/useWalletName';
 import { RootRoutes } from '../../../routes/routesEnum';
 import { ModalScreenProps } from '../../../routes/types';
-import ExternalAccountImg from '../../../views/ExternalAccount/components/ExternalAccountImg';
 import { useDeviceStatusOfHardwareWallet } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import { WalletAvatarPro } from '../WalletAvatar';
 
@@ -39,7 +38,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
 }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, wallet } = useActiveWalletAccount();
+  const { wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
@@ -62,15 +61,19 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
   // const { name } = account;
   const name = walletName || 'Wallet';
   // ** Android will crash after account switch
-  const showExternalImg = !platformEnv.isNativeAndroid;
   // const showExternalImg = true;
   return (
     <>
-      <Pressable onPress={handleToggleVisible} justifyContent="center">
+      <Pressable
+        onPress={handleToggleVisible}
+        justifyContent="center"
+        hitSlop={8}
+      >
         {({ isHovered }) => (
           <Box
             flexDirection="row"
             alignItems="center"
+            m={{ base: -1, md: undefined }}
             p={1}
             pr={{ base: 1, md: 2 }}
             borderRadius="12px"
@@ -98,18 +101,6 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
                   size="sm"
                 />
               )}
-              {showExternalImg && account ? (
-                <Box position="absolute" right="-6px" bottom="-6px">
-                  <ExternalAccountImg
-                    size={4}
-                    radius="12px"
-                    accountId={account?.id}
-                    account={account}
-                    borderWidth={2}
-                    borderColor="background-default"
-                  />
-                </Box>
-              ) : null}
             </Box>
             <Hidden from="base" till="md">
               <>
