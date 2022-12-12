@@ -38,7 +38,7 @@ const getRpcStatusByResponseTime = (speed?: number) => {
   if (typeof speed === 'undefined') {
     return RpcSpeed.Unavailable;
   }
-  if (speed <= 300) {
+  if (speed <= 800) {
     return RpcSpeed.Fast;
   }
   return RpcSpeed.Slow;

@@ -15,6 +15,7 @@ import {
   queryAccountDynamic,
   queryPriceAlertList,
   removeAccountDynamic,
+  removeAccountDynamicBatch,
   removePriceAlertConfig,
   syncLocalEnabledAccounts,
   syncPushNotificationConfig,
@@ -146,6 +147,11 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async removeAccountDynamic(...args: Parameters<typeof removeAccountDynamic>) {
     return removeAccountDynamic(...args);
+  }
+
+  @backgroundMethod()
+  async removeAccountDynamicBatch(body: { addressList: string[] }) {
+    return removeAccountDynamicBatch(body);
   }
 
   @backgroundMethod()
