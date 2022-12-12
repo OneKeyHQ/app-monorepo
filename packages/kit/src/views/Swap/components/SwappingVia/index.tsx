@@ -28,6 +28,7 @@ export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
         h={imageSize}
         overflow="hidden"
         key={sources[0]}
+        bgColor="surface-neutral-default"
       >
         <Image size={imageSize} src={sources[0]} testID={sources[0]} />
       </Box>
@@ -49,6 +50,7 @@ export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
           w={imageSize}
           overflow="hidden"
           key={source}
+          bgColor="surface-neutral-default"
         >
           <Image size={imageSize} src={source} />
         </Box>

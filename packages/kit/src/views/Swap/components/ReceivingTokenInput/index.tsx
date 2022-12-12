@@ -186,20 +186,22 @@ const TokenInputReceivingAddress: FC = () => {
   if (address) {
     return (
       <Box position="relative">
-        <Pressable
-          flexDirection="row"
-          borderRadius={12}
-          alignItems="center"
-          onPress={onPress}
-          _hover={{ bg: 'surface-hovered' }}
-          _pressed={{ bg: 'surface-pressed' }}
-          position="relative"
-        >
-          <Box py="1" px="2" flexDirection="row" alignItems="center">
-            {text}
-            <Icon size={16} name="ChevronDownSolid" />
-          </Box>
-        </Pressable>
+        <Box flexDirection="row">
+          <Pressable
+            flexDirection="row"
+            borderRadius={12}
+            alignItems="center"
+            onPress={onPress}
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            position="relative"
+          >
+            <Box py="1" px="2" flexDirection="row" alignItems="center">
+              {text}
+              <Icon size={16} name="ChevronDownSolid" />
+            </Box>
+          </Pressable>
+        </Box>
         <Box position="relative">
           <Tooltip
             isOpen={!!label}
