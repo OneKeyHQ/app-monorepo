@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useMemo, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -16,6 +16,7 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IAccount } from '@onekeyhq/engine/src/types';
 
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../../../hooks';
 import { useActiveWalletAccount } from '../../../../../hooks/redux';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../../Header/AccountSelectorChildren/accountSelectorConsts';
@@ -96,6 +97,21 @@ function AccountList({
   const data = useAccountSelectorSectionData({
     accountSelectorInfo,
   });
+
+  useEffect(() => {
+    if (data.length > 0) {
+      data.forEach((item) => {
+        if (item.data.length > 0 && item.networkId) {
+          backgroundApiProxy.serviceToken.batchFetchAccountBalances({
+            walletId: item.wallet.id,
+            networkId: item.networkId,
+            accountIds: item.data.map((acc) => acc.id),
+          });
+        }
+      });
+    }
+  }, [data]);
+
   const sectionListRef = useRef<any>(null);
   const {
     walletId: activeWalletId,
