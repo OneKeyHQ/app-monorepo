@@ -1,7 +1,8 @@
 import InAppReview from 'react-native-in-app-review';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 export const canShowAppReview = async (unlimitedTimes?: boolean) => {
   const isAvailable = InAppReview.isAvailable();
@@ -12,8 +13,10 @@ export const canShowAppReview = async (unlimitedTimes?: boolean) => {
   if (!isAvailable) {
     return false;
   }
-  const appRatingsEnabled = await simpleDb.setting.getEnableAppRatings();
-  const lastOpenedAt = await simpleDb.setting.getAppReviewsLastOpenedAt();
+  const appRatingsEnabled =
+    await backgroundApiProxy.serviceSetting.getEnableAppRatings();
+  const lastOpenedAt =
+    await backgroundApiProxy.serviceSetting.getAppReviewsLastOpenedAt();
   debugLogger.common.info(
     'appRatingsEnabled, ',
     appRatingsEnabled,
@@ -38,7 +41,7 @@ export const openAppReview = async (unlimitedTimes?: boolean) => {
     debugLogger.common.info('react-native-in-app-review error', e.message);
     return;
   }
-  await simpleDb.setting.setAppReviewsLastOpenedAt(Date.now());
+  backgroundApiProxy.serviceSetting.setAppReviewsLastOpenedAt(Date.now());
   debugLogger.common.info(
     'hasFlowFinishedSuccessfully',
     hasFlowFinishedSuccessfully,
