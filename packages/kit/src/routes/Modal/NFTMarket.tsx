@@ -2,6 +2,8 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import CalculatorModal from '../../views/NFTMarket/Modals/Calculator';
+import MarketPlaceList from '../../views/NFTMarket/Modals/Calculator/MarketPlaceList';
 import NFTAttributesModal from '../../views/NFTMarket/Modals/NFTAttributesModal';
 import NFTSearchModal from '../../views/NFTMarket/Modals/NFTSearchModal';
 import ShareNFTNPLModal from '../../views/NFTMarket/Modals/Share';
@@ -26,6 +28,14 @@ const modalRoutes = [
   {
     name: NFTMarketRoutes.ShareNFTNPLModal,
     component: ShareNFTNPLModal,
+  },
+  {
+    name: NFTMarketRoutes.CalculatorModal,
+    component: CalculatorModal,
+  },
+  {
+    name: NFTMarketRoutes.MarketPlaceScreen,
+    component: MarketPlaceList,
   },
 ];
 

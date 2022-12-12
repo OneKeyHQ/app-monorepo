@@ -61,6 +61,7 @@ export type Collection = {
   amountsTotal?: number;
   volume24h?: number;
   openseaVerified?: boolean;
+  royalty?: number;
   blueChip?: {
     next_blue_chip_probability: string | null;
   } | null;
@@ -218,4 +219,10 @@ export type NFTNPL = {
   };
 
   profit: number;
+};
+
+export type MarketPlace = {
+  name: string;
+  logoUrl?: string;
+  networks: Record<string, { handlingFee?: string }>;
 };
