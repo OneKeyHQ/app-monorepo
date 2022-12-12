@@ -56,7 +56,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       defaultValues: { name: '', addressType: 'default' },
     });
   const { activeNetworkId } = useGeneral();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<true | undefined>(undefined);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
@@ -150,7 +150,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               intl.formatMessage({ id: key as any }, info as any),
             );
           } finally {
-            setIsLoading(false);
+            setIsLoading(undefined);
           }
           return;
         }
