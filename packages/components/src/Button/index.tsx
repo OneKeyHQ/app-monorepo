@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -467,6 +468,8 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
   ...props
 }) => {
   const [loading, setLoading] = useState(isLoading);
+  // Handling when isLoading and onPromise are present at the same time
+  const prevLoadingState = useRef<boolean | undefined>(undefined);
   const { hapticsEnabled } = useProviderValue();
   const handlePress = useCallback(() => {
     if (hapticsEnabled) {
@@ -486,8 +489,13 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
     }
   }, [hapticsEnabled, onPromise, isLoading, onPress]);
   useEffect(() => {
-    if (typeof isLoading !== 'undefined') {
-      setLoading(isLoading);
+    if (
+      typeof isLoading !== 'undefined' ||
+      (typeof prevLoadingState.current === 'boolean' &&
+        typeof isLoading === 'undefined')
+    ) {
+      setLoading(!!isLoading);
+      prevLoadingState.current = isLoading;
     }
   }, [isLoading]);
   return <Button {...props} onPress={handlePress} isLoading={loading} />;
