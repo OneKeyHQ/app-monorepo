@@ -80,7 +80,7 @@ export class KeyringHd extends KeyringHdBase {
 
       const address = XRPL.deriveAddress(pub);
 
-      const name = (names || [])[index] || `XRP #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `RIPPLE #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,

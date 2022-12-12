@@ -52,6 +52,8 @@ export class KeyringHd extends KeyringHdBase {
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const { password, indexes, names } = params;
+    const ignoreFirst = indexes[0] !== 0;
+    const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
     const { entropy } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
@@ -60,11 +62,11 @@ export class KeyringHd extends KeyringHdBase {
     const addressInfos = await batchGetShelleyAddresses(
       entropy,
       password,
-      indexes,
+      usedIndexes,
       NetworkId.MAINNET,
     );
 
-    if (addressInfos.length !== indexes.length) {
+    if (addressInfos.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get address');
     }
 
@@ -77,21 +79,28 @@ export class KeyringHd extends KeyringHdBase {
     for (const info of addressInfos) {
       const { baseAddress, stakingAddress } = info;
       const { address, path, xpub } = baseAddress;
-      const name = (names || [])[index] || `ADA #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `CARDANO #${usedIndexes[index] + 1}`;
       const accountPath = path.slice(0, -4);
-      ret.push({
-        id: `${this.walletId}--${accountPath}`,
-        name,
-        type: AccountType.UTXO,
-        path,
-        coinType: COIN_TYPE,
-        xpub,
-        address,
-        addresses: {
-          [firstAddressRelPath]: address,
-          [stakingAddressPath]: stakingAddress.address,
-        },
-      });
+      if (!ignoreFirst || index > 0) {
+        ret.push({
+          id: `${this.walletId}--${accountPath}`,
+          name,
+          type: AccountType.UTXO,
+          path,
+          coinType: COIN_TYPE,
+          xpub,
+          address,
+          addresses: {
+            [firstAddressRelPath]: address,
+            [stakingAddressPath]: stakingAddress.address,
+          },
+        });
+      }
+
+      if (usedIndexes.length === 1) {
+        // Only getting the first account, ignore balance checking.
+        break;
+      }
 
       const { tx_count: txCount } = await client.getAddressDetails(address);
       if (txCount > 0) {

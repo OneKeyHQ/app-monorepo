@@ -102,9 +102,14 @@ class Client {
   );
 
   getHistory = memoizee(
-    async (stakeAddress: string): Promise<IAdaHistory[]> =>
+    async (stakeAddress: string, address: string): Promise<IAdaHistory[]> =>
       this.backendRequest
-        .get<IAdaHistory[]>(`/history/${stakeAddress}`)
+        .get<IAdaHistory[]>(`/history`, {
+          params: {
+            stakeAddress,
+            address,
+          },
+        })
         .then((i) => i.data),
     {
       promise: true,
