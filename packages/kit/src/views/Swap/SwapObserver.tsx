@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
@@ -48,7 +47,8 @@ const WelcomeObserver = () => {
   const navigation = useNavigation();
   useEffect(() => {
     async function main() {
-      const swapWelcomeShown = await simpleDb.setting.getSwapWelcomeShown();
+      const swapWelcomeShown =
+        await backgroundApiProxy.serviceSwap.getSwapWelcomeShown();
       if (swapWelcomeShown) {
         return;
       }
