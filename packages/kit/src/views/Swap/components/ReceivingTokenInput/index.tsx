@@ -18,7 +18,6 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -102,11 +101,14 @@ const TokenInputReceivingAddress: FC = () => {
           await backgroundApiProxy.serviceSwap.recipientIsUnknown(recipient);
         setRecipientUnknown(isUnknown);
         if (isUnknown) {
-          const shown = await simpleDb.setting.getSwapReceivingUnknownShown();
+          const shown =
+            await backgroundApiProxy.serviceSwap.getSwapReceivingUnknownShown();
           if (shown) {
             return;
           }
-          await simpleDb.setting.setSwapReceivingUnknownShown(true);
+          await backgroundApiProxy.serviceSwap.setSwapReceivingUnknownShown(
+            true,
+          );
           setLabel(
             intl.formatMessage({
               id: 'msg__you_are_swapping_asset_to_an_address_that_may_not_be_yours_please_verify',
@@ -122,12 +124,14 @@ const TokenInputReceivingAddress: FC = () => {
           sendingAccount?.address !== recipient?.address
         ) {
           const shown =
-            await simpleDb.setting.getSwapReceivingIsNotSendingAccountShown();
+            await backgroundApiProxy.serviceSwap.getSwapReceivingIsNotSendingAccountShown();
           if (shown) {
             return;
           }
 
-          await simpleDb.setting.setSwapReceivingIsNotSendingAccountShown(true);
+          await backgroundApiProxy.serviceSwap.setSwapReceivingIsNotSendingAccountShown(
+            true,
+          );
           setLabel(
             intl.formatMessage({
               id: 'msg__you_have_selected_another_account_to_receive_tokens',

@@ -1,9 +1,10 @@
-import React, { FC } from 'react';
+import React, { FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 
 import { useInputLimitsError } from './hooks/useSwap';
@@ -11,10 +12,23 @@ import { SwapError } from './typings';
 
 const DepositLimitAlert = () => {
   const limitsError = useInputLimitsError();
+  const intl = useIntl();
+  const onAction = useCallback(() => {
+    if (limitsError?.value) {
+      backgroundApiProxy.serviceSwap.userInput('INPUT', limitsError.value);
+    }
+  }, [limitsError]);
   if (limitsError) {
     return (
       <Box mt="6">
-        <Alert title={limitsError.message} alertType="warn" dismiss={false} />
+        <Alert
+          title={limitsError.message}
+          alertType="warn"
+          dismiss={false}
+          actionType="right"
+          onAction={onAction}
+          action={intl.formatMessage({ id: 'action__fill_in' })}
+        />
       </Box>
     );
   }
