@@ -1,11 +1,12 @@
-import React, { FC, useEffect, useLayoutEffect, useState } from 'react';
+import { FC, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { URL } from 'react-native-url-polyfill';
 
-import { Box, Icon, IconButton, Select, useToast } from '@onekeyhq/components';
+import { Box, Icon, Select, useToast } from '@onekeyhq/components';
+import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
@@ -21,33 +22,21 @@ export const SettingsWebViews: FC = () => {
   const navigation = useNavigation();
   const { url, title } = route?.params;
   const [currentUrl, setCurrentUrl] = useState(url);
+  const containerRef = useRef<typeof Box>(null);
   const [currentOptionType, setCurrentOptionType] = useState<string | null>(
     null,
   );
 
-  const onShare = async () => {
-    try {
-      const result = await Share.share(
-        Platform.OS === 'ios'
-          ? {
-              url,
-            }
-          : {
-              message: url,
-            },
-      );
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          // shared with activity type of result.activityType
-        } else {
-          // shared
-        }
-      } else if (result.action === Share.dismissedAction) {
-        // dismissed
-      }
-    } catch (error) {
-      console.warn(error);
-    }
+  const onShare = () => {
+    Share.share(
+      Platform.OS === 'ios'
+        ? {
+            url,
+          }
+        : {
+            message: url,
+          },
+    ).catch(() => {});
   };
 
   const onRefresh = () => {
@@ -86,85 +75,87 @@ export const SettingsWebViews: FC = () => {
       setCurrentOptionType(null);
     }
 
-    setTimeout(main, 500);
+    setTimeout(main);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentOptionType]);
 
   useLayoutEffect(() => {
-    if (title) {
-      navigation.setOptions({ title });
-    }
     navigation.setOptions({
-      headerRight: () => (
-        <Select
-          dropdownPosition="right"
-          title={intl.formatMessage({ id: 'select__options' })}
-          onChange={(v) => {
-            if (currentOptionType !== v) setCurrentOptionType(v);
-          }}
-          footer={null}
-          activatable={false}
-          triggerProps={{
-            width: '40px',
-          }}
-          dropdownProps={{
-            width: 248,
-          }}
-          options={[
-            {
-              label: intl.formatMessage({
-                id: 'action__refresh',
-              }),
-              value: 'refresh',
-              iconProps: { name: 'ArrowPathOutline' },
-            },
-            {
-              label: intl.formatMessage({
-                id: 'action__share',
-              }),
-              value: 'share',
-              iconProps: { name: 'ShareOutline' },
-            },
-            {
-              label: intl.formatMessage({
-                id: 'action__copy_url',
-              }),
-              value: 'copyUrl',
-              iconProps: { name: 'LinkOutline' },
-            },
-            {
-              label: intl.formatMessage({
-                id: 'action__open_in_browser',
-              }),
-              value: 'openInBrowser',
-              iconProps: { name: 'GlobeAltOutline' },
-            },
-          ]}
-          renderTrigger={() => (
-            <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
-              <Icon name="DotsHorizontalOutline" />
-            </Box>
-          )}
-        />
-      ),
-
-      headerLeft: () => (
-        <IconButton
-          type="plain"
-          name="ArrowSmLeftOutline"
-          size="lg"
-          circle
-          onPress={() => navigation.goBack?.()}
-        />
+      header: () => (
+        <Box
+          ref={containerRef}
+          bg="background-default"
+          justifyContent="center"
+          borderBottomWidth="2px"
+          borderBottomColor="divider"
+        >
+          <NavHeader
+            safeTop={0}
+            headerRight={() => (
+              <Select
+                autoAdjustPosition={false}
+                dropdownPosition="right"
+                title={intl.formatMessage({ id: 'select__options' })}
+                onChange={(v) => {
+                  if (currentOptionType !== v) setCurrentOptionType(v);
+                }}
+                outerContainerRef={containerRef}
+                footer={null}
+                activatable={false}
+                triggerProps={{
+                  width: '40px',
+                }}
+                dropdownProps={{
+                  width: 248,
+                }}
+                options={[
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__refresh',
+                    }),
+                    value: 'refresh',
+                    iconProps: { name: 'ArrowPathOutline' },
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__share',
+                    }),
+                    value: 'share',
+                    iconProps: { name: 'ShareOutline' },
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__copy_url',
+                    }),
+                    value: 'copyUrl',
+                    iconProps: { name: 'LinkOutline' },
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__open_in_browser',
+                    }),
+                    value: 'openInBrowser',
+                    iconProps: { name: 'GlobeAltOutline' },
+                  },
+                ]}
+                renderTrigger={() => (
+                  <Box
+                    mr={Platform.OS !== 'android' ? 4 : 0}
+                    alignItems="flex-end"
+                  >
+                    <Icon name="DotsHorizontalOutline" />
+                  </Box>
+                )}
+              />
+            )}
+            title={title}
+          />
+        </Box>
       ),
     });
-  }, [currentOptionType, intl, navigation, title]);
+  });
 
-  return (
-    <Box flex="1">
-      <WebView src={currentUrl} />
-    </Box>
-  );
+  return <WebView src={currentUrl} />;
 };
 
 export default SettingsWebViews;
