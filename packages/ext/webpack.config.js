@@ -16,6 +16,7 @@ const { extModuleTranspile } = require('../../development/webpackTranspiles');
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
+// firefox chrome
 const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 
 sourcemapServer.start();
@@ -58,14 +59,25 @@ const resolveExtensions = fileExtensions
   .map((extension) => `.${extension}`)
   .concat(['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.css']);
 
-function createConfig() {
+class HtmlLazyScriptPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
+      console.log('HtmlLazyScriptPlugin >>>>>>>> ');
+      const doTask = require('./development/htmlLazyScript');
+      doTask();
+    });
+  }
+}
+
+const isManifestV3 = manifest.manifest_version >= 3;
+function createConfig({ config }) {
   let webpackConfig = {
     // add custom config, will be deleted later
     chromeExtensionBoilerplate: {
       notHotReload: [
         // disable background webpackDevServer hotReload in manifest V3, it will cause error
         //    manifest V3 background will reload automatically after UI reloaded
-        manifest.manifest_version >= 3 ? 'background' : '',
+        isManifestV3 ? 'background' : '',
         'content-script',
         'ui-devtools',
       ].filter(Boolean),
@@ -77,7 +89,9 @@ function createConfig() {
     },
     output: {
       path: path.resolve(__dirname, 'build', buildTargetBrowser),
+      // do not include [hash] here, as `content-script.bundle.js` filename should be stable
       filename: '[name].bundle.js',
+      chunkFilename: '[name].[chunkhash:6].chunk.js',
       publicPath: ASSET_PATH,
       globalObject: 'this', // FIX: window is not defined in service-worker background
     },
@@ -140,6 +154,7 @@ function createConfig() {
       new webpack.ProvidePlugin({
         process: 'process/browser',
       }),
+      new HtmlLazyScriptPlugin(),
     ],
     infrastructureLogging: {
       level: 'info',
@@ -156,6 +171,7 @@ function createConfig() {
   if (IS_DEV) {
     // FIX: Uncaught EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: "script-src 'self'".
     webpackConfig.devtool = 'cheap-module-source-map';
+
     //
     // Reset sourcemap here, withExpo will change this value
     //    only inline-source-map supported in extension
@@ -164,16 +180,18 @@ function createConfig() {
     //
 
     webpackConfig.devtool = false;
-    webpackConfig.plugins.push(
-      new webpack.SourceMapDevToolPlugin({
-        append: `\n//# sourceMappingURL=http://127.0.0.1:${sourcemapServer.port}/[url]`,
-        filename: '[file].map',
-        // TODO eval is NOT support in Ext.
-        //      sourcemap building is very very very SLOW
-        module: true,
-        columns: true,
-      }),
-    );
+    if (process.env.GENERATE_SOURCEMAP === 'true') {
+      webpackConfig.plugins.push(
+        new webpack.SourceMapDevToolPlugin({
+          append: `\n//# sourceMappingURL=http://127.0.0.1:${sourcemapServer.port}/[url]`,
+          filename: '[file].map',
+          // TODO eval is NOT support in Ext.
+          //      sourcemap building is very very very SLOW
+          module: true,
+          columns: true,
+        }),
+      );
+    }
   } else {
     webpackConfig.optimization = {
       ...webpackConfig.optimization,
@@ -196,22 +214,48 @@ function createConfig() {
   webpackConfig = webpackTools.normalizeConfig({
     platform: webpackTools.developmentConsts.platforms.ext,
     config: webpackConfig,
+    configName: config.name,
+    enableAnalyzerHtmlReport: true,
   });
 
   return webpackConfig;
 }
 
 function enableCodeSplitChunks({ config, name }) {
+  let maxSizeMb = 4;
+  const isFirefox = buildTargetBrowser === 'firefox';
+  const isChrome = buildTargetBrowser === 'chrome';
+  if (isFirefox) {
+    maxSizeMb = 1;
+  }
   config.optimization.splitChunks = {
-    chunks: 'all',
+    chunks: isFirefox ? 'all' : 'all', // all, async, and initial
     minSize: 0, // 2000000
-    maxSize: 1000 * 1000, // limit to max 2MB to ignore firefox lint error
+    maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
     // auto-gen chunk file name by module name or just increasing number
     name: name ? `vendors-${name}` : true,
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
     automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
+    // maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
+    // maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
+    // cacheGroups: {
+    //   vendors: {
+    //     test: /[\\/]node_modules[\\/]/,
+    //     priority: -10,
+    //     enforce: true, // seperate vendor from our code
+    //   },
+    //   default: {
+    //     minChunks: 2,
+    //     priority: -20,
+    //     reuseExistingChunk: true,
+    //   },
+    // },
   };
+  if (isChrome) {
+    // memory leak issue
+    // config.optimization.splitChunks = undefined;
+  }
 }
 
 // https://webpack.js.org/configuration/configuration-types/#exporting-multiple-configurations
@@ -222,28 +266,26 @@ const multipleEntryConfigs = [
       name: 'ui',
       entry: {
         'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
-        'ui-expand-tab': path.join(__dirname, 'src/entry/ui-expand-tab.tsx'),
-        'ui-standalone-window': path.join(
-          __dirname,
-          'src/entry/ui-standalone-window.tsx',
-        ),
-        // 'ui-options': path.join(__dirname, 'src/entry/ui-options.ts'),
-        // 'ui-newtab': path.join(__dirname, 'src/entry/ui-newtab.ts'),
-        'ui-devtools': path.join(__dirname, 'src/entry/ui-devtools.ts'),
-        'ui-devtools-panel': path.join(
-          __dirname,
-          'src/entry/ui-devtools-panel.tsx',
-        ),
+        ...(isManifestV3
+          ? {}
+          : {
+              'background': path.join(__dirname, 'src/entry/background.ts'),
+            }),
       },
     },
     configUpdater(config) {
       enableCodeSplitChunks({ config, name: 'ui' });
-      config.plugins = [...config.plugins, ...pluginsHtml.uiHtml];
+      config.plugins = [
+        ...config.plugins,
+        ...pluginsHtml.uiHtml,
+        ...(isManifestV3 ? [] : pluginsHtml.backgroundHtml),
+      ].filter(Boolean);
+
       return config;
     },
   },
-  // background build (code-split ONLY manifest v2)
-  {
+  // manifest v3 background standalone build without code-split
+  isManifestV3 && {
     config: {
       name: 'bg',
       dependencies: ['ui'],
@@ -252,10 +294,6 @@ const multipleEntryConfigs = [
       },
     },
     configUpdater(config) {
-      // background code split only works in manifest v2
-      if (manifest.manifest_version < 3) {
-        enableCodeSplitChunks({ config, name: 'bg' });
-      }
       config.plugins = [...config.plugins, ...pluginsHtml.backgroundHtml];
       return config;
     },
@@ -264,7 +302,7 @@ const multipleEntryConfigs = [
   {
     config: {
       name: 'cs',
-      dependencies: ['ui', 'bg'],
+      dependencies: isManifestV3 ? ['ui', 'bg'] : ['ui'],
       entry: {
         'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
       },
@@ -274,7 +312,7 @@ const multipleEntryConfigs = [
       return config;
     },
   },
-];
+].filter(Boolean);
 
 const configs = devUtils.createMultipleEntryConfigs(
   createConfig,

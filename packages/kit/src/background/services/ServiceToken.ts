@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
 import {
@@ -10,6 +11,10 @@ import {
   fetchTokenSource,
   fetchTools,
 } from '@onekeyhq/engine/src/managers/token';
+import {
+  AccountType,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import {
   AppEventBusNames,
@@ -238,6 +243,102 @@ export default class ServiceToken extends ServiceBase {
       }),
     );
     return tokensBalance;
+  }
+
+  async _batchFetchAccountBalances({
+    walletId,
+    networkId,
+    accountIds,
+  }: {
+    walletId: string;
+    networkId: string;
+    accountIds: string[];
+  }) {
+    const { dispatch, engine } = this.backgroundApi;
+
+    const vault = await engine.getWalletOnlyVault(networkId, walletId);
+    const dbNetwork = await engine.dbApi.getNetwork(networkId);
+    const dbAccounts = await engine.dbApi.getAccounts(accountIds);
+
+    let balances: Array<BigNumber | undefined>;
+    try {
+      const balancesAddress = await Promise.all(
+        dbAccounts.map(async (a) => {
+          if (a.type === AccountType.UTXO) {
+            const address = await vault.getFetchBalanceAddress(a);
+            return { address };
+          }
+          if (a.type === AccountType.VARIANT) {
+            let address = (a as unknown as DBVariantAccount).addresses?.[
+              networkId
+            ];
+            if (!address) {
+              address = await engine.providerManager.addressFromBase(
+                networkId,
+                a.address,
+              );
+            }
+            return { address };
+          }
+          return { address: a.address };
+        }),
+      );
+      const requests = balancesAddress.map((acc) => ({ address: acc.address }));
+      balances = await vault.getBalances(requests);
+    } catch {
+      balances = dbAccounts.map(() => undefined);
+    }
+
+    const data = dbAccounts.reduce((result, item, index) => {
+      const balance = balances[index];
+      result[item.id] = balance
+        ? balance.div(new BigNumber(10).pow(dbNetwork.decimals)).toFixed()
+        : undefined;
+      return result;
+    }, {} as Record<string, string | undefined>);
+
+    const actions: any[] = [];
+    Object.entries(data).forEach(([key, value]) => {
+      if (!Number.isNaN(value)) {
+        actions.push(
+          setAccountTokensBalances({
+            activeAccountId: key,
+            activeNetworkId: networkId,
+            tokensBalance: { 'main': value },
+          }),
+        );
+      }
+    });
+    if (actions.length > 0) {
+      dispatch(...actions);
+    }
+  }
+
+  batchFetchAccountBalancesDebounce = debounce(
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    this._batchFetchAccountBalances,
+    600,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  @backgroundMethod()
+  batchFetchAccountBalances({
+    walletId,
+    networkId,
+    accountIds,
+  }: {
+    walletId: string;
+    networkId: string;
+    accountIds: string[];
+  }) {
+    return this.batchFetchAccountBalancesDebounce({
+      walletId,
+      networkId,
+      accountIds,
+    });
   }
 
   @backgroundMethod()

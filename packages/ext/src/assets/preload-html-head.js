@@ -1,9 +1,36 @@
 /*
 - packages/shared/src/web/index.html.ejs
 - packages/kit/src/store/reducers/settings.ts # setThemePreloadToLocalStorage
-- packages/ext/src/assets/theme-preload.js
+- packages/ext/src/assets/preload-html-head.js
  */
 (function () {
+  // $$onekeyPerfTrace start ----------------------------------------------
+  window.$$onekeyPerfTrace = {
+    timeline: [],
+    log: ({ name }) => {
+      const lastStat =
+        window.$$onekeyPerfTrace.timeline[
+          window.$$onekeyPerfTrace.timeline.length - 1
+        ];
+      const perfNow = window.performance.now();
+      const time = new Date().toLocaleString();
+      window.$$onekeyPerfTrace.timeline.push({
+        lag: lastStat ? perfNow - lastStat.elapsed : 0,
+        name,
+        time,
+        elapsed: perfNow,
+      });
+      // keep limited array length to avoid memory leak
+      window.$$onekeyPerfTrace.timeline =
+        window.$$onekeyPerfTrace.timeline.slice(-200);
+    },
+  };
+  window.$$onekeyPerfTrace.log({
+    name: 'APP_START: preload-html-head.js start',
+  });
+  // $$onekeyPerfTrace end ----------------------------------------------
+
+  // themePreload start ----------------------------------------------
   const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
   if (theme === 'dark') {
     document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
@@ -11,6 +38,7 @@
   if (theme === 'light' || theme === 'system') {
     document.documentElement.style.backgroundColor = 'white';
   }
+  // themePreload end ----------------------------------------------
 
   // optimizeResize start ----------------------------------------------
   /* TEST CODE

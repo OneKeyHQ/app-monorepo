@@ -1,22 +1,18 @@
-/* eslint-disable @typescript-eslint/ban-types */
 import { useEffect, useRef } from 'react';
 
-import { Box, Modal } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
 import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { LazyDisplayView } from '../../LazyDisplayView';
-import { useAccountSelectorInfo } from '../hooks/useAccountSelectorInfo';
 
-import AccountList from './AccountList';
-import ChainSelector from './ChainSelector';
-import Header from './Header';
+import { useAccountSelectorInfo } from './useAccountSelectorInfo';
 
 const { updateIsOpenDelay, updateIsOpen } = reducerAccountSelector.actions;
-function NetworkAccountSelectorModal() {
+
+export function useAccountSelectorModalInfo() {
   const { dispatch } = backgroundApiProxy;
+
   const isMountedRef = useRef(false);
   useEffect(() => {
     setTimeout(() => {
@@ -43,31 +39,13 @@ function NetworkAccountSelectorModal() {
 
   const accountSelectorInfo = useAccountSelectorInfo();
 
+  let shouldShowModal = true;
   if (!accountSelectorInfo.isOpenDelay && platformEnv.isNativeAndroid) {
-    return null;
+    shouldShowModal = false;
   }
 
-  return (
-    <Modal
-      headerShown={false}
-      footer={null}
-      staticChildrenProps={{
-        flex: 1,
-        padding: 0,
-      }}
-      height="560px"
-    >
-      <LazyDisplayView delay={0}>
-        <Box flex={1} flexDirection="row">
-          <ChainSelector accountSelectorInfo={accountSelectorInfo} />
-          <Box alignSelf="stretch" flex={1}>
-            <Header accountSelectorInfo={accountSelectorInfo} />
-            <AccountList accountSelectorInfo={accountSelectorInfo} />
-          </Box>
-        </Box>
-      </LazyDisplayView>
-    </Modal>
-  );
+  return {
+    accountSelectorInfo,
+    shouldShowModal,
+  };
 }
-
-export { NetworkAccountSelectorModal };

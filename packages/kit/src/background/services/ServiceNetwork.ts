@@ -48,7 +48,8 @@ class ServiceNetwork extends ServiceBase {
       networkId,
       activeNetworkId ?? '',
     );
-    this.backgroundApi.dispatch(changeActiveNetwork(networkId));
+    const changeActiveNetworkAction = changeActiveNetwork(networkId);
+    let shouldDispatch = true;
     this.notifyChainChanged();
 
     if (previousNetwork?.impl !== newNetwork?.impl) {
@@ -63,8 +64,15 @@ class ServiceNetwork extends ServiceBase {
         await serviceAccount.changeActiveAccount({
           accountId: firstAccount.id,
           walletId: activeWalletId,
+          extraActions: [changeActiveNetworkAction], // dispatch batch actions
+          // as reloadAccountsByWalletIdNetworkId() has been called before
+          shouldReloadAccountsWhenWalletChanged: false,
         });
+        shouldDispatch = false;
       }
+    }
+    if (shouldDispatch) {
+      this.backgroundApi.dispatch(changeActiveNetworkAction);
     }
     return newNetwork;
   }

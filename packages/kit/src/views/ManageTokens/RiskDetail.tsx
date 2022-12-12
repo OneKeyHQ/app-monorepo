@@ -111,7 +111,7 @@ const RiskDetail: FC = () => {
         </Pressable>
       </VStack>
     ),
-    [insets],
+    [insets.bottom, linkToGoPlus],
   );
 
   const renderItem = useCallback(

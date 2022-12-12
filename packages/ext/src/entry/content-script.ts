@@ -35,7 +35,7 @@ const removeScriptTagAfterInject = true;
 
 if (shouldInject()) {
   if (platformEnv.isManifestV3) {
-    bridgeSetup.contentScript.inject({ file: 'injected.js' });
+    bridgeSetup.contentScript.inject({ file: `injected.js?${Date.now()}` });
   } else {
     // bridgeSetup.contentScript.inject({ file: 'injected.js' });
     bridgeSetup.contentScript.inject({
