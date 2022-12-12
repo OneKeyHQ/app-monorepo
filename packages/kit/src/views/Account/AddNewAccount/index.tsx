@@ -56,7 +56,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       defaultValues: { name: '', addressType: 'default' },
     });
   const { activeNetworkId } = useGeneral();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoading, setIsLoading] = useState(false);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -139,6 +138,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           const usedPurpose = parseInt(category.split("'/")[0]);
           setPurpose(usedPurpose);
           try {
+            setIsLoading(true);
             await backgroundApiProxy.validator.validateCanCreateNextAccount(
               selectedWalletId,
               selectedNetwork.id,
@@ -149,6 +149,8 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             setCannotCreateAccountReason(
               intl.formatMessage({ id: key as any }, info as any),
             );
+          } finally {
+            setIsLoading(false);
           }
           return;
         }
@@ -235,6 +237,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       primaryActionProps={{
         onPromise: onSubmit,
         isDisabled: !!cannotCreateAccountReason,
+        isLoading,
       }}
       primaryActionTranslationId="action__create"
       hideSecondaryAction
