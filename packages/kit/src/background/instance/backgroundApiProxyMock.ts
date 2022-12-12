@@ -38,6 +38,7 @@ class BackgroundApiProxy {
 
   backgroundApi: any;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _createProxyService(name: string) {
     return {};
   }

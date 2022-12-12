@@ -246,11 +246,12 @@ function useDropdownPosition({
       top: top + height + translateY,
     };
   }, [
-    translateY,
-    visible,
-    dropdownPosition,
-    dropdownProps?.height,
     triggerEle,
+    visible,
+    outerContainerRef,
+    dropdownProps?.height,
+    dropdownPosition,
+    translateY,
   ]);
 
   const adjustDropdownPosition = useCallback(
