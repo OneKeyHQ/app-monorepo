@@ -24,7 +24,8 @@ import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
-const BATCH_SEND_RETRY_MAX = 20;
+const BATCH_SEND_TX_RETRY_MAX = 20;
+const REFRESH_PENDING_TXS_RETRY_MAX = 20;
 
 const ERC721 = ERC721MetadataArtifact.abi;
 const ERC1155 = ERC1155MetadataArtifact.abi;
@@ -177,7 +178,8 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const { engine } = this.backgroundApi;
     const { networkId, pendingTxs, encodedTx } = params;
     const network = await engine.getNetwork(networkId);
-    let retry = 0;
+    let sendTxRetry = 0;
+    let refreshPendingTxsRetry = 0;
     if (
       pendingTxs &&
       pendingTxs.length > 0 &&
@@ -193,7 +195,11 @@ export default class ServiceBatchTransfer extends ServiceBase {
           pendingTxs,
         );
 
-        if (Object.keys(txs).length !== pendingTxs.length) {
+        if (
+          Object.keys(txs).length !== pendingTxs.length &&
+          refreshPendingTxsRetry < REFRESH_PENDING_TXS_RETRY_MAX
+        ) {
+          refreshPendingTxsRetry += 1;
           await wait(1000);
           await refreshPendingTxs();
         }
@@ -206,10 +212,10 @@ export default class ServiceBatchTransfer extends ServiceBase {
           if (e instanceof OneKeyError) {
             throw e;
           }
-          if (retry > BATCH_SEND_RETRY_MAX) {
+          if (sendTxRetry > BATCH_SEND_TX_RETRY_MAX) {
             throw e;
           }
-          retry += 1;
+          sendTxRetry += 1;
           await wait(1000);
           await resendTx();
         }
