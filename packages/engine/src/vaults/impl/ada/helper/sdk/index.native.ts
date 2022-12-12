@@ -112,9 +112,6 @@ const hwSignTransaction = async (
       'cardano web-embed CardanoSignedTxWitness error: ',
       result.error,
     );
-    if (result.error === 'UTXO_VALUE_TOO_SMALL') {
-      throw new InsufficientBalance();
-    }
     throw new Error(result.error);
   }
   debugLogger.providerApi.error(
