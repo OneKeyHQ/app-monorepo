@@ -43,7 +43,8 @@ const swrConfig = {
 const flexStyle = { flex: 1 };
 
 // TODO: detect network change & APP in background mode
-const KitProvider: FC<LaunchProps> = (props) => {
+const KitProvider: FC<LaunchProps> = (propsRaw) => {
+  const props = propsRaw || {};
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
   } = props;

@@ -29,7 +29,11 @@ export function useNavigationGoHomeForceReload() {
     if (platformEnv.isRuntimeBrowser && !platformEnv.isExtensionBackground) {
       // navigate() not working
       navigation.navigate(RootRoutes.Root);
-      if (platformEnv.isWeb) {
+      if (
+        platformEnv.isWeb ||
+        platformEnv.isExtensionUiExpandTab ||
+        (platformEnv.isDesktop && platformEnv.isDev)
+      ) {
         window.location.href = '/';
         return;
       }

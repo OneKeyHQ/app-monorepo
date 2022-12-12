@@ -74,6 +74,8 @@ export const ControllerBarMobile: FC = () => {
       ]}
     >
       <IconButton
+        pl={0}
+        pr={0}
         flex={1}
         type="plain"
         disabled={currentTab.url === homeTab.url}
@@ -81,6 +83,8 @@ export const ControllerBarMobile: FC = () => {
         name="ChevronLeftOutline"
       />
       <IconButton
+        pl={0}
+        pr={0}
         flex={1}
         type="plain"
         disabled={!canGoForward}
@@ -88,6 +92,8 @@ export const ControllerBarMobile: FC = () => {
         name="ChevronRightOutline"
       />
       <IconButton
+        pl={0}
+        pr={0}
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
@@ -95,7 +101,7 @@ export const ControllerBarMobile: FC = () => {
         iconSize={26}
         name="PlusCircleMini"
       />
-      <Button type="plain" flex={1} onPress={showTabGrid}>
+      <Button type="plain" pl={0} pr={0} flex={1} onPress={showTabGrid}>
         <Center
           w="20px"
           h="20px"
@@ -113,6 +119,8 @@ export const ControllerBarMobile: FC = () => {
         </Center>
       </Button>
       <IconButton
+        pl={0}
+        pr={0}
         flex={1}
         type="plain"
         disabled={currentTab.url === homeTab.url}

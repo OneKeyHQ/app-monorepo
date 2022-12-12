@@ -20,84 +20,18 @@
       /* add global styles to packages/shared/src/web/index.css */
     </style>
 
-<!--    <script>-->
-<!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
-<!--      // document.documentElement.style.backgroundColor = 'black';-->
-<!--    </script>-->
+
       <% if ( platform === 'ext' ) { %>
-          <script src="/theme-preload.js"></script>
+      <!--    <script>-->
+      <!--      // ** inline script not allowed in Ext, use themePreload.js instead-->
+      <!--    </script>-->
+          <script src="/preload-html-head.js?<%=Date.now() %>"></script>
       <% } %>
 
       <% if ( platform === 'desktop' || platform === 'web' ) { %>
           <script>
-            // copy code from theme-preload.js
-            (function () {
-              const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
-              if (theme === 'dark') {
-                document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
-              }
-              if (theme === 'light' || theme === 'system') {
-                document.documentElement.style.backgroundColor = 'white';
-              }
-
-              // optimizeResize start ----------------------------------------------
-              /* TEST CODE
-            const handler = ()=>console.log('ffffff');
-            window.addEventListener('resize', handler);
-            window.removeEventListener('resize',handler);
-               */
-              function debounce(func, timeout = 600) {
-                let timer;
-                return (...args) => {
-                  clearTimeout(timer);
-                  timer = setTimeout(() => {
-                    func.apply(this, args);
-                  }, timeout);
-                };
-              }
-              function optimizeResize() {
-                const resizeEventMap = new Map();
-                window.$$onekeyWindowResizeEventMap = resizeEventMap;
-                // @ts-ignore
-                window.addEventListenerOld = window.addEventListener;
-                window.removeEventListenerOld = window.removeEventListener;
-                window.addEventListener = (eventName, handler) => {
-                  if (eventName === 'resize') {
-                    const debouncedHandler = debounce(handler, 300);
-                    resizeEventMap.set(handler, debouncedHandler);
-                    window.addEventListenerOld(eventName, debouncedHandler);
-                  } else {
-                    // @ts-ignore
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                    window.addEventListenerOld(eventName, handler);
-                  }
-                };
-                window.removeEventListener = (eventName, handler) => {
-                  if (eventName === 'resize') {
-                    const debouncedHandler = resizeEventMap.get(handler);
-                    if (debouncedHandler) {
-                      resizeEventMap.delete(handler);
-                      window.removeEventListenerOld(eventName, debouncedHandler);
-                    }
-                  } else {
-                    // @ts-ignore
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                    window.removeEventListenerOld(eventName, handler);
-                  }
-                };
-              }
-
-              try {
-                optimizeResize();
-              } catch (error) {
-                // const e = error as Error | undefined;
-              } finally {
-                // noop
-              }
-              // optimizeResize end ----------------------------------------------
-
-            })();
-
+// >>>>>>> automatic copy code from preload-html-head.js <<<<<<<<<
+            <%= htmlHeadPreloadCode %>
           </script>
       <% } %>
   </head>
@@ -107,7 +41,7 @@
 
         data-platform="<%= platform %>"
         data-browser="<%= browser %>"
-        data-filename="<%= filename %>"
+        data-filename="<%= filename %>-not-correct-in-ext"
 
     <% if ( platform === 'ext' && browser === 'firefox' && filename === 'ui-popup.html' ) { %>
         style="min-height: 600px; min-width: 375px; margin: 0;"

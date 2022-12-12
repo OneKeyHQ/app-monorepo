@@ -47,13 +47,13 @@ function writePreviewWebpackConfigJson(webpackConfig, filename) {
 
 function createMultipleEntryConfigs(createConfig, multipleEntryConfigs) {
   const configs = multipleEntryConfigs.map(({ config, configUpdater }) => {
-    const webpackConfig = createConfig();
+    const webpackConfig = createConfig({ config });
     const configMerged = lodash.merge(webpackConfig, config);
     return configUpdater(configMerged);
   });
   return configs;
 }
-
+// firefox chrome
 function getBuildTargetBrowser() {
   console.log('getBuildTargetBrowser: process.argv', process.argv);
   const buildTargetBrowser =

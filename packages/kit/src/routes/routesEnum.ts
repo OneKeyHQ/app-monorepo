@@ -115,6 +115,7 @@ export enum CreateAccountModalRoutes {
 
 export enum ManageNetworkRoutes {
   NetworkAccountSelector = 'NetworkAccountSelector',
+  NetworkSelector = 'NetworkSelector',
   Listing = 'Listing',
   AddNetwork = 'AddNetwork',
   CustomNetwork = 'CustomNetwork',

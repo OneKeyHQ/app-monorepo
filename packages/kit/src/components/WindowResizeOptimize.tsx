@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from './LazyDisplayView';
 
-// TODO not working, check theme-preload.js optimizeResize()
+// TODO not working, check preload-html-head.js optimizeResize()
 export function WindowResizeOptimize({ children }: { children: JSX.Element }) {
   const [isResizing, setIsResizing] = useState(false);
   useEffect(() => {
