@@ -196,6 +196,7 @@ function Select<T = string>({
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
   const { size } = useUserDevice();
+  const isProcessing = useRef(false);
   const toggleVisible = useCallback(() => {
     // if (platformEnv.isBrowser) {
     //   const event = new Event('click');
@@ -233,7 +234,16 @@ function Select<T = string>({
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
       setInnerValue(v);
       toggleVisible();
-      setTimeout(() => onChange?.(v, option), 500);
+      setTimeout(() => {
+        if (isProcessing.current) return;
+        isProcessing.current = true;
+        if (typeof v === 'function') {
+          v();
+        } else {
+          onChange?.(v, option);
+        }
+        isProcessing.current = false;
+      }, 300);
     },
     [onChange, toggleVisible],
   );
