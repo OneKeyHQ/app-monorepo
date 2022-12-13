@@ -5,7 +5,7 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 import { Box } from '@onekeyhq/components';
 
-const LibLoader = async () => import('cardano-coin-selection');
+const LibLoader = async () => import('cardano-coin-selection-asmjs');
 
 const getCardanoApi = async () => {
   const Loader = await LibLoader();
