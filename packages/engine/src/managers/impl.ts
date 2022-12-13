@@ -208,12 +208,14 @@ const defaultAccountNameInfo: Record<
       label: 'Legacy (P2PKH)',
     },
   },
-  [IMPL_XRP]: { default: { prefix: 'XRP', category: `44'/${COINTYPE_XRP}'` } },
+  [IMPL_XRP]: {
+    default: { prefix: 'RIPPLE', category: `44'/${COINTYPE_XRP}'` },
+  },
   [IMPL_COSMOS]: {
     default: { prefix: 'COSMOS', category: `44'/${COINTYPE_COSMOS}'` },
   },
   [IMPL_ADA]: {
-    default: { prefix: 'ADA', category: `1852'/${COINTYPE_ADA}'` },
+    default: { prefix: 'CARDANO', category: `1852'/${COINTYPE_ADA}'` },
   },
   [IMPL_SUI]: {
     default: { prefix: 'SUI', category: `44'/${COINTYPE_SUI}'` },

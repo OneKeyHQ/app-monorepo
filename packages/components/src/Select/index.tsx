@@ -1,5 +1,6 @@
 import {
   ComponentProps,
+  MutableRefObject,
   ReactElement,
   ReactNode,
   RefObject,
@@ -120,6 +121,7 @@ export type SelectProps<T = string> = {
   positionTranslateY?: number;
   withReactModal?: boolean;
   autoAdjustPosition?: boolean;
+  outerContainerRef?: MutableRefObject<unknown>;
 };
 
 export type ChildProps<T> = Pick<
@@ -144,6 +146,7 @@ export type ChildProps<T> = Pick<
   | 'positionTranslateY'
   | 'withReactModal'
   | 'autoAdjustPosition'
+  | 'outerContainerRef'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -188,6 +191,7 @@ function Select<T = string>({
   onModalHide,
   withReactModal,
   autoAdjustPosition,
+  outerContainerRef,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
@@ -261,6 +265,7 @@ function Select<T = string>({
       setPositionOnlyMounted,
       positionTranslateY,
       withReactModal,
+      outerContainerRef,
       onModalHide: () => {
         if (visible) {
           toggleVisible();
@@ -303,6 +308,7 @@ function Select<T = string>({
     setPositionOnlyMounted,
     positionTranslateY,
     withReactModal,
+    outerContainerRef,
     size,
     autoAdjustPosition,
     onModalHide,

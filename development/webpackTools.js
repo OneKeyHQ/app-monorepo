@@ -140,7 +140,7 @@ function normalizeConfig({
     );
   }
 
-  // lit file-loader skip handle wasm files
+  // let file-loader skip handle wasm files
   config.module.rules.forEach((rule) => {
     (rule.oneOf || []).forEach((oneOf) => {
       if (oneOf.loader && oneOf.loader.indexOf('file-loader') >= 0) {

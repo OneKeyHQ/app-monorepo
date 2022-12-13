@@ -18,7 +18,6 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -93,20 +92,20 @@ const TokenInputReceivingAddress: FC = () => {
 
   useEffect(() => {
     async function main() {
-      if (label) {
-        return;
-      }
       let isDirty = false;
       async function checkRecipientUnknown() {
         const isUnknown =
           await backgroundApiProxy.serviceSwap.recipientIsUnknown(recipient);
         setRecipientUnknown(isUnknown);
         if (isUnknown) {
-          const shown = await simpleDb.setting.getSwapReceivingUnknownShown();
+          const shown =
+            await backgroundApiProxy.serviceSwap.getSwapReceivingUnknownShown();
           if (shown) {
             return;
           }
-          await simpleDb.setting.setSwapReceivingUnknownShown(true);
+          await backgroundApiProxy.serviceSwap.setSwapReceivingUnknownShown(
+            true,
+          );
           setLabel(
             intl.formatMessage({
               id: 'msg__you_are_swapping_asset_to_an_address_that_may_not_be_yours_please_verify',
@@ -122,12 +121,14 @@ const TokenInputReceivingAddress: FC = () => {
           sendingAccount?.address !== recipient?.address
         ) {
           const shown =
-            await simpleDb.setting.getSwapReceivingIsNotSendingAccountShown();
+            await backgroundApiProxy.serviceSwap.getSwapReceivingIsNotSendingAccountShown();
           if (shown) {
             return;
           }
 
-          await simpleDb.setting.setSwapReceivingIsNotSendingAccountShown(true);
+          await backgroundApiProxy.serviceSwap.setSwapReceivingIsNotSendingAccountShown(
+            true,
+          );
           setLabel(
             intl.formatMessage({
               id: 'msg__you_have_selected_another_account_to_receive_tokens',
@@ -141,7 +142,7 @@ const TokenInputReceivingAddress: FC = () => {
       }
     }
     main();
-  }, [sendingAccount, recipient, label, intl]);
+  }, [sendingAccount, recipient, intl]);
 
   useEffect(() => {
     if (label) {
@@ -185,27 +186,29 @@ const TokenInputReceivingAddress: FC = () => {
   if (address) {
     return (
       <Box position="relative">
-        <Pressable
-          flexDirection="row"
-          borderRadius={12}
-          alignItems="center"
-          onPress={onPress}
-          _hover={{ bg: 'surface-hovered' }}
-          _pressed={{ bg: 'surface-pressed' }}
-          position="relative"
-        >
-          <Box py="1" px="2" flexDirection="row" alignItems="center">
-            {text}
-            <Icon size={16} name="ChevronDownSolid" />
-          </Box>
-        </Pressable>
+        <Box flexDirection="row">
+          <Pressable
+            flexDirection="row"
+            borderRadius={12}
+            alignItems="center"
+            onPress={onPress}
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            position="relative"
+          >
+            <Box py="1" px="2" flexDirection="row" alignItems="center">
+              {text}
+              <Icon size={16} name="ChevronDownSolid" />
+            </Box>
+          </Pressable>
+        </Box>
         <Box position="relative">
           <Tooltip
             isOpen={!!label}
             hasArrow
             label={label ?? ''}
             bg="surface-neutral-default"
-            _text={{ color: 'text-on-primary', fontSize: '14px' }}
+            _text={{ color: 'text-default', fontSize: '14px' }}
             px="16px"
             py="8px"
             borderRadius="12"
@@ -223,7 +226,7 @@ const TokenInputReceivingAddress: FC = () => {
         flexDirection="row"
         py="1"
         px="2"
-        bg="surface-neutral-subdued"
+        // bg="surface-neutral-subdued"
         borderRadius="12"
       >
         <Typography.Caption color="text-default" mr="1" numberOfLines={1}>

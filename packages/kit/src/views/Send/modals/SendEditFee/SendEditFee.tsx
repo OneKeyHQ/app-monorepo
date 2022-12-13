@@ -368,6 +368,7 @@ function ScreenSendEditFee({ ...rest }) {
     feeInfoPayload,
     feeInfoPayload?.selected,
     feeInfoPayload?.selected.type,
+    oldSendConfirmParams?.actionType,
     setFormValuesFromFeeInfo,
     setValue,
   ]);
