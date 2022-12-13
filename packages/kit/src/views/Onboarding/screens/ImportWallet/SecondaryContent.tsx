@@ -88,7 +88,7 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
             <Text flex={1} typography="Body2Strong" ml={3}>
               MetaMask
             </Text>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         )}
       </Pressable>

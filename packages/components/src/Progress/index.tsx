@@ -1,9 +1,9 @@
 import BarComponent from './Bar';
 import CircleComponent from './Circle';
 
-const Progerss = {
+const Progress = {
   Bar: BarComponent,
   Circle: CircleComponent,
 };
 
-export default Progerss;
+export default Progress;

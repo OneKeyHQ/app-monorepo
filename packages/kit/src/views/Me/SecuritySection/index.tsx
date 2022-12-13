@@ -156,7 +156,7 @@ export const SecuritySection = () => {
                 })}
               </Text>
               <Box>
-                <Icon name="ChevronRightSolid" size={20} />
+                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
               </Box>
             </Pressable>
           ) : undefined}
@@ -190,7 +190,7 @@ export const SecuritySection = () => {
               })}
             </Text>
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           </Pressable>
           {isHardwareSupportWebAuthn && isContextSupportWebAuthn ? (
@@ -207,7 +207,7 @@ export const SecuritySection = () => {
                 // navigation.navigate(HomeRoutes.CloudBackup);
               }}
             >
-              <Icon name="FingerPrintIllus" />
+              <Icon name="FingerPrintOutline" />
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 flex="1"
@@ -353,7 +353,7 @@ export const SecuritySection = () => {
               navigation.navigate(HomeRoutes.Protected);
             }}
           >
-            <Icon name="UmbrellaOutline" />
+            <Icon name="ShieldCheckOutline" />
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               flex="1"
@@ -363,7 +363,7 @@ export const SecuritySection = () => {
               {intl.formatMessage({ id: 'action__protection' })}
             </Text>
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           </Pressable>
           <ResetButton />

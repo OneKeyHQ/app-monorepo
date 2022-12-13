@@ -108,11 +108,12 @@ const GenericBackupItem = ({
   name: string;
   address: string;
 }) => {
-  let iconName: 'EyeOutline' | 'SaveOutline' | 'BookOpenOutline' = 'EyeOutline';
+  let iconName: 'EyeOutline' | 'InboxArrowDownOutline' | 'BookOpenOutline' =
+    'EyeOutline';
   if (category === 'contact') {
     iconName = 'BookOpenOutline';
   } else if (category === 'importedAccount') {
-    iconName = 'SaveOutline';
+    iconName = 'InboxArrowDownOutline';
   }
 
   return (

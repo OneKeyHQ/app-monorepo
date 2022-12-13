@@ -31,7 +31,7 @@ export function TxActionElementPressable(props: {
     flex,
     onPress,
     children,
-    icon = <Icon name="ChevronRightSolid" size={20} />,
+    icon = <Icon name="ChevronRightMini" color="icon-subdued" size={20} />,
   } = props;
   const contentView = (
     <TxActionElementWithIcon flex={flex} icon={onPress ? icon : undefined}>

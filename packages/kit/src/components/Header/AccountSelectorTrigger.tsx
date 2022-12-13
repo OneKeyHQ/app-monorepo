@@ -155,7 +155,7 @@ const AccountSelectorTrigger: FC<Props> = ({
               {name}
             </Typography.Body2Strong>
             <Box ml={!isVerticalLayout ? 'auto' : undefined}>
-              <Icon size={20} name="ChevronDownSolid" />
+              <Icon size={20} name="ChevronDownMini" />
             </Box>
           </Box>
         )}

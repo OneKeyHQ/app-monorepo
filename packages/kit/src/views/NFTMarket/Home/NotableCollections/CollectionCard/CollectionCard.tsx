@@ -41,7 +41,7 @@ const CollectionCard: FC<CollectionCardProps> = ({
           {contractName}
         </Text>
         {!!verified && (
-          <Icon name="BadgeCheckSolid" size={16} color="icon-success" />
+          <Icon name="BadgeCheckMini" size={16} color="icon-success" />
         )}
       </Box>
       <PriceText

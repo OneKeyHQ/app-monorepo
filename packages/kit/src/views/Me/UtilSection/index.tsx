@@ -64,7 +64,7 @@ export const UtilSection = () => {
             borderBottomWidth="1"
             borderBottomColor="divider"
           >
-            <Icon name="OnekeyLiteOutline" />
+            <Icon name="OnekeyLogoOutline" />
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               flex="1"
@@ -96,7 +96,7 @@ export const UtilSection = () => {
             px={{ base: 4, md: 6 }}
             onPress={onLock}
           >
-            <Icon name="LockOutline" />
+            <Icon name="LockClosedOutline" />
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               flex="1"
@@ -108,7 +108,7 @@ export const UtilSection = () => {
               })}
             </Text>
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           </Pressable>
         ) : null}
@@ -128,7 +128,7 @@ export const UtilSection = () => {
                 });
               }}
             >
-              <Icon name="ArrowsExpandOutline" />
+              <Icon name="ArrowsPointingOutOutline" />
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 flex="1"
@@ -140,7 +140,7 @@ export const UtilSection = () => {
                 })}
               </Text>
               <Box>
-                <Icon name="ChevronRightSolid" size={20} />
+                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
               </Box>
             </Pressable>
           </>
@@ -157,7 +157,9 @@ export const UtilSection = () => {
             gotoScanQrcode();
           }}
         >
-          <Icon name={small ? 'ScanOutline' : 'ScanSolid'} />
+          <Icon
+            name={small ? 'ViewfinderCircleOutline' : 'ViewfinderCircleMini'}
+          />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex="1"
@@ -169,7 +171,7 @@ export const UtilSection = () => {
             })}
           </Text>
           <Box>
-            <Icon name="ChevronRightSolid" size={20} />
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
         <>
@@ -190,7 +192,7 @@ export const UtilSection = () => {
               });
             }}
           >
-            <Icon name="ConnectOutline" />
+            <Icon name="LinkOutline" />
             <Text
               typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
               flex="1"
@@ -203,7 +205,7 @@ export const UtilSection = () => {
               })}
             </Text>
             <Box>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           </Pressable>
         </>

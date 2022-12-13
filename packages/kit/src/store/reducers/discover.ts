@@ -26,7 +26,9 @@ type InitialState = {
 
   history: Record<string, DiscoverHistory>;
   firstRemindDAPP: boolean;
-  enableIOSDappSearch?: boolean;
+  // enableIOSDappSearch?: boolean;
+  // showFullLayout?: boolean;
+  showBookmark?: boolean;
 };
 
 const initialState: InitialState = {
@@ -234,9 +236,11 @@ export const discoverSlice = createSlice({
     // ) {
     //   state.tagDapps = action.payload;
     // },
-
-    setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
-      state.enableIOSDappSearch = action.payload;
+    // setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
+    //   state.enableIOSDappSearch = action.payload;
+    // },
+    setShowBookmark(state, action: PayloadAction<boolean>) {
+      state.showBookmark = action.payload;
     },
     cleanOldState(state) {
       state.dappItems = undefined;
@@ -273,7 +277,8 @@ export const {
   // setCategoryDapps,
   // setTagDapps,
   clearHistory,
-  setEnableIOSDappSearch,
+  // setEnableIOSDappSearch,
+  setShowBookmark,
   cleanOldState,
   setHomeData,
 } = discoverSlice.actions;

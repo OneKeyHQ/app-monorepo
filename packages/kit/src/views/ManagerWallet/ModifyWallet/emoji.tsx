@@ -68,7 +68,7 @@ const ColorSelecter = React.memo((props: ColorSelecterProps) => {
                   alignSelf="stretch"
                   bgColor={item}
                   borderRadius="full"
-                  borderColor="surface-subdued"
+                  borderColor="background-default"
                   borderWidth="4px"
                 />
               </Center>
@@ -189,7 +189,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
           ref={emojiContainerRef}
           borderTopLeftRadius="24px"
           borderTopRadius="24px"
-          bgColor="surface-default"
+          bgColor="surface-subdued"
         >
           {pageWidth > 0 && (
             <Box paddingLeft="24px" paddingTop="24px" flex={1}>

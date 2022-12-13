@@ -51,6 +51,7 @@ import type {
   IEncodedTxTron,
   IOnChainHistoryTokenTx,
   IOnChainHistoryTx,
+  IRPCCallResponse,
 } from './types';
 
 const FAKE_OWNER_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
@@ -520,33 +521,34 @@ export default class Vault extends VaultBase {
         call_value: callValue,
         owner_address: fromAddressHex,
       } = encodedTx.raw_data.contract[0].parameter.value;
-      try {
-        const tronWeb = await this.getClient();
-        const { result } = await tronWeb.fullNode.request(
-          'jsonrpc',
-          {
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'eth_estimateGas',
-            params: [
-              {
-                from: fromAddressHex,
-                to: contractAddressHex,
-                gas: '0x01',
-                gasPrice: '0x01',
-                value: toBigIntHex(new BigNumber(callValue ?? 0)),
-                data,
-              },
-            ],
-          },
-          'post',
-        );
-        const requiredEnergy = parseInt(result);
-        if (requiredEnergy > stakedEnergy) {
-          baseFee += requiredEnergy * parameters.getEnergyFee;
-        }
-      } catch (e) {
-        // pass TODO
+      const tronWeb = await this.getClient();
+      const resp: IRPCCallResponse = await tronWeb.fullNode.request(
+        'jsonrpc',
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_estimateGas',
+          params: [
+            {
+              from: fromAddressHex,
+              to: contractAddressHex,
+              gas: '0x01',
+              gasPrice: '0x01',
+              value: toBigIntHex(new BigNumber(callValue ?? 0)),
+              data,
+            },
+          ],
+        },
+        'post',
+      );
+
+      if (resp.error && resp.error.message) {
+        throw new Error(resp.error.message);
+      }
+
+      const requiredEnergy = parseInt(resp.result);
+      if (requiredEnergy > stakedEnergy) {
+        baseFee += requiredEnergy * parameters.getEnergyFee;
       }
     }
 

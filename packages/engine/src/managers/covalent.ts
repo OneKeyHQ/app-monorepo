@@ -34,6 +34,8 @@ import {
 import { convertTokenOnChainValueToAmount } from '../vaults/utils/tokenUtils';
 import { VaultBase } from '../vaults/VaultBase';
 
+import { getAsset } from './nft';
+
 import type { IEncodedTxEvm } from '../vaults/impl/evm/Vault';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
@@ -667,6 +669,39 @@ async function createOutputActionFromCovalentLogEvent({
         };
       }
     }
+    if (name === 'TransferSingle') {
+      const { accountId, networkId } = vault;
+
+      const from = (
+        params.find((p) => p.name === '_from')?.value || ''
+      ).toLowerCase();
+      const to = (
+        params.find((p) => p.name === '_to')?.value || ''
+      ).toLowerCase();
+      const tokenId = params.find((p) => p.name === '_id')?.value || '';
+      const amount = params.find((p) => p.name === '_amount')?.value || '0';
+      const asset = await getAsset({
+        accountId,
+        networkId,
+        contractAddress: event.sender_address,
+        tokenId,
+        local: true,
+      });
+
+      if (asset) {
+        action = {
+          type: IDecodedTxActionType.NFT_TRANSFER,
+          hidden: !(from === address || to === address),
+          nftTransfer: {
+            asset,
+            amount,
+            send: from,
+            receive: to,
+            extraInfo: null,
+          },
+        };
+      }
+    }
 
     return action;
   }
@@ -744,6 +779,16 @@ export async function parseCovalentTxToDecodedTx(
                 params.find((p) => p.name === 'owner')?.value || ''
               ).toLowerCase();
               return owner === address;
+            }
+
+            if (name === 'TransferSingle') {
+              const from = (
+                params.find((p) => p.name === '_from')?.value || ''
+              ).toLowerCase();
+              const to = (
+                params.find((p) => p.name === '_to')?.value || ''
+              ).toLowerCase();
+              return from === address || to === address;
             }
           }
           return false;

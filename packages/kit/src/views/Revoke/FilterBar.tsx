@@ -70,7 +70,7 @@ const FilterBar: FC<Props> = (props) => {
       </HStack>
       <IconButton
         size="sm"
-        name="CogSolid"
+        name="CogMini"
         type="plain"
         mr={-2}
         onPress={showExtraFiltersOverlay}

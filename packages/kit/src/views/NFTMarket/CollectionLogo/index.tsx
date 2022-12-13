@@ -39,7 +39,7 @@ const CollectionLogo: FC<Props> = ({ verified, ...imageProps }) => {
             bottom="-4px"
             borderRadius="full"
           >
-            <Icon size={16} name="BadgeCheckSolid" color="icon-success" />
+            <Icon size={16} name="BadgeCheckMini" color="icon-success" />
           </Box>
         ) : null}
       </Box>

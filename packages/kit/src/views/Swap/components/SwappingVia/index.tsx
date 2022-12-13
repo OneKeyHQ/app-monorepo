@@ -11,8 +11,16 @@ type SwappingViaProps = {
   fontWeight?: ComponentProps<typeof Text>['fontWeight'];
 };
 
-type SwappingViaLogosProps = { sources?: string[] };
-const SwappingViaLogos: FC<SwappingViaLogosProps> = ({ sources }) => {
+function proxyimg(base: string) {
+  return `https://node.onekey.so/proxyimg?base=${base}`;
+}
+
+type SwappingViaLogosProps = { sources?: string[]; size?: number };
+export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
+  sources,
+  size,
+}) => {
+  const imageSize = size || 4;
   if (!sources || sources.length === 0) {
     return null;
   }
@@ -20,13 +28,17 @@ const SwappingViaLogos: FC<SwappingViaLogosProps> = ({ sources }) => {
     return (
       <Box
         borderRadius="full"
-        w="4"
-        h="4"
+        w={imageSize}
+        h={imageSize}
         overflow="hidden"
-        mr="2"
         key={sources[0]}
+        bgColor="surface-neutral-default"
       >
-        <Image size="4" src={sources[0]} testID={sources[0]} />
+        <Image
+          size={imageSize}
+          src={proxyimg(sources[0])}
+          testID={sources[0]}
+        />
       </Box>
     );
   }
@@ -37,17 +49,18 @@ const SwappingViaLogos: FC<SwappingViaLogosProps> = ({ sources }) => {
     return -(index * base) / 2;
   };
   return (
-    <Box mr="2" flexDirection="row" alignItems="center">
+    <Box flexDirection="row" alignItems="center">
       {sources.map((source, index) => (
         <Box
-          ml={calcMargin(index, 4)}
+          ml={calcMargin(index, imageSize / 4)}
           borderRadius="full"
-          w="4"
-          h="4"
+          h={imageSize}
+          w={imageSize}
           overflow="hidden"
           key={source}
+          bgColor="surface-neutral-default"
         >
-          <Image size="4" src={source} />
+          <Image size={imageSize} src={proxyimg(source)} />
         </Box>
       ))}
     </Box>
@@ -73,7 +86,12 @@ const SwappingVia: FC<SwappingViaProps> = ({
         {providers[0].logoUrl ? (
           <SwappingViaLogos sources={[providers[0].logoUrl]} />
         ) : null}
-        <Text typography={typography} color={color} fontWeight={fontWeight}>
+        <Text
+          ml={2}
+          typography={typography}
+          color={color}
+          fontWeight={fontWeight}
+        >
           {providers[0].name}
         </Text>
       </Box>
@@ -84,7 +102,12 @@ const SwappingVia: FC<SwappingViaProps> = ({
     return (
       <Box alignItems="center" flexDirection="row" alignContent="center">
         {sources.length > 0 ? <SwappingViaLogos sources={sources} /> : null}
-        <Text typography={typography} color={color} fontWeight={fontWeight}>
+        <Text
+          ml={2}
+          typography={typography}
+          color={color}
+          fontWeight={fontWeight}
+        >
           {providers.length} Exchanges
         </Text>
       </Box>

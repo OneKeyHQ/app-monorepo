@@ -58,7 +58,7 @@ const AppRateSectionItem: FC<{ onAfterOnpenReview: () => void }> = ({
           })}
         </Text>
         <Box>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Box>
       </Pressable>
     );

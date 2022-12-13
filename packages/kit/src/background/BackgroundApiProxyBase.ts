@@ -53,6 +53,10 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     this.backgroundApi?.connectBridge(bridge);
   }
 
+  connectWebEmbedBridge(bridge: JsBridgeBase) {
+    this.backgroundApi?.connectWebEmbedBridge(bridge);
+  }
+
   bridgeReceiveHandler = (
     payload: IJsBridgeMessagePayload,
   ): any | Promise<any> => this.backgroundApi?.bridgeReceiveHandler(payload);

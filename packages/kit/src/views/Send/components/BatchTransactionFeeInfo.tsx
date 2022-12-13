@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
+  BottomSheetModal,
   Box,
   Container,
   HStack,
@@ -14,7 +15,11 @@ import {
 } from '@onekeyhq/components';
 import { IEncodedTx, IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
+import { setFeePresetIndex } from '../../../store/reducers/data';
+import { showOverlay } from '../../../utils/overlayUtils';
+import { SendEditFeeStandardFormLite } from '../modals/SendEditFee/SendEditFeeStandardFormLite';
 import { BatchSendConfirmParams, SendRoutes, SendRoutesParams } from '../types';
 import { useFeePresetIndex } from '../utils/useFeePresetIndex';
 
@@ -79,11 +84,36 @@ function BatchTransactionFeeInfo(props: Props) {
     !feeInfoPayload ||
     batchSendConfirmParams.signOnly;
 
+  const showEditFeeLite = useCallback(() => {
+    showOverlay((close) => (
+      <BottomSheetModal
+        title={intl.formatMessage({ id: 'action__edit_fee' })}
+        closeOverlay={close}
+      >
+        <SendEditFeeStandardFormLite
+          feeInfoPayload={feeInfoPayload}
+          value={feeInfoPayload.selected.preset}
+          onChange={(value) => {
+            close();
+            backgroundApiProxy.dispatch(
+              setFeePresetIndex({ networkId, index: value }),
+            );
+          }}
+        />
+      </BottomSheetModal>
+    ));
+  }, [feeInfoPayload, intl, networkId]);
+
   const handleNativeToEdit = useCallback(
     ({ replace = false }: { replace?: boolean } = {}) => {
       if (disabled) {
         return;
       }
+
+      if (!isSingleTransformMode) {
+        return showEditFeeLite();
+      }
+
       if (replace) {
         navigation.replace(SendRoutes.SendEditFee, {
           networkId,
@@ -107,12 +137,13 @@ function BatchTransactionFeeInfo(props: Props) {
     },
     [
       disabled,
+      isSingleTransformMode,
+      showEditFeeLite,
       navigation,
       networkId,
       accountId,
       encodedTx,
       feeInfoPayload?.selected,
-      isSingleTransformMode,
     ],
   );
 
@@ -165,7 +196,11 @@ function BatchTransactionFeeInfo(props: Props) {
               </VStack>
               {!disabled && (
                 <Box>
-                  <Icon name="ChevronRightSolid" size={20} />
+                  <Icon
+                    name="ChevronRightMini"
+                    color="icon-subdued"
+                    size={20}
+                  />
                 </Box>
               )}
             </HStack>

@@ -129,7 +129,7 @@ const EnabledContent = ({
       <IconButton
         type="plain"
         size="lg"
-        name="DotsVerticalOutline"
+        name="EllipsisVerticalOutline"
         circle
         onPress={openDisableBackupDialog}
       />
@@ -201,7 +201,7 @@ const PreviousBackupsContent = () => {
           <Text typography="Body1Strong" flex="1" numberOfLines={1} px="3">
             {intl.formatMessage({ id: 'content__previous_backups' })}
           </Text>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Pressable>
       </Box>
     </>

@@ -87,7 +87,7 @@ export function WalletCreateSelectDropdown({
           value: 'create',
         },
         {
-          leading: <OptionLeading iconName="SaveOutline" />,
+          leading: <OptionLeading iconName="InboxArrowDownOutline" />,
           label: intl.formatMessage({
             id: 'action__import_wallet' as any,
           }),
@@ -97,7 +97,7 @@ export function WalletCreateSelectDropdown({
           value: 'import',
         },
         {
-          leading: <OptionLeading iconName="ConnectOutline" />,
+          leading: <OptionLeading iconName="LinkOutline" />,
           label: intl.formatMessage({
             id: 'action__connect_3rd_party_wallet' as any,
           }),

@@ -117,7 +117,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
       isLoading={isLoading}
       size="xl"
       name={
-        authenticationType === 'FACIAL' ? 'FaceIdIllus' : 'FingerPrintIllus'
+        authenticationType === 'FACIAL' ? 'FaceIdOutline' : 'FingerPrintOutline'
       }
       onPress={onLocalAuthenticate}
     />

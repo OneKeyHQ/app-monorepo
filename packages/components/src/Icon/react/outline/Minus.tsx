@@ -3,16 +3,13 @@ const SvgMinus = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
+    strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
-    <Path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M20 12H4"
-    />
+    <Path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
   </Svg>
 );
 export default SvgMinus;

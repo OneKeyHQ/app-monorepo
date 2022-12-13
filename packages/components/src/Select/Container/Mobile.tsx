@@ -1,4 +1,4 @@
-import React, { isValidElement } from 'react';
+import { isValidElement } from 'react';
 
 import Modal from 'react-native-modal';
 
@@ -75,7 +75,7 @@ function Mobile<T>({
             <Typography.Heading numberOfLines={1}>{title}</Typography.Heading>
           </Box>
           <IconButton
-            name="CloseOutline"
+            name="XMarkOutline"
             type="plain"
             size="xl"
             onPress={toggleVisible}

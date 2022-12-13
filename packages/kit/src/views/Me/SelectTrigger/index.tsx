@@ -51,7 +51,7 @@ export function SelectTrigger<T>({
             </Typography.Body2>
           )}
         </Box>
-        <Icon name="ChevronDownSolid" size={20} color="icon-default" />
+        <Icon name="ChevronDownMini" color="icon-subdued" size={20} />
       </Box>
     </Box>
   );

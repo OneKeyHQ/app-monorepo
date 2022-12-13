@@ -57,7 +57,7 @@ export const RevokeChainSelector: FC<Props> = ({ value, onChange }) => {
           <HStack space={3} alignItems="center">
             <Token size={6} {...activeOption.tokenProps} />
           </HStack>
-          <Icon size={20} name="ChevronDownSolid" />
+          <Icon size={20} name="ChevronDownMini" color="icon-subdued" />
         </HStack>
       )}
     />

@@ -98,7 +98,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         type="plain"
                         size="xs"
                         circle
-                        name="ClipboardSolid"
+                        name="ClipboardMini"
                         onPress={onPasteClick}
                       />
                     );
@@ -110,7 +110,11 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                         type="plain"
                         size="xs"
                         circle
-                        name={small ? 'ScanOutline' : 'ScanSolid'}
+                        name={
+                          small
+                            ? 'ViewfinderCircleOutline'
+                            : 'ViewfinderCircleMini'
+                        }
                         onPress={onScanClick}
                       />
                     );
@@ -128,14 +132,14 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             .map((item) => {
               if (item === 'paste' && platformEnv.canGetClipboard) {
                 return {
-                  icon: 'ClipboardSolid' as ICON_NAMES,
+                  icon: 'ClipboardMini' as ICON_NAMES,
                   text: intl.formatMessage({ id: 'action__paste' }),
                   onPress: onPasteClick,
                 };
               }
               if (item === 'scan') {
                 return {
-                  icon: 'ScanSolid' as ICON_NAMES,
+                  icon: 'ViewfinderCircleMini' as ICON_NAMES,
                   text: intl.formatMessage({ id: 'action__scan' }),
                   onPress: onScanClick,
                 };

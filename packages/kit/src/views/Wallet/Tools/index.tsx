@@ -22,6 +22,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   HomeRoutes,
@@ -52,7 +53,7 @@ const data: DataItem[] = [
   {
     key: 'revoke',
     icon: {
-      name: 'ShieldCheckSolid',
+      name: 'ShieldCheckMini',
       color: 'icon-success',
       size: 32,
     },
@@ -62,7 +63,7 @@ const data: DataItem[] = [
   {
     key: 'explorer',
     icon: {
-      name: 'BlockExplorerSolid',
+      name: 'BlockExplorerMini',
       color: 'icon-success',
       size: 32,
     },
@@ -99,6 +100,9 @@ const ToolsPage: FC = () => {
     if (!hasAvailable || !accountAddress) {
       allItems = data.filter((d) => d.key !== 'explorer');
     }
+    if (network?.impl !== IMPL_EVM) {
+      allItems = allItems.filter((n) => n.key !== 'revoke');
+    }
     return allItems.concat(
       tools.map((t) => ({
         key: t.title,
@@ -108,7 +112,7 @@ const ToolsPage: FC = () => {
         link: t.link,
       })),
     );
-  }, [hasAvailable, accountAddress, tools]);
+  }, [hasAvailable, accountAddress, tools, network]);
 
   const handlePress = useCallback(
     (key: string) => {

@@ -11,12 +11,18 @@ import {
 } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import simpleDb from '../dbs/simple/simpleDb';
 import { getFiatEndpoint } from '../endpoint';
+import { OnekeyNetwork } from '../presets/networkIds';
 import {
   Erc1155MethodSelectors,
   Erc721MethodSelectors,
 } from '../vaults/impl/evm/decoder/abi';
 import { IDecodedTxActionType, IDecodedTxDirection } from '../vaults/types';
+
+export function getNFTListKey(accountId: string, networkId: string) {
+  return `${accountId.toLowerCase()}-${networkId}`.toLowerCase();
+}
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
   if (!networkId) return false;
@@ -244,4 +250,95 @@ export function createOutputActionFromNFTTransaction({
     },
   };
   return action;
+}
+
+export async function getLocalNFTs({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}): Promise<Collection[]> {
+  const key = getNFTListKey(accountId, networkId);
+  const items = await simpleDb.nft.getNFTs(key);
+  if (items) {
+    return items;
+  }
+  return [];
+}
+
+export async function getAssetFromLocal({
+  accountId,
+  networkId,
+  contractAddress,
+  tokenId,
+}: {
+  accountId?: string;
+  networkId: string;
+  contractAddress?: string;
+  tokenId: string;
+}) {
+  if (!accountId) {
+    return;
+  }
+  const collections = await getLocalNFTs({ networkId, accountId });
+  const collection = collections.find(
+    (item) => item.contractAddress === contractAddress,
+  );
+  return collection?.assets.find((item) => item.tokenId === tokenId);
+}
+
+export async function fetchAsset({
+  chain,
+  contractAddress,
+  tokenId,
+  showAttribute,
+}: {
+  chain: string;
+  contractAddress?: string;
+  tokenId: string;
+  showAttribute?: boolean;
+}) {
+  let apiUrl;
+  const endpoint = getFiatEndpoint();
+  if (OnekeyNetwork.sol === chain) {
+    apiUrl = `${endpoint}/NFT/asset?chain=${chain}&tokenId=${tokenId}`;
+  } else {
+    apiUrl = `${endpoint}/NFT/asset?chain=${chain}&contractAddress=${
+      contractAddress as string
+    }&tokenId=${tokenId}`;
+    if (showAttribute) {
+      apiUrl += '&showAttribute=true';
+    }
+  }
+  const { data, success } = await axios
+    .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
+    .then((resp) => resp.data)
+    .catch(() => ({ success: false, data: undefined }));
+  if (!success) {
+    return undefined;
+  }
+  return data;
+}
+
+export async function getAsset(params: {
+  accountId?: string;
+  networkId: string;
+  contractAddress?: string;
+  tokenId: string;
+  local: boolean;
+}) {
+  const { local, networkId, contractAddress, tokenId } = params;
+  const localAsset = await getAssetFromLocal(params);
+  if (localAsset && local) {
+    return localAsset;
+  }
+  const resp = await fetchAsset({
+    chain: networkId,
+    contractAddress,
+    tokenId,
+  });
+  if (resp) {
+    return resp;
+  }
 }

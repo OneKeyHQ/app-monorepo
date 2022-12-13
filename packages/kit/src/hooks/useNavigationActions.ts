@@ -42,6 +42,18 @@ export function useNavigationActions() {
     },
     [dispatch, navigation],
   );
+  const openNetworkSelector = useCallback(
+    ({ mode }: { mode?: EAccountSelectorMode }) => {
+      dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageNetwork,
+        params: {
+          screen: ManageNetworkRoutes.NetworkSelector,
+        },
+      });
+    },
+    [dispatch, navigation],
+  );
 
   const closeWalletSelector = useCallback(() => {
     if (isVertical) {
@@ -166,10 +178,12 @@ export function useNavigationActions() {
       resetToWelcome,
       openRootHome,
       openAccountSelector,
+      openNetworkSelector,
       sendToken,
     }),
     [
       openAccountSelector,
+      openNetworkSelector,
       closeWalletSelector,
       openWalletSelector,
       toggleWalletSelector,

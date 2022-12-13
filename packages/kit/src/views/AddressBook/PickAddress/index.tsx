@@ -277,7 +277,7 @@ const PickAddress = () => {
       footer={selectedIndex === 0 ? undefined : null}
       primaryActionTranslationId="action__add_new_address"
       primaryActionProps={{
-        leftIconName: 'PlusSolid',
+        leftIconName: 'PlusMini',
         type: 'basic',
         onPress: onPrimaryPress,
       }}

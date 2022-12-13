@@ -107,7 +107,7 @@ export const FooterAction = () => {
             {intl.formatMessage({ id: 'action__export' })}
           </Text>
           <Box>
-            <Icon name="DownloadOutline" size={20} />
+            <Icon name="ArrowDownTrayOutline" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
       </Box>

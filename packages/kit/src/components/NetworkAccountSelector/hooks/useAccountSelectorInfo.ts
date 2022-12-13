@@ -32,6 +32,7 @@ export function useAccountSelectorInfo() {
     preloadingCreateAccount,
     isOpenDelay,
     isOpen,
+    accountSelectorMode,
   } = useAppSelector((s) => s.accountSelector);
 
   const isOpenDelayForShow = useDebounce(
@@ -124,6 +125,7 @@ export function useAccountSelectorInfo() {
       activeAccountRef,
       activeNetworkRef,
       activeWalletRef,
+      accountSelectorMode,
     }),
     [
       wallets,
@@ -146,6 +148,7 @@ export function useAccountSelectorInfo() {
       activeAccount,
       activeWallet,
       activeNetwork,
+      accountSelectorMode,
     ],
   );
 }

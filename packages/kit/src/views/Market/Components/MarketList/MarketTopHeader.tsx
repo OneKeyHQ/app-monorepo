@@ -30,7 +30,7 @@ const Header: React.FC = () => {
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   const [searchInput, setSearchInput] = useState(() => '');
   const [searchFocused, setSearchFocused] = useState(() => false);
-  const rightIconName = searchInput ? 'CloseCircleSolid' : undefined;
+  const rightIconName = searchInput ? 'XCircleMini' : undefined;
   const inputRef = useRef(null);
   const searchBarRef = useRef();
   useFocusEffect(
@@ -125,7 +125,7 @@ const HeaderSmall: React.FC = () => {
           <Typography.DisplayMedium
             color={tabName === SWAP_TAB_NAME ? 'text-default' : 'text-disabled'}
           >
-            {intl.formatMessage({ id: 'title__swap' })}
+            {intl.formatMessage({ id: 'title__Swap_Bridge' })}
           </Typography.DisplayMedium>
         </Pressable>
       </Box>
@@ -133,7 +133,7 @@ const HeaderSmall: React.FC = () => {
         {marketTopTabName === MARKET_TAB_NAME ? (
           <IconButton
             size="base"
-            name="SearchSolid"
+            name="MagnifyingGlassMini"
             type="plain"
             iconSize={16}
             onPress={() => {

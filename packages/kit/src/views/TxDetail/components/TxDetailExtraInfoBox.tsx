@@ -92,7 +92,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       ),
       content: openBlockBrowser.hasAvailable ? (
         <TxActionElementPressable
-          icon={<Icon name="ExternalLinkSolid" size={20} />}
+          icon={<Icon name="ArrowTopRightOnSquareMini" size={20} />}
           onPress={() => {
             openBlockBrowser.openTransactionDetails(decodedTx.txid);
           }}

@@ -17,6 +17,7 @@ import DAppIcon from '../../DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
 import { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
+import { getWebTabs } from '../Controller/useWebTabs';
 import { MatchDAppItemType } from '../explorerUtils';
 
 import { Header, ListEmptyComponent } from './Header';
@@ -33,9 +34,16 @@ export const SearchModalView: FC = () => {
   const route = useRoute<RouteProps>();
   const { url, onSelectorItem } = route.params;
 
-  const [searchContent, setSearchContent] = useState<string>(
-    !url || url === homeTab.url ? '' : url,
-  );
+  const [searchContent, setSearchContent] = useState<string>(() => {
+    if (url && url !== homeTab.url) {
+      return url;
+    }
+    const { tab } = getWebTabs();
+    if (tab?.url && tab.url !== homeTab.url) {
+      return tab.url;
+    }
+    return '';
+  });
   const searchContentTerm = useDebounce(searchContent, 300);
 
   const { loading, searchedDapps } = useSearchLocalDapp(

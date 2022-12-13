@@ -90,7 +90,7 @@ export default function OnLanding() {
           w="full"
           mt="4"
           borderRadius="full"
-          leftIconName="AppStoreSolid"
+          leftIconName="AppStoreMini"
           onPress={oniOSDownload}
         >
           App Store
@@ -100,7 +100,7 @@ export default function OnLanding() {
           w="full"
           mt="4"
           borderRadius="full"
-          leftIconName="AndroidSolid"
+          leftIconName="AndroidMini"
           onPress={onAndroidDownload}
         >
           Android
@@ -110,7 +110,7 @@ export default function OnLanding() {
           w="full"
           mt="4"
           borderRadius="full"
-          leftIconName="DesktopComputerSolid"
+          leftIconName="DesktopComputerMini"
           onPress={onDesktopDownload}
         >
           Desktop

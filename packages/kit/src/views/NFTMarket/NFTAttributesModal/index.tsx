@@ -146,7 +146,7 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
           >
             <Text typography="Body1Strong">{attribute.attributes_name}</Text>
             <MotiView animate={{ rotate: collapsed ? '0deg' : '90deg' }}>
-              <Icon name="ChevronRightSolid" size={20} />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </MotiView>
           </Box>
         </TouchableOpacity>

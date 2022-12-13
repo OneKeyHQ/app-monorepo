@@ -87,14 +87,14 @@ const ListHeader: FC<{
           >
             {accountTokens.length}
           </Text>
-          <Icon name="ChevronRightSolid" />
+          <Icon name="ChevronRightMini" color="icon-subdued" />
         </>
       ) : (
         tokenEnabled && (
           <IconButton
             size="sm"
             borderRadius={17}
-            name="PlusSolid"
+            name="PlusMini"
             bg="action-secondary-default"
             onPress={() =>
               navigation.navigate(RootRoutes.Modal, {
@@ -250,7 +250,7 @@ const AssetsListHeader: FC<{
                   })
                 }
                 size="sm"
-                name="PlusSolid"
+                name="PlusMini"
                 type="plain"
                 ml="auto"
                 mr={3}
@@ -258,7 +258,7 @@ const AssetsListHeader: FC<{
               <IconButton
                 onPress={showHomeBalanceSettings}
                 size="sm"
-                name="CogSolid"
+                name="CogMini"
                 type="plain"
                 mr={-2}
               />

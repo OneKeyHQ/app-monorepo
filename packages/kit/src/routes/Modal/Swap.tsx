@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Input from '@onekeyhq/kit/src/views/Swap/Input';
 import Output from '@onekeyhq/kit/src/views/Swap/Output';
@@ -13,10 +11,12 @@ import CustomToken from '../../views/ManageTokens/CustomToken';
 import EnterAddress from '../../views/Swap/EnterAddress';
 import PickAccount from '../../views/Swap/PickAccount';
 import PickRecipient from '../../views/Swap/PickRecipient';
+import SelectRoutes from '../../views/Swap/SelectRoutes';
 import Share from '../../views/Swap/Share';
 import SwftcHelp from '../../views/Swap/SwftcHelp';
 import Transaction from '../../views/Swap/Transaction';
 import Webview from '../../views/Swap/Webview';
+import Welcome from '../../views/Swap/Welcome';
 
 import createStackNavigator from './createStackNavigator';
 
@@ -66,6 +66,14 @@ const modalRoutes = [
   {
     name: SwapRoutes.EnterAddress,
     component: EnterAddress,
+  },
+  {
+    name: SwapRoutes.Welcome,
+    component: Welcome,
+  },
+  {
+    name: SwapRoutes.SelectRoutes,
+    component: SelectRoutes,
   },
 ];
 

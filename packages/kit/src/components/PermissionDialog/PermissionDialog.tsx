@@ -128,7 +128,7 @@ const PermissionDialog: FC<{
         inst?.goBack();
       }}
       contentProps={{
-        icon: <Icon name="ExclamationOutline" size={48} />,
+        icon: <Icon name="ExclamationTriangleOutline" size={48} />,
         title: intl.formatMessage({ id: titleIds[type] }),
         content: intl.formatMessage({ id: contentIds[type] }),
       }}

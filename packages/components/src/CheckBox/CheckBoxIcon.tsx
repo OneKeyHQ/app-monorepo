@@ -1,9 +1,9 @@
 import { Icon } from 'native-base';
 
-import SvgCheckBoxIconChecked from '../Icon/react/solid/CheckBoxIconChecked';
-import SvgCheckBoxIconCheckedDisable from '../Icon/react/solid/CheckBoxIconCheckedDisable';
-import SvgCheckBoxIconDefault from '../Icon/react/solid/CheckBoxIconDefault';
-import SvgCheckBoxIconDefaultDisable from '../Icon/react/solid/CheckBoxIconDefaultDisable';
+import SvgCheckBoxIconChecked from '../Icon/react/mini/CheckBoxIconChecked';
+import SvgCheckBoxIconCheckedDisable from '../Icon/react/mini/CheckBoxIconCheckedDisable';
+import SvgCheckBoxIconDefault from '../Icon/react/mini/CheckBoxIconDefault';
+import SvgCheckBoxIconDefaultDisable from '../Icon/react/mini/CheckBoxIconDefaultDisable';
 
 export const getCheckBoxIcon = (
   disable: boolean,

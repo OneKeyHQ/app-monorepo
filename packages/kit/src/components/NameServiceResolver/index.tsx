@@ -254,7 +254,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
                 {address}
               </Typography.Body2>
               <Box ml="12px">
-                <Icon name="ChevronDownSolid" color="icon-default" size={20} />
+                <Icon name="ChevronDownMini" color="icon-subdued" size={20} />
               </Box>
             </Wrapper>
           );

@@ -152,7 +152,7 @@ export const setThemePreloadToLocalStorage = debounce(
         }
 
         if (!platformEnv.isWebEmbed) {
-          // same to theme-preload.js
+          // same to preload-html-head.js
           if (value === 'dark') {
             document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
           }

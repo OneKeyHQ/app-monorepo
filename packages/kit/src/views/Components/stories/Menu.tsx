@@ -1,17 +1,13 @@
-import React from 'react';
-
-import { Pressable as NBPressable } from 'native-base';
-
-import { Center, Divider, Menu, Text } from '@onekeyhq/components';
+import { Center, Divider, Menu, Pressable, Text } from '@onekeyhq/components';
 
 const MenuGallery = () => (
   <Center flex="1" bg="background-hovered">
     <Menu
       w="190"
       trigger={(triggerProps) => (
-        <NBPressable accessibilityLabel="More options menu" {...triggerProps}>
+        <Pressable accessibilityLabel="More options menu" {...triggerProps}>
           <Text>Basic</Text>
-        </NBPressable>
+        </Pressable>
       )}
     >
       <Menu.Item>Arial</Menu.Item>
@@ -24,19 +20,19 @@ const MenuGallery = () => (
     <Menu
       w="190"
       trigger={(triggerProps) => (
-        <NBPressable accessibilityLabel="More options menu" {...triggerProps}>
+        <Pressable accessibilityLabel="More options menu" {...triggerProps}>
           <Text>Menu with icons</Text>
-        </NBPressable>
+        </Pressable>
       )}
     >
-      <Menu.CustomItem icon="PencilSolid">Edit</Menu.CustomItem>
-      <Menu.CustomItem variant="desctructive" icon="TrashSolid">
+      <Menu.CustomItem icon="PencilMini">Edit</Menu.CustomItem>
+      <Menu.CustomItem variant="desctructive" icon="TrashMini">
         Delete
       </Menu.CustomItem>
-      <Menu.CustomItem variant="highlight" icon="ArrowNarrowUpSolid">
+      <Menu.CustomItem variant="highlight" icon="ArrowNarrowUpMini">
         Update
       </Menu.CustomItem>
-      <Menu.CustomItem isDisabled icon="ArrowNarrowUpSolid">
+      <Menu.CustomItem isDisabled icon="ArrowNarrowUpMini">
         Update
       </Menu.CustomItem>
     </Menu>
@@ -44,9 +40,9 @@ const MenuGallery = () => (
     <Menu
       w="190"
       trigger={(triggerProps) => (
-        <NBPressable {...triggerProps}>
+        <Pressable {...triggerProps}>
           <Text>Grouping</Text>
-        </NBPressable>
+        </Pressable>
       )}
     >
       <Menu.Group title="Free">
@@ -67,9 +63,9 @@ const MenuGallery = () => (
       onOpen={() => console.log('opened')}
       onClose={() => console.log('closed')}
       trigger={(triggerProps) => (
-        <NBPressable {...triggerProps}>
+        <Pressable {...triggerProps}>
           <Text>MenuOptionGroups</Text>
-        </NBPressable>
+        </Pressable>
       )}
     >
       <Menu.OptionGroup defaultValue="Arial" title="free" type="radio">

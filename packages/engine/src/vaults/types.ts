@@ -9,6 +9,7 @@ import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
 import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
+import type { IEncodedTxADA } from './impl/ada/types';
 import type { IEncodedTxAlgo } from './impl/algo/types';
 import type { IEncodedTxAptos } from './impl/apt/types';
 import type {
@@ -37,6 +38,9 @@ import type {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // Options ----------------------------------------------
+export type IVaultSubNetworkSettings = {
+  isIntegerGasPrice?: boolean;
+};
 export type IVaultSettings = {
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
@@ -57,6 +61,10 @@ export type IVaultSettings = {
   minGasLimit?: number;
 
   cannotSendToSelf?: boolean;
+
+  subNetworkSettings?: {
+    [networkId: string]: IVaultSubNetworkSettings;
+  };
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -144,7 +152,9 @@ export type IEncodedTx =
   | IEncodedTxAlgo
   | IEncodedTxXrp
   | IEncodedTxCosmos
+  | IEncodedTxADA
   | IEncodedTxSUI;
+
 export type INativeTx =
   | INativeTxEvm
   | INativeTxNear

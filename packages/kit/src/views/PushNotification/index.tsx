@@ -96,7 +96,7 @@ const SelectTrigger = ({ title, desc }: { title: string; desc: string }) => (
       {title}
     </Text>
     <Text mr="19px">{desc}</Text>
-    <Icon name="ChevronRightSolid" size={20} />
+    <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
   </Box>
 );
 
@@ -115,7 +115,7 @@ const PressabelFooter = ({
         {title}
       </Text>
       <Text mr="19px">{desc}</Text>
-      <Icon name="ChevronRightSolid" size={20} />
+      <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
     </Box>
   </Pressable>
 );

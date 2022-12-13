@@ -210,7 +210,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
           onPress={toQuickAddPage}
         >
           <Icon
-            name={isSmallScreen ? 'LightningBoltOutline' : 'LightningBoltSolid'}
+            name={isSmallScreen ? 'LightningBoltOutline' : 'LightningBoltMini'}
             size={isSmallScreen ? 24 : 20}
           />
           <Text
@@ -220,7 +220,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
           >
             {intl.formatMessage({ id: 'action__quick_add' })}
           </Text>
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
         </Pressable>
         <Divider my="6" />
       </>
@@ -391,7 +391,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                 network?.id &&
                 network?.id !== activeNetwork?.id ? (
                   <IconButton
-                    name="TrashSolid"
+                    name="TrashMini"
                     mt={6}
                     type="outline"
                     onPress={onShowRemoveModal}

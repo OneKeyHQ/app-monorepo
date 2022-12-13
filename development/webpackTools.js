@@ -5,6 +5,8 @@ const lodash = require('lodash');
 const notifier = require('node-notifier');
 const { getPathsAsync } = require('@expo/webpack-config/env');
 const path = require('path');
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
 
@@ -71,15 +73,21 @@ async function modifyExpoEnv({ env, platform }) {
   return newEnv;
 }
 
-function normalizeConfig({ platform, config, env }) {
+function normalizeConfig({
+  platform,
+  config,
+  env,
+  configName,
+  enableAnalyzerHtmlReport,
+}) {
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
+    const isDev = process.env.NODE_ENV !== 'production';
 
     config.plugins = [
       ...config.plugins,
-      process.env.NODE_ENV === 'production'
-        ? null
-        : new BuildDoneNotifyPlugin(),
+      new DuplicatePackageCheckerPlugin(),
+      isDev ? new BuildDoneNotifyPlugin() : null,
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
         'process.env.ONEKEY_BUILD_TYPE': JSON.stringify(platform),
@@ -88,13 +96,59 @@ function normalizeConfig({ platform, config, env }) {
         ),
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
+      isDev
+        ? new ReactRefreshWebpackPlugin({ overlay: platform !== 'desktop' })
+        : null,
     ].filter(Boolean);
+
+    if (process.env.ENABLE_ANALYZER) {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          ...(enableAnalyzerHtmlReport
+            ? {
+                analyzerMode: 'static',
+                reportFilename: `report${
+                  configName ? `-${configName}` : ''
+                }.html`,
+                openAnalyzer: false,
+              }
+            : {
+                analyzerMode: 'disabled',
+                generateStatsFile: true,
+                statsOptions: {
+                  reasons: false,
+                  warnings: false,
+                  errors: false,
+                  optimizationBailout: false,
+                  usedExports: false,
+                  providedExports: false,
+                  source: false,
+                  ids: false,
+                  children: false,
+                  chunks: false,
+                  modules: process.env.ANALYSE_MODULE === 'module',
+                },
+              }),
+        }),
+      );
+    }
 
     // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
     resolveExtensions.unshift(
       ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
     );
   }
+
+  // let file-loader skip handle wasm files
+  config.module.rules.forEach((rule) => {
+    (rule.oneOf || []).forEach((oneOf) => {
+      if (oneOf.loader && oneOf.loader.indexOf('file-loader') >= 0) {
+        oneOf.exclude.push(/\.wasm$/);
+      }
+    });
+  });
+
   config.resolve.extensions = lodash
     .uniq(config.resolve.extensions.concat(resolveExtensions))
     // sort platform specific extensions to the beginning
@@ -108,6 +162,12 @@ function normalizeConfig({ platform, config, env }) {
     'framer-motion': 'framer-motion/dist/framer-motion',
     '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
   };
+
+  // Why? do not change original config directly
+  // - Production build do not need sourcemap
+  // - Ext do not need devtool sourcemap, use SourceMapDevToolPlugin instead.
+  // - building slow
+  // config.devtool = 'cheap-module-source-map';
 
   return config;
 }

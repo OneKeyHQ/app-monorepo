@@ -14,7 +14,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 
-import Speedindicator from '../../../components/NetworkAccountSelector/NetworkAccountSelectorModal/SpeedIndicator';
+import Speedindicator from '../../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/SpeedIndicator';
 import { MeasureResult } from '../hooks';
 
 export const RPCItem = ({
@@ -68,7 +68,7 @@ export const RPCItem = ({
     if (checked) {
       return (
         <Box p="8px">
-          <Icon name="CheckSolid" size={20} color="interactive-default" />
+          <Icon name="CheckMini" size={20} color="interactive-default" />
         </Box>
       );
     }
@@ -84,7 +84,7 @@ export const RPCItem = ({
           transition={{ type: 'timing', duration: 150 }}
         >
           <IconButton
-            name="TrashSolid"
+            name="TrashMini"
             type="plain"
             circle
             onPress={() => onRemove(url)}

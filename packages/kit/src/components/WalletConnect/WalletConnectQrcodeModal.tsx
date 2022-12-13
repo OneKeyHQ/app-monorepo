@@ -77,7 +77,7 @@ export function ConnectWalletListItem({
       }
       return (
         <Hidden from="sm">
-          <Icon name="ChevronRightSolid" size={20} />
+          <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
         </Hidden>
       );
     }
