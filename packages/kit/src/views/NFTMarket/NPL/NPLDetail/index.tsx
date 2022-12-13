@@ -55,11 +55,13 @@ type NPLData = {
   totalProfit?: BigNumber;
   win?: number;
   lose?: number;
+  spend?: BigNumber;
   content: NFTNPL[];
 };
 
 function parseNPLData(items: NFTNPL[], network: Network): NPLData {
   let totalProfit: BigNumber = new BigNumber(0);
+  let totalSpend: BigNumber = new BigNumber(0);
   let win = 0;
   let lose = 0;
   items.forEach((item) => {
@@ -78,10 +80,12 @@ function parseNPLData(items: NFTNPL[], network: Network): NPLData {
       gasPriceNative: gasPriceNativeExit.decimalPlaces(3).toString(),
       ...exit,
     };
-    const profit = new BigNumber(exit?.tradePrice ?? 0)
-      .minus(entry?.tradePrice ?? 0)
-      .minus(gasPriceNativeEntry)
-      .minus(gasPriceNativeExit);
+
+    const spend = new BigNumber(entry?.tradePrice ?? 0)
+      .plus(gasPriceNativeEntry)
+      .plus(gasPriceNativeExit);
+    const profit = new BigNumber(exit?.tradePrice ?? 0).minus(spend);
+
     if (profit.toNumber() > 0) {
       win += 1;
     } else if (profit.toNumber() < 0) {
@@ -89,11 +93,13 @@ function parseNPLData(items: NFTNPL[], network: Network): NPLData {
     }
     item.profit = profit.toNumber();
     totalProfit = totalProfit.plus(profit);
+    totalSpend = totalSpend.plus(spend);
   });
   return {
     totalProfit,
     win,
     lose,
+    spend: totalSpend,
     content: items,
   };
 }
@@ -168,6 +174,7 @@ const Header: FC<HeaderProps> = ({
   totalProfit,
   win,
   lose,
+  spend,
   accountAddress,
   onAddressSearch,
   content,
@@ -281,7 +288,7 @@ const Header: FC<HeaderProps> = ({
               </Text>
             </Box>
 
-            <Box flexDirection="row" alignItems="center">
+            <Box flexDirection="row" alignItems="center" mr="24px">
               {lose !== undefined ? (
                 <Text mr="8px" typography="Body1Strong" color="text-critical">
                   {lose}
@@ -292,6 +299,23 @@ const Header: FC<HeaderProps> = ({
 
               <Text typography="Body1" color="text-subdued">
                 Losing Flips
+              </Text>
+            </Box>
+
+            <Box flexDirection="row" alignItems="center">
+              {spend !== undefined ? (
+                <Text mr="8px" typography="Body1Strong">
+                  {PriceString({
+                    price: new BigNumber(spend).decimalPlaces(3).toString(),
+                    networkId: network.id,
+                  })}
+                </Text>
+              ) : (
+                <CustomSkeleton width="24px" height="12px" mr="6px" />
+              )}
+
+              <Text typography="Body1" color="text-subdued">
+                Spend
               </Text>
             </Box>
           </Box>
@@ -390,6 +414,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     totalProfit: new BigNumber(0),
     lose: 0,
     win: 0,
+    spend: new BigNumber(0),
     content: [],
   });
   const pageSize = 50;
@@ -455,6 +480,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         totalProfit: parseData.totalProfit,
         win: parseData.win,
         lose: parseData.lose,
+        spend: parseData.spend,
       });
       if (data) {
         getAssets(0);
@@ -467,6 +493,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     setLoading(true);
     updateTotalNPLData({
       totalProfit: new BigNumber(0),
+      spend: new BigNumber(0),
       win: 0,
       lose: 0,
     });
