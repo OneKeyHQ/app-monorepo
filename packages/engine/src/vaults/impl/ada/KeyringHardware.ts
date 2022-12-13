@@ -33,14 +33,17 @@ import type AdaVault from './Vault';
 const PATH_PREFIX = `m/1852'/${COIN_TYPE}'`;
 const ProtocolMagic = 764824073;
 
-// @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const { indexes, names } = params;
-    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'/0/0`);
-    const stakingPaths = indexes.map((index) => `${PATH_PREFIX}/${index}'/2/0`);
+    const ignoreFirst = indexes[0] !== 0;
+    const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
+    const paths = usedIndexes.map((index) => `${PATH_PREFIX}/${index}'/0/0`);
+    const stakingPaths = usedIndexes.map(
+      (index) => `${PATH_PREFIX}/${index}'/2/0`,
+    );
 
     const showOnOneKey = false;
     const HardwareSDK = await this.getHardwareSDKInstance();
@@ -76,7 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw deviceUtils.convertDeviceError(response.payload);
     }
 
-    if (response.payload.length !== indexes.length) {
+    if (response.payload.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
 
@@ -88,23 +91,33 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const addressInfo of response.payload) {
       const { address, xpub, serializedPath, stakeAddress } = addressInfo;
       if (address) {
-        const name = (names || [])[index] || `ADA #${indexes[index] + 1}`;
+        const name =
+          (names || [])[index] || `CARDANO #${usedIndexes[index] + 1}`;
         const addresses: Record<string, string> = {
           [firstAddressRelPath]: address,
         };
         if (stakeAddress) {
           addresses[stakingAddressRelPath] = stakeAddress;
         }
-        ret.push({
-          id: `${this.walletId}--${serializedPath}`,
-          name,
-          type: AccountType.UTXO,
-          path: serializedPath,
-          coinType: COIN_TYPE,
-          xpub: xpub ?? '',
-          address,
-          addresses,
-        });
+        const accountPath = serializedPath.slice(0, -4);
+        if (!ignoreFirst || index > 0) {
+          ret.push({
+            id: `${this.walletId}--${accountPath}`,
+            name,
+            type: AccountType.UTXO,
+            path: serializedPath,
+            coinType: COIN_TYPE,
+            xpub: xpub ?? '',
+            address,
+            addresses,
+          });
+        }
+
+        if (usedIndexes.length === 1) {
+          // Only getting the first account, ignore balance checking.
+          break;
+        }
+
         const { tx_count: txCount } = await client.getAddressDetails(address);
         if (txCount > 0) {
           index += 1;
