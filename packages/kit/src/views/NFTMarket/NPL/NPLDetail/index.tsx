@@ -327,7 +327,8 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 
   const navigation = useNavigation();
   const defaultNetwork = useDefaultNetWork();
-  const [selectNetwork] = useState<Network>(defaultNetwork);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectNetwork, setSelectNetwork] = useState<Network>(defaultNetwork);
 
   const { serviceNFT } = backgroundApiProxy;
 
@@ -526,9 +527,9 @@ const NPLScreen = () => {
     address?: string;
     ens?: string;
   }>({ address: isEvmAddress ? account?.address : undefined });
-  if (account?.address && isEvmAddress) {
+  if (addressInfo?.address) {
     return (
-      <NPLDetail accountAddress={account?.address} ens={addressInfo.ens} />
+      <NPLDetail accountAddress={addressInfo?.address} ens={addressInfo.ens} />
     );
   }
   return <SearchAddress onAddressSearch={setAddressInfo} />;

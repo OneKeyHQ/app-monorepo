@@ -116,7 +116,7 @@ const SearchAddress: FC<{
             id: 'form__enter_address_ens_name',
           })}
         />
-        <Center position="absolute" right={0}>
+        <Center height="full" position="absolute" right="8px">
           {loading === true ? <Spinner size="sm" /> : null}
         </Center>
       </HStack>
