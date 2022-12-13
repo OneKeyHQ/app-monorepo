@@ -410,6 +410,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
       }));
       if (pageDatas.length === 0) {
         setLoading(false);
+        return;
       }
       const data = await serviceNFT.batchAsset({
         chain: selectNetwork?.id,
