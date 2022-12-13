@@ -1,6 +1,6 @@
 import { ComponentProps, FC } from 'react';
 
-import { Text as NBText } from 'native-base';
+import { Text as NBDefaultText } from 'native-base';
 import { TextStyle } from 'react-native';
 
 import { useIsVerticalLayout } from '../Provider/hooks';
@@ -29,7 +29,21 @@ export type TypographyStyle =
   | 'CaptionUnderline'
   | 'CaptionMono';
 
-export type FontProps = ComponentProps<typeof NBText>;
+export type FontProps = ComponentProps<typeof NBDefaultText>;
+
+const NBText: FC<FontProps> = ({ style, ...rest }) => {
+  /**
+   * Android Only, for fixing text vertical align issue.
+   */
+  const defaultStyle = {
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  };
+  const mergedStyle = style
+    ? { ...defaultStyle, ...(style as any) }
+    : defaultStyle;
+  return <NBDefaultText {...rest} style={mergedStyle} />;
+};
 
 export const Display2XLargeProps = {
   fontFamily: 'PlusJakartaSans-Bold',
@@ -342,6 +356,7 @@ export const Text: FC<TextProps> = ({ typography, children, ...rest }) => {
       );
     }
   }
+
   return (
     <NBText color="text-default" {...props} {...rest}>
       {children}
