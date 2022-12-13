@@ -109,11 +109,14 @@ const SwapContent = () => {
             isDisabled={loading && independentField === 'OUTPUT'}
           />
         </Box>
-        <Box w="full" position="relative" zIndex={1}>
+        <Box
+          w="full"
+          position="relative"
+          h="1"
+          bg="background-default"
+          zIndex={1}
+        >
           <Box position="absolute" w="full" h="10" top={-20} left={0}>
-            <Center w="full" h="full" position="absolute" left={0} top={0}>
-              <Box h="1" w="full" bg="background-default" />
-            </Center>
             <Center>
               <Center
                 w="10"
