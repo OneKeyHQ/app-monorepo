@@ -1,4 +1,4 @@
-import React, { FC, useLayoutEffect, useState } from 'react';
+import React, { FC, useCallback, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { MotiView } from 'moti';
@@ -9,6 +9,7 @@ import {
   Button,
   Center,
   HStack,
+  IconButton,
   Image,
   Input,
   Spinner,
@@ -18,19 +19,14 @@ import {
 } from '@onekeyhq/components';
 import PnlEmptyImage from '@onekeyhq/kit/assets/nft_pnl_empty_image.png';
 import PnlEmptyImageLight from '@onekeyhq/kit/assets/nft_pnl_empty_image_light.png';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import { HomeRoutes } from '../../../../routes/routesEnum';
-import { HomeRoutesParams } from '../../../../routes/types';
+import { useActiveWalletAccount } from '../../../../hooks';
+import { useConnectAndCreateExternalAccount } from '../../../ExternalAccount/useConnectAndCreateExternalAccount';
 import { useDefaultNetWork } from '../../Home/hook';
+import { NFTMarketRoutes } from '../../Modals/type';
 
 import { useSearchAddress } from './hook';
-
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.NFTNPLScreen
->;
 
 const SearchAddress: FC<{
   onAddressSearch: ({
@@ -41,15 +37,41 @@ const SearchAddress: FC<{
     ens?: string;
   }) => void;
 }> = ({ onAddressSearch }) => {
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
+  const { network } = useActiveWalletAccount();
   const intl = useIntl();
   const { themeVariant } = useTheme();
+
+  const { connectAndCreateExternalAccount } =
+    useConnectAndCreateExternalAccount({
+      networkId: network?.id ?? '',
+    });
+
+  const calculatorAction = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.NFTMarket,
+      params: {
+        screen: NFTMarketRoutes.CalculatorModal,
+        params: undefined,
+      },
+    });
+  }, [navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
+      headerRight: () => (
+        <IconButton
+          mr="16px"
+          type="basic"
+          size="sm"
+          name="CalculatorSolid"
+          circle
+          onPress={calculatorAction}
+        />
+      ),
     });
-  }, [navigation]);
+  }, [calculatorAction, navigation]);
   const [keyword, setKeyword] = useState<string>('');
   const defaultNetWork = useDefaultNetWork();
 
@@ -112,7 +134,12 @@ const SearchAddress: FC<{
         <Box height="1px" bgColor="divider" flex={1} />
       </HStack>
 
-      <Button type="primary" size={isVerticalLayout ? 'lg' : 'base'} mt="24px">
+      <Button
+        onPress={connectAndCreateExternalAccount}
+        type="primary"
+        size={isVerticalLayout ? 'lg' : 'base'}
+        mt="24px"
+      >
         {intl.formatMessage({ id: 'action__connect_wallet' })}
       </Button>
     </Box>

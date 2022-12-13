@@ -60,8 +60,11 @@ function CardanoProvider() {
               outputs,
             );
             sendResponse(promiseId, { error: null, result: txPlan });
-          } catch (error) {
-            sendResponse(promiseId, { error, result: null });
+          } catch (error: any) {
+            sendResponse(promiseId, {
+              error: error?.code || error,
+              result: null,
+            });
           }
           break;
         }

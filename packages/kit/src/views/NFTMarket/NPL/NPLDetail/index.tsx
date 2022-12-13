@@ -8,9 +8,10 @@ import React, {
   useState,
 } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
 import { Row } from 'native-base';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -25,6 +26,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTAsset, NFTNPL } from '@onekeyhq/engine/src/types/nft';
 import {
@@ -34,9 +36,10 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { HomeRoutes } from '../../../../routes/routesEnum';
-import { HomeRoutesParams } from '../../../../routes/types';
-import ChainSelector from '../../ChainSelector';
+import { AccountSelectorTrigger } from '../../../../components/NetworkAccountSelector/triggers/AccountSelectorTrigger';
+import { useActiveWalletAccount } from '../../../../hooks';
+import { useConnectAndCreateExternalAccount } from '../../../ExternalAccount/useConnectAndCreateExternalAccount';
+// import ChainSelector from '../../ChainSelector';
 import { useDefaultNetWork } from '../../Home/hook';
 import { NFTMarketRoutes, NFTMarketRoutesParams } from '../../Modals/type';
 import { PriceString } from '../../PriceText';
@@ -215,6 +218,14 @@ const Header: FC<HeaderProps> = ({
     });
   }, [address, content, lose, name, navigation, network, totalProfit, win]);
 
+  const { account: activeAccount } = useActiveWalletAccount();
+
+  useEffect(() => {
+    if (activeAccount?.address) {
+      setAddress(activeAccount?.address);
+    }
+  }, [activeAccount?.address]);
+
   return (
     <Box width="full" mb={isVerticalLayout ? '16px' : '8px'}>
       <Box width="full" flexDirection="row">
@@ -311,38 +322,67 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   accountAddress,
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
+  const intl = useIntl();
+  const { account: activeAccount } = useActiveWalletAccount();
 
   const navigation = useNavigation();
   const defaultNetwork = useDefaultNetWork();
-  const [selectNetwork, setSelectNetwork] = useState<Network>(defaultNetwork);
+  const [selectNetwork] = useState<Network>(defaultNetwork);
 
   const { serviceNFT } = backgroundApiProxy;
+
+  const { connectAndCreateExternalAccount } =
+    useConnectAndCreateExternalAccount({
+      networkId: selectNetwork?.id ?? '',
+    });
+  const calculatorAction = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.NFTMarket,
+      params: {
+        screen: NFTMarketRoutes.CalculatorModal,
+        params: undefined,
+      },
+    });
+  }, [navigation]);
+
+  const connectAccountBtn = useMemo(() => {
+    if (activeAccount?.id === undefined) {
+      return (
+        <Button onPress={connectAndCreateExternalAccount} mr={6}>
+          {intl.formatMessage({ id: 'action__connect_wallet' })}
+        </Button>
+      );
+    }
+    return <AccountSelectorTrigger type="plain" />;
+  }, [activeAccount?.id, connectAndCreateExternalAccount, intl]);
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: 'NPL',
+      title: '',
       headerRight: () => (
         <Row
           space={{ base: 2, md: 4 }}
           alignItems="center"
           mr={{ base: 4, md: 8 }}
         >
-          <ChainSelector
+          {/* <ChainSelector
             // tiggerProps={{ display: 'none' }}
             triggerSize="lg"
             selectedNetwork={selectNetwork}
             onChange={setSelectNetwork}
-          />
+          /> */}
+          {connectAccountBtn}
           <IconButton
             // isDisabled
             type="basic"
             size="sm"
             name="CalculatorSolid"
             circle
+            onPress={calculatorAction}
           />
         </Row>
       ),
     });
-  }, [navigation, selectNetwork]);
+  }, [calculatorAction, connectAccountBtn, navigation, selectNetwork]);
 
   const [listData, updateListData] = useState<NFTNPL[]>([]);
   const allData = useRef<NPLData>({
@@ -479,17 +519,16 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 };
 
 const NPLScreen = () => {
-  const route =
-    useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTNPLScreen>>();
-  const { accountAddress } = route.params;
+  const { network, account } = useActiveWalletAccount();
+  const isEvmAddress = network?.impl === IMPL_EVM;
+
   const [addressInfo, setAddressInfo] = useState<{
     address?: string;
     ens?: string;
-  }>({ address: accountAddress });
-
-  if (addressInfo.address) {
+  }>({ address: isEvmAddress ? account?.address : undefined });
+  if (account?.address && isEvmAddress) {
     return (
-      <NPLDetail accountAddress={addressInfo.address} ens={addressInfo.ens} />
+      <NPLDetail accountAddress={account?.address} ens={addressInfo.ens} />
     );
   }
   return <SearchAddress onAddressSearch={setAddressInfo} />;

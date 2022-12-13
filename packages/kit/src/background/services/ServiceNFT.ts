@@ -6,6 +6,7 @@ import * as nft from '@onekeyhq/engine/src/managers/nft';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import {
   Collection,
+  MarketPlace,
   NFTAsset,
   NFTMarketCapCollection,
   NFTMarketRanking,
@@ -299,6 +300,20 @@ class ServiceNFT extends ServiceBase {
       .get<NFTServiceResp<NFTNPL[]>>(url)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: [] as NFTNPL[] }));
+
+    if (!success) {
+      return [];
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getMarketPlaces() {
+    const url = `${this.baseUrl}/marketPlace/list`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<MarketPlace[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as MarketPlace[] }));
 
     if (!success) {
       return [];

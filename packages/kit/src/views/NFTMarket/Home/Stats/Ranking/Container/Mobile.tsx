@@ -7,7 +7,7 @@ import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem, Text } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
+import { Collection, NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';
@@ -15,12 +15,31 @@ import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
 
-type Props = { listData: NFTMarketRanking[]; selectNetwork?: Network } & Pick<
+type Props = {
+  listData: NFTMarketRanking[];
+  selectNetwork?: Network;
+  onSelectCollection?: ({
+    collection,
+    networkId,
+    contractAddress,
+    title,
+  }: {
+    collection?: Collection;
+    networkId: string;
+    contractAddress: string;
+    title?: string;
+  }) => void;
+} & Pick<
   ComponentProps<typeof List>,
   'ListHeaderComponent' | 'ListFooterComponent' | 'headerProps'
 >;
 
-const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
+const Mobile: FC<Props> = ({
+  onSelectCollection,
+  selectNetwork,
+  listData,
+  ...listProps
+}) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
   const goToCollectionDetail = useCollectionDetail();
@@ -46,11 +65,19 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
       return (
         <ListItem
           onPress={() => {
-            goToCollectionDetail({
-              contractAddress: item.contract_address as string,
-              networkId: network?.id as string,
-              title: item.contract_name,
-            });
+            if (onSelectCollection) {
+              onSelectCollection({
+                contractAddress: item.contract_address as string,
+                networkId: network?.id as string,
+                title: item.contract_name,
+              });
+            } else {
+              goToCollectionDetail({
+                contractAddress: item.contract_address as string,
+                networkId: network?.id as string,
+                title: item.contract_name,
+              });
+            }
           }}
         >
           <ListItem.Column>

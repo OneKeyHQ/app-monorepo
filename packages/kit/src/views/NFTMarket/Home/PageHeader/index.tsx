@@ -13,7 +13,6 @@ import {
   Pressable,
   Text,
 } from '@onekeyhq/components';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import {
   HomeRoutes,
   HomeRoutesParams,
@@ -22,7 +21,6 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import { useActiveWalletAccount } from '../../../../hooks';
 import { NFTMarketRoutes, NFTMarketRoutesParams } from '../../Modals/type';
 import { useCollectionDetail } from '../hook';
 
@@ -56,13 +54,10 @@ const PageHeader = () => {
       },
     });
   }, [goToCollectionDetail, modalNavigation]);
-  const { account, network } = useActiveWalletAccount();
 
   const nplAction = useCallback(() => {
-    navigation.navigate(HomeRoutes.NFTNPLScreen, {
-      accountAddress: network?.impl === IMPL_EVM ? account?.address : undefined,
-    });
-  }, [account?.address, navigation, network?.impl]);
+    navigation.navigate(HomeRoutes.NFTNPLScreen, undefined);
+  }, [navigation]);
 
   return (
     <HStack

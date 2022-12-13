@@ -143,9 +143,7 @@ export type HomeRoutesParams = {
     title?: string;
   };
   [HomeRoutes.RevokeRedirect]: undefined;
-  [HomeRoutes.NFTNPLScreen]: {
-    accountAddress?: string;
-  };
+  [HomeRoutes.NFTNPLScreen]: undefined;
 };
 /** HomeStack */
 
