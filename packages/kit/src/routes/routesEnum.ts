@@ -55,6 +55,7 @@ export enum RootRoutes {
   Account = 'account',
   OnLanding = 'onlanding',
   OnLandingWalletConnect = 'onlanding_wallet_connect',
+  KeyTag = 'key_tag',
 }
 export enum ReceiveTokenRoutes {
   ReceiveToken = 'ReceiveToken',
@@ -91,7 +92,6 @@ export enum HomeRoutes {
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
   ShowDotMap = 'ShowDotMap',
   ImportKeyTag = 'ImportKeyTag',
-  KeyTagRoutes = 'KeyTagRoutes',
 }
 export enum TabRoutes {
   // Overview = 'overview',

@@ -3,16 +3,15 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Box, Button, ScrollView } from '@onekeyhq/components';
 
 import { useNavigation } from '../../../hooks';
-import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
+import {
+  ModalScreenProps,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../../routes/types';
 import { KeyTagMatrix } from '../../KeyTag/Component/KeyTagMatrix/KeyTagMatrix';
 import { mnemonicWordsToKeyTagMnemonic } from '../../KeyTag/utils';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { KeyTagRoutes } from '../../KeyTag/Routes/enums';
-import { IKeytagRoutesParams } from '../../KeyTag/Routes/types';
-
-type NavigationProps = NativeStackNavigationProp<HomeRoutesParams> &
-  StackNavigationProp<IKeytagRoutesParams>;
+type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 // const fakeData =
 //   'idle bench tomato ankle desk thunder snack oil butter view infant image';
@@ -20,7 +19,7 @@ const fakeData =
   'birth buyer maple betray miss junk assume citizen agent toward hurdle jacket awful crater ball harbor spin basic';
 
 const DotMapGallery = () => {
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   return (
     <ScrollView>
       <Box ml={50} mt={10}>
@@ -29,26 +28,10 @@ const DotMapGallery = () => {
       <Box mt={10}>
         <Button
           onPress={() => {
-            navigation.navigate(HomeRoutes.ShowDotMap, {
-              mnemonicWords: fakeData,
-            });
+            navigation.replace(RootRoutes.KeyTag);
           }}
         >
-          to page
-        </Button>
-        <Button
-          onPress={() => {
-            navigation.navigate(HomeRoutes.ImportKeyTag);
-          }}
-        >
-          to page import
-        </Button>
-        <Button
-          onPress={() => {
-            navigation.replace(KeyTagRoutes.StartedKeytag);
-          }}
-        >
-          to page import
+          on keytag
         </Button>
       </Box>
     </ScrollView>

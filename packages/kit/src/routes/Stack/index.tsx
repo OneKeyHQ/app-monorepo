@@ -52,8 +52,6 @@ import Drawer from '../Drawer';
 import { HomeRoutes, HomeRoutesParams } from '../types';
 
 import renderCustomSubStackHeader from './Header';
-import { KeyTagRoutes } from '../../views/KeyTag/Routes/enums';
-import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
 
 export const stackScreenList = [
   {
@@ -162,10 +160,6 @@ export const stackScreenList = [
   {
     name: HomeRoutes.ImportKeyTag,
     component: ImportKeyTag,
-  },
-  {
-    name: HomeRoutes.KeyTagRoutes,
-    component: RouteKeytag,
   },
 ];
 

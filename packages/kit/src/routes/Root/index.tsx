@@ -22,6 +22,7 @@ import { RouteOnboarding } from '@onekeyhq/kit/src/views/Onboarding/routes/Route
 import OnLanding from '@onekeyhq/kit/src/views/OnLanding';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
 import ModalStackNavigator from '../Modal';
 import { buildModalOpenAnimationOptions } from '../Modal/buildModalStackNavigatorOptions';
 import {
@@ -116,6 +117,12 @@ const App = () => {
           presentation: 'fullScreenModal', // containedModal card fullScreenModal
           animation: 'fade',
         }}
+      />
+      <RootStack.Screen
+        name={RootRoutes.KeyTag}
+        component={RouteKeytag}
+        // @ts-expect-error
+        options={{ presentation: 'fullScreenModal', animation: 'fade' }}
       />
       <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen

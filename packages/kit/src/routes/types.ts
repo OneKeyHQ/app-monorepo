@@ -161,6 +161,7 @@ export type RootRoutesParams = {
   [RootRoutes.Onboarding]:
     | NavigatorScreenParams<IOnboardingRoutesParams>
     | undefined;
+  [RootRoutes.KeyTag]: undefined;
 };
 
 export type RootScreenProps<T extends keyof RootRoutesParams> =
