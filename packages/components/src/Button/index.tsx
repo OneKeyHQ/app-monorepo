@@ -4,7 +4,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useRef,
   useState,
 } from 'react';
 

@@ -1,4 +1,4 @@
-import React, { isValidElement, useRef } from 'react';
+import { isValidElement, useRef } from 'react';
 
 import Box from '../../Box';
 import Button from '../../Button';
@@ -38,6 +38,7 @@ function Desktop<T>({
   setPositionOnlyMounted,
   positionTranslateY = 2,
   autoAdjustPosition,
+  outerContainerRef,
 }: ChildProps<T>) {
   const translateY = positionTranslateY;
 
@@ -52,6 +53,7 @@ function Desktop<T>({
       setPositionOnlyMounted,
       dropdownProps,
       autoAdjust: autoAdjustPosition,
+      outerContainerRef,
     });
 
   const content = (
