@@ -102,9 +102,14 @@ const PageHeader = () => {
               onPress={() => {
                 nplAction();
               }}
+              type="plain"
               leftIconName="DocumentChartBarMini"
+              rightIcon={
+                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+              }
+              mx={-4}
             >
-              PnL
+              Profit and Loss
             </Button>
           </HStack>
         </Hidden>
