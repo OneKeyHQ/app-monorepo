@@ -226,7 +226,7 @@ const TokenInputReceivingAddress: FC = () => {
         flexDirection="row"
         py="1"
         px="2"
-        bg="surface-neutral-subdued"
+        // bg="surface-neutral-subdued"
         borderRadius="12"
       >
         <Typography.Caption color="text-default" mr="1" numberOfLines={1}>

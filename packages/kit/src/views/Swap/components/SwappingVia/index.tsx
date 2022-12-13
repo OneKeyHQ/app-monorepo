@@ -11,6 +11,10 @@ type SwappingViaProps = {
   fontWeight?: ComponentProps<typeof Text>['fontWeight'];
 };
 
+function proxyimg(base: string) {
+  return `https://node.onekey.so/proxyimg?base=${base}`;
+}
+
 type SwappingViaLogosProps = { sources?: string[]; size?: number };
 export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
   sources,
@@ -30,7 +34,11 @@ export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
         key={sources[0]}
         bgColor="surface-neutral-default"
       >
-        <Image size={imageSize} src={sources[0]} testID={sources[0]} />
+        <Image
+          size={imageSize}
+          src={proxyimg(sources[0])}
+          testID={sources[0]}
+        />
       </Box>
     );
   }
@@ -52,7 +60,7 @@ export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
           key={source}
           bgColor="surface-neutral-default"
         >
-          <Image size={imageSize} src={source} />
+          <Image size={imageSize} src={proxyimg(source)} />
         </Box>
       ))}
     </Box>
