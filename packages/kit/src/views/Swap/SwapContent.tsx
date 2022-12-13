@@ -7,7 +7,6 @@ import {
   Center,
   IconButton,
   useIsVerticalLayout,
-  useTheme,
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
@@ -26,7 +25,6 @@ import { SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
-  const { themeVariant } = useTheme();
   const isSmall = useIsVerticalLayout();
   const navigation = useNavigation();
   const {
@@ -91,9 +89,7 @@ const SwapContent = () => {
         <Box
           px={4}
           py="5"
-          bg="surface-default"
-          borderWidth={themeVariant === 'light' ? 1 : undefined}
-          borderColor="border-subdued"
+          bg="surface-subdued"
           overflow="hidden"
           borderRadius={isSmall ? undefined : '12'}
         >
@@ -144,9 +140,7 @@ const SwapContent = () => {
         <Box
           px={4}
           py="5"
-          bg="surface-default"
-          borderWidth={themeVariant === 'light' ? 1 : undefined}
-          borderColor="border-subdued"
+          bg="surface-subdued"
           overflow="hidden"
           borderRadius={isSmall ? undefined : '12'}
         >
