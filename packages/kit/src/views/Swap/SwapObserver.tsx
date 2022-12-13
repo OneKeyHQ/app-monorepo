@@ -59,7 +59,8 @@ const WelcomeObserver = () => {
         },
       });
     }
-    main();
+    const timer = setTimeout(main, 2000);
+    return () => clearTimeout(timer);
   }, [navigation]);
   return null;
 };

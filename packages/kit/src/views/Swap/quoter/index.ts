@@ -323,6 +323,9 @@ export class SwapQuoter {
       return;
     }
 
+    urlParams.fromTokenAmount = params.sellAmount;
+    delete urlParams.toTokenAmount;
+
     urlParams.quoterType = quoterType;
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
