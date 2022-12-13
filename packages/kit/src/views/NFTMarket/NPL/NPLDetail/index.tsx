@@ -16,6 +16,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
   CustomSkeleton,
   Divider,
   Empty,
@@ -23,6 +24,7 @@ import {
   IconButton,
   ListItem,
   Searchbar,
+  Spinner,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -190,7 +192,7 @@ const Header: FC<HeaderProps> = ({
 
   const [name, setName] = useState<string>('');
 
-  useSearchAddress({
+  const { loading: inputLoading } = useSearchAddress({
     keyword: address,
     network,
     onAddressSearch: ({ ens: ensName, address: vaildAddress }) => {
@@ -233,6 +235,16 @@ const Header: FC<HeaderProps> = ({
     }
   }, [activeAccount?.address]);
 
+  const showClearBtn = useMemo(() => {
+    if ((name || address).length === 0) {
+      return false;
+    }
+    if (inputLoading === true) {
+      return false;
+    }
+    return true;
+  }, [address, inputLoading, name]);
+
   return (
     <Box width="full" mb={isVerticalLayout ? '16px' : '8px'}>
       <Box width="full" flexDirection="row">
@@ -242,6 +254,12 @@ const Header: FC<HeaderProps> = ({
           maxW="400px"
           value={name || address}
           onChangeText={setAddress}
+          rightIconName={showClearBtn ? 'XCircleMini' : undefined}
+          rightElement={
+            <Center height="full" right="8px">
+              {inputLoading === true ? <Spinner size="sm" /> : null}
+            </Center>
+          }
           onClear={() => {
             setAddress('');
             setName('');
@@ -302,22 +320,24 @@ const Header: FC<HeaderProps> = ({
               </Text>
             </Box>
 
-            <Box flexDirection="row" alignItems="center">
-              {spend !== undefined ? (
-                <Text mr="8px" typography="Body1Strong">
-                  {PriceString({
-                    price: new BigNumber(spend).decimalPlaces(3).toString(),
-                    networkId: network.id,
-                  })}
-                </Text>
-              ) : (
-                <CustomSkeleton width="24px" height="12px" mr="6px" />
-              )}
+            <Hidden from="base" till="sm">
+              <Box flexDirection="row" alignItems="center">
+                {spend !== undefined ? (
+                  <Text mr="8px" typography="Body1Strong">
+                    {PriceString({
+                      price: new BigNumber(spend).decimalPlaces(3).toString(),
+                      networkId: network.id,
+                    })}
+                  </Text>
+                ) : (
+                  <CustomSkeleton width="24px" height="12px" mr="6px" />
+                )}
 
-              <Text typography="Body1" color="text-subdued">
-                Spend
-              </Text>
-            </Box>
+                <Text typography="Body1" color="text-subdued">
+                  Spend
+                </Text>
+              </Box>
+            </Hidden>
           </Box>
         </Box>
         <Row space="12px" height={isVerticalLayout ? '42px' : '38px'} mt="24px">
