@@ -43,6 +43,10 @@ const Header: FC<{
   onSelectNetWork: (network: Network) => void;
 }> = ({ keyword, setKeyword, selectNetwork, onSelectNetWork }) => {
   const intl = useIntl();
+  const route =
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
+  const { ethOnly } = route.params;
+
   const modalClose = useModalClose();
   return (
     <HStack
@@ -78,12 +82,14 @@ const Header: FC<{
         mr="12px"
       />
       <HStack space="16px" alignItems="center">
-        <ChainSelector
-          selectedNetwork={selectNetwork}
-          onChange={(n) => {
-            onSelectNetWork(n);
-          }}
-        />
+        {!!ethOnly === false && (
+          <ChainSelector
+            selectedNetwork={selectNetwork}
+            onChange={(n) => {
+              onSelectNetWork(n);
+            }}
+          />
+        )}
         {!platformEnv.isNativeIOS && <NavigationButton onPress={modalClose} />}
       </HStack>
     </HStack>

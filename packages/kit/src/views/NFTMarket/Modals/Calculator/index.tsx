@@ -97,6 +97,7 @@ const CalculatorModal: FC = () => {
   );
   const selectProjectAction = useCallback(() => {
     navigation.navigate(NFTMarketRoutes.SearchModal, {
+      ethOnly: true,
       onSelectCollection: ({ networkId, contractAddress, collection }) => {
         navigation.goBack();
         setNetWork(networkId);
@@ -110,6 +111,26 @@ const CalculatorModal: FC = () => {
       },
     });
   }, [getCollectionDetail, navigation]);
+
+  const [gasFee, setGasFee] = useState<number>(0);
+
+  useEffect(() => {
+    (async () => {
+      if (selectedProject?.contractAddress) {
+        const data = await serviceNFT.getCollectionTransactions({
+          chain: network,
+          contractAddress: selectedProject?.contractAddress,
+          limit: 1,
+          showAsset: false,
+          eventTypes: 'Sale',
+        });
+        if (data?.content && data?.content.length > 0) {
+          const tx = data.content[0];
+          setGasFee(tx.gasFee ?? 0);
+        }
+      }
+    })();
+  }, [network, selectedProject?.contractAddress, serviceNFT]);
 
   useEffect(() => {
     (async () => {
@@ -126,6 +147,7 @@ const CalculatorModal: FC = () => {
 
     const buy = new BigNumber(buyText);
     const sell = new BigNumber(sellText);
+    const bGas = new BigNumber(gasFee);
 
     if (buy.isNaN() || sell.isNaN()) {
       return '0 ETH';
@@ -133,13 +155,18 @@ const CalculatorModal: FC = () => {
     const platform = new BigNumber(platformFee / 100).multipliedBy(sell);
     const creator = new BigNumber(creatorFee).multipliedBy(sell);
 
-    result = sell.minus(platform).minus(creator).minus(buy);
+    result = sell
+      .minus(platform)
+      .minus(creator)
+      .minus(buy)
+      .minus(bGas)
+      .decimalPlaces(6);
     if (result.isNaN()) {
       return '0 ETH';
     }
 
     return `${result.toFixed()} ETH`;
-  }, [buyText, creatorFee, platformFee, sellText]);
+  }, [buyText, creatorFee, gasFee, platformFee, sellText]);
 
   return (
     <Modal size="xs" height="566px" header="Calculator" footer={null}>
@@ -262,12 +289,12 @@ const CalculatorModal: FC = () => {
             </Text>
             <Text typography="Body2">{`${creatorFee * 100}%`}</Text>
           </Row>
-          {/* <Row space="8px" justifyContent="space-between">
+          <Row space="8px" justifyContent="space-between">
             <Text typography="Body2Strong" color="text-subdued">
               Gas Fee
             </Text>
-            <Text typography="Body2">0 </Text>
-          </Row> */}
+            <Text typography="Body2">{`${gasFee} ETH`} </Text>
+          </Row>
           <Row space="8px" justifyContent="space-between" alignItems="flex-end">
             <Text typography="Body2Strong" color="text-subdued">
               Profit
