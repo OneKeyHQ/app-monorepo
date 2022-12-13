@@ -66,6 +66,7 @@ const SwapQuote = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const quote = useAppSelector((s) => s.swap.quote);
+  const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
@@ -184,10 +185,12 @@ const SwapQuote = () => {
               justifyContent="flex-end"
               alignItems="center"
             >
-              <Pressable onPress={onSelectRoute}>
+              <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
                 <SwappingVia providers={quote.providers} />
               </Pressable>
-              <Icon size={16} name="ChevronRightOutline" />
+              {quoteLimited ? null : (
+                <Icon size={16} name="ChevronRightOutline" />
+              )}
             </Box>
           </Box>
           <Box

@@ -92,9 +92,6 @@ const TokenInputReceivingAddress: FC = () => {
 
   useEffect(() => {
     async function main() {
-      if (label) {
-        return;
-      }
       let isDirty = false;
       async function checkRecipientUnknown() {
         const isUnknown =
@@ -145,7 +142,7 @@ const TokenInputReceivingAddress: FC = () => {
       }
     }
     main();
-  }, [sendingAccount, recipient, label, intl]);
+  }, [sendingAccount, recipient, intl]);
 
   useEffect(() => {
     if (label) {
@@ -189,20 +186,22 @@ const TokenInputReceivingAddress: FC = () => {
   if (address) {
     return (
       <Box position="relative">
-        <Pressable
-          flexDirection="row"
-          borderRadius={12}
-          alignItems="center"
-          onPress={onPress}
-          _hover={{ bg: 'surface-hovered' }}
-          _pressed={{ bg: 'surface-pressed' }}
-          position="relative"
-        >
-          <Box py="1" px="2" flexDirection="row" alignItems="center">
-            {text}
-            <Icon size={16} name="ChevronDownSolid" />
-          </Box>
-        </Pressable>
+        <Box flexDirection="row">
+          <Pressable
+            flexDirection="row"
+            borderRadius={12}
+            alignItems="center"
+            onPress={onPress}
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            position="relative"
+          >
+            <Box py="1" px="2" flexDirection="row" alignItems="center">
+              {text}
+              <Icon size={16} name="ChevronDownSolid" />
+            </Box>
+          </Pressable>
+        </Box>
         <Box position="relative">
           <Tooltip
             isOpen={!!label}
@@ -227,7 +226,7 @@ const TokenInputReceivingAddress: FC = () => {
         flexDirection="row"
         py="1"
         px="2"
-        bg="surface-neutral-subdued"
+        // bg="surface-neutral-subdued"
         borderRadius="12"
       >
         <Typography.Caption color="text-default" mr="1" numberOfLines={1}>

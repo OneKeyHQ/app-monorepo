@@ -25,10 +25,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { getTimeDurationMs, wait } from '../../utils/helper';
-import {
-  getCurrentModalRouteData,
-  isSendModalRouteExisting,
-} from '../../utils/routeUtils';
+import { isSendModalRouteExisting } from '../../utils/routeUtils';
 import { backgroundClass, backgroundMethod } from '../decorators';
 import { IDappSourceInfo } from '../IBackgroundApi';
 import {

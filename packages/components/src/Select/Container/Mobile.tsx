@@ -1,4 +1,4 @@
-import React, { isValidElement } from 'react';
+import { isValidElement } from 'react';
 
 import Modal from 'react-native-modal';
 

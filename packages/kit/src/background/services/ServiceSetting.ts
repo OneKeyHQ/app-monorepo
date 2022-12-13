@@ -76,6 +76,21 @@ export default class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setAppReviewsLastOpenedAt(value: number) {
+    return simpleDb.setting.setAppReviewsLastOpenedAt(value);
+  }
+
+  @backgroundMethod()
+  async getAppReviewsLastOpenedAt() {
+    return simpleDb.setting.getAppReviewsLastOpenedAt();
+  }
+
+  @backgroundMethod()
+  async getEnableAppRatings() {
+    return simpleDb.setting.getEnableAppRatings();
+  }
+
+  @backgroundMethod()
   async checkBrowserActionIcon() {
     const disableExt = this.backgroundApi.appSelector(
       (s) => s.settings.disableExt,
