@@ -2,7 +2,8 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Icon } from '@onekeyhq/components';
+import Dialog from '@onekeyhq/components/src/Dialog';
+import Icon from '@onekeyhq/components/src/Icon';
 
 import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '../../config';
 import { openUrlExternal } from '../../utils/openUrl';

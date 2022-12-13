@@ -1,5 +1,7 @@
 import ISO6391 from 'iso-639-1';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import bn from './bn.json';
 import de from './de.json';
 import enUS from './en-US.json';
@@ -89,6 +91,11 @@ const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
   value: key,
   label: getLanguage(key),
 }));
+
+if (platformEnv.isExtensionBackground) {
+  // debugger;
+  // throw new Error('components/locale is not allowed imported from background');
+}
 
 export type LocaleSymbol = keyof typeof LOCALES;
 export type LocaleIds = keyof typeof enUS;

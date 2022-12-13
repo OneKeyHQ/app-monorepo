@@ -2,7 +2,7 @@ import { networkList } from '@onekeyfe/network-list';
 import B from 'bignumber.js';
 import { uniq } from 'lodash';
 
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
 import { OnekeyNetwork } from '../presets/networkIds';
 import {

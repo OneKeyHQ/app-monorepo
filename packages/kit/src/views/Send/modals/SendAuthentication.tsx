@@ -17,7 +17,7 @@ import {
   OneKeyError,
   OneKeyErrorClassNames,
 } from '@onekeyhq/engine/src/errors';
-import { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

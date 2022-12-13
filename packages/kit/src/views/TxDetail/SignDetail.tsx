@@ -25,8 +25,9 @@ import {
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
 
-import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import { useActiveSideAccount } from '../../hooks';
+
+import type { IDappSourceInfo } from '../../../../kit-bg/src/IBackgroundApi';
 
 type TabType = 'message' | 'data';
 

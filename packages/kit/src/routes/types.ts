@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
-import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 

@@ -17,11 +17,10 @@ import {
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
-import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { WatchAssetParameters } from '../../background/providers/ProviderApiEthereum';
 import { useAccountTokens, useManageTokens } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
@@ -31,6 +30,7 @@ import { wait } from '../../utils/helper';
 import { useTokenSecurityInfo } from './hooks';
 import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 
+import type { WatchAssetParameters } from '../../../../kit-bg/src/providers/ProviderApiEthereum';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<

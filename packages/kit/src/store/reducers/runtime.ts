@@ -2,7 +2,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import type { Network as BaseNetwork } from '@onekeyhq/engine/src/types/network';
-import { Wallet as BaseWallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Wallet as BaseWallet } from '@onekeyhq/engine/src/types/wallet';
 
 type InitialState = {
   onBoardingLoadingBehindModal: boolean;

@@ -4,9 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Center, Modal, Text, VStack } from '@onekeyhq/components';
 
-import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
+
+import type { IDappSourceInfo } from '../../../../kit-bg/src/IBackgroundApi';
 
 const NetworkNotMatch = () => {
   const intl = useIntl();

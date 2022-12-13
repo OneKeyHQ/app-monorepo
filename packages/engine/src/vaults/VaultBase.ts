@@ -63,6 +63,11 @@ export type IVaultInitConfig = {
 };
 export type IKeyringMapKey = WalletType;
 
+if (platformEnv.isExtensionUi) {
+  debugger;
+  throw new Error('engine/VaultBase is not allowed imported from ui');
+}
+
 export abstract class VaultBaseChainOnly extends VaultContext {
   abstract settings: IVaultSettings;
 

@@ -4,8 +4,9 @@ import * as bip39 from 'bip39';
 import { isString } from 'lodash';
 
 import { IMPL_COSMOS } from '@onekeyhq/engine/src/constants';
-import { backgroundMethod } from '@onekeyhq/kit/src/background/decorators';
 import { Network } from '@onekeyhq/kit/src/store/typings';
+
+import { backgroundMethod } from '../../kit-bg/src/decorators';
 
 import {
   COINTYPE_BTC,

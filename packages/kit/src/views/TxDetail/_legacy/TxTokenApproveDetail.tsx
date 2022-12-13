@@ -8,11 +8,11 @@ import {
   EVMDecodedItemERC20Approve,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
-import { IDappSourceInfo } from '../../../background/IBackgroundApi';
-
 import Address from './Address';
 import ContractData from './ContractData';
 import HeaderIcon from './HeaderIcon';
+
+import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
 
 const TxTokenApproveDetail: FC<{
   tx: EVMDecodedItem;

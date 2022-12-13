@@ -9,8 +9,9 @@ import {
   IEncodedTx,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
+import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
 
 // TODO move to serviceDapp getDappInteractInfo()
 export function useInteractWithInfo({

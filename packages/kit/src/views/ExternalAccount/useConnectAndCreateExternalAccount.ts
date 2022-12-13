@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { IAccount } from '@onekeyhq/engine/src/types';
+import type { IAccount } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

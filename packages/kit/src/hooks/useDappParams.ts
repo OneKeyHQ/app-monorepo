@@ -4,7 +4,7 @@ import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault'
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { IDappSourceInfo } from '../background/IBackgroundApi';
+import type { IDappSourceInfo } from '../../../kit-bg/src/IBackgroundApi';
 
 export type IDappSignAndSendParams = {
   unsignedMessage?: IUnsignedMessageEvm;

@@ -7,8 +7,8 @@ import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/store/reducers/
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { waitForDataLoaded } from '../../../kit-bg/src/utils';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { waitForDataLoaded } from '../background/utils';
 import { useSystemLocale } from '../hooks/useSystemLocale';
 import store from '../store';
 import { setIsReduxReady } from '../store/reducers/data';

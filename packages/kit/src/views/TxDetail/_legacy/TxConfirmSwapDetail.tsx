@@ -9,12 +9,12 @@ import {
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
-import { IDappSourceInfo } from '../../../background/IBackgroundApi';
-
 import Address from './Address';
 import ContractData from './ContractData';
 import HeaderIcon from './HeaderIcon';
 import TotalFee from './TotalFee';
+
+import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
 
 const TxConfirmSwapDetail: FC<{
   tx: EVMDecodedItem;

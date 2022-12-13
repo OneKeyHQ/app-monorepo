@@ -11,6 +11,7 @@ import {
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import * as algosdk from 'algosdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
@@ -21,17 +22,15 @@ import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
-import {
-  backgroundClass,
-  backgroundMethod,
-} from '@onekeyhq/kit/src/background/decorators';
-import { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
-import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
-import { getDeviceType, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
+import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+import type { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
-import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
+import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import { backgroundClass, backgroundMethod } from '../../kit-bg/src/decorators';
 
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
@@ -156,6 +155,11 @@ import type { ITransferInfo } from './vaults/types';
 const updateTokenCache: {
   [networkId: string]: boolean;
 } = {};
+
+if (platformEnv.isExtensionUi) {
+  debugger;
+  throw new Error('engine/index is not allowed imported from ui');
+}
 
 @backgroundClass()
 class Engine {

@@ -1,12 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgCurrencyDollar = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
     <Path d="M10.75 10.818v2.614A3.13 3.13 0 0 0 11.888 13c.482-.315.612-.648.612-.875 0-.227-.13-.56-.612-.875a3.13 3.13 0 0 0-1.138-.432zM8.33 8.62c.053.055.115.11.184.164.208.16.46.284.736.363V6.603a2.45 2.45 0 0 0-.35.13 2.01 2.01 0 0 0-.386.233c-.377.292-.514.627-.514.909 0 .184.058.39.202.592.037.051.08.102.128.152z" />
     <Path
       fillRule="evenodd"

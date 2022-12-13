@@ -21,7 +21,7 @@ import {
 } from '@onekeyhq/engine/src/constants';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
-import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
+import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';

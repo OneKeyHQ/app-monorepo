@@ -1,7 +1,7 @@
 /* eslint-disable no-var,vars-on-top */
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import type { IBackgroundApi } from '@onekeyhq/kit/src/background/IBackgroundApi';
 
+import type { IBackgroundApi } from '../packages/kit-bg/src/IBackgroundApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
 import type { EnhancedStore } from '@reduxjs/toolkit';

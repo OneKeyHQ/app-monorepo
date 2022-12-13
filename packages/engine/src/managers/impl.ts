@@ -36,7 +36,8 @@ import {
 } from '../constants';
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
-import { AccountNameInfo } from '../types/network';
+
+import type { AccountNameInfo } from '../types/network';
 
 enum Curve {
   SECP256K1 = 'secp256k1',

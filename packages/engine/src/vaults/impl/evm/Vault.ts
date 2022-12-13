@@ -108,6 +108,7 @@ export type IUnsignedMessageEvm = (AptosMessage | ETHMessage) & {
   payload?: any;
 };
 
+// TODO move to types.ts
 export type IEncodedTxEvm = {
   from: string;
   to: string;

@@ -4,12 +4,13 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
+import store from '@onekeyhq/kit/src/store';
+
 import {
   DISPATCH_ACTION_BROADCAST_METHOD_NAME,
   IDispatchActionBroadcastParams,
   buildReduxBatchAction,
-} from '@onekeyhq/kit/src/background/utils';
-import store from '@onekeyhq/kit/src/store';
+} from '../../../kit-bg/src/utils';
 
 function init() {
   const jsBridgeReceiveHandler = (payload: IJsBridgeMessagePayload) => {

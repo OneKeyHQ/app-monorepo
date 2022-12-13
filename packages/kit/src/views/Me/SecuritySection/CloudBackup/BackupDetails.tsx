@@ -24,8 +24,8 @@ import {
   useToast,
 } from '@onekeyhq/components';
 
+import { RestoreResult } from '../../../../../../kit-bg/src/services/ServiceCloudBackup.types';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { RestoreResult } from '../../../../background/services/ServiceCloudBackup.types';
 import { useNavigation } from '../../../../hooks';
 import { useData } from '../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
@@ -44,7 +44,7 @@ import BackupIcon from './BackupIcon';
 import BackupSummary from './BackupSummary';
 import Wrapper from './Wrapper';
 
-import type { PublicBackupData } from '../../../../background/services/ServiceCloudBackup.types';
+import type { PublicBackupData } from '../../../../../../kit-bg/src/services/ServiceCloudBackup.types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { Device } from '@onekeyhq/engine/src/types/device';
+import type { Device } from '@onekeyhq/engine/src/types/device';
 
 import UpdateInfoModel from '../../views/Hardware/UpdateFirmware/UpdateInfo';
 import UpdateWarningModel from '../../views/Hardware/UpdateFirmware/UpdateWarning';

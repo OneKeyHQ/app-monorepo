@@ -6,8 +6,8 @@ import {
   ISignedTx,
 } from '@onekeyhq/engine/src/vaults/types';
 
+import { ENABLED_DAPP_SCOPE } from '../../../../../../kit-bg/src/utils';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { ENABLED_DAPP_SCOPE } from '../../../../background/utils';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
 import { useActiveSideAccount } from '../../../../hooks';
 import { useDecodedTx } from '../../../../hooks/useDecodedTx';

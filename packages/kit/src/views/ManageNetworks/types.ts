@@ -1,4 +1,4 @@
-import { AddEVMNetworkParams } from '@onekeyhq/engine/src/types/network';
+import type { AddEVMNetworkParams } from '@onekeyhq/engine/src/types/network';
 
 import { ManageNetworkRoutes } from '../../routes/routesEnum';
 

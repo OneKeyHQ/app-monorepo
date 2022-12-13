@@ -6,10 +6,11 @@ import { useIntl } from 'react-intl';
 import { Center, Empty } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 
-import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 
 import { BaseSendModal } from './BaseSendModal';
+
+import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
 
 export function BaseSendRouteScreen({
   children,

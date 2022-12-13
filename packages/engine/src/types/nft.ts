@@ -1,3 +1,4 @@
+// safe import
 import { OnekeyNetwork } from '../presets/networkIds';
 
 export const NFTChainMap: Record<string, string> = {

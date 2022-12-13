@@ -13,9 +13,9 @@ import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
 import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
-import { ToastManager } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
+import { Toast as ToastManager } from '@onekeyhq/components/src/Toast/useToast';
 import {
   OneKeyErrorClassNames,
   OneKeyHardwareError,

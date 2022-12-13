@@ -10,7 +10,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { backgroundMethod } from '../../background/decorators';
+import { backgroundMethod } from '../../../../kit-bg/src/decorators';
 import { wait } from '../../utils/helper';
 import Minimizer from '../Minimizer';
 

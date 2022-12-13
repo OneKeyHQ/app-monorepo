@@ -9,8 +9,8 @@ import {
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { backgroundMethod } from '../../background/decorators';
-import { waitForDataLoaded } from '../../background/utils';
+import { backgroundMethod } from '../../../../kit-bg/src/decorators';
+import { waitForDataLoaded } from '../../../../kit-bg/src/utils';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { WalletService } from './types';

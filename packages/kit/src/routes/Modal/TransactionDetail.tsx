@@ -1,8 +1,8 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import { IDecodedTx, IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import type { IDecodedTx, IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { TxHistoryDetailModal } from '../../views/TxHistory/TxHistoryDetailModal';
 

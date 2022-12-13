@@ -12,7 +12,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { HomeRoutes, HomeRoutesParams } from '../../../../routes/types';

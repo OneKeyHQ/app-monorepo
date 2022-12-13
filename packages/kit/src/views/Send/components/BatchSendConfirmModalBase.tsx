@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import { Box, Text } from '@onekeyhq/components';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isWatchingAccount } from '@onekeyhq/engine/src/engineUtils';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';

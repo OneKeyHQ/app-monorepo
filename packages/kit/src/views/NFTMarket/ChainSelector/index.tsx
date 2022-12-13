@@ -12,7 +12,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 
 const ChainSelectorNetWorks = [
