@@ -58,14 +58,7 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
       const profit = (exit?.tradePrice ?? 0) - (entry?.tradePrice ?? 0);
 
       return (
-        <ListItem
-          px={0}
-          py="8px"
-          my={0}
-          onPress={() => {
-            console.log('item = ', item);
-          }}
-        >
+        <ListItem>
           <ListItem.Column>
             <NFTListImage
               asset={asset as NFTAsset}
@@ -110,10 +103,8 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
   return (
     <Box flex={1}>
       <List
-        m={0}
         renderItem={renderItem}
         keyExtractor={(item) => (item.contractAddress as string) + item.tokenId}
-        p={{ base: '16px', md: '32px' }}
         showsVerticalScrollIndicator={false}
         ListFooterComponent={() => {
           if (loading) {
@@ -121,12 +112,8 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
           }
           return null;
         }}
-        contentContainerStyle={{
-          width: '100%',
-          maxWidth: 992,
-          alignSelf: 'center',
-        }}
         {...props}
+        p={4}
       />
     </Box>
   );

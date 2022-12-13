@@ -61,14 +61,16 @@ const SearchAddress: FC<{
     navigation.setOptions({
       title: '',
       headerRight: () => (
-        <IconButton
-          mr="16px"
-          type="basic"
-          size="sm"
-          name="CalculatorSolid"
-          circle
-          onPress={calculatorAction}
-        />
+        <HStack>
+          <IconButton
+            mr={{ base: 2.5, md: 8 }}
+            type="plain"
+            size="lg"
+            name="CalculatorOutline"
+            circle
+            onPress={calculatorAction}
+          />
+        </HStack>
       ),
     });
   }, [calculatorAction, navigation]);
@@ -82,7 +84,12 @@ const SearchAddress: FC<{
   });
   const isVerticalLayout = useIsVerticalLayout();
   return (
-    <Box flex={1} alignItems="center" px="16px" pt="96px">
+    <Box
+      flex={1}
+      alignItems="center"
+      px="16px"
+      pt={{ base: '48px', md: '96px' }}
+    >
       {/* <Box w="full" height="106px" bgColor="blue.100" /> */}
       <MotiView
         from={{ opacity: 0, scale: 0.5 }}
@@ -115,10 +122,14 @@ const SearchAddress: FC<{
           placeholder={intl.formatMessage({
             id: 'form__enter_address_ens_name',
           })}
+          rightCustomElement={
+            loading === true ? (
+              <Center p={{ base: 2, md: 1 }}>
+                <Spinner size="sm" />
+              </Center>
+            ) : null
+          }
         />
-        <Center height="full" position="absolute" right="8px">
-          {loading === true ? <Spinner size="sm" /> : null}
-        </Center>
       </HStack>
       <HStack
         w={isVerticalLayout ? 'full' : '400px'}

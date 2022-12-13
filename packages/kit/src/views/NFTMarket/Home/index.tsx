@@ -5,12 +5,14 @@ import { ListRenderItem } from 'react-native';
 
 import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
 
+// import Banner from './Banner';
 import LiveMintingModule from './LiveMinting';
 import NotableCollections from './NotableCollections';
 import PageHeader from './PageHeader';
 import StatsModule from './Stats';
 
 export enum NFTModule {
+  BannerSection = 'BannerSection',
   Collection = 'Collection',
   Stats = 'Stats',
   Category = 'Category',
@@ -23,6 +25,7 @@ type ModuleData = {
 const Content = () => {
   const { bottom } = useSafeAreaInsets();
   const data: ModuleData[] = [
+    // { id: NFTModule.BannerSection },
     { id: NFTModule.Collection },
     { id: NFTModule.Stats },
     // { id: NFTModule.Category },
@@ -31,6 +34,9 @@ const Content = () => {
 
   const renderItem: ListRenderItem<ModuleData> = useCallback(({ item }) => {
     const { id } = item;
+    // if (id === NFTModule.BannerSection) {
+    //   return <Banner />;
+    // }
     if (id === NFTModule.Collection) {
       return <NotableCollections />;
     }

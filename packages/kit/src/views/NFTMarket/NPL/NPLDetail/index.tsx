@@ -23,6 +23,7 @@ import {
   IconButton,
   ListItem,
   Searchbar,
+  Skeleton,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -180,6 +181,7 @@ const Header: FC<HeaderProps> = ({
   }
   totalValue = PriceString({ price: totalValue, networkId: network.id });
   const [address, setAddress] = useState<string>(accountAddress ?? '');
+  const intl = useIntl();
 
   const [name, setName] = useState<string>('');
 
@@ -227,7 +229,7 @@ const Header: FC<HeaderProps> = ({
   }, [activeAccount?.address]);
 
   return (
-    <Box width="full" mb={isVerticalLayout ? '16px' : '8px'}>
+    <Box width="full" mb={isVerticalLayout ? '16px' : '8px'} p={2}>
       <Box width="full" flexDirection="row">
         <Searchbar
           flex={1}
@@ -239,7 +241,9 @@ const Header: FC<HeaderProps> = ({
             setAddress('');
             setName('');
           }}
-          placeholder="Address, domain, or any DID"
+          placeholder={intl.formatMessage({
+            id: 'form__enter_address_ens_name',
+          })}
         />
       </Box>
       <Box
@@ -261,9 +265,7 @@ const Header: FC<HeaderProps> = ({
               {totalValue}
             </Text>
           ) : (
-            <Box height="40px">
-              <CustomSkeleton width="144px" height="20px" />
-            </Box>
+            <Skeleton shape="Display2XLarge" />
           )}
 
           <Box flexDirection="row" mt="8px">
@@ -349,21 +351,32 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   const connectAccountBtn = useMemo(() => {
     if (activeAccount?.id === undefined) {
       return (
-        <Button onPress={connectAndCreateExternalAccount} mr={6}>
+        <Button onPress={connectAndCreateExternalAccount}>
           {intl.formatMessage({ id: 'action__connect_wallet' })}
         </Button>
       );
     }
-    return <AccountSelectorTrigger type="plain" />;
-  }, [activeAccount?.id, connectAndCreateExternalAccount, intl]);
+    return (
+      <AccountSelectorTrigger
+        type={isVerticalLayout ? 'basic' : 'plain'}
+        showAddress={!isVerticalLayout}
+      />
+    );
+  }, [
+    activeAccount?.id,
+    connectAndCreateExternalAccount,
+    intl,
+    isVerticalLayout,
+  ]);
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
       headerRight: () => (
         <Row
-          space={{ base: 2, md: 4 }}
+          space={2}
           alignItems="center"
-          mr={{ base: 4, md: 8 }}
+          mr={{ base: 2.5, md: 8 }}
+          justifyContent="flex-end"
         >
           {/* <ChainSelector
             // tiggerProps={{ display: 'none' }}
@@ -374,9 +387,9 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
           {connectAccountBtn}
           <IconButton
             // isDisabled
-            type="basic"
-            size="sm"
-            name="CalculatorSolid"
+            type="plain"
+            size="lg"
+            name="CalculatorOutline"
             circle
             onPress={calculatorAction}
           />
