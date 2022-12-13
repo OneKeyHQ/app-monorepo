@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { IAdaOutputs, IAdaUTXO } from '../../types';
 
@@ -18,7 +19,7 @@ enum CardanoEvent {
   dAppSignData = 'Cardano_DAppSignData',
 }
 
-type IResult = { error: Error; result: any };
+type IResult = { error: any; result: any };
 
 const composeTxPlan = async (
   transferInfo: ITransferInfo,
@@ -40,8 +41,16 @@ const composeTxPlan = async (
   })) as IResult;
 
   if (result.error) {
-    throw result.error;
+    debugLogger.providerApi.error(
+      'cardano web-embed composeTxPlan error: ',
+      result.error,
+    );
+    throw new Error(result.error);
   }
+  debugLogger.providerApi.error(
+    'cardano web-embed composeTxPlan success: ',
+    result.result,
+  );
   return result.result;
 };
 
@@ -67,8 +76,16 @@ const signTransaction = async (
   })) as IResult;
 
   if (result.error) {
-    throw result.error;
+    debugLogger.providerApi.error(
+      'cardano web-embed signTransaction error: ',
+      result.error,
+    );
+    throw new Error(result.error);
   }
+  debugLogger.providerApi.error(
+    'cardano web-embed signTransaction success: ',
+    result.result,
+  );
   return result.result;
 };
 
@@ -98,15 +115,17 @@ const hwSignTransaction = async (
   })) as IResult;
 
   if (result.error) {
-    throw result.error;
+    debugLogger.providerApi.error(
+      'cardano web-embed CardanoSignedTxWitness error: ',
+      result.error,
+    );
+    throw new Error(result.error);
   }
+  debugLogger.providerApi.error(
+    'cardano web-embed hwSignTransaction success: ',
+    result.result,
+  );
   return result.result;
-};
-
-const CardanoApi = {
-  composeTxPlan,
-  signTransaction,
-  hwSignTransaction,
 };
 
 // DApp Function
@@ -200,4 +219,12 @@ const dAppUtils = {
   signData,
 };
 
-export { CardanoApi, dAppUtils };
+const getCardanoApi = async () =>
+  Promise.resolve({
+    composeTxPlan,
+    signTransaction,
+    hwSignTransaction,
+    dAppUtils,
+  });
+
+export { getCardanoApi };

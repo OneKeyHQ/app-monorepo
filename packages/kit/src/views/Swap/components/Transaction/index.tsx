@@ -352,7 +352,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
             <Icon
               name="ArrowTopRightOnSquareOutline"
               size={16}
-              color="text-subdued"
+              color="icon-subdued"
             />
           </Box>
         )}
@@ -385,7 +385,7 @@ const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
       <Icon
         name="ArrowTopRightOnSquareOutline"
         size={16}
-        color="text-subdued"
+        color="icon-subdued"
       />
     </Pressable>
   );
@@ -488,7 +488,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Icon
                   name="Square2StackOutline"
                   size={16}
-                  color="text-subdued"
+                  color="icon-subdued"
                 />
               </Pressable>
             </TransactionField>
@@ -507,7 +507,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 <Icon
                   name="Square2StackOutline"
                   size={16}
-                  color="text-subdued"
+                  color="icon-subdued"
                 />
               </Pressable>
             </TransactionField>
@@ -523,7 +523,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption mr="1" color="text-subdued">
                 {formatAddressName(account.address, account.name)}
               </Typography.Caption>
-              <Icon name="Square2StackOutline" size={16} color="text-subdued" />
+              <Icon name="Square2StackOutline" size={16} color="icon-subdued" />
             </Pressable>
           </TransactionField>
         )}
@@ -566,7 +566,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             </Typography.Caption>
             <Icon
               name="ArrowTopRightOnSquareOutline"
-              color="text-subdued"
+              color="icon-subdued"
               size={16}
             />
           </Pressable>
@@ -583,7 +583,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               <Typography.Caption color="text-subdued">
                 {utils.shortenAddress(swftcOrderId)}
               </Typography.Caption>
-              <Icon name="Square2StackOutline" size={16} />
+              <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
             </Pressable>
           </TransactionField>
         ) : null}

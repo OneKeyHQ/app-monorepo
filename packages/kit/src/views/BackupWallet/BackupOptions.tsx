@@ -4,6 +4,7 @@ import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -47,7 +48,13 @@ const BackupItem: FC<BackupItemProps> = ({
   badge = 'default',
   onPress,
 }) => (
-  <Pressable.Item borderRadius={12} onPress={() => onPress?.()}>
+  <Pressable.Item
+    bgColor="action-secondary-default"
+    borderWidth={StyleSheet.hairlineWidth}
+    borderColor="border-default"
+    borderRadius={12}
+    onPress={() => onPress?.()}
+  >
     <Box>
       <Box
         flexDirection="row"
@@ -56,7 +63,12 @@ const BackupItem: FC<BackupItemProps> = ({
       >
         <Image size={16} source={imageSrc} />
         <Box>
-          <Icon title={badge} size={24} name="ChevronRightMini" />
+          <Icon
+            title={badge}
+            size={24}
+            name="ChevronRightMini"
+            color="icon-subdued"
+          />
         </Box>
       </Box>
       <Typography.Body1Strong mt={4}>{title}</Typography.Body1Strong>

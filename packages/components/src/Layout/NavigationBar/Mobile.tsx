@@ -98,7 +98,7 @@ export default function BottomTabBar({
               <Icon
                 // @ts-expect-error
                 name={options?.tabBarIcon?.(isActive) as ICON_NAMES}
-                color={isActive ? 'icon-pressed' : 'icon-subdued'}
+                color={isActive ? 'icon-default' : 'icon-subdued'}
                 size={28}
               />
             </Pressable>

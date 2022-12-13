@@ -82,6 +82,10 @@ const NavigationApp = () => {
     });
   }, [instanceId]);
 
+  global.$$onekeyPerfTrace?.log({
+    name: 'NavigationProvider/NavigationApp render',
+  });
+
   return (
     <NavigationContainer
       documentTitle={{

@@ -90,10 +90,10 @@ const Provider: FC<UIProviderProps> = ({
               shadowColor: '#000',
               shadowOffset: {
                 width: 0,
-                height: 1,
+                height: 0.5,
               },
               shadowOpacity: 0.05,
-              shadowRadius: 1.0,
+              shadowRadius: 0.25,
               elevation: 1,
             },
             2: {
@@ -148,6 +148,15 @@ const Provider: FC<UIProviderProps> = ({
             baseStyle: {
               focusOutlineColor: 'interactive-default',
               invalidOutlineColor: 'border-critical-default',
+              // This code is a temporary solution to a problem with the NativeBase library, specifically with the selection color of input fields in the ios and android operating systems. https://github.com/GeekyAnts/NativeBase/issues/5420
+              _focus: {
+                _ios: {
+                  selectionColor: 'unset',
+                },
+                _android: {
+                  selectionColor: 'unset',
+                },
+              },
             },
           },
           Textarea: {

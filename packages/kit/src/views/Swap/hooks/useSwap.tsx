@@ -149,7 +149,7 @@ export const useSwapQuoteCallback = function (
           if (res.data) {
             backgroundApiProxy.serviceSwap.setQuote(res.data);
           }
-          backgroundApiProxy.dispatch(setQuoteLimited(res.limited));
+          backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
         } else {
           backgroundApiProxy.dispatch(
             setError(SwapError.NotSupport),
@@ -223,7 +223,9 @@ export function useDerivedSwapState() {
   };
 }
 
-export function useInputLimitsError(): Error | undefined {
+export function useInputLimitsError():
+  | { message: string; value: string }
+  | undefined {
   const intl = useIntl();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
@@ -232,6 +234,7 @@ export function useInputLimitsError(): Error | undefined {
   const minAmount = useTokenAmount(inputToken, quoteLimited?.min);
   return useMemo(() => {
     let message: string | undefined;
+    let value: string | undefined;
     if (inputAmount && inputToken && (maxAmount || minAmount)) {
       if (minAmount) {
         const min = minAmount.typedValue;
@@ -240,6 +243,7 @@ export function useInputLimitsError(): Error | undefined {
             { id: 'msg__str_minimum_amount' },
             { '0': `${min} ${inputToken.symbol}` },
           );
+          value = min;
         }
       }
       if (maxAmount) {
@@ -249,10 +253,14 @@ export function useInputLimitsError(): Error | undefined {
             { id: 'msg__str_maximum_amount' },
             { '0': `${max} ${inputToken.symbol}` },
           );
+          value = max;
         }
       }
     }
-    return message ? new Error(message) : undefined;
+    if (!message || !value) {
+      return;
+    }
+    return { message, value };
   }, [inputAmount, inputToken, maxAmount, minAmount, intl]);
 }
 

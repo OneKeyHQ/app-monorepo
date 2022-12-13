@@ -105,8 +105,8 @@ const ModalView: FC<ModalViewProps> = ({
   }, [name, setValue, defaultNameServiceName]);
 
   useEffect(() => {
-    if (address.length > 96) {
-      setValue('address', address.slice(0, 96));
+    if (address.length > 103) {
+      setValue('address', address.slice(0, 103));
     }
   }, [address, setValue]);
 

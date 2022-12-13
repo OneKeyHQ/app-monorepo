@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import {
@@ -12,6 +13,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { COINTYPE_ADA } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import {
+  InsufficientBalance,
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
@@ -42,7 +44,7 @@ import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
 import { generateExportedCredential } from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
 import Client from './helper/client';
-import { CardanoApi, dAppUtils } from './helper/sdk';
+import { getCardanoApi } from './helper/sdk';
 import { transformToOneKeyInputs } from './helper/transformations';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -374,13 +376,23 @@ export default class Vault extends VaultBase {
           amount: amountBN.toFixed(),
           assets: [],
         };
-    const txPlan = await CardanoApi.composeTxPlan(
-      transferInfo,
-      dbAccount.xpub,
-      utxos,
-      dbAccount.address,
-      [output as any],
-    );
+    const CardanoApi = await getCardanoApi();
+    let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
+    try {
+      txPlan = await CardanoApi.composeTxPlan(
+        transferInfo,
+        dbAccount.xpub,
+        utxos,
+        dbAccount.address,
+        [output as any],
+      );
+    } catch (e: any) {
+      const utxoVauleTooSmall = 'UTXO_VALUE_TOO_SMALL';
+      if (e.code === utxoVauleTooSmall || e.message === utxoVauleTooSmall) {
+        throw new InsufficientBalance();
+      }
+      throw e;
+    }
 
     const changeAddress = getChangeAddress(dbAccount);
 
@@ -447,7 +459,7 @@ export default class Vault extends VaultBase {
     let txs: IAdaHistory[] = [];
 
     try {
-      txs = (await client.getHistory(stakeAddress)) ?? [];
+      txs = (await client.getHistory(stakeAddress, dbAccount.address)) ?? [];
     } catch (e) {
       console.error(e);
     }
@@ -695,25 +707,29 @@ export default class Vault extends VaultBase {
 
   async getBalanceForDapp(address: string) {
     const [balance] = await this.getBalances([{ address }]);
-    return dAppUtils.getBalance(balance ?? new BigNumber(0));
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getBalance(balance ?? new BigNumber(0));
   }
 
   async getUtxosForDapp(amount?: string) {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const client = await this.getClient();
     const utxos = await client.getUTXOs(dbAccount);
-    return dAppUtils.getUtxos(dbAccount.address, utxos, amount);
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getUtxos(dbAccount.address, utxos, amount);
   }
 
   async getAccountAddressForDapp() {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    return dAppUtils.getAddresses([dbAccount.address]);
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getAddresses([dbAccount.address]);
   }
 
   async getStakeAddressForDapp() {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
-    return dAppUtils.getAddresses([stakeAddress]);
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getAddresses([stakeAddress]);
   }
 
   async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxADA> {
@@ -723,7 +739,8 @@ export default class Vault extends VaultBase {
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
     const addresses = await client.getAssociatedAddresses(stakeAddress);
     const utxos = await client.getUTXOs(dbAccount);
-    const encodeTx = await dAppUtils.convertCborTxToEncodeTx(
+    const CardanoApi = await getCardanoApi();
+    const encodeTx = await CardanoApi.dAppUtils.convertCborTxToEncodeTx(
       txHex,
       utxos,
       addresses,

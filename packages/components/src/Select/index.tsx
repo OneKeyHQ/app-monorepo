@@ -1,5 +1,6 @@
 import {
   ComponentProps,
+  MutableRefObject,
   ReactElement,
   ReactNode,
   RefObject,
@@ -120,6 +121,7 @@ export type SelectProps<T = string> = {
   positionTranslateY?: number;
   withReactModal?: boolean;
   autoAdjustPosition?: boolean;
+  outerContainerRef?: MutableRefObject<unknown>;
 };
 
 export type ChildProps<T> = Pick<
@@ -144,6 +146,7 @@ export type ChildProps<T> = Pick<
   | 'positionTranslateY'
   | 'withReactModal'
   | 'autoAdjustPosition'
+  | 'outerContainerRef'
 > & {
   toggleVisible: () => void;
   visible: boolean;
@@ -188,6 +191,7 @@ function Select<T = string>({
   onModalHide,
   withReactModal,
   autoAdjustPosition,
+  outerContainerRef,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement | View>(null);
   const [visible, setVisible] = useState(false);
@@ -261,6 +265,7 @@ function Select<T = string>({
       setPositionOnlyMounted,
       positionTranslateY,
       withReactModal,
+      outerContainerRef,
       onModalHide: () => {
         if (visible) {
           toggleVisible();
@@ -303,6 +308,7 @@ function Select<T = string>({
     setPositionOnlyMounted,
     positionTranslateY,
     withReactModal,
+    outerContainerRef,
     size,
     autoAdjustPosition,
     onModalHide,
@@ -343,13 +349,13 @@ function Select<T = string>({
               bg={
                 // eslint-disable-next-line no-nested-ternary
                 visible
-                  ? 'surface-selected'
+                  ? 'action-secondary-pressed'
                   : // eslint-disable-next-line no-nested-ternary
                   isHovered
-                  ? 'surface-hovered'
+                  ? 'action-secondary-hovered'
                   : isTriggerPlain
                   ? undefined
-                  : 'surface-default'
+                  : 'action-secondary-default'
               }
             >
               <Box
@@ -393,12 +399,7 @@ function Select<T = string>({
                   )}
                 </Box>
               </Box>
-              <NBIcon
-                as={ChevronDown}
-                size={5}
-                color="icon-default"
-                ml="auto"
-              />
+              <NBIcon as={ChevronDown} size={5} ml="auto" />
             </Box>
           )
         }

@@ -61,6 +61,12 @@ const AppLoading: FC = ({ children }) => {
     }
   }, [initDataReady]);
 
+  global.$$onekeyPerfTrace?.log({
+    name: `AppLoading SplashScreen render: ${JSON.stringify({
+      initDataReady,
+    })}`,
+  });
+
   return (
     <Box flex={1} bg={bg}>
       <AnimatedSplash

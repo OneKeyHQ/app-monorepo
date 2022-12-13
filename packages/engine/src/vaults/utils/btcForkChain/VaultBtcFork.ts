@@ -602,7 +602,15 @@ export default class VaultBtcFork extends VaultBase {
                 utxoFrom,
                 utxoTo,
                 from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
-                to: utxoTo.find((utxo) => !!utxo.address)?.address ?? '',
+                // For out transaction, use first address as to.
+                // For in or self transaction, use first owned address as to.
+                to:
+                  utxoTo.find((utxo) =>
+                    direction === IDecodedTxDirection.IN ||
+                    direction === IDecodedTxDirection.SELF
+                      ? utxo.isMine
+                      : !!utxo.address,
+                  )?.address ?? '',
                 amount: amountValue.shiftedBy(-decimals).toFixed(),
                 amountValue: amountValue.toFixed(),
                 extraInfo: null,

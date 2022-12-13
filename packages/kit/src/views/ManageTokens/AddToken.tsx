@@ -206,7 +206,13 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                 </HStack>
               </Box>
 
-              <Box bg="surface-default" borderRadius="12" mt="2" mb="3">
+              <Box
+                borderRadius="12px"
+                borderWidth={1}
+                borderColor="border-subdued"
+                mt="2"
+                mb="3"
+              >
                 {items.map((item, index) => (
                   <Box
                     display="flex"
@@ -215,10 +221,6 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                     p="4"
                     alignItems="center"
                     key={index}
-                    borderTopRadius={index === 0 ? '12' : undefined}
-                    borderBottomRadius={
-                      index === items.length - 1 ? '12' : undefined
-                    }
                     borderTopColor="divider"
                     borderTopWidth={index !== 0 ? '1' : undefined}
                   >

@@ -6,8 +6,8 @@ import { ListRenderItem } from 'react-native';
 import {
   Box,
   Center,
-  Divider,
   Empty,
+  Icon,
   Image,
   Modal,
   Pressable,
@@ -78,7 +78,7 @@ const NetworkSelector: FC = () => {
         buttons={buttons}
         selectedIndex={selectedIndex}
         onButtonPress={onButtonPress}
-        bg="surface-subdued"
+        bg="background-default"
       />
     </Box>
   );
@@ -92,7 +92,7 @@ type HeaderProps = {
 const Header: FC<HeaderProps> = ({ keyword, onChange }) => {
   const intl = useIntl();
   return (
-    <Box>
+    <Box px="8px">
       <NetworkSelector />
       <Searchbar
         w="full"
@@ -100,7 +100,7 @@ const Header: FC<HeaderProps> = ({ keyword, onChange }) => {
           id: 'form__search_tokens',
           defaultMessage: 'Search Tokens',
         })}
-        mb="6"
+        mb="16px"
         value={keyword}
         onClear={() => onChange('')}
         onChangeText={(text) => onChange(text)}
@@ -143,16 +143,12 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 
 type ListRenderTokenProps = {
   token: Token;
-  isFirst?: boolean;
-  isLast?: boolean;
   onSelect?: (item: Token) => void;
   isSearchMode?: boolean;
 };
 
 const ListRenderToken: FC<ListRenderTokenProps> = ({
   token,
-  isFirst,
-  isLast,
   onSelect,
   isSearchMode,
 }) => {
@@ -179,19 +175,19 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   }
   return (
     <Pressable
-      borderTopRadius={isFirst ? '12' : undefined}
-      borderBottomRadius={isLast ? '12' : undefined}
       display="flex"
       flexDirection="row"
       justifyContent="space-between"
-      p={4}
       alignItems="center"
-      bg="surface-default"
+      p="8px"
+      borderRadius="12px"
       overflow="hidden"
       key={token.tokenIdOnNetwork}
       onPress={onPress}
       width="full"
       opacity={isSelected ? 60 : 1000}
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
     >
       <TokenComponent
         token={token}
@@ -202,6 +198,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         description={description}
         nameProps={{ numberOfLines: 2 }}
       />
+      <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
     </Pressable>
   );
 };
@@ -228,12 +225,10 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
 
   const { dataSources, renderItem } = useMemo(() => {
     const tokens = searchedTokens ?? listedTokens;
-    const renderFn: ListRenderItem<Token> = ({ item, index }) => (
+    const renderFn: ListRenderItem<Token> = ({ item }) => (
       <ListRenderToken
         token={item}
         onSelect={onSelect}
-        isFirst={index === 0}
-        isLast={index === dataSources.length - 1}
         isSearchMode={!!searchedTokens}
       />
     );
@@ -268,7 +263,6 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
           data: dataSources,
           // @ts-ignore
           renderItem,
-          ItemSeparatorComponent: Divider,
           keyExtractor: (item) =>
             `${(item as Token)?.tokenIdOnNetwork}:${
               (item as Token)?.networkId
@@ -280,6 +274,7 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
           ListHeaderComponent: (
             <Header keyword={keyword} onChange={setKeyword} />
           ),
+          mx: '-8px',
         }}
       />
     </>

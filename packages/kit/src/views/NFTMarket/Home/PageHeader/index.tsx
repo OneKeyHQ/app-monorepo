@@ -53,7 +53,8 @@ const PageHeader = () => {
     <HStack
       height={{ base: '56px', md: '64px' }}
       alignItems="center"
-      px={{ base: '16px', md: '32px' }}
+      pl={{ base: '16px', md: '32px' }}
+      pr={{ base: '10px', md: '32px' }}
     >
       {/* Left */}
       <HStack flex={1} alignItems="center">
@@ -71,7 +72,7 @@ const PageHeader = () => {
               _hover={{ bg: 'surface-hovered' }}
               _pressed={{ bg: 'surface-pressed' }}
             >
-              <Icon name="MagnifyingGlassMini" size={20} />
+              <Icon name="MagnifyingGlassMini" size={20} color="icon-subdued" />
               <Text typography="Body2" color="text-subdued" ml={2}>
                 {intl.formatMessage({ id: 'form__nft_search_placeholder' })}
               </Text>
@@ -82,11 +83,10 @@ const PageHeader = () => {
       {/* Right */}
       <Hidden from="md">
         <IconButton
-          type="basic"
-          size="sm"
-          name="MagnifyingGlassMini"
+          type="plain"
+          size="lg"
+          name="MagnifyingGlassOutline"
           circle
-          hitSlop={8}
           onPress={() => {
             searchAction();
           }}

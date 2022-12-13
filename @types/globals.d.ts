@@ -32,6 +32,17 @@ declare global {
   var $$localforage: any;
   var $$navigationActions: any;
   var $$wcTransports: any;
+  var $$onekeyPerfTrace:
+    | {
+        log: (options: { name: string }) => void;
+        timeline: Array<{
+          time: string;
+          elapsed: number;
+          lag: number;
+          name: string;
+        }>;
+      }
+    | undefined;
 
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api
