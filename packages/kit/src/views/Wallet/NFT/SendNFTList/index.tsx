@@ -129,8 +129,6 @@ function SendButton({
   accountId: string;
   networkId: string;
 }) {
-  const isVerticalLayout = useIsVerticalLayout();
-
   const content = useSendNFTContent();
   const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
