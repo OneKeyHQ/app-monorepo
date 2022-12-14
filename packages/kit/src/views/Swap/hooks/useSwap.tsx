@@ -73,7 +73,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const receivingAddress = useAppSelector(s => s.swap.recipient?.address)
+  const receivingAddress = useAppSelector((s) => s.swap.recipient?.address);
 
   return useMemo(() => {
     if (
@@ -97,7 +97,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       tokenIn: inputToken,
       slippagePercentage: swapSlippagePercent,
       activeAccount: sendingAccount,
-      receivingAddress
+      receivingAddress,
     };
   }, [
     typedValue,
@@ -108,7 +108,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     outputTokenNetwork,
     swapSlippagePercent,
     sendingAccount,
-    receivingAddress
+    receivingAddress,
   ]);
 }
 
@@ -170,16 +170,6 @@ export function useDerivedSwapState() {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const swapQuote = useAppSelector((s) => s.swap.quote);
-  const swapError = useAppSelector((s) => s.swap.error);
-  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-
-  const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
-
-  const inputBalanceBN = useMemo(() => {
-    if (!inputBalance || !inputToken) return;
-    return new TokenAmount(inputToken, inputBalance).toNumber();
-  }, [inputToken, inputBalance]);
-
   const inputAmount = useTokenAmount(
     inputToken,
     greaterThanZeroOrUndefined(swapQuote?.sellAmount),
@@ -200,20 +190,33 @@ export function useDerivedSwapState() {
     } as { 'INPUT'?: string; 'OUTPUT'?: string };
   }, [independentField, inputAmount, outputAmount, typedValue]);
 
+  return {
+    inputAmount,
+    outputAmount,
+    formattedAmounts,
+  };
+}
+
+export const useSwapError = () => {
+  const error = useAppSelector((s) => s.swap.error);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const { inputAmount } = useDerivedSwapState();
+  const inputBalance = useTokenBalance(
+    inputAmount ? inputToken : undefined,
+    sendingAccount?.id,
+  );
+  const inputBalanceBN = useMemo(() => {
+    if (!inputBalance || !inputToken) return;
+    return new TokenAmount(inputToken, inputBalance).toNumber();
+  }, [inputToken, inputBalance]);
+
   const balanceError =
     inputAmount && inputBalanceBN && inputBalanceBN.lt(inputAmount.toNumber())
       ? SwapError.InsufficientBalance
       : undefined;
-  const error = swapError || balanceError;
-
-  return {
-    error,
-    inputAmount,
-    outputAmount,
-    inputBalance,
-    formattedAmounts,
-  };
-}
+  return error || balanceError;
+};
 
 export function useInputLimitsError():
   | { message: string; value: string }

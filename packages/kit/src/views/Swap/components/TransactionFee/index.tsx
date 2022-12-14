@@ -38,9 +38,7 @@ const TransactionFee: FC<{ type?: QuoterType; percentageFee?: string }> = ({
         </Box>
       ) : (
         <Typography.Caption color="text-subdued">
-          {!percentageFee
-            ? ' 0.3%'
-            : `${formatPercentageFee(percentageFee)}%`}
+          {!percentageFee ? ' 0.3%' : `${formatPercentageFee(percentageFee)}%`}
         </Typography.Caption>
       )}
     </Box>

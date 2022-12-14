@@ -130,7 +130,7 @@ const SelectRoutes = () => {
   const navigation = useNavigation();
   const [selectedIndex, onSelect] = useState(0);
   const params = useSwapQuoteRequestParams();
-  const recipient = useAppSelector(s => s.swap.recipient);
+  const recipient = useAppSelector((s) => s.swap.recipient);
   const [responses, setResponses] = useState<FetchQuoteResponse[]>([]);
 
   useEffect(() => {

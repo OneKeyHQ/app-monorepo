@@ -1,18 +1,18 @@
 import { useEffect } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
+
 import { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
-import { useIsFocused } from '@react-navigation/native';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { SwapRoutes } from './typings';
-
 
 const NetworkObserver = () => {
   useEffect(() => {

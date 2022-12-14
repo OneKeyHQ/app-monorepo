@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 
@@ -20,7 +21,7 @@ import {
   utils,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
-import { useIsFocused } from '@react-navigation/native';
+
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
@@ -51,7 +52,7 @@ const TokenInputReceivingAddress: FC = () => {
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const recipient = useAppSelector(s => s.swap.recipient)
+  const recipient = useAppSelector((s) => s.swap.recipient);
   const [tooltip, setTooltip] = useState<string | undefined>();
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
 
@@ -81,11 +82,7 @@ const TokenInputReceivingAddress: FC = () => {
         },
       },
     });
-  }, [
-    navigation,
-    outputTokenNetwork?.id,
-    outputTokenNetwork?.impl
-  ]);
+  }, [navigation, outputTokenNetwork?.id, outputTokenNetwork?.impl]);
 
   useEffect(() => {
     async function main() {
@@ -155,7 +152,7 @@ const TokenInputReceivingAddress: FC = () => {
     if (!isFocused) {
       setTooltip(undefined);
     }
-  }, [isFocused])
+  }, [isFocused]);
 
   const { address, name } = recipient ?? {};
   if (address && name) {
@@ -250,7 +247,7 @@ const TokenInput: FC<TokenInputProps> = ({
 }) => {
   const intl = useIntl();
   const price = useTokenPrice(token);
-  const recipient = useAppSelector(s => s.swap.recipient);
+  const recipient = useAppSelector((s) => s.swap.recipient);
   const balance = useTokenBalance(token, recipient?.accountId);
   const value = balance ?? '0';
   let text = formatAmount(value, 6);
