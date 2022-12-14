@@ -1,4 +1,4 @@
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
 export enum SearchNFTCollectionRoutes {
   SearchModal = 'SearchModal',

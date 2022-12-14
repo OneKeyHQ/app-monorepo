@@ -1,11 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgCompass = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 24 24" fill="currentColor" {...props}>
     <Path d="m9.946 14.054 1.027-3.081 3.081-1.027-1.027 3.081-3.081 1.027Z" />
     <Path
       fillRule="evenodd"

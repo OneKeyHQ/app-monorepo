@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
+import { IMPL_CFX, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IMPL_CFX, SEPERATOR } from '../constants';
 import { getWalletIdFromAccountId } from '../managers/account';
 import { AccountType, DBAccount, DBVariantAccount } from '../types/account';
 import { Network } from '../types/network';

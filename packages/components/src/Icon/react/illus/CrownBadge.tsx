@@ -7,7 +7,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 const SvgCrownBadge = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="none" accessibilityRole="image" {...props}>
+  <Svg viewBox="0 0 20 20" fill="none" {...props}>
     <Circle
       cx={10}
       cy={10}

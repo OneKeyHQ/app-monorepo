@@ -1,6 +1,5 @@
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
-
-import { COINTYPE_LTC } from '../../../constants';
+import { COINTYPE_LTC } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';

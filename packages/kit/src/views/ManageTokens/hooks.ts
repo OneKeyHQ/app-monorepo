@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { TokenSource } from '@onekeyhq/engine/src/managers/token';
+import type { TokenSource } from '@onekeyhq/engine/src/managers/token';
 import {
   GoPlusAddressSecurity,
   GoPlusSupportApis,

@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Modal, useTheme } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
-import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

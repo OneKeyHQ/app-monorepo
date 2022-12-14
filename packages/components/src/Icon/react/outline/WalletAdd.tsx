@@ -1,12 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgWalletAdd = (props: SvgProps) => (
-  <Svg
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
     <Path
       d="M8.5 14a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1"
       strokeWidth={2}

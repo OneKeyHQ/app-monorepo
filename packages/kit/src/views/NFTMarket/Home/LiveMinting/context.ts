@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 export type LiveMintListContextValue = {
   isTab: boolean;

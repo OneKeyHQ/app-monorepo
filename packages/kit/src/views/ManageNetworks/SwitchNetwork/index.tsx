@@ -14,10 +14,10 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { SwitchEthereumChainParameter } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { SwitchEthereumChainParameter } from '../../../background/providers/ProviderApiEthereum';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';

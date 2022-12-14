@@ -1,6 +1,7 @@
 import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 
-import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
+import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBUTXOAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';

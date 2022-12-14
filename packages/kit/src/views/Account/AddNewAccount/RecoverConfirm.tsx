@@ -5,7 +5,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
-import { IAccount } from '@onekeyhq/engine/src/types';
+import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import Protected, {
