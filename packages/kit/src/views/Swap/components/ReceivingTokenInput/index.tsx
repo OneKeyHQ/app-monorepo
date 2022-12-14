@@ -20,7 +20,7 @@ import {
   utils,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
-
+import { useIsFocused } from '@react-navigation/native';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
@@ -47,6 +47,7 @@ type TokenInputProps = {
 
 const TokenInputReceivingAddress: FC = () => {
   const intl = useIntl();
+  const isFocused = useIsFocused();
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
@@ -150,6 +151,12 @@ const TokenInputReceivingAddress: FC = () => {
   }, [tooltip]);
 
   let text: ReactElement | undefined;
+  useEffect(() => {
+    if (!isFocused) {
+      setTooltip(undefined);
+    }
+  }, [isFocused])
+
   const { address, name } = recipient ?? {};
   if (address && name) {
     text = (

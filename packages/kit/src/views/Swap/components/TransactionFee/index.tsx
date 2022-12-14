@@ -30,7 +30,7 @@ const TransactionFee: FC<{ type?: QuoterType; percentageFee?: string }> = ({
       {isNoCharge(type) || (percentageFee && Number(percentageFee) === 0) ? (
         <Box flexDirection="column" alignItems="flex-end">
           <Typography.Caption color="text-subdued" strikeThrough>
-            0.2 - 0.875%
+            0.3%
           </Typography.Caption>
           <Typography.Caption color="text-success">
             {intl.formatMessage({ id: 'form__free_limited_time' })}
@@ -39,7 +39,7 @@ const TransactionFee: FC<{ type?: QuoterType; percentageFee?: string }> = ({
       ) : (
         <Typography.Caption color="text-subdued">
           {!percentageFee
-            ? ' 0.2 - 0.875%'
+            ? ' 0.3%'
             : `${formatPercentageFee(percentageFee)}%`}
         </Typography.Caption>
       )}
