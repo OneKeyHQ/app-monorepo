@@ -6,7 +6,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

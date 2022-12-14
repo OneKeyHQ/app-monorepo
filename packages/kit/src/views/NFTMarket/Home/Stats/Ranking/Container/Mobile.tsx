@@ -6,8 +6,11 @@ import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem, Text } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collection, NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type {
+  Collection,
+  NFTMarketRanking,
+} from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';
@@ -141,7 +144,13 @@ const Mobile: FC<Props> = ({
         </ListItem>
       );
     },
-    [intl, network?.id, context?.selectedNetwork?.id, goToCollectionDetail],
+    [
+      intl,
+      network?.id,
+      context?.selectedNetwork?.id,
+      onSelectCollection,
+      goToCollectionDetail,
+    ],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {

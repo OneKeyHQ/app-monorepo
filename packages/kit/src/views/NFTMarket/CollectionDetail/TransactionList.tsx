@@ -15,8 +15,8 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { NFTTransaction } from '@onekeyhq/engine/src/types/nft';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { NFTTransaction } from '@onekeyhq/engine/src/types/nft';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

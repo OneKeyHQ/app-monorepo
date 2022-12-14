@@ -7,9 +7,9 @@ import {
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
+import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_SUI as COIN_TYPE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';

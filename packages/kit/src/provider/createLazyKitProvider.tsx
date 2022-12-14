@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import '../background/instance/backgroundApiProxy';
+
 export function createLazyKitProvider({
   displayName,
 }: {
@@ -10,6 +12,7 @@ export function createLazyKitProvider({
     const [cmp, setCmp] = useState<any>(null);
     useEffect(() => {
       setTimeout(() => {
+        // KitProviderMock index
         import('./index').then((module) => {
           const KitProvider = module.default;
           setCmp(<KitProvider {...propsRef.current} />);

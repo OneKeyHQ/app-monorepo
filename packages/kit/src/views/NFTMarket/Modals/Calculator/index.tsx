@@ -24,8 +24,8 @@ import {
   Skeleton,
   Text,
 } from '@onekeyhq/components';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Collection, MarketPlace } from '@onekeyhq/engine/src/types/nft';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../../hooks';

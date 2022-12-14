@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem } from '@onekeyhq/components';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import CollectionLogo from '../../../CollectionLogo';

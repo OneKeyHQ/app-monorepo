@@ -6,6 +6,7 @@ import { useThemeValue } from '../Provider/hooks';
 import { ThemeToken } from '../Provider/theme';
 
 import ICON_CONFIG, { ICON_NAMES } from './Icons';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type IconProps = Omit<SvgProps, 'color'> & {
   name: ICON_NAMES;
@@ -14,6 +15,11 @@ export type IconProps = Omit<SvgProps, 'color'> & {
 };
 
 const defaultProps = { size: 24 } as const;
+
+if (platformEnv.isExtensionBackground) {
+  // debugger;
+  // throw new Error('components/icon is not allowed imported from background');
+}
 
 const Icon: FC<IconProps> = ({ name, size, color }) => {
   const defaultColor = useThemeValue('icon-default');

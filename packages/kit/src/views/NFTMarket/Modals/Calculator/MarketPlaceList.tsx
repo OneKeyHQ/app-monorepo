@@ -18,7 +18,6 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 
 const MarketPlaceList: FC = () => {
-  const intl = useIntl();
   const navigation = useNavigation();
 
   const route =

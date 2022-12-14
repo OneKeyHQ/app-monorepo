@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem, Text } from '@onekeyhq/components';
-import { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
+import type { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
 
 import { formatMarketValueForComma } from '../../../../../Market/utils';
 import CollectionLogo from '../../../../CollectionLogo';

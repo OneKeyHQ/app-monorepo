@@ -54,8 +54,7 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict } = useFormatDate();
   const renderItem: ListRenderItem<NFTNPL> = useCallback(
     ({ item }) => {
-      const { asset, entry, exit } = item;
-      const profit = (exit?.tradePrice ?? 0) - (entry?.tradePrice ?? 0);
+      const { asset, entry, exit, profit } = item;
 
       return (
         <ListItem>

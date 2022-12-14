@@ -1,4 +1,5 @@
-import { OnekeyNetwork } from '../presets/networkIds';
+// safe import
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.eth]: 'eth',
@@ -206,7 +207,7 @@ export type NFTNPL = {
     tradePrice?: number;
     exchangeName?: string;
     gasPrice?: string;
-    gasPriceNative?: string;
+    gasFee?: number;
   };
   exit: {
     hash?: string;
@@ -216,7 +217,7 @@ export type NFTNPL = {
     tradePrice?: number;
     exchangeName?: string;
     gasPrice?: string;
-    gasPriceNative?: string;
+    gasFee?: number;
   };
 
   profit: number;

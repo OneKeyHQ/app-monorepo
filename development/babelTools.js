@@ -122,7 +122,9 @@ function normalizeConfig({ platform, config }) {
   // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
 
   // https://babeljs.io/docs/en/options#no-targets
-  config.targets = 'defaults';
+  if (!config.targets) {
+    config.targets = 'defaults';
+  }
 
   // https://babeljs.io/docs/en/assumptions
   config.assumptions = {

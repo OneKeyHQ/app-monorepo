@@ -13,7 +13,7 @@ import {
   ListItem,
   useUserDevice,
 } from '@onekeyhq/components';
-import { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
+import type { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';

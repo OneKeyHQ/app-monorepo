@@ -2,7 +2,7 @@
 import React, { FC, useLayoutEffect, useMemo } from 'react';
 
 import { Box, Pressable, Skeleton, Text } from '@onekeyhq/components';
-import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 
 import { useActiveWalletAccount, useAppSelector } from '../../../../../hooks';
 import { useNativeTokenBalance } from '../../../../../hooks/useTokens';

@@ -5,8 +5,7 @@ import {
 } from 'expo-notifications';
 import JPush from 'jpush-react-native';
 
-import { JPUSH_KEY } from '@onekeyhq/kit/src/config';
-
+import { JPUSH_KEY } from '../config/appConfig';
 import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
 

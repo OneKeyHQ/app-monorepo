@@ -2,7 +2,7 @@ import React, { ComponentProps } from 'react';
 
 import { Image } from '@onekeyhq/components';
 import { isExternalAccount } from '@onekeyhq/engine/src/engineUtils';
-import { IAccount } from '@onekeyhq/engine/src/types';
+import type { IAccount } from '@onekeyhq/engine/src/types';
 import ImgImToken from '@onekeyhq/kit/assets/onboarding/logo_imtoken.png';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import ImgMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';

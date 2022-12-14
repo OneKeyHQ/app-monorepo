@@ -8,9 +8,9 @@ import {
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
+import { COINTYPE_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_ADA } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,

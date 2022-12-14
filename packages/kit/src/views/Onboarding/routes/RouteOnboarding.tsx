@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
@@ -64,7 +64,7 @@ export const stackScreenList = [
 export const StackNavigator =
   createNativeStackNavigator<IOnboardingRoutesParams>();
 
-export function RouteOnboarding() {
+export default function RouteOnboarding() {
   const stackScreens = useMemo(
     () =>
       stackScreenList.map((stack) => (

@@ -8,6 +8,7 @@ export type ISimpleDbEntitySettings = {
   swapWelcomeShown?: boolean;
   swapReceivingIsNotSendingAccountShown?: boolean;
   swapReceivingUnknownShown?: boolean;
+  nplAddress?: string;
 };
 
 export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySettings> {
@@ -84,5 +85,15 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
   async getSwapReceivingUnknownShown() {
     const data = await this.getRawData();
     return Boolean(data?.swapReceivingUnknownShown);
+  }
+
+  async getNPLAddress() {
+    const data = await this.getRawData();
+    return data?.nplAddress;
+  }
+
+  async setNPLAddress(nplAddress: string) {
+    const rawData = await this.getRawData();
+    return this.setRawData({ ...rawData, nplAddress });
   }
 }

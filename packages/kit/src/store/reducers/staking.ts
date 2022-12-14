@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import {
+import type {
   KeleDashboardGlobal,
   KeleETHStakingState,
   StakingActivity,

@@ -1,6 +1,7 @@
 import * as sdk from 'algosdk';
 
-import { COINTYPE_ALGO as COIN_TYPE } from '../../../constants';
+import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 

@@ -1,28 +1,21 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  DialogManager,
-  Text,
-  VStack,
-} from '@onekeyhq/components';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
+import { Button } from '@onekeyhq/components';
+import type VaultHelperEvm from '@onekeyhq/engine/src/vaults/impl/evm/VaultHelper';
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import walletConnectUtils from '../../../components/WalletConnect/utils/walletConnectUtils';
-import { WalletConnectClientForDapp } from '../../../components/WalletConnect/WalletConnectClientForDapp';
 import { useActiveSideAccount } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useInteractWithInfo } from '../../../hooks/useDecodedTx';
+
+// import { createVaultHelperInstance } from '@onekeyhq/engine/src/vaults/factory';
+const createVaultHelperInstance = (options: any) =>
+  ({ ...options } as VaultHelperEvm);
 
 function DecodeTxButtonTest({
   accountId,
@@ -35,6 +28,7 @@ function DecodeTxButtonTest({
   encodedTx: any;
   feeInfoPayload?: IFeeInfoPayload | null;
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
 
   const { networkImpl } = useActiveSideAccount({
@@ -60,7 +54,7 @@ function DecodeTxButtonTest({
         const rawTx =
           '0xf86b018502540be40082520894a9b4d559a98ff47c83b74522b7986146538cd4df861b48eb57e0008081e5a06f021ecfb345b8122561c751acdc8c0516632442065c2dc6867c2b19054539dca022f230825979a211d70d4488888d6a3ed9d9c12667e15a6d90df6e5a7a48b440';
         // rawTx decode
-        nativeTxFromRawTx = await vaultHelper.parseToNativeTx(rawTx);
+        nativeTxFromRawTx = await vaultHelper.parseToNativeTx(rawTx as any);
       }
 
       // dapp tx decode

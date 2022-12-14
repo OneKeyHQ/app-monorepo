@@ -2,9 +2,10 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import showHardwarePopup, {
-  closeHardwarePopup as closeHardwarePopupUI,
-} from '../../views/Hardware/PopupHandle/showHardwarePopup';
+// TODO cycle deps, move to service
+// import showHardwarePopup, {
+//   closeHardwarePopup as closeHardwarePopupUI,
+// } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 export type HardwareUiEventPayload = {
   type?: string;
@@ -44,11 +45,16 @@ export const hardwareSlice = createSlice({
     removeConnectedConnectId: (state, action: PayloadAction<string>) => {
       state.connected = state.connected.filter((id) => id !== action.payload);
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setHardwarePopup(_, action: PayloadAction<HardwarePopup>) {
-      showHardwarePopup(action.payload);
+      throw new Error(
+        'cycle deps, move showHardwarePopup(action.payload) to service',
+      );
+      // showHardwarePopup(action.payload);
     },
     closeHardwarePopup() {
-      closeHardwarePopupUI();
+      throw new Error('cycle deps, move closeHardwarePopupUI() to service');
+      // closeHardwarePopupUI();
     },
     updateDevicePassphraseOpenedState: (
       state,

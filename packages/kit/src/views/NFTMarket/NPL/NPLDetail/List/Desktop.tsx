@@ -83,14 +83,16 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
   const intl = useIntl();
   const renderItem: ListRenderItem<NFTNPL> = useCallback(
     ({ item }) => {
-      const { asset, entry, exit } = item;
-      const profit = (exit?.tradePrice ?? 0) - (entry?.tradePrice ?? 0);
+      const { asset, entry, exit, profit } = item;
+
       let entryBadge;
       if (entry.eventType === 'Mint') {
         entryBadge = intl.formatMessage({ id: 'content__mint' });
       } else if (entry.eventType === 'Transfer') {
         entryBadge = intl.formatMessage({ id: 'action__receive' });
       }
+
+      const exitValue = (exit.tradePrice ?? 0) - (exit.gasFee ?? 0);
       return (
         <ListItem>
           <ListItem.Column>
@@ -139,7 +141,9 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
                       color="text-subdued"
                     >
                       {PriceString({
-                        price: entry.gasPriceNative,
+                        price: new BigNumber(entry.gasFee ?? 0)
+                          .decimalPlaces(3)
+                          .toString(),
                         networkId: network.id,
                       })}
                     </Text>
@@ -153,9 +157,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
               w="160px"
               text={{
                 label: PriceString({
-                  price: new BigNumber(exit?.tradePrice ?? 0)
-                    .decimalPlaces(3)
-                    .toString(),
+                  price: new BigNumber(exitValue).decimalPlaces(3).toString(),
                   symbol: exit.tradeSymbol,
                 }),
                 description: (
@@ -167,7 +169,9 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
                       color="text-subdued"
                     >
                       {PriceString({
-                        price: exit.gasPriceNative,
+                        price: new BigNumber(exit.gasFee ?? 0)
+                          .decimalPlaces(3)
+                          .toString(),
                         networkId: network.id,
                       })}
                     </Text>

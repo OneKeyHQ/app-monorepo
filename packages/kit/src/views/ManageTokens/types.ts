@@ -1,5 +1,5 @@
-import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 export enum ManageTokenRoutes {
   Listing = 'ListTokensModal',
