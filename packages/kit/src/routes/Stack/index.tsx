@@ -42,6 +42,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
+import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
@@ -211,6 +212,14 @@ const Dashboard = () => {
         <StackNavigator.Screen
           name={HomeRoutes.HomeOnboarding}
           component={RouteOnboarding}
+        />
+        <StackNavigator.Screen
+          name={HomeRoutes.KeyTag}
+          component={RouteKeytag}
+          options={{
+            presentation: 'fullScreenModal', // containedModal card fullScreenModal
+            animation: 'fade',
+          }}
         />
       </StackNavigator.Group>
       <StackNavigator.Group

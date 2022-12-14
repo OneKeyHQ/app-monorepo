@@ -3,12 +3,12 @@ import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import SetPassword from '../../Onboarding/screens/CreateWallet/SetPassword';
-import KeyTagBackUpWallet from '../Screen/KeyTagBackUpWallet';
 import ImportKeyTag from '../Screen/ImportKeyTag';
 import Introduce from '../Screen/IntroduceKeyTag';
+import KeyTagBackUpWallet from '../Screen/KeyTagBackUpWallet';
 import ShowDotMap from '../Screen/ShowDotMap';
 import StartedKeyTag from '../Screen/StartedKeyTag';
+import VerifyPassword from '../Screen/VerifyPassword';
 
 import { KeyTagRoutes } from './enums';
 import { IKeytagRoutesParams } from './types';
@@ -19,10 +19,10 @@ export const stackScreenList = [
   { name: KeyTagRoutes.ShowDotMap, component: ShowDotMap },
   { name: KeyTagRoutes.IntroduceKeyTag, component: Introduce },
   { name: KeyTagRoutes.KeyTagBackUpWallet, component: KeyTagBackUpWallet },
-  // {
-  //   name: KeyTagRoutes.SetPassword,
-  //   component: SetPassword,
-  // },
+  {
+    name: KeyTagRoutes.VerifyPassword,
+    component: VerifyPassword,
+  },
 ];
 
 export const StackNavigator = createNativeStackNavigator<IKeytagRoutesParams>();

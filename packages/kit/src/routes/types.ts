@@ -148,6 +148,7 @@ export type HomeRoutesParams = {
     mnemonicWords: string;
   };
   [HomeRoutes.ImportKeyTag]: undefined;
+  [HomeRoutes.KeyTag]: undefined;
 };
 /** HomeStack */
 
@@ -161,7 +162,6 @@ export type RootRoutesParams = {
   [RootRoutes.Onboarding]:
     | NavigatorScreenParams<IOnboardingRoutesParams>
     | undefined;
-  [RootRoutes.KeyTag]: undefined;
 };
 
 export type RootScreenProps<T extends keyof RootRoutesParams> =

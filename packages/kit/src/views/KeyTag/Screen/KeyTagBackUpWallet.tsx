@@ -26,6 +26,7 @@ import { IKeytagRoutesParams } from '../Routes/types';
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
 const KeyTagBackUpWallet = () => {
+  console.log('KeyTagBackUpWallet---');
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const walletsSection = useWalletSelectorSectionData();
@@ -47,10 +48,14 @@ const KeyTagBackUpWallet = () => {
   }, [walletsSection]);
   console.log('walletsData---', walletsData);
 
-  const onPress = useCallback((wallet: IWallet) => {
-    console.log('onpress--wallet', wallet);
-    // navigation.navigate(KeyTagRoutes.ShowDotMap);
-  }, []);
+  const onPress = useCallback(
+    (wallet: IWallet) => {
+      console.log('onpress--wallet', wallet);
+      navigation.navigate(KeyTagRoutes.VerifyPassword, { walletId: wallet.id });
+      // navigation.navigate(KeyTagRoutes.ShowDotMap);
+    },
+    [navigation],
+  );
 
   const renderItem: ListRenderItem<IWallet> = useCallback(
     ({ item }) => {

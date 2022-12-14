@@ -118,12 +118,6 @@ const App = () => {
           animation: 'fade',
         }}
       />
-      <RootStack.Screen
-        name={RootRoutes.KeyTag}
-        component={RouteKeytag}
-        // @ts-expect-error
-        options={{ presentation: 'fullScreenModal', animation: 'fade' }}
-      />
       <RootStack.Screen name={RootRoutes.OnLanding} component={OnLanding} />
       <RootStack.Screen
         name={RootRoutes.OnLandingWalletConnect}

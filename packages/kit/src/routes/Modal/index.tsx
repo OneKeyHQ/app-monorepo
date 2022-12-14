@@ -13,7 +13,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import AddressBookModal from './AddressBook';
-import BackupWalletModal from './BackupWallet';
+import BackupWalletModalStack from './BackupWallet';
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 import CollectibleModal from './Collectibles';
 import CreateAccountModal from './CreateAccount';
@@ -72,7 +72,7 @@ const modalStackScreenList = [
   },
   {
     name: ModalRoutes.BackupWallet,
-    component: BackupWalletModal,
+    component: BackupWalletModalStack,
   },
   {
     name: ModalRoutes.TransactionDetail,

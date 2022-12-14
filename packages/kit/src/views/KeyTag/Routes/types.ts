@@ -1,7 +1,17 @@
 import { KeyTagRoutes } from './enums';
 
-export type IKeyTagSetPasswordParams = {
-  mnemonic?: string;
+export type IKeyTagVerifyPasswordParams = {
+  walletId: string;
+};
+
+export type IkeyTagAttentionsParams = {
+  walletId: string;
+  password: string;
+};
+
+export type IkeyTagShowDotMapParams = {
+  walletId: string;
+  mnemonic: string;
 };
 
 export type IKeytagRoutesParams = {
@@ -9,8 +19,7 @@ export type IKeytagRoutesParams = {
   [KeyTagRoutes.ImportKeytag]: undefined;
   [KeyTagRoutes.IntroduceKeyTag]: undefined;
   [KeyTagRoutes.KeyTagBackUpWallet]: undefined;
-  [KeyTagRoutes.ShowDotMap]: {
-    mnemonicWords: string;
-  };
-  // [KeyTagRoutes.SetPassword]: IKeyTagSetPasswordParams | undefined;
+  [KeyTagRoutes.ShowDotMap]: IkeyTagShowDotMapParams;
+  [KeyTagRoutes.VerifyPassword]: IKeyTagVerifyPasswordParams;
+  [KeyTagRoutes.Attentions]: IKeyTagVerifyPasswordParams;
 };

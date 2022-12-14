@@ -55,13 +55,13 @@ export enum RootRoutes {
   Account = 'account',
   OnLanding = 'onlanding',
   OnLandingWalletConnect = 'onlanding_wallet_connect',
-  KeyTag = 'key_tag',
 }
 export enum ReceiveTokenRoutes {
   ReceiveToken = 'ReceiveToken',
 }
 export enum HomeRoutes {
   // InitialTab = 'overview',
+  KeyTag = 'KeyTag',
   InitialTab = 'initial',
   Dev = 'dev',
   HomeOnboarding = 'HomeOnboarding',
