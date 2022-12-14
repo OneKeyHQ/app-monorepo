@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import Dialog from '@onekeyhq/components/src/Dialog';
 import Icon from '@onekeyhq/components/src/Icon';
 
-import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '../../config';
+import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '../../../../shared/src/config/appConfig';
 import { openUrlExternal } from '../../utils/openUrl';
 
 export type NeedBridgeDialogProps = {

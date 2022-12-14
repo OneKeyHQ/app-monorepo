@@ -11,7 +11,6 @@ import {
 import { stringify } from 'circular-json';
 
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import platformEnv from '../platformEnv';
 import { toPlainErrorObject } from '../sharedUtils';
@@ -63,8 +62,10 @@ const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   transport: [consoleTransport],
   transportOptions: {
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
-      backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
       logToConsole(props);
+      if (global.$backgroundApiProxy) {
+        global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
+      }
     },
   },
 };
@@ -79,8 +80,10 @@ const NATIVE_TRANSPORT_CONFIG = {
     filePath: FileSystem.cacheDirectory,
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       if (platformEnv.isDev) {
-        backgroundApiProxy.serviceApp.addLogger(`${msg}\r\n`);
         logToConsole(props);
+        if (global.$backgroundApiProxy) {
+          global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
+        }
       }
     },
   },

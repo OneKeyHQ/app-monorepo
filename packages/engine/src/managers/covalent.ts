@@ -2,7 +2,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import camelcase from 'camelcase-keys';
 
-import { COVALENT_API_KEY } from '@onekeyhq/kit/src/config';
+import { COVALENT_API_KEY } from '@onekeyhq/shared/src/config/appConfig';
 import debugCodes from '@onekeyhq/shared/src/debug/debugCodes';
 
 import { HISTORY_CONSTS } from '../constants';
