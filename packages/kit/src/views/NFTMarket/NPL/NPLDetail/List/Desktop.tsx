@@ -82,14 +82,16 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict } = useFormatDate();
   const renderItem: ListRenderItem<NFTNPL> = useCallback(
     ({ item }) => {
-      const { asset, entry, exit } = item;
-      const profit = (exit?.tradePrice ?? 0) - (entry?.tradePrice ?? 0);
+      const { asset, entry, exit, profit } = item;
+
       let entryBadge;
       if (entry.eventType === 'Mint') {
         entryBadge = 'Mint';
       } else if (entry.eventType === 'Transfer') {
         entryBadge = 'Receive';
       }
+
+      const exitValue = (exit.tradePrice ?? 0) - (exit.gasFee ?? 0);
       return (
         <ListItem
           px={0}
@@ -140,7 +142,9 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
               <Icon name="GasIllus" size={16} color="icon-subdued" />
               <Text typography="Body2" numberOfLines={1} color="text-subdued">
                 {PriceString({
-                  price: entry.gasPriceNative,
+                  price: new BigNumber(entry.gasFee ?? 0)
+                    .decimalPlaces(3)
+                    .toString(),
                   networkId: network.id,
                 })}
               </Text>
@@ -150,9 +154,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
           <Column space="4px" flex={180}>
             <Text typography="Body1Strong" numberOfLines={1}>
               {PriceString({
-                price: new BigNumber(exit?.tradePrice ?? 0)
-                  .decimalPlaces(3)
-                  .toString(),
+                price: new BigNumber(exitValue).decimalPlaces(3).toString(),
                 symbol: exit.tradeSymbol,
               })}
             </Text>
@@ -160,7 +162,9 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
               <Icon name="GasIllus" size={16} color="icon-subdued" />
               <Text typography="Body2" numberOfLines={1} color="text-subdued">
                 {PriceString({
-                  price: exit.gasPriceNative,
+                  price: new BigNumber(exit.gasFee ?? 0)
+                    .decimalPlaces(3)
+                    .toString(),
                   networkId: network.id,
                 })}
               </Text>

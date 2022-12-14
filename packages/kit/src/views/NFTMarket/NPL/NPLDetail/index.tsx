@@ -64,31 +64,34 @@ type NPLData = {
   content: NFTNPL[];
 };
 
-function parseNPLData(items: NFTNPL[], network: Network): NPLData {
+function parseNPLData(items: NFTNPL[]): NPLData {
   let totalProfit: BigNumber = new BigNumber(0);
   let totalSpend: BigNumber = new BigNumber(0);
   let win = 0;
   let lose = 0;
   items.forEach((item) => {
     const { entry, exit } = item;
-    const gasPriceNativeEntry = new BigNumber(entry.gasPrice ?? 0).shiftedBy(
-      -network.decimals ?? 0,
-    );
-    const gasPriceNativeExit = new BigNumber(exit.gasPrice ?? 0).shiftedBy(
-      -network.decimals ?? 0,
-    );
-    item.entry = {
-      gasPriceNative: gasPriceNativeEntry.decimalPlaces(3).toString(),
-      ...entry,
-    };
-    item.exit = {
-      gasPriceNative: gasPriceNativeExit.decimalPlaces(3).toString(),
-      ...exit,
-    };
+    const gasEntry: BigNumber = new BigNumber(entry.gasFee ?? 0);
+    const gasExit: BigNumber = new BigNumber(exit.gasFee ?? 0);
+
+    // const gasPriceNativeEntry = new BigNumber(entry.gasFee ?? 0).shiftedBy(
+    //   -network.decimals ?? 0,
+    // );
+    // const gasPriceNativeExit = new BigNumber(exit.gasFee ?? 0).shiftedBy(
+    //   -network.decimals ?? 0,
+    // );
+    // item.entry = {
+    //   gasPriceNative: gasPriceNativeEntry.decimalPlaces(3).toString(),
+    //   ...entry,
+    // };
+    // item.exit = {
+    //   gasPriceNative: gasPriceNativeExit.decimalPlaces(3).toString(),
+    //   ...exit,
+    // };
 
     const spend = new BigNumber(entry?.tradePrice ?? 0)
-      .plus(gasPriceNativeEntry)
-      .plus(gasPriceNativeExit);
+      .plus(gasEntry)
+      .plus(gasExit);
     const profit = new BigNumber(exit?.tradePrice ?? 0).minus(spend);
 
     if (profit.toNumber() > 0) {
@@ -188,7 +191,7 @@ const Header: FC<HeaderProps> = ({
   let totalValue = '0';
   if (totalProfit) {
     totalValue = new BigNumber(totalProfit).decimalPlaces(3).toString();
-    totalValue = `${totalProfit.toNumber() >= 0 ? '+' : '-'}${totalValue}`;
+    totalValue = `${totalProfit.toNumber() >= 0 ? '+' : ''}${totalValue}`;
   }
   totalValue = PriceString({ price: totalValue, networkId: network.id });
   const [nameOrAddress, setNameOrAddress] = useState<string>(
@@ -504,8 +507,8 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         chain: network?.id,
         address: text,
       });
-      serviceNFT.setNPLAddress(text);
-      const parseData = parseNPLData(data, network);
+      // serviceNFT.setNPLAddress(text);
+      const parseData = parseNPLData(data);
       allData.current = parseData;
       updateTotalNPLData({
         totalProfit: parseData.totalProfit,

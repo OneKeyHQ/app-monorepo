@@ -21,7 +21,6 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { NFTMarketRoutes, NFTMarketRoutesParams } from '../../Modals/type';
 import { useCollectionDetail } from '../hook';
 
@@ -37,7 +36,6 @@ const PageHeader = () => {
   const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
   const navigation = useNavigation<NavigationProps>();
   const goToCollectionDetail = useCollectionDetail();
-  const { serviceNFT } = backgroundApiProxy;
 
   const searchAction = useCallback(() => {
     modalNavigation.navigate(RootRoutes.Modal, {
@@ -57,12 +55,12 @@ const PageHeader = () => {
     });
   }, [goToCollectionDetail, modalNavigation]);
 
-  const nplAction = useCallback(async () => {
-    const nplAddress = await serviceNFT.getNPLAddress();
+  const nplAction = useCallback(() => {
+    // const nplAddress = await serviceNFT.getNPLAddress();
     navigation.navigate(HomeRoutes.NFTNPLScreen, {
-      address: nplAddress,
+      address: '',
     });
-  }, [navigation, serviceNFT]);
+  }, [navigation]);
 
   return (
     <HStack
