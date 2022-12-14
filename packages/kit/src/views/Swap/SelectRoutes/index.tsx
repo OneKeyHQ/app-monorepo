@@ -22,7 +22,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ArrivalTime } from '../components/ArrivalTime';
-import { useSwapQuoteRequestParams, useSwapRecipient } from '../hooks/useSwap';
+import { useSwapQuoteRequestParams } from '../hooks/useSwap';
 import { SwapQuoter } from '../quoter';
 import { FetchQuoteResponse } from '../typings';
 
@@ -130,7 +130,7 @@ const SelectRoutes = () => {
   const navigation = useNavigation();
   const [selectedIndex, onSelect] = useState(0);
   const params = useSwapQuoteRequestParams();
-  const recipient = useSwapRecipient();
+  const recipient = useAppSelector(s => s.swap.recipient);
   const [responses, setResponses] = useState<FetchQuoteResponse[]>([]);
 
   useEffect(() => {

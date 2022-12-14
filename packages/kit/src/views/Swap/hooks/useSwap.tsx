@@ -62,10 +62,6 @@ export function useSwapState() {
   return useAppSelector((s) => s.swap);
 }
 
-export function useSwapRecipient() {
-  return useAppSelector((s) => s.swap.recipient);
-}
-
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
@@ -77,6 +73,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const receivingAddress = useAppSelector(s => s.swap.recipient?.address)
 
   return useMemo(() => {
     if (
@@ -86,6 +83,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       !inputTokenNetwork ||
       !outputTokenNetwork ||
       !sendingAccount ||
+      !receivingAddress ||
       new BigNumber(typedValue).lte(0)
     ) {
       return;
@@ -99,6 +97,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
       tokenIn: inputToken,
       slippagePercentage: swapSlippagePercent,
       activeAccount: sendingAccount,
+      receivingAddress
     };
   }, [
     typedValue,
@@ -109,6 +108,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     outputTokenNetwork,
     swapSlippagePercent,
     sendingAccount,
+    receivingAddress
   ]);
 }
 
@@ -124,7 +124,7 @@ export const useSwapQuoteCallback = function (
     refs.current.params = params;
   }, [params]);
 
-  const onSwapQuote = useCallback(async () => {
+  const swapQuote = useCallback(async () => {
     if (!params) {
       backgroundApiProxy.serviceSwap.setQuote(undefined);
       return;
@@ -136,19 +136,11 @@ export const useSwapQuoteCallback = function (
     try {
       refs.current.params = params;
       refs.current.count += 1;
-      const recipient = await backgroundApiProxy.serviceSwap.setRecipient(
-        params.networkOut,
-      );
-      const res = await SwapQuoter.client.fetchQuote({
-        ...params,
-        receivingAddress: recipient?.address,
-      });
+      const res = await SwapQuoter.client.fetchQuote(params);
       if (refs.current.params === params) {
         backgroundApiProxy.dispatch(setLoading(false));
         if (res) {
-          if (res.data) {
-            backgroundApiProxy.serviceSwap.setQuote(res.data);
-          }
+          backgroundApiProxy.serviceSwap.setQuote(res.data);
           backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
         } else {
           backgroundApiProxy.dispatch(
@@ -169,7 +161,7 @@ export const useSwapQuoteCallback = function (
       }
     }
   }, [params, showLoading]);
-  return onSwapQuote;
+  return swapQuote;
 };
 
 export function useDerivedSwapState() {

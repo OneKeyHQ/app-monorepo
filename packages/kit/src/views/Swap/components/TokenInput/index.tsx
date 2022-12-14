@@ -24,7 +24,6 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
 import { Token as TokenType } from '../../../../store/typings';
 import { tokenReservedValues } from '../../config';
-import { useSwapQuoteCallback } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
@@ -54,7 +53,6 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const onSwapQuote = useSwapQuoteCallback();
   const { walletId } = useActiveWalletAccount();
 
   const onPickAccount = useCallback(() => {
@@ -66,12 +64,11 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
           networkId: token?.networkId,
           onSelected: (acc) => {
             backgroundApiProxy.dispatch(setSendingAccount(acc));
-            onSwapQuote();
           },
         },
       },
     });
-  }, [token, onSwapQuote, navigation]);
+  }, [token, navigation]);
 
   const { createAccount } = useCreateAccountInWallet({
     networkId: token?.networkId,

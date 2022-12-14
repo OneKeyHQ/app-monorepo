@@ -25,8 +25,7 @@ import {
   useDerivedSwapState,
   useInputLimitsError,
   useSwapQuoteCallback,
-  useSwapQuoteRequestParams,
-  useSwapRecipient,
+  useSwapQuoteRequestParams
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import { FetchQuoteParams, QuoteData, SwapError, SwapRoutes } from './typings';
@@ -100,8 +99,8 @@ const ExchangeButton = () => {
   const networks = useAppSelector((s) => s.runtime.networks);
   const quote = useAppSelector((s) => s.swap.quote);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const recipient = useAppSelector(s => s.swap.recipient)
   const { inputAmount, outputAmount } = useDerivedSwapState();
-  const recipient = useSwapRecipient();
   const params = useSwapQuoteRequestParams();
   const disableSwapExactApproveAmount = useAppSelector(
     (s) => s.settings.disableSwapExactApproveAmount,
