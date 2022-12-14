@@ -7,7 +7,6 @@ import { URL } from 'react-native-url-polyfill';
 
 import { Box, Icon, Select, ToastManager } from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
-import { SelectItem } from '@onekeyhq/components/src/Select';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
@@ -22,7 +21,6 @@ export const SettingsWebViews: FC = () => {
   const navigation = useNavigation();
   const { url, title } = route?.params;
   const [currentUrl, setCurrentUrl] = useState(url);
-  const isProcessing = useRef(false);
   const containerRef = useRef<typeof Box>(null);
 
   useLayoutEffect(() => {
@@ -51,75 +49,65 @@ export const SettingsWebViews: FC = () => {
                 dropdownProps={{
                   width: 248,
                 }}
-                options={
-                  [
-                    {
-                      label: intl.formatMessage({
-                        id: 'action__refresh',
-                      }),
-                      value: () => {
-                        try {
-                          const polyfillUrl = new URL(url);
-                          polyfillUrl.searchParams.set(
-                            'onekey-browser-refresh',
-                            Math.random().toString(),
-                          );
-
-                          setCurrentUrl(polyfillUrl.toString());
-                        } catch (error) {
-                          console.warn(error);
-                        }
-                      },
-                      iconProps: { name: 'ArrowPathOutline' },
-                    },
-                    {
-                      label: intl.formatMessage({
-                        id: 'action__share',
-                      }),
-                      value: () => {
-                        Share.share(
-                          Platform.OS === 'ios'
-                            ? {
-                                url,
-                              }
-                            : {
-                                message: url,
-                              },
-                        ).catch(() => {});
-                      },
-                      iconProps: { name: 'ShareOutline' },
-                    },
-                    {
-                      label: intl.formatMessage({
-                        id: 'action__copy_url',
-                      }),
-                      value: () => {
-                        copyToClipboard(currentUrl ?? '');
-                        ToastManager.show({
-                          title: intl.formatMessage({ id: 'msg__copied' }),
-                        });
-                      },
-                      iconProps: { name: 'LinkOutline' },
-                    },
-                    {
-                      label: intl.formatMessage({
-                        id: 'action__open_in_browser',
-                      }),
-                      value: () => {
-                        openUrlExternal(currentUrl);
-                      },
-                      iconProps: { name: 'GlobeAltOutline' },
-                    },
-                  ].map((item) => ({
-                    ...item,
+                options={[
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__refresh',
+                    }),
                     value: () => {
-                      if (isProcessing.current) return;
-                      isProcessing.current = true;
-                      item.value();
-                      isProcessing.current = false;
+                      try {
+                        const polyfillUrl = new URL(url);
+                        polyfillUrl.searchParams.set(
+                          'onekey-browser-refresh',
+                          Math.random().toString(),
+                        );
+
+                        setCurrentUrl(polyfillUrl.toString());
+                      } catch (error) {
+                        console.warn(error);
+                      }
                     },
-                  })) as SelectItem<() => void>[]
-                }
+                    iconProps: { name: 'ArrowPathOutline' },
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__share',
+                    }),
+                    value: () => {
+                      Share.share(
+                        Platform.OS === 'ios'
+                          ? {
+                              url,
+                            }
+                          : {
+                              message: url,
+                            },
+                      ).catch(() => {});
+                    },
+                    iconProps: { name: 'ShareOutline' },
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__copy_url',
+                    }),
+                    value: () => {
+                      copyToClipboard(currentUrl ?? '');
+                      ToastManager.show({
+                        title: intl.formatMessage({ id: 'msg__copied' }),
+                      });
+                    },
+                    iconProps: { name: 'LinkOutline' },
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'action__open_in_browser',
+                    }),
+                    value: () => {
+                      openUrlExternal(currentUrl);
+                    },
+                    iconProps: { name: 'GlobeAltOutline' },
+                  },
+                ]}
                 renderTrigger={() => (
                   <Box
                     mr={Platform.OS !== 'android' ? 4 : 0}
