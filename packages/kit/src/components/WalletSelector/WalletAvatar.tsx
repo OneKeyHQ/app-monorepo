@@ -7,11 +7,11 @@ import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import { Text, TypographyStyle } from '@onekeyhq/components/src/Typography';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import { Avatar, defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import { Avatar, defaultAvatar } from '../../utils/emojiUtils';
 import { getDeviceTypeByDeviceId } from '../../utils/hardware';
 import {
   DeviceStatusType,

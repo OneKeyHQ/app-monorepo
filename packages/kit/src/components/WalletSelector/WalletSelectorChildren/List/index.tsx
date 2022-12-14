@@ -13,7 +13,7 @@ import {
   Typography,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount } from '../../../../hooks/redux';

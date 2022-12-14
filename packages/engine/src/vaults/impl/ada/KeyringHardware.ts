@@ -5,9 +5,9 @@ import {
 import { CardanoGetAddressMethodParams, PROTO } from '@onekeyfe/hd-core';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_ADA as COIN_TYPE } from '../../../constants';
 import {
   NotImplemented,
   OneKeyHardwareError,

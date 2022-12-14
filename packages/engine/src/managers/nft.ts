@@ -10,10 +10,10 @@ import {
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { getFiatEndpoint } from '../endpoint';
-import { OnekeyNetwork } from '../presets/networkIds';
 import {
   Erc1155MethodSelectors,
   Erc721MethodSelectors,

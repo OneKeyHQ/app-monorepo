@@ -9,7 +9,9 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IDecodedTx,
+  IDecodedTxLegacy,
   IEncodedTx,
+  IFeeInfoPayload,
   IFeeInfoSelected,
   INFTInfo,
   ISignedTx,
@@ -17,16 +19,12 @@ import type {
   ISwapInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
-import {
-  IDecodedTxLegacy,
-  IFeeInfoPayload,
-} from '@onekeyhq/engine/src/vaults/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 
 import { SendRoutes } from './enums';
 
-import type { IDappSourceInfo } from '../../background/IBackgroundApi';
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
 import type { SwapQuoteTx } from '../Swap/typings';
@@ -256,7 +254,7 @@ export type IFeeInfoInputProps = {
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
   editable?: boolean;
-  renderChildren: ({ isHovered }: { isHovered: boolean }) => any;
+  renderChildren: ({ isHovered }: { isHovered: boolean }) => JSX.Element | null;
   autoNavigateToEdit?: boolean;
   sendConfirmParams: SendConfirmParams;
 };

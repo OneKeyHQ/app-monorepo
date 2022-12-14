@@ -2,7 +2,12 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import qs from 'qs';
 
-import { IMPL_EVM, IMPL_STC, SEPERATOR } from '../constants';
+import {
+  IMPL_EVM,
+  IMPL_STC,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { getFiatEndpoint } from '../endpoint';
 import { getPresetNetworks, networkIsPreset } from '../presets';
 import {

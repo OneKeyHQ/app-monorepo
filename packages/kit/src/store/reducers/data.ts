@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { Tool } from '@onekeyhq/engine/src/types/token';
+import type { Tool } from '@onekeyhq/engine/src/types/token';
 import { stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

@@ -4,7 +4,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { HomeRoutes } from '../../../routes/routesEnum';
 import { HomeRoutesParams } from '../../../routes/types';

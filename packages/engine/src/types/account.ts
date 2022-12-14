@@ -1,5 +1,5 @@
-import { HasName } from './base';
-import { Token } from './token';
+import type { HasName } from './base';
+import type { Token } from './token';
 
 enum AccountType {
   SIMPLE = 'simple',

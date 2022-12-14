@@ -7,10 +7,9 @@ import {
   IWalletConnectSession,
 } from '@walletconnect/types';
 
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { backgroundMethod } from '../../background/decorators';
-import { waitForDataLoaded } from '../../background/utils';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import { WalletService } from './types';

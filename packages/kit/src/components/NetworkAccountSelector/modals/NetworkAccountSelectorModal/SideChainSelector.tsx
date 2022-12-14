@@ -15,7 +15,7 @@ import {
   Token,
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
-import { INetwork } from '@onekeyhq/engine/src/types';
+import type { INetwork } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

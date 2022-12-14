@@ -268,6 +268,7 @@ const Provider: FC<UIProviderProps> = ({
         <IntlProvider
           ref={(e) => {
             try {
+              // eslint-disable-line
               // @ts-expect-error
               intlRef.current = e?.state?.intl;
             } catch (error) {

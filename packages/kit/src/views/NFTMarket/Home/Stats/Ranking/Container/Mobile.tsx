@@ -6,8 +6,9 @@ import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem, Text } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collection, NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
+
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { NFTMarketRanking,Collection } from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';

@@ -20,8 +20,7 @@ import {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-
-import { EmojiTypes, colors, emojiList } from '../../../utils/emojiUtils';
+import { EmojiTypes, colors, emojiList } from '@onekeyhq/shared/src/emojiUtils';
 
 type RouteProps = RouteProp<
   ManagerWalletRoutesParams,

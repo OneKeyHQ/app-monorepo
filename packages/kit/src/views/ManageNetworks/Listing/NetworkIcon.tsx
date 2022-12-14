@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
 
 import { Box, Image, Typography } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 type NetworkIconProps = {
   network: Network;

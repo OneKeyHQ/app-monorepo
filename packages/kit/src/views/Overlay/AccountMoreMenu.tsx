@@ -13,15 +13,15 @@ import {
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
+import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
+import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
+import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
   IMPL_APTOS,
   IMPL_EVM,
   IMPL_SUI,
   enabledAccountDynamicNetworkIds,
-} from '@onekeyhq/engine/src/constants';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
-import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
-import { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';

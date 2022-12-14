@@ -1,0 +1,32 @@
+{
+  "name": "@onekeyhq/kit-bg",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.tsx",
+  "dependencies": {
+    "@0xsequence/multicall": "^0.36.8",
+    "@onekeyhq/components": "*",
+    "@openzeppelin/contracts": "^4.5.0",
+    "@reduxjs/toolkit": "^1.6.2",
+    "@types/redux-logger": "^3.0.9",
+    "@types/url-parse": "^1.4.8",
+    "date-fns": "^2.27.0",
+    "dotbit": "^0.4.1",
+    "react-native-restart": "0.0.24",
+    "react-native-uuid": "^2.0.1",
+    "react-redux": "^7.2.6",
+    "rimraf": "^3.0.2",
+    "semver": "^7.3.7",
+    "socket.io-client": "^4.5.2"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
+    "clean": "rimraf node_modules"
+  },
+  "devDependencies": {
+    "@types/d3-scale": "^4.0.2",
+    "@types/d3-shape": "^3.1.0",
+    "@types/socket.io-client": "^3.0.0"
+  }
+}
