@@ -450,6 +450,16 @@ class ServiceNFT extends ServiceBase {
     const { dispatch } = this.backgroundApi;
     dispatch(setNFTPriceType(priceType));
   }
+
+  @backgroundMethod()
+  async getNPLAddress() {
+    return simpleDb.setting.getNPLAddress();
+  }
+
+  @backgroundMethod()
+  async setNPLAddress(nplAddress: string) {
+    return simpleDb.setting.setNPLAddress(nplAddress);
+  }
 }
 
 export default ServiceNFT;

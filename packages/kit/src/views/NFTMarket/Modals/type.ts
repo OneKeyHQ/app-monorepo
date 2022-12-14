@@ -46,8 +46,7 @@ export type NFTMarketRoutesParams = {
     lose?: number;
     totalProfit?: BigNumber;
     network: Network;
-    name?: string;
-    address: string;
+    nameOrAddress?: string;
     startTime: number;
     endTime: number;
   };

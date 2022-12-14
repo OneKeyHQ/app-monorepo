@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -28,10 +28,13 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTAsset, NFTNPL } from '@onekeyhq/engine/src/types/nft';
 import {
+  HomeRoutes,
+  HomeRoutesParams,
   ModalRoutes,
   ModalScreenProps,
   RootRoutes,
@@ -188,18 +191,22 @@ const Header: FC<HeaderProps> = ({
     totalValue = `${totalProfit.toNumber() >= 0 ? '+' : '-'}${totalValue}`;
   }
   totalValue = PriceString({ price: totalValue, networkId: network.id });
-  const [address, setAddress] = useState<string>(accountAddress ?? '');
+  const [nameOrAddress, setNameOrAddress] = useState<string>(
+    accountAddress ?? '',
+  );
 
-  const [name, setName] = useState<string>('');
-
+  const name = useRef<string>();
   const { loading: inputLoading } = useSearchAddress({
-    keyword: address,
+    keyword: nameOrAddress,
     network,
     onAddressSearch: ({ ens: ensName, address: vaildAddress }) => {
-      if (ensName) {
-        setName(ensName);
-      }
+      name.current = ensName;
       if (vaildAddress) {
+        if (ensName) {
+          setNameOrAddress(ensName);
+        } else {
+          setNameOrAddress(shortenAddress(vaildAddress));
+        }
         onAddressSearch(vaildAddress);
       }
     },
@@ -208,6 +215,12 @@ const Header: FC<HeaderProps> = ({
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const shareAction = useCallback(() => {
+    let displayName = '';
+    if (name.current && name.current?.length > 0) {
+      displayName = name.current;
+    } else {
+      displayName = shortenAddress(nameOrAddress);
+    }
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.NFTMarket,
       params: {
@@ -218,32 +231,31 @@ const Header: FC<HeaderProps> = ({
           lose,
           assets: content,
           network,
-          name,
-          address,
+          nameOrAddress: displayName,
           endTime: content[0].exit.timestamp,
           startTime: content[content.length - 1].exit.timestamp,
         },
       },
     });
-  }, [address, content, lose, name, navigation, network, totalProfit, win]);
+  }, [content, lose, nameOrAddress, navigation, network, totalProfit, win]);
 
   const { account: activeAccount } = useActiveWalletAccount();
 
   useEffect(() => {
     if (activeAccount?.address) {
-      setAddress(activeAccount?.address);
+      setNameOrAddress(activeAccount?.address);
     }
   }, [activeAccount?.address]);
 
   const showClearBtn = useMemo(() => {
-    if ((name || address).length === 0) {
+    if (nameOrAddress.length === 0) {
       return false;
     }
     if (inputLoading === true) {
       return false;
     }
     return true;
-  }, [address, inputLoading, name]);
+  }, [nameOrAddress, inputLoading]);
 
   return (
     <Box width="full" mb={isVerticalLayout ? '16px' : '8px'}>
@@ -252,8 +264,8 @@ const Header: FC<HeaderProps> = ({
           flex={1}
           w="auto"
           maxW="400px"
-          value={name || address}
-          onChangeText={setAddress}
+          value={nameOrAddress}
+          onChangeText={setNameOrAddress}
           rightIconName={showClearBtn ? 'XCircleMini' : undefined}
           rightElement={
             <Center height="full" right="8px">
@@ -261,8 +273,7 @@ const Header: FC<HeaderProps> = ({
             </Center>
           }
           onClear={() => {
-            setAddress('');
-            setName('');
+            setNameOrAddress('');
           }}
           placeholder="Address, domain, or any DID"
         />
@@ -493,7 +504,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         chain: network?.id,
         address: text,
       });
-
+      serviceNFT.setNPLAddress(text);
       const parseData = parseNPLData(data, network);
       allData.current = parseData;
       updateTotalNPLData({
@@ -568,13 +579,21 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 };
 
 const NPLScreen = () => {
+  const route =
+    useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTNPLScreen>>();
+  const { address: lastAddress } = route.params;
   const { network, account } = useActiveWalletAccount();
   const isEvmAddress = network?.impl === IMPL_EVM;
 
   const [addressInfo, setAddressInfo] = useState<{
     address?: string;
     ens?: string;
-  }>({ address: isEvmAddress ? account?.address : undefined });
+  }>(() => {
+    if (lastAddress && lastAddress.length > 0) {
+      return { address: lastAddress };
+    }
+    return { address: isEvmAddress ? account?.address : undefined };
+  });
   if (addressInfo?.address) {
     return (
       <NPLDetail accountAddress={addressInfo?.address} ens={addressInfo.ens} />

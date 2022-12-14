@@ -23,6 +23,7 @@ export function useSearchAddress({
   const terms = useDebounce(keyword, 500).toLowerCase();
 
   const [loading, setLoading] = useState(false);
+  const [name, setName] = useState('');
   const lookupEnsName = useCallback(async (address: string) => {
     const result = backgroundApiProxy.serviceRevoke.lookupEnsName(address);
     return result;
@@ -54,6 +55,9 @@ export function useSearchAddress({
   useEffect(() => {
     if (terms?.length > 0) {
       (async () => {
+        if (terms === name) {
+          return;
+        }
         setLoading(true);
         const [ens, address] = await Promise.all([
           lookupEnsName(terms),
@@ -62,8 +66,11 @@ export function useSearchAddress({
         if (address) {
           const isValid = await valildAddress(address);
           if (isValid) {
+            setName(ens);
             onAddressSearch({ address: address.toLocaleLowerCase(), ens });
           }
+        } else {
+          setName('');
         }
         setLoading(false);
       })();

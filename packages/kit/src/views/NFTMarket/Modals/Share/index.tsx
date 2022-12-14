@@ -37,8 +37,7 @@ const Share = () => {
     win,
     lose,
     network,
-    name,
-    address,
+    nameOrAddress,
     startTime,
     endTime,
   } = route.params;
@@ -112,7 +111,7 @@ const Share = () => {
             <Box px={{ base: 4, md: 6 }} py={6}>
               <Box flexDirection="row" justifyContent="space-between" mb="36px">
                 <Text typography="Caption" color="text-subdued">
-                  {name || address}
+                  {nameOrAddress}
                 </Text>
                 <Text typography="CaptionStrong" color="text-subdued">
                   {date}
