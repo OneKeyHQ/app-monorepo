@@ -1,12 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgCpuChip = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
     <Path d="M14 6H6v8h8V6z" />
     <Path
       fillRule="evenodd"

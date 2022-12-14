@@ -1,6 +1,7 @@
 import { isEmpty } from 'lodash';
 
-import { SEPERATOR } from '../constants';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { OneKeyInternalError } from '../errors';
 import { Account, AccountType } from '../types/account';
 import {

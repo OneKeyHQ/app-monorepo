@@ -7,9 +7,9 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IDeviceType } from '@onekeyfe/hd-core';
 
-import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 
-import { OnekeyNetwork } from '../presets/networkIds';
 import { DBAccount } from '../types/account';
 import { PrivateKeyCredential } from '../types/credential';
 import { Device, DevicePayload } from '../types/device';

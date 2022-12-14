@@ -19,7 +19,7 @@ import {
   Tooltip,
 } from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import {

@@ -22,8 +22,11 @@ import {
 } from '@onekeyhq/components';
 import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collection, NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type {
+  Collection,
+  NFTMarketRanking,
+} from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

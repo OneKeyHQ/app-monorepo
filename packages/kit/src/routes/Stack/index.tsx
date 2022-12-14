@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -13,43 +13,108 @@ import {
   enable,
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
-import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
-import ChainWebEmbed from '@onekeyhq/kit/src/views/ChainWebEmbed';
-import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
-import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
-import MyDAppList from '@onekeyhq/kit/src/views/Discover/MyDAppList';
-import FullTokenList from '@onekeyhq/kit/src/views/FullTokenList/FullTokenList';
-import OnekeyLiteDetail from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail';
-import MarketDetail from '@onekeyhq/kit/src/views/Market/MarketDetail';
-import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic';
-import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
-import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
-import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
-import Protected from '@onekeyhq/kit/src/views/Protected';
-import PushNotification from '@onekeyhq/kit/src/views/PushNotification';
-import PushNotificationManageAccountDynamic from '@onekeyhq/kit/src/views/PushNotification/AccountDynamic';
-import PushNotificationManagePriceAlert from '@onekeyhq/kit/src/views/PushNotification/PriceAlertListStack';
-import RevokePage from '@onekeyhq/kit/src/views/Revoke';
-import RevokeRedirectPage from '@onekeyhq/kit/src/views/Revoke/Redirect';
-import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
-import TransactionHistory from '@onekeyhq/kit/src/views/TransactionHistory';
-import UpdateAlert from '@onekeyhq/kit/src/views/Update/Alert';
-import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
-import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
-import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
-import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
-import { RouteOnboarding } from '../../views/Onboarding/routes/RouteOnboarding';
-import SwapHistory from '../../views/Swap/History';
-import Dev from '../Dev';
-import Drawer from '../Drawer';
+import { createLazyComponent } from '../../utils/createLazyComponent';
 import { HomeRoutes, HomeRoutesParams } from '../types';
 
 import renderCustomSubStackHeader from './Header';
+
+const DAppList = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Discover/DAppList'),
+);
+const DiscoverHome = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Discover/Home'),
+);
+const MyDAppList = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Discover/MyDAppList'),
+);
+const FullTokenList = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/FullTokenList/FullTokenList'),
+);
+const OnekeyLiteDetail = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Hardware/OnekeyLite/Detail'),
+);
+const MarketDetail = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Market/MarketDetail'),
+);
+const VolumeHaptic = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic'),
+);
+const CloudBackup = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup'),
+);
+const CloudBackupDetails = createLazyComponent(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails'
+    ),
+);
+const CloudBackupPreviousBackups = createLazyComponent(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups'
+    ),
+);
+const Protected = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Protected'),
+);
+const PushNotification = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/PushNotification'),
+);
+const PushNotificationManageAccountDynamic = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/PushNotification/AccountDynamic'),
+);
+const PushNotificationManagePriceAlert = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/PushNotification/PriceAlertListStack'),
+);
+const RevokePage = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Revoke'),
+);
+const RevokeRedirectPage = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Revoke/Redirect'),
+);
+const TokenDetail = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/TokenDetail'),
+);
+const TransactionHistory = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/TransactionHistory'),
+);
+const UpdateAlert = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Update/Alert'),
+);
+const Webview = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Webview'),
+);
+
+const NFTMarketCollectionScreen = createLazyComponent(
+  () => import('../../views/NFTMarket/CollectionDetail'),
+);
+const NFTMarketLiveMintingList = createLazyComponent(
+  () => import('../../views/NFTMarket/LiveMintingList'),
+);
+const NFTMarketStatsList = createLazyComponent(
+  () => import('../../views/NFTMarket/StatsList'),
+);
+const RouteOnboarding = createLazyComponent(
+  () => import('../../views/Onboarding/routes/RouteOnboarding'),
+);
+const SwapHistory = createLazyComponent(
+  () => import('../../views/Swap/History'),
+);
+
+const Drawer = createLazyComponent(() => import('../Drawer'));
+
+const ChainWebEmbed = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/ChainWebEmbed'),
+);
+
+const AddressBook = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/AddressBook/Listing'),
+);
 
 export const stackScreenList = [
   {
@@ -197,7 +262,13 @@ const Dashboard = () => {
           name={HomeRoutes.InitialTab}
           component={Drawer}
         />
-        <StackNavigator.Screen name={HomeRoutes.Dev} component={Dev} />
+        {process.env.NODE_ENV !== 'production' && (
+          <StackNavigator.Screen
+            name={HomeRoutes.Dev}
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            component={require('../Dev').default}
+          />
+        )}
         <StackNavigator.Screen
           name={HomeRoutes.HomeOnboarding}
           component={RouteOnboarding}

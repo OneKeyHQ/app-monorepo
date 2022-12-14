@@ -2,9 +2,9 @@ import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useRuntime } from '../../../hooks/redux';
 import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';

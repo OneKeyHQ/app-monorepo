@@ -12,11 +12,11 @@ import {
 } from '@onekeyhq/components/src';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/kit/src/config';
 import {
   MarketTokenDetail,
   SWAP_TAB_NAME,
 } from '@onekeyhq/kit/src/store/reducers/market';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 

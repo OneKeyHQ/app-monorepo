@@ -1,7 +1,7 @@
 import { AxiosInstance } from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { CosmwasmQuery } from './CosmwasmQuery';
 import { MintScanQuery } from './MintScanQuery';

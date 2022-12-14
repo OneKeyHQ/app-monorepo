@@ -4,7 +4,7 @@ import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, ScrollView, Text, useTheme } from '@onekeyhq/components';
-import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
 
 import { useSingleToken } from '../../hooks/useTokens';

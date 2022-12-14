@@ -1,4 +1,5 @@
-import { COINTYPE_SOL as COIN_TYPE } from '../../../constants';
+import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';

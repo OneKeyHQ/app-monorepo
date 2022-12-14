@@ -5,7 +5,8 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import * as sdk from 'algosdk';
 
-import { COINTYPE_ALGO as COIN_TYPE } from '../../../constants';
+import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';

@@ -6,7 +6,6 @@ const SvgPlusSmall = (props: SvgProps) => (
     strokeWidth={1.5}
     stroke="currentColor"
     aria-hidden="true"
-    accessibilityRole="image"
     {...props}
   >
     <Path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />

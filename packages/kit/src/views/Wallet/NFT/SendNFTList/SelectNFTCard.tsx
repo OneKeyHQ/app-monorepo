@@ -4,7 +4,7 @@ import type { FC } from 'react';
 import { MotiView } from 'moti';
 
 import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
-import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
+import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useActiveSideAccount } from '../../../../hooks';
 import NFTListImage from '../NFTList/NFTListImage';

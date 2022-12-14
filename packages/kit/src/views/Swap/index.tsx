@@ -39,7 +39,7 @@ const Swap = () => {
       {!isSmall ? <SwapHeader /> : <Box h="6" />}
       <SwapObserver />
       <Center>
-        <Box maxW="480" width="full">
+        <Box maxW={{ md: '480px' }} width="full">
           <Box px={isSmall ? 0 : '4'}>
             <SwapContent />
           </Box>

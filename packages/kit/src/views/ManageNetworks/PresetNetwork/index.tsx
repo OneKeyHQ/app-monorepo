@@ -24,7 +24,7 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks';

@@ -10,6 +10,7 @@ yarn reset-cache
 rm -rf ./node_modules
 rm -rf ./.expo
 rm -rf ./.husky/_
+rm -rf ./.app-mono-ts-cache
 
 rm -rf ./packages/components/node_modules
 

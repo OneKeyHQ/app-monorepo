@@ -31,21 +31,23 @@ class BuildDoneNotifyPlugin {
   }
 }
 
-const resolveExtensions = [
-  '.web.ts',
-  '.web.tsx',
-  '.web.mjs',
-  '.web.js',
-  '.web.jsx',
-  '.ts',
-  '.tsx',
-  '.mjs',
-  '.js',
-  '.jsx',
-  '.json',
-  '.wasm',
-  '.d.ts',
-];
+function createDefaultResolveExtensions() {
+  return [
+    '.web.ts',
+    '.web.tsx',
+    '.web.mjs',
+    '.web.js',
+    '.web.jsx',
+    '.ts',
+    '.tsx',
+    '.mjs',
+    '.js',
+    '.jsx',
+    '.json',
+    '.wasm',
+    '.d.ts',
+  ];
+}
 
 async function modifyExpoEnv({ env, platform }) {
   const locations = await getPathsAsync(env.projectRoot);
@@ -80,6 +82,7 @@ function normalizeConfig({
   configName,
   enableAnalyzerHtmlReport,
 }) {
+  let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
     const isDev = process.env.NODE_ENV !== 'production';
@@ -104,8 +107,8 @@ function normalizeConfig({
     if (process.env.ENABLE_ANALYZER) {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
       config.plugins.push(
-        new BundleAnalyzerPlugin({
-          ...(enableAnalyzerHtmlReport
+        new BundleAnalyzerPlugin(
+          enableAnalyzerHtmlReport
             ? {
                 analyzerMode: 'static',
                 reportFilename: `report${
@@ -127,17 +130,22 @@ function normalizeConfig({
                   ids: false,
                   children: false,
                   chunks: false,
-                  modules: process.env.ANALYSE_MODULE === 'module',
+                  modules: !!process.env.ANALYSE_MODULE,
                 },
-              }),
-        }),
+              },
+        ),
       );
     }
 
-    // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
-    resolveExtensions.unshift(
+    resolveExtensions = [
+      ...(configName
+        ? ['.ts', '.tsx', '.js', '.jsx'].map(
+            (ext) => `.${platform}-${configName}${ext}`,
+          )
+        : []),
       ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
-    );
+      ...resolveExtensions,
+    ];
   }
 
   // let file-loader skip handle wasm files
@@ -151,8 +159,14 @@ function normalizeConfig({
 
   config.resolve.extensions = lodash
     .uniq(config.resolve.extensions.concat(resolveExtensions))
-    // sort platform specific extensions to the beginning
-    .sort((a, b) => (a.includes(platform) ? -1 : 0));
+    .sort((a, b) => {
+      // ".ext-ui.ts"  ".ext.ts"
+      if (a.includes(platform) && b.includes(platform)) {
+        return 0;
+      }
+      // sort platform specific extensions to the beginning
+      return a.includes(platform) ? -1 : 0;
+    });
   config.resolve.alias = {
     ...config.resolve.alias,
     '@solana/buffer-layout-utils':
@@ -169,12 +183,32 @@ function normalizeConfig({
   // - building slow
   // config.devtool = 'cheap-module-source-map';
 
+  config.optimization.splitChunks = {
+    ...config.optimization.splitChunks,
+    cacheGroups: {
+      kit_assets: {
+        test: /\/kit\/assets/,
+        name: 'kit_assets',
+        chunks: 'all',
+      },
+      kit_routes: {
+        test: /\/kit\/src\/routes/,
+        name: 'kit_routes',
+        chunks: 'all',
+      },
+      // lodash: {
+      //   test: /\/node_modules\/lodash/,
+      //   name: 'lodash',
+      //   chunks: 'all',
+      // },
+    },
+  };
+
   return config;
 }
 
 module.exports = {
   developmentConsts,
-  resolveExtensions,
   normalizeConfig,
   modifyExpoEnv,
 };

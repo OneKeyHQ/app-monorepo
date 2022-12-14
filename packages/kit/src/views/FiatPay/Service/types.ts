@@ -1,4 +1,4 @@
-import { MOONPAY_API_KEY } from '@onekeyhq/kit/src/config';
+import { MOONPAY_API_KEY } from '@onekeyhq/shared/src/config/appConfig';
 
 import store from '../../../store';
 

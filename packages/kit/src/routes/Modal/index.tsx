@@ -1,52 +1,80 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { memo } from 'react';
+import { memo } from 'react';
 
-import {
-  StackNavigationOptions,
-  TransitionPresets,
-  createStackNavigator,
-} from '@react-navigation/stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import { createLazyComponent } from '../../utils/createLazyComponent';
 import { ModalRoutes, ModalRoutesParams } from '../types';
 
-import AddressBookModal from './AddressBook';
-import BackupWalletModal from './BackupWallet';
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
-import CollectibleModal from './Collectibles';
-import CreateAccountModal from './CreateAccount';
-import CreateWalletModalStack from './CreateWallet';
-import DappConnectionStack from './DappConnection';
-import DiscoverModal from './Discover';
-import EnableLocalAuthenticationModal from './EnableLocalAuthentication';
-import BuyModal from './FiatPay';
-import OnekeyHardwareModal from './HardwareOnekey';
-import HardwareOnekeyLitePinModal from './HardwareOnekeyLiteChangePin';
-import HardwareOnekeyResetModal from './HardwareOnekeyLiteReset';
-import HardwareUpdateModal from './HardwareUpdate';
-import HistoryRequestModal from './HistoryRequest';
-import ImportBackupPassword from './ImportBackupPassword';
-import ManageConnectedSitesModal from './ManageConnectSites';
-import ManageNetworkModal from './ManageNetwork';
-import { ManagerAccountModalStack as ManagerAccountModal } from './ManagerAccount';
-import { ManagerWalletModalStack as ManagerWalletModal } from './ManagerWallet';
-import ManageTokenModal from './ManageToken';
-import NFTAttributeFilter from './NFTAttributeFilter';
-import PasswordModal from './Password';
-import PushNotification from './PushNotification';
-import ReceiveToken from './ReceiveToken';
-import Revoke from './Revoke';
-import ScanQrcode from './ScanQrcode';
-import SearchNFT from './SearchNFTCollection';
-import Send from './Send';
-import StakingModal from './Staking';
-import SubmitRequestModal from './SubmitRequest';
-import SwapModal from './Swap';
-import TransactionDetailModal from './TransactionDetail';
-import UpdateFeatureModal from './UpdateFeature';
-import WebviewModal from './WebView';
+
+const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
+
+const CollectibleModal = createLazyComponent(() => import('./Collectibles'));
+const CreateAccountModal = createLazyComponent(() => import('./CreateAccount'));
+const CreateWalletModalStack = createLazyComponent(
+  () => import('./CreateWallet'),
+);
+const DappConnectionStack = createLazyComponent(
+  () => import('./DappConnection'),
+);
+const DiscoverModal = createLazyComponent(() => import('./Discover'));
+const EnableLocalAuthenticationModal = createLazyComponent(
+  () => import('./EnableLocalAuthentication'),
+);
+const BuyModal = createLazyComponent(() => import('./FiatPay'));
+const OnekeyHardwareModal = createLazyComponent(
+  () => import('./HardwareOnekey'),
+);
+const HardwareOnekeyLitePinModal = createLazyComponent(
+  () => import('./HardwareOnekeyLiteChangePin'),
+);
+const HardwareOnekeyResetModal = createLazyComponent(
+  () => import('./HardwareOnekeyLiteReset'),
+);
+const HardwareUpdateModal = createLazyComponent(
+  () => import('./HardwareUpdate'),
+);
+const HistoryRequestModal = createLazyComponent(
+  () => import('./HistoryRequest'),
+);
+const ImportBackupPassword = createLazyComponent(
+  () => import('./ImportBackupPassword'),
+);
+const ManageConnectedSitesModal = createLazyComponent(
+  () => import('./ManageConnectSites'),
+);
+const ManageNetworkModal = createLazyComponent(() => import('./ManageNetwork'));
+const ManagerAccountModal = createLazyComponent(
+  () => import('./ManagerAccount'),
+);
+const ManagerWalletModal = createLazyComponent(() => import('./ManagerWallet'));
+const ManageTokenModal = createLazyComponent(() => import('./ManageToken'));
+const NFTAttributeFilter = createLazyComponent(
+  () => import('./NFTAttributeFilter'),
+);
+const PasswordModal = createLazyComponent(() => import('./Password'));
+const PushNotification = createLazyComponent(
+  () => import('./PushNotification'),
+);
+const ReceiveToken = createLazyComponent(() => import('./ReceiveToken'));
+const Revoke = createLazyComponent(() => import('./Revoke'));
+const ScanQrcode = createLazyComponent(() => import('./ScanQrcode'));
+const SearchNFT = createLazyComponent(() => import('./SearchNFTCollection'));
+const Send = createLazyComponent(() => import('./Send'));
+const StakingModal = createLazyComponent(() => import('./Staking'));
+const SubmitRequestModal = createLazyComponent(() => import('./SubmitRequest'));
+const SwapModal = createLazyComponent(() => import('./Swap'));
+const TransactionDetailModal = createLazyComponent(
+  () => import('./TransactionDetail'),
+);
+const UpdateFeatureModal = createLazyComponent(() => import('./UpdateFeature'));
+const WebviewModal = createLazyComponent(() => import('./WebView'));
+
+const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
 
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',

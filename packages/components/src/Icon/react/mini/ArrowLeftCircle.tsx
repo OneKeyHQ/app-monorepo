@@ -1,12 +1,6 @@
 import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
 const SvgArrowLeftCircle = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
     <G clipPath="url(#a)">
       <Path
         fillRule="evenodd"

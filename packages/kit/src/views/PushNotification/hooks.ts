@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import {
+import type {
   AccountDynamicItem,
   PriceAlertItem,
 } from '@onekeyhq/engine/src/managers/notification';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useRuntime } from '../../hooks/redux';
