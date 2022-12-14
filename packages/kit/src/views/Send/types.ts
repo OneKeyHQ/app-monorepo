@@ -256,7 +256,7 @@ export type IFeeInfoInputProps = {
   feeInfoPayload: IFeeInfoPayload | null;
   loading?: boolean;
   editable?: boolean;
-  renderChildren: ({ isHovered }: { isHovered: boolean }) => JSX.Element;
+  renderChildren: ({ isHovered }: { isHovered: boolean }) => JSX.Element | null;
   autoNavigateToEdit?: boolean;
   sendConfirmParams: SendConfirmParams;
 };
