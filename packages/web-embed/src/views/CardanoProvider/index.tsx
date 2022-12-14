@@ -97,11 +97,12 @@ function CardanoProvider() {
         }
 
         case CardanoEvent.hwSignTransaction: {
-          const { txBodyHex, signedWitnesses } = eventParams;
+          const { txBodyHex, signedWitnesses, options } = eventParams;
           try {
             const result = await CardanoApi.hwSignTransaction(
               txBodyHex,
               signedWitnesses,
+              options,
             );
             sendResponse(promiseId, { error: null, result });
           } catch (error) {

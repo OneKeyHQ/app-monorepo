@@ -104,6 +104,7 @@ type CardanoSignedTxWitness = {
 const hwSignTransaction = async (
   txBodyHex: string,
   signedWitnesses: CardanoSignedTxWitness[],
+  options: Record<string, any>,
 ) => {
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -111,6 +112,7 @@ const hwSignTransaction = async (
     params: {
       txBodyHex,
       signedWitnesses,
+      options,
     },
   })) as IResult;
 
