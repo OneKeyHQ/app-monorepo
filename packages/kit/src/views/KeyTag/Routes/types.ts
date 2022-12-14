@@ -10,7 +10,6 @@ export type IkeyTagAttentionsParams = {
 };
 
 export type IkeyTagShowDotMapParams = {
-  walletId: string;
   mnemonic: string;
 };
 
@@ -21,5 +20,6 @@ export type IKeytagRoutesParams = {
   [KeyTagRoutes.KeyTagBackUpWallet]: undefined;
   [KeyTagRoutes.ShowDotMap]: IkeyTagShowDotMapParams;
   [KeyTagRoutes.VerifyPassword]: IKeyTagVerifyPasswordParams;
-  [KeyTagRoutes.Attentions]: IKeyTagVerifyPasswordParams;
+  [KeyTagRoutes.Attentions]: IkeyTagAttentionsParams;
+  [KeyTagRoutes.EnterPhrase]: undefined;
 };

@@ -98,7 +98,9 @@ const KeyTagBackUpWallet = () => {
       <Box mt={2}>
         <Divider />
         <ListItemBase
-          onPress={() => {}}
+          onPress={() => {
+            navigation.navigate(KeyTagRoutes.EnterPhrase);
+          }}
           text="Enter my Recovery Phrase"
           leftView={<Icon name="PencilOutline" />}
           rightView={<Icon name="ChevronRightMini" />}

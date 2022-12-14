@@ -1,19 +1,9 @@
-import { StackNavigationProp } from '@react-navigation/stack';
-
 import { Box, Button, ScrollView } from '@onekeyhq/components';
 
-import { useNavigation } from '../../../hooks';
-import {
-  HomeRoutes,
-  ModalScreenProps,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../../routes/types';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { HomeRoutes, RootRoutes } from '../../../routes/types';
 import { KeyTagMatrix } from '../../KeyTag/Component/KeyTagMatrix/KeyTagMatrix';
 import { mnemonicWordsToKeyTagMnemonic } from '../../KeyTag/utils';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-
-type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 // const fakeData =
 //   'idle bench tomato ankle desk thunder snack oil butter view infant image';
@@ -22,7 +12,7 @@ const fakeData =
 
 const DotMapGallery = () => {
   const navigation = useAppNavigation();
-  //const navigation = useNavigation<NavigationProps['navigation']>();
+  // const navigation = useNavigation<NavigationProps['navigation']>();
   return (
     <ScrollView>
       <Box ml={50} mt={10}>

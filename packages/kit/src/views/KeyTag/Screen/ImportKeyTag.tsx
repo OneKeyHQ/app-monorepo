@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 
 import { TabRoutesParams } from '../../../routes/types';
+import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagImportMatrix } from '../Component/KeyTagMatrix/keyTagImportMatrix';
 import { generalKeyTagMnemonic, keyTagWordDataToMnemonic } from '../utils';
 
@@ -51,13 +52,9 @@ const ImportKeyTag: FC = () => {
     [mnemonicWordDatas],
   );
 
-  // const mnemonicWordDatas = useMemo(() => {
-  //   console.log('wordCount--', wordCount);
-  //   // todo check origin
-  //   return generalKeyTagMnemonic(wordCount);
-  // }, [wordCount]);
   const importValidation = useCallback(() => {}, []);
   navigation.setOptions({
+    headerShown: true,
     headerRight: () => (
       <Button type="primary" size="base" onPress={importValidation}>
         Import
@@ -68,7 +65,7 @@ const ImportKeyTag: FC = () => {
   const [showResult, setShowResult] = useState(true);
   const isVertical = useIsVerticalLayout();
   return (
-    <Box flex="1">
+    <LayoutContainer backButton={false}>
       <Box
         flexDirection={isVertical ? 'column' : 'row'}
         justifyContent={isVertical ? 'center' : 'space-between'}
@@ -136,7 +133,7 @@ const ImportKeyTag: FC = () => {
           </Box>
         </ScrollView>
       </Box>
-    </Box>
+    </LayoutContainer>
   );
 };
 

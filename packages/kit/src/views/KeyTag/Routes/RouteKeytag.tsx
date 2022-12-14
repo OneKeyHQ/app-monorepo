@@ -3,8 +3,10 @@ import React, { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import EnterPhrase from '../Screen/EnterPhrase';
 import ImportKeyTag from '../Screen/ImportKeyTag';
 import Introduce from '../Screen/IntroduceKeyTag';
+import KeyTagBackupWalletAttentions from '../Screen/KeyTagAttentions';
 import KeyTagBackUpWallet from '../Screen/KeyTagBackUpWallet';
 import ShowDotMap from '../Screen/ShowDotMap';
 import StartedKeyTag from '../Screen/StartedKeyTag';
@@ -23,6 +25,8 @@ export const stackScreenList = [
     name: KeyTagRoutes.VerifyPassword,
     component: VerifyPassword,
   },
+  { name: KeyTagRoutes.Attentions, component: KeyTagBackupWalletAttentions },
+  { name: KeyTagRoutes.EnterPhrase, component: EnterPhrase },
 ];
 
 export const StackNavigator = createNativeStackNavigator<IKeytagRoutesParams>();

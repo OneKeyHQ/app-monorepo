@@ -49,7 +49,7 @@ const Introduce = () => {
       </Box>
     );
     return res;
-  }, []);
+  }, [navigation]);
   return (
     <LayoutContainer backButton>
       <Box flex="1" flexDirection={isVertical ? 'column' : 'row'}>
