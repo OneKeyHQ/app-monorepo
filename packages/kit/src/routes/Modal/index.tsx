@@ -11,7 +11,6 @@ import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 
-
 const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
 
 const CollectibleModal = createLazyComponent(() => import('./Collectibles'));
@@ -74,7 +73,6 @@ const WebviewModal = createLazyComponent(() => import('./WebView'));
 
 const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
 const NFTMarket = createLazyComponent(() => import('./NFTMarket'));
-
 
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',

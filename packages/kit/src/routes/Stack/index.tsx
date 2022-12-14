@@ -19,7 +19,6 @@ import { NetworkAccountSelectorEffectsSingleton } from '../../components/Network
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { createLazyComponent } from '../../utils/createLazyComponent';
-
 import { HomeRoutes, HomeRoutesParams } from '../types';
 
 import renderCustomSubStackHeader from './Header';

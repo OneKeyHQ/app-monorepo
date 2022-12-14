@@ -29,7 +29,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTAsset, NFTNPL } from '@onekeyhq/engine/src/types/nft';
 import {
@@ -39,6 +38,7 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { AccountSelectorTrigger } from '../../../../components/NetworkAccountSelector/triggers/AccountSelectorTrigger';
