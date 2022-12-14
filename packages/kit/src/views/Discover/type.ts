@@ -54,7 +54,7 @@ export enum DiscoverModalRoutes {
 
 export type DiscoverRoutesParams = {
   [DiscoverModalRoutes.SearchHistoryModal]: {
-    url: string | undefined;
+    url?: string;
     onSelectorItem?: (item: MatchDAppItemType | string) => void;
   };
   [DiscoverModalRoutes.ShareModal]: {

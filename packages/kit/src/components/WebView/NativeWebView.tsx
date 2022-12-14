@@ -94,6 +94,10 @@ const NativeWebView = forwardRef(
         injectedJavaScriptBeforeContentLoaded={
           injectedJavaScriptBeforeContentLoaded || ''
         }
+        // the video element must also include the `playsinline` attribute
+        allowsInlineMediaPlayback
+        // disable video autoplay
+        mediaPlaybackRequiresUserAction
         source={{ uri: src }}
         onMessage={webviewOnMessage}
         renderError={() => (

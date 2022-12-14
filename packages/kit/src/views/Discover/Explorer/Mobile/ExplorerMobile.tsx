@@ -63,7 +63,6 @@ const ExplorerMobile: FC = () => {
         params: {
           screen: DiscoverModalRoutes.SearchHistoryModal,
           params: {
-            url: '',
             onSelectorItem: (item: MatchDAppItemType | string) => {
               if (typeof item === 'string') {
                 return gotoSite({ url: item, isNewWindow });
