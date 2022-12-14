@@ -12,7 +12,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';

@@ -8,7 +8,7 @@ import { useUserDevice } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { ADDRESS_ZERO } from '@onekeyhq/engine/src/managers/revoke';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
-import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks';

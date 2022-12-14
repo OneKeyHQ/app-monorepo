@@ -1,11 +1,11 @@
+// safe import
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { toLower } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { IMPL_EVM } from './constants';
-import { WalletSchema } from './dbs/realms/schemas';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -13,6 +13,8 @@ import {
   WALLET_TYPE_WATCHING,
   Wallet,
 } from './types/wallet';
+
+import type { WalletSchema } from './dbs/realms/schemas';
 
 export function fixAddressCase({
   impl,

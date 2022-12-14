@@ -24,9 +24,9 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import { getTokenValues } from '../../../utils/priceUtils';
 

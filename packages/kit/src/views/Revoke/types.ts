@@ -1,4 +1,4 @@
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 export enum RevokeRoutes {
   ShareModal = 'ShareModal',

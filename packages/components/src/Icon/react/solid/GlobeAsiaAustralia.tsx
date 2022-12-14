@@ -1,12 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgGlobeAsiaAustralia = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    aria-hidden="true"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
     <Path d="M15.75 8.25a.75.75 0 0 1 .75.75 3.74 3.74 0 0 1-1.27 2.812.75.75 0 1 1-.992-1.124A2.243 2.243 0 0 0 15 9a.75.75 0 0 1 .75-.75z" />
     <Path
       fillRule="evenodd"

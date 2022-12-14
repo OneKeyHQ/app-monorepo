@@ -6,8 +6,8 @@ import {
   IDecodedTxLegacy,
   IEncodedTx,
 } from '@onekeyhq/engine/src/vaults/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import { IDappSourceInfo } from '../background/IBackgroundApi';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 // TODO move to serviceDapp getDappInteractInfo()

@@ -10,9 +10,9 @@ import {
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_COSMOS as COIN_TYPE } from '../../../constants';
 import { OneKeyHardwareError } from '../../../errors';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { stripHexPrefix } from '../../utils/hexUtils';

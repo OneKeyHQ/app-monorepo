@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
 
 import { Box, Text } from '@onekeyhq/components';
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 
 import { useWalletName } from '../../../../../hooks/useWalletName';
 import { WalletAvatarPro } from '../../../../WalletSelector/WalletAvatar';

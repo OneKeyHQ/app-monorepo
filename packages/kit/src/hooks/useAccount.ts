@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { IAccount } from '@onekeyhq/engine/src/types';
+import type { IAccount } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 

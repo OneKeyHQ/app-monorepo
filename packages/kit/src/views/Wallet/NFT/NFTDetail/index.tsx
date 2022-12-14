@@ -28,8 +28,6 @@ import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/Na
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
@@ -45,6 +43,8 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';

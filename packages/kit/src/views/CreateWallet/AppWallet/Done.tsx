@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,

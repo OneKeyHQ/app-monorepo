@@ -43,3 +43,18 @@ fs.writeFileSync(
   prettier.format(typesTemplate, { parser: 'typescript' }),
   'utf8',
 );
+
+const typesTemplateExtBg = `
+/* eslint-disable */
+
+  const icons = {
+    ${items.map((item) => `${item.symbol}:()=>null`).join(',')}
+  }
+  export type ICON_NAMES = keyof typeof icons;
+  export default icons;
+`;
+fs.writeFileSync(
+  path.resolve(__dirname, `./Icons.ext-bg.tsx`),
+  prettier.format(typesTemplateExtBg, { parser: 'typescript' }),
+  'utf8',
+);

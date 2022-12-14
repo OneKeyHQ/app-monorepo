@@ -1,11 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgOffline = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
     <Path
       fillRule="evenodd"
       clipRule="evenodd"

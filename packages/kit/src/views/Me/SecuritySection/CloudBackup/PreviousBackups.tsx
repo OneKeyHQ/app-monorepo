@@ -11,6 +11,7 @@ import {
   Spinner,
   Text,
 } from '@onekeyhq/components';
+import type { IBackupItemSummary } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
@@ -24,7 +25,6 @@ import {
 import BackupSummary from './BackupSummary';
 import Wrapper from './Wrapper';
 
-import type { IBackupItemSummary } from '../../../../background/services/ServiceCloudBackup.types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

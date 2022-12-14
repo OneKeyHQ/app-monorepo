@@ -8,9 +8,8 @@ import { isFunction, isNull, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Icon } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { PrefType } from '@onekeyhq/desktop/src-electron/preload';
-import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const { isDesktop, isNative, isNativeIOS, isNativeAndroid } = platformEnv;
@@ -124,7 +123,8 @@ const PermissionDialog: FC<{
           return onClose();
         }
         const inst =
-          navigationRef.current?.getParent() || navigationRef.current;
+          global.$navigationRef.current?.getParent() ||
+          global.$navigationRef.current;
         inst?.goBack();
       }}
       contentProps={{

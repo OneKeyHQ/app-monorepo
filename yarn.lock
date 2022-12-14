@@ -5220,6 +5220,11 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": 1.1.12
     "@onekeyfe/cross-inpage-provider-types": 1.1.12
     "@onekeyfe/extension-bridge-hosted": 1.1.12
+    "@onekeyfe/hd-ble-sdk": 0.2.10
+    "@onekeyfe/hd-core": 0.2.10
+    "@onekeyfe/hd-shared": 0.2.10
+    "@onekeyfe/hd-transport": 0.2.10
+    "@onekeyfe/hd-web-sdk": 0.2.10
     "@onekeyfe/inpage-providers-hub": 1.1.12
     "@onekeyfe/onekey-aptos-provider": 1.1.12
     "@onekeyfe/onekey-cross-webview": 1.1.12
@@ -5401,6 +5406,7 @@ __metadata:
   dependencies:
     "@emotion/react": ^11.7.1
     "@emotion/styled": ^11.6.0
+    "@gorhom/bottom-sheet": ^4
     "@mui/material": ^5.2.8
     "@types/qrcode": ^1.4.2
     "@types/styled-components": ^5.1.15
@@ -5496,6 +5502,7 @@ __metadata:
     cosmjs-types: ^0.5.2
     crypto-browserify: ^3.12.0
     elliptic: ^6.5.4
+    eth-chains: ^1.0.0
     fake-indexeddb: ^3.1.7
     js-conflux-sdk: ^2.1.6
     natsort: ^2.0.3
@@ -5527,17 +5534,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/kit@*, @onekeyhq/kit@workspace:packages/kit":
+"@onekeyhq/kit-bg@workspace:packages/kit-bg":
   version: 0.0.0-use.local
-  resolution: "@onekeyhq/kit@workspace:packages/kit"
+  resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
     "@0xsequence/multicall": ^0.36.8
-    "@gorhom/bottom-sheet": ^4
-    "@onekeyfe/hd-ble-sdk": 0.2.10
-    "@onekeyfe/hd-core": 0.2.10
-    "@onekeyfe/hd-shared": 0.2.10
-    "@onekeyfe/hd-transport": 0.2.10
-    "@onekeyfe/hd-web-sdk": 0.2.10
     "@onekeyhq/components": "*"
     "@openzeppelin/contracts": ^4.5.0
     "@reduxjs/toolkit": ^1.6.2
@@ -5548,7 +5549,27 @@ __metadata:
     "@types/url-parse": ^1.4.8
     date-fns: ^2.27.0
     dotbit: ^0.4.1
-    eth-chains: ^1.0.0
+    react-native-restart: 0.0.24
+    react-native-uuid: ^2.0.1
+    react-redux: ^7.2.6
+    rimraf: ^3.0.2
+    semver: ^7.3.7
+    socket.io-client: ^4.5.2
+  languageName: unknown
+  linkType: soft
+
+"@onekeyhq/kit@*, @onekeyhq/kit@workspace:packages/kit":
+  version: 0.0.0-use.local
+  resolution: "@onekeyhq/kit@workspace:packages/kit"
+  dependencies:
+    "@onekeyhq/components": "*"
+    "@reduxjs/toolkit": ^1.6.2
+    "@types/d3-scale": ^4.0.2
+    "@types/d3-shape": ^3.1.0
+    "@types/redux-logger": ^3.0.9
+    "@types/socket.io-client": ^3.0.0
+    "@types/url-parse": ^1.4.8
+    date-fns: ^2.27.0
     expo: ^45.0.5
     expo-application: ^4.1.0
     expo-av: ^11.2.3

@@ -1,12 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgBattery50 = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
     <Path d="M4.75 8a.75.75 0 0 0-.75.75v2.5c0 .414.336.75.75.75H9.5a.75.75 0 0 0 .75-.75v-2.5A.75.75 0 0 0 9.5 8H4.75z" />
     <Path
       fillRule="evenodd"

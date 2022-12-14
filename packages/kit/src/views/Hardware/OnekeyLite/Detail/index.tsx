@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectItem } from '@onekeyhq/components/src/Select';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import WebView from '@onekeyhq/kit/src/components/WebView';

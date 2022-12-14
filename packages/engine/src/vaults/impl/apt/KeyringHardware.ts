@@ -7,9 +7,9 @@ import {
 import { AptosClient, BCS } from 'aptos';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
 import { OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { AptosMessage } from '../../../types/message';

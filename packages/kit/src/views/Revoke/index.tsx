@@ -19,12 +19,12 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import {
   ERC20TokenAllowance,
   ERC721TokenAllowance,
   toFloat,
 } from '@onekeyhq/engine/src/managers/revoke';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {

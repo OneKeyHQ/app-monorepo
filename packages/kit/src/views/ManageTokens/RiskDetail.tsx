@@ -19,7 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { tokenSecurityRiskItems } from '@onekeyhq/engine/src/managers/goplus';
-import { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
+import type { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
 import goPlus from '@onekeyhq/kit/assets/goPlus.png';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 
