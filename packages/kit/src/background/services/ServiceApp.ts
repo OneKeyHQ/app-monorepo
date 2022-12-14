@@ -286,6 +286,7 @@ class ServiceApp extends ServiceBase {
 
     serviceBootstrap.switchDefaultRpcToOnekeyRpcNode();
     serviceOnboarding.checkOnboardingStatus();
+    serviceSetting.updateRemoteSetting();
     serviceCloudBackup.initCloudBackup();
     this._appInited = true;
   }
