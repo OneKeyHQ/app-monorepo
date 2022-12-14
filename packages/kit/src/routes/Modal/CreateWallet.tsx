@@ -2,10 +2,10 @@ import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { UserInputCheckResult } from '@onekeyhq/engine/src/types/credential';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { UserInputCheckResult } from '@onekeyhq/engine/src/types/credential';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import AddImportedAccountDone from '@onekeyhq/kit/src/views/CreateWallet/Account/AddImportedAccountDone';
 import AddImportedOrWatchingAccount from '@onekeyhq/kit/src/views/CreateWallet/Account/AddImportedOrWatchingAccount';
 import AddExistingWallet from '@onekeyhq/kit/src/views/CreateWallet/AddExistingWallet';

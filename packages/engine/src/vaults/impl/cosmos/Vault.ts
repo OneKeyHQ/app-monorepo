@@ -25,9 +25,9 @@ import {
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
 import { Token } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OnekeyNetwork } from '../../../presets/networkIds';
 import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
   IApproveInfo,

@@ -1,12 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgPhoneArrowDownLeft = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    aria-hidden="true"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
     <Path
       fillRule="evenodd"
       d="M19.5 9.75a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 1 1.5 0v2.69l4.72-4.72a.75.75 0 1 1 1.06 1.06L16.06 9h2.69a.75.75 0 0 1 .75.75z"

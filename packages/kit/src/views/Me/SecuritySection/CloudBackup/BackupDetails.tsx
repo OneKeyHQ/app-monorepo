@@ -23,9 +23,11 @@ import {
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
+import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { RestoreResult } from '../../../../background/services/ServiceCloudBackup.types';
 import { useNavigation } from '../../../../hooks';
 import { useData } from '../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
@@ -37,14 +39,12 @@ import {
   RootRoutes,
   RootRoutesParams,
 } from '../../../../routes/types';
-import { Avatar } from '../../../../utils/emojiUtils';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
 import BackupSummary from './BackupSummary';
 import Wrapper from './Wrapper';
 
-import type { PublicBackupData } from '../../../../background/services/ServiceCloudBackup.types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

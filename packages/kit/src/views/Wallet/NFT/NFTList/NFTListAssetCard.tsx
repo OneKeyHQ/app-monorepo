@@ -11,9 +11,9 @@ import {
 } from '@onekeyhq/components';
 import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { useNFTSymbolPrice } from '../../../../hooks/useTokens';
 
 import { useNFTListContent } from './NFTListContent';

@@ -1,5 +1,6 @@
 // import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
-import { SEPERATOR } from '../../../constants';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { formatServerToken, isValidTokenId } from '../../../managers/token';
 import { ServerToken, Token } from '../../../types/token';
 

@@ -19,9 +19,9 @@ import {
   PartialTokenInfo,
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { COINTYPE_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_BTC } from '../../../constants';
 import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,

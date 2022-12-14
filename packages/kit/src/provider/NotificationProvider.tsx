@@ -4,7 +4,7 @@ import { requestPermissionsAsync } from 'expo-notifications';
 import { AppState, NativeModules } from 'react-native';
 
 import { DialogManager } from '@onekeyhq/components';
-import { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
+import type { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   checkPushNotificationPermission,

@@ -31,21 +31,23 @@ class BuildDoneNotifyPlugin {
   }
 }
 
-const resolveExtensions = [
-  '.web.ts',
-  '.web.tsx',
-  '.web.mjs',
-  '.web.js',
-  '.web.jsx',
-  '.ts',
-  '.tsx',
-  '.mjs',
-  '.js',
-  '.jsx',
-  '.json',
-  '.wasm',
-  '.d.ts',
-];
+function createDefaultResolveExtensions() {
+  return [
+    '.web.ts',
+    '.web.tsx',
+    '.web.mjs',
+    '.web.js',
+    '.web.jsx',
+    '.ts',
+    '.tsx',
+    '.mjs',
+    '.js',
+    '.jsx',
+    '.json',
+    '.wasm',
+    '.d.ts',
+  ];
+}
 
 async function modifyExpoEnv({ env, platform }) {
   const locations = await getPathsAsync(env.projectRoot);
@@ -80,6 +82,7 @@ function normalizeConfig({
   configName,
   enableAnalyzerHtmlReport,
 }) {
+  let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
     const isDev = process.env.NODE_ENV !== 'production';
@@ -134,10 +137,15 @@ function normalizeConfig({
       );
     }
 
-    // add ext and desktop specific extentions like .desktop.tsx, .ext.tsx
-    resolveExtensions.unshift(
+    resolveExtensions = [
+      ...(configName
+        ? ['.ts', '.tsx', '.js', '.jsx'].map(
+            (ext) => `.${platform}-${configName}${ext}`,
+          )
+        : []),
       ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
-    );
+      ...resolveExtensions,
+    ];
   }
 
   // let file-loader skip handle wasm files
@@ -151,8 +159,14 @@ function normalizeConfig({
 
   config.resolve.extensions = lodash
     .uniq(config.resolve.extensions.concat(resolveExtensions))
-    // sort platform specific extensions to the beginning
-    .sort((a, b) => (a.includes(platform) ? -1 : 0));
+    .sort((a, b) => {
+      // ".ext-ui.ts"  ".ext.ts"
+      if (a.includes(platform) && b.includes(platform)) {
+        return 0;
+      }
+      // sort platform specific extensions to the beginning
+      return a.includes(platform) ? -1 : 0;
+    });
   config.resolve.alias = {
     ...config.resolve.alias,
     '@solana/buffer-layout-utils':
@@ -195,7 +209,6 @@ function normalizeConfig({
 
 module.exports = {
   developmentConsts,
-  resolveExtensions,
   normalizeConfig,
   modifyExpoEnv,
 };

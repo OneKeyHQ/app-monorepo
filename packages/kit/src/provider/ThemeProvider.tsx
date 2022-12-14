@@ -4,11 +4,11 @@ import { Provider } from '@onekeyhq/components';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useColorScheme } from '@onekeyhq/kit/src/hooks/useColorScheme';
 import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/store/reducers/settings';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { waitForDataLoaded } from '../background/utils';
 import { useSystemLocale } from '../hooks/useSystemLocale';
 import store from '../store';
 import { setIsReduxReady } from '../store/reducers/data';

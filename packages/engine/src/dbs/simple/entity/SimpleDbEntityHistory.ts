@@ -1,8 +1,8 @@
 import { uniqBy } from 'lodash';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { HISTORY_CONSTS } from '../../../constants';
 import {
   IDecodedTxAction,
   IDecodedTxStatus,

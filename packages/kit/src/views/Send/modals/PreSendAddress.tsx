@@ -9,15 +9,15 @@ import {
   GoPlusAddressSecurity,
   GoPlusSupportApis,
 } from '@onekeyhq/engine/src/types/goplus';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   INFTInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { makeTimeoutPromise } from '../../../background/utils';
 import AddressInput from '../../../components/AddressInput';
 import NameServiceResolver, {
   useNameServiceStatus,

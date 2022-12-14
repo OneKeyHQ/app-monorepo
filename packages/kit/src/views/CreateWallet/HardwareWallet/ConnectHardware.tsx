@@ -29,7 +29,7 @@ import {
   OneKeyErrorClassNames,
   OneKeyHardwareError,
 } from '@onekeyhq/engine/src/errors';
-import { Device } from '@onekeyhq/engine/src/types/device';
+import type { Device } from '@onekeyhq/engine/src/types/device';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
@@ -49,7 +49,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import { Wallet } from '../../../../../engine/src/types/wallet';
 import {
   BleLocationServiceError,
   InitIframeLoadFail,
@@ -57,6 +56,8 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '../../../utils/hardware/errors';
+
+import type { Wallet } from '../../../../../engine/src/types/wallet';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;

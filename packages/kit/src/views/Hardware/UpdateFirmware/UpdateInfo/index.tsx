@@ -14,7 +14,7 @@ import {
   Typography,
   useLocale,
 } from '@onekeyhq/components';
-import { Device } from '@onekeyhq/engine/src/types/device';
+import type { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {

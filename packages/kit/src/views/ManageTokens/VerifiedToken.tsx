@@ -18,7 +18,7 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { TokenSource } from '@onekeyhq/engine/src/managers/token';
+import type { TokenSource } from '@onekeyhq/engine/src/managers/token';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 
 import { useNavigation } from '../../hooks';

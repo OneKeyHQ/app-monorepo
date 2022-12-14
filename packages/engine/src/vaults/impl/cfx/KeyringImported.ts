@@ -1,6 +1,7 @@
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
-import { COINTYPE_CFX as COIN_TYPE } from '../../../constants';
+import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBVariantAccount } from '../../../types/account';

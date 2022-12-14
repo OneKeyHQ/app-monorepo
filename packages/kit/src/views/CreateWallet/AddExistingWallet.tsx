@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NameServiceResolver, {
@@ -35,6 +34,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

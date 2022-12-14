@@ -17,7 +17,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
+import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import Protected, {

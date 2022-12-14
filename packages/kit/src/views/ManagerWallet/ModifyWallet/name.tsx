@@ -26,8 +26,7 @@ import {
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-
-import { Avatar, defaultAvatar } from '../../../utils/emojiUtils';
+import { Avatar, defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
 
 type FieldValues = { name: string };
 

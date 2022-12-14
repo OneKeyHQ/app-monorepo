@@ -9,13 +9,13 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/engine/src/constants';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
 import {
   AccountType,
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
+import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';

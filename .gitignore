@@ -32,7 +32,7 @@ yarn-error.log
 /packages/kit/src/public/static/js-sdk
 /packages/app/src/public/static/js-sdk
 
-/packages/engine/src/presets/networkIds.ts
+/packages/shared/src/config/networkIds.ts
 
 .env
 webpack.config.preview.json

@@ -3,7 +3,7 @@ import { get } from 'lodash';
 
 /* eslint max-classes-per-file: "off" */
 
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
 export enum OneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',

@@ -14,7 +14,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { IAccount } from '@onekeyhq/engine/src/types';
+import type { IAccount } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../../../hooks';

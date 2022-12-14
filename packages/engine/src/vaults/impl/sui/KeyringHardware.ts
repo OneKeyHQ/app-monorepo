@@ -4,9 +4,9 @@ import { JsonRpcProvider } from '@mysten/sui.js';
 import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_SUI as COIN_TYPE } from '../../../constants';
 import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { AptosMessage } from '../../../types/message';

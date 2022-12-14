@@ -1,11 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgNavDiscovery = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 24 24" fill="currentColor" {...props}>
     <Path
       fillRule="evenodd"
       clipRule="evenodd"
