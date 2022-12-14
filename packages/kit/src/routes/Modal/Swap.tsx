@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Input from '@onekeyhq/kit/src/views/Swap/Input';
 import Output from '@onekeyhq/kit/src/views/Swap/Output';

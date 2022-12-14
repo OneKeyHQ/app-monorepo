@@ -104,8 +104,8 @@ function normalizeConfig({
     if (process.env.ENABLE_ANALYZER) {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
       config.plugins.push(
-        new BundleAnalyzerPlugin({
-          ...(enableAnalyzerHtmlReport
+        new BundleAnalyzerPlugin(
+          enableAnalyzerHtmlReport
             ? {
                 analyzerMode: 'static',
                 reportFilename: `report${
@@ -127,10 +127,10 @@ function normalizeConfig({
                   ids: false,
                   children: false,
                   chunks: false,
-                  modules: process.env.ANALYSE_MODULE === 'module',
+                  modules: !!process.env.ANALYSE_MODULE,
                 },
-              }),
-        }),
+              },
+        ),
       );
     }
 
@@ -168,6 +168,27 @@ function normalizeConfig({
   // - Ext do not need devtool sourcemap, use SourceMapDevToolPlugin instead.
   // - building slow
   // config.devtool = 'cheap-module-source-map';
+
+  config.optimization.splitChunks = {
+    ...config.optimization.splitChunks,
+    cacheGroups: {
+      kit_assets: {
+        test: /\/kit\/assets/,
+        name: 'kit_assets',
+        chunks: 'all',
+      },
+      kit_routes: {
+        test: /\/kit\/src\/routes/,
+        name: 'kit_routes',
+        chunks: 'all',
+      },
+      // lodash: {
+      //   test: /\/node_modules\/lodash/,
+      //   name: 'lodash',
+      //   chunks: 'all',
+      // },
+    },
+  };
 
   return config;
 }

@@ -1650,15 +1650,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@conflux-dev/conflux-address-js@npm:1.1.8":
-  version: 1.1.8
-  resolution: "@conflux-dev/conflux-address-js@npm:1.1.8"
-  dependencies:
-    jsbi: ^3.1.4
-  checksum: b5b440cd2a2de69d260b2dacd5bde17a05ba3ae38f187d744d5c0a03613a838df05332439f40fe2e75b496bfb8c7859b87a949ccbd871dda0d047c6efa9f14f1
-  languageName: node
-  linkType: hard
-
 "@conflux-dev/conflux-address-js@npm:^1.3.11, @conflux-dev/conflux-address-js@npm:^1.3.12, @conflux-dev/conflux-address-js@npm:^1.3.13, @conflux-dev/conflux-address-js@npm:^1.3.16":
   version: 1.3.16
   resolution: "@conflux-dev/conflux-address-js@npm:1.3.16"
@@ -5249,7 +5240,7 @@ __metadata:
     "@web3-react/types": 8.0.20-beta.0
     "@web3-react/url": 8.0.25-beta.0
     axios: ^0.26.0
-    babel-loader: 8.1.0
+    babel-loader: 8.3.0
     babel-plugin-inline-import: ^3.0.0
     babel-plugin-lodash: ^3.3.4
     babel-plugin-transform-inline-environment-variables: ^0.4.3
@@ -5296,10 +5287,10 @@ __metadata:
     terser-webpack-plugin: ^4.2.3
     typescript: 4.8.4
     ultra-runner: ^3.10.5
-    webpack: 4.43.0
-    webpack-bundle-analyzer: ^4.6.1
+    webpack: 4.46.0
+    webpack-bundle-analyzer: ^4.7.0
     webpack-cli: ^4.10.0
-    webpack-dev-server: ^4.9.2
+    webpack-dev-server: ^4.11.1
   languageName: unknown
   linkType: soft
 
@@ -10418,6 +10409,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"babel-loader@npm:8.3.0":
+  version: 8.3.0
+  resolution: "babel-loader@npm:8.3.0"
+  dependencies:
+    find-cache-dir: ^3.3.1
+    loader-utils: ^2.0.0
+    make-dir: ^3.1.0
+    schema-utils: ^2.6.5
+  peerDependencies:
+    "@babel/core": ^7.0.0
+    webpack: ">=2"
+  checksum: d48bcf9e030e598656ad3ff5fb85967db2eaaf38af5b4a4b99d25618a2057f9f100e6b231af2a46c1913206db506115ca7a8cbdf52c9c73d767070dae4352ab5
+  languageName: node
+  linkType: hard
+
 "babel-plugin-dynamic-import-node@npm:^2.3.3":
   version: 2.3.3
   resolution: "babel-plugin-dynamic-import-node@npm:2.3.3"
@@ -11096,35 +11102,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bn.js@npm:4.11.6":
-  version: 4.11.6
-  resolution: "bn.js@npm:4.11.6"
-  checksum: db23047bf06fdf9cf74401c8e76bca9f55313c81df382247d2c753868b368562e69171716b81b7038ada8860af18346fd4bcd1cf9d4963f923fe8e54e61cb58a
-  languageName: node
-  linkType: hard
-
-"bn.js@npm:4.11.8":
-  version: 4.11.8
-  resolution: "bn.js@npm:4.11.8"
-  checksum: 80d4709cd58a21f0be8201e9e5859fea5ef133318e9800c8454cd334625c6e1caea593ca21f9b9a085fb560fbc12fb2fb3514363f8604258db924237fd039139
-  languageName: node
-  linkType: hard
-
-"bn.js@npm:5.2.0":
-  version: 5.2.0
-  resolution: "bn.js@npm:5.2.0"
-  checksum: 6117170393200f68b35a061ecbf55d01dd989302e7b3c798a3012354fa638d124f0b2f79e63f77be5556be80322a09c40339eda6413ba7468524c0b6d4b4cb7a
-  languageName: node
-  linkType: hard
-
-"bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.0, bn.js@npm:^4.11.6, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9, bn.js@npm:^4.8.0":
+"bn.js@npm:^4, bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.0, bn.js@npm:^4.11.6, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9, bn.js@npm:^4.8.0":
   version: 4.12.0
   resolution: "bn.js@npm:4.12.0"
   checksum: 39afb4f15f4ea537b55eaf1446c896af28ac948fdcf47171961475724d1bb65118cca49fa6e3d67706e4790955ec0e74de584e45c8f1ef89f46c812bee5b5a12
   languageName: node
   linkType: hard
 
-"bn.js@npm:^5.0.0, bn.js@npm:^5.1.0, bn.js@npm:^5.1.1, bn.js@npm:^5.1.2, bn.js@npm:^5.2.0, bn.js@npm:^5.2.1":
+"bn.js@npm:^5, bn.js@npm:^5.0.0, bn.js@npm:^5.1.0, bn.js@npm:^5.1.1, bn.js@npm:^5.1.2, bn.js@npm:^5.2.0, bn.js@npm:^5.2.1":
   version: 5.2.1
   resolution: "bn.js@npm:5.2.1"
   checksum: 3dd8c8d38055fedfa95c1d5fc3c99f8dd547b36287b37768db0abab3c239711f88ff58d18d155dd8ad902b0b0cee973747b7ae20ea12a09473272b0201c9edd3
@@ -14961,7 +14946,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"enhanced-resolve@npm:^4.1.0":
+"enhanced-resolve@npm:^4.5.0":
   version: 4.5.0
   resolution: "enhanced-resolve@npm:4.5.0"
   dependencies:
@@ -17356,14 +17341,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"foreach@npm:^2.0.5":
-  version: 2.0.5
-  resolution: "foreach@npm:2.0.5"
-  checksum: dab4fbfef0b40b69ee5eab81bcb9626b8fa8b3469c8cfa26480f3e5e1ee08c40eae07048c9a967c65aeda26e774511ccc70b3f10a604c01753c6ef24361f0fc8
-  languageName: node
-  linkType: hard
-
-"foreach@npm:~2.0.1":
+"foreach@npm:^2.0.5, foreach@npm:~2.0.1":
   version: 2.0.6
   resolution: "foreach@npm:2.0.6"
   checksum: f7b68494545ee41cbd0b0425ebf5386c265dc38ef2a9b0d5cd91a1b82172e939b4cf9387f8e0ebf6db4e368fc79ed323f2198424d5c774515ac3ed9b08901c0e
@@ -20762,25 +20740,6 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"js-conflux-sdk@npm:^1.7.1":
-  version: 1.7.3
-  resolution: "js-conflux-sdk@npm:1.7.3"
-  dependencies:
-    "@conflux-dev/conflux-address-js": 1.1.8
-    big.js: ^5.2.2
-    commander: ^8.0.0
-    keccak: ^2.0.0
-    lodash: ^4.17.19
-    scrypt-js: ^3.0.1
-    secp256k1: ^3.7.1
-    superagent: ^6.1.0
-    websocket: ^1.0.31
-  bin:
-    cfxjs: bin/cfxjs.js
-  checksum: 998a94ca94413abd454eb182b0d2650596508cad13fc3c69b9f20f52d7c56ca7fd49f3aa00c2ebb0e7f958bfe886cae17c89c4147417ee66994bf3dbc97af803
-  languageName: node
-  linkType: hard
-
 "js-conflux-sdk@npm:^2.1.6":
   version: 2.1.6
   resolution: "js-conflux-sdk@npm:2.1.6"
@@ -22016,7 +21975,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"make-dir@npm:^3.0.0, make-dir@npm:^3.0.2":
+"make-dir@npm:^3.0.0, make-dir@npm:^3.0.2, make-dir@npm:^3.1.0":
   version: 3.1.0
   resolution: "make-dir@npm:3.1.0"
   dependencies:
@@ -31365,7 +31324,7 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"watchpack@npm:^1.6.1":
+"watchpack@npm:^1.7.4":
   version: 1.7.5
   resolution: "watchpack@npm:1.7.5"
   dependencies:
@@ -31712,9 +31671,9 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"webpack-bundle-analyzer@npm:^4.6.1":
-  version: 4.6.1
-  resolution: "webpack-bundle-analyzer@npm:4.6.1"
+"webpack-bundle-analyzer@npm:^4.7.0":
+  version: 4.7.0
+  resolution: "webpack-bundle-analyzer@npm:4.7.0"
   dependencies:
     acorn: ^8.0.4
     acorn-walk: ^8.0.0
@@ -31727,7 +31686,7 @@ optjs@latest:
     ws: ^7.3.1
   bin:
     webpack-bundle-analyzer: lib/bin/analyzer.js
-  checksum: 4bc97ac6a1d9cd1f133444b0fc9d9091c97f4bd8388f97636ce27abd1ebffaa7dd45d29f6693661a666e77bcc08dff43ab7c2f5e2600a3101b956c94c1d038d0
+  checksum: 4ce3b379c61ce16b2219756843407cc99f2b82cd191f653043f1b705a3e32b3af03834af0dfded98ab852313a892a148bed1a8effaacd6440f028c19f41581f3
   languageName: node
   linkType: hard
 
@@ -31857,9 +31816,9 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"webpack@npm:4.43.0":
-  version: 4.43.0
-  resolution: "webpack@npm:4.43.0"
+"webpack@npm:4.46.0":
+  version: 4.46.0
+  resolution: "webpack@npm:4.46.0"
   dependencies:
     "@webassemblyjs/ast": 1.9.0
     "@webassemblyjs/helper-module-context": 1.9.0
@@ -31869,7 +31828,7 @@ optjs@latest:
     ajv: ^6.10.2
     ajv-keywords: ^3.4.1
     chrome-trace-event: ^1.0.2
-    enhanced-resolve: ^4.1.0
+    enhanced-resolve: ^4.5.0
     eslint-scope: ^4.0.3
     json-parse-better-errors: ^1.0.2
     loader-runner: ^2.4.0
@@ -31882,11 +31841,16 @@ optjs@latest:
     schema-utils: ^1.0.0
     tapable: ^1.1.3
     terser-webpack-plugin: ^1.4.3
-    watchpack: ^1.6.1
+    watchpack: ^1.7.4
     webpack-sources: ^1.4.1
+  peerDependenciesMeta:
+    webpack-cli:
+      optional: true
+    webpack-command:
+      optional: true
   bin:
     webpack: bin/webpack.js
-  checksum: d665115be94b2e3372e6efb9c1df6a1c5711fc78fc23f98cb49fce78e032b752c0f844ce9f56466c9cc16ed88eadaba9ce50e6e1c70b17a9735977e1ea20ecbb
+  checksum: 013fa24c00d4261e16ebca60353fa6f848e417b5a44bdf28c16ebebd67fa61e960420bb314c8df05cfe2dad9b90efabcf38fd6875f2361922769a0384085ef1e
   languageName: node
   linkType: hard
 

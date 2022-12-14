@@ -7,7 +7,6 @@ process.env.TRANSFORM_REGENERATOR_DISABLED = 'true';
 const WebpackDevServer = require('webpack-dev-server');
 const webpack = require('webpack');
 const path = require('path');
-const lodash = require('lodash');
 const configs = require('../webpack.config');
 const devUtils = require('./devUtils');
 const serverPort = require('./serverPort');

@@ -108,6 +108,14 @@ function useAddExistingWallet({
     return onlyForcategory;
   }, [mode]);
 
+  const navigation = useNavigation();
+  const onFailure = useCallback(() => {
+    const stack = navigation.getParent() || navigation;
+    if (stack.canGoBack()) {
+      stack.goBack();
+    }
+  }, [navigation]);
+
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
       const { text, defaultName } = values;
@@ -231,6 +239,7 @@ function useAddExistingWallet({
             );
             onboardingDone({ showOnBoardingLoading: true });
           },
+          onFailure,
         });
       }
     },
@@ -243,6 +252,7 @@ function useAddExistingWallet({
       onAddWatchingDone,
       onMultipleResults,
       onboardingDone,
+      onFailure,
       toast,
       wallets,
     ],

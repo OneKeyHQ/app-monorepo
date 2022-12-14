@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 const onceLogCache: Record<string, boolean> = {};
 export function OneKeyPerfTraceLog({
