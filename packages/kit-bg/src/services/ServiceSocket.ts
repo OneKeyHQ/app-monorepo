@@ -4,9 +4,12 @@ import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import {
+  backgroundClass,
+  backgroundMethod,
+  bindThis,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { backgroundClass, backgroundMethod, bindThis } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

@@ -14,11 +14,14 @@ import { updateNetworks } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { updateUserSwitchNetworkFlag } from '@onekeyhq/kit/src/store/reducers/status';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase from './ServiceBase';

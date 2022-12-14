@@ -5,9 +5,13 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-import { PROVIDER_API_METHOD_PREFIX, backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IBackgroundApi } from '../IBackgroundApi';
+import {
+  PROVIDER_API_METHOD_PREFIX,
+  backgroundClass,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+
+import { IBackgroundApi } from '../IBackgroundApi';
 
 export type IProviderBaseBackgroundNotifyInfo = {
   send: (data: any) => void;

@@ -24,10 +24,9 @@ import {
 } from '@onekeyhq/engine/src/types/message';
 import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { useActiveSideAccount } from '../../hooks';
-
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 type TabType = 'message' | 'data';
 

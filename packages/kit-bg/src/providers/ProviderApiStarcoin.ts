@@ -19,13 +19,12 @@ import {
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTxSTC } from '@onekeyhq/engine/src/vaults/impl/stc/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

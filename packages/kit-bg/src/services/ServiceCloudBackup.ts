@@ -26,22 +26,24 @@ import {
   hasHardwareSupported,
   savePassword,
 } from '@onekeyhq/kit/src/utils/localAuthentication';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import * as CloudFs from '@onekeyhq/shared/src/cloudfs';
 import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-
-import ServiceBase from './ServiceBase';
-import {
+import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
+import type {
   BackupedContacts,
   IBackupItemSummary,
   PublicBackupData,
-  RestoreResult,
-} from './ServiceCloudBackup.types';
+} from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
+
+import ServiceBase from './ServiceBase';
 
 // uuid.v5('onekey', '00000000-0000-0000-0000-000000000000')
 // const ONEKEY_NAMESPACE = '30303338-6435-5664-a334-323538396638';

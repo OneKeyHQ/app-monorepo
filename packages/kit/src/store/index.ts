@@ -57,8 +57,6 @@ import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
 import webTabsReducer from './reducers/webTabs'; // 24.34 MB **** +20 Mb UI components
 
-import type { IBackgroundApi } from '../../../kit-bg/src/IBackgroundApi';
-
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
   cloudBackup: cloudBackupReducer,
@@ -155,7 +153,7 @@ export type IAppThunk<ReturnType = void> = ThunkAction<
 
 let backgroundDispatch: IAppDispatch | ((action: any) => void) | null = null;
 
-let bgApi: IBackgroundApi | undefined;
+let bgApi: typeof global.$backgroundApiProxy | undefined;
 // TODO remove
 export async function appDispatch(
   action: PayloadAction<any> | ((dispatch: Dispatch) => Promise<unknown>),

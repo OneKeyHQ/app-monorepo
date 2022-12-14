@@ -3,11 +3,10 @@ import React from 'react';
 import { useIntl } from 'react-intl';
 
 import { Alert, Center, Modal, Text, VStack } from '@onekeyhq/components';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
-
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 const NetworkNotMatch = () => {
   const intl = useIntl();

@@ -1,9 +1,8 @@
 import { ImportBackupPasswordRoutes } from '@onekeyhq/kit/src/routes/Modal/ImportBackupPassword';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 
 import useAppNavigation from './useAppNavigation';
-
-import type { RestoreResult } from '../../../kit-bg/src/services/ServiceCloudBackup.types';
 
 export default function useImportBackupPasswordModal() {
   const navigation = useAppNavigation();

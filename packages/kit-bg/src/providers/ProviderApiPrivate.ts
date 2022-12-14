@@ -15,10 +15,12 @@ import walletConnectUtils from '@onekeyhq/kit/src/components/WalletConnect/utils
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { timeout } from '@onekeyhq/kit/src/utils/helper';
 import { scanFromURLAsync } from '@onekeyhq/kit/src/views/ScanQrcode/scanFromURLAsync';
+import {
+  backgroundClass,
+  providerApiMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { backgroundClass, providerApiMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

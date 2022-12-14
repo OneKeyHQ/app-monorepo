@@ -9,9 +9,12 @@ import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
 import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
+import {
+  backgroundClass,
+  backgroundMethod,
+  bindThis,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { backgroundClass, backgroundMethod, bindThis } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

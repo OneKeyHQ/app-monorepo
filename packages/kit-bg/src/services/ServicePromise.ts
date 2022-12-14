@@ -1,8 +1,10 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

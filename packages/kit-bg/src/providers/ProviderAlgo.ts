@@ -7,13 +7,12 @@ import {
 import { IMPL_ALGO } from '@onekeyhq/engine/src/constants';
 import VaultAlgo from '@onekeyhq/engine/src/vaults/impl/algo/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

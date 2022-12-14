@@ -16,13 +16,12 @@ import VaultConflux, {
   IEncodedTxCfx,
 } from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

@@ -7,10 +7,10 @@ import {
   IMPL_APTOS,
   IMPL_EVM,
 } from '@onekeyhq/engine/src/constants';
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { wait } from '../../utils/helper';
 import Minimizer from '../Minimizer';
 

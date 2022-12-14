@@ -11,9 +11,12 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setSwapMaintain } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 import ServiceBase from './ServiceBase';

@@ -31,8 +31,10 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { ServerToken } from '@onekeyhq/kit/src/store/typings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
-
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

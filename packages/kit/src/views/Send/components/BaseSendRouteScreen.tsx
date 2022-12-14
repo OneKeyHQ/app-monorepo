@@ -5,12 +5,11 @@ import { useIntl } from 'react-intl';
 
 import { Center, Empty } from '@onekeyhq/components';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 
 import { BaseSendModal } from './BaseSendModal';
-
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 export function BaseSendRouteScreen({
   children,

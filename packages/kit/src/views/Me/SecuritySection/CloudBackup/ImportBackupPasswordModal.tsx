@@ -19,8 +19,7 @@ import {
   ImportBackupPasswordRoutes,
   ImportBackupPasswordRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ImportBackupPassword';
-
-import { RestoreResult } from '../../../../../../kit-bg/src/services/ServiceCloudBackup.types';
+import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 
 type RouteProps = RouteProp<
   ImportBackupPasswordRoutesParams,

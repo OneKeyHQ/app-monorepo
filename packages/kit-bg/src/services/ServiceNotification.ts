@@ -36,14 +36,17 @@ import { setHomeTabName } from '@onekeyhq/kit/src/store/reducers/status';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { WalletHomeTabEnum } from '@onekeyhq/kit/src/views/Wallet/type';
 import {
+  backgroundClass,
+  backgroundMethod,
+  bindThis,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { backgroundClass, backgroundMethod, bindThis } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

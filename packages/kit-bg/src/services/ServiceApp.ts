@@ -26,15 +26,20 @@ import {
 } from '@onekeyhq/kit/src/utils/localAuthentication';
 import { EOnboardingRoutes } from '@onekeyhq/kit/src/views/Onboarding/routes/enums';
 import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  MAX_LOG_LENGTH,
+  waitForDataLoaded,
+} from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { MAX_LOG_LENGTH, waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 

@@ -12,9 +12,11 @@ import isString from 'lodash/isString';
 import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  backgroundClass,
+  providerApiMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { backgroundClass, providerApiMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

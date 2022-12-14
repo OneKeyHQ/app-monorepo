@@ -23,17 +23,16 @@ import memoizee from 'memoizee';
 import natsort from 'natsort';
 
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
-import type { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {

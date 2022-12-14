@@ -20,10 +20,9 @@ import {
 } from '@onekeyhq/kit/src/components/WalletConnect/WalletConnectClient';
 import { WalletConnectClientForWallet } from '@onekeyhq/kit/src/components/WalletConnect/WalletConnectClientForWallet';
 import { closeDappConnectionPreloading } from '@onekeyhq/kit/src/store/reducers/refresher';
+import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';

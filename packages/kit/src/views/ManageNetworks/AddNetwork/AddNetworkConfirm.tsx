@@ -15,13 +15,12 @@ import {
 } from '@onekeyhq/components';
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
+import type { AddEthereumChainParameter } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
 import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
-
-import type { AddEthereumChainParameter } from '../../../../../kit-bg/src/providers/ProviderApiEthereum';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,

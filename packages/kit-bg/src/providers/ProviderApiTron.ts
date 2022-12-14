@@ -8,13 +8,12 @@ import { SignedTransaction } from 'tronweb';
 import { IMPL_TRON } from '@onekeyhq/engine/src/constants';
 import VaultTron from '@onekeyhq/engine/src/vaults/impl/tron/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

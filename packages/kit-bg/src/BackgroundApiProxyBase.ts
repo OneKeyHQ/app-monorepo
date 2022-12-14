@@ -3,15 +3,15 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import ProviderApiBase from './providers/ProviderApiBase';
 import {
   ensurePromiseObject,
   ensureSerializable,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import ProviderApiBase from './providers/ProviderApiBase';
 
 import type { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';

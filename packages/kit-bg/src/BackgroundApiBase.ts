@@ -12,18 +12,12 @@ import { isFunction } from 'lodash';
 import cloneDeep from 'lodash/cloneDeep';
 
 import store, { appSelector, persistor } from '@onekeyhq/kit/src/store';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
   INTERNAL_METHOD_PREFIX,
   backgroundClass,
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IBackgroundApiBridge } from './IBackgroundApi';
-import { createBackgroundProviders } from './providers/backgroundProviders';
-import ProviderApiBase from './providers/ProviderApiBase';
 import {
   DISPATCH_ACTION_BROADCAST_METHOD_NAME,
   IDispatchActionBroadcastParams,
@@ -32,6 +26,12 @@ import {
   ensureSerializable,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { IBackgroundApiBridge } from './IBackgroundApi';
+import { createBackgroundProviders } from './providers/backgroundProviders';
+import ProviderApiBase from './providers/ProviderApiBase';
 
 const PRIVATE_WHITE_LIST_ORIGIN = [
   'https://onekey.so',

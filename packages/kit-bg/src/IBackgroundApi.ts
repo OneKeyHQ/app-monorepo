@@ -37,7 +37,6 @@ import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
-  IJsonRpcRequest,
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -89,4 +88,3 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBatchTransfer: ServiceBatchTransfer;
   serviceTransaction: ServiceTransaction;
 }
-

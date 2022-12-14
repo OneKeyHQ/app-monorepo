@@ -5,7 +5,6 @@ import {
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 import store from '@onekeyhq/kit/src/store';
-
 import {
   DISPATCH_ACTION_BROADCAST_METHOD_NAME,
   IDispatchActionBroadcastParams,

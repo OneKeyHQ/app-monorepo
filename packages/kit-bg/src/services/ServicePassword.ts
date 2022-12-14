@@ -6,11 +6,13 @@ import {
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

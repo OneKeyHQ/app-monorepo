@@ -1,4 +1,4 @@
-import type { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import type { Avatar } from '../../emojiUtils';
 
 export type PublicBackupData = {
   contacts: Record<string, { name: string; address: string }>;
@@ -9,12 +9,6 @@ export type PublicBackupData = {
     { name: string; avatar?: Avatar; accountUUIDs: Array<string> }
   >;
 };
-
-export enum RestoreResult {
-  SUCCESS = 'success',
-  WRONG_PASSWORD = 'wrong_password',
-  UNKNOWN_ERROR = 'unknown_error',
-}
 
 export type IBackupItemSummary = {
   backupUUID: string;

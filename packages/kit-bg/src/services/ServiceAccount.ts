@@ -36,9 +36,13 @@ import {
   setBoardingNotCompleted,
   unlock,
 } from '@onekeyhq/kit/src/store/reducers/status';
-import { Avatar, randomAvatar } from '@onekeyhq/kit/src/utils/emojiUtils';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { Avatar, randomAvatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   AppEventBusNames,
   appEventBus,
@@ -46,7 +50,6 @@ import {
 import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';

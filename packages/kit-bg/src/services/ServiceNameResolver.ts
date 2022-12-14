@@ -9,8 +9,10 @@ import {
   COINTYPE_LTC,
 } from '@onekeyhq/engine/src/constants';
 import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-
-import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

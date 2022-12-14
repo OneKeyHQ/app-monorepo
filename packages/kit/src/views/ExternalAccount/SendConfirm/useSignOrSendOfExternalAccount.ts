@@ -13,12 +13,11 @@ import type {
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { useSendConfirmInfoOfExternalAccount } from './useSendConfirmInfoOfExternalAccount';
-
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 export function useSignOrSendOfExternalAccount({
   encodedTx,

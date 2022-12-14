@@ -28,11 +28,14 @@ import {
   setPrices,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
+  backgroundClass,
+  backgroundMethod,
+  bindThis,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-
-import { backgroundClass, backgroundMethod, bindThis } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 
