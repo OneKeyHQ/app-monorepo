@@ -87,7 +87,7 @@
     "@types/semver": "^7.3.6",
     "@typescript-eslint/eslint-plugin": "^5.38.1",
     "@typescript-eslint/parser": "^5.38.1",
-    "babel-loader": "8.1.0",
+    "babel-loader": "8.3.0",
     "babel-plugin-inline-import": "^3.0.0",
     "babel-plugin-lodash": "^3.3.4",
     "babel-plugin-transform-inline-environment-variables": "^0.4.3",
@@ -132,10 +132,10 @@
     "terser-webpack-plugin": "^4.2.3",
     "typescript": "4.8.4",
     "ultra-runner": "^3.10.5",
-    "webpack": "4.43.0",
-    "webpack-bundle-analyzer": "^4.6.1",
+    "webpack": "4.46.0",
+    "webpack-bundle-analyzer": "^4.7.0",
     "webpack-cli": "^4.10.0",
-    "webpack-dev-server": "^4.9.2"
+    "webpack-dev-server": "^4.11.1"
   },
   "resolutions": {
     "@babel/core": "^7.19.3",
@@ -160,7 +160,12 @@
     "postinstall-postinstall": "https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz",
     "minimatch": "patch:minimatch@npm%3A3.1.2#./.yarn/patches/minimatch-npm-3.1.2-9405269906.patch",
     "babel-preset-expo": "^9.2.0",
+    "bn.js@4.11.6": "^4",
+    "bn.js@4.11.8": "^4",
+    "bn.js@5.2.0": "^5",
     "axios": "^0.27.2",
+    "webpack": "4.46.0",
+    "js-conflux-sdk": "^2.1.6",
     "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
     "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch"
   },
