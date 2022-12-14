@@ -99,9 +99,7 @@ function normalizeConfig({
         ),
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
-      isDev
-        ? new ReactRefreshWebpackPlugin({ overlay: platform !== 'desktop' })
-        : null,
+      isDev ? new ReactRefreshWebpackPlugin({ overlay: false }) : null,
     ].filter(Boolean);
 
     if (process.env.ENABLE_ANALYZER) {
@@ -182,7 +180,8 @@ function normalizeConfig({
   // - Ext do not need devtool sourcemap, use SourceMapDevToolPlugin instead.
   // - building slow
   // config.devtool = 'cheap-module-source-map';
-
+  config.optimization ??= {};
+  config.optimization.splitChunks ??= {};
   config.optimization.splitChunks = {
     ...config.optimization.splitChunks,
     cacheGroups: {
