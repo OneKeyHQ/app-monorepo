@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect } from 'react';
 
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 
 import { Box } from '@onekeyhq/components';
 
@@ -112,7 +113,9 @@ function CardanoProvider() {
         case CardanoEvent.dAppGetBalance: {
           const { balance } = eventParams;
           try {
-            const result = await CardanoApi.dAppUtils.getBalance(balance);
+            const result = await CardanoApi.dAppUtils.getBalance(
+              new BigNumber(balance),
+            );
             sendResponse(promiseId, { error: null, result });
           } catch (error) {
             sendResponse(promiseId, { error, result: null });

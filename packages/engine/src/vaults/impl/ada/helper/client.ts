@@ -95,7 +95,7 @@ class Client {
       const { xpub, addresses, path } = dbAccount;
       const stakeAddress = addresses['2/0'];
       const { data } = await this.backendRequest.get<IAdaUTXO[]>(
-        `/utxos?stakeAddress=${stakeAddress}&xpub=${xpub}}`,
+        `/utxos?stakeAddress=${stakeAddress}&xpub=${xpub}`,
       );
       const pathIndex = path.split('/')[3];
       return data.map((utxo) => {

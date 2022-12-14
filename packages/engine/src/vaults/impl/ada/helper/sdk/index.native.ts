@@ -133,7 +133,7 @@ const getBalance = async (balance: BigNumber) => {
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: CardanoEvent.dAppGetBalance,
-    params: { balance },
+    params: { balance: balance.toFixed() },
   })) as IResult;
 
   if (result.error) {
