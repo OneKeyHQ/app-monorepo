@@ -132,9 +132,10 @@ function FeeInfoInput({
     }
   }, [autoNavigateToEdit, navigateToEdit]);
 
-  return (
+  return disabled ? (
+    renderChildren({ isHovered: true })
+  ) : (
     <Pressable
-      disabled={disabled}
       onPress={() =>
         navigateToEdit({
           replace: IS_REPLACE_ROUTE_TO_FEE_EDIT,
