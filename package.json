@@ -36,7 +36,7 @@
     "ext:sourcemap": "yarn copy:inject && cross-env GENERATE_SOURCEMAP=true ENABLE_ANALYZER=1 yarn workspace @onekeyhq/ext start",
     "build:ext": "yarn copy:inject && yarn workspace @onekeyhq/ext build:all",
     "build:networklist": "node development/build-networklist.js",
-    "desktop": "yarn copy:inject && yarn workspace @onekeyhq/desktop dev",
+    "desktop": "yarn copy:inject && cross-env ENABLE_ANALYZER=1 yarn workspace @onekeyhq/desktop dev",
     "build:desktop": "yarn copy:inject && yarn workspace @onekeyhq/desktop build",
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
