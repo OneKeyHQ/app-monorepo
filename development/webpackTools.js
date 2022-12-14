@@ -96,9 +96,7 @@ function normalizeConfig({
         ),
         'process.env.PUBLIC_URL': PUBLIC_URL,
       }),
-      isDev
-        ? new ReactRefreshWebpackPlugin({ overlay: platform !== 'desktop' })
-        : null,
+      isDev ? new ReactRefreshWebpackPlugin({ overlay: false }) : null,
     ].filter(Boolean);
 
     if (process.env.ENABLE_ANALYZER) {
