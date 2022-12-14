@@ -26,7 +26,8 @@ module.exports = async function (env, argv) {
     config,
     env,
   });
-  if (process.env.NODE_ENV === 'production') {
+
+  if (process.env.NODE_ENV === 'production' && !process.env.ANALYSE_MODULE) {
     config.devtool = false;
   }
   return config;
