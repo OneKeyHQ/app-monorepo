@@ -1,11 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgNavBankCard = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 24 24" fill="currentColor" {...props}>
     <Path d="M22.994 9H1.006c.018-1.35.096-2.16.43-2.816a4 4 0 0 1 1.748-1.748C4.04 4 5.16 4 7.4 4h9.2c2.24 0 3.36 0 4.216.436a4 4 0 0 1 1.748 1.748c.334.655.412 1.466.43 2.816Z" />
     <Path
       fillRule="evenodd"

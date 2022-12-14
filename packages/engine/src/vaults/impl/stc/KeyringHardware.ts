@@ -11,9 +11,9 @@ import {
 import { starcoin_types, utils } from '@starcoin/starcoin';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_STC as COIN_TYPE } from '../../../constants';
 import { OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';

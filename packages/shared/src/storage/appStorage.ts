@@ -32,7 +32,7 @@ const mockStorage = new MockStorage();
 - Extension internal: ExtensionStorage
 - Extension injected: AsyncStorage -> window.localStorage
 - App: AsyncStorage -> RN AsyncStorage
-- Desktop/Web: WebStorage -> IndexedDB
+- Desktop | Web: WebStorage -> IndexedDB
  */
 
 if (platformEnv.isDev) {

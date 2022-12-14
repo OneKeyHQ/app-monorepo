@@ -70,6 +70,7 @@ class HtmlLazyScriptPlugin {
 }
 
 const isManifestV3 = manifest.manifest_version >= 3;
+const isManifestV2 = !isManifestV3;
 function createConfig({ config }) {
   let webpackConfig = {
     // add custom config, will be deleted later
@@ -269,7 +270,7 @@ const multipleEntryConfigs = [
         ...(isManifestV3
           ? {}
           : {
-              'background': path.join(__dirname, 'src/entry/background.ts'),
+              // 'background': path.join(__dirname, 'src/entry/background.ts'),
             }),
       },
     },
@@ -278,22 +279,25 @@ const multipleEntryConfigs = [
       config.plugins = [
         ...config.plugins,
         ...pluginsHtml.uiHtml,
-        ...(isManifestV3 ? [] : pluginsHtml.backgroundHtml),
+        // ...(isManifestV3 ? [] : pluginsHtml.backgroundHtml),
       ].filter(Boolean);
 
       return config;
     },
   },
   // manifest v3 background standalone build without code-split
-  isManifestV3 && {
+  (isManifestV3 || isManifestV2) && {
     config: {
       name: 'bg',
-      dependencies: ['ui'],
+      dependencies: IS_DEV ? [] : ['ui'],
       entry: {
         'background': path.join(__dirname, 'src/entry/background.ts'),
       },
     },
     configUpdater(config) {
+      if (isManifestV2) {
+        enableCodeSplitChunks({ config, name: 'bg' });
+      }
       config.plugins = [...config.plugins, ...pluginsHtml.backgroundHtml];
       return config;
     },
@@ -302,7 +306,7 @@ const multipleEntryConfigs = [
   {
     config: {
       name: 'cs',
-      dependencies: isManifestV3 ? ['ui', 'bg'] : ['ui'],
+      dependencies: isManifestV3 ? ['ui', 'bg'] : ['ui', 'bg'],
       entry: {
         'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
       },

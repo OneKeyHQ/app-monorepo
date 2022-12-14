@@ -4,9 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components/src/Toast/useToast';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import {
   ModalRoutes,

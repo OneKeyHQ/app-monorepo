@@ -17,8 +17,8 @@ import { TypedDataUtils } from 'eth-sig-util';
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { IMPL_EVM } from './constants';
 import * as engineUtils from './engineUtils';
 import {
   NotImplemented,

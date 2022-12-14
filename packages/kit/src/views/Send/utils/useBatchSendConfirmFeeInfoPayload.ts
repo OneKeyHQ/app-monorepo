@@ -6,7 +6,6 @@ import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import { useToast } from '@onekeyhq/components';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
@@ -21,6 +20,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

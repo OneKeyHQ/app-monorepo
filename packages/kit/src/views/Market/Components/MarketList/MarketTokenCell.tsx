@@ -18,7 +18,7 @@ import {
   useToast,
   useUserDevice,
 } from '@onekeyhq/components/src';
-import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';

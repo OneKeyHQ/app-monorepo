@@ -25,12 +25,12 @@ import {
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import { IAccount, INetwork } from '@onekeyhq/engine/src/types';
+import type { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import { IDappSourceInfo } from '../../background/IBackgroundApi';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks';

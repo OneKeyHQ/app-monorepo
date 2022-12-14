@@ -3,7 +3,8 @@ import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/pro
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import bs58check from 'bs58check';
 
-import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
+import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';

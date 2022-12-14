@@ -7,9 +7,9 @@ import {
 import { PublicKey, Transaction } from '@solana/web3.js';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_SOL as COIN_TYPE } from '../../../constants';
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';

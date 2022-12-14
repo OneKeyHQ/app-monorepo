@@ -8,8 +8,7 @@ import {
   EVMDecodedItemInternalSwap,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
-
-import { IDappSourceInfo } from '../../../background/IBackgroundApi';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import Address from './Address';
 import ContractData from './ContractData';

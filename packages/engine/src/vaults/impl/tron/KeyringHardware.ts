@@ -7,9 +7,9 @@ import {
 import TronWeb from 'tronweb';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_TRON as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_TRON as COIN_TYPE } from '../../../constants';
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';

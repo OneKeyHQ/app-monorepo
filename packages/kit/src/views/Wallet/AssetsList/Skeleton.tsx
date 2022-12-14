@@ -10,7 +10,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../config';
+import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../../shared/src/config/appConfig';
 
 const ListItemSkeleton: FC<{ borderBottomRadius?: number }> = ({
   borderBottomRadius = 0,

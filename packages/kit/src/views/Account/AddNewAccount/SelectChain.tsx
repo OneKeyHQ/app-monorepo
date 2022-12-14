@@ -12,7 +12,7 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import {

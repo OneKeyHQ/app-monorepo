@@ -4,7 +4,7 @@ import { isEmpty, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { GroupingList, ListItem } from '@onekeyhq/components';
-import { IDecodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IDecodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';

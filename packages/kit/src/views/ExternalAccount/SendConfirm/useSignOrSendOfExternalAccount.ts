@@ -7,14 +7,14 @@ import {
   ETHMessageTypes,
   getEthProviderMethodFromMessageType,
 } from '@onekeyhq/engine/src/types/message';
-import {
+import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import { IDappSourceInfo } from '../../../background/IBackgroundApi';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { useSendConfirmInfoOfExternalAccount } from './useSendConfirmInfoOfExternalAccount';

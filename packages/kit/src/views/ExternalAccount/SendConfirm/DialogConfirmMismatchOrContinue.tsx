@@ -15,11 +15,11 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

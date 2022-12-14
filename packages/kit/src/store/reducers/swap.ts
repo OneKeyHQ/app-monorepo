@@ -1,10 +1,10 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import {
+import type {
   QuoteData,
   QuoteLimited,
   Recipient,

@@ -17,7 +17,7 @@ import type {
   SelectItem,
 } from '@onekeyhq/components/src/Select';
 import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
