@@ -1,8 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from './background/instance/backgroundApiProxy';
-
-global.$backgroundApiProxy = backgroundApiProxy;
+import './background/instance/backgroundApiProxy';
 
 // eslint-disable-next-line global-require
 if (platformEnv.isNative) require('react-native-url-polyfill/auto');

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import '../background/instance/backgroundApiProxy';
+
 export function createLazyKitProvider({
   displayName,
 }: {
