@@ -8,7 +8,6 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { BCS, TxnBuilderTypes } from 'aptos';
 
-import { IMPL_APTOS } from '@onekeyhq/engine/src/constants';
 import { AptosMessageTypes } from '@onekeyhq/engine/src/types/message';
 import {
   IEncodedTxAptos,
@@ -34,6 +33,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {

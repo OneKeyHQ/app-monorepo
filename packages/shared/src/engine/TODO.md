@@ -1,2 +1,1 @@
-`@onekeyhq/engine/src/constants`
 

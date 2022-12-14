@@ -6,7 +6,6 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-import { IMPL_NEAR } from '@onekeyhq/engine/src/constants';
 import VaultNear from '@onekeyhq/engine/src/vaults/impl/near/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -14,6 +13,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_NEAR } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {

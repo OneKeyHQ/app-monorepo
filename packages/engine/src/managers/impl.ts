@@ -33,7 +33,8 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
-} from '../constants';
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
 

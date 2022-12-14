@@ -3,7 +3,6 @@ import axios from 'axios';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import {
   Collection,
   NFTAsset,
@@ -21,6 +20,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
 

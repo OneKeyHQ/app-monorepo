@@ -4,8 +4,8 @@ import { getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
 import {
   NotImplemented,
   OneKeyHardwareError,

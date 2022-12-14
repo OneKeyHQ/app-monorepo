@@ -1,6 +1,5 @@
 import { find, flatten } from 'lodash';
 
-import { COINTYPE_ETH, IMPL_COSMOS } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -10,7 +9,6 @@ import {
   getCoinTypeFromNetworkId,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
 import { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
@@ -42,7 +40,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { Avatar, randomAvatar } from '@onekeyhq/shared/src/emojiUtils';
+import {
+  COINTYPE_ETH,
+  IMPL_COSMOS,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,

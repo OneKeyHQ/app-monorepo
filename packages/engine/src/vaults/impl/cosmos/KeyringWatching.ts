@@ -1,4 +1,4 @@
-import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/engine/src/constants';
+import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBVariantAccount } from '../../../types/account';

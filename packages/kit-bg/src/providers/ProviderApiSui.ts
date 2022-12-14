@@ -8,7 +8,6 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { PermissionType } from '@onekeyfe/onekey-sui-provider';
 
-import { IMPL_SUI } from '@onekeyhq/engine/src/constants';
 import VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -16,6 +15,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_SUI } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {

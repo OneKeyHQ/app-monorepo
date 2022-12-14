@@ -3,8 +3,8 @@ import B from 'bignumber.js';
 import { uniq } from 'lodash';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import { OnekeyNetwork } from '../presets/networkIds';
 import {
   GoPlusAddressSecurity,
   GoPlusDappContract,

@@ -2,12 +2,12 @@ import { IClientMeta, ISessionStatus } from '@walletconnect/types';
 import { merge } from 'lodash';
 import { Linking } from 'react-native';
 
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_EVM,
-} from '@onekeyhq/engine/src/constants';
-import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

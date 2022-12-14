@@ -17,7 +17,6 @@ import {
   Typography,
   useTheme,
 } from '@onekeyhq/components';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -27,6 +26,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../components/WalletSelector/WalletAvatar';

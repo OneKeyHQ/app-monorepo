@@ -1,5 +1,5 @@
 // safe import
-import { OnekeyNetwork } from '../presets/networkIds';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.eth]: 'eth',

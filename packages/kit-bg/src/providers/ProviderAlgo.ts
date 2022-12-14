@@ -4,7 +4,6 @@ import {
   IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-import { IMPL_ALGO } from '@onekeyhq/engine/src/constants';
 import VaultAlgo from '@onekeyhq/engine/src/vaults/impl/algo/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -12,6 +11,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {

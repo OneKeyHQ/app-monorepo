@@ -9,13 +9,13 @@ import bs58 from 'bs58';
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
-import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {

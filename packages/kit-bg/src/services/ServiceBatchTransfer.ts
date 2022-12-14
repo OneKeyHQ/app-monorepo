@@ -6,7 +6,6 @@ import { Contract } from 'ethers';
 import { groupBy, keys } from 'lodash';
 import memoizee from 'memoizee';
 
-import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -21,6 +20,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 

@@ -12,7 +12,6 @@ import { debounce, get } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { fixAddressCase, toBigIntHex } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
@@ -21,14 +20,13 @@ import {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isDappScopeMatchNetwork } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type {
   AddEthereumChainParameter,
@@ -504,7 +502,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   async isEthAddress(address: string | null) {
-    const result = await backgroundApiProxy.getState();
+    const result = await this.backgroundApi.getState();
     const networkId = get(result, 'state.general.activeNetworkId', null);
 
     if (!networkId || !address) {
@@ -512,7 +510,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     try {
-      await backgroundApiProxy.validator.validateAddress(networkId, address);
+      await this.backgroundApi.validator.validateAddress(networkId, address);
       return true;
     } catch {
       return false;

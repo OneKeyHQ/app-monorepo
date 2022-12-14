@@ -1,15 +1,15 @@
 import { networkList } from '@onekeyfe/network-list';
 import semver from 'semver';
 
-import {
-  AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
-  enabledAccountDynamicNetworkIds,
-} from '@onekeyhq/engine/src/constants';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
+  enabledAccountDynamicNetworkIds,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 

@@ -3,9 +3,9 @@ import React, { useCallback } from 'react';
 import { useRoute } from '@react-navigation/native';
 
 import { Button } from '@onekeyhq/components';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import type VaultHelperEvm from '@onekeyhq/engine/src/vaults/impl/evm/VaultHelper';
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

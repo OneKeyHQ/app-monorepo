@@ -5,7 +5,6 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 import { cloneDeep, debounce } from 'lodash';
 
-import { IMPL_SOL, SEPERATOR } from '@onekeyhq/engine/src/constants';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import type { IDappSignAndSendParams } from '@onekeyhq/kit/src/hooks/useDappParams';
@@ -35,6 +34,7 @@ import {
   isDappScopeMatchNetwork,
   waitForDataLoaded,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { IMPL_SOL, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 

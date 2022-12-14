@@ -12,10 +12,10 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListProps } from '@onekeyhq/components/src/FlatList';
-import { IMPL_SOL } from '@onekeyhq/engine/src/constants';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { Collection } from '@onekeyhq/engine/src/types/nft';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';

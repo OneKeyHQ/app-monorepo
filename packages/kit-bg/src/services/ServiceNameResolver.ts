@@ -3,16 +3,16 @@ import { filter, groupBy, map } from 'lodash';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import {
   COINTYPE_BTC,
   COINTYPE_DOGE,
   COINTYPE_ETH,
   COINTYPE_LTC,
-} from '@onekeyhq/engine/src/constants';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import {
-  backgroundClass,
-  backgroundMethod,
-} from '@onekeyhq/shared/src/background/backgroundDecorators';
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 

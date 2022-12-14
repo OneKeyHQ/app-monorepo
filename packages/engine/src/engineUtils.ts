@@ -4,8 +4,8 @@ import { toLower } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { IMPL_EVM } from './constants';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,

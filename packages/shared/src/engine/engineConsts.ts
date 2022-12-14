@@ -1,4 +1,4 @@
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
+import { OnekeyNetwork } from '../config/networkIds';
 
 const SEPERATOR = '--';
 

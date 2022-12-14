@@ -4,8 +4,8 @@ import camelcase from 'camelcase-keys';
 
 import { COVALENT_API_KEY } from '@onekeyhq/shared/src/config/appConfig';
 import debugCodes from '@onekeyhq/shared/src/debug/debugCodes';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { HISTORY_CONSTS } from '../constants';
 import {
   BlockTransactionWithLogEvents,
   EVMTxFromType,

@@ -4,7 +4,6 @@ import { pick } from 'lodash';
 import { Dimensions } from 'react-native';
 
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import {
   AddPriceAlertConfig,
   NotificationExtra,
@@ -40,6 +39,7 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { SocketEvents } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,

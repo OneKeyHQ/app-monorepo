@@ -6,7 +6,6 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import { Account } from '@onekeyhq/engine/src/types/account';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
@@ -40,6 +39,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
 

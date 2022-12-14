@@ -10,8 +10,6 @@ import {
 // eslint-disable-next-line import/order
 import { stringify } from 'circular-json';
 
-import type { OneKeyError } from '@onekeyhq/engine/src/errors';
-
 import platformEnv from '../platformEnv';
 import { toPlainErrorObject } from '../sharedUtils';
 import appStorage from '../storage/appStorage';
@@ -27,7 +25,7 @@ type IConsoleFuncProps = {
 function stringifyLog(...args: any[]) {
   const argsNew = args.map((arg) => {
     if (arg instanceof Error) {
-      const error = toPlainErrorObject(arg as OneKeyError);
+      const error = toPlainErrorObject(arg as any);
       delete error.stack;
       return error;
     }

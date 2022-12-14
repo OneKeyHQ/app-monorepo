@@ -1,6 +1,5 @@
 import { Socket, io } from 'socket.io-client';
 
-import { SocketEvents } from '@onekeyhq/engine/src/constants';
 import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -9,6 +8,7 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { SocketEvents } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';

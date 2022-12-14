@@ -9,7 +9,6 @@ import {
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
-import { IMPL_CFX } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
 import VaultConflux, {
@@ -21,6 +20,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_CFX } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {

@@ -2,7 +2,6 @@
 import axios, { Axios } from 'axios';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
 import {
   setAccountStakingActivity,
   setKeleDashboardGlobal,
@@ -18,6 +17,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
 

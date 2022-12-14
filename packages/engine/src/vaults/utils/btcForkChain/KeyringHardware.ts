@@ -6,8 +6,11 @@ import { RefTransaction, getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import {
+  COINTYPE_BCH,
+  COINTYPE_DOGE,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { COINTYPE_BCH, COINTYPE_DOGE } from '../../../constants';
 import {
   NotImplemented,
   OneKeyHardwareError,

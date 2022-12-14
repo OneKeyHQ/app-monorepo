@@ -9,7 +9,6 @@ import {
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { IMPL_STC } from '@onekeyhq/engine/src/constants';
 import { fixAddressCase } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
@@ -24,6 +23,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_STC } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase, {

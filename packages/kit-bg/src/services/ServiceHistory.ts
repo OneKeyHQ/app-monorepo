@@ -2,7 +2,6 @@
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { cloneDeep, isNil, isNumber } from 'lodash';
 
-import { HISTORY_CONSTS } from '@onekeyhq/engine/src/constants';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   IDecodedTxStatus,
@@ -19,6 +18,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 

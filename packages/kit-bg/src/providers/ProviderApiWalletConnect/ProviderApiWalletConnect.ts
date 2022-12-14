@@ -7,11 +7,6 @@ import {
 import { ISessionStatus } from '@walletconnect/types';
 import { debounce } from 'lodash';
 
-import {
-  IMPL_ALGO,
-  IMPL_APTOS,
-  IMPL_EVM,
-} from '@onekeyhq/engine/src/constants';
 import unlockUtils from '@onekeyhq/kit/src/components/AppLock/unlockUtils';
 import { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
 import {
@@ -21,6 +16,11 @@ import {
 import { WalletConnectClientForWallet } from '@onekeyhq/kit/src/components/WalletConnect/WalletConnectClientForWallet';
 import { closeDappConnectionPreloading } from '@onekeyhq/kit/src/store/reducers/refresher';
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  IMPL_ALGO,
+  IMPL_APTOS,
+  IMPL_EVM,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

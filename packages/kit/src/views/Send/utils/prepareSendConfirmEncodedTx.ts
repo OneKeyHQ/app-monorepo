@@ -2,9 +2,9 @@
 import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
 
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { BatchSendConfirmParams, SendConfirmParams } from '../types';
 

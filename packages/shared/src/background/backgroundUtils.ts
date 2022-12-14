@@ -24,8 +24,7 @@ import {
   IMPL_STC,
   IMPL_SUI,
   IMPL_TRON,
-} from '@onekeyhq/engine/src/constants';
-
+} from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';

@@ -7,7 +7,8 @@ import {
 import { AptosClient } from 'aptos';
 import * as SHA3 from 'js-sha3';
 
-import { COINTYPE_APTOS as COIN_TYPE } from '../../../constants';
+import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBSimpleAccount } from '../../../types/account';

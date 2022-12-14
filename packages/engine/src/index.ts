@@ -29,12 +29,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import {
   COINTYPE_BTC,
   IMPL_ADA,
@@ -48,7 +44,12 @@ import {
   IMPL_SOL,
   IMPL_TBTC,
   getSupportedImpls,
-} from './constants';
+} from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import { DbApi } from './dbs';
 import {
   DBAPI,
@@ -93,7 +94,6 @@ import {
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { syncLatestNetworkList } from './presets/network';
-import { OnekeyNetwork } from './presets/networkIds';
 import { ChartQueryParams, PriceController } from './priceController';
 import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
 import {
