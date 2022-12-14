@@ -27,7 +27,7 @@ import X from '@onekeyhq/kit/assets/red_x.png';
 
 import { useActiveSideAccount } from '../../hooks';
 
-import type { IDappSourceInfo } from '../../../../kit-bg/src/IBackgroundApi';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 type TabType = 'message' | 'data';
 

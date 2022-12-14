@@ -18,7 +18,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

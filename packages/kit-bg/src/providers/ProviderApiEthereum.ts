@@ -29,8 +29,8 @@ import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
-} from '../decorators';
-import { isDappScopeMatchNetwork } from '../utils';
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { isDappScopeMatchNetwork } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

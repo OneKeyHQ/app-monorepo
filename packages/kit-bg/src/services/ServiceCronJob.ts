@@ -1,6 +1,6 @@
 import { updateFiatMoneyMap } from '@onekeyhq/kit/src/store/reducers/fiatMoney';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

@@ -5,9 +5,9 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-import { PROVIDER_API_METHOD_PREFIX, backgroundClass } from '../decorators';
+import { PROVIDER_API_METHOD_PREFIX, backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IBackgroundApi } from '../IBackgroundApi';
-import { throwMethodNotFound } from '../utils';
+import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 export type IProviderBaseBackgroundNotifyInfo = {
   send: (data: any) => void;

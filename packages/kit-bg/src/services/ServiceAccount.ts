@@ -46,7 +46,7 @@ import {
 import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import ProviderApiBase from '../providers/ProviderApiBase';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';

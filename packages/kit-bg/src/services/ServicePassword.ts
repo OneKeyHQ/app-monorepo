@@ -10,7 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

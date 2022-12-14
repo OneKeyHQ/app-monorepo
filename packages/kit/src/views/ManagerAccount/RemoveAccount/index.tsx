@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { Dialog, useToast } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import {
@@ -15,6 +14,7 @@ import {
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../../components/Protected';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 

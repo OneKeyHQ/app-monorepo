@@ -18,7 +18,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import { useSendConfirmInfoOfExternalAccount } from './useSendConfirmInfoOfExternalAccount';
 
-import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 export function useSignOrSendOfExternalAccount({
   encodedTx,

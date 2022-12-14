@@ -45,7 +45,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

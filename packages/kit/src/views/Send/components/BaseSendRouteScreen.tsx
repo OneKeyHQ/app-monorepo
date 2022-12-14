@@ -10,7 +10,7 @@ import useDappApproveAction from '../../../hooks/useDappApproveAction';
 
 import { BaseSendModal } from './BaseSendModal';
 
-import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 export function BaseSendRouteScreen({
   children,

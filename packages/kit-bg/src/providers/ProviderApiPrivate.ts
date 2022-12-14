@@ -18,7 +18,7 @@ import { scanFromURLAsync } from '@onekeyhq/kit/src/views/ScanQrcode/scanFromURL
 import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { backgroundClass, providerApiMethod } from '../decorators';
+import { backgroundClass, providerApiMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

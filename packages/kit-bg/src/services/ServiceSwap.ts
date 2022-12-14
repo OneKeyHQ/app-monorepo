@@ -37,7 +37,7 @@ import {
   Recipient,
 } from '@onekeyhq/kit/src/views/Swap/typings';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

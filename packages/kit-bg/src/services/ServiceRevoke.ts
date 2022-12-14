@@ -63,7 +63,7 @@ import { appSelector } from '@onekeyhq/kit/src/store';
 import { AssetType } from '@onekeyhq/kit/src/views/Revoke/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

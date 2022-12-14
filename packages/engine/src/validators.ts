@@ -5,8 +5,7 @@ import { isString } from 'lodash';
 
 import { IMPL_COSMOS } from '@onekeyhq/engine/src/constants';
 import { Network } from '@onekeyhq/kit/src/store/typings';
-
-import { backgroundMethod } from '../../kit-bg/src/decorators';
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import {
   COINTYPE_BTC,

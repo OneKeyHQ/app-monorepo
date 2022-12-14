@@ -21,7 +21,7 @@ import { setWebTabData } from '@onekeyhq/kit/src/store/reducers/webTabs';
 import { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

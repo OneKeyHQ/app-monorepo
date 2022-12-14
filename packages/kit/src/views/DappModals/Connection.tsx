@@ -29,6 +29,7 @@ import type { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
@@ -41,8 +42,6 @@ import { DappSecurityView } from '../Send/components/DappSecurityView';
 
 import RugConfirmDialog from './RugConfirmDialog';
 import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
-
-import type { IDappSourceInfo } from '../../../../kit-bg/src/IBackgroundApi';
 
 const MockData = {
   permissions: [

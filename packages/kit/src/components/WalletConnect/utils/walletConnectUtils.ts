@@ -4,7 +4,7 @@ import { Linking, Platform } from 'react-native';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { waitForDataLoaded } from '../../../../../kit-bg/src/utils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { getTimeDurationMs } from '../../../utils/helper';

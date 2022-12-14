@@ -23,7 +23,7 @@ import { closeDappConnectionPreloading } from '@onekeyhq/kit/src/store/reducers/
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { backgroundClass } from '../../decorators';
+import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';

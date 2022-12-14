@@ -16,7 +16,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Send/types';
 import { isEvmNetworkId } from '@onekeyhq/kit/src/views/Swap/utils';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

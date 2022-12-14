@@ -32,7 +32,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
+import { backgroundClass, backgroundMethod, bindThis } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase, { IServiceBaseProps } from './ServiceBase';
 

@@ -1,7 +1,7 @@
 import { IEncodedTx, IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
 import { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

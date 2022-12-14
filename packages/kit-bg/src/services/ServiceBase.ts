@@ -1,6 +1,6 @@
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import type { IBackgroundApi } from '../IBackgroundApi';
 

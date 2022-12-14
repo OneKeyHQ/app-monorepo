@@ -25,16 +25,18 @@ import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/ty
 import { ManageNetworkRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { backgroundClass, backgroundMethod } from '../decorators';
-import { IDappSourceInfo } from '../IBackgroundApi';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ensureSerializable,
   getNetworkImplFromDappScope,
   isDappScopeMatchNetwork,
   waitForDataLoaded,
-} from '../utils';
+} from '@onekeyhq/shared/src/background/backgroundUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
 

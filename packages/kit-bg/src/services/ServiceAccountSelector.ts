@@ -11,7 +11,7 @@ import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAcco
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
+import { backgroundClass, backgroundMethod, bindThis } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

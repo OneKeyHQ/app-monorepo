@@ -11,7 +11,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 // TODO move to serviceDapp getDappInteractInfo()
 export function useInteractWithInfo({

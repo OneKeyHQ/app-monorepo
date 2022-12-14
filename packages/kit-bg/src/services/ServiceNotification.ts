@@ -43,7 +43,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { backgroundClass, backgroundMethod, bindThis } from '../decorators';
+import { backgroundClass, backgroundMethod, bindThis } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

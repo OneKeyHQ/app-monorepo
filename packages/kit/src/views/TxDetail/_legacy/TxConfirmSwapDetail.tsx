@@ -14,7 +14,7 @@ import ContractData from './ContractData';
 import HeaderIcon from './HeaderIcon';
 import TotalFee from './TotalFee';
 
-import type { IDappSourceInfo } from '../../../../../kit-bg/src/IBackgroundApi';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 const TxConfirmSwapDetail: FC<{
   tx: EVMDecodedItem;

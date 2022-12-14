@@ -14,7 +14,7 @@ import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { backgroundClass, providerApiMethod } from '../decorators';
+import { backgroundClass, providerApiMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

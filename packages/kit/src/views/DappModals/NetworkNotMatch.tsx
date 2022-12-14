@@ -7,7 +7,7 @@ import { Alert, Center, Modal, Text, VStack } from '@onekeyhq/components';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 
-import type { IDappSourceInfo } from '../../../../kit-bg/src/IBackgroundApi';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 const NetworkNotMatch = () => {
   const intl = useIntl();

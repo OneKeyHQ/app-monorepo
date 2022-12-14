@@ -5,7 +5,7 @@ import type {
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

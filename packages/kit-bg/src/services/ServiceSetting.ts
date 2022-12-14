@@ -13,7 +13,7 @@ import { setSwapMaintain } from '@onekeyhq/kit/src/store/reducers/swapTransactio
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 import ServiceBase from './ServiceBase';

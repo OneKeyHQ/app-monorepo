@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/restrict-template-expressions */
-import { throwCrossError, warningIfNotRunInBackground } from './utils';
+import {
+  throwCrossError,
+  warningIfNotRunInBackground,
+} from './backgroundUtils';
 
 const INTERNAL_METHOD_PREFIX = 'INTERNAL_';
 const PROVIDER_API_METHOD_PREFIX = 'PROVIDER_API_';

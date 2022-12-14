@@ -15,7 +15,7 @@ import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
-} from '../decorators';
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,

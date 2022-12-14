@@ -15,7 +15,7 @@ import {
   StakingActivity,
 } from '@onekeyhq/kit/src/views/Staking/typing';
 
-import { backgroundClass, backgroundMethod } from '../decorators';
+import { backgroundClass, backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
 

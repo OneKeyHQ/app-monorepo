@@ -25,7 +25,8 @@ import {
   IMPL_SUI,
   IMPL_TRON,
 } from '@onekeyhq/engine/src/constants';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import platformEnv from '../platformEnv';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';

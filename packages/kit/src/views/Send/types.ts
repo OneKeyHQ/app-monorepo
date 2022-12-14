@@ -19,12 +19,12 @@ import type {
   ISwapInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 
 import { SendRoutes } from './enums';
 
-import type { IDappSourceInfo } from '../../../../kit-bg/src/IBackgroundApi';
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
 import type { SwapQuoteTx } from '../Swap/typings';

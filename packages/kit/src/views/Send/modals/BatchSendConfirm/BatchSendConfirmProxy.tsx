@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 
-import { ENABLED_DAPP_SCOPE } from '../../../../../../kit-bg/src/utils';
+import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { SendConfirmErrorsAlert } from '../../components/SendConfirmErrorsAlert';
 import { useBatchSendConfirmRouteParamsParsed } from '../../utils/useBatchSendConfirmRouteParamsParsed';

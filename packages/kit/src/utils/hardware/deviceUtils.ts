@@ -12,7 +12,6 @@ import {
 import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
-import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { Toast as ToastManager } from '@onekeyhq/components/src/Toast/useToast';
@@ -24,6 +23,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import showHardwarePopup, {
   CUSTOM_UI_RESPONSE,
   HardwarePopup,

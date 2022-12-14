@@ -16,7 +16,7 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 
-import { makeTimeoutPromise } from '../../../../../kit-bg/src/utils';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
 import NameServiceResolver, {

@@ -10,7 +10,7 @@ import {
   DISPATCH_ACTION_BROADCAST_METHOD_NAME,
   IDispatchActionBroadcastParams,
   buildReduxBatchAction,
-} from '../../../kit-bg/src/utils';
+} from '@onekeyhq/shared/src/background/backgroundUtils';
 
 function init() {
   const jsBridgeReceiveHandler = (payload: IJsBridgeMessagePayload) => {

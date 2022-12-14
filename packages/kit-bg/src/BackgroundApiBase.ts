@@ -20,7 +20,7 @@ import {
   backgroundClass,
   backgroundMethod,
   bindThis,
-} from './decorators';
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IBackgroundApiBridge } from './IBackgroundApi';
 import { createBackgroundProviders } from './providers/backgroundProviders';
 import ProviderApiBase from './providers/ProviderApiBase';
@@ -31,7 +31,7 @@ import {
   ensurePromiseObject,
   ensureSerializable,
   throwMethodNotFound,
-} from './utils';
+} from '@onekeyhq/shared/src/background/backgroundUtils';
 
 const PRIVATE_WHITE_LIST_ORIGIN = [
   'https://onekey.so',
