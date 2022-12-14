@@ -168,7 +168,8 @@ function normalizeConfig({
   // - Ext do not need devtool sourcemap, use SourceMapDevToolPlugin instead.
   // - building slow
   // config.devtool = 'cheap-module-source-map';
-
+  config.optimization ??= {};
+  config.optimization.splitChunks ??= {};
   config.optimization.splitChunks = {
     ...config.optimization.splitChunks,
     cacheGroups: {
