@@ -1,13 +1,14 @@
 import React, { FC, useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
-import { Column, Row } from 'native-base';
+import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
 import {
   Badge,
-  Box,
   CustomSkeleton,
+  HStack,
+  Hidden,
   Icon,
   List,
   ListItem,
@@ -29,77 +30,70 @@ type ListProps = {
 };
 
 const Footer: FC = () => (
-  <Box>
+  <>
     {[1, 2, 3, 4, 5].map((item) => (
-      <Box>
-        <ListItem px={0} py={0} my={0} key={`Skeleton${item}`}>
-          <Row flex={304} space="12px" alignItems="center">
-            <CustomSkeleton width="40px" height="40px" borderRadius="12px" />
-            <ListItem.Column
-              flex={1}
-              text={{
-                label: <Skeleton shape="Body1" />,
-                description: <Skeleton shape="Body2" />,
-              }}
-            />
-          </Row>
+      <ListItem key={`Skeleton${item}`}>
+        <ListItem.Column>
+          <CustomSkeleton width="40px" height="40px" borderRadius="12px" />
+        </ListItem.Column>
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: <Skeleton shape="Body1" />,
+            description: <Skeleton shape="Body2" />,
+          }}
+        />
+        <ListItem.Column
+          w="200px"
+          text={{
+            label: <Skeleton shape="Body1" />,
+            description: <Skeleton shape="Body2" />,
+          }}
+        />
+        <ListItem.Column
+          w="160px"
+          text={{
+            label: <Skeleton shape="Body1" />,
+            description: <Skeleton shape="Body2" />,
+          }}
+        />
+        <ListItem.Column
+          w="140px"
+          alignItems="flex-end"
+          text={{
+            label: <Skeleton shape="Body1" />,
+          }}
+        />
+        <Hidden till="lg">
           <ListItem.Column
-            flex={180}
-            text={{
-              label: <Skeleton shape="Body1" />,
-              description: <Skeleton shape="Body2" />,
-            }}
-          />
-          <ListItem.Column
-            flex={180}
-            text={{
-              label: <Skeleton shape="Body1" />,
-              description: <Skeleton shape="Body2" />,
-            }}
-          />
-          <ListItem.Column
+            w="140px"
             alignItems="flex-end"
-            flex={140}
             text={{
               label: <Skeleton shape="Body1" />,
             }}
           />
-          <ListItem.Column
-            alignItems="flex-end"
-            flex={140}
-            text={{
-              label: <Skeleton shape="Body1" />,
-            }}
-          />
-        </ListItem>
-        <Box my="8px" height="1px" bgColor="divider" />
-      </Box>
+        </Hidden>
+      </ListItem>
     ))}
-  </Box>
+  </>
 );
 
 const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict } = useFormatDate();
+  const intl = useIntl();
   const renderItem: ListRenderItem<NFTNPL> = useCallback(
     ({ item }) => {
       const { asset, entry, exit } = item;
       const profit = (exit?.tradePrice ?? 0) - (entry?.tradePrice ?? 0);
       let entryBadge;
       if (entry.eventType === 'Mint') {
-        entryBadge = 'Mint';
+        entryBadge = intl.formatMessage({ id: 'content__mint' });
       } else if (entry.eventType === 'Transfer') {
-        entryBadge = 'Receive';
+        entryBadge = intl.formatMessage({ id: 'action__receive' });
       }
       return (
-        <ListItem
-          px={0}
-          py={0}
-          my={0}
-          onPress={() => {
-            console.log('item = ', item);
-          }}
-        >
-          <Row flex={304} space="12px" alignItems="center">
+        <ListItem>
+          <ListItem.Column>
             {item.asset && (
               <NFTListImage
                 asset={asset as NFTAsset}
@@ -107,68 +101,83 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
                 size={40}
               />
             )}
+          </ListItem.Column>
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.contractName,
+              labelProps: { typography: 'Body1Strong', isTruncated: true },
+              description: item.tokenId ? `#${item.tokenId}` : '–',
+              descriptionProps: { isTruncated: true },
+            }}
+          />
+          <Hidden till="md">
             <ListItem.Column
-              flex={1}
+              w="200px"
               text={{
-                label: item.contractName,
-                labelProps: { typography: 'Body1Strong', numberOfLines: 1 },
-                description: item.tokenId ? `#${item.tokenId}` : '–',
-                descriptionProps: {
-                  numberOfLines: 1,
-                  typography: 'Body2',
-                  color: 'text-subdued',
-                },
+                label: (
+                  <HStack space={1} alignItems="center">
+                    <Text typography="Body1Strong" numberOfLines={1}>
+                      {PriceString({
+                        price: new BigNumber(entry?.tradePrice ?? 0)
+                          .decimalPlaces(3)
+                          .toString(),
+                        symbol: entry.tradeSymbol,
+                      })}
+                    </Text>
+                    {entryBadge && (
+                      <Badge type="default" size="sm" title={entryBadge} />
+                    )}
+                  </HStack>
+                ),
+                description: (
+                  <HStack space={1} alignItems="center">
+                    <Icon name="GasIllus" size={16} color="icon-subdued" />
+                    <Text
+                      typography="Body2"
+                      numberOfLines={1}
+                      color="text-subdued"
+                    >
+                      {PriceString({
+                        price: entry.gasPriceNative,
+                        networkId: network.id,
+                      })}
+                    </Text>
+                  </HStack>
+                ),
               }}
             />
-          </Row>
-
-          <Column space="4px" flex={180}>
-            <Row space="4px" alignItems="center">
-              <Text typography="Body1Strong" numberOfLines={1}>
-                {PriceString({
-                  price: new BigNumber(entry?.tradePrice ?? 0)
+          </Hidden>
+          <Hidden till="md">
+            <ListItem.Column
+              w="160px"
+              text={{
+                label: PriceString({
+                  price: new BigNumber(exit?.tradePrice ?? 0)
                     .decimalPlaces(3)
                     .toString(),
-                  symbol: entry.tradeSymbol,
-                })}
-              </Text>
-              {entryBadge && (
-                <Badge type="default" size="sm" title={entryBadge} />
-              )}
-            </Row>
-            <Row space="4px" alignItems="center">
-              <Icon name="GasIllus" size={16} color="icon-subdued" />
-              <Text typography="Body2" numberOfLines={1} color="text-subdued">
-                {PriceString({
-                  price: entry.gasPriceNative,
-                  networkId: network.id,
-                })}
-              </Text>
-            </Row>
-          </Column>
-
-          <Column space="4px" flex={180}>
-            <Text typography="Body1Strong" numberOfLines={1}>
-              {PriceString({
-                price: new BigNumber(exit?.tradePrice ?? 0)
-                  .decimalPlaces(3)
-                  .toString(),
-                symbol: exit.tradeSymbol,
-              })}
-            </Text>
-            <Row space="4px" alignItems="center">
-              <Icon name="GasIllus" size={16} color="icon-subdued" />
-              <Text typography="Body2" numberOfLines={1} color="text-subdued">
-                {PriceString({
-                  price: exit.gasPriceNative,
-                  networkId: network.id,
-                })}
-              </Text>
-            </Row>
-          </Column>
-
+                  symbol: exit.tradeSymbol,
+                }),
+                description: (
+                  <HStack space={1} alignItems="center">
+                    <Icon name="GasIllus" size={16} color="icon-subdued" />
+                    <Text
+                      typography="Body2"
+                      numberOfLines={1}
+                      color="text-subdued"
+                    >
+                      {PriceString({
+                        price: exit.gasPriceNative,
+                        networkId: network.id,
+                      })}
+                    </Text>
+                  </HStack>
+                ),
+              }}
+            />
+          </Hidden>
           <ListItem.Column
-            flex={140}
+            w="140px"
             text={{
               label: PriceString({
                 price: new BigNumber(profit).decimalPlaces(3).toString(),
@@ -180,49 +189,50 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
                 numberOfLines: 1,
                 color: profit > 0 ? 'text-success' : 'text-critical',
               },
+              description: formatDistanceStrict(
+                exit.timestamp,
+                entry.timestamp,
+              ),
+              descriptionProps: { display: { lg: 'none' }, textAlign: 'right' },
             }}
           />
-          <ListItem.Column
-            flex={140}
-            text={{
-              label: formatDistanceStrict(exit.timestamp, entry.timestamp),
-              labelProps: {
-                typography: 'Body1Strong',
-                textAlign: 'right',
-              },
-            }}
-          />
+          <Hidden till="lg">
+            <ListItem.Column
+              w="140px"
+              text={{
+                label: formatDistanceStrict(exit.timestamp, entry.timestamp),
+                labelProps: {
+                  typography: 'Body1Strong',
+                  textAlign: 'right',
+                },
+              }}
+            />
+          </Hidden>
         </ListItem>
       );
     },
-    [formatDistanceStrict, network.id],
+    [formatDistanceStrict, intl, network.id],
   );
 
   return (
-    <Box flex={1}>
-      <List
-        m={0}
-        renderItem={renderItem}
-        keyExtractor={(item) => (item.contractAddress as string) + item.tokenId}
-        p={{ base: '16px', md: '32px' }}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => (
-          <Box my="8px" height="1px" bgColor="divider" />
-        )}
-        ListFooterComponent={() => {
-          if (loading) {
-            return <Footer />;
-          }
-          return null;
-        }}
-        contentContainerStyle={{
-          width: '100%',
-          maxWidth: 992,
-          alignSelf: 'center',
-        }}
-        {...props}
-      />
-    </Box>
+    <List
+      renderItem={renderItem}
+      keyExtractor={(item) => (item.contractAddress as string) + item.tokenId}
+      showsVerticalScrollIndicator={false}
+      ListFooterComponent={() => {
+        if (loading) {
+          return <Footer />;
+        }
+        return null;
+      }}
+      contentContainerStyle={{
+        width: '100%',
+        maxWidth: 992 + 16 + 64, // 16 is padding of the content
+        alignSelf: 'center',
+        padding: 32,
+      }}
+      {...props}
+    />
   );
 };
 

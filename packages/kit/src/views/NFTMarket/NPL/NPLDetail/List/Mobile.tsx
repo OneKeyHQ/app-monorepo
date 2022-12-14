@@ -25,9 +25,9 @@ type ListProps = {
 };
 
 const Footer: FC = () => (
-  <Box mt="8px">
+  <>
     {[1, 2, 3, 4, 5].map((item) => (
-      <ListItem key={`Skeleton${item}`} px={0} py={0} my={0} mb="16px">
+      <ListItem key={`Skeleton${item}`}>
         <ListItem.Column>
           <CustomSkeleton width="40px" height="40px" borderRadius="12px" />
         </ListItem.Column>
@@ -48,7 +48,7 @@ const Footer: FC = () => (
         />
       </ListItem>
     ))}
-  </Box>
+  </>
 );
 const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict } = useFormatDate();
@@ -67,16 +67,15 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
             />
           </ListItem.Column>
           <ListItem.Column
-            flex={2}
+            flex={1}
             text={{
               label: item.contractName,
               labelProps: { typography: 'Body1Strong', isTruncated: true },
               description: item.tokenId ? `#${item.tokenId}` : '–',
-              descriptionProps: { numberOfLines: 1 },
+              descriptionProps: { isTruncated: true },
             }}
           />
           <ListItem.Column
-            flex={1}
             text={{
               label: PriceString({
                 price: new BigNumber(profit).decimalPlaces(3).toString(),
@@ -84,14 +83,13 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
               }),
               labelProps: {
                 textAlign: 'right',
-                numberOfLines: 1,
                 color: profit > 0 ? 'text-success' : 'text-critical',
               },
               description: formatDistanceStrict(
                 exit.timestamp,
                 entry.timestamp,
               ),
-              descriptionProps: { numberOfLines: 1, textAlign: 'right' },
+              descriptionProps: { isTruncated: true, textAlign: 'right' },
             }}
           />
         </ListItem>

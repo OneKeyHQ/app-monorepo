@@ -112,6 +112,7 @@ export type NFTTransaction = {
   blockNumber?: string;
   blockHash?: string;
   gasPrice?: string;
+  gasFee?: number;
   timestamp?: number;
   contractAddress?: string;
   contractName?: string;

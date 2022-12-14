@@ -17,6 +17,7 @@ export enum NFTMarketRoutes {
 
 export type NFTMarketRoutesParams = {
   [NFTMarketRoutes.SearchModal]: {
+    ethOnly?: boolean;
     onSelectCollection: ({
       networkId,
       contractAddress,

@@ -16,6 +16,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
   CustomSkeleton,
   Divider,
   Empty,
@@ -24,6 +25,7 @@ import {
   ListItem,
   Searchbar,
   Skeleton,
+  Spinner,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -56,11 +58,13 @@ type NPLData = {
   totalProfit?: BigNumber;
   win?: number;
   lose?: number;
+  spend?: BigNumber;
   content: NFTNPL[];
 };
 
 function parseNPLData(items: NFTNPL[], network: Network): NPLData {
   let totalProfit: BigNumber = new BigNumber(0);
+  let totalSpend: BigNumber = new BigNumber(0);
   let win = 0;
   let lose = 0;
   items.forEach((item) => {
@@ -79,10 +83,12 @@ function parseNPLData(items: NFTNPL[], network: Network): NPLData {
       gasPriceNative: gasPriceNativeExit.decimalPlaces(3).toString(),
       ...exit,
     };
-    const profit = new BigNumber(exit?.tradePrice ?? 0)
-      .minus(entry?.tradePrice ?? 0)
-      .minus(gasPriceNativeEntry)
-      .minus(gasPriceNativeExit);
+
+    const spend = new BigNumber(entry?.tradePrice ?? 0)
+      .plus(gasPriceNativeEntry)
+      .plus(gasPriceNativeExit);
+    const profit = new BigNumber(exit?.tradePrice ?? 0).minus(spend);
+
     if (profit.toNumber() > 0) {
       win += 1;
     } else if (profit.toNumber() < 0) {
@@ -90,72 +96,80 @@ function parseNPLData(items: NFTNPL[], network: Network): NPLData {
     }
     item.profit = profit.toNumber();
     totalProfit = totalProfit.plus(profit);
+    totalSpend = totalSpend.plus(spend);
   });
   return {
     totalProfit,
     win,
     lose,
+    spend: totalSpend,
     content: items,
   };
 }
 
-const ListTitle = () => (
-  <ListItem mt="48px" px={0} py={0}>
-    <ListItem.Column
-      flex={304}
-      text={{
-        label: 'NFT',
-        labelProps: {
-          typography: 'Subheading',
-          color: 'text-subdued',
-        },
-      }}
-    />
-    <ListItem.Column
-      flex={180}
-      text={{
-        label: 'Entry Price',
-        labelProps: {
-          typography: 'Subheading',
-          color: 'text-subdued',
-        },
-      }}
-    />
-    <ListItem.Column
-      flex={180}
-      text={{
-        label: 'Exit value',
-        labelProps: {
-          typography: 'Subheading',
-          color: 'text-subdued',
-        },
-      }}
-    />
-    <ListItem.Column
-      flex={140}
-      text={{
-        label: 'profits',
+const ListTitle = () => {
+  const intl = useIntl();
 
-        labelProps: {
-          typography: 'Subheading',
-          color: 'text-subdued',
-          textAlign: 'right',
-        },
-      }}
-    />
-    <ListItem.Column
-      flex={140}
-      text={{
-        label: 'hoDL duration',
-        labelProps: {
-          typography: 'Subheading',
-          color: 'text-subdued',
-          textAlign: 'right',
-        },
-      }}
-    />
-  </ListItem>
-);
+  return (
+    <ListItem mt="48px" px={0} py={0}>
+      <ListItem.Column
+        flex={1}
+        text={{
+          label: 'NFT',
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+          },
+        }}
+      />
+      <ListItem.Column
+        w="200px"
+        text={{
+          label: intl.formatMessage({ id: 'content__entry_price' }),
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+          },
+        }}
+      />
+      <ListItem.Column
+        w="160px"
+        text={{
+          label: intl.formatMessage({ id: 'content__exit_value' }),
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+          },
+        }}
+      />
+      <ListItem.Column
+        w="140px"
+        text={{
+          label: intl.formatMessage({ id: 'content__profit' }),
+
+          labelProps: {
+            typography: 'Subheading',
+            color: 'text-subdued',
+            textAlign: 'right',
+          },
+        }}
+      />
+      <Hidden till="lg">
+        <ListItem.Column
+          w="140px"
+          text={{
+            label: intl.formatMessage({ id: 'content__hodl_duration' }),
+            labelProps: {
+              typography: 'Subheading',
+              color: 'text-subdued',
+              textAlign: 'right',
+            },
+          }}
+        />
+      </Hidden>
+    </ListItem>
+  );
+};
 
 type HeaderProps = {
   loading?: boolean;
@@ -169,6 +183,7 @@ const Header: FC<HeaderProps> = ({
   totalProfit,
   win,
   lose,
+  spend,
   accountAddress,
   onAddressSearch,
   content,
@@ -185,7 +200,7 @@ const Header: FC<HeaderProps> = ({
 
   const [name, setName] = useState<string>('');
 
-  useSearchAddress({
+  const { loading: inputLoading } = useSearchAddress({
     keyword: address,
     network,
     onAddressSearch: ({ ens: ensName, address: vaildAddress }) => {
@@ -228,8 +243,18 @@ const Header: FC<HeaderProps> = ({
     }
   }, [activeAccount?.address]);
 
+  const showClearBtn = useMemo(() => {
+    if ((name || address).length === 0) {
+      return false;
+    }
+    if (inputLoading === true) {
+      return false;
+    }
+    return true;
+  }, [address, inputLoading, name]);
+
   return (
-    <Box width="full" mb={isVerticalLayout ? '16px' : '8px'} p={2}>
+    <Box width="full" mb={2} p={2}>
       <Box width="full" flexDirection="row">
         <Searchbar
           flex={1}
@@ -237,6 +262,12 @@ const Header: FC<HeaderProps> = ({
           maxW="400px"
           value={name || address}
           onChangeText={setAddress}
+          rightIconName={showClearBtn ? 'XCircleMini' : undefined}
+          rightElement={
+            <Center height="full" right="8px">
+              {inputLoading === true ? <Spinner size="sm" /> : null}
+            </Center>
+          }
           onClear={() => {
             setAddress('');
             setName('');
@@ -247,13 +278,14 @@ const Header: FC<HeaderProps> = ({
         />
       </Box>
       <Box
-        flexDirection={isVerticalLayout ? 'column' : 'row'}
-        alignItems={isVerticalLayout ? 'flex-start' : 'center'}
+        flexDirection={{ sm: 'row' }}
+        alignItems={{ sm: 'center' }}
         justifyContent="space-between"
+        mt="24px"
       >
-        <Box flexDirection="column" mt="24px">
+        <Box>
           <Text typography="Body1" color="text-subdued">
-            Profit
+            {intl.formatMessage({ id: 'content__profit' })}
           </Text>
           {totalProfit ? (
             <Text
@@ -271,51 +303,67 @@ const Header: FC<HeaderProps> = ({
           <Box flexDirection="row" mt="8px">
             <Box flexDirection="row" mr="24px" alignItems="center">
               {win !== undefined ? (
-                <Text mr="8px" typography="Body1Strong" color="text-success">
+                <Text mr="6px" typography="Body1Strong" color="text-success">
                   {win}
                 </Text>
               ) : (
-                <CustomSkeleton width="24px" height="12px" mr="6px" />
+                <Skeleton shape="Body1" />
               )}
 
               <Text typography="Body1" color="text-subdued">
-                Winning Flips
+                {intl.formatMessage({ id: 'content__winning_flips' })}
               </Text>
             </Box>
 
-            <Box flexDirection="row" alignItems="center">
+            <Box flexDirection="row" alignItems="center" mr="24px">
               {lose !== undefined ? (
-                <Text mr="8px" typography="Body1Strong" color="text-critical">
+                <Text mr="6px" typography="Body1Strong" color="text-critical">
                   {lose}
                 </Text>
               ) : (
-                <CustomSkeleton width="24px" height="12px" mr="6px" />
+                <Skeleton shape="Body1" />
               )}
 
               <Text typography="Body1" color="text-subdued">
-                Losing Flips
+                {intl.formatMessage({ id: 'content__losing_flips' })}
               </Text>
             </Box>
+
+            <Hidden from="base" till="md">
+              <Box flexDirection="row" alignItems="center">
+                {spend !== undefined ? (
+                  <Text mr="6px" typography="Body1Strong">
+                    {PriceString({
+                      price: new BigNumber(spend).decimalPlaces(3).toString(),
+                      networkId: network.id,
+                    })}
+                  </Text>
+                ) : (
+                  <CustomSkeleton width="24px" height="12px" mr="6px" />
+                )}
+
+                <Text typography="Body1" color="text-subdued">
+                  {intl.formatMessage({ id: 'content__spent' })}
+                </Text>
+              </Box>
+            </Hidden>
           </Box>
         </Box>
-        <Row space="12px" height={isVerticalLayout ? '42px' : '38px'} mt="24px">
-          {/* Buttons */}
-          <Button
-            isDisabled={loading}
-            flex={1}
-            type="primary"
-            size="lg"
-            leftIconName="ArrowTopRightOnSquareSolid"
-            onPress={shareAction}
-          >
-            Share
-          </Button>
-        </Row>
+        <Button
+          isDisabled={loading}
+          type="primary"
+          size={isVerticalLayout ? 'lg' : 'base'}
+          leftIconName="ArrowTopRightOnSquareSolid"
+          onPress={shareAction}
+          mt={{ base: 6, sm: 0 }}
+        >
+          {intl.formatMessage({ id: 'action__share' })}
+        </Button>
       </Box>
-      <Hidden from="base" till="sm">
+      <Hidden from="base" till="md">
         <ListTitle />
       </Hidden>
-      <Divider mt={isVerticalLayout ? '24px' : '8px'} />
+      <Divider mt={{ base: '24px', md: '8px' }} />
     </Box>
   );
 };
@@ -403,6 +451,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     totalProfit: new BigNumber(0),
     lose: 0,
     win: 0,
+    spend: new BigNumber(0),
     content: [],
   });
   const pageSize = 50;
@@ -423,6 +472,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
       }));
       if (pageDatas.length === 0) {
         setLoading(false);
+        return;
       }
       const data = await serviceNFT.batchAsset({
         chain: selectNetwork?.id,
@@ -467,6 +517,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         totalProfit: parseData.totalProfit,
         win: parseData.win,
         lose: parseData.lose,
+        spend: parseData.spend,
       });
       if (data) {
         getAssets(0);
@@ -479,6 +530,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     setLoading(true);
     updateTotalNPLData({
       totalProfit: new BigNumber(0),
+      spend: new BigNumber(0),
       win: 0,
       lose: 0,
     });
