@@ -34,7 +34,7 @@ const tsRules = {
     },
   ],
   'import/order': [
-    'error',
+    'warn',
     {
       'groups': [
         'builtin',

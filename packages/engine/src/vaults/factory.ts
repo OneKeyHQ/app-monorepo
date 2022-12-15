@@ -17,7 +17,8 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
-} from '../constants';
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { OneKeyInternalError } from '../errors';
 import { getNetworkImpl } from '../managers/network';
 import {

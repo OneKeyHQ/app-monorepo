@@ -21,9 +21,10 @@ import {
   BatchSendConfirmPayloadInfo,
   SendConfirmPayloadInfo,
 } from '@onekeyhq/kit/src/views/Send/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { HISTORY_CONSTS } from '../../../constants';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
 import {
@@ -33,7 +34,6 @@ import {
   getNFTTransactionHistory,
 } from '../../../managers/nft';
 import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
-import { OnekeyNetwork } from '../../../presets/networkIds';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { ICovalentHistoryListItem } from '../../../types/covalent';
 import {
@@ -108,6 +108,7 @@ export type IUnsignedMessageEvm = (AptosMessage | ETHMessage) & {
   payload?: any;
 };
 
+// TODO move to types.ts
 export type IEncodedTxEvm = {
   from: string;
   to: string;

@@ -3,9 +3,9 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useToast } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
-import { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';

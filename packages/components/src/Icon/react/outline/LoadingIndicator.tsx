@@ -1,6 +1,6 @@
 import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
 const SvgLoadingIndicator = (props: SvgProps) => (
-  <Svg viewBox="0 0 25 24" fill="none" accessibilityRole="image" {...props}>
+  <Svg viewBox="0 0 25 24" fill="none" {...props}>
     <G clipPath="url(#a)">
       <Path
         d="M12.5 22c5.523 0 10-4.477 10-10s-4.477-10-10-10-10 4.477-10 10 4.477 10 10 10Z"

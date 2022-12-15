@@ -1,10 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
-
-import showHardwarePopup, {
-  closeHardwarePopup as closeHardwarePopupUI,
-} from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 export type HardwareUiEventPayload = {
   type?: string;
@@ -45,10 +42,18 @@ export const hardwareSlice = createSlice({
       state.connected = state.connected.filter((id) => id !== action.payload);
     },
     setHardwarePopup(_, action: PayloadAction<HardwarePopup>) {
-      showHardwarePopup(action.payload);
+      if (!platformEnv.isExtensionBackground) {
+        const hardwarePopup =
+          require('../../views/Hardware/PopupHandle/showHardwarePopup') as typeof import('../../views/Hardware/PopupHandle/showHardwarePopup');
+        hardwarePopup.default(action.payload);
+      }
     },
     closeHardwarePopup() {
-      closeHardwarePopupUI();
+      if (!platformEnv.isExtensionBackground) {
+        const hardwarePopup =
+          require('../../views/Hardware/PopupHandle/showHardwarePopup') as typeof import('../../views/Hardware/PopupHandle/showHardwarePopup');
+        hardwarePopup.closeHardwarePopup();
+      }
     },
     updateDevicePassphraseOpenedState: (
       state,

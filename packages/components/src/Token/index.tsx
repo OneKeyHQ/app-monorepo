@@ -12,12 +12,12 @@ import { ResponsiveValue } from 'native-base/lib/typescript/components/types';
 import { useIntl } from 'react-intl';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
-import { OnekeyNetwork } from '@onekeyhq/engine/src/presets/networkIds';
-import { Token as IToken } from '@onekeyhq/engine/src/types/token';
+import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { useTokenSecurityInfo } from '@onekeyhq/kit/src/views/ManageTokens/hooks';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Icon from '../Icon';

@@ -12,7 +12,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Text } from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useCollectionDetail } from '../hook';

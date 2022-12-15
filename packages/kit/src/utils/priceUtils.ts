@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { TokenBalanceValue } from '../store/reducers/tokens';
 import { formatDecimalZero } from '../views/Market/utils';

@@ -2,10 +2,10 @@ import React, { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import backgroundApiProxy from '@onekeyhq//kit/src/background/instance/backgroundApiProxy';
 import { CheckBox, Dialog, useToast } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
 
 export type DeleteWalletProp = {

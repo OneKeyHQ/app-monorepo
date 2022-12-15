@@ -33,10 +33,12 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
-} from '../constants';
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
-import { AccountNameInfo } from '../types/network';
+
+import type { AccountNameInfo } from '../types/network';
 
 enum Curve {
   SECP256K1 = 'secp256k1',

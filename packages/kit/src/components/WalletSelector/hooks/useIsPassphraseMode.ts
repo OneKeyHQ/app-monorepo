@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import { useAppSelector } from '../../../hooks';
 

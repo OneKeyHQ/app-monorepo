@@ -18,6 +18,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { DappSiteConnection } from '@onekeyhq/kit/src/store/reducers/dapp';
 import {
   IMPL_ALGO,
   IMPL_CFX,
@@ -26,8 +27,7 @@ import {
   IMPL_SOL,
   IMPL_STC,
   IMPL_TRON,
-} from '@onekeyhq/engine/src/constants';
-import { DappSiteConnection } from '@onekeyhq/kit/src/store/reducers/dapp';
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';

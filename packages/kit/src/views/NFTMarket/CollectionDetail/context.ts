@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import {
+import type {
   Collection,
   NFTAsset,
   NFTTransaction,

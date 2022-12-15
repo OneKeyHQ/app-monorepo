@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useToast } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
-import { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,

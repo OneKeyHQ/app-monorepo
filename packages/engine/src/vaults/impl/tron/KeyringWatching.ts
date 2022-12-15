@@ -1,4 +1,5 @@
-import { COINTYPE_TRON as COIN_TYPE } from '../../../constants';
+import { COINTYPE_TRON as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { AccountType, DBSimpleAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 

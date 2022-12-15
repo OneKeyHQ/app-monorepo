@@ -43,7 +43,7 @@ import dataReducer from './reducers/data';
 import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
-import hardwareReducer from './reducers/hardware';
+import hardwareReducer from './reducers/hardware'; // 62.86 MB **** +40 Mb engine/background code
 import marketReducer from './reducers/market';
 import nftReducer from './reducers/nft';
 import reducerAccountSelector from './reducers/reducerAccountSelector';
@@ -55,32 +55,30 @@ import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
 import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
-import webTabsReducer from './reducers/webTabs';
-
-import type { IBackgroundApi } from '../background/IBackgroundApi';
+import webTabsReducer from './reducers/webTabs'; // 24.34 MB **** +20 Mb UI components
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
-  runtime: runtimeReducer,
-  settings: settingsReducer,
-  status: statusReducer,
-  general: generalReducer,
-  fiatMoney: fiatMoneyReducer,
+  cloudBackup: cloudBackupReducer,
+  contacts: contactsReducer,
   dapp: dappReducer,
   data: dataReducer,
   discover: discoverReducer,
+  fiatMoney: fiatMoneyReducer,
+  general: generalReducer,
+  hardware: hardwareReducer,
+  market: marketReducer,
+  nft: nftReducer,
+  accountSelector: reducerAccountSelector.reducer,
+  refresher: refresherReducer,
+  runtime: runtimeReducer,
+  settings: settingsReducer,
+  staking: stakingReducer,
+  status: statusReducer,
   swap: swapReducer,
   swapTransactions: swapTransactionsReducer,
   tokens: tokensReducer,
-  contacts: contactsReducer,
-  refresher: refresherReducer,
-  hardware: hardwareReducer,
-  cloudBackup: cloudBackupReducer,
-  accountSelector: reducerAccountSelector.reducer,
-  staking: stakingReducer,
-  nft: nftReducer,
   webTabs: webTabsReducer,
-  market: marketReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
@@ -155,7 +153,7 @@ export type IAppThunk<ReturnType = void> = ThunkAction<
 
 let backgroundDispatch: IAppDispatch | ((action: any) => void) | null = null;
 
-let bgApi: IBackgroundApi | undefined;
+let bgApi: typeof global.$backgroundApiProxy | undefined;
 // TODO remove
 export async function appDispatch(
   action: PayloadAction<any> | ((dispatch: Dispatch) => Promise<unknown>),

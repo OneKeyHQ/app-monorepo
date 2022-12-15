@@ -54,7 +54,7 @@ export function CloseBackDrop({ onClose, backgroundColor }: CloseButtonProps) {
   );
 }
 
-export type SelectItem<T = string> = {
+export type SelectItem<T = any> = {
   label: string;
   description?: string | ReactElement<any, any>;
   value: T;
@@ -164,7 +164,7 @@ const defaultProps = {
   onVisibleChange: null,
 } as const;
 
-function Select<T = string>({
+function Select<T = any>({
   options,
   value,
   containerProps,
@@ -194,17 +194,18 @@ function Select<T = string>({
   outerContainerRef,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLElement | View>(null);
-  const [visible, setVisible] = useState(false);
+  const [innerVisible, setInnerVisible] = useState(false);
+  const visible = selectVisible ?? innerVisible;
   const { size } = useUserDevice();
   const toggleVisible = useCallback(() => {
     // if (platformEnv.isBrowser) {
     //   const event = new Event('click');
     //   window.dispatchEvent(event);
     // }
-    const newVisible = !(selectVisible === undefined ? visible : selectVisible);
-    setVisible(newVisible);
+    const newVisible = !visible;
+    setInnerVisible(newVisible);
     onVisibleChange?.(newVisible);
-  }, [onVisibleChange, selectVisible, visible]);
+  }, [onVisibleChange, visible]);
 
   const [innerValue, setInnerValue] = useState<T | undefined>(defaultValue);
   const currentActiveValue = value ?? innerValue;
@@ -231,11 +232,19 @@ function Select<T = string>({
 
   const handleChange = useCallback(
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
-      setInnerValue(v);
       toggleVisible();
-      setTimeout(() => onChange?.(v, option), 500);
+      setTimeout(() => {
+        if (typeof v === 'function') {
+          v();
+        } else {
+          if (value === undefined) {
+            setInnerValue(v);
+          }
+          onChange?.(v, option);
+        }
+      }, 100);
     },
-    [onChange, toggleVisible],
+    [onChange, toggleVisible, value],
   );
 
   const handlePressFooter = useCallback(() => {
@@ -245,7 +254,7 @@ function Select<T = string>({
 
   const container = useMemo(() => {
     const childContainerProps = {
-      visible: selectVisible === undefined ? visible : selectVisible,
+      visible,
       options,
       toggleVisible,
       dropdownProps,
@@ -289,7 +298,6 @@ function Select<T = string>({
       </OverlayContainer>
     );
   }, [
-    selectVisible,
     visible,
     options,
     toggleVisible,

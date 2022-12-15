@@ -109,7 +109,7 @@ const initialState: SettingsState = {
   selectedFiatMoneySymbol: 'usd',
   refreshTimeStamp: getTimeStamp(),
   autoRefreshTimeStamp: getTimeStamp(),
-  swapSlippagePercent: '3',
+  swapSlippagePercent: '1',
   deviceUpdates: {},
   devMode: {
     enable: false,

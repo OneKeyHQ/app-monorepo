@@ -1,6 +1,6 @@
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
-import { HasName } from './base';
+import type { HasName } from './base';
 
 export type ServerToken = {
   name: string;

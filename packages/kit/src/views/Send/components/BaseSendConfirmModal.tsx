@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
@@ -6,21 +6,22 @@ import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import { IMPL_EVM } from '@onekeyhq/engine/src/constants';
-import { isWatchingAccount } from '@onekeyhq/engine/src/engineUtils';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
-import { ITxConfirmViewProps } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
+import type { ITxConfirmViewProps } from '../types';
+
 // TODO rename SendConfirmModalBase
-function BaseSendConfirmModal(props: ITxConfirmViewProps) {
+export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   const intl = useIntl();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { network, networkImpl, networkId, accountId, accountAddress } =
@@ -161,4 +162,3 @@ function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     />
   );
 }
-export { BaseSendConfirmModal };
