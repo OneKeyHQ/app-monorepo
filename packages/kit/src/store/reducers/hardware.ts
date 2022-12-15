@@ -1,11 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
-
-// TODO cycle deps, move to service
-// import showHardwarePopup, {
-//   closeHardwarePopup as closeHardwarePopupUI,
-// } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 export type HardwareUiEventPayload = {
   type?: string;
@@ -45,16 +41,19 @@ export const hardwareSlice = createSlice({
     removeConnectedConnectId: (state, action: PayloadAction<string>) => {
       state.connected = state.connected.filter((id) => id !== action.payload);
     },
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setHardwarePopup(_, action: PayloadAction<HardwarePopup>) {
-      throw new Error(
-        'cycle deps, move showHardwarePopup(action.payload) to service',
-      );
-      // showHardwarePopup(action.payload);
+      if (!platformEnv.isExtensionBackground) {
+        const hardwarePopup =
+          require('../../views/Hardware/PopupHandle/showHardwarePopup') as typeof import('../../views/Hardware/PopupHandle/showHardwarePopup');
+        hardwarePopup.default(action.payload);
+      }
     },
     closeHardwarePopup() {
-      throw new Error('cycle deps, move closeHardwarePopupUI() to service');
-      // closeHardwarePopupUI();
+      if (!platformEnv.isExtensionBackground) {
+        const hardwarePopup =
+          require('../../views/Hardware/PopupHandle/showHardwarePopup') as typeof import('../../views/Hardware/PopupHandle/showHardwarePopup');
+        hardwarePopup.closeHardwarePopup();
+      }
     },
     updateDevicePassphraseOpenedState: (
       state,

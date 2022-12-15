@@ -1,4 +1,5 @@
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
+import './intlPolyfill';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';
