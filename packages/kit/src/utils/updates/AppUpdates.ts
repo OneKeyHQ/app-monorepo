@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import semver from 'semver';
 
 import { ToastManager } from '@onekeyhq/components';
+import { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
@@ -131,13 +132,14 @@ class AppUpdates {
     newVersion: string,
   ): Promise<string | undefined> {
     const releaseInfo = await getChangeLog(oldVersion, newVersion);
+    if (!releaseInfo) return;
 
     let locale = store.getState().settings.locale ?? 'en-US';
     if (locale === 'system') {
       locale = getDefaultLocale();
     }
 
-    return releaseInfo?.[locale];
+    return releaseInfo[locale];
   }
 
   _openUrl(url: string) {

@@ -1,7 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
-import LOCALES from '@onekeyhq/components/src/locale';
+import LOCALES, { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getDefaultLocale } from './locale';
@@ -37,7 +37,15 @@ export const localAuthenticate: () => Promise<LocalAuthentication.LocalAuthentic
     if (platformEnv.isDesktop) {
       try {
         const defaultLocale = getDefaultLocale();
-        const reason = LOCALES[defaultLocale]?.action__unlock ?? 'unlock';
+        let reason = 'unlock';
+        const cachedLocale = LOCALES[defaultLocale];
+        if (typeof cachedLocale === 'object') {
+          reason = cachedLocale.action__unlock;
+        } else if (typeof cachedLocale === 'function') {
+          const module = await cachedLocale();
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          reason = module.default.action__unlock;
+        }
         const result = await window?.desktopApi?.promptTouchID(
           reason.toLowerCase(),
         );

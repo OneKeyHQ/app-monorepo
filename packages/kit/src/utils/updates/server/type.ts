@@ -1,4 +1,4 @@
-import { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 
 export interface IOS {
   url: string;
@@ -17,9 +17,7 @@ export interface Ext {
   edge: string;
 }
 
-export interface Changelog {
-  [key: LocaleSymbol]: string;
-}
+export type Changelog = Record<LocaleSymbol, string>;
 
 export interface Desktop {
   sha256sumAsc: string;
