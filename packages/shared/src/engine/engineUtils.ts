@@ -8,9 +8,8 @@ import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_WATCHING,
-  Wallet,
 } from '@onekeyhq/engine/src/types/wallet';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import { IMPL_EVM } from './engineConsts';
@@ -66,7 +65,12 @@ export const filterPassphraseWallet = (
 };
 
 export function handleDisplayPassphraseWallet(walletId: string) {
-  const { dispatch } = backgroundApiProxy;
+  if (!global.$backgroundApiProxy) {
+    throw new Error(
+      '[engine] and [shared] is not allowed calling [kit-bg]. Please pass a callback to dbApi.addHWWallet()',
+    );
+  }
+  const { dispatch } = global.$backgroundApiProxy;
   dispatch(addDisplayPassphraseWallet(walletId));
 }
 
