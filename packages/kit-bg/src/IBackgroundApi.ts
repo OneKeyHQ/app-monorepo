@@ -23,6 +23,7 @@ import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNotification from './services/ServiceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
+import type ServiceOverview from './services/ServiceOverview';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePrice from './services/ServicePrice';
 import type ServicePromise from './services/ServicePromise';
@@ -91,4 +92,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceTransaction: ServiceTransaction;
   servicePrice: ServicePrice;
   serviceSwap: ServiceSwap;
+  serviceOverview: ServiceOverview;
 }

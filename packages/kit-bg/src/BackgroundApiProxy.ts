@@ -27,6 +27,7 @@ import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
 import type ServiceNotification from './services/ServiceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
+import type ServiceOverview from './services/ServiceOverview';
 import type ServicePassword from './services/ServicePassword';
 import type ServicePrice from './services/ServicePrice';
 import type ServicePromise from './services/ServicePromise';
@@ -141,6 +142,9 @@ class BackgroundApiProxy
   ) as ServiceTransaction;
 
   servicePrice = this._createProxyService('servicePrice') as ServicePrice;
+  serviceOverview = this._createProxyService(
+    'serviceOverview',
+  ) as ServiceOverview;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

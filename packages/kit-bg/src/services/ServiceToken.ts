@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
+import memoizee from 'memoizee';
 
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
@@ -23,6 +24,7 @@ import {
   setNativeToken,
   setNetworkTokens,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
@@ -387,5 +389,37 @@ export default class ServiceToken extends ServiceBase {
     const tools = await fetchTools();
     const { dispatch } = this.backgroundApi;
     dispatch(setTools(tools));
+  }
+
+  _getAllTokensMapByNetworkId = memoizee(
+    async (networkId: string) => {
+      const tokens = await this.backgroundApi.engine.getTokens(
+        networkId,
+        undefined,
+        true,
+      );
+      const tokensMap: Record<string, Token> = tokens.reduce(
+        (memo, next) => ({
+          ...memo,
+          [next.tokenIdOnNetwork]: next,
+        }),
+        {},
+      );
+      return tokensMap;
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 200,
+      maxAge: getTimeDurationMs({
+        hour: 1,
+      }),
+      normalizer: (args) => JSON.stringify(args),
+    },
+  );
+
+  @backgroundMethod()
+  async getAllTokensMapByNetworkId(networkId: string) {
+    return this._getAllTokensMapByNetworkId(networkId);
   }
 }
