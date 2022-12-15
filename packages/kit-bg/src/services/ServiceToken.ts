@@ -22,10 +22,8 @@ import {
   addNetworkTokens,
   setAccountTokens,
   setAccountTokensBalances,
-  setCharts,
   setNativeToken,
   setNetworkTokens,
-  setPrices,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   backgroundClass,

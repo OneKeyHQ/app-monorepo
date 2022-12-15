@@ -12,14 +12,9 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
+import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
-  FormatBalance,
-  FormatCurrencyNumber,
-} from '@onekeyhq/kit/src/components/Format';
-import {
-  getActiveWalletAccount,
   useActiveWalletAccount,
-  useAppSelector,
   useFiatPay,
   useMoonpayPayCurrency,
 } from '@onekeyhq/kit/src/hooks/redux';
