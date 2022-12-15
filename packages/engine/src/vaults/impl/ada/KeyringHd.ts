@@ -129,6 +129,8 @@ export class KeyringHd extends KeyringHdBase {
     )) as ExportedSeedCredential;
     const xprv = await getXprvString(password, entropy);
     const accountIndex = getPathIndex(dbAccount.path);
+
+    // sign for dapp if signOnly
     const CardanoApi = await getCardanoApi();
     const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
@@ -136,6 +138,7 @@ export class KeyringHd extends KeyringHdBase {
       Number(accountIndex),
       encodedTx.inputs as unknown as IAdaUTXO[],
       xprv,
+      !!encodedTx.signOnly,
       false,
     );
 
@@ -143,5 +146,33 @@ export class KeyringHd extends KeyringHdBase {
       rawTx: signedTx,
       txid,
     };
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const { password = '' } = options;
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+    const xprv = await getXprvString(password, entropy);
+    const accountIndex = getPathIndex(dbAccount.path);
+
+    const CardanoApi = await getCardanoApi();
+    const result = await Promise.all(
+      messages.map(
+        ({ payload }: { payload: { addr: string; payload: string } }) =>
+          CardanoApi.dAppUtils.signData(
+            payload.addr,
+            payload.payload,
+            xprv,
+            Number(accountIndex),
+          ),
+      ),
+    );
+    return result.map((ret) => JSON.stringify(ret));
   }
 }

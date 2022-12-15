@@ -69,6 +69,19 @@ class Client {
       .then((i) => i.data);
   }
 
+  getAssociatedAddresses = memoizee(
+    async (stakeAddress: string): Promise<string[]> => {
+      const res = await this.request
+        .get<{ address: string }[]>(`/accounts/${stakeAddress}/addresses`)
+        .then((i) => i.data);
+      return res.map((i) => i.address);
+    },
+    {
+      promise: true,
+      maxAge: 1000 * 60 * 5,
+    },
+  );
+
   async getBalance(stakeAddress: string): Promise<BigNumber> {
     const res = await this.request
       .get<IAdaAccount>(`/accounts/${stakeAddress}`)
@@ -82,7 +95,7 @@ class Client {
       const { xpub, addresses, path } = dbAccount;
       const stakeAddress = addresses['2/0'];
       const { data } = await this.backendRequest.get<IAdaUTXO[]>(
-        `/utxos?stakeAddress=${stakeAddress}&xpub=${xpub}}`,
+        `/utxos?stakeAddress=${stakeAddress}&xpub=${xpub}`,
       );
       const pathIndex = path.split('/')[3];
       return data.map((utxo) => {
