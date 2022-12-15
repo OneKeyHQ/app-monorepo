@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import axios, { Method } from 'axios';
 import {
   isArray,
   isBoolean,
@@ -14,7 +15,8 @@ import {
 } from 'lodash';
 import qs from 'qs';
 import { batch } from 'react-redux';
-import axios, { Method } from 'axios';
+
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import {
   IMPL_ADA,
@@ -28,13 +30,12 @@ import {
   IMPL_SUI,
   IMPL_TRON,
 } from '../engine/engineConsts';
+import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AnyAction } from 'redux';
-import debugLogger from '../logger/debugLogger';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
