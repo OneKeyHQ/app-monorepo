@@ -294,10 +294,8 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getNPLData({ chain, address }: { chain?: string; address: string }) {
-    const url = `${this.baseUrl}/account/pnl?chain=${
-      chain ?? OnekeyNetwork.eth
-    }&address=${address}`;
+  async getNPLData({ address }: { address: string }) {
+    const url = `${this.baseUrl}/account/pnl?&address=${address}`;
     const { data, success } = await this.client
       .get<NFTServiceResp<NFTNPL[]>>(url)
       .then((resp) => resp.data)

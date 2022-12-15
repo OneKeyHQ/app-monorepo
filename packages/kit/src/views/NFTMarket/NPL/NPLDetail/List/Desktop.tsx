@@ -92,7 +92,16 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         entryBadge = intl.formatMessage({ id: 'action__receive' });
       }
 
-      const exitValue = (exit.tradePrice ?? 0) - (exit.gasFee ?? 0);
+      const tradeValueEntry = new BigNumber(
+        entry.internalTxValue ?? entry.tradePrice ?? 0,
+      )
+        .decimalPlaces(3)
+        .toString();
+      const tradeValueExit = new BigNumber(
+        exit.internalTxValue ?? exit.tradePrice ?? 0,
+      )
+        .decimalPlaces(3)
+        .toString();
       return (
         <ListItem>
           <ListItem.Column>
@@ -121,9 +130,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
                   <HStack space={1} alignItems="center">
                     <Text typography="Body1Strong" numberOfLines={1}>
                       {PriceString({
-                        price: new BigNumber(entry?.tradePrice ?? 0)
-                          .decimalPlaces(3)
-                          .toString(),
+                        price: tradeValueEntry,
                         symbol: entry.tradeSymbol,
                       })}
                     </Text>
@@ -157,7 +164,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
               w="160px"
               text={{
                 label: PriceString({
-                  price: new BigNumber(exitValue).decimalPlaces(3).toString(),
+                  price: tradeValueExit,
                   symbol: exit.tradeSymbol,
                 }),
                 description: (

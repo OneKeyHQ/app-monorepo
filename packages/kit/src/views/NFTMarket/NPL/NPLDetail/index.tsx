@@ -73,27 +73,15 @@ function parseNPLData(items: NFTNPL[]): NPLData {
   items.forEach((item) => {
     const { entry, exit } = item;
     const gasEntry: BigNumber = new BigNumber(entry.gasFee ?? 0);
+    const tradeValueEntry: BigNumber = new BigNumber(
+      entry.internalTxValue ?? entry.tradePrice ?? 0,
+    );
     const gasExit: BigNumber = new BigNumber(exit.gasFee ?? 0);
-
-    // const gasPriceNativeEntry = new BigNumber(entry.gasFee ?? 0).shiftedBy(
-    //   -network.decimals ?? 0,
-    // );
-    // const gasPriceNativeExit = new BigNumber(exit.gasFee ?? 0).shiftedBy(
-    //   -network.decimals ?? 0,
-    // );
-    // item.entry = {
-    //   gasPriceNative: gasPriceNativeEntry.decimalPlaces(3).toString(),
-    //   ...entry,
-    // };
-    // item.exit = {
-    //   gasPriceNative: gasPriceNativeExit.decimalPlaces(3).toString(),
-    //   ...exit,
-    // };
-
-    const spend = new BigNumber(entry?.tradePrice ?? 0)
-      .plus(gasEntry)
-      .plus(gasExit);
-    const profit = new BigNumber(exit?.tradePrice ?? 0).minus(spend);
+    const tradeValueExit: BigNumber = new BigNumber(
+      exit.internalTxValue ?? exit.tradePrice ?? 0,
+    );
+    const spend = tradeValueEntry.plus(gasEntry).plus(gasExit);
+    const profit = tradeValueExit.minus(spend);
 
     if (profit.toNumber() > 0) {
       win += 1;
@@ -391,8 +379,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 
   const navigation = useNavigation();
   const defaultNetwork = useDefaultNetWork();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectNetwork, setSelectNetwork] = useState<Network>(defaultNetwork);
+  const [selectNetwork] = useState<Network>(defaultNetwork);
 
   const { serviceNFT } = backgroundApiProxy;
 
@@ -519,9 +506,8 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   );
 
   const searchAction = useCallback(
-    async (text: string, network: Network) => {
+    async (text: string) => {
       const data = await serviceNFT.getNPLData({
-        chain: network?.id,
         address: text,
       });
       // serviceNFT.setNPLAddress(text);
@@ -550,9 +536,9 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     });
     currentPage.current = 0;
     updateListData([]);
-    searchAction(address, selectNetwork);
+    searchAction(address);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, selectNetwork]);
+  }, [address]);
 
   const listProps = useMemo(
     () => ({

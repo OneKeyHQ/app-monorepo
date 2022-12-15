@@ -319,7 +319,9 @@ const CalculatorModal: FC = () => {
           <Text typography="Body2Strong" color="text-subdued">
             {intl.formatMessage({ id: 'content__gas_fee' })}
           </Text>
-          <Text typography="Body2">{`${gasFee} ETH`} </Text>
+          <Text typography="Body2">
+            {`${new BigNumber(gasFee).decimalPlaces(3).toString()} ETH`}{' '}
+          </Text>
         </Row>
         <Row space="8px" justifyContent="space-between" alignItems="baseline">
           <Text typography="Body2Strong" color="text-subdued">
