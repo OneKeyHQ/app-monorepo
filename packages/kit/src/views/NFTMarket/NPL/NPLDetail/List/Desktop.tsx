@@ -14,6 +14,7 @@ import {
   ListItem,
   Skeleton,
   Text,
+  Tooltip,
 } from '@onekeyhq/components';
 import { Network } from '@onekeyhq/engine/src/types/network';
 import { NFTAsset, NFTNPL } from '@onekeyhq/engine/src/types/nft';
@@ -123,69 +124,77 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
             }}
           />
           <Hidden till="md">
-            <ListItem.Column
-              w="200px"
-              text={{
-                label: (
-                  <HStack space={1} alignItems="center">
-                    <Text typography="Body1Strong" numberOfLines={1}>
-                      {PriceString({
-                        price: tradeValueEntry,
-                        symbol: entry.tradeSymbol,
-                      })}
-                    </Text>
-                    {entryBadge && (
-                      <Badge type="default" size="sm" title={entryBadge} />
-                    )}
-                  </HStack>
-                ),
-                description: (
-                  <HStack space={1} alignItems="center">
-                    <Icon name="GasIllus" size={16} color="icon-subdued" />
-                    <Text
-                      typography="Body2"
-                      numberOfLines={1}
-                      color="text-subdued"
-                    >
-                      {PriceString({
-                        price: new BigNumber(entry.gasFee ?? 0)
-                          .decimalPlaces(3)
-                          .toString(),
-                        networkId: network.id,
-                      })}
-                    </Text>
-                  </HStack>
-                ),
-              }}
-            />
+            <Tooltip
+              label={entry.timestamp.toString()}
+              placement="top"
+              hasArrow
+            >
+              <ListItem.Column
+                w="200px"
+                text={{
+                  label: (
+                    <HStack space={1} alignItems="center">
+                      <Text typography="Body1Strong" numberOfLines={1}>
+                        {PriceString({
+                          price: tradeValueEntry,
+                          symbol: entry.tradeSymbol,
+                        })}
+                      </Text>
+                      {entryBadge && (
+                        <Badge type="default" size="sm" title={entryBadge} />
+                      )}
+                    </HStack>
+                  ),
+                  description: (
+                    <HStack space={1} alignItems="center">
+                      <Icon name="GasIllus" size={16} color="icon-subdued" />
+                      <Text
+                        typography="Body2"
+                        numberOfLines={1}
+                        color="text-subdued"
+                      >
+                        {PriceString({
+                          price: new BigNumber(entry.gasFee ?? 0)
+                            .decimalPlaces(3)
+                            .toString(),
+                          networkId: network.id,
+                        })}
+                      </Text>
+                    </HStack>
+                  ),
+                }}
+              />
+            </Tooltip>
           </Hidden>
           <Hidden till="md">
-            <ListItem.Column
-              w="160px"
-              text={{
-                label: PriceString({
-                  price: tradeValueExit,
-                  symbol: exit.tradeSymbol,
-                }),
-                description: (
-                  <HStack space={1} alignItems="center">
-                    <Icon name="GasIllus" size={16} color="icon-subdued" />
-                    <Text
-                      typography="Body2"
-                      numberOfLines={1}
-                      color="text-subdued"
-                    >
-                      {PriceString({
-                        price: new BigNumber(exit.gasFee ?? 0)
-                          .decimalPlaces(3)
-                          .toString(),
-                        networkId: network.id,
-                      })}
-                    </Text>
-                  </HStack>
-                ),
-              }}
-            />
+            <Tooltip label={exit.timestamp.toString()} placement="top" hasArrow>
+              <ListItem.Column
+                w="160px"
+                text={{
+                  label: PriceString({
+                    price: tradeValueExit,
+                    symbol: exit.tradeSymbol,
+                  }),
+                  description: (
+                    <HStack space={1} alignItems="center">
+                      <Icon name="GasIllus" size={16} color="icon-subdued" />
+                      <Text
+                        typography="Body2"
+                        numberOfLines={1}
+                        color="text-subdued"
+                      >
+                        {PriceString({
+                          price: new BigNumber(exit.gasFee ?? 0)
+                            .decimalPlaces(3)
+                            .toString(),
+                          networkId: network.id,
+                        })}
+                      </Text>
+                    </HStack>
+                  ),
+                }}
+              />
+            </Tooltip>
           </Hidden>
           <ListItem.Column
             w="140px"

@@ -20,13 +20,16 @@ import {
   CustomSkeleton,
   Divider,
   Empty,
+  HStack,
   Hidden,
+  Icon,
   IconButton,
   ListItem,
   Searchbar,
   Skeleton,
   Spinner,
   Text,
+  Tooltip,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -129,7 +132,24 @@ const ListTitle = () => {
       <ListItem.Column
         w="160px"
         text={{
-          label: intl.formatMessage({ id: 'content__exit_value' }),
+          label: (
+            <HStack alignItems="center" space={1} alignSelf="flex-start">
+              <Text typography="Subheading" color="text-subdued">
+                {intl.formatMessage({ id: 'content__exit_value' })}
+              </Text>
+              <Tooltip
+                label="Royalty fees are excluded"
+                placement="top left"
+                hasArrow
+              >
+                <Icon
+                  name="QuestionMarkCircleMini"
+                  size={16}
+                  color="icon-subdued"
+                />
+              </Tooltip>
+            </HStack>
+          ),
           labelProps: {
             typography: 'Subheading',
             color: 'text-subdued',
