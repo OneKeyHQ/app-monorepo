@@ -171,98 +171,118 @@ const CalculatorModal: FC = () => {
   return (
     <Modal
       size="xs"
-      height="566px"
       header={intl.formatMessage({ id: 'modal__calculator' })}
       footer={null}
     >
-      <Box>
+      {/* Forms */}
+      <Column space={8}>
         <Column space="12px">
           <Text typography="Subheading" color="text-subdued">
-            Platform
+            {intl.formatMessage({ id: 'form__platform' })}
           </Text>
-          <Pressable onPress={selectPlatformAction}>
-            <Row justifyContent="space-between" alignItems="center">
-              {selectedMarketPlace ? (
-                <Row space="12px" alignItems="center">
-                  <NetImage
-                    key={selectedMarketPlace.logoUrl}
-                    width="40px"
-                    height="40px"
-                    borderRadius="20px"
-                    src={selectedMarketPlace.logoUrl}
-                  />
-                  <Text typography="Body1Strong">
-                    {selectedMarketPlace.name}
-                  </Text>
-                </Row>
-              ) : (
-                <Row space="12px" alignItems="center">
-                  <CustomSkeleton
-                    width="40px"
-                    height="40px"
-                    borderRadius="20px"
-                  />
-                  <Skeleton shape="Body2" />
-                </Row>
-              )}
-
-              <Icon name="ChevronRightMini" />
-            </Row>
-          </Pressable>
+          <Box m={-2}>
+            <Pressable
+              p={2}
+              borderRadius="12px"
+              flexDirection="row"
+              alignItems="center"
+              onPress={selectPlatformAction}
+              _hover={{ bgColor: 'surface-hovered' }}
+              _pressed={{ bgColor: 'surface-pressed' }}
+            >
+              <Row space="12px" alignItems="center" flex={1}>
+                {selectedMarketPlace ? (
+                  <>
+                    <NetImage
+                      key={selectedMarketPlace.logoUrl}
+                      width="40px"
+                      height="40px"
+                      borderRadius="20px"
+                      src={selectedMarketPlace.logoUrl}
+                    />
+                    <Text typography="Body1Strong">
+                      {selectedMarketPlace.name}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <CustomSkeleton
+                      width="40px"
+                      height="40px"
+                      borderRadius="20px"
+                    />
+                    <Skeleton shape="Body1" />
+                  </>
+                )}
+              </Row>
+              <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
+            </Pressable>
+          </Box>
         </Column>
-        <Column space="12px" mt="32px">
+        <Column space="12px">
           <Text typography="Subheading" color="text-subdued">
             {intl.formatMessage({ id: 'form__project' })}
           </Text>
-          <Pressable onPress={selectProjectAction}>
-            <Row justifyContent="space-between" alignItems="center">
-              {selectedProject ? (
-                <Row space="12px" alignItems="center">
-                  <NetImage
-                    key={selectedProject.logoUrl}
-                    width="40px"
-                    height="40px"
-                    borderRadius="20px"
-                    src={selectedProject.logoUrl}
-                  />
-                  <Text typography="Body1Strong">{selectedProject.name}</Text>
-                </Row>
-              ) : (
-                <Row space="12px" alignItems="center">
-                  <Box
-                    borderStyle="dashed"
-                    justifyContent="center"
-                    alignItems="center"
-                    size="40px"
-                    borderRadius="12px"
-                    bgColor="surface-neutral-subdued"
-                    borderWidth="2px"
-                    borderColor="border-default"
-                  >
-                    <Icon
-                      name="CursorArrowRaysMini"
-                      size={20}
-                      color="decorative-icon-one"
+          <Box m={-2}>
+            <Pressable
+              p={2}
+              borderRadius="12px"
+              flexDirection="row"
+              alignItems="center"
+              onPress={selectProjectAction}
+              _hover={{ bgColor: 'surface-hovered' }}
+              _pressed={{ bgColor: 'surface-pressed' }}
+            >
+              <Row space="12px" alignItems="center" flex={1}>
+                {selectedProject ? (
+                  <>
+                    <NetImage
+                      key={selectedProject.logoUrl}
+                      width="40px"
+                      height="40px"
+                      borderRadius="20px"
+                      src={selectedProject.logoUrl}
                     />
-                  </Box>
+                    <Text typography="Body1Strong">{selectedProject.name}</Text>
+                  </>
+                ) : (
+                  <>
+                    <Box
+                      borderStyle="dashed"
+                      justifyContent="center"
+                      alignItems="center"
+                      size="40px"
+                      borderRadius="12px"
+                      bgColor="surface-neutral-subdued"
+                      borderWidth="2px"
+                      borderColor="border-default"
+                    >
+                      <Icon
+                        name="CursorArrowRaysMini"
+                        size={20}
+                        color="decorative-icon-one"
+                      />
+                    </Box>
 
-                  <Text typography="Body1Strong">Select a project</Text>
-                </Row>
-              )}
-
-              <Icon name="ChevronRightMini" />
-            </Row>
-          </Pressable>
+                    <Text typography="Body1Strong">
+                      {intl.formatMessage({ id: 'action__select_a_project' })}
+                    </Text>
+                  </>
+                )}
+              </Row>
+              <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
+            </Pressable>
+          </Box>
         </Column>
-
-        <Column space="12px" mt="32px">
+        <Column space="12px">
           <Text typography="Subheading" color="text-subdued">
-            Price (ETH)
+            {intl.formatMessage({ id: 'content__price' })} (ETH)
           </Text>
-          <Row height="50px" space="12px">
+          <Row space="12px">
             <Input
               flex={1}
-              placeholder="Buy"
+              size="xl"
+              placeholder={intl.formatMessage({ id: 'action__buy' })}
               value={buyInput}
               onChangeText={setBuyInput}
               type="number"
@@ -270,7 +290,8 @@ const CalculatorModal: FC = () => {
             />
             <Input
               flex={1}
-              placeholder="Sell"
+              size="xl"
+              placeholder={intl.formatMessage({ id: 'action__sell' })}
               value={sellInput}
               onChangeText={setSellInput}
               type="number"
@@ -278,36 +299,35 @@ const CalculatorModal: FC = () => {
             />
           </Row>
         </Column>
-
-        <Divider my="24px" />
-
-        <Column space="8px">
-          <Row space="8px" justifyContent="space-between">
-            <Text typography="Body2Strong" color="text-subdued">
-              Platform Fee
-            </Text>
-            <Text typography="Body2">{`${platformFee}%`}</Text>
-          </Row>
-          <Row space="8px" justifyContent="space-between">
-            <Text typography="Body2Strong" color="text-subdued">
-              Creator Fee
-            </Text>
-            <Text typography="Body2">{`${creatorFee * 100}%`}</Text>
-          </Row>
-          <Row space="8px" justifyContent="space-between">
-            <Text typography="Body2Strong" color="text-subdued">
-              Gas Fee
-            </Text>
-            <Text typography="Body2">{`${gasFee} ETH`} </Text>
-          </Row>
-          <Row space="8px" justifyContent="space-between" alignItems="flex-end">
-            <Text typography="Body2Strong" color="text-subdued">
-              Profit
-            </Text>
-            <Text typography="Display2XLarge">{profit}</Text>
-          </Row>
-        </Column>
-      </Box>
+      </Column>
+      <Divider my="24px" />
+      {/* Sum */}
+      <Column space="8px">
+        <Row space="8px" justifyContent="space-between">
+          <Text typography="Body2Strong" color="text-subdued">
+            {intl.formatMessage({ id: 'content__platform_fee' })}
+          </Text>
+          <Text typography="Body2">{`${platformFee}%`}</Text>
+        </Row>
+        <Row space="8px" justifyContent="space-between">
+          <Text typography="Body2Strong" color="text-subdued">
+            {intl.formatMessage({ id: 'content__creator_fee' })}
+          </Text>
+          <Text typography="Body2">{`${creatorFee * 100}%`}</Text>
+        </Row>
+        <Row space="8px" justifyContent="space-between">
+          <Text typography="Body2Strong" color="text-subdued">
+            {intl.formatMessage({ id: 'content__gas_fee' })}
+          </Text>
+          <Text typography="Body2">{`${gasFee} ETH`} </Text>
+        </Row>
+        <Row space="8px" justifyContent="space-between" alignItems="baseline">
+          <Text typography="Body2Strong" color="text-subdued">
+            {intl.formatMessage({ id: 'content__profit' })}
+          </Text>
+          <Text typography="Display2XLarge">{profit}</Text>
+        </Row>
+      </Column>
     </Modal>
   );
 };

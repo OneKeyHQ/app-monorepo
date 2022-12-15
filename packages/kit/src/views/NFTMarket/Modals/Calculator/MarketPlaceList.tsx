@@ -4,14 +4,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';
 
-import {
-  Box,
-  Icon,
-  ListItem,
-  Modal,
-  NetImage,
-  Text,
-} from '@onekeyhq/components';
+import { ListItem, Modal, NetImage } from '@onekeyhq/components';
 import { MarketPlace } from '@onekeyhq/engine/src/types/nft';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -19,6 +12,7 @@ import { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 
 const MarketPlaceList: FC = () => {
   const navigation = useNavigation();
+  const intl = useIntl();
 
   const route =
     useRoute<
@@ -46,18 +40,19 @@ const MarketPlaceList: FC = () => {
           navigation.goBack();
         }}
       >
-        <NetImage
-          width="40px"
-          height="40px"
-          borderRadius="20px"
-          src={item.logoUrl}
-        />
-        <Text typography="Body1Strong" flex={1}>
-          {item.name}
-        </Text>
-
+        <ListItem.Column>
+          <NetImage
+            width="40px"
+            height="40px"
+            borderRadius="20px"
+            src={item.logoUrl}
+          />
+        </ListItem.Column>
+        <ListItem.Column flex={1} text={{ label: item.name }} />
         {selectMarket?.name === item.name ? (
-          <Icon name="CheckCircleSolid" color="interactive-default" />
+          <ListItem.Column
+            icon={{ name: 'CheckCircleSolid', color: 'interactive-default' }}
+          />
         ) : null}
       </ListItem>
     ),
@@ -67,8 +62,8 @@ const MarketPlaceList: FC = () => {
   return (
     <Modal
       size="xs"
-      height="566px"
-      header="Platform"
+      height="560px"
+      header={intl.formatMessage({ id: 'form__platform' })}
       footer={null}
       flatListProps={{
         height: '420px',
@@ -76,7 +71,7 @@ const MarketPlaceList: FC = () => {
         // @ts-ignore
         renderItem,
         keyExtractor: (item) => (item as MarketPlace).name,
-        ItemSeparatorComponent: () => <Box height="16px" />,
+        m: -2,
       }}
     />
   );
