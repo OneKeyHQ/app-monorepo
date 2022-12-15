@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
@@ -12,15 +12,16 @@ import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
-import { ITxConfirmViewProps } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
+import type { ITxConfirmViewProps } from '../types';
+
 // TODO rename SendConfirmModalBase
-function BaseSendConfirmModal(props: ITxConfirmViewProps) {
+export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   const intl = useIntl();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { network, networkImpl, networkId, accountId, accountAddress } =
@@ -161,4 +162,3 @@ function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     />
   );
 }
-export { BaseSendConfirmModal };

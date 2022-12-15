@@ -17,7 +17,7 @@ import {
 
 type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 
-function SendConfirmFromDapp() {
+export function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
   // const navigation = useAppNavigation();
   const {
@@ -62,11 +62,9 @@ function SendConfirmFromDapp() {
       action = StackActions.replace(SendRoutes.SignMessageConfirm, params);
     }
     if (action) {
-      navigation.dispatch(action);
+      setTimeout(() => navigation.dispatch(action));
     }
   }, [_$t, encodedTx, navigation, sourceInfo, unsignedMessage, signOnly]);
 
   return null;
 }
-
-export { SendConfirmFromDapp };
