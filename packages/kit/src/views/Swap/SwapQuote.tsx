@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  BottomSheetModal,
   Box,
   Icon,
   IconButton,
@@ -15,6 +16,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../store/reducers/settings';
+import { showOverlay } from '../../utils/overlayUtils';
 
 import { ArrivalTime } from './components/ArrivalTime';
 import SwappingVia from './components/SwappingVia';
@@ -57,6 +59,84 @@ const SwapExactAmoutAllowance = () => {
             onToggle={onToggle}
           />
         </Box>
+      </Box>
+    </Box>
+  );
+};
+
+const SwapNetworkFee = () => {
+  const intl = useIntl();
+  const fees = useMemo(
+    () => [
+      { text: intl.formatMessage({ id: 'form__rocket_rapid' }), value: '2' },
+      { text: intl.formatMessage({ id: 'form__train_fast' }), value: '1' },
+      { text: intl.formatMessage({ id: 'form__car_normal' }), value: '0' },
+    ],
+    [intl],
+  );
+
+  const swapFeePresetIndex = useAppSelector(
+    (s) => s.swapTransactions.swapFeePresetIndex,
+  );
+
+  const onPress = useCallback(() => {
+    showOverlay((close) => (
+      <BottomSheetModal
+        title={intl.formatMessage({ id: 'form__gas_fee_settings' })}
+        closeOverlay={close}
+      >
+        <Box>
+          {fees.map((item) => (
+            <Pressable
+              _hover={{ bg: 'surface-hovered' }}
+              px={4}
+              py={2}
+              borderRadius={12}
+              _pressed={{ bg: 'surface-pressed' }}
+              w="full"
+              key={item.value}
+              onPress={() => {
+                backgroundApiProxy.serviceSwap.setSwapFeePresetIndex(
+                  item.value,
+                );
+                close();
+              }}
+            >
+              <Typography.DisplayMedium>{item.text}</Typography.DisplayMedium>
+            </Pressable>
+          ))}
+        </Box>
+      </BottomSheetModal>
+    ));
+  }, [fees, intl]);
+
+  const text = useMemo(() => {
+    let index = fees.findIndex((item) => item.value === swapFeePresetIndex);
+    if (index === -1) {
+      // default network fee is fast
+      index = 1;
+    }
+    return fees[index].text;
+  }, [fees, swapFeePresetIndex]);
+
+  return (
+    <Box
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      mb="4"
+    >
+      <Typography.Caption color="text-disabled" mr="2">
+        {intl.formatMessage({ id: 'form__network_fee' })}
+      </Typography.Caption>
+      <Box flexDirection="row" justifyContent="flex-end" alignItems="center">
+        <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
+          <Typography.Caption mr="1" color="text-subdued">
+            {text}
+          </Typography.Caption>
+          <Icon size={16} name="ChevronRightOutline" />
+        </Pressable>
       </Box>
     </Box>
   );
@@ -120,6 +200,7 @@ const SwapQuote = () => {
           </Box>
         </Box>
       </Box>
+      <SwapNetworkFee />
       {!showMoreQuoteDetail ? (
         <Box
           display="flex"

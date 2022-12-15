@@ -108,6 +108,7 @@ function SendConfirm({
     useFeeInTx: feeInfoUseFeeInTx,
     pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
     signOnly: routeParams.signOnly,
+    payload: payloadInfo || payload,
   });
 
   useWalletConnectPrepareConnection({

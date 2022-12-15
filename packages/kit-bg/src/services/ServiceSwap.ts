@@ -27,10 +27,10 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/swap';
 import {
   clearTransactions,
+  setSwapChartMode,
+  setSwapFeePresetIndex,
   updateTokenList,
-  setSwapChartMode
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
-  
 import {
   FieldType,
   QuoteData,
@@ -463,6 +463,11 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async setSwapChartMode(mode: string) {
-    return this.backgroundApi.dispatch(setSwapChartMode(mode))
+    return this.backgroundApi.dispatch(setSwapChartMode(mode));
+  }
+
+  @backgroundMethod()
+  async setSwapFeePresetIndex(value: string) {
+    return this.backgroundApi.dispatch(setSwapFeePresetIndex(value));
   }
 }

@@ -1,12 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import { RefreshControl } from 'react-native';
 
-import {
-  Box,
-  Center,
-  ScrollView
-} from '@onekeyhq/components';
+import { Box, Center, ScrollView } from '@onekeyhq/components';
 
 import { useSwapQuoteCallback } from './hooks/useSwap';
 import SwapAlert from './SwapAlert';

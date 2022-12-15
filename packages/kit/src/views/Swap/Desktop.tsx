@@ -1,33 +1,41 @@
-import React, { useLayoutEffect, FC, useRef, useEffect, useMemo } from 'react';
+import React, { FC, useLayoutEffect} from 'react';
+
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Center,
-  Typography,
-  Select,
   IconButton,
+  Select,
+  Typography,
 } from '@onekeyhq/components';
-import { useIntl } from 'react-intl'
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAppSelector, useNavigation } from '../../hooks';
+import PriceChart from '../PriceChart/PriceChart';
 
 import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
+import { SwapHeaderButtons } from './SwapHeader';
 import SwapObserver from './SwapObserver';
 import SwapQuote from './SwapQuote';
 import SwapUpdater from './SwapUpdater';
-import PriceChart from '../PriceChart/PriceChart'
-import { SwapHeaderButtons } from './SwapHeader'
-import { useAppSelector, useNavigation } from '../../hooks/'
-
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import network from '../../store/reducers/network';
-
 
 const DesktopHeader = () => {
-  const intl = useIntl()
-  const swapChartMode = useAppSelector(s => s.swapTransactions.swapChartMode)
+  const intl = useIntl();
+  const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
   return (
-    <Box h='16' px='8' flexDirection='row' alignItems='center' justifyContent='space-between'>
-      <Typography.Heading>{intl.formatMessage({ id: 'title__Swap_Bridge' })}</Typography.Heading>
+    <Box
+      h="16"
+      px="8"
+      flexDirection="row"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <Typography.Heading>
+        {intl.formatMessage({ id: 'title__Swap_Bridge' })}
+      </Typography.Heading>
       <Box>
         <Select<string>
           isTriggerPlain
@@ -35,7 +43,7 @@ const DesktopHeader = () => {
           headerShown={false}
           defaultValue={swapChartMode ?? 'chart'}
           onChange={(value) => {
-            backgroundApiProxy.serviceSwap.setSwapChartMode(value)
+            backgroundApiProxy.serviceSwap.setSwapChartMode(value);
           }}
           options={[
             {
@@ -58,7 +66,7 @@ const DesktopHeader = () => {
               name="EllipsisVerticalOutline"
               type="plain"
               size="lg"
-              pointerEvents='none'
+              pointerEvents="none"
               circle
               m={-2}
             />
@@ -66,18 +74,18 @@ const DesktopHeader = () => {
         />
       </Box>
     </Box>
-  )
-}
+  );
+};
 
-const DesktopMain = () => {
-  return <Box>
+const DesktopMain = () => (
+  <Box>
     <Center>
       <Box maxW={{ md: '480px' }} width="full">
-        <Box flexDirection='row' justifyContent='space-between' px='4' mb='4'>
-          <Box></Box>
+        <Box flexDirection="row" justifyContent="space-between" px="4" mb="4">
+          <Box />
           <SwapHeaderButtons />
         </Box>
-        <Box px={'4'}>
+        <Box px="4">
           <SwapContent />
         </Box>
         <Box px="4">
@@ -92,25 +100,33 @@ const DesktopMain = () => {
     <SwapUpdater />
     <SwapObserver />
   </Box>
-}
+);
 
-type TokenChartProps = { networkId: string, tokenIdOnNetwork?: string  }
-const Chart: FC<TokenChartProps> = ({ networkId, tokenIdOnNetwork }) => {
-  return <PriceChart networkId={networkId} contract={tokenIdOnNetwork}></PriceChart>
-}
+type TokenChartProps = { networkId: string; tokenIdOnNetwork?: string };
+const Chart: FC<TokenChartProps> = ({ networkId, tokenIdOnNetwork }) => (
+  <PriceChart networkId={networkId} contract={tokenIdOnNetwork} />
+);
 
 const DesktopChart = () => {
-  const inputToken = useAppSelector(s => s.swap.inputToken);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
   if (!inputToken) {
-    return null
+    return null;
   }
-  const key =`${inputToken.networkId}${inputToken.tokenIdOnNetwork}`
-  return <Box w='550px'><PriceChart key={key} networkId={inputToken.networkId} contract={inputToken.tokenIdOnNetwork}></PriceChart></Box>
-}
+  const key = `${inputToken.networkId}${inputToken.tokenIdOnNetwork}`;
+  return (
+    <Box w="550px">
+      <PriceChart
+        key={key}
+        networkId={inputToken.networkId}
+        contract={inputToken.tokenIdOnNetwork}
+      />
+    </Box>
+  );
+};
 
 export const Desktop = () => {
   const navigation = useNavigation();
-  const swapChartMode = useAppSelector(s => s.swapTransactions.swapChartMode)
+  const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
@@ -118,9 +134,24 @@ export const Desktop = () => {
   return (
     <Box>
       <DesktopHeader />
-      <Box mt='12'>
-        <Box flexDirection='row' alignItems='flex-start' justifyContent='center'> {swapChartMode === 'chart' ?  <Box><Box h='52px'></Box><DesktopChart /></Box> : null} <Box w='480px'><DesktopMain /></Box></Box>
+      <Box mt="12">
+        <Box
+          flexDirection="row"
+          alignItems="flex-start"
+          justifyContent="center"
+        >
+          {' '}
+          {swapChartMode === 'chart' ? (
+            <Box>
+              <Box h="52px" />
+              <DesktopChart />
+            </Box>
+          ) : null}{' '}
+          <Box w="480px">
+            <DesktopMain />
+          </Box>
+        </Box>
       </Box>
     </Box>
-  )
+  );
 };

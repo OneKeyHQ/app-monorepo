@@ -245,11 +245,7 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             )}
           </Pressable>
-          <Box
-            flex="1"
-            h="full"
-            position="relative"
-          >
+          <Box flex="1" h="full" position="relative">
             <Box position="absolute" w="full" top="0" right="0">
               <NumberInput
                 w="full"
