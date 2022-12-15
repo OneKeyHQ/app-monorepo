@@ -522,4 +522,16 @@ export default class Vault extends VaultBase {
       decode(baseAddress),
     );
   }
+
+  override async getClientEndpointStatus(
+    url: string,
+  ): Promise<{ responseTime: number; latestBlock: number }> {
+    const client = await this.getClient(url);
+    const start = performance.now();
+    const { Height } = await client.request<{ Height: number }>('ChainHead');
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      latestBlock: Height,
+    };
+  }
 }
