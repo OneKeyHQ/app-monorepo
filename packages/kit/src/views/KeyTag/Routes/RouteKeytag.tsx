@@ -21,11 +21,6 @@ export const stackScreenList = [
   { name: KeyTagRoutes.ShowDotMap, component: ShowDotMap },
   { name: KeyTagRoutes.IntroduceKeyTag, component: Introduce },
   { name: KeyTagRoutes.KeyTagBackUpWallet, component: KeyTagBackUpWallet },
-  {
-    name: KeyTagRoutes.VerifyPassword,
-    component: VerifyPassword,
-  },
-  { name: KeyTagRoutes.Attentions, component: KeyTagBackupWalletAttentions },
   { name: KeyTagRoutes.EnterPhrase, component: EnterPhrase },
 ];
 

@@ -22,6 +22,9 @@ import { useNavigation } from '../../../hooks';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
 import { IKeytagRoutesParams } from '../Routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { KeyTagVerifyWalletRoutes } from '../../../routes/Modal/KeyTagVerifyWallet';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
@@ -29,6 +32,7 @@ const KeyTagBackUpWallet = () => {
   console.log('KeyTagBackUpWallet---');
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
+  const addNavigation = useAppNavigation();
   const walletsSection = useWalletSelectorSectionData();
   console.log('walletsSection', walletsSection);
   const walletsData: IWallet[] = useMemo(() => {
@@ -51,10 +55,17 @@ const KeyTagBackUpWallet = () => {
   const onPress = useCallback(
     (wallet: IWallet) => {
       console.log('onpress--wallet', wallet);
-      navigation.navigate(KeyTagRoutes.VerifyPassword, { walletId: wallet.id });
+      addNavigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.KeyTagVerifyWallet,
+        params: {
+          screen: KeyTagVerifyWalletRoutes.KeyTagVerifyPassword,
+          params: { walletId: wallet.id },
+        },
+      });
+      // navigation.navigate(KeyTagRoutes.VerifyPassword, { walletId: wallet.id });
       // navigation.navigate(KeyTagRoutes.ShowDotMap);
     },
-    [navigation],
+    [addNavigation],
   );
 
   const renderItem: ListRenderItem<IWallet> = useCallback(

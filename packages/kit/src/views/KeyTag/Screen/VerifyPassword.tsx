@@ -1,18 +1,23 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 
-import { Box, Modal } from '@onekeyhq/components';
+import { Modal } from '@onekeyhq/components';
+import {
+  KeyTagVerifyWalletRoutes,
+  KeyTagVerifyWalletRoutesParams,
+} from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
+import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import Protected, { ValidationFields } from '../../../components/Protected';
-import { KeyTagRoutes } from '../Routes/enums';
-import { IKeytagRoutesParams } from '../Routes/types';
 
-type RouteProps = RouteProp<IKeytagRoutesParams, KeyTagRoutes.Attentions>;
-type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
+type RouteProps = RouteProp<
+  KeyTagVerifyWalletRoutesParams,
+  KeyTagVerifyWalletRoutes.KeyTagVerifyPassword
+>;
+type NavigationProps = ModalScreenProps<KeyTagVerifyWalletRoutesParams>;
 
 const VerifyPassword = () => {
   const route = useRoute<RouteProps>();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const { walletId } = route.params;
   console.log('VerifyPassword--', walletId);
   return (
@@ -20,7 +25,11 @@ const VerifyPassword = () => {
       <Protected walletId={walletId} field={ValidationFields.Secret}>
         {(password) => {
           console.log('password--', password);
-          navigation.navigate(KeyTagRoutes.Attentions, { walletId, password });
+          // navigation.navigate(KeyTagRoutes.Attentions, { walletId, password });
+          navigation.replace(KeyTagVerifyWalletRoutes.KeyTagAttensions, {
+            walletId,
+            password,
+          });
         }}
       </Protected>
     </Modal>

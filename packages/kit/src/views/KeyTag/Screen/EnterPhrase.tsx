@@ -1,17 +1,38 @@
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Button,
+  Form,
   Icon,
-  Textarea,
   Typography,
+  useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import LayoutContainer from '../../Onboarding/Layout';
+import { KeyTagRoutes } from '../Routes/enums';
+import { IKeytagRoutesParams } from '../Routes/types';
+
+type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
 const EnterPhrase = () => {
   console.log('EnterPhrase');
   const isVertical = useIsVerticalLayout();
+  const useFormReturn = useForm();
+  const navigation = useNavigation<NavigationProps>();
+  const { formValues } = useFormOnChangeDebounced({
+    useFormReturn,
+    revalidate: false,
+    clearErrorIfEmpty: true,
+  });
+  const submitDisable = !formValues?.text;
+  const intl = useIntl();
+  const { control, handleSubmit } = useFormReturn;
   return (
     <LayoutContainer
       title="Convert Recovery Phrase to  Dotmap for KeyTag"
@@ -31,8 +52,48 @@ const EnterPhrase = () => {
       }
     >
       <Box flex="1">
-        <Textarea placeholder="Enter Recovery Phrase" />
-        <Button type="primary">Next</Button>
+        <Form>
+          <Form.Item
+            control={control}
+            name="text"
+            rules={{
+              validate: async (t) => {
+                console.log('validate--', t);
+                if (!t) return true;
+                try {
+                  await backgroundApiProxy.validator.validateMnemonic(t);
+                  return true;
+                } catch (e) {
+                  console.log('validate--', e);
+                }
+
+                return intl.formatMessage({
+                  id: 'form__add_exsting_wallet_invalid',
+                });
+              },
+            }}
+          >
+            <Form.Textarea
+              placeholder="Enter Recovery Phrase"
+              h="48"
+              trimValue={false}
+            />
+          </Form.Item>
+          {/* <Textarea placeholder="Enter Recovery Phrase" /> */}
+          <Button
+            isDisabled={submitDisable}
+            size={isVertical ? 'xl' : 'lg'}
+            onPromise={handleSubmit((values) => {
+              console.log('handleSubmit--', values);
+              navigation.navigate(KeyTagRoutes.ShowDotMap, {
+                mnemonic: values.text,
+              });
+            })}
+            type="primary"
+          >
+            Next
+          </Button>
+        </Form>
       </Box>
     </LayoutContainer>
   );

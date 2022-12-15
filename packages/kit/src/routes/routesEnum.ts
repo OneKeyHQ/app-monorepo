@@ -45,6 +45,7 @@ export enum ModalRoutes {
   Revoke = 'Revoke',
   SearchNFT = 'SearchNFT',
   NFTAttributeFilter = 'NFTAttributeFilter',
+  KeyTagVerifyWallet = 'KeyTagVerifyWallet',
 }
 
 export enum RootRoutes {

@@ -59,6 +59,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Revoke]: NavigatorScreenParams<SubModalRoutesParams.RevokeRoutesParams>;
   [ModalRoutes.SearchNFT]: NavigatorScreenParams<SubModalRoutesParams.SearchNFTCollectionRoutesParams>;
   [ModalRoutes.NFTAttributeFilter]: NavigatorScreenParams<SubModalRoutesParams.NFTAttributeFilterRoutesParams>;
+  [ModalRoutes.KeyTagVerifyWallet]: NavigatorScreenParams<SubModalRoutesParams.KeyTagVerifyWalletRoutesParams>;
 };
 /** Modal */
 

@@ -11,6 +11,9 @@ import { ModalRoutes, ModalRoutesParams } from '../types';
 
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 
+const KeyTagVerifyWalletModal = createLazyComponent(
+  () => import('./KeyTagVerifyWallet'),
+);
 const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
 
 const CollectibleModal = createLazyComponent(() => import('./Collectibles'));
@@ -218,6 +221,7 @@ const modalStackScreenList = [
     name: ModalRoutes.NFTAttributeFilter,
     component: NFTAttributeFilter,
   },
+  { name: ModalRoutes.KeyTagVerifyWallet, component: KeyTagVerifyWalletModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
