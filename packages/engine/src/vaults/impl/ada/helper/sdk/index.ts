@@ -1,4 +1,4 @@
-const LibLoader = async () => import('cardano-coin-selection');
+import { LibLoader } from './loader';
 
 const getCardanoApi = async () => {
   const Loader = await LibLoader();
