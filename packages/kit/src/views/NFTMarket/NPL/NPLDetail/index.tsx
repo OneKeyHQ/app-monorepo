@@ -76,12 +76,10 @@ function parseNPLData(items: NFTNPL[]): NPLData {
   items.forEach((item) => {
     const { entry, exit } = item;
     const gasEntry: BigNumber = new BigNumber(entry.gasFee ?? 0);
-    const tradeValueEntry: BigNumber = new BigNumber(
-      entry.internalTxValue ?? entry.tradePrice ?? 0,
-    );
+    const tradeValueEntry: BigNumber = new BigNumber(entry.tradePrice ?? 0);
     const gasExit: BigNumber = new BigNumber(exit.gasFee ?? 0);
     const tradeValueExit: BigNumber = new BigNumber(
-      exit.internalTxValue ?? exit.tradePrice ?? 0,
+      exit.internalTxValue ?? exit.tokenTxValue ?? exit.tradePrice ?? 0,
     );
     const spend = tradeValueEntry.plus(gasEntry).plus(gasExit);
     const profit = tradeValueExit.minus(spend);

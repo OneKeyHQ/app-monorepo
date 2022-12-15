@@ -208,7 +208,6 @@ export type NFTNPL = {
     exchangeName?: string;
     gasPrice?: string;
     gasFee?: number;
-    internalTxValue?: number;
   };
   exit: {
     hash?: string;
@@ -220,6 +219,7 @@ export type NFTNPL = {
     gasPrice?: string;
     gasFee?: number;
     internalTxValue?: number;
+    tokenTxValue?: number;
   };
 
   profit: number;
