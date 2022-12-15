@@ -7,6 +7,7 @@ import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+
 import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
@@ -19,8 +20,8 @@ export const Mobile = () => {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    appUIEventBus.emit(AppUIEventBusNames.SwapRefresh)
-    setTimeout(() => setRefreshing(false), 500)
+    appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
+    setTimeout(() => setRefreshing(false), 500);
   }, []);
   return (
     <ScrollView

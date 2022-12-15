@@ -1,23 +1,27 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+
 import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Animated } from 'react-native';
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+
 import {
   Box,
   Button,
   Center,
   HStack,
+  Icon,
   IconButton,
   LottieView,
   Typography,
   useTheme,
   useThemeValue,
 } from '@onekeyhq/components';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -27,6 +31,7 @@ import { setSwapPopoverShown } from '../../store/reducers/status';
 
 import { useSwapQuoteCallback } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
+import { SwapError } from './typings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -136,7 +141,7 @@ const RefreshButton = () => {
       return false;
     }
     return true;
-  }, [error, limited, quote, isFocused]);
+  }, [error, limited, quote]);
 
   const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
 
@@ -167,7 +172,7 @@ const RefreshButton = () => {
         }
       },
     }),
-    [lottieRef],
+    [lottieRef, processAnim],
   );
 
   const onRefresh = useCallback(() => {
@@ -192,7 +197,7 @@ const RefreshButton = () => {
       }
     });
     return () => processAnim.removeListener(fn);
-  }, [onRefresh]);
+  }, [onRefresh, processAnim]);
 
   useEffect(() => {
     appUIEventBus.on(AppUIEventBusNames.SwapRefresh, onRefresh);
@@ -209,7 +214,7 @@ const RefreshButton = () => {
     } else if (!isOk) {
       lottie.reset();
     }
-  }, [isOk, isFocused]);
+  }, [isOk, isFocused, lottie]);
 
   return (
     <Button type="plain" onPress={onRefresh} pl="2" pr="2">
@@ -230,7 +235,7 @@ const RefreshButton = () => {
             onLoopComplete={onRefresh}
             ref={lottieRef}
             autoplay={false}
-            autoPlay={false}
+            // autoPlay={false}
             width={20}
             source={
               themeVariant === 'light'
@@ -244,12 +249,31 @@ const RefreshButton = () => {
   );
 };
 
-export const SwapHeaderButtons = () => (
-  <HStack>
-    <RefreshButton />
-    <HistoryButton />
-  </HStack>
-);
+export const SwapHeaderButtons = () => {
+  const error = useAppSelector((s) => s.swap.error);
+  return (
+    <HStack>
+      <Box position="relative">
+        <RefreshButton />
+        {error === SwapError.QuoteFailed ? (
+          <Box
+            position="absolute"
+            bottom="1.5"
+            right="1.5"
+            pointerEvents="none"
+          >
+            <Icon
+              size={12}
+              name="ExclamationCircleSolid"
+              color="icon-critical"
+            />
+          </Box>
+        ) : null}
+      </Box>
+      <HistoryButton />
+    </HStack>
+  );
+};
 
 const SwapHeader = () => {
   const intl = useIntl();

@@ -1,4 +1,4 @@
-import React, { FC, useLayoutEffect } from 'react';
+import React, { useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -100,11 +100,6 @@ const DesktopMain = () => (
     <SwapUpdater />
     <SwapObserver />
   </Box>
-);
-
-type TokenChartProps = { networkId: string; tokenIdOnNetwork?: string };
-const Chart: FC<TokenChartProps> = ({ networkId, tokenIdOnNetwork }) => (
-  <PriceChart networkId={networkId} contract={tokenIdOnNetwork} />
 );
 
 const DesktopChart = () => {

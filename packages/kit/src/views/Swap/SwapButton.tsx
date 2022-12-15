@@ -25,7 +25,7 @@ import {
   useDerivedSwapState,
   useInputLimitsError,
   useSwapError,
-  useSwapQuoteCallback,
+  // useSwapQuoteCallback,
   useSwapQuoteRequestParams,
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
@@ -83,15 +83,15 @@ function convertToSwapInfo(options: {
   return swapInfo;
 }
 
-const RetryQuoteButton = () => {
-  const intl = useIntl();
-  const onQuote = useSwapQuoteCallback({ showLoading: true });
-  return (
-    <Button size="xl" type="primary" key="network_error" onPress={onQuote}>
-      {intl.formatMessage({ id: 'action__retry' })}
-    </Button>
-  );
-};
+// const RetryQuoteButton = () => {
+//   const intl = useIntl();
+//   const onQuote = useSwapQuoteCallback({ showLoading: true });
+//   return (
+//     <Button size="xl" type="primary" key="network_error" onPress={onQuote}>
+//       {intl.formatMessage({ id: 'action__retry' })}
+//     </Button>
+//   );
+// };
 
 const ExchangeButton = () => {
   const intl = useIntl();
@@ -405,9 +405,9 @@ const SwapStateButton = () => {
         </Button>
       );
     }
-    if (error === SwapError.QuoteFailed) {
-      return <RetryQuoteButton />;
-    }
+    // if (error === SwapError.QuoteFailed) {
+    //   return <RetryQuoteButton />;
+    // }
     return (
       <Button size="xl" type="primary" isDisabled key="baseError">
         {intl.formatMessage({ id: 'title__swap' })}

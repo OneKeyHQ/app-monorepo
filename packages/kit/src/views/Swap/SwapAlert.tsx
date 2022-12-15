@@ -51,20 +51,20 @@ const ErrorAlert = () => {
       </Box>
     );
   }
-  if (error === SwapError.QuoteFailed) {
-    return (
-      <Box mt="6">
-        <Alert
-          title={intl.formatMessage({
-            id: 'msg__failed_to_get_price',
-          })}
-          alertType="warn"
-          dismiss={false}
-        />
-      </Box>
-    );
-  }
-  return <></>;
+  // if (error === SwapError.QuoteFailed) {
+  //   return (
+  //     <Box mt="6">
+  //       <Alert
+  //         title={intl.formatMessage({
+  //           id: 'msg__failed_to_get_price',
+  //         })}
+  //         alertType="warn"
+  //         dismiss={false}
+  //       />
+  //     </Box>
+  //   );
+  // }
+  return null;
 };
 
 const SwapWarning: FC = () => (

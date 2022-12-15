@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -14,11 +13,7 @@ import {
 import { Token } from '../../../store/typings';
 import { SwapQuoter } from '../quoter';
 import { FetchQuoteParams, SwapError } from '../typings';
-import {
-  formatAmount,
-  greaterThanZeroOrUndefined,
-  nativeTokenAddress,
-} from '../utils';
+import { formatAmount, greaterThanZeroOrUndefined } from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
 
