@@ -395,9 +395,8 @@ export async function fetchData<T>(
     return data;
   } catch (e) {
     debugLogger.http.error(
-      `backgroundApi.fetchData ERROR: request path ${path} \n query ${JSON.stringify(
-        query,
-      )} \n  error ${e}`,
+      `backgroundApi.fetchData ERROR: request path ${path} \n query ${query}`,
+      e,
     );
     return fallback;
   }
