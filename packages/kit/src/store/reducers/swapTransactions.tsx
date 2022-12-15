@@ -15,6 +15,7 @@ export type TransactionsState = {
   transactions: Record<string, Record<string, TransactionDetails[]>>;
   tokenList?: TokenListItem[];
   swapMaintain?: boolean;
+  swapChartMode?: string;
 };
 
 const initialState: TransactionsState = {
@@ -106,6 +107,9 @@ export const swapTransactionsSlice = createSlice({
     setSwapMaintain(state, action: PayloadAction<boolean>) {
       state.swapMaintain = action.payload;
     },
+    setSwapChartMode(state, action: PayloadAction<string>) {
+      state.swapChartMode = action.payload;
+    }
   },
 });
 
@@ -117,6 +121,7 @@ export const {
   clearAccountTransactions,
   updateTokenList,
   setSwapMaintain,
+  setSwapChartMode
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

@@ -218,7 +218,7 @@ const TokenInput: FC<TokenInputProps> = ({
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
-          alignItems="center"
+          alignItems="flex-start"
           mt="1"
         >
           <Pressable
@@ -247,9 +247,7 @@ const TokenInput: FC<TokenInputProps> = ({
           </Pressable>
           <Box
             flex="1"
-            flexDirection="row"
             h="full"
-            justifyContent="flex-end"
             position="relative"
           >
             <Box position="absolute" w="full" top="0" right="0">

@@ -28,7 +28,9 @@ import {
 import {
   clearTransactions,
   updateTokenList,
+  setSwapChartMode
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
+  
 import {
   FieldType,
   QuoteData,
@@ -457,5 +459,10 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setSwapReceivingIsNotSendingAccountShown(value: boolean) {
     return simpleDb.setting.setSwapReceivingIsNotSendingAccountShown(value);
+  }
+
+  @backgroundMethod()
+  async setSwapChartMode(mode: string) {
+    return this.backgroundApi.dispatch(setSwapChartMode(mode))
   }
 }

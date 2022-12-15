@@ -281,7 +281,7 @@ const TokenInput: FC<TokenInputProps> = ({
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
-          alignItems="center"
+          alignItems="flex-start"
           mt="1"
         >
           <Pressable
