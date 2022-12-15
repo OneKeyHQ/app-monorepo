@@ -1,5 +1,5 @@
-import { IMPL_FIL } from '@onekeyhq/engine/src/constants';
 import { INetwork } from '@onekeyhq/engine/src/types';
+import { IMPL_FIL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { makeSelector } from './redux';
 

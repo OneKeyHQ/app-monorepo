@@ -6,7 +6,8 @@ import {
   validateAddressString,
 } from '@glif/filecoin-address';
 
-import { COINTYPE_FIL as COIN_TYPE } from '../../../constants';
+import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBVariantAccount } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
