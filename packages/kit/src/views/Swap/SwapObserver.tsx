@@ -38,13 +38,6 @@ const AccountsObserver = () => {
   return null;
 };
 
-const TokenUpdater = () => {
-  useEffect(() => {
-    backgroundApiProxy.serviceSwap.getSwapTokens();
-  }, []);
-  return null;
-};
-
 const WelcomeObserver = () => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -72,7 +65,6 @@ const SwapListener = () => (
   <>
     <NetworkObserver />
     <AccountsObserver />
-    <TokenUpdater />
     <WelcomeObserver />
   </>
 );

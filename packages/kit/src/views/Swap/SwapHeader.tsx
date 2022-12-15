@@ -1,9 +1,12 @@
-import { FC, useCallback, useEffect, useRef } from 'react';
+import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Animated } from 'react-native';
-
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import {
   Box,
   Button,
@@ -118,20 +121,95 @@ const HistoryButton = () => {
 const RefreshButton = () => {
   const { themeVariant } = useTheme();
   const lottieRef = useRef<any>();
-  const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const onRefresh = useCallback(() => {
-    onSwapQuote();
-    console.log('lottieRef.current?.play', lottieRef.current);
-    lottieRef.current?.play?.();
+  const isFocused = useIsFocused();
+  const total = 15000;
 
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
+  const loadingAnim = useRef(new Animated.Value(0)).current;
+  const processAnim = useRef(new Animated.Value(0)).current;
+
+  const error = useAppSelector((s) => s.swap.error);
+  const quote = useAppSelector((s) => s.swap.quote);
+  const limited = useAppSelector((s) => s.swap.quoteLimited);
+
+  const isOk = useMemo(() => {
+    if (error || limited || !quote) {
+      return false;
+    }
+    return true;
+  }, [error, limited, quote, isFocused]);
+
+  const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
+
+  const lottie = useMemo(
+    () => ({
+      play: () => {
+        lottieRef.current?.play?.();
+        if (platformEnv.isNative) {
+          const used = Number((processAnim as any)._value);
+          Animated.timing(processAnim, {
+            toValue: total,
+            duration: total - used,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+      reset: () => {
+        lottieRef.current?.reset?.();
+        if (platformEnv.isNative) {
+          processAnim.stopAnimation();
+          processAnim.setValue(0);
+        }
+      },
+      pause: () => {
+        lottieRef.current?.pause();
+        if (platformEnv.isNative) {
+          processAnim.stopAnimation();
+        }
+      },
+    }),
+    [lottieRef],
+  );
+
+  const onRefresh = useCallback(() => {
+    if (!isOk) return;
+    loadingAnim.setValue(0);
+    lottie.pause();
+    Animated.timing(loadingAnim, {
       toValue: -1,
       duration: 1000,
       useNativeDriver: true,
-    }).start();
-  }, [onSwapQuote, fadeAnim]);
+    }).start(async () => {
+      lottie.reset();
+      await onSwapQuote();
+      lottie.play();
+    });
+  }, [onSwapQuote, loadingAnim, isOk, lottie]);
+
+  useEffect(() => {
+    const fn = processAnim.addListener(({ value }) => {
+      if (value === total) {
+        onRefresh();
+      }
+    });
+    return () => processAnim.removeListener(fn);
+  }, [onRefresh]);
+
+  useEffect(() => {
+    appUIEventBus.on(AppUIEventBusNames.SwapRefresh, onRefresh);
+    return () => {
+      appUIEventBus.off(AppUIEventBusNames.SwapRefresh, onRefresh);
+    };
+  }, [onRefresh]);
+
+  useEffect(() => {
+    if (isOk && isFocused) {
+      lottie.play();
+    } else if (!isFocused) {
+      lottie.pause();
+    } else if (!isOk) {
+      lottie.reset();
+    }
+  }, [isOk, isFocused]);
 
   return (
     <Button type="plain" onPress={onRefresh} pl="2" pr="2">
@@ -139,7 +217,7 @@ const RefreshButton = () => {
         style={{
           transform: [
             {
-              rotate: fadeAnim.interpolate({
+              rotate: loadingAnim.interpolate({
                 inputRange: [0, 1],
                 outputRange: ['0deg', '360deg'],
               }),
@@ -149,11 +227,11 @@ const RefreshButton = () => {
       >
         <Box w="5" h="5">
           <LottieView
+            onLoopComplete={onRefresh}
             ref={lottieRef}
-            loop={false}
             autoplay={false}
             autoPlay={false}
-            width={5}
+            width={20}
             source={
               themeVariant === 'light'
                 ? require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_light.json')
@@ -168,14 +246,13 @@ const RefreshButton = () => {
 
 export const SwapHeaderButtons = () => (
   <HStack>
-    {!platformEnv.isNative ? <RefreshButton /> : null}
+    <RefreshButton />
     <HistoryButton />
   </HStack>
 );
 
 const SwapHeader = () => {
   const intl = useIntl();
-
   return (
     <Center w="full" mt={8} mb={6} px="4" zIndex={2}>
       <Box

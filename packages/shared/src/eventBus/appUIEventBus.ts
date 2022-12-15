@@ -12,6 +12,7 @@ enum AppUIEventBusNames {
   Unlocked = 'Unlocked',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   AccountChanged = 'AccountChanged',
+  SwapRefresh = 'SwapRefresh',
 }
 
 if (isExtensionBackground) {

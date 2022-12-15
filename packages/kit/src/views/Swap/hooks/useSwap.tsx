@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -257,33 +258,4 @@ export function useInputLimitsError():
     }
     return { message, value };
   }, [inputAmount, inputToken, maxAmount, minAmount, intl]);
-}
-
-export function useRestrictedTokens(
-  tokens: Token[],
-  included?: string[],
-  excluded?: string[],
-) {
-  return useMemo(() => {
-    const includedSet = new Set(included ?? []);
-    const excludedSet = new Set(excluded ?? []);
-    let result = tokens;
-    if (included && included.length) {
-      result = tokens.filter(
-        (token) =>
-          includedSet.has(token.tokenIdOnNetwork) ||
-          (!token.tokenIdOnNetwork && includedSet.has(nativeTokenAddress)),
-      );
-    }
-    if (excluded && excluded.length) {
-      result = result.filter(
-        (token) =>
-          !(
-            excludedSet.has(token.tokenIdOnNetwork) ||
-            (!token.tokenIdOnNetwork && excludedSet.has(nativeTokenAddress))
-          ),
-      );
-    }
-    return result;
-  }, [tokens, included, excluded]);
 }

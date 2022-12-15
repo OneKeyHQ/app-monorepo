@@ -3,8 +3,10 @@ import React, { useCallback, useState } from 'react';
 import { RefreshControl } from 'react-native';
 
 import { Box, Center, ScrollView } from '@onekeyhq/components';
-
-import { useSwapQuoteCallback } from './hooks/useSwap';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
@@ -14,11 +16,12 @@ import SwapUpdater from './SwapUpdater';
 
 export const Mobile = () => {
   const [refreshing, setRefreshing] = useState(false);
-  const onSwapQuote = useSwapQuoteCallback();
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    onSwapQuote().finally(() => setRefreshing(false));
-  }, [onSwapQuote]);
+    appUIEventBus.emit(AppUIEventBusNames.SwapRefresh)
+    setTimeout(() => setRefreshing(false), 500)
+  }, []);
   return (
     <ScrollView
       refreshControl={
