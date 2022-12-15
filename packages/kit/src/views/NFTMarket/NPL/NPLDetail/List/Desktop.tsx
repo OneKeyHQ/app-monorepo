@@ -92,13 +92,11 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         entryBadge = intl.formatMessage({ id: 'action__receive' });
       }
 
-      const tradeValueEntry = new BigNumber(
-        entry.internalTxValue ?? entry.tradePrice ?? 0,
-      )
+      const tradeValueEntry = new BigNumber(entry.tradePrice ?? 0)
         .decimalPlaces(3)
         .toString();
       const tradeValueExit = new BigNumber(
-        exit.internalTxValue ?? exit.tradePrice ?? 0,
+        exit.internalTxValue ?? exit.tokenTxValue ?? exit.tradePrice ?? 0,
       )
         .decimalPlaces(3)
         .toString();
