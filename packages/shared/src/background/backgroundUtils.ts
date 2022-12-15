@@ -33,6 +33,7 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AnyAction } from 'redux';
+import debugLogger from '../logger/debugLogger';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -393,7 +394,11 @@ export async function fetchData<T>(
     const { data } = await axios.request<T>(requestConfig);
     return data;
   } catch (e) {
-    console.error(e);
+    debugLogger.http.error(
+      `backgroundApi.fetchData ERROR: request path ${path} \n query ${JSON.stringify(
+        query,
+      )} \n  error ${e}`,
+    );
     return fallback;
   }
 }
