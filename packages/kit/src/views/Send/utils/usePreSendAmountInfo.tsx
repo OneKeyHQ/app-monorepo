@@ -10,7 +10,8 @@ import {
   FormatCurrencyTokenOfAccount,
   formatBalanceDisplay,
 } from '../../../components/Format';
-import { useManageTokensOfAccount, useSettings } from '../../../hooks';
+import { useSettings } from '../../../hooks';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 
 export function usePreSendAmountInfo({
   tokenInfo,
@@ -43,9 +44,9 @@ export function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [amountInputDecimals]);
 
-  const { getTokenPrice } = useManageTokensOfAccount({
-    accountId,
+  const tokenPrice = useSimpleTokenPriceValue({
     networkId,
+    contractAdress: tokenInfo?.tokenIdOnNetwork,
   });
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
@@ -60,13 +61,14 @@ export function usePreSendAmountInfo({
   const [text, setText] = useState(amount);
   const tokenPriceBN = useMemo(
     () =>
-      new BigNumber(
-        getTokenPrice({
-          token: tokenInfo,
-          fiatSymbol: selectedFiatMoneySymbol,
-        }),
-      ),
-    [getTokenPrice, selectedFiatMoneySymbol, tokenInfo],
+      // new BigNumber(
+      //   getTokenPrice({
+      //     token: tokenInfo,
+      //     fiatSymbol: selectedFiatMoneySymbol,
+      //   }),
+      // ),
+      new BigNumber(tokenPrice ?? 0),
+    [tokenPrice],
   );
   const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
   const getInputText = useCallback(

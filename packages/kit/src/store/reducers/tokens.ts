@@ -9,12 +9,19 @@ export type TokenChartData = [number, number][];
 export type PriceLoading = undefined;
 export type NoPriceData = null;
 export type TokenPrices = Record<TokenId, string | PriceLoading | NoPriceData>;
+export type SimpleTokenPrices = Record<
+  string,
+  number | PriceLoading | NoPriceData
+>;
+
 type NetworkId = string;
 type AccountId = string;
 type TokenId = string;
+type PriceId = string; // networkid-contractAddress
 
 export type TokenInitialState = {
   tokens: Record<NetworkId, Token[]>;
+  tokenPriceMap: Record<PriceId, SimpleTokenPrices>;
   tokensPrice: Partial<Record<NetworkId, TokenPrices>>;
   charts: Record<NetworkId, Record<TokenId, TokenChartData>>;
   accountTokens: Record<NetworkId, Record<TokenId, Token[]>>;
@@ -28,6 +35,7 @@ export type TokenInitialState = {
 
 const initialState: TokenInitialState = {
   tokens: {},
+  tokenPriceMap: {},
   nativeTokens: {},
   tokensPrice: {},
   accountTokens: {},
@@ -56,6 +64,10 @@ type TokenBalancePayloadAction = {
   activeAccountId?: string | null;
   activeNetworkId?: string | null;
   tokensBalance: Record<string, string | undefined>;
+};
+
+type TokenPrivePayloadAction = {
+  prices: Record<string, SimpleTokenPrices>;
 };
 
 export const tokensSlice = createSlice({
@@ -121,6 +133,21 @@ export const tokensSlice = createSlice({
       }
       const oldPrices = state.tokensPrice[activeNetworkId] || {};
       state.tokensPrice[activeNetworkId] = { ...oldPrices, ...prices };
+    },
+    setTokenPriceMap(state, action: PayloadAction<TokenPrivePayloadAction>) {
+      const { prices } = action.payload;
+      Object.keys(prices).forEach((key) => {
+        if (!state.tokenPriceMap) state.tokenPriceMap = {};
+        const cachePrice = state.tokenPriceMap[key] || {};
+        state.tokenPriceMap[key] = { ...cachePrice, ...prices[key] };
+      });
+      // check old data
+      if (Object.keys(state.tokensPrice).length) {
+        state.tokensPrice = {};
+      }
+      if (Object.keys(state.charts).length) {
+        state.charts = {};
+      }
     },
     setAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {
       const { activeAccountId, activeNetworkId, tokens } = action.payload;
@@ -197,6 +224,7 @@ export const {
   addNetworkTokens,
   setNetworkTokens,
   setPrices,
+  setTokenPriceMap,
   setCharts,
   setAccountTokens,
   setAccountTokensBalances,

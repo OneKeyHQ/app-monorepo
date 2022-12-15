@@ -12,7 +12,9 @@ import {
   isString,
   isUndefined,
 } from 'lodash';
+import qs from 'qs';
 import { batch } from 'react-redux';
+import axios, { Method } from 'axios';
 
 import {
   IMPL_ALGO,
@@ -26,10 +28,12 @@ import {
   IMPL_TRON,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AnyAction } from 'redux';
+import debugLogger from '../logger/debugLogger';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -371,4 +375,29 @@ export function buildReduxBatchAction(...actions: AnyAction[]) {
   }
 
   return singleAction;
+}
+
+export async function fetchData<T>(
+  path: string,
+  query: Record<string, unknown> = {},
+  fallback: T,
+  method: Method = 'GET',
+): Promise<T> {
+  const endpoint = getFiatEndpoint();
+  const isPost = method === 'POST' || method === 'post';
+  const apiUrl = `${endpoint}${path}${
+    !isPost ? `?${qs.stringify(query)}` : ''
+  }`;
+  try {
+    const postData = isPost ? query : undefined;
+    const requestConfig = { url: apiUrl, method, data: postData };
+    const { data } = await axios.request<T>(requestConfig);
+    return data;
+  } catch (e) {
+    debugLogger.http.error(
+      `backgroundApi.fetchData ERROR: request api ${apiUrl}`,
+      e,
+    );
+    return fallback;
+  }
 }

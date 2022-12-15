@@ -383,9 +383,8 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   async fetchSymbolPrice(networkId: string) {
-    const priceStr = await nft.getNFTSymbolPrice(networkId);
-    if (priceStr) {
-      const price = parseFloat(priceStr);
+    const price = await nft.getNFTSymbolPrice(networkId);
+    if (price) {
       const { dispatch } = this.backgroundApi;
       dispatch(
         setNFTSymbolPrice({
