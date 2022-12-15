@@ -90,7 +90,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_COSMOS]: AccountType.VARIANT,
   [IMPL_ADA]: AccountType.UTXO,
   [IMPL_SUI]: AccountType.SIMPLE,
-  [IMPL_FIL]: AccountType.SIMPLE,
+  [IMPL_FIL]: AccountType.VARIANT,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
