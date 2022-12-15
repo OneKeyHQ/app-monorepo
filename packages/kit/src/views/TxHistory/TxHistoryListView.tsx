@@ -68,7 +68,8 @@ function isHistoryTxChanged({
       newTx.id !== oldTx.id ||
       newTx.decodedTx.createdAt !== oldTx.decodedTx.createdAt ||
       newTx.decodedTx.updatedAt !== oldTx.decodedTx.updatedAt ||
-      newTx.decodedTx.status !== oldTx.decodedTx.status
+      newTx.decodedTx.status !== oldTx.decodedTx.status ||
+      newTx.decodedTx.totalFeeInNative !== oldTx.decodedTx.totalFeeInNative
     ) {
       return true;
     }

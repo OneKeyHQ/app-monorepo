@@ -717,4 +717,8 @@ export default class VaultBtcFork extends VaultBase {
   ): Promise<Array<PartialTokenInfo | undefined>> {
     throw new NotImplemented();
   }
+
+  override getPrivateKeyByCredential(credential: string) {
+    return bs58check.decode(credential);
+  }
 }

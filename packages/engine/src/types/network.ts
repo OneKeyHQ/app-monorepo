@@ -40,6 +40,7 @@ type AccountNameInfo = {
   prefix: string;
   category: string;
   label?: string;
+  addressPrefix?: string;
 };
 
 type BlockExplorer = {

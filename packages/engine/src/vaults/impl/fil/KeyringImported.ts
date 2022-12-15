@@ -1,6 +1,7 @@
+import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
-import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
@@ -14,7 +15,7 @@ export class KeyringImported extends KeyringImportedBase {
     const selectedAddress = dbAccount.addresses[this.networkId];
 
     if (addresses.length !== 1) {
-      throw new OneKeyInternalError('CFX signers number should be 1.');
+      throw new OneKeyInternalError('FIL signers number should be 1.');
     } else if (addresses[0] !== selectedAddress) {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
@@ -28,26 +29,29 @@ export class KeyringImported extends KeyringImportedBase {
     params: IPrepareImportedAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { name, privateKey } = params;
+    const network = await this.getNetwork();
     if (privateKey.length !== 32) {
       throw new OneKeyInternalError('Invalid private key.');
     }
-    const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
-    // TODO: remove addressFromPub & addressToBase from proxy.ts
-    const addressOnNetwork = await this.engine.providerManager.addressFromPub(
-      this.networkId,
-      pub,
-    );
-    const baseAddress = await this.vault.addressToBase(addressOnNetwork);
+    const pub = secp256k1.publicFromPrivate(privateKey);
+    const pubUncompressed = secp256k1.transformPublicKey(pub);
+    const pubHex = pub.toString('hex');
+
+    const address = newSecp256k1Address(
+      pubUncompressed,
+      network.isTestnet ? CoinType.TEST : CoinType.MAIN,
+    ).toString();
+
     return Promise.resolve([
       {
-        id: `imported--${COIN_TYPE}--${pub}`,
+        id: `imported--${COIN_TYPE}--${pubHex}`,
         name: name || '',
         type: AccountType.VARIANT,
         path: '',
         coinType: COIN_TYPE,
-        pub,
-        address: baseAddress,
-        addresses: { [this.networkId]: addressOnNetwork },
+        pub: pubHex,
+        address,
+        addresses: { [this.networkId]: address },
       },
     ]);
   }

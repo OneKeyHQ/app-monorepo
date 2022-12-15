@@ -158,13 +158,6 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
-  private async _correctDbAccountAddress(dbAccount: DBAccount) {
-    dbAccount.address = await this.engine.providerManager.selectAccountAddress(
-      this.networkId,
-      dbAccount,
-    );
-  }
-
   override async getEthersProvider() {
     const network = await this.getNetwork();
     const rpcUrl = network.rpcURL;
