@@ -1,12 +1,9 @@
-const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
-const glob = require('glob');
 const { build } = require('esbuild');
 const pkg = require('../package.json');
 
 const electronSource = path.join(__dirname, '..', 'src-electron');
-const isDev = process.env.NODE_ENV !== 'production';
 
 const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
@@ -20,7 +17,7 @@ build({
   ),
   platform: 'node',
   bundle: true,
-  target: 'node12.18.2',
+  target: 'node16',
   external: Object.keys({
     ...pkg.dependencies,
     ...pkg.devDependencies,

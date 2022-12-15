@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { SelectGroupItem, SelectItem } from '@onekeyhq/components/src/Select';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';

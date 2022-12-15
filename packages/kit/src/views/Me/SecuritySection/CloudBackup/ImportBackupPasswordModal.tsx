@@ -14,12 +14,12 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import CloudLock from '@onekeyhq/kit/assets/3d_cloud_lock.png';
-import { RestoreResult } from '@onekeyhq/kit/src/background/services/ServiceCloudBackup.types';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import {
   ImportBackupPasswordRoutes,
   ImportBackupPasswordRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ImportBackupPassword';
+import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 
 type RouteProps = RouteProp<
   ImportBackupPasswordRoutesParams,

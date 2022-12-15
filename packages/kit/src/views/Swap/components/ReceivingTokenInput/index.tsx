@@ -208,7 +208,7 @@ const TokenInputReceivingAddress: FC = () => {
             hasArrow
             label={label ?? ''}
             bg="surface-neutral-default"
-            _text={{ color: 'text-on-primary', fontSize: '14px' }}
+            _text={{ color: 'text-default', fontSize: '14px' }}
             px="16px"
             py="8px"
             borderRadius="12"

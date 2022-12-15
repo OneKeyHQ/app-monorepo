@@ -11,6 +11,7 @@ import {
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import * as algosdk from 'algosdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
@@ -21,19 +22,15 @@ import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
+import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
+import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
   backgroundMethod,
-} from '@onekeyhq/kit/src/background/decorators';
-import { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
-import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
-import { getDeviceType, getDeviceUUID } from '@onekeyhq/kit/src/utils/hardware';
-import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
-import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
-import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   COINTYPE_BTC,
   IMPL_ADA,
@@ -47,7 +44,12 @@ import {
   IMPL_SOL,
   IMPL_TBTC,
   getSupportedImpls,
-} from './constants';
+} from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import { DbApi } from './dbs';
 import {
   DBAPI,
@@ -92,7 +94,6 @@ import {
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { syncLatestNetworkList } from './presets/network';
-import { OnekeyNetwork } from './presets/networkIds';
 import { ChartQueryParams, PriceController } from './priceController';
 import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
 import {
@@ -156,6 +157,11 @@ import type { ITransferInfo } from './vaults/types';
 const updateTokenCache: {
   [networkId: string]: boolean;
 } = {};
+
+if (platformEnv.isExtensionUi) {
+  debugger;
+  throw new Error('engine/index is not allowed imported from ui');
+}
 
 @backgroundClass()
 class Engine {

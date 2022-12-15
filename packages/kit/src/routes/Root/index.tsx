@@ -18,20 +18,27 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
-import { RouteOnboarding } from '@onekeyhq/kit/src/views/Onboarding/routes/RouteOnboarding';
-import OnLanding from '@onekeyhq/kit/src/views/OnLanding';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import ModalStackNavigator from '../Modal';
+import { createLazyComponent } from '../../utils/createLazyComponent';
 import { buildModalOpenAnimationOptions } from '../Modal/buildModalStackNavigatorOptions';
 import {
   UpdateFeatureModalRoutes,
   UpdateFeatureRoutesParams,
 } from '../Modal/UpdateFeature';
-import StackScreen from '../Stack';
 import { ModalRoutes, ModalScreenProps, RootRoutes } from '../types';
 
-import AccountRootLanding from './AccountRootLanding';
+const ModalStackNavigator = createLazyComponent(() => import('../Modal'));
+const OnLanding = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/OnLanding'),
+);
+const StackScreen = createLazyComponent(() => import('../Stack'));
+const AccountRootLanding = createLazyComponent(
+  () => import('./AccountRootLanding'),
+);
+const RouteOnboarding = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Onboarding/routes/RouteOnboarding'),
+);
 
 const RootNativeStack = createNativeStackNavigator();
 const RootStack = createStackNavigator();

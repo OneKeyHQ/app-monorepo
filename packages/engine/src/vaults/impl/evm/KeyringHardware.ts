@@ -6,9 +6,12 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import {
+  COINTYPE_ETH as COIN_TYPE,
+  IMPL_EVM,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_ETH as COIN_TYPE, IMPL_EVM } from '../../../constants';
 import * as engineUtils from '../../../engineUtils';
 import { OneKeyHardwareError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';

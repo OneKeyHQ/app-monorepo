@@ -5,9 +5,12 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import bs58check from 'bs58check';
 
+import {
+  COINTYPE_BCH,
+  COINTYPE_DOGE,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { COINTYPE_BCH, COINTYPE_DOGE } from '../../../constants';
 import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';

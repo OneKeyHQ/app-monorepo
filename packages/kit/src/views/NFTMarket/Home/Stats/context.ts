@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
-import {
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type {
   NFTMarketCapCollection,
   NFTMarketRanking,
 } from '@onekeyhq/engine/src/types/nft';

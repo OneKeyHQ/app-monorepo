@@ -2,7 +2,7 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { Toast } from '@onekeyhq/components/src/Toast/useToast';
 import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 

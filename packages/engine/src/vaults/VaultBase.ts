@@ -14,10 +14,10 @@ import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HISTORY_CONSTS } from '../constants';
 import simpleDb from '../dbs/simple/simpleDb';
 import {
   InvalidAddress,
@@ -62,6 +62,11 @@ export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
 };
 export type IKeyringMapKey = WalletType;
+
+if (platformEnv.isExtensionUi) {
+  debugger;
+  throw new Error('engine/VaultBase is not allowed imported from ui');
+}
 
 export abstract class VaultBaseChainOnly extends VaultContext {
   abstract settings: IVaultSettings;

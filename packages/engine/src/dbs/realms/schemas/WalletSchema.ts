@@ -2,7 +2,7 @@ import { AccountSchema, DeviceSchema } from '.';
 
 import Realm from 'realm';
 
-import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 
 import { Wallet, WalletType } from '../../../types/wallet';
 

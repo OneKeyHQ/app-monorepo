@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
@@ -59,4 +57,4 @@ const ManagerAccountModalStack = () => {
   );
 };
 
-export { ManagerAccountModalStack };
+export default ManagerAccountModalStack;

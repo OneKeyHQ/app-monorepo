@@ -1,7 +1,7 @@
 import memoizee from 'memoizee';
 
-import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/kit/src/config';
 // import store from '@onekeyhq/kit/src/store';
+import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

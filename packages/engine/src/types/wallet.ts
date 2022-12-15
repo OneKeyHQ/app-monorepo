@@ -1,6 +1,7 @@
-import { Avatar } from '@onekeyhq/kit/src/utils/emojiUtils';
+// safe import
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 
-import { HasName } from './base';
+import type { HasName } from './base';
 
 const WALLET_TYPE_HD = 'hd';
 const WALLET_TYPE_HW = 'hw';

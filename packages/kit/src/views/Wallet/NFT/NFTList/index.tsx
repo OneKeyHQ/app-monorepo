@@ -28,10 +28,10 @@ import {
   ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../config';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { WalletHomeTabEnum } from '../../type';
 
