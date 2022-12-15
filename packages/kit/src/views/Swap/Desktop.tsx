@@ -1,4 +1,4 @@
-import React, { FC, useLayoutEffect} from 'react';
+import React, { FC, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 

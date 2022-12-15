@@ -9,9 +9,10 @@ import {
   Button,
   Center,
   HStack,
-  Icon,
   IconButton,
+  LottieView,
   Typography,
+  useTheme,
   useThemeValue,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -115,10 +116,15 @@ const HistoryButton = () => {
 };
 
 const RefreshButton = () => {
+  const { themeVariant } = useTheme();
+  const lottieRef = useRef<any>();
   const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const onRefresh = useCallback(() => {
     onSwapQuote();
+    console.log('lottieRef.current?.play', lottieRef.current);
+    lottieRef.current?.play?.();
+
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: -1,
@@ -141,7 +147,20 @@ const RefreshButton = () => {
           ],
         }}
       >
-        <Icon name="ArrowPathMini" size={20} />
+        <Box w="5" h="5">
+          <LottieView
+            ref={lottieRef}
+            loop={false}
+            autoplay={false}
+            autoPlay={false}
+            width={5}
+            source={
+              themeVariant === 'light'
+                ? require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_light.json')
+                : require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_dark.json')
+            }
+          />
+        </Box>
       </Animated.View>
     </Button>
   );
