@@ -12,7 +12,6 @@ import { debounce, get } from 'lodash';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { fixAddressCase, toBigIntHex } from '@onekeyhq/engine/src/engineUtils';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -27,6 +26,10 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  fixAddressCase,
+  toBigIntHex,
+} from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type {
   AddEthereumChainParameter,

@@ -10,9 +10,9 @@ import memoizee from 'memoizee';
 import TronWeb from 'tronweb';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { toBigIntHex } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { toBigIntHex } from '../../../engineUtils';
 import {
   InsufficientBalance,
   InvalidAddress,

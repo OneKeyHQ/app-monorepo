@@ -30,7 +30,7 @@ const ERC1155 = [
 const BATCH_TRANSFER = [
   'function disperseEther(address[] recipients, uint256[] values)',
   'function disperseToken(address token, address[] recipients, uint256[] values)',
-  'function disperseNFT(address recipient, address[] tokens, uint256[] tokenIds, uint256[] amounts, bytes data)',
+  'function disperseNFT(address recipient, address[] tokens, uint256[] tokenIds, uint256[] amounts)',
 ];
 
 export enum Erc721MethodSelectors {
@@ -47,7 +47,7 @@ export enum Erc1155MethodSelectors {
 export enum BatchTransferSelectors {
   disperseEther = '0xe63d38ed',
   disperseToken = '0xc73a2d60',
-  disperseNFT = '0x07593b93',
+  disperseNFT = '0x39039af6',
   disperseTokenSimple = '0x51ba162c',
 }
 

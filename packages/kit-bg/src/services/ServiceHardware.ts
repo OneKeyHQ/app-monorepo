@@ -17,7 +17,6 @@ import {
 } from '@onekeyfe/hd-core';
 import { get } from 'lodash';
 
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { DevicePayload } from '@onekeyhq/engine/src/types/device';
 import {
@@ -45,6 +44,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';

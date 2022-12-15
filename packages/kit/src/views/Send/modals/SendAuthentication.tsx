@@ -12,12 +12,12 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Spinner, useToast } from '@onekeyhq/components';
-import { isExternalAccount } from '@onekeyhq/engine/src/engineUtils';
 import {
   OneKeyError,
   OneKeyErrorClassNames,
 } from '@onekeyhq/engine/src/errors';
 import type { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
