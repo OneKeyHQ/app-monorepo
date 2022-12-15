@@ -5,7 +5,14 @@ import { BlurView } from 'expo-blur';
 import { Column } from 'native-base';
 import { View } from 'react-native';
 
-import { Box, Text, ZStack } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  HStack,
+  Text,
+  ZStack,
+  useTheme,
+} from '@onekeyhq/components';
 import { NFTNPL } from '@onekeyhq/engine/src/types/nft';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
@@ -15,79 +22,66 @@ import { PriceString } from '../../PriceText';
 type Props = {
   data: NFTNPL;
   scale: number;
+  opacity: number;
 };
-export const NPLCard: FC<Props> = ({ data, scale }) => {
+export const NPLCard: FC<Props> = ({ data, scale, opacity }) => {
   const { entry, exit } = data;
   const profit = (exit?.tradePrice ?? 0) - (entry?.tradePrice ?? 0);
   const { formatDistanceStrict } = useFormatDate();
+  const { themeVariant } = useTheme();
 
   return (
     <View
       style={{
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 12,
-        opacity: 0.9,
+        opacity: opacity || 1,
         width: 358,
-        height: 72,
         transform: [{ scale }],
         overflow: 'hidden',
       }}
     >
       {data?.asset && (
-        <NFTListImage
-          opacity={0.9}
-          asset={data?.asset}
-          size={358}
-          borderRadius="10px"
-        />
+        <Center position="absolute" top={0} right={0} bottom={0} left={0}>
+          <NFTListImage asset={data?.asset} size={358} />
+        </Center>
       )}
       <BlurView
+        tint={themeVariant === 'light' ? 'light' : 'dark'}
+        intensity={100}
         style={{
-          width: 358,
-          height: 72,
-          position: 'absolute',
+          flexDirection: 'row',
           paddingHorizontal: 16,
           paddingVertical: 12,
-          opacity: 0.9,
         }}
       >
-        <Box flexDirection="row">
-          <Box flexDirection="row" flex={1} alignItems="center">
-            {data?.asset && (
-              <NFTListImage asset={data?.asset} size={40} borderRadius="10px" />
-            )}
-            <Column ml="12px" flex={1}>
-              <Text numberOfLines={1} typography="Body1Strong">
-                {data.contractName}
-              </Text>
-              <Text numberOfLines={1} typography="Body2" color="text-subdued">
-                {data.tokenId ? `#${data.tokenId}` : '–'}
-              </Text>
-            </Column>
-          </Box>
-          <Column flex={1}>
-            <Text
-              numberOfLines={1}
-              typography="Body1Strong"
-              textAlign="right"
-              color={profit > 0 ? 'text-success' : 'text-critical'}
-            >
-              {PriceString({
-                price: new BigNumber(profit).decimalPlaces(3).toString(),
-                symbol: data.exit.tradeSymbol,
-              })}
+        <HStack alignItems="center" space={3} flex={1}>
+          {data?.asset && (
+            <NFTListImage asset={data?.asset} size={40} borderRadius="12px" />
+          )}
+          <Column flex={1} space={1}>
+            <Text isTruncated typography="Body1Strong">
+              {data.contractName}
             </Text>
-            <Text
-              numberOfLines={1}
-              typography="Body2"
-              textAlign="right"
-              color="text-subdued"
-            >
-              {formatDistanceStrict(exit.timestamp, entry.timestamp)}
+            <Text isTruncated typography="Body2" color="text-subdued">
+              {data.tokenId ? `#${data.tokenId}` : '–'}
             </Text>
           </Column>
-        </Box>
+        </HStack>
+        <Column>
+          <Text
+            typography="Body1Strong"
+            textAlign="right"
+            color={profit > 0 ? 'text-success' : 'text-critical'}
+          >
+            {PriceString({
+              price: new BigNumber(profit).decimalPlaces(3).toString(),
+              symbol: data.exit.tradeSymbol,
+            })}
+          </Text>
+          <Text typography="Body2" textAlign="right" color="text-subdued">
+            {formatDistanceStrict(exit.timestamp, entry.timestamp)}
+          </Text>
+        </Column>
       </BlurView>
     </View>
   );

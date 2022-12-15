@@ -2,6 +2,7 @@ import React, { useCallback, useRef } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
@@ -41,6 +42,7 @@ const Share = () => {
     startTime,
     endTime,
   } = route.params;
+  const intl = useIntl();
   const onCapture = useCallback(async () => {
     const uri = await ref.current?.capture?.();
     if (uri) {
@@ -94,7 +96,7 @@ const Share = () => {
 
   return (
     <Modal
-      header="Share"
+      header={intl.formatMessage({ id: 'action__share' })}
       hidePrimaryAction={platformEnv.isWeb}
       primaryActionTranslationId="action__share"
       hideSecondaryAction
@@ -108,12 +110,12 @@ const Share = () => {
             borderColor="border-subdued"
             bg="surface-subdued"
           >
-            <Box px={{ base: 4, md: 6 }} py={6}>
+            <Box p={6}>
               <Box flexDirection="row" justifyContent="space-between" mb="36px">
-                <Text typography="Caption" color="text-subdued">
+                <Text typography="CaptionStrong" color="text-subdued">
                   {nameOrAddress}
                 </Text>
-                <Text typography="CaptionStrong" color="text-subdued">
+                <Text typography="Caption" color="text-subdued">
                   {date}
                 </Text>
               </Box>
@@ -123,7 +125,7 @@ const Share = () => {
                 height="102px"
               />
               <Text mt="40px" typography="Body1" color="text-subdued">
-                Profit
+                {intl.formatMessage({ id: 'content__profit' })}
               </Text>
 
               {totalProfit && (
@@ -143,20 +145,20 @@ const Share = () => {
 
               <Box flexDirection="row" mt="8px">
                 <Box flexDirection="row" mr="24px" alignItems="center">
-                  <Text mr="8px" typography="Body1Strong" color="text-success">
+                  <Text mr="6px" typography="Body1Strong" color="text-success">
                     {win}
                   </Text>
                   <Text typography="Body1" color="text-subdued">
-                    Winning Flips
+                    {intl.formatMessage({ id: 'content__winning_flips' })}
                   </Text>
                 </Box>
 
                 <Box flexDirection="row" alignItems="center">
-                  <Text mr="8px" typography="Body1Strong" color="text-critical">
+                  <Text mr="6px" typography="Body1Strong" color="text-critical">
                     {lose}
                   </Text>
                   <Text typography="Body1" color="text-subdued">
-                    Losing Flips
+                    {intl.formatMessage({ id: 'content__losing_flips' })}
                   </Text>
                 </Box>
               </Box>
