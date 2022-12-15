@@ -18,12 +18,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import {
-  Account,
-  AccountType,
-  DBAccount,
-  DBUTXOAccount,
-} from '../../../types/account';
+import { Account, AccountType, DBUTXOAccount } from '../../../types/account';
 import { Token } from '../../../types/token';
 import {
   IApproveInfo,
@@ -42,7 +37,6 @@ import {
   ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
-  IUtxoAddressInfo,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -417,6 +411,7 @@ export default class Vault extends VaultBase {
       transferInfo,
       tx,
       changeAddress,
+      signOnly: false,
     };
   }
 
@@ -707,4 +702,52 @@ export default class Vault extends VaultBase {
       promise: true,
     },
   );
+
+  // Dapp Function
+
+  async getBalanceForDapp(address: string) {
+    const [balance] = await this.getBalances([{ address }]);
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getBalance(balance ?? new BigNumber(0));
+  }
+
+  async getUtxosForDapp(amount?: string) {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const client = await this.getClient();
+    const utxos = await client.getUTXOs(dbAccount);
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getUtxos(dbAccount.address, utxos, amount);
+  }
+
+  async getAccountAddressForDapp() {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getAddresses([dbAccount.address]);
+  }
+
+  async getStakeAddressForDapp() {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const stakeAddress = await this.getStakeAddress(dbAccount.address);
+    const CardanoApi = await getCardanoApi();
+    return CardanoApi.dAppUtils.getAddresses([stakeAddress]);
+  }
+
+  async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxADA> {
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const changeAddress = getChangeAddress(dbAccount);
+    const client = await this.getClient();
+    const stakeAddress = await this.getStakeAddress(dbAccount.address);
+    const addresses = await client.getAssociatedAddresses(stakeAddress);
+    const utxos = await client.getUTXOs(dbAccount);
+    const CardanoApi = await getCardanoApi();
+    const encodeTx = await CardanoApi.dAppUtils.convertCborTxToEncodeTx(
+      txHex,
+      utxos,
+      addresses,
+    );
+    return {
+      ...encodeTx,
+      changeAddress,
+    };
+  }
 }
