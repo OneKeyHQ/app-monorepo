@@ -12,12 +12,8 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
-import * as algosdk from 'algosdk';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
-import { baseDecode } from 'borsh';
-import bs58 from 'bs58';
-import bs58check from 'bs58check';
 import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
@@ -33,16 +29,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   COINTYPE_BTC,
-  IMPL_ADA,
-  IMPL_ALGO,
-  IMPL_BCH,
-  IMPL_BTC,
-  IMPL_DOGE,
   IMPL_EVM,
-  IMPL_LTC,
-  IMPL_NEAR,
-  IMPL_SOL,
-  IMPL_TBTC,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -132,7 +119,6 @@ import {
 } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
-import { decodePrivateKeyByXprv } from './vaults/impl/ada/helper/bip32';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import {
@@ -776,6 +762,7 @@ class Engine {
       '144': OnekeyNetwork.xrp,
       '118': OnekeyNetwork.cosmoshub,
       '1815': OnekeyNetwork.ada,
+      '461': OnekeyNetwork.fil,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -961,10 +948,7 @@ class Engine {
         if (a.type === AccountType.VARIANT) {
           let address = (a as DBVariantAccount).addresses[networkId];
           if (!address) {
-            address = await this.providerManager.addressFromBase(
-              networkId,
-              a.address,
-            );
+            address = await vault.addressFromBase(a.address);
           }
           return address;
         }
@@ -981,10 +965,7 @@ class Engine {
         if (a.type === AccountType.VARIANT) {
           let address = (a as DBVariantAccount).addresses[networkId];
           if (!address) {
-            address = await this.providerManager.addressFromBase(
-              networkId,
-              a.address,
-            );
+            address = await vault.addressFromBase(a.address);
           }
           return { address };
         }
@@ -1084,47 +1065,10 @@ class Engine {
     name?: string,
   ): Promise<Account> {
     await this.validator.validatePasswordStrength(password);
-    const { impl } = parseNetworkId(networkId);
+    const vault = await this.getWalletOnlyVault(networkId, 'imported');
     let privateKey: Buffer | undefined;
-    // TODO: use vault to extract private key.
     try {
-      switch (impl) {
-        case IMPL_BTC:
-        case IMPL_TBTC:
-        case IMPL_DOGE:
-        case IMPL_LTC:
-        case IMPL_BCH:
-          privateKey = bs58check.decode(credential);
-          break;
-        case IMPL_NEAR: {
-          const [prefix, encoded] = credential.split(':');
-          const decodedPrivateKey = Buffer.from(baseDecode(encoded));
-          if (prefix === 'ed25519' && decodedPrivateKey.length === 64) {
-            privateKey = decodedPrivateKey.slice(0, 32);
-          }
-          break;
-        }
-        case IMPL_SOL: {
-          const decodedPrivateKey = bs58.decode(credential);
-          if (decodedPrivateKey.length === 64) {
-            privateKey = decodedPrivateKey.slice(0, 32);
-          }
-          break;
-        }
-        case IMPL_ALGO: {
-          privateKey = Buffer.from(algosdk.seedFromMnemonic(credential));
-          break;
-        }
-        case IMPL_ADA: {
-          privateKey = decodePrivateKeyByXprv(credential);
-          break;
-        }
-        default:
-          privateKey = Buffer.from(
-            credential.startsWith('0x') ? credential.slice(2) : credential,
-            'hex',
-          );
-      }
+      privateKey = vault.getPrivateKeyByCredential(credential);
     } catch (e) {
       console.error(e);
     }
@@ -1133,7 +1077,6 @@ class Engine {
     }
 
     const encryptedPrivateKey = encrypt(password, privateKey);
-    const vault = await this.getWalletOnlyVault(networkId, 'imported');
     const [dbAccount] = await vault.keyring.prepareAccounts({
       privateKey,
       name: name || '',

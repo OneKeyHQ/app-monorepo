@@ -1,6 +1,5 @@
 import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
 import {
   MARKET_FAVORITES_CATEGORYID,
@@ -32,9 +31,9 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import ServiceBase from './ServiceBase';
-import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 @backgroundClass()
 export default class ServiceMarket extends ServiceBase {

@@ -8,6 +8,7 @@ import {
   COINTYPE_COSMOS,
   COINTYPE_DOGE,
   COINTYPE_ETH,
+  COINTYPE_FIL,
   COINTYPE_LTC,
   COINTYPE_NEAR,
   COINTYPE_SOL,
@@ -25,6 +26,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_FIL,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -63,6 +65,7 @@ const implToCoinTypes: Partial<Record<string, string>> = {
   [IMPL_COSMOS]: COINTYPE_COSMOS,
   [IMPL_ADA]: COINTYPE_ADA,
   [IMPL_SUI]: COINTYPE_SUI,
+  [IMPL_FIL]: COINTYPE_FIL,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -87,6 +90,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_COSMOS]: AccountType.VARIANT,
   [IMPL_ADA]: AccountType.UTXO,
   [IMPL_SUI]: AccountType.SIMPLE,
+  [IMPL_FIL]: AccountType.VARIANT,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -111,6 +115,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_COSMOS]: Curve.SECP256K1,
   [IMPL_ADA]: Curve.ED25519,
   [IMPL_SUI]: Curve.ED25519,
+  [IMPL_FIL]: Curve.SECP256K1,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -230,6 +235,9 @@ const defaultAccountNameInfo: Record<
   },
   [IMPL_SUI]: {
     default: { prefix: 'SUI', category: `44'/${COINTYPE_SUI}'` },
+  },
+  [IMPL_FIL]: {
+    default: { prefix: 'FIL', category: `44'/${COINTYPE_FIL}'` },
   },
 };
 

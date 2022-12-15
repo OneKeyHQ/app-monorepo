@@ -1,4 +1,11 @@
-import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  CoinType,
+  decode,
+  encode,
+  validateAddressString,
+} from '@glif/filecoin-address';
+
+import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { InvalidAddress } from '../../../errors';
 import { AccountType, DBVariantAccount } from '../../../types/account';
@@ -10,14 +17,20 @@ export class KeyringWatching extends KeyringWatchingBase {
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { name, target, accountIdPrefix } = params;
-    const { normalizedAddress, isValid } =
-      await this.engine.providerManager.verifyAddress(this.networkId, target);
+    const network = await this.getNetwork();
+    const isValid = validateAddressString(target);
+    const normalizedAddress = isValid ? target.toLowerCase() : undefined;
+
     if (!isValid || typeof normalizedAddress === 'undefined') {
       throw new InvalidAddress();
     }
 
-    // TODO: remove addressToBase from proxy.ts
-    const address = await this.vault.addressToBase(normalizedAddress);
+    const addressObj = decode(normalizedAddress);
+    const address = encode(
+      network.isTestnet ? CoinType.TEST : CoinType.MAIN,
+      addressObj,
+    );
+
     return [
       {
         id: `${accountIdPrefix}--${COIN_TYPE}--${address}`,
@@ -27,7 +40,7 @@ export class KeyringWatching extends KeyringWatchingBase {
         coinType: COIN_TYPE,
         pub: '', // TODO: only address is supported for now.
         address,
-        addresses: { [this.networkId]: normalizedAddress },
+        addresses: { [this.networkId]: address },
       },
     ];
   }

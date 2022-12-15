@@ -57,6 +57,11 @@ const TxHistoryDetailModal: FC = () => {
         accountId,
         items: [historyTx],
       });
+      backgroundApiProxy.serviceHistory.updateHistoryFee({
+        networkId,
+        accountId,
+        tx: historyTx,
+      });
     }, 1500);
     return () => {
       clearTimeout(timer);

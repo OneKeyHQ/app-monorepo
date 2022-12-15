@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { cloneDeep, isNil, isNumber } from 'lodash';
+import { cloneDeep, isEmpty, isNil, isNumber } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -158,6 +158,32 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountId,
         items: itemsToUpdate,
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async updateHistoryFee(props: {
+    networkId: string;
+    accountId: string;
+    tx: IHistoryTx;
+  }) {
+    const { networkId, accountId, tx } = props;
+    const { engine } = this.backgroundApi;
+
+    if (tx.decodedTx.totalFeeInNative) return;
+
+    const vault = await engine.getVault({ networkId, accountId });
+    const totalFeeInNative = await vault.getTransactionFeeInNative(
+      tx.decodedTx.txid,
+    );
+    if (!isEmpty(totalFeeInNative)) {
+      const newTx = cloneDeep(tx);
+      newTx.decodedTx.totalFeeInNative = totalFeeInNative;
+      this.saveHistoryTx({
+        accountId,
+        networkId,
+        items: [newTx],
       });
     }
   }

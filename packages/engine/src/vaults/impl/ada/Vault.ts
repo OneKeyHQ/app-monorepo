@@ -41,7 +41,10 @@ import {
 import { VaultBase } from '../../VaultBase';
 
 import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
-import { generateExportedCredential } from './helper/bip32';
+import {
+  decodePrivateKeyByXprv,
+  generateExportedCredential,
+} from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
 import Client from './helper/client';
 import { getCardanoApi } from './helper/sdk';
@@ -684,6 +687,10 @@ export default class Vault extends VaultBase {
         };
       }),
     );
+  }
+
+  override getPrivateKeyByCredential(credential: string) {
+    return decodePrivateKeyByXprv(credential);
   }
 
   private getStakeAddress = memoizee(

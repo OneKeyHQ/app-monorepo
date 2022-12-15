@@ -22,6 +22,7 @@ import type { IEncodedTxCosmos } from './impl/cosmos/type';
 import type { EVMDecodedItem } from './impl/evm/decoder/types';
 import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
+import type { IEncodedTxFil } from './impl/fil/types';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -153,7 +154,8 @@ export type IEncodedTx =
   | IEncodedTxXrp
   | IEncodedTxCosmos
   | IEncodedTxADA
-  | IEncodedTxSUI;
+  | IEncodedTxSUI
+  | IEncodedTxFil;
 
 export type INativeTx =
   | INativeTxEvm

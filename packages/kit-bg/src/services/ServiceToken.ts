@@ -276,10 +276,7 @@ export default class ServiceToken extends ServiceBase {
               networkId
             ];
             if (!address) {
-              address = await engine.providerManager.addressFromBase(
-                networkId,
-                a.address,
-              );
+              address = await vault.addressFromBase(a.address);
             }
             return { address };
           }
