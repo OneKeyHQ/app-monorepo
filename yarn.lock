@@ -1915,10 +1915,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@emurgo/cardano-message-signing-asmjs@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@emurgo/cardano-message-signing-asmjs@npm:1.0.1"
+  checksum: 2cdb4c2fbf78632b6256e2300dab6cab0bdbae7c9e80d3f619e1f09fc53b3ec7ab659ae4c9094dac3e1cbdb756d0bc0d2927f4619b34b1766e97a7d198aa9e3a
+  languageName: node
+  linkType: hard
+
 "@emurgo/cardano-message-signing-browser@npm:^1.0.1":
   version: 1.0.1
   resolution: "@emurgo/cardano-message-signing-browser@npm:1.0.1"
   checksum: 4c92e671dfdbce2e677d04f159f4cc920e44509cfa5feb4d362824822e72a90f0344aab28103f00594602c21830d88e4c400f64244f36d048cb3b1c4823c5ac0
+  languageName: node
+  linkType: hard
+
+"@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0":
+  version: 11.1.0
+  resolution: "@emurgo/cardano-serialization-lib-asmjs@npm:11.1.0"
+  checksum: 17f1646b3d70c36670c9adefbc007d9fd9ff1bbfdf1ca7bd971534c46d7d5fc075c423cb89a0dc10b07d8acd97a60a351c8ad7b7e54f8a135fdb0c8860ccf787
   languageName: node
   linkType: hard
 
@@ -5220,6 +5234,11 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": 1.1.12
     "@onekeyfe/cross-inpage-provider-types": 1.1.12
     "@onekeyfe/extension-bridge-hosted": 1.1.12
+    "@onekeyfe/hd-ble-sdk": 0.2.10
+    "@onekeyfe/hd-core": 0.2.10
+    "@onekeyfe/hd-shared": 0.2.10
+    "@onekeyfe/hd-transport": 0.2.10
+    "@onekeyfe/hd-web-sdk": 0.2.10
     "@onekeyfe/inpage-providers-hub": 1.1.12
     "@onekeyfe/onekey-aptos-provider": 1.1.12
     "@onekeyfe/onekey-cross-webview": 1.1.12
@@ -5401,6 +5420,7 @@ __metadata:
   dependencies:
     "@emotion/react": ^11.7.1
     "@emotion/styled": ^11.6.0
+    "@gorhom/bottom-sheet": ^4
     "@mui/material": ^5.2.8
     "@types/qrcode": ^1.4.2
     "@types/styled-components": ^5.1.15
@@ -5491,11 +5511,13 @@ __metadata:
     buffer: ^6.0.3
     camelcase-keys: ^7.0.2
     cardano-coin-selection: 1.1.2
+    cardano-coin-selection-asmjs: 1.1.2
     cardano-crypto.js: ^6.1.1
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
     crypto-browserify: ^3.12.0
     elliptic: ^6.5.4
+    eth-chains: ^1.0.0
     fake-indexeddb: ^3.1.7
     js-conflux-sdk: ^2.1.6
     natsort: ^2.0.3
@@ -5527,17 +5549,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/kit@*, @onekeyhq/kit@workspace:packages/kit":
+"@onekeyhq/kit-bg@workspace:packages/kit-bg":
   version: 0.0.0-use.local
-  resolution: "@onekeyhq/kit@workspace:packages/kit"
+  resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
     "@0xsequence/multicall": ^0.36.8
-    "@gorhom/bottom-sheet": ^4
-    "@onekeyfe/hd-ble-sdk": 0.2.10
-    "@onekeyfe/hd-core": 0.2.10
-    "@onekeyfe/hd-shared": 0.2.10
-    "@onekeyfe/hd-transport": 0.2.10
-    "@onekeyfe/hd-web-sdk": 0.2.10
     "@onekeyhq/components": "*"
     "@openzeppelin/contracts": ^4.5.0
     "@reduxjs/toolkit": ^1.6.2
@@ -5548,7 +5564,27 @@ __metadata:
     "@types/url-parse": ^1.4.8
     date-fns: ^2.27.0
     dotbit: ^0.4.1
-    eth-chains: ^1.0.0
+    react-native-restart: 0.0.24
+    react-native-uuid: ^2.0.1
+    react-redux: ^7.2.6
+    rimraf: ^3.0.2
+    semver: ^7.3.7
+    socket.io-client: ^4.5.2
+  languageName: unknown
+  linkType: soft
+
+"@onekeyhq/kit@*, @onekeyhq/kit@workspace:packages/kit":
+  version: 0.0.0-use.local
+  resolution: "@onekeyhq/kit@workspace:packages/kit"
+  dependencies:
+    "@onekeyhq/components": "*"
+    "@reduxjs/toolkit": ^1.6.2
+    "@types/d3-scale": ^4.0.2
+    "@types/d3-shape": ^3.1.0
+    "@types/redux-logger": ^3.0.9
+    "@types/socket.io-client": ^3.0.0
+    "@types/url-parse": ^1.4.8
+    date-fns: ^2.27.0
     expo: ^45.0.5
     expo-application: ^4.1.0
     expo-av: ^11.2.3
@@ -11901,6 +11937,18 @@ __metadata:
   version: 0.2.5
   resolution: "capability@npm:0.2.5"
   checksum: 59ce65958dc0f2e76e7007fe8d5a0a85801b950bb957779c11948776f0e7a1290b9638bfd2da92b4b8bebd7584f92a8c38d4e6613659c9637783a6993026b08b
+  languageName: node
+  linkType: hard
+
+"cardano-coin-selection-asmjs@npm:1.1.2":
+  version: 1.1.2
+  resolution: "cardano-coin-selection-asmjs@npm:1.1.2"
+  dependencies:
+    "@emurgo/cardano-message-signing-asmjs": ^1.0.1
+    "@emurgo/cardano-serialization-lib-asmjs": 11.1.0
+  peerDependencies:
+    bignumber.js: ^9.0.1
+  checksum: 766438262860a29d65d0a7d4e3bfb5cfda132724751978a8b31466e4e052bd2a11d9fc3ca1323d3d9faa5e64d5a83f0b493b36d8eb53b4ab6d6976a751d9686b
   languageName: node
   linkType: hard
 

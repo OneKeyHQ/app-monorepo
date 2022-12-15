@@ -32,5 +32,5 @@ prettier.resolveConfig('.prettierrc.js').then((options) => {
     ...options,
     parser: 'typescript',
   });
-  fs.writeFileSync('packages/engine/src/presets/networkIds.ts', formatted);
+  fs.writeFileSync('packages/shared/src/config/networkIds.ts', formatted);
 });

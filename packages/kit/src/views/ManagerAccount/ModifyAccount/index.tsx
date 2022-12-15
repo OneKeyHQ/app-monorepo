@@ -10,7 +10,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import DialogCommon from '@onekeyhq/components/src/Dialog/components';
-import { Account } from '@onekeyhq/engine/src/types/account';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 

@@ -17,7 +17,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

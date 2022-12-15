@@ -1,11 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgSearchCircle = (props: SvgProps) => (
-  <Svg
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    accessibilityRole="image"
-    {...props}
-  >
+  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
     <Path d="M9 9a2 2 0 1 1 4 0 2 2 0 0 1-4 0z" />
     <Path
       fillRule="evenodd"

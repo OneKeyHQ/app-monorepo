@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { debounce } from 'lodash';
 
-import { IAccount, IWallet } from '@onekeyhq/engine/src/types';
+import type { IAccount, IWallet } from '@onekeyhq/engine/src/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

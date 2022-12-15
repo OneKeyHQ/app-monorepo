@@ -1,8 +1,8 @@
 import React from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import CollectionModalView from '@onekeyhq/kit/src/views/Wallet/NFT/CollectionModal';
 import NFTDetailView from '@onekeyhq/kit/src/views/Wallet/NFT/NFTDetail';
 

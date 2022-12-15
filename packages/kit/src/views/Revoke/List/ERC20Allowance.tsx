@@ -18,7 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { toFloat } from '@onekeyhq/engine/src/managers/revoke';
-import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { navigationRef } from '../../../provider/NavigationProvider';

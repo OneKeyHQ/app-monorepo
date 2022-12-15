@@ -12,7 +12,8 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import bs58check from 'bs58check';
 
-import { COINTYPE_BTC as COIN_TYPE } from '../../../constants';
+import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
 import { AccountType, DBUTXOAccount } from '../../../types/account';

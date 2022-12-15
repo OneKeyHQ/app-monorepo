@@ -13,7 +13,10 @@ import {
   Text,
   VStack,
 } from '@onekeyhq/components';
-import { IEncodedTx, IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IEncodedTx,
+  IFeeInfoPayload,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';

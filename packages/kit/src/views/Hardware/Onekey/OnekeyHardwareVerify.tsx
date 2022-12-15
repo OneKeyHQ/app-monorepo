@@ -18,14 +18,14 @@ import {
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import { Device } from '@onekeyhq/engine/src/types/device';
+import type { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { CERTIFICATE_URL } from '@onekeyhq/kit/src/config';
 import {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { getTimeStamp, hexlify } from '@onekeyhq/kit/src/utils/helper';
+import { CERTIFICATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 import { deviceUtils } from '../../../utils/hardware';
 

@@ -1,6 +1,6 @@
 import { cloneDeep } from 'lodash';
 
-import { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
+import type { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';

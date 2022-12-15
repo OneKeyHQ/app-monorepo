@@ -16,12 +16,12 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { HISTORY_CONSTS } from '@onekeyhq/engine/src/constants';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import {
   IDecodedTxStatus,
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

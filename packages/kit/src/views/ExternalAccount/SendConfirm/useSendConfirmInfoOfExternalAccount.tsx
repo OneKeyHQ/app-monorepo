@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DialogManager } from '@onekeyhq/components';
-import { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
+import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';

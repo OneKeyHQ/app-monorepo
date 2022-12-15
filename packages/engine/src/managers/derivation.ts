@@ -32,7 +32,8 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
-} from '../constants';
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { OneKeyInternalError } from '../errors';
 
 const purposeMap: Record<string, Array<number>> = {

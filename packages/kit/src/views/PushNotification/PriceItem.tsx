@@ -4,8 +4,8 @@ import { pick } from 'lodash';
 import { FormattedNumber } from 'react-intl';
 
 import { Box, IconButton, Spinner, Text, Token } from '@onekeyhq/components';
-import { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

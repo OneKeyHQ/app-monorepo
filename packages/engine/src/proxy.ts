@@ -50,7 +50,8 @@ import {
   IMPL_STC,
   IMPL_TBTC,
   SEPERATOR,
-} from './constants';
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { NotImplemented, OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
 import { getPresetNetworks } from './presets';
