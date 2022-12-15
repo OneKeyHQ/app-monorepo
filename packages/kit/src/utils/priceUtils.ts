@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import { TokenBalanceValue } from '../store/reducers/tokens';
+import { SimpleTokenPrices, TokenBalanceValue } from '../store/reducers/tokens';
 import { formatDecimalZero } from '../views/Market/utils';
 
 export function calculateGains({
@@ -63,49 +63,100 @@ export function getSuggestedDecimals(price: number) {
     : 2;
 }
 
+export function getTokenValue({
+  token,
+  price,
+  balances,
+}: {
+  token: Token | undefined | null;
+  price: number | undefined | null;
+  balances: Record<string, TokenBalanceValue>;
+}) {
+  const tokenId = token?.tokenIdOnNetwork || 'main';
+  const balance = balances[tokenId] || 0;
+  if (balance !== undefined) {
+    const priceValue = new BigNumber(price || 0);
+    return new BigNumber(balance).times(priceValue);
+  }
+}
+
 export function getTokenValues({
   tokens,
   prices,
   balances,
+  vsCurrency,
 }: {
   tokens: (Token | undefined | null)[];
-  prices: Record<string, number | string | null | undefined>;
+  prices?: Record<string, SimpleTokenPrices | number>;
   balances: Record<string, TokenBalanceValue>;
+  vsCurrency: string;
 }) {
   return tokens.map((token) => {
     const tokenId = token?.tokenIdOnNetwork || 'main';
+    const priceId = token?.tokenIdOnNetwork
+      ? `${token?.networkId}-${token.tokenIdOnNetwork}`
+      : token?.networkId ?? '';
     const balance = balances[tokenId] || 0;
     if (balance !== undefined) {
-      const price = new BigNumber(prices[tokenId] || 0);
-      return new BigNumber(balance).times(price);
+      let price = new BigNumber(0);
+      if (prices?.[priceId]) {
+        if (typeof prices?.[priceId] === 'number') {
+          price = new BigNumber((prices?.[priceId] as number) || 0);
+        } else {
+          price = new BigNumber(
+            (prices?.[priceId] as SimpleTokenPrices)?.[vsCurrency] || 0,
+          );
+        }
+      }
+      return new BigNumber(balance).times(price ?? 0);
     }
     return new BigNumber(0);
   });
+}
+
+export function getPreBaseValue({
+  priceInfo,
+  vsCurrency = 'usd',
+}: {
+  priceInfo?: SimpleTokenPrices;
+  vsCurrency: string;
+}) {
+  const change = new BigNumber(priceInfo?.[`${vsCurrency}_24h_change`] || 0);
+  const price = new BigNumber(priceInfo?.[vsCurrency] || 0);
+  const res: Record<string, number> = {};
+  res[vsCurrency] = price.dividedBy(change.plus(100)).times(100).toNumber();
+  return res;
 }
 
 export function getSummedValues({
   tokens,
   prices,
   balances,
+  vsCurrency = 'usd',
   hideSmallBalance = false,
 }: {
   tokens: Token[];
-  prices: Record<string, number | string | null | undefined>;
+  prices?: Record<string, SimpleTokenPrices | number>;
   balances: Record<string, TokenBalanceValue>;
+  vsCurrency?: string;
   hideSmallBalance?: boolean;
 }) {
   if (
     !balances ||
-    Object.values(balances).every((b) => typeof b === 'undefined')
+    Object.values(balances).every((b) => typeof b === 'undefined') ||
+    !prices
   ) {
     return new BigNumber(NaN);
   }
-  return getTokenValues({ tokens, prices, balances }).reduce((acc, value) => {
-    if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
-      return acc;
-    }
-    return acc.plus(value);
-  }, new BigNumber(0));
+  return getTokenValues({ tokens, prices, balances, vsCurrency }).reduce(
+    (acc, value) => {
+      if (value.isNaN() || (hideSmallBalance && value.isLessThan(1))) {
+        return acc;
+      }
+      return acc.plus(value);
+    },
+    new BigNumber(0),
+  );
 }
 
 export function formatAmount(

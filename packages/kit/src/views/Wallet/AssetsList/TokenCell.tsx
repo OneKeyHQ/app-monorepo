@@ -16,8 +16,16 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
-import { calculateGains } from '../../../utils/priceUtils';
+import {
+  useActiveSideAccount,
+  useAppSelector,
+  useManageTokensOfAccount,
+} from '../../../hooks';
+import {
+  useSimpleTokenPriceInfo,
+  useSimpleTokenPriceValue,
+} from '../../../hooks/useManegeTokenPrice';
+import { calculateGains, getPreBaseValue } from '../../../utils/priceUtils';
 
 interface TokenCellProps {
   borderTopRadius?: string | number;
@@ -46,24 +54,27 @@ const TokenCell: FC<TokenCellProps> = ({
   bg = 'surface-default',
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { balances, charts, prices } = useManageTokensOfAccount({
+  const { balances } = useManageTokensOfAccount({
     accountId,
     networkId,
   });
   const { network } = useActiveSideAccount({ accountId, networkId });
 
   const tokenId = token.tokenIdOnNetwork || 'main';
-  const balance = balances[tokenId];
-  const chart = charts[tokenId] || [];
-  const price = prices[tokenId];
-  let basePrice;
-  if (chart.length > 0) {
-    // eslint-disable-next-line prefer-destructuring
-    basePrice = chart[0][1];
-  }
+  const priceInfo = useSimpleTokenPriceInfo({
+    contractAdress: token.tokenIdOnNetwork,
+    networkId,
+  });
+  const price = useSimpleTokenPriceValue({
+    contractAdress: token.tokenIdOnNetwork,
+    networkId,
+  });
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+  const balance = balances[tokenId] || 0;
+  const basePrice = getPreBaseValue({ priceInfo, vsCurrency });
 
   const { percentageGain, gainTextBg, gainTextColor } = calculateGains({
-    basePrice,
+    basePrice: basePrice[vsCurrency],
     price,
   });
 

@@ -97,13 +97,13 @@ export default class ServiceToken extends ServiceBase {
         tokenIds,
       });
     }
-    if (withPrice) {
-      this.fetchPrices({
-        activeNetworkId,
-        activeAccountId,
-        tokenIds,
-      });
-    }
+    // if (withPrice) {
+    //   this.fetchPrices({
+    //     activeNetworkId,
+    //     activeAccountId,
+    //     tokenIds,
+    //   });
+    // }
     return networkTokens;
   }
 
@@ -165,15 +165,15 @@ export default class ServiceToken extends ServiceBase {
         }),
       );
     }
-    if (withPrice) {
-      waitPromises.push(
-        this.fetchPrices({
-          activeNetworkId,
-          activeAccountId,
-          tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
-        }),
-      );
-    }
+    // if (withPrice) {
+    //   waitPromises.push(
+    //     this.fetchPrices({
+    //       activeNetworkId,
+    //       activeAccountId,
+    //       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+    //     }),
+    //   );
+    // }
     if (wait) {
       await Promise.all(waitPromises);
     }

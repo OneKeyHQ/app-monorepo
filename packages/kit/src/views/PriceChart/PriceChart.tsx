@@ -5,7 +5,8 @@ import { StyleProp, ViewStyle } from 'react-native';
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useManageTokens, useSettings } from '../../hooks';
+import { useSettings } from '../../hooks';
+import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 
 import { MarketApiData, PriceApiProps, fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
@@ -22,11 +23,15 @@ const PriceChart: React.FC<PriceChartProps> = ({
 }) => {
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
-  const { charts: reduxCachedCharts, prices } = useManageTokens();
+  // const { charts: reduxCachedCharts } = useManageTokens();
+  const price = useSimpleTokenPriceValue({
+    networkId,
+    contractAdress: contract,
+  });
   const { selectedFiatMoneySymbol } = useSettings();
-  const tokenId = contract || 'main';
-  const isNoPriceData = prices[tokenId] === null;
-  const dayData = reduxCachedCharts[tokenId];
+  // const tokenId = contract || 'main';
+  const isNoPriceData = price === undefined || price === null;
+  // const dayData = reduxCachedCharts[tokenId];
   const dataMap = useRef<MarketApiData[][]>([]);
   let points: string | undefined;
   const isVertical = useIsVerticalLayout();
@@ -39,28 +44,28 @@ const PriceChart: React.FC<PriceChartProps> = ({
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
-      let latestPriceData: MarketApiData;
+      // let latestPriceData: MarketApiData;
       const cacheData = dataMap.current[newTimeIndex];
       if (!cacheData) {
         setIsFetching(true);
-        let newData = await fetchChartData({
+        const newData = await fetchChartData({
           contract,
           networkId,
           days: TIMEOPTIONS_VALUE[newTimeIndex],
           points,
           vs_currency: selectedFiatMoneySymbol,
         });
-        if (dayData?.length && newData?.length) {
-          latestPriceData = dayData[dayData.length - 1];
-          newData = newData.filter((d) => d[0] < latestPriceData[0]);
-          newData.push(latestPriceData);
+        if (newData?.length) {
+          // latestPriceData = dayData[dayData.length - 1];
+          // newData = newData.filter((d) => d[0] < latestPriceData[0]);
+          // newData.push(latestPriceData);
           dataMap.current[newTimeIndex] = newData;
         }
       }
       setSelectedTimeIndex(newTimeIndex);
       setIsFetching(false);
     },
-    [contract, networkId, points, selectedFiatMoneySymbol, dayData],
+    [contract, networkId, points, selectedFiatMoneySymbol],
   );
 
   useEffect(() => {
