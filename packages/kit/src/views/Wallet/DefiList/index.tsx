@@ -4,7 +4,7 @@ import { Box, useUserDevice } from '@onekeyhq/components';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { useActiveWalletAccount } from '../../../hooks';
-import { OverviewDefiList } from '../../Overview/components/OverviewDefiList';
+import { OverviewDefiList } from '../../Overview';
 
 const DefiListComp: FC = () => {
   const { size } = useUserDevice();

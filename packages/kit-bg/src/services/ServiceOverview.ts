@@ -11,6 +11,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import ServiceBase from './ServiceBase';
 import { IServiceBaseProps } from './ServiceTransaction';
@@ -36,7 +37,7 @@ class ServiceOverview extends ServiceBase {
     if (!validTasks.length) {
       return;
     }
-    const res = await this.backgroundApi.serviceMarket.fetchData<{
+    const res = await fetchData<{
       tasks?: IOverviewScanTaskItem[];
     }>(
       '/overview/subscribe',
@@ -103,7 +104,10 @@ class ServiceOverview extends ServiceBase {
 
     const savedDefiList = appSelector((s) => {
       const defis = s.overview.defi;
-      return tasks.map((t) => defis?.[`${t.networkId}--${t.address}`]).flat();
+      return tasks
+        .map((t) => defis?.[`${t.networkId}--${t.address}`])
+        .flat()
+        .filter((n) => !!n);
     });
 
     if (!pendingTasks.length || !savedDefiList?.length) {
@@ -118,7 +122,7 @@ class ServiceOverview extends ServiceBase {
     scanType: IOverviewScanTaskType,
     tasks: IOverviewScanTaskItem[],
   ) {
-    return this.backgroundApi.serviceMarket.fetchData<{
+    return fetchData<{
       status?: {
         pending: Omit<IOverviewScanTaskItem, 'taskType'>[];
       };

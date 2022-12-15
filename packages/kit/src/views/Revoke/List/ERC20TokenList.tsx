@@ -159,7 +159,7 @@ export const ERC20TokenList: FC<{
   loading: boolean;
   allowances: ERC20TokenAllowance[];
   address?: string;
-  prices: Record<string, string>;
+  prices: Record<string, number | undefined>;
   networkId: string;
 }> = ({ loading, allowances: data, prices, address, networkId }) => {
   const intl = useIntl();

@@ -103,6 +103,7 @@ export default class ServicePrice extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async getCgkTokenPrice({
     platform,
     contractAddresses,

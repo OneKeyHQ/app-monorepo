@@ -17,6 +17,7 @@ import { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../../../components/Format';
+import { useAppSelector } from '../../../../hooks';
 import { getTokenValues } from '../../../../utils/priceUtils';
 import {
   IOverviewDeFiPoolTokenBalance,
@@ -59,28 +60,33 @@ export const OverviewDefiProtocol: FC<
   const intl = useIntl();
   const groupedPools = Object.entries(groupBy(pools, (p) => p.poolType));
 
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+
   const { result: allTokensMap, loading: tokensLoading } = useAsync(
     async () =>
       backgroundApiProxy.serviceToken.getAllTokensMapByNetworkId(networkId),
     [networkId],
   );
 
-  const { result: pricesMap, loading: pricesLoading } = useAsync(
-    async () =>
-      backgroundApiProxy.serviceToken.getPrices({
-        networkId,
-        tokenIds: uniq(
-          pools
-            .map((p) =>
-              [...p.supplyTokens, ...p.rewardTokens, ...p.borrowTokens].map(
-                (t) => t.tokenAddress,
-              ),
-            )
-            .flat(),
-        ),
-      }),
-    [pools],
-  );
+  const { result: pricesMap, loading: pricesLoading } = useAsync(async () => {
+    const res = await backgroundApiProxy.servicePrice.getCgkTokenPrice({
+      platform: networkId,
+      vsCurrency,
+      contractAddresses: uniq(
+        pools
+          .map((p) =>
+            [...p.supplyTokens, ...p.rewardTokens, ...p.borrowTokens].map(
+              (t) => t.tokenAddress,
+            ),
+          )
+          .flat(),
+      ),
+    });
+
+    return Object.fromEntries(
+      Object.entries(res).map(([k, value]) => [k, value?.[vsCurrency]]),
+    );
+  }, [pools, vsCurrency]);
 
   const getTokenInfo = useCallback(
     (token: IOverviewDeFiPoolTokenBalance) =>
@@ -94,14 +100,20 @@ export const OverviewDefiProtocol: FC<
   );
 
   const getTokenPrice = useCallback(
-    (token: ITokenInfo) => pricesMap?.[token.tokenAddress],
-    [pricesMap],
+    (token: ITokenInfo) => {
+      const key = token.tokenAddress
+        ? `${networkId}-${token.tokenAddress}`
+        : networkId;
+      return pricesMap?.[key] ?? 0;
+    },
+    [pricesMap, networkId],
   );
 
   const getTokensValue = useCallback(
     (tokens: IOverviewDeFiPoolTokenBalance[]) =>
       getTokenValues({
         tokens: tokens.map((t) => getTokenInfo(t)),
+        vsCurrency,
         prices: pricesMap ?? {},
         balances: tokens.reduce(
           (sum, next) => ({
@@ -111,7 +123,7 @@ export const OverviewDefiProtocol: FC<
           {},
         ),
       }).reduce((sum, next) => sum.plus(next), new B(0)),
-    [pricesMap, getTokenInfo],
+    [pricesMap, getTokenInfo, vsCurrency],
   );
 
   const getPoolValue = useCallback(

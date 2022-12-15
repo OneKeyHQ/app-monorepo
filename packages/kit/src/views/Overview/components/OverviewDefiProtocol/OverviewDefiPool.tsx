@@ -17,7 +17,6 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { TokenPrices } from '../../../../store/reducers/tokens';
 import { Token } from '../../../../store/typings';
 import {
   IOverviewDeFiPoolTokenBalance,
@@ -26,11 +25,15 @@ import {
   OverviewDeFiPoolType,
 } from '../../types';
 
+interface TokenPrices {
+  [key: string]: number | undefined;
+}
+
 interface TokensProps {
   tokensMap: Record<string, Token>;
   pricesMap: TokenPrices;
   getTokenInfo: (t: IOverviewDeFiPoolTokenBalance) => Token;
-  getTokenPrice: (t: ITokenInfo) => string | undefined | null;
+  getTokenPrice: (t: ITokenInfo) => number | undefined;
   getPoolValue: (pool: IOverviewDeFiPortfolioItem) => B;
   getTokensValue: (tokens: ITokenInfo[]) => B;
 }
@@ -54,7 +57,7 @@ interface ColumnItem {
 const GenernalTokens = ({
   pool,
   getTokenInfo,
-  pricesMap,
+  getTokenPrice,
   tokenKey,
 }: {
   pool: IOverviewDeFiPortfolioItem;
@@ -76,7 +79,7 @@ const GenernalTokens = ({
           <Typography.Body2 color="text-subdued">
             <FormatCurrencyNumber
               value={new B(t.balanceParsed ?? 0).multipliedBy(
-                (pricesMap?.[t.tokenAddress] as B.Value) || 0,
+                getTokenPrice(t) || 0,
               )}
             />
           </Typography.Body2>
@@ -112,11 +115,11 @@ const getValueColumn = (): ColumnItem => ({
 });
 
 const getPriceColumn = (tokenKey: TokenKey): ColumnItem => ({
-  header: 'Price',
-  render: ({ pool, pricesMap }) => (
+  header: 'content__price',
+  render: ({ pool, getTokenPrice }) => (
     <VStack>
       {pool?.[tokenKey].map((t) => {
-        const price = pricesMap?.[t.tokenAddress] ?? 0;
+        const price = getTokenPrice(t) ?? 0;
         return (
           <Typography.Body2Strong>
             <FormatCurrencyNumber value={new B(price)} />
@@ -144,7 +147,7 @@ const getAprColumn = (): ColumnItem => ({
 });
 
 const getUnlockTimeColumn = (): ColumnItem => ({
-  header: 'Unlock TIME',
+  header: 'form__unlock_time_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => !!p?.lockedInfo?.unlockTime),
   render: ({ pool }) => (
     <Typography.Body2Strong>
@@ -319,10 +322,7 @@ export const OverviewDefiPool: FC<
                     key={c.header}
                     flex="1"
                     text={{
-                      label:
-                        i === 0
-                          ? pools[0].poolName
-                          : intl.formatMessage({ id: c.header }),
+                      label: intl.formatMessage({ id: c.header }),
                     }}
                     pl={i === 0 ? '6' : 0}
                     pr={i === len - 1 ? '6' : 0}
