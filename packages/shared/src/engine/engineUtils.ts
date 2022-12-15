@@ -2,19 +2,18 @@
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { toLower } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-
+import type { WalletSchema } from '@onekeyhq/engine/src/dbs/realms/schemas';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_WATCHING,
   Wallet,
-} from './types/wallet';
+} from '@onekeyhq/engine/src/types/wallet';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
-import type { WalletSchema } from './dbs/realms/schemas';
+import { IMPL_EVM } from './engineConsts';
 
 export function fixAddressCase({
   impl,

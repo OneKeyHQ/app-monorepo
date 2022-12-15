@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 
 import { IconButton } from '@onekeyhq/components';
-import { isExternalWallet } from '@onekeyhq/engine/src/engineUtils';
+import { isExternalWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from '../../../WalletConnect/walletConnectConsts';

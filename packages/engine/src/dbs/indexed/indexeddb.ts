@@ -8,7 +8,7 @@ import { IDeviceType } from '@onekeyfe/hd-core';
 import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
-} from '@onekeyhq/engine/src/engineUtils';
+} from '@onekeyhq/shared/src/engine/engineUtils';
 
 import {
   AccountAlreadyExists,

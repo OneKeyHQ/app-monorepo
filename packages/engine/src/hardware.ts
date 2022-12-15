@@ -18,8 +18,8 @@ import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
 
-import * as engineUtils from './engineUtils';
 import {
   NotImplemented,
   OneKeyHardwareError,

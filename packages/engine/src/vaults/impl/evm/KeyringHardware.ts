@@ -10,9 +10,9 @@ import {
   COINTYPE_ETH as COIN_TYPE,
   IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import * as engineUtils from '../../../engineUtils';
 import { OneKeyHardwareError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
 import { AccountType, DBSimpleAccount } from '../../../types/account';

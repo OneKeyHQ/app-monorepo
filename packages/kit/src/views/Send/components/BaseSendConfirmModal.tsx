@@ -6,9 +6,9 @@ import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import { isWatchingAccount } from '@onekeyhq/engine/src/engineUtils';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
