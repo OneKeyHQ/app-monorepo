@@ -322,22 +322,6 @@ export default class ServiceToken extends ServiceBase {
     });
   }
 
-  // This method has been deprecated using getSimpleTokenPrice in ServicePrice
-  @backgroundMethod()
-  getPrices() {
-    throw new Error(
-      'This method has been deprecated using getSimpleTokenPrice in ServicePrice',
-    );
-  }
-
-  // This method has been deprecated using fetchSimpleTokenPriceDebounced in ServicePrice
-  @backgroundMethod()
-  fetchPrices() {
-    throw new Error(
-      'This method has been deprecated using fetchSimpleTokenPriceDebounced in ServicePrice',
-    );
-  }
-
   @backgroundMethod()
   async addAccountToken(
     networkId: string,
