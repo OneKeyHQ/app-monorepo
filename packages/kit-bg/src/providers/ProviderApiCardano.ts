@@ -5,14 +5,16 @@ import {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-import { IMPL_ADA } from '@onekeyhq/engine/src/constants';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
 import AdaVault from '@onekeyhq/engine/src/vaults/impl/ada/Vault';
+import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  backgroundClass,
+  providerApiMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { getActiveWalletAccount } from '../../hooks/redux';
-import { backgroundClass, providerApiMethod } from '../decorators';
 
 import ProviderApiBase, {
   IProviderBaseBackgroundNotifyInfo,
@@ -173,6 +175,10 @@ class ProviderApiCardano extends ProviderApiBase {
       payload: string;
     },
   ) {
+    if (typeof params.payload !== 'string') {
+      throw web3Errors.rpc.invalidInput();
+    }
+
     const signature =
       await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
         unsignedMessage: {
