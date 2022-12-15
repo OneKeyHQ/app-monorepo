@@ -3,11 +3,12 @@ import React, { useCallback, useRef } from 'react';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
-import { Box, Divider, Modal, QRCode, Text } from '@onekeyhq/components';
-import LogoPrimary from '@onekeyhq/components/src/Icon/react/illus/LogoPrimary';
+import { Box, Modal, QRCode, Text, useTheme } from '@onekeyhq/components';
+import LogoBlack from '@onekeyhq/components/src/Icon/react/illus/LogoBlack';
+import LogoWhite from '@onekeyhq/components/src/Icon/react/illus/LogoWhite';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
@@ -43,6 +44,7 @@ const Share = () => {
     endTime,
   } = route.params;
   const intl = useIntl();
+  const { themeVariant } = useTheme();
   const onCapture = useCallback(async () => {
     const uri = await ref.current?.capture?.();
     if (uri) {
@@ -86,7 +88,7 @@ const Share = () => {
   let totalValue = '0';
   if (totalProfit) {
     totalValue = new BigNumber(totalProfit).decimalPlaces(3).toString();
-    totalValue = `${totalProfit.toNumber() >= 0 ? '+' : '-'}${totalValue}`;
+    totalValue = `${totalProfit.toNumber() >= 0 ? '+' : ''}${totalValue}`;
   }
   totalValue = PriceString({ price: totalValue, networkId: network.id });
 
@@ -103,95 +105,125 @@ const Share = () => {
       onPrimaryActionPress={shareAction}
     >
       <Box w="full" h="full" position="relative">
-        <ViewShot ref={ref}>
-          <Box
-            borderWidth="1px"
-            borderRadius="12px"
-            borderColor="border-subdued"
-            bg="surface-subdued"
-          >
-            <Box p={6}>
-              <Box flexDirection="row" justifyContent="space-between" mb="36px">
-                <Text typography="CaptionStrong" color="text-subdued">
-                  {nameOrAddress}
-                </Text>
-                <Text typography="Caption" color="text-subdued">
-                  {date}
-                </Text>
-              </Box>
-              <NPLCardGroup
-                datas={assets.slice(0, 3).reverse()}
-                width="full"
-                height="102px"
-              />
-              <Text mt="40px" typography="Body1" color="text-subdued">
-                {intl.formatMessage({ id: 'content__profit' })}
-              </Text>
-
-              {totalProfit && (
-                <Text
-                  typography="Display2XLarge"
-                  lineHeight={48}
-                  color={
-                    totalProfit.toNumber() > 0
-                      ? 'text-success'
-                      : 'text-critical'
-                  }
-                  numberOfLines={1}
-                >
-                  {totalValue}
-                </Text>
-              )}
-
-              <Box flexDirection="row" mt="8px">
-                <Box flexDirection="row" mr="24px" alignItems="center">
-                  <Text mr="6px" typography="Body1Strong" color="text-success">
-                    {win}
-                  </Text>
-                  <Text typography="Body1" color="text-subdued">
-                    {intl.formatMessage({ id: 'content__winning_flips' })}
-                  </Text>
-                </Box>
-
-                <Box flexDirection="row" alignItems="center">
-                  <Text mr="6px" typography="Body1Strong" color="text-critical">
-                    {lose}
-                  </Text>
-                  <Text typography="Body1" color="text-subdued">
-                    {intl.formatMessage({ id: 'content__losing_flips' })}
-                  </Text>
-                </Box>
-              </Box>
-            </Box>
-            <Divider />
-
+        <Box shadow="depth.5">
+          <ViewShot ref={ref}>
             <Box
-              px={{ base: 4, md: 6 }}
-              py={5}
-              display="flex"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="space-between"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderRadius="24px"
+              borderColor="border-default"
+              bg="background-default"
+              shadow="depth.5"
+              overflow="hidden"
             >
-              <Box>
-                <LogoPrimary width={82} height={25} />
-                <Text typography="Body2" mt="2" color="text-subdued">
-                  All-in-one crypto wallet
-                </Text>
-              </Box>
-              <Box bg="white" p="1" borderRadius={4} shadow="depth.4">
-                <QRCode
-                  value="https://onekey.so/download"
-                  size={52}
-                  logoSize={0}
-                  logoMargin={0}
-                  logoBackgroundColor="white"
+              <Box
+                p={6}
+                borderBottomWidth={StyleSheet.hairlineWidth}
+                borderColor="border-default"
+              >
+                <Box
+                  flexDirection="row"
+                  justifyContent="space-between"
+                  mb="36px"
+                >
+                  <Text typography="CaptionStrong" color="text-subdued">
+                    {nameOrAddress}
+                  </Text>
+                  <Text typography="Caption" color="text-subdued">
+                    {date}
+                  </Text>
+                </Box>
+                <NPLCardGroup
+                  datas={assets.slice(0, 3).reverse()}
+                  width="full"
+                  height="102px"
                 />
+                <Text mt="40px" typography="Body1" color="text-subdued">
+                  {intl.formatMessage({ id: 'content__profit' })}
+                </Text>
+                {totalProfit && (
+                  <Text
+                    typography="Display2XLarge"
+                    color={
+                      totalProfit.toNumber() > 0
+                        ? 'text-success'
+                        : 'text-critical'
+                    }
+                    numberOfLines={1}
+                  >
+                    {totalValue}
+                  </Text>
+                )}
+
+                <Box flexDirection="row" mt="8px">
+                  <Box flexDirection="row" mr="24px" alignItems="center">
+                    <Text
+                      mr="6px"
+                      typography="Body1Strong"
+                      color="text-success"
+                    >
+                      {win}
+                    </Text>
+                    <Text typography="Body1" color="text-subdued">
+                      {intl.formatMessage({ id: 'content__winning_flips' })}
+                    </Text>
+                  </Box>
+
+                  <Box flexDirection="row" alignItems="center">
+                    <Text
+                      mr="6px"
+                      typography="Body1Strong"
+                      color="text-critical"
+                    >
+                      {lose}
+                    </Text>
+                    <Text typography="Body1" color="text-subdued">
+                      {intl.formatMessage({ id: 'content__losing_flips' })}
+                    </Text>
+                  </Box>
+                </Box>
+              </Box>
+
+              <Box
+                px={6}
+                py={5}
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="space-between"
+                bgColor="surface-subdued"
+              >
+                <Box>
+                  {themeVariant === 'light' ? (
+                    <LogoBlack width={82} height={25} />
+                  ) : (
+                    <LogoWhite width={82} height={25} />
+                  )}
+                  <Text typography="Body2" mt="2" color="text-subdued">
+                    {intl.formatMessage({
+                      id: 'content__all_in_one_crypto_wallet',
+                    })}
+                  </Text>
+                </Box>
+                <Box
+                  bg="white"
+                  p={1}
+                  borderRadius="6px"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="border-default"
+                  shadow="depth.1"
+                >
+                  <QRCode
+                    value="https://onekey.so/download"
+                    size={48}
+                    logoSize={0}
+                    logoMargin={0}
+                    logoBackgroundColor="white"
+                  />
+                </Box>
               </Box>
             </Box>
-          </Box>
-        </ViewShot>
-        <Box position="absolute" top="0" left="0" w="full" h="full" />
+          </ViewShot>
+          <Box position="absolute" top="0" left="0" w="full" h="full" />
+        </Box>
       </Box>
     </Modal>
   );

@@ -1,6 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgServerStack = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden="true"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M4.464 3.162A2 2 0 0 1 6.28 2h7.44a2 2 0 0 1 1.816 1.162l1.154 2.5c.067.145.115.291.145.438A3.508 3.508 0 0 0 16 6H4c-.288 0-.568.035-.835.1a1.99 1.99 0 0 1 .145-.438l1.154-2.5z" />
     <Path
       fillRule="evenodd"

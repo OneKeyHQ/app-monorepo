@@ -12,7 +12,6 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
@@ -22,6 +21,7 @@ import {
 import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
 import { ModalScreenProps, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 

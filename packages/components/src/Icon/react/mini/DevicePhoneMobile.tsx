@@ -1,6 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgDevicePhoneMobile = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden="true"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M8 16.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75z" />
     <Path
       fillRule="evenodd"

@@ -1,6 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgZoomIn = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M5 8a1 1 0 0 1 1-1h1V6a1 1 0 0 1 2 0v1h1a1 1 0 1 1 0 2H9v1a1 1 0 1 1-2 0V9H6a1 1 0 0 1-1-1z" />
     <Path
       fillRule="evenodd"

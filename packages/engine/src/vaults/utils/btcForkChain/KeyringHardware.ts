@@ -5,7 +5,8 @@ import {
 import { RefTransaction, getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
-import { HardwareSDK, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
+import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
@@ -68,7 +69,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       return { txid: tx.getId(), rawTx: serializedTx };
     }
 
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 
   override async prepareAccounts(
@@ -112,7 +113,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (!response.success || !response.payload) {
       console.error(response.payload);
-      throw deviceUtils.convertDeviceError(response.payload);
+      throw convertDeviceError(response.payload);
     }
 
     if (response.payload.length !== usedIndexes.length) {
@@ -253,7 +254,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (response.success) {
       return response.payload.address;
     }
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 
   signMessage(): Promise<string[]> {

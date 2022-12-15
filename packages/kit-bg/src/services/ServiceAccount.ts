@@ -1,7 +1,6 @@
 import { find, flatten } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { isHardwareWallet } from '@onekeyhq/engine/src/engineUtils';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import {
@@ -46,6 +45,7 @@ import {
   COINTYPE_ETH,
   IMPL_COSMOS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import {
   AppEventBusNames,
   appEventBus,

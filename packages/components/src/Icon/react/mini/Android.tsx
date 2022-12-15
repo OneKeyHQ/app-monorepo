@@ -1,6 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgAndroid = (props: SvgProps) => (
-  <Svg viewBox="0 0 22 24" fill="none" {...props}>
+  <Svg viewBox="0 0 22 24" fill="none" accessibilityRole="image" {...props}>
     <Path
       fillRule="evenodd"
       clipRule="evenodd"

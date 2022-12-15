@@ -4,7 +4,6 @@ import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import { Contract } from 'ethers';
 import { groupBy, keys } from 'lodash';
-import memoizee from 'memoizee';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
@@ -15,7 +14,6 @@ import {
   ISignedTx,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
@@ -24,43 +22,14 @@ import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
-const BATCH_SEND_RETRY_MAX = 20;
+const BATCH_SEND_TX_RETRY_MAX = 20;
+const REFRESH_PENDING_TXS_RETRY_MAX = 20;
 
 const ERC721 = ERC721MetadataArtifact.abi;
 const ERC1155 = ERC1155MetadataArtifact.abi;
 
 @backgroundClass()
 export default class ServiceBatchTransfer extends ServiceBase {
-  checkIsApprovedForAllMemoizee = memoizee(
-    async (
-      networkId: string,
-      owner: string,
-      spender: string,
-      token: string,
-      type?: string,
-    ): Promise<boolean> => {
-      try {
-        const readProvider = await this.getReadProvider(networkId);
-        const contract = new Contract(
-          token,
-          type === 'erc1155' ? ERC1155 : ERC721,
-          readProvider,
-        );
-
-        const [isApprovedForAll]: boolean[] =
-          await contract.functions.isApprovedForAll(owner, spender);
-        return isApprovedForAll;
-      } catch {
-        return false;
-      }
-    },
-    {
-      promise: true,
-      primitive: true,
-      maxAge: getTimeDurationMs({ minute: 3 }),
-    },
-  );
-
   @backgroundMethod()
   async getProvider(networkId: string) {
     const { engine } = this.backgroundApi;
@@ -177,7 +146,8 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const { engine } = this.backgroundApi;
     const { networkId, pendingTxs, encodedTx } = params;
     const network = await engine.getNetwork(networkId);
-    let retry = 0;
+    let sendTxRetry = 0;
+    let refreshPendingTxsRetry = 0;
     if (
       pendingTxs &&
       pendingTxs.length > 0 &&
@@ -193,7 +163,11 @@ export default class ServiceBatchTransfer extends ServiceBase {
           pendingTxs,
         );
 
-        if (Object.keys(txs).length !== pendingTxs.length) {
+        if (
+          Object.keys(txs).length !== pendingTxs.length &&
+          refreshPendingTxsRetry < REFRESH_PENDING_TXS_RETRY_MAX
+        ) {
+          refreshPendingTxsRetry += 1;
           await wait(1000);
           await refreshPendingTxs();
         }
@@ -206,10 +180,10 @@ export default class ServiceBatchTransfer extends ServiceBase {
           if (e instanceof OneKeyError) {
             throw e;
           }
-          if (retry > BATCH_SEND_RETRY_MAX) {
+          if (sendTxRetry > BATCH_SEND_TX_RETRY_MAX) {
             throw e;
           }
-          retry += 1;
+          sendTxRetry += 1;
           await wait(1000);
           await resendTx();
         }
@@ -232,12 +206,19 @@ export default class ServiceBatchTransfer extends ServiceBase {
     type?: string;
   }): Promise<boolean> {
     const { networkId, owner, spender, token, type } = params;
-    return this.checkIsApprovedForAllMemoizee(
-      networkId,
-      owner,
-      spender,
-      token,
-      type,
-    );
+    try {
+      const readProvider = await this.getReadProvider(networkId);
+      const contract = new Contract(
+        token,
+        type === 'erc1155' ? ERC1155 : ERC721,
+        readProvider,
+      );
+
+      const [isApprovedForAll]: boolean[] =
+        await contract.functions.isApprovedForAll(owner, spender);
+      return isApprovedForAll;
+    } catch {
+      return false;
+    }
   }
 }
