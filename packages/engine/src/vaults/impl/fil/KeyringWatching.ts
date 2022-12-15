@@ -2,7 +2,6 @@ import {
   CoinType,
   decode,
   encode,
-  newSecp256k1Address,
   validateAddressString,
 } from '@glif/filecoin-address';
 
