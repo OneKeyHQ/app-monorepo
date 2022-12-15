@@ -5,6 +5,7 @@ import { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
 import ProviderAlgo from './ProviderAlgo';
 import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBase from './ProviderApiBase';
+import ProviderApiCardano from './ProviderApiCardano';
 import ProviderApiConflux from './ProviderApiConflux';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
@@ -48,6 +49,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.sui]: new ProviderApiSui({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.cardano]: new ProviderApiCardano({
       backgroundApi,
     }),
     // near

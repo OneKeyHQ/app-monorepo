@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+import BigNumber from 'bignumber.js';
+
 import { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -10,6 +12,11 @@ enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
   signTransaction = 'Cardano_signTransaction',
   hwSignTransaction = 'Cardano_hwSignTransaction',
+  dAppGetBalance = 'Cardano_DAppGetBalance',
+  dAppGetAddresses = 'Cardano_DAppGetAddresses',
+  dAppGetUtxos = 'Cardano_DAppGetUtxos',
+  dAppConvertCborTxToEncodeTx = 'Cardano_DAppConvertCborTxToEncodeTx',
+  dAppSignData = 'Cardano_DAppSignData',
 }
 
 type IResult = { error: any; result: any };
@@ -97,6 +104,7 @@ type CardanoSignedTxWitness = {
 const hwSignTransaction = async (
   txBodyHex: string,
   signedWitnesses: CardanoSignedTxWitness[],
+  options: Record<string, any>,
 ) => {
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -104,6 +112,7 @@ const hwSignTransaction = async (
     params: {
       txBodyHex,
       signedWitnesses,
+      options,
     },
   })) as IResult;
 
@@ -121,11 +130,103 @@ const hwSignTransaction = async (
   return result.result;
 };
 
+// DApp Function
+const getBalance = async (balance: BigNumber) => {
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: CardanoEvent.dAppGetBalance,
+    params: { balance: balance.toFixed() },
+  })) as IResult;
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.result;
+};
+
+const getUtxos = async (
+  address: string,
+  utxos: IAdaUTXO[],
+  amount?: string | undefined,
+) => {
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: CardanoEvent.dAppGetUtxos,
+    params: {
+      address,
+      utxos,
+      amount,
+    },
+  })) as IResult;
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.result;
+};
+
+const getAddresses = async (addresses: string[]) => {
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: CardanoEvent.dAppGetAddresses,
+    params: { addresses },
+  })) as IResult;
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.result;
+};
+
+const convertCborTxToEncodeTx = async (
+  txHex: string,
+  utxos: IAdaUTXO[],
+  addresses: string[],
+) => {
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: CardanoEvent.dAppConvertCborTxToEncodeTx,
+    params: { txHex, utxos, addresses },
+  })) as IResult;
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.result;
+};
+
+const signData = async (
+  address: string,
+  payload: string,
+  xprv: string,
+  accountIndex: number,
+) => {
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: CardanoEvent.dAppSignData,
+    params: { address, payload, xprv, accountIndex },
+  })) as IResult;
+
+  if (result.error) {
+    throw result.error;
+  }
+  return result.result;
+};
+
+const dAppUtils = {
+  getBalance,
+  getAddresses,
+  getUtxos,
+  convertCborTxToEncodeTx,
+  signData,
+};
+
 const getCardanoApi = async () =>
   Promise.resolve({
     composeTxPlan,
     signTransaction,
     hwSignTransaction,
+    dAppUtils,
   });
 
 export { getCardanoApi };

@@ -17,6 +17,7 @@ import { batch } from 'react-redux';
 import axios, { Method } from 'axios';
 
 import {
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_CFX,
@@ -305,6 +306,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'tron': IMPL_TRON,
     'algo': IMPL_ALGO,
     'sui': IMPL_SUI,
+    'cardano': IMPL_ADA,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
@@ -319,6 +321,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
   IInjectedProviderNames.sui,
+  IInjectedProviderNames.cardano,
 ];
 
 export function getNetworkImplFromDappScope(
