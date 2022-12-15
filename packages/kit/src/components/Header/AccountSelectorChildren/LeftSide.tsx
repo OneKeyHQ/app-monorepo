@@ -20,7 +20,6 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,
@@ -30,6 +29,7 @@ import {
 } from '@onekeyhq/engine/src/types/wallet';
 import { useAppSelector, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';

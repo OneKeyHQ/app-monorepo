@@ -13,7 +13,6 @@ import {
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { SelectProps } from '@onekeyhq/components/src/Select';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
@@ -22,6 +21,7 @@ import {
   IMPL_SUI,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';

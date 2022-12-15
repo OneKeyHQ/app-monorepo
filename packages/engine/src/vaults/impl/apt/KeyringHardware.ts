@@ -6,7 +6,7 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient, BCS } from 'aptos';
 
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -47,7 +47,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (!response.success) {
       debugLogger.common.error(response.payload);
-      throw deviceUtils.convertDeviceError(response.payload);
+      throw convertDeviceError(response.payload);
     }
 
     const pubKeys = response.payload
@@ -84,7 +84,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
     if (!addressesResponse.success) {
       debugLogger.common.error(addressesResponse.payload);
-      throw deviceUtils.convertDeviceError(addressesResponse.payload);
+      throw convertDeviceError(addressesResponse.payload);
     }
 
     let pubKeys: Array<string> = [];
@@ -129,7 +129,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (response.success && !!response.payload?.address) {
       return response.payload.address.toLowerCase();
     }
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 
   async signTransaction(
@@ -164,7 +164,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       return buildSignedTx(rawTx, senderPublicKey, signature);
     }
 
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 
   override async signMessage(
@@ -198,7 +198,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         );
 
         if (!response.success) {
-          throw deviceUtils.convertDeviceError(response.payload);
+          throw convertDeviceError(response.payload);
         }
 
         return addHexPrefix(response.payload.signature);
