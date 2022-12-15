@@ -144,16 +144,19 @@ const defaultAccountNameInfo: Record<
       prefix: 'BTC Nested SegWit',
       category: `49'/${COINTYPE_BTC}'`,
       label: 'Nested SegWit (P2SH)',
+      addressPrefix: '3',
     },
     BIP44: {
       prefix: 'BTC Legacy',
       category: `44'/${COINTYPE_BTC}'`,
       label: 'Legacy (P2PKH)',
+      addressPrefix: '1',
     },
     BIP84: {
       prefix: 'BTC Native SegWit',
       category: `84'/${COINTYPE_BTC}'`,
       label: 'Native SegWit',
+      addressPrefix: 'bc1',
     },
   },
   [IMPL_TBTC]: {
@@ -161,16 +164,19 @@ const defaultAccountNameInfo: Record<
       prefix: 'TBTC Nested SegWit',
       category: `49'/${COINTYPE_TBTC}'`,
       label: 'Nested SegWit (P2SH)',
+      addressPrefix: '2',
     },
     BIP44: {
       prefix: 'TBTC Legacy',
       category: `44'/${COINTYPE_TBTC}'`,
       label: 'Legacy (P2PKH)',
+      addressPrefix: 'm',
     },
     BIP84: {
       prefix: 'TBTC Native SegWit',
       category: `84'/${COINTYPE_TBTC}'`,
       label: 'Native SegWit',
+      addressPrefix: 'tb1',
     },
   },
   [IMPL_TRON]: {
@@ -191,16 +197,19 @@ const defaultAccountNameInfo: Record<
       prefix: 'LTC Nested SegWit',
       category: `49'/${COINTYPE_LTC}'`,
       label: 'Nested SegWit (P2SH)',
+      addressPrefix: 'M',
     },
     BIP44: {
       prefix: 'LTC Legacy',
       category: `44'/${COINTYPE_LTC}'`,
       label: 'Legacy (P2PKH)',
+      addressPrefix: 'L',
     },
     BIP84: {
       prefix: 'LTC Native SegWit',
       category: `84'/${COINTYPE_LTC}'`,
       label: 'Native SegWit',
+      addressPrefix: 'ltc1',
     },
   },
   [IMPL_BCH]: {
