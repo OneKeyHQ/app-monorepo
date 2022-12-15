@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware';
+import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
 
 import { KeyringBase } from './KeyringBase';
 
@@ -30,7 +29,8 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
       // @ts-ignore
-      await backgroundApiProxy?.backgroundApi?.serviceHardware.getSDKInstance();
-    return sdk ?? HardwareSDK;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+      await global?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
+    return (sdk as typeof HardwareSDK) ?? HardwareSDK;
   }
 }

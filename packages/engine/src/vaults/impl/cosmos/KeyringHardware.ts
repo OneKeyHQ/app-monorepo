@@ -9,7 +9,7 @@ import {
   AccountType,
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -56,7 +56,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (!response.success) {
       debugLogger.common.error(response.payload);
-      throw deviceUtils.convertDeviceError(response.payload);
+      throw convertDeviceError(response.payload);
     }
 
     const pubKeys = response.payload
@@ -99,7 +99,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
     if (!publicKeyResponse.success) {
       debugLogger.common.error(publicKeyResponse.payload);
-      throw deviceUtils.convertDeviceError(publicKeyResponse.payload);
+      throw convertDeviceError(publicKeyResponse.payload);
     }
 
     const ret = [];
@@ -145,7 +145,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (response.success && !!response.payload?.address) {
       return response.payload?.address;
     }
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
@@ -180,6 +180,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       };
     }
 
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 }

@@ -9,7 +9,7 @@ import Realm from 'realm';
 import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
-} from '@onekeyhq/engine/src/engineUtils';
+} from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {

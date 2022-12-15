@@ -16,9 +16,9 @@ import type {
   SelectGroupItem,
   SelectItem,
 } from '@onekeyhq/components/src/Select';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
