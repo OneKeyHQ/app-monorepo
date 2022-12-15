@@ -152,7 +152,6 @@ export class KeyringHd extends KeyringHdBase {
     messages: any[],
     options: ISignCredentialOptions,
   ): Promise<string[]> {
-    console.log(messages);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { password = '' } = options;
     const { entropy } = (await this.engine.dbApi.getCredential(

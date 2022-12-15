@@ -78,7 +78,6 @@ class ProviderApiCardano extends ProviderApiBase {
         impl: IMPL_ADA,
       });
 
-    console.log(account);
     return Promise.resolve({ address: account?.address ?? null });
   }
 
@@ -163,7 +162,7 @@ class ProviderApiCardano extends ProviderApiBase {
         signOnly: true,
       })) as string;
 
-    console.log(txWitnessSetHex);
+    debugLogger.providerApi.debug('cardano signTx witness: ', txWitnessSetHex);
     return txWitnessSetHex;
   }
 
