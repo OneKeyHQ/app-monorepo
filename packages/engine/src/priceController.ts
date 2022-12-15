@@ -16,6 +16,7 @@ export type ChartQueryParams = {
   vs_currency?: string;
   points?: string;
 };
+
 export class PriceController {
   CACHE_DURATION = 1000 * 30;
 
