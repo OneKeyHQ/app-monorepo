@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { ChartPathProvider } from '@onekeyfe/react-native-animated-charts';
 
 import { Box } from '@onekeyhq/components';

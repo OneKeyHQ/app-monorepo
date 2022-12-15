@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, Icon, Typography } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { SelectItem } from '@onekeyhq/components/src/Select';

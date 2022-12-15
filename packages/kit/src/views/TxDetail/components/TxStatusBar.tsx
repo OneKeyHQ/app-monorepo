@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { HStack } from '@onekeyhq/components';
 import {
   IDecodedTx,

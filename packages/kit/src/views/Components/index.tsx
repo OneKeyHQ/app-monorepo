@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React from 'react';
 
 import { NavigationProp, RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Pressable, Typography, VStack } from '@onekeyhq/components';
 
 import { useWalletConnectQrcodeModal } from './useWalletConnectQrcodeModal';

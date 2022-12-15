@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useNavigation } from '@react-navigation/native';
 
 import type { StackAnimationTypes } from 'react-native-screens';

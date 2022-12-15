@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { TxActionElementIconXLarge } from '../elements/TxActionElementIcon';

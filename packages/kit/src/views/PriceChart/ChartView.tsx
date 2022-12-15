@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useThemeValue } from '@onekeyhq/components';
 
 import { ChartViewProps } from './chartService';

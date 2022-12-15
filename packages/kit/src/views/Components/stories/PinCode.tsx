@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { PinCode } from '@onekeyhq/components';
 
 const PinCodeGallery = () => (

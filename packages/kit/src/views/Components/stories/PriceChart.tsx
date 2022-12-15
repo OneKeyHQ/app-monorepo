@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, useThemeValue } from '@onekeyhq/components';
 
 import PriceChart from '../../PriceChart/PriceChart';

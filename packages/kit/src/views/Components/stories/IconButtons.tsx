@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center, IconButton, Stack } from '@onekeyhq/components';
 
 const IconButtons = () => (

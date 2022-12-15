@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { SegmentedControl } from '@onekeyhq/components';
 
 export const TIMEOPTIONS = ['1D', '1W', '1M', '1Y', 'All'];

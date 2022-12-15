@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center, Text, Typography } from '@onekeyhq/components';
 
 const TypographyGallery = () => (

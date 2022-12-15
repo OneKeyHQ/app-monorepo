@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { isString } from 'lodash';
 
 import { ICON_NAMES } from '@onekeyhq/components';
