@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import {
+  encode as toCfxAddress,
+  decode as toEthAddress,
+} from '@conflux-dev/conflux-address-js';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
@@ -702,6 +706,17 @@ export default class Vault extends VaultBase {
     const start = performance.now();
     const latestBlock = await client.getEpochNumber();
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+
+  override async addressFromBase(baseAddress: string) {
+    const chainId = await this.getNetworkChainId();
+    return toCfxAddress(baseAddress, parseInt(chainId));
+  }
+
+  override async addressToBase(address: string) {
+    return Promise.resolve(
+      `0x${toEthAddress(address).hexAddress.toString('hex')}`,
+    );
   }
 
   createClientFromURL(url: string): BaseClient {

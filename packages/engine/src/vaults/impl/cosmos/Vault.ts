@@ -61,7 +61,11 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { CosmosNodeClient } from './NodeClient';
-import { isValidAddress, isValidContractAddress } from './sdk/address';
+import {
+  baseAddressToAddress,
+  isValidAddress,
+  isValidContractAddress,
+} from './sdk/address';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
 import {
@@ -851,6 +855,14 @@ export default class Vault extends VaultBase {
           }
         }
       }),
+    );
+  }
+
+  override async addressFromBase(baseAddress: string) {
+    const chainInfo = await this.getChainInfo();
+    return baseAddressToAddress(
+      chainInfo.implOptions?.addressPrefix ?? 'cosmos',
+      baseAddress,
     );
   }
 }

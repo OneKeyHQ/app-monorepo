@@ -3,7 +3,6 @@ import {
   CoinType,
   decode,
   encode,
-  newSecp256k1Address,
   validateAddressString,
 } from '@glif/filecoin-address';
 import { Message } from '@glif/filecoin-message';
@@ -514,5 +513,13 @@ export default class Vault extends VaultBase {
       privateKey = Buffer.from(credential, 'hex');
     }
     return privateKey;
+  }
+
+  override async addressFromBase(baseAddress: string) {
+    const { isTestnet } = await this.getNetwork();
+    return encode(
+      isTestnet ? CoinType.TEST : CoinType.MAIN,
+      decode(baseAddress),
+    );
   }
 }

@@ -37,10 +37,7 @@ export class KeyringImported extends KeyringImportedBase {
       this.networkId,
       pub,
     );
-    const baseAddress = await this.engine.providerManager.addressToBase(
-      this.networkId,
-      addressOnNetwork,
-    );
+    const baseAddress = await this.addressToBase(addressOnNetwork);
     return Promise.resolve([
       {
         id: `imported--${COIN_TYPE}--${pub}`,

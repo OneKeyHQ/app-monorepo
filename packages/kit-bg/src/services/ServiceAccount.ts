@@ -77,7 +77,7 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  forceRefreshAccount(networkId: string | null): boolean {
+  shouldForceRefreshAccount(networkId?: string): boolean {
     if (!networkId) return false;
     return REFRESH_ACCOUNT_IMPL.includes(parseNetworkId(networkId).impl ?? '');
   }

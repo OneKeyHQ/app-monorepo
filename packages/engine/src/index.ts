@@ -948,10 +948,7 @@ class Engine {
         if (a.type === AccountType.VARIANT) {
           let address = (a as DBVariantAccount).addresses[networkId];
           if (!address) {
-            address = await this.providerManager.addressFromBase(
-              networkId,
-              a.address,
-            );
+            address = await vault.addressFromBase(a.address);
           }
           return address;
         }
@@ -968,10 +965,7 @@ class Engine {
         if (a.type === AccountType.VARIANT) {
           let address = (a as DBVariantAccount).addresses[networkId];
           if (!address) {
-            address = await this.providerManager.addressFromBase(
-              networkId,
-              a.address,
-            );
+            address = await vault.addressFromBase(a.address);
           }
           return { address };
         }
