@@ -3,7 +3,7 @@ import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/pro
 import { getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import {
@@ -79,7 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       return { txid: tx.getId(), rawTx: serializedTx };
     }
 
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 
   async signMessage(
@@ -121,7 +121,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (!response.success || !response.payload) {
       console.error(response.payload);
-      throw deviceUtils.convertDeviceError(response.payload);
+      throw convertDeviceError(response.payload);
     }
 
     if (response.payload.length !== usedIndexes.length) {
@@ -252,6 +252,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (response.success) {
       return response.payload.address;
     }
-    throw deviceUtils.convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload);
   }
 }

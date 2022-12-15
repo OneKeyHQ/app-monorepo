@@ -5,7 +5,7 @@ import {
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
-import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   COINTYPE_ETH as COIN_TYPE,
   IMPL_EVM,
@@ -93,7 +93,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
 
       if (!response.success) {
-        throw deviceUtils.convertDeviceError(response.payload);
+        throw convertDeviceError(response.payload);
       }
       const { xpub } = response.payload;
       const node = ethers.utils.HDNode.fromExtendedKey(xpub);
