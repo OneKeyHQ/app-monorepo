@@ -11,9 +11,9 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { isPassphraseWallet } from '@onekeyhq/engine/src/engineUtils';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
