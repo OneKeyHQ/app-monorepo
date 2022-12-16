@@ -137,7 +137,6 @@ export const Desktop = () => {
           alignItems="flex-start"
           justifyContent="center"
         >
-          {' '}
           {swapChartMode === 'chart' ? (
             <Box>
               <Box h="52px" />

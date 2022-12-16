@@ -25,7 +25,6 @@ import {
   useDerivedSwapState,
   useInputLimitsError,
   useSwapError,
-  // useSwapQuoteCallback,
   useSwapQuoteRequestParams,
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
@@ -280,6 +279,45 @@ const ExchangeButton = () => {
                 .toFixed(),
         })) as IEncodedTxEvm;
 
+      const password = await backgroundApiProxy.servicePassword.getPassword();
+      if (password) {
+        const { result: resultApprove, decodedTx: decodedTxApprove } =
+          await backgroundApiProxy.serviceTransaction.sendTransaction({
+            accountId: sendingAccount.id,
+            networkId: targetNetworkId,
+            encodedTx: encodedApproveTx,
+          });
+        addSwapTransaction(resultApprove.txid, decodedTxApprove.nonce);
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.HardwareSwapContinue,
+            params: {
+              networkId: targetNetworkId,
+              accountId: sendingAccount.id,
+            },
+          },
+        });
+        const encodedEvmTx = encodedTx as IEncodedTxEvm;
+        try {
+          const { result, decodedTx } =
+            await backgroundApiProxy.serviceTransaction.sendTransaction({
+              accountId: sendingAccount.id,
+              networkId: targetNetworkId,
+              encodedTx: { ...encodedEvmTx },
+              payload: {
+                type: 'InternalSwap',
+                swapInfo,
+              },
+            });
+          addSwapTransaction(result.txid, decodedTx.nonce);
+          appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+        } catch {
+          appUIEventBus.emit(AppUIEventBusNames.SwapError);
+        }
+        return;
+      }
+
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -320,6 +358,34 @@ const ExchangeButton = () => {
                 appUIEventBus.emit(AppUIEventBusNames.SwapError);
               }
             },
+          },
+        },
+      });
+      return;
+    }
+
+    const password = await backgroundApiProxy.servicePassword.getPassword();
+    if (password) {
+      const { result, decodedTx } =
+        await backgroundApiProxy.serviceTransaction.sendTransaction({
+          accountId: sendingAccount.id,
+          networkId: targetNetworkId,
+          encodedTx,
+          payload: {
+            type: 'InternalSwap',
+            swapInfo,
+          },
+        });
+      addSwapTransaction(result.txid, decodedTx.nonce);
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendFeedbackReceipt,
+          params: {
+            networkId: targetNetworkId,
+            accountId: sendingAccount.id,
+            txid: result.txid,
+            type: 'Send',
           },
         },
       });
