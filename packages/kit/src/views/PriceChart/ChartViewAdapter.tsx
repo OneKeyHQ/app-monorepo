@@ -1,3 +1,5 @@
+import type { FC } from 'react';
+
 import { ChartPathProvider } from '@onekeyfe/react-native-animated-charts';
 
 import { Box } from '@onekeyhq/components';
@@ -6,7 +8,7 @@ import { ChartViewAdapterProps } from './chartService';
 import ChartWrapper from './value-chart/Chart';
 import useChartThrottledPoints from './value-chart/useChartThrottledPoints';
 
-const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
+const ChartViewAdapter: FC<ChartViewAdapterProps> = ({
   data,
   onHover,
   lineColor,

@@ -4,10 +4,7 @@ import {
   batchGetPublicKeys,
 } from '@onekeyfe/blockchain-libs/dist/secret';
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -24,6 +21,7 @@ import {
 
 import { signTransaction } from './utils';
 
+// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 // @ts-ignore

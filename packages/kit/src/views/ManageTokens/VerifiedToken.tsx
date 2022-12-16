@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import { FC, memo, useCallback, useMemo } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -32,7 +32,7 @@ type NavigationProps = RouteProp<
   ManageTokenRoutes.VerifiedToken
 >;
 
-const VerifiedTokens: React.FC = () => {
+const VerifiedTokens: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const route = useRoute<NavigationProps>();

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -118,4 +118,4 @@ function RightAccountEmptyPanel({
   return content;
 }
 
-export default React.memo(RightAccountEmptyPanel);
+export default memo(RightAccountEmptyPanel);

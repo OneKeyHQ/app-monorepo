@@ -90,7 +90,7 @@ export const SecurityIcon: FC<{ token: Partial<IToken>; size: number }> = ({
   return null;
 };
 
-export const TokenVerifiedIcon: React.FC<{
+export const TokenVerifiedIcon: FC<{
   token?: Partial<IToken>;
   size?: number;
 }> = ({ token, size = 16 }) => {

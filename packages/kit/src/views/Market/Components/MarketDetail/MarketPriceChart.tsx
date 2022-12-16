@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
 
 import { StyleProp, ViewStyle } from 'react-native';
 
@@ -17,7 +17,7 @@ type MarketPriceChartProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const MarketPriceChart: React.FC<MarketPriceChartProps> = ({
+const MarketPriceChart: FC<MarketPriceChartProps> = ({
   coingeckoId,
   style,
 }) => {

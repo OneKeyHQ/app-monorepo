@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import { FC, memo, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -197,5 +197,5 @@ const Protected: FC<ProtectedProps> = ({
   );
 };
 
-export default React.memo(Protected);
+export default memo(Protected);
 export { ValidationFields };

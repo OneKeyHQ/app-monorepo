@@ -1,7 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
-import LOCALES, { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import LOCALES from '@onekeyhq/components/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getDefaultLocale } from './locale';

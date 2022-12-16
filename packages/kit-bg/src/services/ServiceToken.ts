@@ -70,7 +70,6 @@ export default class ServiceToken extends ServiceBase {
     activeAccountId,
     activeNetworkId,
     withBalance,
-    withPrice,
   }: {
     activeAccountId: string;
     activeNetworkId: string;
@@ -130,7 +129,6 @@ export default class ServiceToken extends ServiceBase {
     activeAccountId,
     activeNetworkId,
     withBalance,
-    withPrice,
     wait,
     forceReloadTokens,
   }: IFetchAccountTokensParams) {

@@ -1,3 +1,5 @@
+import type { FC } from 'react';
+
 import { SegmentedControl } from '@onekeyhq/components';
 
 export const TIMEOPTIONS = ['1D', '1W', '1M', '1Y', 'All'];
@@ -9,7 +11,7 @@ type TimeControlProps = {
   enabled?: boolean;
 };
 
-const TimeControl: React.FC<TimeControlProps> = ({
+const TimeControl: FC<TimeControlProps> = ({
   selectedIndex,
   onTimeChange,
   enabled,
