@@ -80,11 +80,17 @@ const Footer: FC = () => (
 );
 
 const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
-  const { formatDistanceStrict } = useFormatDate();
+  const { formatDistanceStrict, format } = useFormatDate();
   const intl = useIntl();
   const renderItem: ListRenderItem<NFTNPL> = useCallback(
     ({ item }) => {
       const { asset, entry, exit, profit } = item;
+
+      let profitLab = PriceString({
+        price: new BigNumber(profit).decimalPlaces(3).toString(),
+        symbol: item.exit.tradeSymbol,
+      });
+      profitLab = `${profit >= 0 ? '+' : ''}${profitLab}`;
 
       let entryBadge;
       if (entry.eventType === 'Mint') {
@@ -92,7 +98,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
       } else if (entry.eventType === 'Transfer') {
         entryBadge = intl.formatMessage({ id: 'action__receive' });
       }
-
+      // ${format(new Date(startTime), 'yyyy/MM/dd')}
       const tradeValueEntry = new BigNumber(entry.tradePrice ?? 0)
         .decimalPlaces(3)
         .toString();
@@ -122,7 +128,10 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
             }}
           />
           <Hidden till="md">
-            <Tooltip label={entry.timestamp.toString()} placement="top left">
+            <Tooltip
+              label={format(new Date(entry.timestamp), 'yyyy-MM-dd HH:mm')}
+              placement="top left"
+            >
               <ListItem.Column
                 w="200px"
                 text={{
@@ -161,7 +170,10 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
             </Tooltip>
           </Hidden>
           <Hidden till="md">
-            <Tooltip label={exit.timestamp.toString()} placement="top left">
+            <Tooltip
+              label={format(new Date(exit.timestamp), 'yyyy-MM-dd HH:mm')}
+              placement="top left"
+            >
               <ListItem.Column
                 w="160px"
                 text={{
@@ -193,10 +205,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
           <ListItem.Column
             w="140px"
             text={{
-              label: PriceString({
-                price: new BigNumber(profit).decimalPlaces(3).toString(),
-                symbol: item.exit.tradeSymbol,
-              }),
+              label: profitLab,
               labelProps: {
                 isTruncated: true,
                 textAlign: 'right',
@@ -225,7 +234,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         </ListItem>
       );
     },
-    [formatDistanceStrict, intl, network.id],
+    [format, formatDistanceStrict, intl, network.id],
   );
 
   return (

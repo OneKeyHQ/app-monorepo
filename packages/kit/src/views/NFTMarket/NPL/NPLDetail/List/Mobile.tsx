@@ -56,6 +56,12 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
     ({ item }) => {
       const { asset, entry, exit, profit } = item;
 
+      let profitLab = PriceString({
+        price: new BigNumber(profit).decimalPlaces(3).toString(),
+        symbol: item.exit.tradeSymbol,
+      });
+      profitLab = `${profit >= 0 ? '+' : ''}${profitLab}`;
+
       return (
         <ListItem>
           <ListItem.Column>
@@ -76,10 +82,7 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
           />
           <ListItem.Column
             text={{
-              label: PriceString({
-                price: new BigNumber(profit).decimalPlaces(3).toString(),
-                symbol: item.exit.tradeSymbol,
-              }),
+              label: profitLab,
               labelProps: {
                 textAlign: 'right',
                 color: profit > 0 ? 'text-success' : 'text-critical',

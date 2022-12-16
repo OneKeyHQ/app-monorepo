@@ -22,13 +22,12 @@ import NFTListImage from '../../../Wallet/NFT/NFTList/NFTListImage';
 import { PriceString } from '../../PriceText';
 
 type Props = {
-  data: NFTNPL;
+  data?: NFTNPL;
   scale: number;
   opacity?: number;
 };
+
 export const NPLCard: FC<Props> = ({ data, scale, opacity }) => {
-  const { entry, exit } = data;
-  const profit = (exit?.tradePrice ?? 0) - (entry?.tradePrice ?? 0);
   const { formatDistanceStrict } = useFormatDate();
   const { themeVariant } = useTheme();
 
@@ -41,63 +40,81 @@ export const NPLCard: FC<Props> = ({ data, scale, opacity }) => {
         transform: [{ scale }],
       }}
     >
-      <Box
-        borderRadius="12px"
-        overflow="hidden"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="border-default"
-      >
-        {data?.asset && (
-          <Center
-            position="absolute"
-            top={0}
-            right={0}
-            bottom={0}
-            left={0}
-            bgColor="background-default"
-          >
-            <NFTListImage asset={data?.asset} size={358} opacity={50} />
-          </Center>
-        )}
-        <BlurView
-          tint={themeVariant === 'light' ? 'light' : 'dark'}
-          intensity={100}
-          style={{
-            flexDirection: 'row',
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-          }}
+      {data ? (
+        <Box
+          borderRadius="12px"
+          overflow="hidden"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="border-default"
         >
-          <HStack alignItems="center" space={3} flex={1}>
-            {data?.asset && (
-              <NFTListImage asset={data?.asset} size={40} borderRadius="12px" />
-            )}
-            <VStack flex={1} space={1}>
-              <Text isTruncated typography="Body1Strong">
-                {data.contractName}
+          {data?.asset && (
+            <Center
+              position="absolute"
+              top={0}
+              right={0}
+              bottom={0}
+              left={0}
+              bgColor="background-default"
+            >
+              <NFTListImage asset={data?.asset} size={358} opacity={50} />
+            </Center>
+          )}
+          <BlurView
+            tint={themeVariant === 'light' ? 'light' : 'dark'}
+            intensity={100}
+            style={{
+              flexDirection: 'row',
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+            }}
+          >
+            <HStack alignItems="center" space={3} flex={1}>
+              {data?.asset && (
+                <NFTListImage
+                  asset={data?.asset}
+                  size={40}
+                  borderRadius="12px"
+                />
+              )}
+              <VStack flex={1} space={1}>
+                <Text isTruncated typography="Body1Strong">
+                  {data.contractName}
+                </Text>
+                <Text isTruncated typography="Body2" color="text-subdued">
+                  {data.tokenId ? `#${data.tokenId}` : '–'}
+                </Text>
+              </VStack>
+            </HStack>
+            <VStack space={1}>
+              <Text
+                typography="Body1Strong"
+                textAlign="right"
+                color={data.profit > 0 ? 'text-success' : 'text-critical'}
+              >
+                {PriceString({
+                  price: new BigNumber(data.profit).decimalPlaces(3).toString(),
+                  symbol: data.exit.tradeSymbol,
+                })}
               </Text>
-              <Text isTruncated typography="Body2" color="text-subdued">
-                {data.tokenId ? `#${data.tokenId}` : '–'}
+              <Text typography="Body2" textAlign="right" color="text-subdued">
+                {formatDistanceStrict(
+                  data.exit.timestamp,
+                  data.entry.timestamp,
+                )}
               </Text>
             </VStack>
-          </HStack>
-          <VStack space={1}>
-            <Text
-              typography="Body1Strong"
-              textAlign="right"
-              color={profit > 0 ? 'text-success' : 'text-critical'}
-            >
-              {PriceString({
-                price: new BigNumber(profit).decimalPlaces(3).toString(),
-                symbol: data.exit.tradeSymbol,
-              })}
-            </Text>
-            <Text typography="Body2" textAlign="right" color="text-subdued">
-              {formatDistanceStrict(exit.timestamp, entry.timestamp)}
-            </Text>
-          </VStack>
-        </BlurView>
-      </Box>
+          </BlurView>
+        </Box>
+      ) : (
+        <Box
+          borderRadius="12px"
+          overflow="hidden"
+          height="80px"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="border-default"
+          bgColor="red.100"
+        />
+      )}
     </Box>
   );
 };
@@ -108,6 +125,7 @@ type GroupProps = {
 
 export const NPLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
   const [pageWidth, setPageWidth] = useState<number>(0);
+
   return (
     <ZStack
       justifyContent="center"
@@ -120,16 +138,16 @@ export const NPLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
       {...props}
     >
       <Image zIndex={0} source={BlurBackground} width={300} height={300} />
-      {datas[0] && pageWidth > 0 && (
+      {pageWidth > 0 && (
         <Box zIndex={1} mt="-40px" style={{ transform: [{ translateY: -21 }] }}>
           <NPLCard
-            data={datas[0]}
+            data={datas[2]}
             scale={(pageWidth / 358) * 0.81}
             opacity={70}
           />
         </Box>
       )}
-      {datas[1] && pageWidth > 0 && (
+      {pageWidth > 0 && (
         <Box zIndex={2}>
           <NPLCard
             data={datas[1]}
@@ -138,9 +156,9 @@ export const NPLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
           />
         </Box>
       )}
-      {datas[2] && pageWidth > 0 && (
+      {pageWidth > 0 && (
         <Box zIndex={3} mt="48px" style={{ transform: [{ translateY: 26 }] }}>
-          <NPLCard data={datas[2]} scale={pageWidth / 358} opacity={90} />
+          <NPLCard data={datas[0]} scale={pageWidth / 358} opacity={90} />
         </Box>
       )}
     </ZStack>
