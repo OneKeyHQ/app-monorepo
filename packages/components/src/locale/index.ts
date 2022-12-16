@@ -2,40 +2,7 @@ import ISO6391 from 'iso-639-1';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import bn from './bn.json';
-import de from './de.json';
 import enUS from './en-US.json';
-import es from './es.json';
-import fil from './fil.json';
-import frFR from './fr_FR.json';
-import hiIN from './hi_IN.json';
-import itIT from './it_IT.json';
-import jaJP from './ja_JP.json';
-import koKR from './ko_KR.json';
-import mnMN from './mn_MN.json';
-import pt from './pt.json';
-import ru from './ru.json';
-import thTH from './th_TH.json';
-import ukUA from './uk_UA.json';
-import vi from './vi.json';
-import zhCN from './zh-CN.json';
-import zhHK from './zh_HK.json';
-
-function validateI18nKeys(name: string, data: typeof enUS) {
-  if (Object.keys(data).length !== Object.keys(enUS).length) {
-    throw new Error(`lang=${name} missing i18n keys.`);
-  }
-  return data;
-}
-
-function buildLocalesData(...items: Array<[string, typeof enUS]>) {
-  const locales: Record<string, typeof enUS> = {};
-  items.forEach((item) => {
-    const [name, data] = item;
-    locales[name] = validateI18nKeys(name, data);
-  });
-  return locales;
-}
 
 const defaultLanguage: Record<string, string> = {
   'zh-CN': '简体中文',
@@ -44,48 +11,68 @@ const defaultLanguage: Record<string, string> = {
 };
 
 const getLanguage = (symbol: string): string => {
-  let languageName: string | undefined = defaultLanguage[symbol];
-  if (languageName) return languageName;
+  let languageName: string | undefined =
+    defaultLanguage[symbol] ||
+    ISO6391.getNativeName(symbol) ||
+    ISO6391.getName(symbol);
 
-  languageName = ISO6391.getNativeName(symbol);
-  if (languageName) return languageName;
-
-  languageName = ISO6391.getName(symbol);
-  if (languageName) return languageName;
-
-  if (symbol.indexOf('-') !== -1) {
+  if (!languageName && symbol.indexOf('-') !== -1) {
     const [symbolShort] = symbol.split('-');
-
-    languageName = ISO6391.getNativeName(symbolShort);
-    if (languageName) return languageName;
-
-    languageName = ISO6391.getName(symbolShort);
-    if (languageName) return languageName;
+    languageName =
+      ISO6391.getNativeName(symbolShort) || ISO6391.getName(symbolShort);
   }
 
-  return symbol;
+  return languageName || symbol;
 };
 
-const LOCALES = buildLocalesData(
-  ['en-US', enUS],
-  ['zh-CN', zhCN],
-  ['zh-HK', zhHK],
-  ['ja-JP', jaJP],
-  ['ko-KR', koKR],
-  ['bn', bn],
-  ['de', de],
-  ['es', es],
-  ['fil', fil],
-  ['fr-FR', frFR],
-  ['hi-IN', hiIN],
-  ['it-IT', itIT],
-  ['mn-MN', mnMN],
-  ['pt', pt],
-  ['ru', ru],
-  ['th-TH', thTH],
-  ['uk-UA', ukUA],
-  ['vi', vi],
-);
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const _LOCALES = {
+  'en-US': enUS,
+  'zh-CN': () => import('./zh-CN.json'),
+  'zh-HK': () => import('./zh_HK.json'),
+  'ja-JP': () => import('./ja_JP.json'),
+  'ko-KR': () => import('./ko_KR.json'),
+  'bn': () => import('./bn.json'),
+  'de': () => import('./de.json'),
+  'es': () => import('./es.json'),
+  'fil': () => import('./fil.json'),
+  'fr-FR': () => import('./fr_FR.json'),
+  'hi-IN': () => import('./hi_IN.json'),
+  'it-IT': () => import('./it_IT.json'),
+  'mn-MN': () => import('./mn_MN.json'),
+  'pt': () => import('./pt.json'),
+  'ru': () => import('./ru.json'),
+  'th-TH': () => import('./th_TH.json'),
+  'uk-UA': () => import('./uk_UA.json'),
+  'vi': () => import('./vi.json'),
+};
+export type LocaleSymbol = keyof typeof _LOCALES | 'system';
+export type LocaleIds = keyof typeof enUS;
+
+const LOCALES = _LOCALES as Record<
+  LocaleSymbol,
+  Record<keyof typeof enUS, string> | (() => Promise<any>)
+>;
+
+if (process.env.NODE_ENV !== 'production') {
+  // Check if i18n keys are complete
+  const keyLength = Object.keys(enUS).length;
+  // eslint-disable-next-line no-restricted-syntax, guard-for-in
+  for (const key in LOCALES) {
+    // @ts-ignore
+    const data = LOCALES[key];
+    if (typeof data === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      data().then((module: { default: any }) => {
+        if (Object.keys(module.default).length !== keyLength) {
+          throw new Error(
+            `Locale ${key} has different keys with en-US, please check it.`,
+          );
+        }
+      });
+    }
+  }
+}
 
 const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
   value: key,
@@ -96,9 +83,6 @@ if (platformEnv.isExtensionBackground) {
   // debugger;
   // throw new Error('components/locale is not allowed imported from background');
 }
-
-export type LocaleSymbol = keyof typeof LOCALES;
-export type LocaleIds = keyof typeof enUS;
 
 export default LOCALES;
 export { LOCALES_OPTION };

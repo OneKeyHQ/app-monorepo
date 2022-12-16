@@ -17,7 +17,6 @@ export function useReloadAccountBalance({
       activeAccountId: accountId,
       activeNetworkId: networkId,
       withBalance: true,
-      withPrice: true,
     });
   }, [accountId, networkId]);
 }

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Typography } from '@onekeyhq/components';
 
 export function FeeTipsWarning({ message }: { message: string }) {

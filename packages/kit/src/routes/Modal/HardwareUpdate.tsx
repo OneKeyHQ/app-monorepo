@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 

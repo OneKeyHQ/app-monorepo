@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Account, Center, VStack } from '@onekeyhq/components';
 
 const AccountGallery = () => (

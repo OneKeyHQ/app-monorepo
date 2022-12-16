@@ -43,7 +43,9 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { Avatar, randomAvatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   COINTYPE_ETH,
+  IMPL_CFX,
   IMPL_COSMOS,
+  IMPL_FIL,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import {
@@ -64,7 +66,7 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$setBoardingCompleted = setBoardingCompleted;
 }
 
-const REFRESH_ACCOUNT_IMPL = [IMPL_COSMOS];
+const REFRESH_ACCOUNT_IMPL = [IMPL_COSMOS, IMPL_FIL, IMPL_CFX];
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -75,7 +77,7 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  forceRefreshAccount(networkId: string | null): boolean {
+  shouldForceRefreshAccount(networkId?: string): boolean {
     if (!networkId) return false;
     return REFRESH_ACCOUNT_IMPL.includes(parseNetworkId(networkId).impl ?? '');
   }

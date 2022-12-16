@@ -28,6 +28,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
+import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { getTokenValues } from '../../../utils/priceUtils';
 
 import AssetsListHeader from './AssetsListHeader';
@@ -73,20 +74,27 @@ function AssetsList({
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
-  const { accountTokens, balances, prices, loading } = useManageTokensOfAccount(
-    { accountId, networkId },
-  );
+  const { accountTokens, balances, loading } = useManageTokensOfAccount({
+    accountId,
+    networkId,
+  });
 
   const { account, network } = useActiveSideAccount({
     accountId,
     networkId,
   });
+  const { prices } = useManageTokenprices({ networkId, accountId });
+
   const navigation = useNavigation<NavigationProps>();
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
   const valueSortedTokens = useMemo(() => {
     const tokenValues = new Map<TokenType, BigNumber>();
     const sortedTokens = accountTokens
       .filter((t) => {
-        if (t.tokenIdOnNetwork && !prices[t.tokenIdOnNetwork]) {
+        const priceId = `${networkId}${
+          t.tokenIdOnNetwork ? `-${t.tokenIdOnNetwork}` : ''
+        }`;
+        if (t.tokenIdOnNetwork && !prices?.[priceId]) {
           if (hideSmallBalance) {
             return false;
           }
@@ -97,6 +105,7 @@ function AssetsList({
           tokens: [t],
           prices,
           balances,
+          vsCurrency,
         });
         if (hideSmallBalance && v.isLessThan(1)) {
           return false;
@@ -105,30 +114,39 @@ function AssetsList({
         return true;
       })
       .filter((t) => !hideRiskTokens || !t.security)
-      .sort(
-        (a, b) =>
-          // By value
+      .sort((a, b) => {
+        const priceIda = `${networkId}${
+          a.tokenIdOnNetwork ? `-${a.tokenIdOnNetwork}` : ''
+        }`;
+        const priceIdb = `${networkId}${
+          b.tokenIdOnNetwork ? `-${b.tokenIdOnNetwork}` : ''
+        }`;
+        // By value
+        return (
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           tokenValues.get(b)!.comparedTo(tokenValues.get(a)!) ||
           // By price
-          new BigNumber(prices[b.tokenIdOnNetwork || 'main'] || 0).comparedTo(
-            new BigNumber(prices[a.tokenIdOnNetwork || 'main'] || 0),
+          new BigNumber(prices?.[priceIdb]?.[vsCurrency] || 0).comparedTo(
+            new BigNumber(prices?.[priceIda]?.[vsCurrency] || 0),
           ) ||
           // By native token
           (b.isNative ? 1 : 0) ||
           (a.isNative ? -1 : 0) ||
           // By name
-          natsort({ insensitive: true })(a.name, b.name),
-      );
+          natsort({ insensitive: true })(a.name, b.name)
+        );
+      });
 
     return limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens;
   }, [
     accountTokens,
+    limitSize,
+    networkId,
+    prices,
     balances,
+    vsCurrency,
     hideSmallBalance,
     hideRiskTokens,
-    limitSize,
-    prices,
   ]);
 
   const { size } = useUserDevice();

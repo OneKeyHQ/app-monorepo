@@ -173,6 +173,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     );
   }
 
+  getTransactionFeeInNative(txid: string): Promise<string> {
+    return Promise.resolve('');
+  }
+
   async isContractAddress(address: string): Promise<boolean> {
     return false;
   }
@@ -599,5 +603,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
    */
   getFetchBalanceAddress(account: DBAccount | Account) {
     return Promise.resolve(account.address);
+  }
+
+  getPrivateKeyByCredential(credential: string): Buffer | undefined {
+    return Buffer.from(
+      credential.startsWith('0x') ? credential.slice(2) : credential,
+      'hex',
+    );
   }
 }

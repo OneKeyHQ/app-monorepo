@@ -17,10 +17,7 @@ export class KeyringWatching extends KeyringWatchingBase {
     }
 
     // TODO: remove addressToBase from proxy.ts
-    const address = await this.engine.providerManager.addressToBase(
-      this.networkId,
-      normalizedAddress,
-    );
+    const address = await this.vault.addressToBase(normalizedAddress);
     return [
       {
         id: `${accountIdPrefix}--${COIN_TYPE}--${address}`,

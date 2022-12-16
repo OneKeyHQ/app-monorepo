@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import { PackageInfo, PackagesInfo } from '../type';
 
-import { AppReleases, Changelog } from './type';
+import type { AppReleases, Changelog } from './type';
 
 function handleReleaseInfo(
   releasesVersion: AppReleases | undefined,

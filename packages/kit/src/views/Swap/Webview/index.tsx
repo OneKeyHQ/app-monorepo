@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { RouteProp, useRoute } from '@react-navigation/core';
 
 import { Modal } from '@onekeyhq/components';

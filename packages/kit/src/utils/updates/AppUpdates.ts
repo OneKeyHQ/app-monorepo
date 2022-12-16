@@ -131,13 +131,14 @@ class AppUpdates {
     newVersion: string,
   ): Promise<string | undefined> {
     const releaseInfo = await getChangeLog(oldVersion, newVersion);
+    if (!releaseInfo) return;
 
     let locale = store.getState().settings.locale ?? 'en-US';
     if (locale === 'system') {
       locale = getDefaultLocale();
     }
 
-    return releaseInfo?.[locale];
+    return releaseInfo[locale];
   }
 
   _openUrl(url: string) {

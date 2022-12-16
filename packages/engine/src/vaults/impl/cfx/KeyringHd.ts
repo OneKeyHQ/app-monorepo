@@ -72,10 +72,7 @@ export class KeyringHd extends KeyringHdBase {
         this.networkId,
         pub,
       );
-      const baseAddress = await this.engine.providerManager.addressToBase(
-        this.networkId,
-        addressOnNetwork,
-      );
+      const baseAddress = await this.vault.addressToBase(addressOnNetwork);
       const name = (names || [])[index] || `CFX #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,

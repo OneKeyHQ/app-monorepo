@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import AmountInput from '@onekeyhq/kit/src/views/FiatPay/AmountInput';
 import MoonpayWebView from '@onekeyhq/kit/src/views/FiatPay/MoonpayWebView';

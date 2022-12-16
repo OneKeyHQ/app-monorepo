@@ -1,10 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React from 'react';
-
-import { useRoute } from '@react-navigation/core';
-import { TransitionPresets } from '@react-navigation/stack';
-
-import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import {
   SendRoutes,
   SendRoutesParams,

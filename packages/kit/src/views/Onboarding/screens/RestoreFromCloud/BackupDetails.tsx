@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box } from '@onekeyhq/components';
 
 import CloudBackupDetails from '../../../Me/SecuritySection/CloudBackup/BackupDetails';

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import BackupAttentions from '@onekeyhq/kit/src/views/BackupWallet/BackupAttentions';
 import BackupLite from '@onekeyhq/kit/src/views/BackupWallet/BackupLite';

@@ -269,6 +269,7 @@ export function convertRpcError(error: string): OneKeyError {
 export function waitPendingTransaction(
   client: AptosClient,
   txHash: string,
+  right = true,
   retryCount = 10,
 ): Promise<Types.Transaction | undefined> {
   let retry = 0;
@@ -282,10 +283,12 @@ export function waitPendingTransaction(
     try {
       transaction = await client.getTransactionByHash(txHash);
     } catch (error: any) {
-      const { errorCode } = error;
-      // ignore transaction not found
-      if (errorCode !== 'transaction_not_found') {
-        return Promise.reject(new OneKeyError(errorCode));
+      if (right) {
+        const { errorCode } = error;
+        // ignore transaction not found
+        if (errorCode !== 'transaction_not_found') {
+          return Promise.reject(new OneKeyError(errorCode));
+        }
       }
     }
 
@@ -299,7 +302,7 @@ export function waitPendingTransaction(
       );
     }
     if (retry > retryCount) {
-      return Promise.resolve(transaction);
+      return Promise.reject(new OneKeyError('transaction timeout'));
     }
 
     return new Promise(

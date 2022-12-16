@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, Icon, Pressable } from '@onekeyhq/components';
 
 function TxActionElementWithIcon(props: {

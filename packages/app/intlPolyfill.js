@@ -3,7 +3,6 @@ import { shouldPolyfill as shouldPolyfillLocale } from '@formatjs/intl-locale/sh
 import { shouldPolyfill as shouldPolyfillPluralrules } from '@formatjs/intl-pluralrules/should-polyfill';
 
 (async () => {
-  // This platform already supports Intl.getCanonicalLocales
   if (shouldPolyfillGetcanonicallocales()) {
     await import('@formatjs/intl-getcanonicallocales/polyfill');
   }

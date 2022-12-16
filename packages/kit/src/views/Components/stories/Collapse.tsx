@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Button, Center, Collapse } from '@onekeyhq/components';
 
 const CollapseGallery = () => (

@@ -36,6 +36,7 @@ import {
   useNetworkSimple,
 } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
@@ -125,7 +126,7 @@ function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [amountInputDecimals]);
 
-  const { getTokenPrice } = useManageTokens();
+  // const { getTokenPrice } = useManageTokens();
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
@@ -136,16 +137,13 @@ function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [textInputDecimals]);
 
+  const price = useSimpleTokenPriceValue({
+    networkId: tokenInfo?.networkId,
+    contractAdress: tokenInfo?.tokenIdOnNetwork,
+  });
+
   const [text, setText] = useState(amount);
-  const tokenPriceBN = useMemo(
-    () =>
-      new BigNumber(
-        getTokenPrice({
-          token: tokenInfo,
-        }),
-      ),
-    [getTokenPrice, tokenInfo],
-  );
+  const tokenPriceBN = useMemo(() => new BigNumber(price ?? 0), [price]);
   const hasTokenPrice = !tokenPriceBN.isNaN() && tokenPriceBN.gt(0);
   const getInputText = useCallback(
     (isFiatMode0: boolean, amount0: string, roundMode = undefined) => {

@@ -873,6 +873,15 @@ export default class Vault extends VaultBase {
     return (await Promise.all(promises)).filter(Boolean);
   }
 
+  override getPrivateKeyByCredential(credential: string) {
+    let privateKey;
+    const decodedPrivateKey = bs58.decode(credential);
+    if (decodedPrivateKey.length === 64) {
+      privateKey = decodedPrivateKey.slice(0, 32);
+    }
+    return privateKey;
+  }
+
   async refreshRecentBlockBash(transaction: string): Promise<string> {
     const nativeTx = Transaction.from(Buffer.from(transaction, 'base64'));
     const client = await this.getClient();

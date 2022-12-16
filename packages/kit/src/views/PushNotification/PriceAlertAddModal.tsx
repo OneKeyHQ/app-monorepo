@@ -22,8 +22,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageTokens } from '../../hooks';
 import { useSettings } from '../../hooks/redux';
+import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import {
   ManageTokenRoutes,
@@ -53,11 +53,15 @@ export const PriceAlertAddModal: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
   const { pushNotification } = useSettings();
   const navigation = useNavigation<NavigationProps>();
-  const { getTokenPrice } = useManageTokens();
+  // const { getTokenPrice } = useManageTokens();
   // const map = useAppSelector((s) => s.fiatMoney.map);
   const { selectedFiatMoneySymbol } = useSettings();
   // const fiat = map[selectedFiatMoneySymbol];
-  const originalPrice = getTokenPrice(token) || 0;
+  const originalPrice =
+    useSimpleTokenPriceValue({
+      networkId: token.networkId,
+      contractAdress: token.tokenIdOnNetwork,
+    }) ?? 0;
   const price = new B(originalPrice).toNumber();
 
   const { serviceNotification } = backgroundApiProxy;

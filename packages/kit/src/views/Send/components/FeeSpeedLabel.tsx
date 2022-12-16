@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIntl } from 'react-intl';
 
 export function FeeSpeedLabel({ index }: { index: number | string }) {

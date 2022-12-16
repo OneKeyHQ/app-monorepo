@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center, HStack } from '@onekeyhq/components';
 
 const ShadowsGallery = () => (

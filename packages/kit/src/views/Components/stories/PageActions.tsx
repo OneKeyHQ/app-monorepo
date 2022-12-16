@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center, PageActions } from '@onekeyhq/components';
 
 const PageActionsGallery = () => (

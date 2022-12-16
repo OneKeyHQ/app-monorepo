@@ -55,7 +55,10 @@ class ServiceNetwork extends ServiceBase {
     let shouldDispatch = true;
     this.notifyChainChanged();
 
-    if (previousNetwork?.impl !== newNetwork?.impl) {
+    if (
+      previousNetwork?.impl !== newNetwork?.impl ||
+      serviceAccount.shouldForceRefreshAccount(newNetwork?.id)
+    ) {
       // 当切换了不同 impl 类型的链时更新 accounts 内容
       const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
         activeWalletId,

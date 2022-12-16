@@ -138,7 +138,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           activeAccountId: accountId,
           activeNetworkId: networkId,
           withBalance: true,
-          withPrice: false,
         });
 
         if (routeParams.signOnly) {
