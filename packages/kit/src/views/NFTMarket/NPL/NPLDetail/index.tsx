@@ -285,7 +285,7 @@ const Header: FC<HeaderProps> = ({
           onChangeText={setNameOrAddress}
           rightIconName={showClearBtn ? 'XCircleMini' : undefined}
           rightElement={
-            <Center height="full" right="8px">
+            <Center height="36px" right="8px">
               {inputLoading === true ? <Spinner size="sm" /> : null}
             </Center>
           }
