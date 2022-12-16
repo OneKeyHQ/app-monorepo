@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect } from 'react';
 
 import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 
 import { Box } from '@onekeyhq/components';
 
@@ -13,6 +14,7 @@ const getCardanoApi = async () => {
     composeTxPlan: Loader.onekeyUtils.composeTxPlan,
     signTransaction: Loader.onekeyUtils.signTransaction,
     hwSignTransaction: Loader.trezorUtils.signTransaction,
+    dAppUtils: Loader.dAppUtils,
   };
 };
 
@@ -22,6 +24,11 @@ enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
   signTransaction = 'Cardano_signTransaction',
   hwSignTransaction = 'Cardano_hwSignTransaction',
+  dAppGetBalance = 'Cardano_DAppGetBalance',
+  dAppGetAddresses = 'Cardano_DAppGetAddresses',
+  dAppGetUtxos = 'Cardano_DAppGetUtxos',
+  dAppConvertCborTxToEncodeTx = 'Cardano_DAppConvertCborTxToEncodeTx',
+  dAppSignData = 'Cardano_DAppSignData',
 }
 
 function CardanoProvider() {
@@ -90,11 +97,87 @@ function CardanoProvider() {
         }
 
         case CardanoEvent.hwSignTransaction: {
-          const { txBodyHex, signedWitnesses } = eventParams;
+          const { txBodyHex, signedWitnesses, options } = eventParams;
           try {
             const result = await CardanoApi.hwSignTransaction(
               txBodyHex,
               signedWitnesses,
+              options,
+            );
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
+          break;
+        }
+
+        case CardanoEvent.dAppGetBalance: {
+          const { balance } = eventParams;
+          try {
+            const result = await CardanoApi.dAppUtils.getBalance(
+              new BigNumber(balance),
+            );
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
+          break;
+        }
+
+        case CardanoEvent.dAppGetUtxos: {
+          const { address, utxos, amount } = eventParams;
+          try {
+            const result = await CardanoApi.dAppUtils.getUtxos(
+              address,
+              utxos,
+              amount,
+            );
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
+          break;
+        }
+
+        case CardanoEvent.dAppGetAddresses: {
+          const { addresses } = eventParams;
+          try {
+            const result = await CardanoApi.dAppUtils.getAddresses(addresses);
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
+          break;
+        }
+
+        case CardanoEvent.dAppConvertCborTxToEncodeTx: {
+          const { txHex, utxos, addresses } = eventParams;
+          try {
+            const result = await CardanoApi.dAppUtils.convertCborTxToEncodeTx(
+              txHex,
+              utxos,
+              addresses,
+            );
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
+          break;
+        }
+
+        case CardanoEvent.dAppSignData: {
+          const {
+            address,
+            payload: signPayload,
+            xprv,
+            accountIndex,
+          } = eventParams;
+          try {
+            const result = await CardanoApi.dAppUtils.signData(
+              address,
+              signPayload,
+              xprv,
+              accountIndex,
             );
             sendResponse(promiseId, { error: null, result });
           } catch (error) {

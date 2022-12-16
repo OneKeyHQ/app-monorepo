@@ -25,11 +25,8 @@ import EthLogo from '../../../../assets/staking/eth_logo.png';
 import KeleLogoPNG from '../../../../assets/staking/kele_pool.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useNetworkTokensPrice,
-} from '../../../hooks';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { useAccountStakingActivity, useKelePoolStakingState } from '../hooks';
 import { StakingRoutes, StakingRoutesParams } from '../typing';
@@ -49,7 +46,8 @@ const ListHeaderComponent = () => {
   const stakingState = useKelePoolStakingState(networkId, accountId);
   const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const prices = useNetworkTokensPrice(networkId);
+  // const prices = useNetworkTokensPrice(networkId);
+  const mainPrice = useSimpleTokenPriceValue({ networkId });
   const showETH2UnableToUnstakeWarning = useAppSelector(
     (s) => s.staking.showETH2UnableToUnstakeWarning,
   );
@@ -79,10 +77,10 @@ const ListHeaderComponent = () => {
           )}
         </Box>
         <FormatCurrency
-          numbers={[prices.main ?? 0, stakingState?.total ?? 0]}
+          numbers={[mainPrice ?? 0, stakingState?.total ?? 0]}
           render={(ele) => (
             <Typography.Body1 ml={3} color="text-subdued">
-              {prices.main ? ele : '-'}
+              {mainPrice ? ele : '-'}
             </Typography.Body1>
           )}
         />
@@ -198,7 +196,8 @@ const ListEmptyComponent = () => {
 export default function StakedETHOnKele() {
   const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
-  const prices = useNetworkTokensPrice(networkId);
+  // const prices = useNetworkTokensPrice(networkId);
+  const mainPrice = useSimpleTokenPriceValue({ networkId });
   const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
   useEffect(() => {
     async function loadData() {
@@ -239,17 +238,17 @@ export default function StakedETHOnKele() {
             {dateFormat(new Date(item.date), 'LLL dd yyyy')}
           </Typography.Body2>
           <FormatCurrency
-            numbers={[prices.main ?? 0, item.reward ?? 0]}
+            numbers={[mainPrice ?? 0, item.reward ?? 0]}
             render={(ele) => (
               <Typography.Body2 ml={3} color="text-subdued">
-                {prices.main ? ele : '-'}
+                {mainPrice ? ele : '-'}
               </Typography.Body2>
             )}
           />
         </Box>
       </Box>
     ),
-    [incomeItems.length, intl, prices],
+    [incomeItems.length, intl, mainPrice],
   );
   return (
     <Modal

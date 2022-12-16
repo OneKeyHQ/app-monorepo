@@ -52,6 +52,8 @@ const COINTYPE_ADA = '1815';
 
 const IMPL_SUI = 'sui';
 const COINTYPE_SUI = '784';
+const IMPL_FIL = 'fil';
+const COINTYPE_FIL = '461';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
@@ -71,6 +73,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_COSMOS,
   IMPL_ADA,
   IMPL_SUI,
+  IMPL_FIL,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -89,7 +92,9 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_ALGO,
   IMPL_XRP,
   IMPL_COSMOS,
+  IMPL_ADA,
   IMPL_SUI,
+  IMPL_FIL,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -155,6 +160,8 @@ export {
   COINTYPE_ADA,
   IMPL_SUI,
   COINTYPE_SUI,
+  IMPL_FIL,
+  COINTYPE_FIL,
   getSupportedImpls,
 };
 

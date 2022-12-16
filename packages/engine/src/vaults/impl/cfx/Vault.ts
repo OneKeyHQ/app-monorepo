@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import {
+  encode as toCfxAddress,
+  decode as toEthAddress,
+} from '@conflux-dev/conflux-address-js';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
@@ -388,17 +392,16 @@ export default class Vault extends VaultBase {
       address: dbAccount.addresses?.[this.networkId] || '',
     };
     if (ret.address.length === 0) {
-      // TODO: remove selectAccountAddress from proxy
-      const address = await this.engine.providerManager.selectAccountAddress(
+      const addressOnNetwork = await this.engine.providerManager.addressFromPub(
         this.networkId,
-        dbAccount,
+        dbAccount.pub,
       );
       await this.engine.dbApi.addAccountAddress(
         dbAccount.id,
         this.networkId,
-        address,
+        addressOnNetwork,
       );
-      ret.address = address;
+      ret.address = addressOnNetwork;
     }
     return ret;
   }
@@ -703,6 +706,17 @@ export default class Vault extends VaultBase {
     const start = performance.now();
     const latestBlock = await client.getEpochNumber();
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+
+  override async addressFromBase(baseAddress: string) {
+    const chainId = await this.getNetworkChainId();
+    return toCfxAddress(baseAddress, parseInt(chainId));
+  }
+
+  override async addressToBase(address: string) {
+    return Promise.resolve(
+      `0x${toEthAddress(address).hexAddress.toString('hex')}`,
+    );
   }
 
   createClientFromURL(url: string): BaseClient {

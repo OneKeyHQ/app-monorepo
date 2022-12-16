@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import axios, { Method } from 'axios';
 import {
   isArray,
   isBoolean,
@@ -12,9 +13,13 @@ import {
   isString,
   isUndefined,
 } from 'lodash';
+import qs from 'qs';
 import { batch } from 'react-redux';
 
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+
 import {
+  IMPL_ADA,
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_CFX,
@@ -25,6 +30,7 @@ import {
   IMPL_SUI,
   IMPL_TRON,
 } from '../engine/engineConsts';
+import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
@@ -301,6 +307,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'tron': IMPL_TRON,
     'algo': IMPL_ALGO,
     'sui': IMPL_SUI,
+    'cardano': IMPL_ADA,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
@@ -315,6 +322,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
   IInjectedProviderNames.sui,
+  IInjectedProviderNames.cardano,
 ];
 
 export function getNetworkImplFromDappScope(
@@ -371,4 +379,29 @@ export function buildReduxBatchAction(...actions: AnyAction[]) {
   }
 
   return singleAction;
+}
+
+export async function fetchData<T>(
+  path: string,
+  query: Record<string, unknown> = {},
+  fallback: T,
+  method: Method = 'GET',
+): Promise<T> {
+  const endpoint = getFiatEndpoint();
+  const isPost = method === 'POST' || method === 'post';
+  const apiUrl = `${endpoint}${path}${
+    !isPost ? `?${qs.stringify(query)}` : ''
+  }`;
+  try {
+    const postData = isPost ? query : undefined;
+    const requestConfig = { url: apiUrl, method, data: postData };
+    const { data } = await axios.request<T>(requestConfig);
+    return data;
+  } catch (e) {
+    debugLogger.http.error(
+      `backgroundApi.fetchData ERROR: request api ${apiUrl}`,
+      e,
+    );
+    return fallback;
+  }
 }

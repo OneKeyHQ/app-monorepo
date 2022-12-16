@@ -4,10 +4,6 @@
 
 import { Buffer } from 'buffer';
 
-import {
-  encode as toCfxAddress,
-  decode as toEthAddress,
-} from '@conflux-dev/conflux-address-js';
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
 import {
@@ -41,7 +37,6 @@ import {
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
-  IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
   IMPL_LTC,
@@ -52,20 +47,13 @@ import {
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { NotImplemented, OneKeyInternalError } from './errors';
+import { OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
 import { getPresetNetworks } from './presets';
-import {
-  AccountType,
-  DBAccount,
-  DBSimpleAccount,
-  DBUTXOAccount,
-  DBVariantAccount,
-} from './types/account';
+import { DBAccount, DBSimpleAccount } from './types/account';
 import { HistoryEntryStatus } from './types/history';
 import { DBNetwork, EIP1559Fee, Network } from './types/network';
 import { Token } from './types/token';
-import { baseAddressToAddress } from './vaults/impl/cosmos/sdk/address';
 
 // IMPL naming aren't necessarily the same.
 export const IMPL_MAPPINGS: Record<
@@ -426,85 +414,6 @@ class ProviderController extends BaseProviderController {
       this.getVerifier(networkId, pub),
       undefined,
     );
-  }
-
-  async addressFromBase(
-    networkId: string,
-    baseAddress: string,
-  ): Promise<string> {
-    const [impl, chainId] = networkId.split(SEPERATOR);
-    switch (impl) {
-      case IMPL_CFX:
-        return Promise.resolve(toCfxAddress(baseAddress, parseInt(chainId)));
-      case IMPL_COSMOS:
-        // eslint-disable-next-line no-case-declarations
-        const chainInfo = await this.getChainInfoByNetworkId(networkId);
-        return Promise.resolve(
-          baseAddressToAddress(
-            chainInfo.implOptions?.addressPrefix ?? 'cosmos',
-            baseAddress,
-          ),
-        );
-      default:
-        throw new NotImplemented();
-    }
-  }
-
-  addressToBase(networkId: string, address: string): Promise<string> {
-    const [impl] = networkId.split(SEPERATOR);
-    switch (impl) {
-      case IMPL_CFX:
-        return Promise.resolve(
-          `0x${toEthAddress(address).hexAddress.toString('hex')}`,
-        );
-      default:
-        throw new NotImplemented();
-    }
-  }
-
-  public async selectAccountAddress(
-    networkId: string,
-    dbAccount: DBAccount,
-  ): Promise<string> {
-    const [impl] = networkId.split(SEPERATOR);
-
-    let address;
-    switch (dbAccount.type) {
-      case AccountType.SIMPLE:
-        address = dbAccount.address;
-        break;
-      case AccountType.VARIANT:
-        address = ((dbAccount as DBVariantAccount).addresses || {})[networkId];
-        if (typeof address === 'undefined' || impl === IMPL_COSMOS) {
-          address = await this.addressFromBase(networkId, dbAccount.address);
-        }
-        break;
-      case AccountType.UTXO:
-        address = (dbAccount as DBUTXOAccount).xpub;
-        break;
-      default:
-        throw new NotImplemented();
-    }
-    return Promise.resolve(address);
-  }
-
-  async preSend(
-    network: Network,
-    dbAccount: DBAccount,
-    to: string,
-    value: BigNumber,
-    token?: Token,
-    extra?: { [key: string]: any },
-  ): Promise<BigNumber> {
-    dbAccount.address = await this.selectAccountAddress(network.id, dbAccount);
-    const unsignedTx = await this.buildUnsignedTx(
-      network.id,
-      fillUnsignedTx(network, dbAccount, to, value, token, extra),
-    );
-    if (typeof unsignedTx.feeLimit === 'undefined') {
-      throw new OneKeyInternalError('Failed to estimate gas limit.');
-    }
-    return unsignedTx.feeLimit;
   }
 
   async getGasPrice(networkId: string): Promise<Array<BigNumber | EIP1559Fee>> {

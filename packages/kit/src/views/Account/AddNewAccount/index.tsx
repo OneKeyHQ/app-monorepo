@@ -120,11 +120,20 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       for (const [key, value] of Object.entries(
         selectedNetwork.accountNameInfo,
       )) {
-        ret.push({ label: value.label || '', value: key });
+        ret.push({
+          label: value.label || '',
+          value: key,
+          description: value.addressPrefix
+            ? intl.formatMessage(
+                { id: 'content__start_with_str' },
+                { 0: value.addressPrefix },
+              )
+            : undefined,
+        });
       }
     }
     return ret.length > 1 ? ret : [];
-  }, [selectedNetwork]);
+  }, [selectedNetwork, intl]);
 
   useEffect(() => {
     async function setNameAndCheck() {

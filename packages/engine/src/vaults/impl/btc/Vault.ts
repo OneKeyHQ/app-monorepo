@@ -755,4 +755,8 @@ export default class Vault extends VaultBase {
       ),
     );
   }
+
+  override getPrivateKeyByCredential(credential: string) {
+    return bs58check.decode(credential);
+  }
 }

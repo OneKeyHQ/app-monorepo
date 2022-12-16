@@ -12,12 +12,8 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
+import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
-  FormatBalance,
-  FormatCurrencyNumber,
-} from '@onekeyhq/kit/src/components/Format';
-import {
-  getActiveWalletAccount,
   useActiveWalletAccount,
   useFiatPay,
   useMoonpayPayCurrency,
@@ -34,8 +30,9 @@ import {
 import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
-import { getTokenValues } from '../../../utils/priceUtils';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
+
+import { PriceCurrencyNumber } from './PriceCurrencyNumber';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
@@ -47,7 +44,7 @@ export type TokenInfoProps = {
 const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const { wallet, network } = useActiveWalletAccount();
+  const { wallet, network, networkId, accountId } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const currencies = useFiatPay(network?.id ?? '');
@@ -58,7 +55,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
     return item.contract === token?.tokenIdOnNetwork;
   });
 
-  const { prices, balances } = useManageTokens();
+  const { balances } = useManageTokens();
 
   const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
 
@@ -125,8 +122,11 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
             />
           </Box>
           <Typography.Body2 mt={1}>
-            <FormatCurrencyNumber
-              value={getTokenValues({ tokens: [token], prices, balances })[0]}
+            <PriceCurrencyNumber
+              networkId={networkId}
+              token={token}
+              contractAdress={token?.tokenIdOnNetwork}
+              balances={balances}
             />
           </Typography.Body2>
         </Box>
@@ -140,7 +140,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       network?.tokenDisplayDecimals,
       network?.nativeDisplayDecimals,
       amount,
-      prices,
+      networkId,
       balances,
     ],
   );
@@ -156,7 +156,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
             type="basic"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
-              const { accountId, networkId } = getActiveWalletAccount();
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Send,
                 params: {
@@ -305,13 +304,15 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       </Box>
     ),
     [
-      priceReady,
       isVertical,
       wallet?.type,
       intl,
       cryptoCurrency,
       sellEnable,
+      priceReady,
       navigation,
+      accountId,
+      networkId,
       token,
     ],
   );

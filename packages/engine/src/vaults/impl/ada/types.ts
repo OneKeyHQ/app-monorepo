@@ -125,6 +125,7 @@ export type IEncodedTxADA = {
   transferInfo: ITransferInfo;
   tx: ITxInfo;
   changeAddress: IChangeAddress;
+  signOnly?: boolean;
 };
 
 export type IAdaHistory = {
