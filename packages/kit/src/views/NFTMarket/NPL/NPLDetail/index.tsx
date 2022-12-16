@@ -131,22 +131,23 @@ const ListTitle = () => {
         w="160px"
         text={{
           label: (
-            <HStack alignItems="center" space={1} alignSelf="flex-start">
-              <Text typography="Subheading" color="text-subdued">
-                {intl.formatMessage({ id: 'content__exit_value' })}
-              </Text>
-              <Tooltip
-                label="Royalty fees are excluded"
-                placement="top left"
-                hasArrow
-              >
+            <Tooltip
+              label={intl.formatMessage({
+                id: 'content__royalty_fees_are_excluded',
+              })}
+              placement="top left"
+            >
+              <HStack alignItems="center" space={1} alignSelf="flex-start">
+                <Text typography="Subheading" color="text-subdued">
+                  {intl.formatMessage({ id: 'content__exit_value' })}
+                </Text>
                 <Icon
                   name="QuestionMarkCircleMini"
                   size={16}
                   color="icon-subdued"
                 />
-              </Tooltip>
-            </HStack>
+              </HStack>
+            </Tooltip>
           ),
           labelProps: {
             typography: 'Subheading',
@@ -275,7 +276,7 @@ const Header: FC<HeaderProps> = ({
   }, [nameOrAddress, inputLoading]);
 
   return (
-    <Box width="full" mb={2} p={2}>
+    <Box width="full" p={2}>
       <Box width="full" flexDirection="row">
         <Searchbar
           flex={1}
@@ -576,8 +577,10 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
           return (
             <Empty
               emoji="💰"
-              title="No Sales Record"
-              subTitle="This address hasn’t sold any NFTs"
+              title={intl.formatMessage({ id: 'empty__no_sales_record' })}
+              subTitle={intl.formatMessage({
+                id: 'empty__no_sales_record_desc',
+              })}
             />
           );
         }
@@ -588,7 +591,15 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         getAssets(currentPage.current);
       },
     }),
-    [accountAddress, getAssets, listData, loading, selectNetwork, totalNPLData],
+    [
+      accountAddress,
+      getAssets,
+      intl,
+      listData,
+      loading,
+      selectNetwork,
+      totalNPLData,
+    ],
   );
 
   return (

@@ -122,11 +122,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
             }}
           />
           <Hidden till="md">
-            <Tooltip
-              label={entry.timestamp.toString()}
-              placement="top"
-              hasArrow
-            >
+            <Tooltip label={entry.timestamp.toString()} placement="top left">
               <ListItem.Column
                 w="200px"
                 text={{
@@ -165,7 +161,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
             </Tooltip>
           </Hidden>
           <Hidden till="md">
-            <Tooltip label={exit.timestamp.toString()} placement="top" hasArrow>
+            <Tooltip label={exit.timestamp.toString()} placement="top left">
               <ListItem.Column
                 w="160px"
                 text={{
