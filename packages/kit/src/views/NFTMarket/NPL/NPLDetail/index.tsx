@@ -43,6 +43,7 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { AccountSelectorTrigger } from '../../../../components/NetworkAccountSelector/triggers/AccountSelectorTrigger';
@@ -369,16 +370,18 @@ const Header: FC<HeaderProps> = ({
             </Hidden>
           </Box>
         </Box>
-        <Button
-          isDisabled={loading}
-          type="primary"
-          size={isVerticalLayout ? 'lg' : 'base'}
-          leftIconName="ArrowTopRightOnSquareSolid"
-          onPress={shareAction}
-          mt={{ base: 6, sm: 0 }}
-        >
-          {intl.formatMessage({ id: 'action__share' })}
-        </Button>
+        {platformEnv.isNative && (
+          <Button
+            isDisabled={loading}
+            type="primary"
+            size={isVerticalLayout ? 'lg' : 'base'}
+            leftIconName="ArrowTopRightOnSquareSolid"
+            onPress={shareAction}
+            mt={{ base: 6, sm: 0 }}
+          >
+            {intl.formatMessage({ id: 'action__share' })}
+          </Button>
+        )}
       </Box>
       <Hidden from="base" till="md">
         <ListTitle />
