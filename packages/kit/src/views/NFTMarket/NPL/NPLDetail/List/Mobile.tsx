@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import { FC, useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { ListRenderItem } from 'react-native';
