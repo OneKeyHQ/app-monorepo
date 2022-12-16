@@ -107,7 +107,7 @@ const PageHeader = () => {
               }
               mx={-4}
             >
-              Profit and Loss
+              {intl.formatMessage({ id: 'action__profit_and_loss' })}
             </Button>
           </HStack>
         </Hidden>

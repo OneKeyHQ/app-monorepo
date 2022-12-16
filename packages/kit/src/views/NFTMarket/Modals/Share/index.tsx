@@ -105,8 +105,15 @@ const Share = () => {
       onPrimaryActionPress={shareAction}
     >
       <Box w="full" h="full" position="relative">
-        <Box shadow="depth.5">
-          <ViewShot ref={ref}>
+        <Box alignItems="center" shadow="depth.5">
+          <ViewShot
+            ref={ref}
+            style={{
+              // prevent too wise width on Tablet
+              width: '100%',
+              maxWidth: 400,
+            }}
+          >
             <Box
               borderWidth={StyleSheet.hairlineWidth}
               borderRadius="24px"

@@ -279,8 +279,7 @@ const Header: FC<HeaderProps> = ({
     <Box width="full" p={2}>
       <Box width="full" flexDirection="row">
         <Searchbar
-          flex={1}
-          w="auto"
+          w="full"
           maxW="400px"
           value={nameOrAddress}
           onChangeText={setNameOrAddress}

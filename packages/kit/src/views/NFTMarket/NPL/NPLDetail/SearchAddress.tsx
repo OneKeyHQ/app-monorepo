@@ -124,7 +124,7 @@ const SearchAddress: FC<{
           })}
           rightCustomElement={
             loading === true ? (
-              <Center p={{ base: 2, md: 1 }}>
+              <Center p={{ base: 2, md: 1 }} maxW="36px" maxH="36px">
                 <Spinner size="sm" />
               </Center>
             ) : null
