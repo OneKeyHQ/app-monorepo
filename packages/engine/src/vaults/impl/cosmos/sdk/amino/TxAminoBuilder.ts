@@ -1,6 +1,7 @@
-import { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
-import { TxBuilder } from '../txBuilder';
 import { TransactionWrapper } from '../wrapper';
+
+import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
+import type { TxBuilder } from '../txBuilder';
 
 export class TxAminoBuilder implements TxBuilder {
   makeTxWrapper(

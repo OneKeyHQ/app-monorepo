@@ -13,7 +13,6 @@ import Long from 'long';
 
 import { stripHexPrefix } from '../../../utils/hexUtils';
 
-import { TransactionWrapper } from './wrapper';
 import {
   getAminoSignDoc,
   getDirectSignDoc,
@@ -21,6 +20,7 @@ import {
 } from './wrapper/utils';
 
 import type { ProtoMsgsOrWithAminoMsgs } from './ITxMsgBuilder';
+import type { TransactionWrapper } from './wrapper';
 
 export interface TxBuilder {
   makeTxWrapper(

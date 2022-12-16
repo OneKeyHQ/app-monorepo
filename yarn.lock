@@ -5363,10 +5363,8 @@ __metadata:
     "@onekeyfe/hd-shared": 0.2.18
     "@onekeyfe/hd-transport": 0.2.18
     "@onekeyfe/hd-web-sdk": 0.2.18
-    "@onekeyfe/inpage-providers-hub": 1.1.15
     "@onekeyfe/js-sdk": 1.1.5
     "@onekeyfe/network-list": 1.6.37
-    "@onekeyfe/onekey-aptos-provider": 1.1.15
     "@onekeyfe/onekey-cross-webview": 1.1.15
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
     "@types/chrome": ^0.0.161

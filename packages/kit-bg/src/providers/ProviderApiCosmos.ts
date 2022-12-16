@@ -2,15 +2,12 @@
 /* eslint-disable camelcase */
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
-import { BroadcastMode } from '@onekeyhq/engine/src/vaults/impl/cosmos/NodeClient';
-import { StdSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/amino/types';
+import type { BroadcastMode } from '@onekeyhq/engine/src/vaults/impl/cosmos/NodeClient';
+import type { StdSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/amino/types';
 import { deserializeTx } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/txBuilder';
 import { TransactionWrapper } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/wrapper';
 import { getAminoSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/wrapper/utils';
@@ -18,8 +15,8 @@ import {
   getADR36SignDoc,
   getDataForADR36,
 } from '@onekeyhq/engine/src/vaults/impl/cosmos/utils';
-import VaultCosmos from '@onekeyhq/engine/src/vaults/impl/cosmos/Vault';
-import { ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import type VaultCosmos from '@onekeyhq/engine/src/vaults/impl/cosmos/Vault';
+import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -29,9 +26,10 @@ import {
 import { IMPL_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ProviderApiCosmos extends ProviderApiBase {
@@ -183,7 +181,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
       },
-    )) as ISignedTx;
+    )) as ISignedTxPro;
 
     const txInfo = deserializeTx(
       hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
@@ -250,7 +248,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         ),
         signOnly: true,
       },
-    )) as ISignedTx;
+    )) as ISignedTxPro;
 
     const txInfo = deserializeTx(
       hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
@@ -343,7 +341,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
       },
-    )) as ISignedTx;
+    )) as ISignedTxPro;
 
     const txInfo = deserializeTx(
       hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
@@ -395,7 +393,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
       },
-    )) as ISignedTx;
+    )) as ISignedTxPro;
 
     const txInfo = deserializeTx(
       hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),

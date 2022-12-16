@@ -1,14 +1,13 @@
-import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
-
 import { TxAminoMsgBuilder } from './amino/TxAminoMsgBuilder';
-import {
+import { TxProtoMsgBuilder } from './proto/TxProtoMsgBuilder';
+
+import type { StdMsg } from './amino/types';
+import type {
   AnyHex,
   ITxMsgBuilder,
   ProtoMsgsOrWithAminoMsgs,
 } from './ITxMsgBuilder';
-import { TxProtoMsgBuilder } from './proto/TxProtoMsgBuilder';
-
-import type { StdMsg } from './amino/types';
+import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 export class TxMsgBuilder {
   aminoMsgBuilder: ITxMsgBuilder = new TxAminoMsgBuilder();

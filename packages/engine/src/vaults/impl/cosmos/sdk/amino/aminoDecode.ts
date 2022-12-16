@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { UnknownMessage } from '../message';
-import { UnpackedMessage } from '../proto/protoDecode';
 
-import { StdMsg, defaultAminoMsgOpts } from './types';
+import { defaultAminoMsgOpts } from './types';
+
+import type { UnpackedMessage } from '../proto/protoDecode';
+import type { StdMsg } from './types';
 
 interface AminoFactory {
   decode: (message: any) => any;

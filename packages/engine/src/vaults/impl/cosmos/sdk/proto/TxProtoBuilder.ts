@@ -1,19 +1,16 @@
 import { hexToBytes } from '@noble/hashes/utils';
-import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
-import {
-  AuthInfo,
-  SignDoc,
-  SignerInfo,
-  TxBody,
-} from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
 
-import { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
-import { TxBuilder } from '../txBuilder';
 import { TransactionWrapper } from '../wrapper';
+
+import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
+import type { TxBuilder } from '../txBuilder';
+import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
+import type { SignDoc, SignerInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
 export class TxProtoBuilder implements TxBuilder {
   private makeTxBodyBytes(body: Partial<TxBody>): Uint8Array {

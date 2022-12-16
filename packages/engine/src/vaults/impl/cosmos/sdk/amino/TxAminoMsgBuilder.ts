@@ -1,13 +1,15 @@
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
-import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import { SignDoc, TxBody, TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
-import { Any } from 'cosmjs-types/google/protobuf/any';
 
-import { ITxMsgBuilder } from '../ITxMsgBuilder';
 import { MessageType } from '../message';
 
-import { StdMsg, defaultAminoMsgOpts } from './types';
+import { defaultAminoMsgOpts } from './types';
+
+import type { ITxMsgBuilder } from '../ITxMsgBuilder';
+import type { StdMsg } from './types';
+import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
+import type { Any } from 'cosmjs-types/google/protobuf/any';
 
 export function decodeTxBody(txBody: Uint8Array): TxBody {
   return TxBody.decode(txBody);

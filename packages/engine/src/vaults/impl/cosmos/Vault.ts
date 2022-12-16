@@ -48,6 +48,8 @@ import {
 import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
+import { MintScanQuery } from './sdk/query/MintScanQuery';
+import { Type } from './sdk/query/mintScanTypes';
 import { serializeSignedTx } from './sdk/txBuilder';
 import { TxMsgBuilder } from './sdk/txMsgBuilder';
 import {
@@ -197,8 +199,38 @@ export default class Vault extends VaultBase {
     return Promise.resolve(address);
   }
 
+  private isIbcToken(tokenAddress: string) {
+    return (
+      tokenAddress.indexOf('/') !== -1 &&
+      tokenAddress.split('/')[0].toLowerCase() === 'ibc'
+    );
+  }
+
   override async validateTokenAddress(tokenAddress: string): Promise<string> {
     const chainInfo = await this.getChainInfo();
+
+    if (this.isIbcToken(tokenAddress)) {
+      const [prefix, address] = tokenAddress.split('/');
+      const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+      const query = new MintScanQuery();
+      const results = await query.fetchAssertInfos(this.networkId);
+      if (!results) {
+        return Promise.reject(new InvalidTokenAddress());
+      }
+
+      const token = results.find((item) => {
+        if (item.type === Type.Ibc && item.denom === normalizationAddress) {
+          return true;
+        }
+        return false;
+      });
+
+      if (token) {
+        return Promise.resolve(normalizationAddress);
+      }
+      return Promise.reject(new InvalidTokenAddress());
+    }
+
     const valid = isValidContractAddress(
       tokenAddress,
       chainInfo.implOptions.addressPrefix,
@@ -245,13 +277,24 @@ export default class Vault extends VaultBase {
     return Promise.all(
       requests.map(async ({ address, tokenAddress }) => {
         try {
-          if (!tokenAddress) {
+          const isNativeCoin = !tokenAddress;
+          const isIBCToken = tokenAddress && this.isIbcToken(tokenAddress);
+
+          if (isNativeCoin || isIBCToken) {
             const balances = await client.getAccountBalances(address);
-            const balance = balances.find(
-              (b) => b.denom === chainInfo.mainCoinDenom,
-            );
-            return new BigNumber(balance?.amount ?? '0');
+
+            if (isNativeCoin) {
+              const balance = balances.find(
+                (b) => b.denom === chainInfo.mainCoinDenom,
+              );
+              return new BigNumber(balance?.amount ?? '0');
+            }
+            if (isIBCToken) {
+              const balance = balances.find((b) => b.denom === tokenAddress);
+              return new BigNumber(balance?.amount ?? '0');
+            }
           }
+
           if (!contractClient) throw new Error('Contract client not found');
           return await contractClient
             .queryCw20TokenBalance(
@@ -273,27 +316,68 @@ export default class Vault extends VaultBase {
   override async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo>> {
+    const ibcTokenAddresses = tokenAddresses
+      .filter((tokenAddress) => this.isIbcToken(tokenAddress))
+      .reduce((acc, tokenAddress) => {
+        const [prefix, address] = tokenAddress.split('/');
+        const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+        acc.add(normalizationAddress);
+        return acc;
+      }, new Set<string>());
+
+    const tokens = [];
+
+    if (ibcTokenAddresses.size > 0) {
+      const query = new MintScanQuery();
+      const results = await query.fetchAssertInfos(this.networkId);
+      if (!results) {
+        return Promise.resolve([]);
+      }
+
+      const ibcTokens = results.reduce((acc, item) => {
+        if (item.type === Type.Ibc && ibcTokenAddresses.has(item.denom)) {
+          acc.push({
+            name: `${item.dp_denom}(${item.channel ?? ''})`,
+            symbol: item.dp_denom,
+            decimals: item.decimal,
+          });
+        }
+        return acc;
+      }, [] as Array<PartialTokenInfo>);
+      tokens.push(...ibcTokens);
+    }
+
     const contractClient = await this.getContractClient();
 
     if (!contractClient) return [];
 
     const client = await this.getClient();
 
-    return contractClient
+    const cw20TokenAddress = tokenAddresses.filter(
+      (tokenAddress) => !this.isIbcToken(tokenAddress),
+    );
+
+    await contractClient
       .queryCw20TokenInfo(
         {
           networkId: this.networkId,
           axios: client.axios,
         },
-        tokenAddresses,
+        cw20TokenAddress,
       )
-      .then((tokens) =>
-        tokens.map((token) => ({
+      .then((cw20Tokens) =>
+        cw20Tokens.map((token) => ({
           name: token.name,
           symbol: token.symbol,
           decimals: token.decimals,
         })),
-      );
+      )
+      .then((cw20Tokens) => {
+        tokens.push(...cw20Tokens);
+      })
+      .catch(() => {});
+
+    return tokens;
   }
 
   override async attachFeeInfoToEncodedTx(params: {
@@ -475,12 +559,21 @@ export default class Vault extends VaultBase {
         .shiftedBy(token.decimals)
         .toFixed();
 
-      message = this.msgBuilder.makeSendCwTokenMsg(
-        from,
-        tokenAddress,
-        to,
-        amountValue,
-      );
+      if (this.isIbcToken(tokenAddress)) {
+        message = this.msgBuilder.makeSendNativeMsg(
+          from,
+          to,
+          amountValue,
+          tokenAddress,
+        );
+      } else {
+        message = this.msgBuilder.makeSendCwTokenMsg(
+          from,
+          tokenAddress,
+          to,
+          amountValue,
+        );
+      }
     } else {
       const network = await this.getNetwork();
       const amountValue = new BigNumber(amount)

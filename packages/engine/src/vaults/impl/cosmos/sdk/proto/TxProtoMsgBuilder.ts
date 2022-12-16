@@ -2,18 +2,14 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
-import {
-  AuthInfo,
-  SignDoc,
-  TxBody,
-} from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { AuthInfo, SignDoc, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
 
-import { ITxMsgBuilder } from '../ITxMsgBuilder';
 import { MessageType } from '../message';
 
+import type { ITxMsgBuilder } from '../ITxMsgBuilder';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import type { SignerInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 

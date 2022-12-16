@@ -117,7 +117,7 @@ export class KeyringHd extends KeyringHdBase {
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     debugLogger.common.info('signTransaction result', unsignedTx);
-    const dbAccount = await this.getDbAccount();
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
 
     debugLogger.common.info('signTransaction dbAccount', dbAccount);
 

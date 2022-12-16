@@ -1,10 +1,9 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { SignDoc } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
-import { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
-
 import type { SignDocHex } from '../../type';
 import type { StdSignDoc } from '../amino/types';
+import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
 import type { ProtoSignDoc } from '../proto/protoSignDoc';
 
 export class TransactionWrapper {

@@ -1,7 +1,6 @@
-import { TransactionWrapper } from './sdk/wrapper/index';
-
 import type { Message } from './sdk/message';
 import type { Publickey } from './sdk/publickey';
+import type { TransactionWrapper } from './sdk/wrapper/index';
 
 export type IEncodedTxCosmos = TransactionWrapper;
 

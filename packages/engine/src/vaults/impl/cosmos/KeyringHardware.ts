@@ -26,6 +26,7 @@ import type {
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 // @ts-ignore
+// extends KeyringHardwareBaseKeyringHdBase
 export class KeyringHardware extends KeyringHardwareBase {
   private async getChainInfo() {
     return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
