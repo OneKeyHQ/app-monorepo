@@ -76,7 +76,6 @@ const Item: FC<{
       borderBottomWidth={divider ? '1 ' : undefined}
       borderBottomColor="divider"
       borderBottomRadius={divider ? undefined : '12px'}
-      overflow="hidden"
     >
       <Box flex="1" flexDirection="row" alignItems="center">
         {icon}

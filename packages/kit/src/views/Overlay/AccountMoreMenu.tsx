@@ -90,8 +90,6 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
 
-  console.log(addressCanSubscribe, showSubscriptionIcon);
-
   const accountSubscriptionIcon = useMemo(() => {
     if (isVerticalLayout) {
       return enabledNotification ? 'BellSlashOutline' : 'BellOutline';
