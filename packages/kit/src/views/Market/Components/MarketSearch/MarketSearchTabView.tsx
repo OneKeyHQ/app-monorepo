@@ -1,10 +1,4 @@
-import React, {
-  ComponentType,
-  FC,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import { ComponentType, FC, useCallback, useMemo, useState } from 'react';
 
 import {
   TabView as RNTabView,

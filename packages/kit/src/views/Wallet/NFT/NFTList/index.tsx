@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -83,7 +83,7 @@ const EmptyView: FC<
   );
 };
 
-const MemoEmpty = React.memo(EmptyView);
+const MemoEmpty = memo(EmptyView);
 
 const NFTList: FC<NFTListProps> = ({
   collectibles,
@@ -93,7 +93,7 @@ const NFTList: FC<NFTListProps> = ({
   isNFTSupport,
   isLoading,
 }) => {
-  const [expand, setExpand] = React.useState(false);
+  const [expand, setExpand] = useState(false);
 
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
@@ -107,7 +107,7 @@ const NFTList: FC<NFTListProps> = ({
     [collectibles],
   );
 
-  const renderCollectionItem = React.useCallback<
+  const renderCollectionItem = useCallback<
     NonNullable<FlatListProps<Collection>['renderItem']>
   >(
     ({ item }) => (
@@ -120,7 +120,7 @@ const NFTList: FC<NFTListProps> = ({
     [onSelectCollection],
   );
 
-  const renderAssetItem = React.useCallback<
+  const renderAssetItem = useCallback<
     NonNullable<FlatListProps<NFTAsset>['renderItem']>
   >(
     ({ item }) => (
@@ -138,7 +138,7 @@ const NFTList: FC<NFTListProps> = ({
     platformEnv.isNative && !platformEnv.isNativeIOSPad
       ? undefined
       : `NFTList${numColumns}`;
-  const sharedProps = React.useMemo(
+  const sharedProps = useMemo(
     () => ({
       contentContainerStyle: {
         paddingLeft: 16,
@@ -344,4 +344,4 @@ function NFTListContainer() {
   );
 }
 
-export default React.memo(NFTListContainer);
+export default memo(NFTListContainer);

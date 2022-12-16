@@ -1,4 +1,4 @@
-import React, { FC, useLayoutEffect } from 'react';
+import { FC, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';

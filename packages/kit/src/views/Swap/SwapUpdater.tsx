@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 

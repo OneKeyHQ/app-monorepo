@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC, memo, useCallback, useEffect, useState } from 'react';
+import { FC, ReactNode, memo, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -27,7 +27,7 @@ type ProtectedProps = {
   /** walletId for current flow, null means createWallet flow */
   walletId: string | null;
   field?: ValidationFields;
-  children: (password: string, options: ProtectedOptions) => React.ReactNode;
+  children: (password: string, options: ProtectedOptions) => ReactNode;
   hideTitle?: boolean;
   isAutoHeight?: boolean;
 };

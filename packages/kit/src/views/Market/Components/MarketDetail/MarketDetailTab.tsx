@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import { FC, memo, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -218,4 +218,4 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   );
 };
 
-export default React.memo(MarketDetailTabs);
+export default memo(MarketDetailTabs);

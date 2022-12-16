@@ -1,4 +1,4 @@
-import { FC, memo, useCallback, useEffect } from 'react';
+import { FC, ReactElement, memo, useCallback, useEffect } from 'react';
 
 import { requestPermissionsAsync } from 'expo-notifications';
 import { AppState, NativeModules } from 'react-native';
@@ -17,7 +17,7 @@ import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
 import { setPushNotificationConfig } from '../store/reducers/settings';
 
 const NotificationProvider: FC<{
-  children: React.ReactElement<any, any> | null;
+  children: ReactElement<any, any> | null;
   launchNotification?: NotificationExtra;
 }> = ({ children, launchNotification }) => {
   const { pushNotification } = useSettings();

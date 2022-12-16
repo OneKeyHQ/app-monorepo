@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { DependencyList, useMemo } from 'react';
 
 import { useToast } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -26,7 +26,7 @@ export type ISelectorBuilder = (
 function mockUseMemo<T>(
   factory: () => T,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  deps: React.DependencyList | undefined,
+  deps: DependencyList | undefined,
 ) {
   return factory();
 }

@@ -1,4 +1,4 @@
-import React, {
+import {
   ComponentProps,
   FC,
   memo,
@@ -224,7 +224,7 @@ const LeftSide: FC<LeftSideProps> = ({
   const navigation = useAppNavigation();
 
   const { wallets } = useRuntime();
-  const [hwWallet, setHwWallet] = React.useState<Array<HwWalletGroupType>>([]);
+  const [hwWallet, setHwWallet] = useState<Array<HwWalletGroupType>>([]);
 
   const singletonWallet = useMemo(() => {
     const imported = wallets.filter(

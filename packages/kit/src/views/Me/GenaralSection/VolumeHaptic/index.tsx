@@ -1,4 +1,4 @@
-import React, { FC, useLayoutEffect } from 'react';
+import { FC, memo, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -85,4 +85,4 @@ const VolumeHaptic = () => {
   );
 };
 
-export default React.memo(VolumeHaptic);
+export default memo(VolumeHaptic);

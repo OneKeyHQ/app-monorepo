@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from 'react';
+import { FC, useCallback, useState } from 'react';
 
 import { pick } from 'lodash';
 import { FormattedNumber } from 'react-intl';

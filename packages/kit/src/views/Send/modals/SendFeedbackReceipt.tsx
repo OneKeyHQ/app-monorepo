@@ -1,5 +1,5 @@
 /* eslint-disable global-require */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';

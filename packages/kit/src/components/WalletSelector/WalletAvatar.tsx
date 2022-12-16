@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { ComponentProps, FC, memo, useMemo } from 'react';
+import { ComponentProps, FC, memo, useMemo } from 'react';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';

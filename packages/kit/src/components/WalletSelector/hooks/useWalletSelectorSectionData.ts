@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
 
 import { debounce, orderBy } from 'lodash';
 import { InteractionManager } from 'react-native';
@@ -35,8 +35,8 @@ const buildData = debounce(
     setData,
   }: {
     wallets: IWallet[];
-    setData: React.Dispatch<
-      React.SetStateAction<
+    setData: Dispatch<
+      SetStateAction<
         { type: EWalletDataSectionType; data: IWalletDataBase[] }[]
       >
     >;

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { chunk } from 'lodash';
 import { IBoxProps } from 'native-base';

@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import Box from '../../Box';
 import Center from '../../Center';

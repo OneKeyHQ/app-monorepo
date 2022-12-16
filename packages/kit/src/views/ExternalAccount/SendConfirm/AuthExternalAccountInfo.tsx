@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,7 +23,7 @@ import type {
   IWalletConnectExternalAccountInfo,
 } from '../../Send/types';
 
-const AuthExternalAccountInfo = React.memo(
+const AuthExternalAccountInfo = memo(
   (
     props: IWalletConnectExternalAccountInfo & {
       setTitleInfo: (titleInfo: ISendAuthenticationModalTitleInfo) => void;

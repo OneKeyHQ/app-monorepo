@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useEffect, useState } from 'react';
+import { ComponentProps, FC, useEffect, useState } from 'react';
 
 import axios from 'axios';
 import { SvgUri } from 'react-native-svg';

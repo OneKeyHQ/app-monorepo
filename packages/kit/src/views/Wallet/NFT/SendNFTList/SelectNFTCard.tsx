@@ -1,4 +1,4 @@
-import React, { ComponentProps, memo, useCallback } from 'react';
+import { ComponentProps, memo, useCallback } from 'react';
 import type { FC } from 'react';
 
 import { MotiView } from 'moti';

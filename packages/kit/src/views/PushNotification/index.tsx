@@ -1,5 +1,6 @@
-import React, {
+import {
   FC,
+  ReactElement,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -153,7 +154,7 @@ const NotificationArea = ({
 }: {
   title?: string;
   switchs: OptionsProps[];
-  footer?: React.ReactElement;
+  footer?: ReactElement;
   extraText?: string;
 }) => {
   const { themeVariant } = useTheme();

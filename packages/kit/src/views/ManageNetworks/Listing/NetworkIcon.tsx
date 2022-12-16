@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { Box, Image, Typography } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';

@@ -1,4 +1,4 @@
-import { FC, createRef, useMemo } from 'react';
+import { FC, ReactNode, createRef, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
 import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
@@ -29,7 +29,7 @@ export type UIProviderProps = {
   waitFontLoaded?: boolean;
 };
 export type IFontProviderProps = {
-  children?: React.ReactNode;
+  children?: ReactNode;
   waitFontLoaded?: boolean;
 };
 function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {

@@ -1,6 +1,7 @@
-import React, {
+import {
   ComponentProps,
   FC,
+  ReactElement,
   useCallback,
   useEffect,
   useState,
@@ -153,7 +154,7 @@ const TokenInputReceivingAddress: FC = () => {
     }
   }, [label]);
 
-  let text: React.ReactElement | undefined;
+  let text: ReactElement | undefined;
   const { address, name } = recipient ?? {};
   if (address && name) {
     text = (

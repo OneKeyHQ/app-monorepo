@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import { FC, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { format as dateFormat } from 'date-fns';

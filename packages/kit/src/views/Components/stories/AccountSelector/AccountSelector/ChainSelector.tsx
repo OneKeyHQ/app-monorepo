@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { StyleSheet } from 'react-native';
 

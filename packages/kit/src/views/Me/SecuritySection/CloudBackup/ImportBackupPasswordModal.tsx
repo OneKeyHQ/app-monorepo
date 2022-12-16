@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 
 import { RouteProp } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';

@@ -1,4 +1,4 @@
-import React, { ComponentProps, useCallback, useMemo } from 'react';
+import { ComponentProps, useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';

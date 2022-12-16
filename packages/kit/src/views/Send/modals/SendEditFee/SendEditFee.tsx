@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/naming-convention */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -18,7 +18,7 @@ import { LocaleIds } from '@onekeyhq/components/src/locale';
 import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import {
+import type {
   IFeeInfoSelectedType,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -484,5 +484,5 @@ function ScreenSendEditFee({ ...rest }) {
   );
 }
 
-const SendEditFee = React.memo(ScreenSendEditFee);
+const SendEditFee = memo(ScreenSendEditFee);
 export { SendEditFee };

@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, ReactNode, useState } from 'react';
 
 import { Box } from 'native-base';
 
@@ -14,7 +14,7 @@ type AlertType = 'info' | 'warn' | 'error' | 'success' | 'SeriousWarning';
 type ActionType = 'bottom' | 'right';
 
 export type AlertProps = {
-  title: string | React.ReactNode;
+  title: string | ReactNode;
   description?: string;
   alertType: AlertType;
   dismiss?: boolean;

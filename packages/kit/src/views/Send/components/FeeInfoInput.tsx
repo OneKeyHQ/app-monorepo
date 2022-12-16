@@ -1,4 +1,7 @@
-import React, {
+import {
+  ReactElement,
+  ReactNode,
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -47,7 +50,7 @@ function PressableWrapper({
   canPress,
   onPress,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   canPress: boolean;
   onPress: () => void;
 }) {
@@ -147,7 +150,7 @@ function FeeInfoInput({
   );
 }
 
-const FeeInfoInputContainer = React.memo((props: IFeeInfoInputProps) => {
+const FeeInfoInputContainer = memo((props: IFeeInfoInputProps) => {
   const networkFeeInfoEditable = useNetworkFeeInfoEditable({
     networkId: props.networkId,
   });
@@ -178,7 +181,7 @@ function FeeInfoInputForTransfer({
   const showFirstTimeHint = useRef(true);
   const networkFeeInfoEditable = useNetworkFeeInfoEditable({ networkId });
 
-  const icon: React.ReactElement | null = useMemo(() => {
+  const icon: ReactElement | null = useMemo(() => {
     if (!encodedTx) {
       return null;
     }
@@ -435,7 +438,7 @@ function FeeInfoInputForConfirmLite({
   }
 
   // edit and loading icon
-  const icon: React.ReactElement | null = useMemo(() => {
+  const icon: ReactElement | null = useMemo(() => {
     if (
       !encodedTx ||
       sendConfirmParams.signOnly ||

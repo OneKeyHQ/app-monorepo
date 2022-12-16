@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { Platform } from 'react-native';

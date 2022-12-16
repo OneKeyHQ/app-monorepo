@@ -1,14 +1,10 @@
-import { FC } from 'react';
+import { ComponentType, FC, ReactElement } from 'react';
 
 import { Box, CustomSkeleton, FlatList } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type EmptySkeletonContentProps = {
-  ListHeaderComponent:
-    | React.ComponentType<any>
-    | React.ReactElement
-    | null
-    | undefined;
+  ListHeaderComponent: ComponentType<any> | ReactElement | null | undefined;
 };
 
 export const EmptySkeletonContent: FC<EmptySkeletonContentProps> = ({

@@ -1,4 +1,4 @@
-import React, { isValidElement, useEffect, useMemo, useRef } from 'react';
+import { isValidElement, useEffect, useMemo, useRef } from 'react';
 
 import { Animated } from 'react-native';
 import { Modalize } from 'react-native-modalize';

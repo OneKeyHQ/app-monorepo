@@ -1,4 +1,4 @@
-import React, { FC, ReactNode } from 'react';
+import { FC, ReactNode } from 'react';
 
 import { BlurView } from 'expo-blur';
 import { Platform } from 'react-native';

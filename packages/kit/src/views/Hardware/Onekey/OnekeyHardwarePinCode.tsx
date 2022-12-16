@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -37,7 +37,7 @@ const OnekeyHardwarePinCode: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
 
-  const [inputPin, setInputPin] = React.useState('');
+  const [inputPin, setInputPin] = useState('');
 
   const { type } = route.params;
 

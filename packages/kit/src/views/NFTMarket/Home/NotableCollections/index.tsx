@@ -1,5 +1,6 @@
-import React, {
+import {
   FC,
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -136,4 +137,4 @@ const NotableCollection = () => {
   );
 };
 
-export default React.memo(NotableCollection);
+export default memo(NotableCollection);
