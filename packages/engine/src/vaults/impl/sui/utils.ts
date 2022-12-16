@@ -88,7 +88,6 @@ export async function toTransaction(
   tx: SignableTransaction | string | Base64DataBuffer,
 ) {
   const address = sender;
-  const serializer = new LocalTxnDataSerializer(client);
   let txBytes: string;
   if (typeof tx === 'string') {
     txBytes = tx;
@@ -103,42 +102,17 @@ export async function toTransaction(
           decodeBytesTransaction(tx.data),
         ).toString();
         break;
-      case 'mergeCoin':
-        txBytes = (await serializer.newMergeCoin(address, tx.data)).toString();
-        break;
-      case 'moveCall':
-        txBytes = (await serializer.newMoveCall(address, tx.data)).toString();
-        break;
-      case 'pay':
-        txBytes = (await serializer.newPay(address, tx.data)).toString();
-        break;
-      case 'payAllSui':
-        txBytes = (await serializer.newPayAllSui(address, tx.data)).toString();
-        break;
-      case 'paySui':
-        txBytes = (await serializer.newPaySui(address, tx.data)).toString();
-        break;
-      case 'publish':
-        txBytes = (await serializer.newPublish(address, tx.data)).toString();
-        break;
-      case 'splitCoin':
-        txBytes = (await serializer.newSplitCoin(address, tx.data)).toString();
-        break;
-      case 'transferObject':
-        txBytes = (
-          await serializer.newTransferObject(address, tx.data)
-        ).toString();
-        break;
-      case 'transferSui':
-        txBytes = (
-          await serializer.newTransferSui(address, tx.data)
-        ).toString();
-        break;
       default:
-        throw new Error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `Error, unknown transaction kind ${kind}. Can't dry run transaction.`,
-        );
+        try {
+          const serializer = new LocalTxnDataSerializer(client);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          txBytes = (await serializer.serializeToBytes(address, tx)).toString();
+        } catch (e) {
+          throw new Error(
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            `Error, unknown transaction kind ${kind}. Can't dry run transaction.`,
+          );
+        }
     }
   }
   return txBytes;

@@ -1,10 +1,10 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-
 import {
   Base64DataBuffer,
   Coin,
+  Ed25519PublicKey,
   GetObjectDataResponse,
   LocalTxnDataSerializer,
   SignatureScheme,
@@ -31,6 +31,7 @@ import {
   getTransferSuiTransaction,
   isValidSuiAddress,
 } from '@mysten/sui.js';
+import { hexToBytes } from '@noble/hashes/utils';
 import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import {
@@ -335,6 +336,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
+            true,
             new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
           );
         if (isArray(decode)) {
@@ -677,6 +679,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
+            true,
             new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
           );
         let data;
@@ -781,10 +784,10 @@ export default class Vault extends VaultBase {
       }
 
       const transactionResponse = await client.executeTransaction(
-        signedTx.rawTx,
+        new Base64DataBuffer(signedTx.rawTx),
         scheme,
-        Buffer.from(stripHexPrefix(signature), 'hex').toString('base64'),
-        Buffer.from(stripHexPrefix(publicKey), 'hex').toString('base64'),
+        new Base64DataBuffer(hexToBytes(stripHexPrefix(signature))),
+        new Ed25519PublicKey(hexToBytes(stripHexPrefix(publicKey))),
       );
 
       const txid = getTransactionDigest(transactionResponse);

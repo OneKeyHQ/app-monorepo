@@ -19,12 +19,3 @@ export type NftObject = {
   fields: Record<string, any>;
   hasPublicTransfer: boolean;
 };
-
-export type CoinMetadata = {
-  decimals: number;
-  name: string;
-  symbol: string;
-  description: string;
-  iconUrl: string | null;
-  id: ObjectId | null;
-};
