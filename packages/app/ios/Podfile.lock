@@ -196,9 +196,9 @@ PODS:
   - libwebp/mux (1.2.4):
     - libwebp/demux
   - libwebp/webp (1.2.4)
-  - lottie-ios (3.2.3)
-  - lottie-react-native (5.0.1):
-    - lottie-ios (~> 3.2.3)
+  - lottie-ios (3.4.4)
+  - lottie-react-native (5.1.4):
+    - lottie-ios (~> 3.4.0)
     - React-Core
   - MLImage (1.0.0-beta3)
   - MLKitBarcodeScanning (2.2.0):
@@ -685,7 +685,6 @@ DEPENDENCIES:
   - JPush (from `../../../node_modules/jpush-react-native`)
   - JXCategoryView
   - JXPagingView/Pager
-  - lottie-ios (from `../../../node_modules/lottie-ios`)
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
   - RCT-Folly (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTRequired (from `../../../node_modules/react-native/Libraries/RCTRequired`)
@@ -770,6 +769,7 @@ SPEC REPOS:
     - JXCategoryView
     - JXPagingView
     - libwebp
+    - lottie-ios
     - MLImage
     - MLKitBarcodeScanning
     - MLKitCommon
@@ -847,8 +847,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/jcore-react-native"
   JPush:
     :path: "../../../node_modules/jpush-react-native"
-  lottie-ios:
-    :path: "../../../node_modules/lottie-ios"
   lottie-react-native:
     :path: "../../../node_modules/lottie-react-native"
   RCT-Folly:
@@ -1019,8 +1017,8 @@ SPEC CHECKSUMS:
   JXCategoryView: 7b1ee69ede4843c581688afe84d0f047723262f2
   JXPagingView: 90924b364a2ff7e94db534fad1fa50925ff69ee4
   libwebp: f62cb61d0a484ba548448a4bd52aabf150ff6eef
-  lottie-ios: c058aeafa76daa4cf64d773554bccc8385d0150e
-  lottie-react-native: a029a86e1689c86a07169c520ae770e84348cd20
+  lottie-ios: 8f97d3271e155c2d688875c29cd3c74908aef5f8
+  lottie-react-native: b702fab740cdb952a8e2354713d3beda63ff97b0
   MLImage: 489dfec109f21da8621b28d476401aaf7a0d4ff4
   MLKitBarcodeScanning: d92fe1911001ec36870162c5a0eb206f612b7169
   MLKitCommon: f6da6c5659618c070b50a80db01248ebe2964175
