@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { ReactNode, memo, useCallback, useMemo, useState } from 'react';
 
 import { useChartData } from '@onekeyfe/react-native-animated-charts';
 import { Text, View } from 'react-native';
@@ -38,7 +38,7 @@ const CenteredLabel = ({
   style: Record<string, unknown>;
   color: string;
   width: number;
-  children: React.ReactNode;
+  children: ReactNode;
 }) => {
   const [componentWidth, setWidth] = useState(0);
   const onLayout = useCallback(
@@ -89,7 +89,7 @@ const CenteredLabel = ({
   );
 };
 
-const ExtremeLabels = React.memo(
+const ExtremeLabels = memo(
   ({ color, width }: { color: string; width: number }) => {
     const { greatestX, greatestY, smallestX, smallestY } = useChartData();
     // const { selectedFiatMoneySymbol } = useSettings();

@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import {
+  Dispatch,
+  SetStateAction,
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+} from 'react';
 
 import { useOnboardingLayoutVisible } from './hooks';
 
@@ -7,7 +14,7 @@ export type IOnboardingContextData = {};
 
 export type IOnboardingContext = {
   context: IOnboardingContextData;
-  setContext: React.Dispatch<React.SetStateAction<IOnboardingContextData>>;
+  setContext: Dispatch<SetStateAction<IOnboardingContextData>>;
   visible: boolean;
   forceVisibleUnfocused: () => void; // keep screen visible when router unfocused
 };

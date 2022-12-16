@@ -1,4 +1,4 @@
-import { FC, useCallback } from 'react';
+import { ComponentProps, FC, useCallback } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
@@ -7,7 +7,7 @@ import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 import { useProviderValue } from '../Provider/hooks';
 import { autoHideSelectFunc } from '../utils/SelectAutoHide';
 
-export type PressableItemProps = React.ComponentProps<typeof NBPressable>;
+export type PressableItemProps = ComponentProps<typeof NBPressable>;
 
 const PressableItem: FC<PressableItemProps> = ({
   children,

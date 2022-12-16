@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  Dispatch,
+  SetStateAction,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 
 export type INFTListContentData = {
   priceType?: boolean;
@@ -7,7 +14,7 @@ export type INFTListContentData = {
 
 export type INFTListContent = {
   context: INFTListContentData;
-  setContext: React.Dispatch<React.SetStateAction<INFTListContentData>>;
+  setContext: Dispatch<SetStateAction<INFTListContentData>>;
 };
 
 const NFTListContent = createContext<INFTListContent | null>(null);

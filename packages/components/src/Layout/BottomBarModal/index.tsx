@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 
-import React, { forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback } from 'react';
 
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 

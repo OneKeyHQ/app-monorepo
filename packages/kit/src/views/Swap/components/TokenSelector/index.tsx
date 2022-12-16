@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useContext, useMemo, useState } from 'react';
+import { FC, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { ListRenderItem } from 'react-native';

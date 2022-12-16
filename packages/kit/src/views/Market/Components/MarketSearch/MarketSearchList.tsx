@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import { FC, memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -69,4 +69,4 @@ const MarketSearchList: FC<{
   );
 };
 
-export default React.memo(MarketSearchList);
+export default memo(MarketSearchList);

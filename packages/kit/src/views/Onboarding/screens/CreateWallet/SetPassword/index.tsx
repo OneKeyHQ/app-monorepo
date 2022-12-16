@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { RouteProp, useRoute } from '@react-navigation/native';
@@ -69,7 +69,7 @@ function RedirectToRecoveryPhrase({
   );
 }
 
-const RedirectToRecoveryPhraseMemo = React.memo(RedirectToRecoveryPhrase);
+const RedirectToRecoveryPhraseMemo = memo(RedirectToRecoveryPhrase);
 
 const SetPassword = () => {
   const intl = useIntl();

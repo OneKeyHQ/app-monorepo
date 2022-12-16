@@ -1,4 +1,4 @@
-import React, { FC, useEffect } from 'react';
+import { FC, useEffect } from 'react';
 
 import { RouteProp, useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';

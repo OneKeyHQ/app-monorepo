@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import { FC, memo, useCallback, useEffect, useState } from 'react';
 
 import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -209,4 +209,4 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
   );
 };
 
-export default React.memo(ConnectedSitesHeader);
+export default memo(ConnectedSitesHeader);

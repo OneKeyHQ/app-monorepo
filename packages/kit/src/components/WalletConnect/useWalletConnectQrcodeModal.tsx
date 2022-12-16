@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import QRCodeModalWeb from '@walletconnect/qrcode-modal';
 import { IQRCodeModal, IWalletConnectSession } from '@walletconnect/types';
@@ -66,8 +66,8 @@ export function useWalletConnectQrcodeModal() {
   const walletServiceSelectedInModalRef = useRef<WalletService | undefined>();
 
   // node_modules/@walletconnect/react-native-dapp/dist/providers/WalletConnectProvider.js
-  //    const connectToWalletService = React.useCallback(async (walletService, uri)
-  //    const open = React.useCallback(async (uri, cb) =>
+  //    const connectToWalletService = useCallback(async (walletService, uri)
+  //    const open = useCallback(async (uri, cb) =>
   const connectToWalletService = useCallback(
     async (walletService: WalletService, uri?: string) => {
       if (typeof uri !== 'string' || !uri.length) {

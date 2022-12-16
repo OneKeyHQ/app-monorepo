@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import React, { ComponentProps, FC, useMemo } from 'react';
+import { ComponentProps, FC, useMemo } from 'react';
 
 import { Box, Center, Icon, NetImage } from '@onekeyhq/components';
 

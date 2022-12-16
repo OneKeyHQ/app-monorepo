@@ -1,4 +1,4 @@
-import React, { FC, useCallback } from 'react';
+import { FC, useCallback } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';

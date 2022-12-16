@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react/no-unknown-property */
 import {
+  ComponentProps,
+  Ref,
   forwardRef,
   useCallback,
   useEffect,
@@ -132,7 +134,7 @@ const DesktopWebView = forwardRef(
       receiveHandler,
       onSrcChange,
       ...props
-    }: React.ComponentProps<typeof WEBVIEW_TAG> & InpageProviderWebViewProps,
+    }: ComponentProps<typeof WEBVIEW_TAG> & InpageProviderWebViewProps,
     ref: any,
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
@@ -215,7 +217,7 @@ const DesktopWebView = forwardRef(
       [receiveHandler],
     );
 
-    useImperativeHandle(ref as React.Ref<unknown>, (): IWebViewWrapperRef => {
+    useImperativeHandle(ref as Ref<unknown>, (): IWebViewWrapperRef => {
       const wrapper = {
         innerRef: webviewRef.current,
         jsBridge: jsBridgeHost,

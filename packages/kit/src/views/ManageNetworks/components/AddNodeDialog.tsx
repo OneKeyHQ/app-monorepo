@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -50,7 +50,7 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
   const intl = useIntl();
 
   const { custom, preset } = useRPCUrls(networkId);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { control, handleSubmit, setError } = useForm<FieldValues>({
     defaultValues: { url: '' },

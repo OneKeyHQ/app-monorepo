@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useEffect, useMemo, useState } from 'react';
+import { ComponentProps, FC, useEffect, useMemo, useState } from 'react';
 
 import { Animated, StyleSheet, View } from 'react-native';
 import {

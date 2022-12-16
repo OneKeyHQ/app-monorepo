@@ -1,11 +1,11 @@
-import React, { ComponentProps, FC } from 'react';
-
-import { IBoxProps, IRadioValue } from 'native-base';
+import { ComponentProps, FC, ReactElement, cloneElement } from 'react';
 
 import Box from '../Box';
 import Pressable from '../Pressable';
 
 import { RadioBoxProps } from './RadioBox';
+
+import type { IBoxProps, IRadioValue } from 'native-base';
 
 interface IRadioBoxGroupProps extends IBoxProps<RadioBoxGroupProps> {
   /**
@@ -32,7 +32,7 @@ interface IRadioBoxGroupProps extends IBoxProps<RadioBoxGroupProps> {
    * 选项通用样式
    */
   radioProps?: ComponentProps<typeof Pressable>;
-  children?: React.ReactElement<RadioBoxProps>[];
+  children?: ReactElement<RadioBoxProps>[];
 }
 
 export type RadioBoxGroupProps = IRadioBoxGroupProps;
@@ -52,7 +52,7 @@ const RadioBoxGroup: FC<RadioBoxGroupProps> = ({
       children.map((child, index) => {
         const { value: childValue, children: childChildren } = child.props;
 
-        return React.cloneElement(
+        return cloneElement(
           child,
           {
             ...child.props,

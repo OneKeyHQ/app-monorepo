@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, memo } from 'react';
 
 import {
   Box,
@@ -84,4 +84,4 @@ const MarketSearchTokenDestopCell: FC<{
   );
 };
 
-export default React.memo(MarketSearchTokenDestopCell);
+export default memo(MarketSearchTokenDestopCell);

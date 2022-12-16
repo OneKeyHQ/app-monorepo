@@ -1,4 +1,4 @@
-import React, { ComponentProps } from 'react';
+import { ComponentProps } from 'react';
 
 import { Box } from '@onekeyhq/components';
 import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useRef } from 'react';
+import { FC, memo, useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -460,4 +460,4 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   );
 };
 
-export default React.memo(MarketTokenCell);
+export default memo(MarketTokenCell);

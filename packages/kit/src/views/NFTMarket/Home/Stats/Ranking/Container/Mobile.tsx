@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useCallback } from 'react';
+import { ComponentProps, FC, useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';

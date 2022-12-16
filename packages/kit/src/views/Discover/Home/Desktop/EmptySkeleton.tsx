@@ -1,4 +1,4 @@
-import { FC, useCallback, useMemo } from 'react';
+import { ComponentType, FC, ReactElement, useCallback, useMemo } from 'react';
 
 import { ListRenderItem, useWindowDimensions } from 'react-native';
 
@@ -11,11 +11,7 @@ import {
 } from '@onekeyhq/components';
 
 type EmptySkeletonContentProps = {
-  ListHeaderComponent?:
-    | React.ComponentType<any>
-    | React.ReactElement
-    | null
-    | undefined;
+  ListHeaderComponent?: ComponentType<any> | ReactElement | null | undefined;
   offset?: number;
 };
 

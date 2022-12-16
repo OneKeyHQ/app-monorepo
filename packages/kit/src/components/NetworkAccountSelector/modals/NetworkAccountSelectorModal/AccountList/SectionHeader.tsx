@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { Box, Text } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';

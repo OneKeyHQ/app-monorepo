@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@onekeyhq/components';
 import { isExternalWallet } from '@onekeyhq/shared/src/engine/engineUtils';

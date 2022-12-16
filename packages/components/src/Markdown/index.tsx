@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { StyleSheet, TextStyle } from 'react-native';
 import RNMarkdown from 'react-native-markdown-display';

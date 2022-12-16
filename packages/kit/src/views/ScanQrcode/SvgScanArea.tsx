@@ -1,5 +1,3 @@
-import * as React from 'react';
-
 import Svg, { Path, SvgProps } from 'react-native-svg';
 
 export default function SvgScanArea(props: SvgProps) {

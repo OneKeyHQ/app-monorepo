@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import React, {
+import {
   FC,
   useCallback,
   useEffect,

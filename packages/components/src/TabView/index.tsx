@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useState } from 'react';
+import { FC, ReactNode, useState } from 'react';
 
 import { Box } from 'native-base';
 import { StyleSheet, useWindowDimensions } from 'react-native';

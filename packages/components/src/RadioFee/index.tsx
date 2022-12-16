@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, ReactElement } from 'react';
 
 import Box from '../Box';
 import RadioBox from '../RadioBox';
@@ -8,11 +8,11 @@ import Typography, { Text } from '../Typography';
 
 export type RadioFeeItemProps = {
   value: string;
-  title: string | React.ReactElement<any>;
-  titleSecond?: string | React.ReactElement<any>;
-  describe?: string | React.ReactElement<any>;
-  describeSecond?: string | React.ReactElement<any>;
-  describeThird?: string | React.ReactElement<any>;
+  title: string | ReactElement<any>;
+  titleSecond?: string | ReactElement<any>;
+  describe?: string | ReactElement<any>;
+  describeSecond?: string | ReactElement<any>;
+  describeThird?: string | ReactElement<any>;
 } & RadioBoxProps;
 
 export type RadioFeeProps = {
@@ -21,7 +21,7 @@ export type RadioFeeProps = {
 
 const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
   const readItemComponents = () => {
-    const itemComponents: React.ReactElement<RadioBoxProps>[] = [];
+    const itemComponents: ReactElement<RadioBoxProps>[] = [];
     items.forEach((item) => {
       itemComponents.push(
         <RadioBox

@@ -1,6 +1,6 @@
 /* eslint-disable */
-import * as React from 'react';
 
+import { ReactNode, Component } from 'react';
 import {
   FlatList,
   FlatListProps,
@@ -28,15 +28,15 @@ type Props<ItemT> = {
     info: ListRenderItemInfo<ItemT> & {
       dimensions: { width: number; height: number };
     },
-  ) => React.ReactNode;
-  renderSkipButton?: () => React.ReactNode;
-  renderNextButton?: () => React.ReactNode;
-  renderDoneButton?: () => React.ReactNode;
-  renderPrevButton?: () => React.ReactNode;
+  ) => ReactNode;
+  renderSkipButton?: () => ReactNode;
+  renderNextButton?: () => ReactNode;
+  renderDoneButton?: () => ReactNode;
+  renderPrevButton?: () => ReactNode;
   onSlideChange?: (a: number, b: number) => void;
   onSkip?: () => void;
   onDone?: () => void;
-  renderPagination?: (activeIndex: number) => React.ReactNode;
+  renderPagination?: (activeIndex: number) => ReactNode;
   activeDotStyle: ViewStyle;
   dotStyle: ViewStyle;
   dotClickEnabled: boolean;
@@ -57,7 +57,7 @@ type State = {
   activeIndex: number;
 };
 
-export default class AppIntroSlider<ItemT = any> extends React.Component<
+export default class AppIntroSlider<ItemT = any> extends Component<
   Props<ItemT>,
   State
 > {
@@ -120,7 +120,7 @@ export default class AppIntroSlider<ItemT = any> extends React.Component<
     name: string,
     label: string,
     onPress?: () => void,
-    render?: () => React.ReactNode,
+    render?: () => ReactNode,
   ) => {
     const content = render ? render() : this._renderDefaultButton(name, label);
     return this._renderOuterButton(content, name, onPress);
@@ -145,7 +145,7 @@ export default class AppIntroSlider<ItemT = any> extends React.Component<
   };
 
   _renderOuterButton = (
-    content: React.ReactNode,
+    content: ReactNode,
     name: string,
     onPress?: (e: GestureResponderEvent) => void,
   ) => {

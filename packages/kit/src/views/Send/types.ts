@@ -1,3 +1,5 @@
+import { ReactElement } from 'react';
+
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -243,7 +245,7 @@ export type ISignMessageConfirmViewProps = ModalProps & {
   unsignedMessage: IUnsignedMessageEvm;
   confirmDisabled?: boolean;
   handleConfirm: ISignMessageConfirmViewPropsHandleConfirm;
-  children?: React.ReactElement;
+  children?: ReactElement;
 };
 export type IFeeInfoInputProps = {
   networkId: string;

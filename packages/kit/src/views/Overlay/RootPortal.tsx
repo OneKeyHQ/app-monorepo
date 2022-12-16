@@ -20,7 +20,7 @@ export function isPortalExisted(name: string): boolean {
 
 export interface PortalManager {
   update: (
-    updater: React.ReactNode,
+    updater: ReactNode,
     updateCallback?: (() => void) | undefined,
   ) => void;
   destroy: (destroyCallback?: () => void) => void;

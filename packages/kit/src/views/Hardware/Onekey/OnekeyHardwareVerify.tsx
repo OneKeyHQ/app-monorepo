@@ -1,5 +1,5 @@
 /* eslint-disable global-require */
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import axios from 'axios';
@@ -290,4 +290,4 @@ const OneKeyHardwareVerify: FC = () => {
   );
 };
 
-export default React.memo(OneKeyHardwareVerify);
+export default memo(OneKeyHardwareVerify);

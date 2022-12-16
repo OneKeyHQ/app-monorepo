@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { FC, useEffect } from 'react';
+import { FC, useEffect } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 

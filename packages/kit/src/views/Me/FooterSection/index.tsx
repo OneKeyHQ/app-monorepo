@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import * as FileSystem from 'expo-file-system';
 import { useIntl } from 'react-intl';

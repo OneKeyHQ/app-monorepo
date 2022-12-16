@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { merge } from 'lodash';
@@ -117,6 +117,6 @@ function PreSendTokenScreen() {
   );
 }
 
-const PreSendToken = React.memo(PreSendTokenScreen);
+const PreSendToken = memo(PreSendTokenScreen);
 
 export { PreSendToken };

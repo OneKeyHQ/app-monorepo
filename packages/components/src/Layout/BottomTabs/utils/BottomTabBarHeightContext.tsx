@@ -1,3 +1,3 @@
-import * as React from 'react';
+import { createContext } from 'react';
 
-export default React.createContext<number | undefined>(undefined);
+export default createContext<number | undefined>(undefined);

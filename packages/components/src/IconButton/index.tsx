@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import Button, { ButtonSize, ButtonType } from '../Button';
 import { ICON_NAMES } from '../Icon';

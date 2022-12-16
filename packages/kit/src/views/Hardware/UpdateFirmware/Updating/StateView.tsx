@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';

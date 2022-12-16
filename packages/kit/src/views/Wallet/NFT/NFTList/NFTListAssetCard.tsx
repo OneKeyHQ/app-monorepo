@@ -1,4 +1,4 @@
-import React, { ComponentProps, memo } from 'react';
+import { ComponentProps, memo } from 'react';
 import type { FC } from 'react';
 
 import {

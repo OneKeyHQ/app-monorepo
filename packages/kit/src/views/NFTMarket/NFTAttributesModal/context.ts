@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { Dispatch, SetStateAction, createContext, useContext } from 'react';
 
 export type NFTAttributesContextValue = {
   selectedAttributes: Record<string, string[] | undefined>;
@@ -6,7 +6,7 @@ export type NFTAttributesContextValue = {
 
 export type INFTAttributesContent = {
   context: NFTAttributesContextValue;
-  setContext: React.Dispatch<React.SetStateAction<NFTAttributesContextValue>>;
+  setContext: Dispatch<SetStateAction<NFTAttributesContextValue>>;
 };
 
 export const NFTAttributesContext = createContext<INFTAttributesContent | null>(

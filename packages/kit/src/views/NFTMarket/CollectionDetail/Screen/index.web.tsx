@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC, memo } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -21,7 +21,7 @@ import TransactionList, {
 } from '../TransactionList';
 import { TabEnum } from '../type';
 
-const MemoCollectionInfo = React.memo(CollectionInfo);
+const MemoCollectionInfo = memo(CollectionInfo);
 
 type TabBarProps = {
   items: { title: string; label: string }[];

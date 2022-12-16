@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from 'react';
+import { FC, memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -82,4 +82,4 @@ const SecondaryContent: FC = () => {
   );
 };
 
-export default React.memo(SecondaryContent);
+export default memo(SecondaryContent);

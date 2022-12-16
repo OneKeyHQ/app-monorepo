@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unused-prop-types, @typescript-eslint/no-unused-vars */
-import React, { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';

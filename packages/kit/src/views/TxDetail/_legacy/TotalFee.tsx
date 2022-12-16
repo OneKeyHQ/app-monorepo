@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { ethers } from '@onekeyfe/blockchain-libs';
 import BigNumber from 'bignumber.js';
