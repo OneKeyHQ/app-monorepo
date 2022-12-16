@@ -1,5 +1,5 @@
 // TODO packages/kit/src/components/Header/AccountSelectorChildren/RightHeader.tsx
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 

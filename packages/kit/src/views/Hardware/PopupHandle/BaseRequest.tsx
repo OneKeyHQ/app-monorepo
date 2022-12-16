@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { IBoxProps } from 'native-base';
 
@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export type CloseWay = 'delay' | 'now' | 'never';
 
 export type BaseRequestViewProps = {
-  children: React.ReactNode;
+  children: ReactNode;
   mobileFillWidth?: boolean;
   loading?: boolean;
   closeWay?: CloseWay;

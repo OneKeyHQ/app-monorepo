@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { Box, IconButton, Pressable, Text } from '@onekeyhq/components';
 

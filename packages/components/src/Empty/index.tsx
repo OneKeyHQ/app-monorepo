@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, ReactNode, isValidElement } from 'react';
+import { ComponentProps, FC, ReactNode, isValidElement } from 'react';
 
 import Box from '../Box';
 import Button from '../Button';

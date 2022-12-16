@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import { RouteProp, useRoute } from '@react-navigation/core';
@@ -374,4 +374,4 @@ const OnekeyHardwareHomescreen: FC = () => {
   );
 };
 
-export default React.memo(OnekeyHardwareHomescreen);
+export default memo(OnekeyHardwareHomescreen);

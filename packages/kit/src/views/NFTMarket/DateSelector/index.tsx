@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';

@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { ListRenderItem } from 'react-native';

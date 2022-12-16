@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { Circle, Rect } from 'react-content-loader/native';
 

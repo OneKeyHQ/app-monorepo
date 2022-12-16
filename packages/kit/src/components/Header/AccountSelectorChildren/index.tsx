@@ -1,4 +1,4 @@
-import React, { FC, memo, useCallback, useMemo, useRef } from 'react';
+import { FC, memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 

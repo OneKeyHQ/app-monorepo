@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, ReactNode, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -43,7 +43,7 @@ export type HistoricalRecordProps = {
   networkId?: string | null;
   tokenId?: string | null | undefined;
   historyFilter?: (item: any) => boolean;
-  headerView?: React.ReactNode | null;
+  headerView?: ReactNode | null;
   hiddenHeader?: boolean;
   isTab?: boolean;
 };

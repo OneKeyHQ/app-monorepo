@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { Center, NetImage } from '@onekeyhq/components';
 

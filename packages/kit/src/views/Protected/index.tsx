@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useLayoutEffect } from 'react';
+import { FC, useCallback, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 

@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import { IDeviceType } from '@onekeyfe/hd-core';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';

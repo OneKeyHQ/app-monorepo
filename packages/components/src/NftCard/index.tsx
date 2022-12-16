@@ -1,4 +1,4 @@
-import React, { isValidElement, memo, useMemo } from 'react';
+import { isValidElement, memo, useMemo } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import { useWindowDimensions } from 'react-native';

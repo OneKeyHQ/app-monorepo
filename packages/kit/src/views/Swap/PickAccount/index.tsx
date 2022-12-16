@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';

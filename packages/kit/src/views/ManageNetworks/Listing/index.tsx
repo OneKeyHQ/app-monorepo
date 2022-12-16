@@ -1,11 +1,4 @@
-import React, {
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';

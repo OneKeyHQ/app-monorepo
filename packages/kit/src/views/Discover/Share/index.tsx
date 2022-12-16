@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';

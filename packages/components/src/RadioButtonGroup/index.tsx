@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, ReactElement } from 'react';
 
 import { IBoxProps, IRadioValue } from 'native-base';
 
@@ -31,7 +31,7 @@ interface IRadioButtonGroupProps extends IBoxProps<IRadioButtonGroupProps> {
    * 选中状态的回调
    */
   onChange?: (value: IRadioValue) => any;
-  children: React.ReactElement<RadioButtonProps>[];
+  children: ReactElement<RadioButtonProps>[];
 }
 
 export type RadioButtonGroupProps = IRadioButtonGroupProps;

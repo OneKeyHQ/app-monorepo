@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp } from '@react-navigation/native';
@@ -193,4 +193,4 @@ const ConnectWallet = () => {
   );
 };
 
-export default React.memo(ConnectWallet);
+export default memo(ConnectWallet);

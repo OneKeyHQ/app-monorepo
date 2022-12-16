@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, global-require, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-var-requires */
-import React, { LegacyRef, useEffect, useRef } from 'react';
+import { LegacyRef, useEffect, useRef } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
 import { AppState, AppStateStatus } from 'react-native';

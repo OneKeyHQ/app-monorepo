@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useCallback, useMemo, useState } from 'react';
+import { FC, ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { IBoxProps } from 'native-base';

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { RouteProp, useNavigation } from '@react-navigation/native';
@@ -97,7 +97,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
   const { collectible, network } = route.params;
 
   // Open Asset detail modal
-  const handleSelectAsset = React.useCallback(
+  const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,

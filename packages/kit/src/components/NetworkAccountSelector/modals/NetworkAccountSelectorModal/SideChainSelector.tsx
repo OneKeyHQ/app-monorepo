@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import React, { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { StyleSheet } from 'react-native';

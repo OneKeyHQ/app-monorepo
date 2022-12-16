@@ -1,5 +1,7 @@
-import React, {
+import {
+  Dispatch,
   ReactNode,
+  SetStateAction,
   createContext,
   useContext,
   useEffect,
@@ -16,7 +18,7 @@ export type ISendNFTContentData = {
 
 export type ISendNFTContent = {
   context: ISendNFTContentData;
-  setContext: React.Dispatch<React.SetStateAction<ISendNFTContentData>>;
+  setContext: Dispatch<SetStateAction<ISendNFTContentData>>;
 };
 
 const SendNFTContent = createContext<ISendNFTContent | null>(null);

@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { FC, useLayoutEffect, useMemo } from 'react';
+import { FC, useLayoutEffect, useMemo } from 'react';
 
 import { Box, Pressable, Skeleton, Text } from '@onekeyhq/components';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';

@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { Dispatch, SetStateAction, createContext, useContext } from 'react';
 
 import type {
   Collection,
@@ -22,9 +22,7 @@ export type CollectionDetailContextValue = {
 
 export type ICollectionDetailContent = {
   context: CollectionDetailContextValue;
-  setContext: React.Dispatch<
-    React.SetStateAction<CollectionDetailContextValue>
-  >;
+  setContext: Dispatch<SetStateAction<CollectionDetailContextValue>>;
 };
 
 export const CollectionDetailContext =

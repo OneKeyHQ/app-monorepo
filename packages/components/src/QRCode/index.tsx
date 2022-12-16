@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 
 import QRCodeUtil from 'qrcode';
 import * as ReactNative from 'react-native';

@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState } from 'react';
+import {
+  Dispatch,
+  SetStateAction,
+  createContext,
+  useContext,
+  useState,
+} from 'react';
 
 export type ITxHistoryContextData = {
   refresh?: () => void;
@@ -9,7 +15,7 @@ export type ITxHistoryContextData = {
 
 export type ITxHistoryContext = {
   context: ITxHistoryContextData;
-  setContext: React.Dispatch<React.SetStateAction<ITxHistoryContextData>>;
+  setContext: Dispatch<SetStateAction<ITxHistoryContextData>>;
 };
 
 const TxHistoryContext = createContext<ITxHistoryContext | null>(null);

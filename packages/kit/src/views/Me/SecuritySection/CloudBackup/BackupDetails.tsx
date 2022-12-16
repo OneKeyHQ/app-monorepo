@@ -1,10 +1,4 @@
-import React, {
-  FC,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
-} from 'react';
+import { FC, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { IBoxProps } from 'native-base';

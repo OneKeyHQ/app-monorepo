@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useMemo, useRef, useState } from 'react';
+import { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -32,7 +32,7 @@ type ColorSelecterProps = {
   onPress: (color: string) => void;
 };
 
-const ColorSelecter = React.memo((props: ColorSelecterProps) => {
+const ColorSelecter = memo((props: ColorSelecterProps) => {
   const { color, onPress } = props;
   return (
     <Box

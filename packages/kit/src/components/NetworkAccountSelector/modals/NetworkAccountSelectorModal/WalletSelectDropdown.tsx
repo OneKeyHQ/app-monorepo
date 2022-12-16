@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { useEffect, useMemo, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
 
 import { debounce } from 'lodash';
 import { IntlShape, useIntl } from 'react-intl';
@@ -32,8 +32,8 @@ const buildData = debounce(
   }: {
     intl: IntlShape;
     wallets: IWallet[];
-    setData: React.Dispatch<
-      React.SetStateAction<{ label: string; value: string; wallet: IWallet }[]>
+    setData: Dispatch<
+      SetStateAction<{ label: string; value: string; wallet: IWallet }[]>
     >;
   }) => {
     const data = wallets.map((wallet) => ({

@@ -1,5 +1,6 @@
-import React, {
+import {
   FC,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -145,7 +146,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   }, [rpcUrls, id]);
 
   const options = useMemo<
-    { value: string; label: string; trailing?: React.ReactNode }[]
+    { value: string; label: string; trailing?: ReactNode }[]
   >(
     () =>
       rpcUrls.map((url) => ({

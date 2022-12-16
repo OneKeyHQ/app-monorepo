@@ -1,10 +1,4 @@
-import React, {
-  FC,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { FC, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';

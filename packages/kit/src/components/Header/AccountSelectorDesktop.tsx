@@ -1,4 +1,11 @@
-import React, { memo, useEffect, useMemo, useRef } from 'react';
+import {
+  forwardRef,
+  memo,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 
 import {
   Box,
@@ -20,12 +27,12 @@ type ChildDropdownProps = {
   toggleVisible: (...args: any) => any;
 };
 
-const AccountSelectorDesktop = React.forwardRef<DesktopRef, ChildDropdownProps>(
+const AccountSelectorDesktop = forwardRef<DesktopRef, ChildDropdownProps>(
   ({ visible, toggleVisible }, ref) => {
     const translateY = 12;
     const isBrowser = platformEnv.isRuntimeBrowser;
     const { domId } = useDomID('AccountSelectorDesktop');
-    React.useImperativeHandle(ref, () => ({
+    useImperativeHandle(ref, () => ({
       toggleVisible,
       getVisible: () => visible,
       domId,

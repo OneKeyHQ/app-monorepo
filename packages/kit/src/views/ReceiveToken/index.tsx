@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';

@@ -1,13 +1,15 @@
-import React, {
+import {
   CSSProperties,
   Children,
   ComponentProps,
   FC,
   ReactElement,
   ReactNode,
+  SyntheticEvent,
   createContext,
   useContext,
   useMemo,
+  useState,
 } from 'react';
 
 import MaterialTab from '@mui/material/Tab';
@@ -32,7 +34,7 @@ type TabProps = {
 
 type MaterialTabsProps = {
   value: string;
-  handleChange: (event: React.SyntheticEvent, value: any) => void;
+  handleChange: (event: SyntheticEvent, value: any) => void;
   names: string[];
   options: Map<string, { index: number } & TabProps>;
   activeColor?: string;
@@ -149,8 +151,8 @@ const Container: FC<ContainerProps> = ({
 }) => {
   const { options, names } = useTabProps(children as any, Tab);
 
-  const [value, setValue] = React.useState(initialTabName || names[0]);
-  const handleChange = (event: React.SyntheticEvent, newValue: string) => {
+  const [value, setValue] = useState(initialTabName || names[0]);
+  const handleChange = (event: SyntheticEvent, newValue: string) => {
     setValue(newValue);
     const index = names.findIndex((item) => item === newValue);
 

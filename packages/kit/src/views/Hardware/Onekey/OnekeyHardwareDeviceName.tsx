@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from 'react';
+import { FC, memo, useEffect, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -188,4 +188,4 @@ const OnekeyHardwareDeviceNameModal: FC = () => {
   );
 };
 
-export default React.memo(OnekeyHardwareDeviceNameModal);
+export default memo(OnekeyHardwareDeviceNameModal);

@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useState } from 'react';
+import { ComponentProps, FC, useState } from 'react';
 
 import { Image as NBImage } from 'native-base';
 import { Platform } from 'react-native';

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 
 import { debounce } from 'lodash';
 
@@ -29,8 +29,8 @@ const buildData = debounce(
     selectedNetworkId?: string;
     selectedWallet?: IWallet | null;
     wallets: IWallet[];
-    setData: React.Dispatch<
-      React.SetStateAction<INetworkAccountSelectorAccountListSectionData[]>
+    setData: Dispatch<
+      SetStateAction<INetworkAccountSelectorAccountListSectionData[]>
     >;
   }) => {
     const { engine } = backgroundApiProxy;

@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -221,9 +215,7 @@ function BehindTheSceneCreatingWallet({
   return null;
 }
 
-const BehindTheSceneCreatingWalletMemo = React.memo(
-  BehindTheSceneCreatingWallet,
-);
+const BehindTheSceneCreatingWalletMemo = memo(BehindTheSceneCreatingWallet);
 
 const BehindTheScene = () => {
   const onboardingDone = useOnboardingDone();
@@ -355,4 +347,4 @@ const BehindTheScene = () => {
   );
 };
 
-export default React.memo(BehindTheScene);
+export default memo(BehindTheScene);

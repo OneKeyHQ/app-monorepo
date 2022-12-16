@@ -1,9 +1,4 @@
-import React, {
-  ComponentProps,
-  ReactElement,
-  cloneElement,
-  useCallback,
-} from 'react';
+import { ComponentProps, ReactElement, cloneElement, useCallback } from 'react';
 
 import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
 import { useIntl } from 'react-intl';

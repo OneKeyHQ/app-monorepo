@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import * as Application from 'expo-application';
 import * as IntentLauncher from 'expo-intent-launcher';

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Box,
@@ -16,9 +16,9 @@ import {
 import { useNavigationBack } from '../../../hooks/useAppNavigation';
 
 function DebugLoggerSettings() {
-  const [keys, setKeys] = React.useState<LoggerNames[]>([]);
+  const [keys, setKeys] = useState<LoggerNames[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [checkedStatus, setCheckedStatus] = React.useState<
+  const [checkedStatus, setCheckedStatus] = useState<
     Partial<Record<LoggerNames, boolean>>
   >({});
   useEffect(() => {

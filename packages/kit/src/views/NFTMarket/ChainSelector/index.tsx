@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, useMemo } from 'react';
+import { ComponentProps, FC, useMemo } from 'react';
 
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';

@@ -1,4 +1,4 @@
-import type * as React from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import type BottomSheet from '@gorhom/bottom-sheet';
 import type { HeaderOptions } from '@react-navigation/elements';
@@ -113,7 +113,7 @@ export type BottomTabNavigationOptions = HeaderOptions & {
 
   /**
    * Title string of a tab displayed in the tab bar
-   * or a function that given { focused: boolean, color: string, position: 'below-icon' | 'beside-icon' } returns a React.Node to display in tab bar.
+   * or a function that given { focused: boolean, color: string, position: 'below-icon' | 'beside-icon' } returns a Node to display in tab bar.
    *
    * When undefined, scene title is used. Use `tabBarShowLabel` to hide the label.
    */
@@ -123,7 +123,7 @@ export type BottomTabNavigationOptions = HeaderOptions & {
         focused: boolean;
         color: string;
         position: LabelPosition;
-      }) => React.ReactNode);
+      }) => ReactNode);
 
   /**
    * Whether the tab label should be visible. Defaults to `true`.
@@ -151,13 +151,13 @@ export type BottomTabNavigationOptions = HeaderOptions & {
   tabBarAllowFontScaling?: boolean;
 
   /**
-   * A function that given { focused: boolean, color: string } returns a React.Node to display in the tab bar.
+   * A function that given { focused: boolean, color: string } returns a Node to display in the tab bar.
    */
   tabBarIcon?: (props: {
     focused: boolean;
     color: string;
     size: number;
-  }) => React.ReactNode;
+  }) => ReactNode;
 
   /**
    * Style object for the tab icon.
@@ -190,7 +190,7 @@ export type BottomTabNavigationOptions = HeaderOptions & {
    * Function which returns a React element to render as the tab bar button.
    * Renders `Pressable` by default.
    */
-  tabBarButton?: (props: BottomTabBarButtonProps) => React.ReactNode;
+  tabBarButton?: (props: BottomTabBarButtonProps) => ReactNode;
 
   /**
    * Color for the icon and label in the active tab.
@@ -242,7 +242,7 @@ export type BottomTabNavigationOptions = HeaderOptions & {
    * When using `BlurView`, make sure to set `position: 'absolute'` in `tabBarStyle` as well.
    * You'd also need to use `useBottomTabBarHeight()` to add a bottom padding to your content.
    */
-  tabBarBackground?: () => React.ReactNode;
+  tabBarBackground?: () => ReactNode;
 
   /**
    * Whether this screens should render the first time it's accessed. Defaults to `true`.
@@ -253,7 +253,7 @@ export type BottomTabNavigationOptions = HeaderOptions & {
   /**
    * Function that given returns a React Element to display as a header.
    */
-  header?: (props: BottomTabHeaderProps) => React.ReactNode;
+  header?: (props: BottomTabHeaderProps) => ReactNode;
 
   /**
    * Whether to show the header. Setting this to `false` hides the header.
@@ -289,7 +289,7 @@ export type BottomTabNavigationConfig = {
   /**
    * Function that returns a React element to display as the tab bar.
    */
-  tabBar?: (props: BottomTabBarProps) => React.ReactNode;
+  tabBar?: (props: BottomTabBarProps) => ReactNode;
   /**
    * Safe area insets for the tab bar. This is used to avoid elements like the navigation bar on Android and bottom safe area on iOS.
    * By default, the device's safe area insets are automatically detected. You can override the behavior with this option.
@@ -341,8 +341,8 @@ export interface BottomTabBarProps {
 export interface BottomTabBarButtonProps
   extends Omit<TouchableWithoutFeedbackProps, 'onPress'> {
   to?: string;
-  children: React.ReactNode;
+  children: ReactNode;
   onPress?: (
-    e: React.MouseEvent<HTMLAnchorElement, MouseEvent> | GestureResponderEvent,
+    e: MouseEvent<HTMLAnchorElement, MouseEvent> | GestureResponderEvent,
   ) => void;
 }

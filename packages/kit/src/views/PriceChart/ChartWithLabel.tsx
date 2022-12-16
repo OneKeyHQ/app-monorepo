@@ -1,4 +1,4 @@
-import { FC, useCallback, useState } from 'react';
+import { FC, ReactNode, useCallback, useState } from 'react';
 
 import { Box, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,7 +12,7 @@ import PriceLabel from './PriceLabel';
 
 type ChartWithLabelProps = {
   data: MarketApiData[] | null;
-  children: React.ReactNode;
+  children: ReactNode;
   isFetching: boolean;
 };
 

@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';

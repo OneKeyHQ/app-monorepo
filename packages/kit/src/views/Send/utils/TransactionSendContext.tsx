@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState } from 'react';
+import {
+  Dispatch,
+  SetStateAction,
+  createContext,
+  useContext,
+  useState,
+} from 'react';
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type ITransactionSendContextData = {};
@@ -6,7 +12,7 @@ export type ITransactionSendContextData = {};
 export type ITransactionSendContext = {
   isTransactionSendFlow: boolean;
   context: ITransactionSendContextData;
-  setContext: React.Dispatch<React.SetStateAction<ITransactionSendContextData>>;
+  setContext: Dispatch<SetStateAction<ITransactionSendContextData>>;
 };
 
 const TransactionSendContext = createContext<ITransactionSendContext | null>(

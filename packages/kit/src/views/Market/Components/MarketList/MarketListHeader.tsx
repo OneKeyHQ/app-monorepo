@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -115,4 +115,4 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
   );
 };
 
-export default React.memo(MarketListHeader);
+export default memo(MarketListHeader);

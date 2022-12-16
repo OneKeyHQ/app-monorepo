@@ -1,7 +1,8 @@
-import React, {
+import {
   ComponentProps,
   FC,
   ReactElement,
+  ReactNode,
   cloneElement,
   useCallback,
   useMemo,
@@ -79,7 +80,7 @@ export type DialogProps = {
   canceledOnTouchOutside?: boolean;
   contentProps?: ComponentProps<typeof DialogCommon.Content>;
   footerButtonProps?: ComponentProps<typeof DialogCommon.FooterButton>;
-  footerMoreView?: React.ReactNode;
+  footerMoreView?: ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
   hasFormInsideDialog?: boolean;

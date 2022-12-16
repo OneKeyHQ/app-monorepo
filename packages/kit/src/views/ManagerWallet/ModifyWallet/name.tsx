@@ -1,4 +1,4 @@
-import React, { FC, useMemo, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 
 import { RouteProp, useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -44,7 +44,7 @@ const ModifyWalletNameViewModal: FC = () => {
     backgroundApiProxy;
   const { wallets } = useRuntime();
   const wallet = wallets.find((w) => w.id === walletId) ?? null;
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [editAvatar, updateAvatar] = useState<Avatar>(
     wallet?.avatar ?? defaultAvatar,
   );

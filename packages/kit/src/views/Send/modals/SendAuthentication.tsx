@@ -1,5 +1,6 @@
-import React, {
+import {
   FC,
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -313,7 +314,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     </Center>
   );
 };
-const SendAuthMemo = React.memo(SendAuth);
+const SendAuthMemo = memo(SendAuth);
 
 export const SendAuthentication = () => {
   const route = useRoute<RouteProps>();

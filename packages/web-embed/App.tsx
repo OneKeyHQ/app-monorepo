@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
 
 // import { Provider } from '@onekeyhq/kit';
 
@@ -28,7 +28,7 @@ import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 function useRouteQuery() {
   const { search } = useLocation();
-  return React.useMemo(() => new URLSearchParams(search), [search]);
+  return useMemo(() => new URLSearchParams(search), [search]);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

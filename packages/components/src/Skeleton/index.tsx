@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC, PropsWithChildren } from 'react';
+import { ComponentProps, FC, PropsWithChildren } from 'react';
 
 import ContentLoader, {
   IContentLoaderProps,

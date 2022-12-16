@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import { ComponentProps, FC } from 'react';
 
 import { Progress as NBProgress } from 'native-base';
 

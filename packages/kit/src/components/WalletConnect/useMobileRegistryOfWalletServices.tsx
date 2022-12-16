@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -44,8 +44,8 @@ const defaultState: {
 });
 // import { useMobileRegistry } from '@walletconnect/react-native-dapp';
 export default function useMobileRegistry() {
-  const [state, setState] = React.useState(defaultState);
-  React.useEffect(() => {
+  const [state, setState] = useState(defaultState);
+  useEffect(() => {
     (async () => {
       try {
         const result = await fetch(

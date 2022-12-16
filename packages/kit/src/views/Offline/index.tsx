@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 
 import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { Row } from 'native-base';

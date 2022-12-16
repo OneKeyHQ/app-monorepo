@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';

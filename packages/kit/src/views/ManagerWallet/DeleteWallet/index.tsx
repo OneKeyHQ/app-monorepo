@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,9 +31,9 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   const { closeWalletSelector } = useNavigationActions();
 
   const { walletId, password, hardware } = deleteWallet ?? {};
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   // If a hardware wallet is being deleted, no second confirmation is required.
-  const [confirmed, setConfirmed] = React.useState(hardware ?? false);
+  const [confirmed, setConfirmed] = useState(hardware ?? false);
 
   return (
     <Dialog
