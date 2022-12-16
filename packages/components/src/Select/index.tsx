@@ -14,6 +14,7 @@ import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
 import { ColorType } from 'native-base/lib/typescript/components/types';
 import {
+  InteractionManager,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
@@ -233,7 +234,7 @@ function Select<T = any>({
   const handleChange = useCallback(
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
       toggleVisible();
-      setTimeout(() => {
+      InteractionManager.runAfterInteractions(() => {
         if (typeof v === 'function') {
           v();
         } else {
@@ -242,7 +243,7 @@ function Select<T = any>({
           }
           onChange?.(v, option);
         }
-      }, 100);
+      });
     },
     [onChange, toggleVisible, value],
   );
