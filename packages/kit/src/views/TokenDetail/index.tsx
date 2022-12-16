@@ -1,4 +1,5 @@
-import React, {
+import {
+  FC,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -39,7 +40,7 @@ export type TokenDetailViewProps = NativeStackScreenProps<
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-const TokenDetail: React.FC<TokenDetailViewProps> = () => {
+const TokenDetail: FC<TokenDetailViewProps> = () => {
   const intl = useIntl();
   const firstUpdate = useRef(true);
   const navigation = useNavigation();

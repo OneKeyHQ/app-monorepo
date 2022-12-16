@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Alert, Center, ScrollView, VStack } from '@onekeyhq/components';
 
 const AlertGallery = () => (

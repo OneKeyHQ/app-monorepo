@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { AddNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/AddNetwork';
 import { CustomNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/CustomNetwork';

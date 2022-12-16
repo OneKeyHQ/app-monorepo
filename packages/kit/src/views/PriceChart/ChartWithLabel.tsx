@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import { FC, useCallback, useState } from 'react';
 
 import { Box, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,7 +16,7 @@ type ChartWithLabelProps = {
   isFetching: boolean;
 };
 
-const ChartWithLabel: React.FC<ChartWithLabelProps> = ({
+const ChartWithLabel: FC<ChartWithLabelProps> = ({
   data,
   isFetching,
   children,

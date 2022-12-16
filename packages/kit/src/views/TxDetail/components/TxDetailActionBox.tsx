@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { isNil } from 'lodash';
 
 import { Box, Collapse, Divider, HStack, VStack } from '@onekeyhq/components';

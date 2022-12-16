@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Row } from 'native-base';
 
 import { Icon, Text } from '@onekeyhq/components';

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, SceneMap, TabView, useThemeValue } from '@onekeyhq/components';
 
 const FirstRoute = () => (

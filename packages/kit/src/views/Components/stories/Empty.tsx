@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Button, Divider, Empty, ScrollView } from '@onekeyhq/components';
 
 const EmptyGallery = () => (

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Text } from '@onekeyhq/components';
 
 import { ErrorBoundaryBase } from '../../../components/ErrorBoundary';

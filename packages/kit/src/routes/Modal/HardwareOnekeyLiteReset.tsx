@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import OnekeyLiteReset from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Reset';
 import type {

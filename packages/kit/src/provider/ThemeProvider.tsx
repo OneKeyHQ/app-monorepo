@@ -1,6 +1,7 @@
-import React, { ComponentProps, FC, memo, useEffect, useState } from 'react';
+import { ComponentProps, FC, memo, useEffect, useState } from 'react';
 
 import { Provider } from '@onekeyhq/components';
+import LOCALES, { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useColorScheme } from '@onekeyhq/kit/src/hooks/useColorScheme';
 import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -14,16 +15,45 @@ import store from '../store';
 import { setIsReduxReady } from '../store/reducers/data';
 
 export function useThemeProviderVariant() {
-  const { theme, locale, enableHaptics = defaultHapticStatus } = useSettings();
-
+  const {
+    theme,
+    locale,
+    lastLocale,
+    enableHaptics = defaultHapticStatus,
+  } = useSettings();
   const systemLocale = useSystemLocale();
   const colorScheme = useColorScheme();
-
   const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
-  const localeVariant = locale === 'system' ? systemLocale : locale;
+  const currentVariant = (
+    locale === 'system' ? systemLocale : locale
+  ) as LocaleSymbol;
+  const cachedLocale = LOCALES[currentVariant];
+  const localeReady = typeof cachedLocale === 'object';
+  const [localeVariant, setLocaleVariant] = useState(() => {
+    if (localeReady) {
+      return currentVariant;
+    }
+    if (typeof LOCALES[lastLocale] !== 'function') {
+      return lastLocale;
+    }
+    return 'en-US';
+  });
+
+  useEffect(() => {
+    if (!localeReady) {
+      if (typeof cachedLocale === 'function') {
+        cachedLocale().then((module) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          LOCALES[currentVariant] = module.default;
+          setLocaleVariant(currentVariant);
+        });
+      }
+    }
+  }, [cachedLocale, currentVariant, localeReady, localeVariant]);
+
   return {
     themeVariant,
-    localeVariant,
+    localeVariant: localeReady ? currentVariant : localeVariant,
     enableHaptics,
   };
 }

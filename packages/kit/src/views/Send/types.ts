@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';

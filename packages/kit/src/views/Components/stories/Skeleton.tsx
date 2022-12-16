@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, Skeleton } from '@onekeyhq/components';
 
 const SkeletonGallery = () => (

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Typography } from '@onekeyhq/components';

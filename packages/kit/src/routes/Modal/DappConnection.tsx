@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
 import NetworkNotMatch from '@onekeyhq/kit/src/views/DappModals/NetworkNotMatch';

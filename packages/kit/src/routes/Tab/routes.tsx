@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { FC, useCallback } from 'react';
 
 import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -44,11 +44,11 @@ import { HomeRoutes, TabRoutes } from '../types';
 export interface TabRouteConfig {
   name: TabRoutes;
   translationId: LocaleIds;
-  component: React.FC;
+  component: FC;
   tabBarIcon: (props: { focused?: boolean }) => string;
   children?: {
     name: HomeRoutes;
-    component: React.FC<any>;
+    component: FC<any>;
     alwaysShowBackButton?: boolean;
   }[];
 }

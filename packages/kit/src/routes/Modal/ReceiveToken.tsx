@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ReceiveToken from '@onekeyhq/kit/src/views/ReceiveToken';
 import {

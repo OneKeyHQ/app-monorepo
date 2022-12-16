@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center, Image } from '@onekeyhq/components';
 
 const ImageViewerGallery = () => (

@@ -276,6 +276,7 @@ const Provider: FC<UIProviderProps> = ({
             }
           }}
           locale={locale}
+          // @ts-ignore
           messages={LOCALES[locale]}
         >
           <NativeBaseProvider

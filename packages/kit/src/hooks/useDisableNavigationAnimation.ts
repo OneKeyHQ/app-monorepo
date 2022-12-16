@@ -1,13 +1,17 @@
-import React from 'react';
+import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
 import type { StackAnimationTypes } from 'react-native-screens';
 
-function useDisableNavigationAnimation({ condition }: { condition?: boolean }) {
+export function useDisableNavigationAnimation({
+  condition,
+}: {
+  condition?: boolean;
+}) {
   const navigation = useNavigation();
 
-  React.useLayoutEffect(() => {
+  useLayoutEffect(() => {
     // disable animation if auto navigate
     if (condition) {
       navigation.setOptions({
@@ -22,4 +26,3 @@ function useDisableNavigationAnimation({ condition }: { condition?: boolean }) {
     }
   }, [navigation, condition]);
 }
-export { useDisableNavigationAnimation };

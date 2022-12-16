@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center, Spinner } from '@onekeyhq/components';
 
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';

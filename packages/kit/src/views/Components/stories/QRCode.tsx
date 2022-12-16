@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center, QRCode } from '@onekeyhq/components';
 
 const QRCodeGallery = () => (

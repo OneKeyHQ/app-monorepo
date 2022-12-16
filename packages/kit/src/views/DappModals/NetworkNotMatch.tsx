@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Alert, Center, Modal, Text, VStack } from '@onekeyhq/components';

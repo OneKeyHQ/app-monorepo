@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Address, Center } from '@onekeyhq/components';
 
 const AddressGallery = () => (
