@@ -13,6 +13,7 @@ import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
 import SwapObserver from './SwapObserver';
 import SwapQuote from './SwapQuote';
+import SwapTexts from './SwapTexts';
 import SwapUpdater from './SwapUpdater';
 
 export const Mobile = () => {
@@ -43,6 +44,7 @@ export const Mobile = () => {
             <SwapButton />
           </Box>
           <SwapQuote />
+          <SwapTexts />
         </Box>
       </Center>
       <SwapUpdater />

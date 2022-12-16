@@ -20,6 +20,7 @@ import SwapContent from './SwapContent';
 import { SwapHeaderButtons } from './SwapHeader';
 import SwapObserver from './SwapObserver';
 import SwapQuote from './SwapQuote';
+import SwapTexts from './SwapTexts';
 import SwapUpdater from './SwapUpdater';
 
 const DesktopHeader = () => {
@@ -99,6 +100,7 @@ const DesktopMain = () => (
     </Center>
     <SwapUpdater />
     <SwapObserver />
+    <SwapTexts />
   </Box>
 );
 
