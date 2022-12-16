@@ -54,7 +54,13 @@ const TransactionRate: FC<TransactionRateProps> = ({
       alignItems="center"
       onPress={() => setSwitched((v) => !v)}
     >
-      <Text typography={typography} color={color} textAlign="right" mr="1">
+      <Text
+        typography={typography}
+        color={color}
+        textAlign="right"
+        mr="1"
+        selectable={false}
+      >
         {title}
       </Text>
       <Icon size={16} name="ArrowsRightLeftMini" color="icon-subdued" />
