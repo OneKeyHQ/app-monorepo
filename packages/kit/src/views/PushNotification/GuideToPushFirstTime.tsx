@@ -11,20 +11,22 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useActiveWalletAccount } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setGuideToPushFistTime } from '../../store/reducers/status';
 import { wait } from '../../utils/helper';
 
-import { useEnabledAccountDynamicAccounts } from './hooks';
+import {
+  checkAccountCanSubscribe,
+  useEnabledAccountDynamicAccounts,
+} from './hooks';
 import { PushNotificationRoutes } from './types';
 
 export function GuideToPushFirstTimeCheck() {
@@ -61,6 +63,7 @@ const GuideToPushFirstTime: FC = () => {
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
+  const { networkId } = useActiveWalletAccount();
 
   useEffect(() => {
     dispatch(setGuideToPushFistTime(true));
@@ -73,7 +76,11 @@ const GuideToPushFirstTime: FC = () => {
         if (count >= 50) {
           return;
         }
-        if (isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM)) {
+        const accountCanSubscribe = await checkAccountCanSubscribe(
+          a,
+          networkId,
+        );
+        if (accountCanSubscribe) {
           await serviceNotification.addAccountDynamic({
             // @ts-ignore
             passphrase: isPassphraseWallet(w),
@@ -85,7 +92,7 @@ const GuideToPushFirstTime: FC = () => {
         }
       }
     }
-  }, [wallets, serviceNotification]);
+  }, [wallets, serviceNotification, networkId]);
 
   const onPrimaryActionPress = useCallback(
     async ({ close }: { close: () => void }) => {
