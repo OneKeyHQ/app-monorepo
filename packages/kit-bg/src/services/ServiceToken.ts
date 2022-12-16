@@ -22,10 +22,8 @@ import {
   addNetworkTokens,
   setAccountTokens,
   setAccountTokensBalances,
-  setCharts,
   setNativeToken,
   setNetworkTokens,
-  setPrices,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   backgroundClass,
@@ -43,7 +41,6 @@ export type IFetchAccountTokensParams = {
   activeAccountId: string;
   activeNetworkId: string;
   withBalance?: boolean;
-  withPrice?: boolean;
   wait?: boolean;
   forceReloadTokens?: boolean;
 };
@@ -70,12 +67,10 @@ export default class ServiceToken extends ServiceBase {
     activeAccountId,
     activeNetworkId,
     withBalance,
-    withPrice,
   }: {
     activeAccountId: string;
     activeNetworkId: string;
     withBalance?: boolean;
-    withPrice?: boolean;
   }) {
     const { engine, dispatch } = this.backgroundApi;
     const networkTokens = await engine.getTopTokensOnNetwork(
@@ -97,13 +92,6 @@ export default class ServiceToken extends ServiceBase {
         tokenIds,
       });
     }
-    // if (withPrice) {
-    //   this.fetchPrices({
-    //     activeNetworkId,
-    //     activeAccountId,
-    //     tokenIds,
-    //   });
-    // }
     return networkTokens;
   }
 
@@ -130,7 +118,6 @@ export default class ServiceToken extends ServiceBase {
     activeAccountId,
     activeNetworkId,
     withBalance,
-    withPrice,
     wait,
     forceReloadTokens,
   }: IFetchAccountTokensParams) {
@@ -165,15 +152,6 @@ export default class ServiceToken extends ServiceBase {
         }),
       );
     }
-    // if (withPrice) {
-    //   waitPromises.push(
-    //     this.fetchPrices({
-    //       activeNetworkId,
-    //       activeAccountId,
-    //       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
-    //     }),
-    //   );
-    // }
     if (wait) {
       await Promise.all(waitPromises);
     }
@@ -339,80 +317,6 @@ export default class ServiceToken extends ServiceBase {
       networkId,
       accountIds,
     });
-  }
-
-  @backgroundMethod()
-  async getPrices({
-    networkId,
-    tokenIds,
-  }: {
-    networkId: string;
-    tokenIds: string[];
-  }) {
-    const ids = tokenIds.filter((id) => id !== undefined);
-    const { appSelector } = this.backgroundApi;
-    const prices = appSelector((s) => s.tokens.tokensPrice)[networkId] || {};
-    for (const tokenId of ids) {
-      if (!prices[tokenId]) {
-        return this.fetchPrices({
-          activeNetworkId: networkId,
-          tokenIds: ids,
-        });
-      }
-    }
-    return prices;
-  }
-
-  @backgroundMethod()
-  async fetchPrices({
-    activeNetworkId,
-    activeAccountId,
-    tokenIds,
-  }: {
-    activeNetworkId: string;
-    activeAccountId?: string;
-    tokenIds?: string[];
-  }) {
-    const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector((s) => s.tokens);
-    let tokenIdsOnNetwork: string[] = [];
-    if (tokenIds) {
-      tokenIdsOnNetwork = tokenIds;
-    } else {
-      const ids1 = tokens[activeNetworkId] || [];
-      const ids2 = activeAccountId
-        ? accountTokens[activeNetworkId]?.[activeAccountId] ?? []
-        : [];
-      tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
-      tokenIdsOnNetwork = Array.from(new Set(tokenIdsOnNetwork));
-    }
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
-    const [prices, charts] = await engine.getPricesAndCharts(
-      activeNetworkId,
-      tokenIdsOnNetwork,
-      true,
-      vsCurrency,
-    );
-    const fullPrices: Record<string, string | null> = {
-      main: prices.main?.toFixed() || null,
-    };
-    tokenIdsOnNetwork.forEach((id) => {
-      if (prices[id] === undefined) {
-        // loading finished but no price for this token
-        fullPrices[id] = null;
-      } else {
-        fullPrices[id] = prices[id].toFixed();
-      }
-    });
-
-    dispatch(
-      setPrices({
-        activeNetworkId,
-        prices: fullPrices,
-      }),
-      setCharts({ activeNetworkId, charts }),
-    );
-    return fullPrices;
   }
 
   @backgroundMethod()

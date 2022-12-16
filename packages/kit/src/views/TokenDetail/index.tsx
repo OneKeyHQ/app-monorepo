@@ -13,7 +13,7 @@ import { Box, Icon, Select, useIsVerticalLayout } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
-import { useActiveWalletAccount, useManageTokens } from '../../hooks';
+import { useActiveWalletAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
 import {

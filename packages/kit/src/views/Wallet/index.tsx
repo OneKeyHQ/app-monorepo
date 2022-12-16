@@ -84,7 +84,6 @@ const WalletTabs: FC = () => {
                 activeAccountId: account.id,
                 activeNetworkId: network.id,
                 withBalance: true,
-                withPrice: true,
                 wait: true,
                 forceReloadTokens: true,
               });

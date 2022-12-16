@@ -59,14 +59,12 @@ export const useManageTokensOfAccount = ({
         activeAccountId: accountId,
         activeNetworkId: networkId,
         withBalance: true,
-        withPrice: true,
       });
       timer = setInterval(() => {
         backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
           activeAccountId: accountId,
           activeNetworkId: networkId,
           withBalance: true,
-          withPrice: true,
         });
       }, pollingInterval);
     }
@@ -84,7 +82,6 @@ export const useManageTokensOfAccount = ({
         activeAccountId: accountId,
         activeNetworkId: networkId,
         withBalance: true,
-        withPrice: true,
       });
     }
     // eslint-disable-next-line

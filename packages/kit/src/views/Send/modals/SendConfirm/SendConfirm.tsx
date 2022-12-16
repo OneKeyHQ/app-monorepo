@@ -147,7 +147,6 @@ function SendConfirm({
           activeAccountId: accountId,
           activeNetworkId: networkId,
           withBalance: true,
-          withPrice: false,
         });
         if (routeParams.signOnly) {
           await dappApprove.resolve({ result: tx.rawTx });
