@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -43,7 +43,7 @@ type NavigationProps = ModalScreenProps<CreateWalletRoutesParams> &
   ModalScreenProps<OnekeyLiteChangePinRoutesParams> &
   ModalScreenProps<OnekeyLiteResetRoutesParams>;
 
-const OnekeyLiteDetail: React.FC = () => {
+const OnekeyLiteDetail: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { locale } = useLocale();

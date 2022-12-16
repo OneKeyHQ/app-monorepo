@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Button } from 'native-base';
 
 import { Box, Center, Popover, Text } from '@onekeyhq/components';

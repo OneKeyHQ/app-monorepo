@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { NavigationProp } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil, isNumber } from 'lodash';

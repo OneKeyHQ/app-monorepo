@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { SubmitRequest } from '@onekeyhq/kit/src/views/Help/Request/SubmitRequest';
 

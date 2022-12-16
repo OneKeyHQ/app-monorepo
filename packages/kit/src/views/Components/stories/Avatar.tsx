@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Avatar, Box, Center } from '@onekeyhq/components';
 
 const AddressGallery = () => (

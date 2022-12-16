@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { HistoryRequest } from '@onekeyhq/kit/src/views/Help/Request/HistoryRequest';
 import { ReplyTicket } from '@onekeyhq/kit/src/views/Help/Request/ReplyTicket';

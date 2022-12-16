@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 

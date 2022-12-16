@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Button, Center, Typography } from '@onekeyhq/components';
 
 import useNavigation from '../../hooks/useNavigation';

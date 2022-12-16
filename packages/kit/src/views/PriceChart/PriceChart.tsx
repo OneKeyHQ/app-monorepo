@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 
 import { StyleProp, ViewStyle } from 'react-native';
 
@@ -16,11 +16,7 @@ type PriceChartProps = Omit<PriceApiProps, 'days'> & {
   style?: StyleProp<ViewStyle>;
 };
 
-const PriceChart: React.FC<PriceChartProps> = ({
-  contract,
-  networkId,
-  style,
-}) => {
+const PriceChart: FC<PriceChartProps> = ({ contract, networkId, style }) => {
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   // const { charts: reduxCachedCharts } = useManageTokens();

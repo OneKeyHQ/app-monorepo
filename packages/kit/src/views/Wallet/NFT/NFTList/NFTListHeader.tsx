@@ -1,4 +1,4 @@
-import React from 'react';
+import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -104,4 +104,4 @@ const NFTListHeader = ({
   );
 };
 
-export default React.memo(NFTListHeader);
+export default memo(NFTListHeader);

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, CustomSkeleton, FlatList } from '@onekeyhq/components';
 
 export const EmptySkeleton = () => (

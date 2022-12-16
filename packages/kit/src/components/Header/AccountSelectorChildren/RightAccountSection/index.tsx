@@ -1,4 +1,4 @@
-import React, { FC, memo, useMemo } from 'react';
+import { FC, memo, useMemo } from 'react';
 
 import { SectionList } from 'react-native';
 
@@ -12,7 +12,7 @@ import { useAppSelector } from '../../../../hooks';
 
 import AccountSectionItem, { AccountGroup } from './ItemSection';
 
-export const AccountSectionLoadingSkeleton = React.memo(
+export const AccountSectionLoadingSkeleton = memo(
   ({ isLoading }: { isLoading: boolean }) =>
     isLoading ? (
       <Box mx="2" borderRadius={12} p="2">

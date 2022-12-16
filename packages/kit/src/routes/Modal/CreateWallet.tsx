@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import type { Account } from '@onekeyhq/engine/src/types/account';

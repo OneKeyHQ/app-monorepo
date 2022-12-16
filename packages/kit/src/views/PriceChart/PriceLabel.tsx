@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,7 +13,7 @@ type PriceLabelProps = {
   time: string;
 };
 
-const PriceLabel: React.FC<PriceLabelProps> = ({ price, basePrice, time }) => {
+const PriceLabel: FC<PriceLabelProps> = ({ price, basePrice, time }) => {
   const intl = useIntl();
   const priceLabel = intl.formatMessage({
     id: 'content__price_uppercase',
