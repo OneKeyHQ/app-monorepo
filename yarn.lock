@@ -4631,7 +4631,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mysten/sui.js@npm:0.17.1, @mysten/sui.js@npm:^0.17.1":
+"@mysten/sui.js@npm:0.17.1":
   version: 0.17.1
   resolution: "@mysten/sui.js@npm:0.17.1"
   dependencies:
@@ -4647,6 +4647,27 @@ __metadata:
     rpc-websockets: ^7.5.0
     tweetnacl: ^1.0.3
   checksum: 5c9af99d65f0980bb0185c0b743c275afb8542a54c902076e4d54ba3ea95edef012879955f15a821d26a2e7139a30d62d569d0c429eb4775c379f43f11f744ed
+  languageName: node
+  linkType: hard
+
+"@mysten/sui.js@npm:^0.20.0":
+  version: 0.20.0
+  resolution: "@mysten/sui.js@npm:0.20.0"
+  dependencies:
+    "@mysten/bcs": 0.5.0
+    "@noble/hashes": ^1.1.2
+    "@noble/secp256k1": ^1.6.3
+    "@scure/bip32": ^1.1.0
+    "@scure/bip39": ^1.1.0
+    "@suchipi/femver": ^1.0.0
+    bs58: ^5.0.0
+    cross-fetch: ^3.1.5
+    jayson: ^3.6.6
+    js-sha3: ^0.8.0
+    lossless-json: ^1.0.5
+    rpc-websockets: ^7.5.0
+    tweetnacl: ^1.0.3
+  checksum: dcb491c0ed4b3ac6016c0e46b3b274d8e74e1ddc51d00f67453114e3d41a092999024b4b23f6b74bb8983332aa5fd67fc2b1653ce4dbbf183f749b4aed5b470a
   languageName: node
   linkType: hard
 
@@ -5227,10 +5248,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.34":
-  version: 1.6.34
-  resolution: "@onekeyfe/network-list@npm:1.6.34"
-  checksum: 91318c8ba9698cb280e6916236e8ae0675aa58e6d109eb0ba0fe1fafd63a766a988ee9d6ec05711a91e3e23c9f759d1ea8be4ad93ac67c261de0a5c65285bb37
+"@onekeyfe/network-list@npm:1.6.35":
+  version: 1.6.35
+  resolution: "@onekeyfe/network-list@npm:1.6.35"
+  checksum: 06ed2ef0ee53cd4980337dded9fedf8ebe1e232dd55883bb78918e5472a0b0b9868eff4006fe4e35362c488651b2cf926506df860b0191cb30cc90d4572c5b00
   languageName: node
   linkType: hard
 
@@ -5664,11 +5685,11 @@ __metadata:
     "@glif/filecoin-message": ^2.0.27
     "@glif/filecoin-rpc-client": ^2.0.8
     "@metamask/eth-sig-util": ^4.0.0
-    "@mysten/sui.js": ^0.17.1
+    "@mysten/sui.js": ^0.20.0
     "@noble/hashes": 1.1.2
     "@onekeyfe/blockchain-libs": 0.0.46
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.34
+    "@onekeyfe/network-list": 1.6.35
     "@solana/spl-token": ^0.3.0
     "@solana/web3.js": ^1.53.0
     "@types/bchaddrjs": ^0.4.0
@@ -7781,6 +7802,13 @@ __metadata:
     lodash: ^4.17.21
     ws: 7.2.3
   checksum: 377fa04d9353b7953ebd84642d017dc0e6a2f3874341dd4768373733f41dedc1c04c38c9718482ad7d060704887da77b0cefc1552157b396784f204ba1f81278
+  languageName: node
+  linkType: hard
+
+"@suchipi/femver@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@suchipi/femver@npm:1.0.0"
+  checksum: 9764b4aaf93c8b8d1fa0ba07288402cf49bfa0ea8adc0ec6eb866fe98db3d32ddf953bc0dee05e723ed7b417de8db74bace6879db6b014aade5a04a62a40d0c6
   languageName: node
   linkType: hard
 
