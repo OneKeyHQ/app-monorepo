@@ -2412,6 +2412,7 @@ class Engine {
     return vault.proxyJsonRPCCall(request);
   }
 
+  // This method has been deprecated using getSimplePrice in ServicePrice
   @backgroundMethod()
   async getPricesAndCharts(
     networkId: string,
@@ -2419,6 +2420,9 @@ class Engine {
     withMain = true,
     vsCurrency?: string,
   ): Promise<[Record<string, BigNumber>, Record<string, TokenChartData>]> {
+    debugLogger.engine.warn(
+      'This method getPricesAndCharts has been deprecated using getSimplePrice in ServicePrice',
+    );
     // Get price info
     const [prices, charts] = await this.priceManager.getPricesAndCharts(
       networkId,

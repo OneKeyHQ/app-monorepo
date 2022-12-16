@@ -560,13 +560,11 @@ export const Listing: FC = () => {
         activeAccountId: accountId,
         activeNetworkId: networkId,
         withBalance: true,
-        withPrice: true,
       });
       backgroundApiProxy.serviceToken.fetchTokens({
         activeAccountId: accountId,
         activeNetworkId: networkId,
         withBalance: true,
-        withPrice: true,
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),

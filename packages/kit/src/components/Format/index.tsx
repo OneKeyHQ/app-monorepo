@@ -220,17 +220,10 @@ export function FormatCurrencyTokenOfAccount({
   accountId: string;
   networkId: string;
 }) {
-  // const { prices } = useManageTokensOfAccount({
-  //   accountId,
-  //   networkId,
-  // });
-  // const priceKey =
-  //   token && token.tokenIdOnNetwork ? token.tokenIdOnNetwork : 'main';
   const priceValue = useSimpleTokenPriceValue({
     networkId,
     contractAdress: token?.tokenIdOnNetwork,
   });
-  // const priceValue = prices?.[priceKey];
   const priceUndefined = priceValue === undefined || priceValue === null;
   return (
     <FormatCurrency
