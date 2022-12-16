@@ -276,7 +276,7 @@ const Header: FC<HeaderProps> = ({
   }, [nameOrAddress, inputLoading]);
 
   return (
-    <Box width="full" p={2}>
+    <Box width="full" p={2} pb={{ base: 3, md: 0 }}>
       <Box width="full" flexDirection="row">
         <Searchbar
           w="full"

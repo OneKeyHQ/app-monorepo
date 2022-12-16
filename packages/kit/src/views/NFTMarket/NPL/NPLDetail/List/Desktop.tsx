@@ -240,6 +240,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
   return (
     <List
       renderItem={renderItem}
+      showDivider
       keyExtractor={(item) => (item.contractAddress as string) + item.tokenId}
       showsVerticalScrollIndicator={false}
       ListFooterComponent={() => {

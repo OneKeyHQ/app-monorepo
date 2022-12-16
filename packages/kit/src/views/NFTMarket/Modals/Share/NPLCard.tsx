@@ -109,10 +109,10 @@ export const NPLCard: FC<Props> = ({ data, scale, opacity }) => {
         <Box
           borderRadius="12px"
           overflow="hidden"
-          height="80px"
+          height="72px"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="border-default"
-          bgColor="red.100"
+          bgColor="surface-neutral-subdued"
         />
       )}
     </Box>
