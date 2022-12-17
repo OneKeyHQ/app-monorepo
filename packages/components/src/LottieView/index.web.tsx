@@ -1,6 +1,6 @@
-import LottieViewWeb, {
-  LottieComponentProps as LottieWebProps,
-} from 'lottie-react';
+import LottieViewWeb from 'lottie-react';
+
+import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
 
 // Stick props the same as LottieNative by now
 type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
