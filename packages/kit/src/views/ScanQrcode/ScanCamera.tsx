@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 
-import { ScanCameraProps } from './types';
+import type { ScanCameraProps } from './types';
 
 const ScanCamera: FC<ScanCameraProps> = ({
   style,

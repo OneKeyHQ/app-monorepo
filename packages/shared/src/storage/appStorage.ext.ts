@@ -2,14 +2,12 @@
 //    redux-persist failed to create sync storage. falling back to noop storage.
 // import storage from 'redux-persist/lib/storage';
 
-import AsyncStorage, {
-  AsyncStorageStatic,
-} from '@react-native-async-storage/async-storage';
-
+import ExtensionStorage from './ExtensionStorage';
 import MockStorage from './MockStorage';
 
-const appStorage: AsyncStorageStatic = // iOS/Android AsyncStorage
-  AsyncStorage;
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+
+const appStorage: AsyncStorageStatic = new ExtensionStorage();
 
 export const mockStorage = new MockStorage();
 
@@ -39,5 +37,4 @@ if (process.env.NODE_ENV !== 'production') {
     }
   };
 }
-
 export default appStorage;
