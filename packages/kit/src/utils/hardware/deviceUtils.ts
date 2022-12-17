@@ -9,7 +9,6 @@ import {
   HardwareErrorCode,
   createDeferred,
 } from '@onekeyfe/hd-shared';
-import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
@@ -51,7 +50,7 @@ class DeviceUtils {
 
   checkBonded = false;
 
-  bleManager?: typeof BleManager;
+  bleManager?: typeof import('react-native-ble-manager');
 
   async getSDKInstance() {
     return getHardwareSDKInstance();
@@ -59,11 +58,14 @@ class DeviceUtils {
 
   getBleManager() {
     if (!platformEnv.isNative) return null;
-    if (this.bleManager) {
-      return Promise.resolve(this.bleManager);
+    if (!this.bleManager) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const BleManager = require('react-native-ble-manager')
+        .default as typeof import('react-native-ble-manager');
+      BleManager.start({ showAlert: false });
+      this.bleManager = BleManager;
     }
-    BleManager.start({ showAlert: false });
-    this.bleManager = BleManager;
+    return this.bleManager;
   }
 
   startDeviceScan(
@@ -193,7 +195,7 @@ class DeviceUtils {
   }
 
   async getBondedDevices() {
-    const bleManager = await this.getBleManager();
+    const bleManager = this.getBleManager();
     if (!bleManager) {
       return [];
     }
