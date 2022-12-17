@@ -329,6 +329,7 @@ const RecoverAccounts: FC = () => {
   const activeAccounts = useRef<Account[]>([]);
   const obj = useState(() => {
     let resolve: () => void = () => {};
+    // eslint-disable-next-line no-promise-executor-return
     const p = new Promise<void>((fn) => (resolve = fn));
     return { p, resolve };
   })[0];

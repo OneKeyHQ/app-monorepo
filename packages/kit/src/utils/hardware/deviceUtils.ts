@@ -1,3 +1,4 @@
+/* eslint-disable no-promise-executor-return */
 import { HardwareErrorCode, createDeferred } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 

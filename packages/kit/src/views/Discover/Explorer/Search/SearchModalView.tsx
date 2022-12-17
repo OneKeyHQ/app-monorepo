@@ -76,6 +76,7 @@ export const SearchModalView: FC = () => {
         p={4}
         key={`${index}-${item.id}`}
         borderTopRadius={index === 0 ? '12px' : '0px'}
+        // eslint-disable-next-line no-unsafe-optional-chaining
         borderRadius={index === flatListData?.length - 1 ? '12px' : '0px'}
         onPress={() => {
           onSelectHistory(item);

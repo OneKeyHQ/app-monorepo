@@ -253,7 +253,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 const OnekeyHardwareDetailsModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId } = route?.params;
+  const { walletId } = route?.params || {};
 
   return (
     <Modal

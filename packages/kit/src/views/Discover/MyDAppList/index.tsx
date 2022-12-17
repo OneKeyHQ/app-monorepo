@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
@@ -42,11 +42,12 @@ const MyDappList: FC = () => {
     },
     [navigation, onItemSelect],
   );
-
+  const contextValue = useMemo(
+    () => ({ onItemSelect: onSelect, defaultIndex }),
+    [defaultIndex, onSelect],
+  );
   return (
-    <MyDAppListContext.Provider
-      value={{ onItemSelect: onSelect, defaultIndex }}
-    >
+    <MyDAppListContext.Provider value={contextValue}>
       <Box flex="1" bg="background-default">
         {isSmallScreen ? <Mobile /> : <Desktop />}
       </Box>

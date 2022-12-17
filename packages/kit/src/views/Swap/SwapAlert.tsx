@@ -33,7 +33,7 @@ const DepositLimitAlert = () => {
       </Box>
     );
   }
-  return <></>;
+  return null;
 };
 
 const ErrorAlert = () => {
@@ -65,7 +65,7 @@ const ErrorAlert = () => {
       </Box>
     );
   }
-  return <></>;
+  return null;
 };
 
 const SwapWarning: FC = () => (

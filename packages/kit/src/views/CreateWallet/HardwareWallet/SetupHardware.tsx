@@ -31,7 +31,7 @@ const SetupHardwareModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
 
-  const { device } = route?.params;
+  const { device } = route?.params || {};
 
   const content = (
     <VStack space={4} w="full">

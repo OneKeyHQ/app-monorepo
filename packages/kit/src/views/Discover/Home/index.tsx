@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -39,18 +39,19 @@ const DiscoverPage: FC<DiscoverProps> = ({
     Desktop = require('./Desktop').Desktop;
   }
   const [itemSource, setItemSource] = useState<ItemSource>('Favorites');
-
+  const contextValue = useMemo(
+    () => ({
+      categoryId,
+      setCategoryId,
+      itemSource,
+      setItemSource,
+      onItemSelect,
+      onItemSelectHistory,
+    }),
+    [categoryId, itemSource, onItemSelect, onItemSelectHistory],
+  );
   return (
-    <DiscoverContext.Provider
-      value={{
-        categoryId,
-        setCategoryId,
-        itemSource,
-        setItemSource,
-        onItemSelect,
-        onItemSelectHistory,
-      }}
-    >
+    <DiscoverContext.Provider value={contextValue}>
       {isSmall ? <Mobile /> : <Desktop />}
       <Updater />
     </DiscoverContext.Provider>

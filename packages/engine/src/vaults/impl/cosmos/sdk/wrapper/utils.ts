@@ -46,7 +46,7 @@ export function getFee(signDoc: SignDocHex): StdFee {
   const { fee } = getDirectSignDoc(signDoc).authInfo;
 
   return {
-    amount: fee ? [...fee?.amount] : [],
+    amount: fee ? [...fee.amount] : [],
     gas_limit: fee?.gasLimit?.toString() ?? '0',
     payer: fee?.payer ?? '',
     granter: fee?.granter ?? '',

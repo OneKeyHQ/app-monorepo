@@ -19,7 +19,7 @@ type RouteProps = RouteProp<
 
 export const MoonpayWebView: FC = () => {
   const route = useRoute<RouteProps>();
-  const { url } = route?.params;
+  const { url } = route?.params || {};
   const navigation = useNavigation();
 
   useLayoutEffect(() => {

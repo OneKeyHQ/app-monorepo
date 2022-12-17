@@ -161,7 +161,7 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
 const OnekeyHardwareDeviceNameModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId } = route?.params;
+  const { walletId } = route?.params || {};
 
   return (
     <Modal

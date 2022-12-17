@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 

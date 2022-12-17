@@ -89,7 +89,7 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
     };
     // eslint-disable-next-line
   }, []);
-  return <></>;
+  return null;
 };
 
 export default PendingTransaction;

@@ -23,7 +23,7 @@ const RestoreHardwareWalletDescriptionModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { device } = route?.params;
+  const { device } = route?.params || {};
 
   const numberedList = [
     {

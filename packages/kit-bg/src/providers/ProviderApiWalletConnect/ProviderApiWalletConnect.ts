@@ -180,7 +180,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       );
     }
 
-    const { networkImpl } = connector?.session;
+    const { networkImpl } = connector.session;
     const { dispatch } = this.backgroundApi;
     dispatch(closeDappConnectionPreloading());
 

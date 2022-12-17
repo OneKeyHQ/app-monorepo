@@ -85,6 +85,7 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
   const higherState = {
     state: initialState,
   };
+  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last
   return function (state = {}, action: PayloadAction): any {
     switch (action.type) {
       // sync background redux to ui redux

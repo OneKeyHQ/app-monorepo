@@ -34,7 +34,7 @@ const RestoreHardwareWalletModal: FC = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { device } = route?.params;
+  const { device } = route?.params || {};
 
   const content = (
     <Center>

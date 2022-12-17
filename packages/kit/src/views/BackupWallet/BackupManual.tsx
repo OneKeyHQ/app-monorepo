@@ -32,7 +32,7 @@ const BackupDone: FC<BackupDoneProps> = ({ password, walletId }) => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return <></>;
+  return null;
 };
 
 const BackupManual = () => {

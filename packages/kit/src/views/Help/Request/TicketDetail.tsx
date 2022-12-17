@@ -97,7 +97,7 @@ export const TicketDetail: FC = () => {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const route = useRoute<RouteProps>();
-  const { id } = route?.params.order;
+  const { id } = route?.params.order || {};
   const submitterId = route.params.order.submitter_id;
   const imageSize = (260 - 16) / 3;
   const navigation = useNavigation<NavigationProps>();

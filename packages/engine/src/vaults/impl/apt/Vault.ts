@@ -818,7 +818,7 @@ export default class Vault extends VaultBase {
         const [coinType] = types;
 
         const from = get(tx, 'sender', undefined);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, no-unsafe-optional-chaining
         const [moveAddr] = func?.split('::');
 
         const actionType = getTransactionType(tx);

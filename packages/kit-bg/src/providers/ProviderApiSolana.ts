@@ -38,11 +38,12 @@ class ProviderApiSolana extends ProviderApiBase {
   private getConnectedAcccountPublicKey(
     request: IJsBridgeMessagePayload,
   ): Promise<string> {
-    const [account] =
-      this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
+    const [account] = this.backgroundApi.serviceDapp.getActiveConnectedAccounts(
+      {
         origin: request.origin as string,
         impl: IMPL_SOL,
-      });
+      },
+    );
 
     return Promise.resolve(account?.address ?? '');
   }

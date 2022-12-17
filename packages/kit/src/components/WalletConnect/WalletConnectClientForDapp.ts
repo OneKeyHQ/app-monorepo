@@ -172,6 +172,7 @@ export class WalletConnectClientForDapp extends WalletConnectClientBase {
     // node_modules/@walletconnect/core/dist/esm/index.js
     return new Promise((resolve, reject) => {
       if (!this.connector) {
+        // eslint-disable-next-line no-promise-executor-return
         return reject(
           new Error('WalletConnect Error: connector not ready yet.'),
         );

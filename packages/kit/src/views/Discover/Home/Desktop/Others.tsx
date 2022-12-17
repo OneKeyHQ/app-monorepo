@@ -240,10 +240,13 @@ export const Others = () => {
     setSelectedNetworkId('');
   }, [categoryId]);
 
+  const contextValue = useMemo(
+    () => ({ selectedNetworkId, setSelectedNetworkId }),
+    [selectedNetworkId],
+  );
+
   return (
-    <SelectedNetworkContext.Provider
-      value={{ selectedNetworkId, setSelectedNetworkId }}
-    >
+    <SelectedNetworkContext.Provider value={contextValue}>
       <Container />
     </SelectedNetworkContext.Provider>
   );

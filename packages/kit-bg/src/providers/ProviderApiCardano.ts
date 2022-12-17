@@ -72,11 +72,12 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   private getConnectedAccount(request: IJsBridgeMessagePayload) {
-    const [account] =
-      this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
+    const [account] = this.backgroundApi.serviceDapp.getActiveConnectedAccounts(
+      {
         origin: request.origin as string,
         impl: IMPL_ADA,
-      });
+      },
+    );
 
     return Promise.resolve({ address: account?.address ?? null });
   }

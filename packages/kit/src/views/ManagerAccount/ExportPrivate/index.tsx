@@ -88,35 +88,33 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
 
   return (
     <Box py="24px" justifyContent="center" flexDirection="column">
-      <>
-        <Box
-          minH={qrCodeContainerSize}
-          alignItems="center"
-          flexDirection="column"
-        >
-          {privateKey ? (
-            <Box
-              borderRadius="24px"
-              bgColor="#FFFFFF"
-              p={isSmallScreen ? '16px' : '11px'}
-              shadow="depth.4"
-            >
-              {!!privateKey && (
-                <QRCode
-                  value={privateKey}
-                  logo={qrcodeLogo}
-                  size={isSmallScreen ? 264 : 186}
-                  logoSize={isSmallScreen ? 57 : 40}
-                  logoMargin={isSmallScreen ? 4 : 2}
-                  logoBackgroundColor="white"
-                />
-              )}
-            </Box>
-          ) : (
-            renderLoading()
-          )}
-        </Box>
-      </>
+      <Box
+        minH={qrCodeContainerSize}
+        alignItems="center"
+        flexDirection="column"
+      >
+        {privateKey ? (
+          <Box
+            borderRadius="24px"
+            bgColor="#FFFFFF"
+            p={isSmallScreen ? '16px' : '11px'}
+            shadow="depth.4"
+          >
+            {!!privateKey && (
+              <QRCode
+                value={privateKey}
+                logo={qrcodeLogo}
+                size={isSmallScreen ? 264 : 186}
+                logoSize={isSmallScreen ? 57 : 40}
+                logoMargin={isSmallScreen ? 4 : 2}
+                logoBackgroundColor="white"
+              />
+            )}
+          </Box>
+        ) : (
+          renderLoading()
+        )}
+      </Box>
       <Box
         alignItems="center"
         mt={isSmallScreen ? '32px' : '24px'}
