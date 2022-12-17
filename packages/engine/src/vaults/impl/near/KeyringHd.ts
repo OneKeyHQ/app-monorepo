@@ -1,24 +1,25 @@
-import {
-  CurveName,
-  batchGetPublicKeys,
-} from '@onekeyfe/blockchain-libs/dist/secret';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 
 import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import { IPrepareSoftwareAccountsParams } from '../../types';
 
 import { baseEncode, signTransaction } from './utils';
 
-import type { ISignCredentialOptions } from '../../types';
+import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { DBSimpleAccount } from '../../../types/account';
+import type {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
+import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // TODO move to abstract attribute
 // m/44'/397'/0', m/44'/397'/1', m/44'/397'/2'

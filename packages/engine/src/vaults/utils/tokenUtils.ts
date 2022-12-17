@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { Token } from '../../types/token';
+import type { Token } from '../../types/token';
 
 export function convertTokenOnChainValueToAmount({
   tokenInfo,

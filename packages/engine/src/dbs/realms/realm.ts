@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { Buffer } from 'buffer';
 
-import { IDeviceType } from '@onekeyfe/hd-core';
 import RNUUID from 'react-native-uuid';
 import Realm from 'realm';
 
@@ -34,37 +33,18 @@ import {
 import { getPath } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { walletIsImported } from '../../managers/wallet';
-import { AccountType, DBAccount } from '../../types/account';
-import { PrivateKeyCredential } from '../../types/credential';
-import { Device, DevicePayload } from '../../types/device';
-import {
-  HistoryEntry,
-  HistoryEntryMeta,
-  HistoryEntryStatus,
-  HistoryEntryType,
-} from '../../types/history';
-import { DBNetwork } from '../../types/network';
-import { Token } from '../../types/token';
+import { AccountType } from '../../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-  Wallet,
 } from '../../types/wallet';
 import {
-  CreateHDWalletParams,
-  CreateHWWalletParams,
-  DBAPI,
   DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
-  ExportedCredential,
   MAIN_CONTEXT,
-  OneKeyContext,
-  SetWalletNameAndAvatarParams,
-  StoredPrivateKeyCredential,
-  StoredSeedCredential,
   checkPassword,
   decrypt,
   encrypt,
@@ -80,6 +60,30 @@ import {
   TokenSchema,
   WalletSchema,
 } from './schemas';
+
+import type { DBAccount } from '../../types/account';
+import type { PrivateKeyCredential } from '../../types/credential';
+import type { Device, DevicePayload } from '../../types/device';
+import type {
+  HistoryEntry,
+  HistoryEntryMeta,
+  HistoryEntryStatus,
+  HistoryEntryType,
+} from '../../types/history';
+import type { DBNetwork } from '../../types/network';
+import type { Token } from '../../types/token';
+import type { Wallet } from '../../types/wallet';
+import type {
+  CreateHDWalletParams,
+  CreateHWWalletParams,
+  DBAPI,
+  ExportedCredential,
+  OneKeyContext,
+  SetWalletNameAndAvatarParams,
+  StoredPrivateKeyCredential,
+  StoredSeedCredential,
+} from '../base';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
 const SCHEMA_VERSION = 14;

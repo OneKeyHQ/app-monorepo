@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,8 +11,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../components/Protected';
 
-import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
-
+import type { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type EnableLocalAuthenticationProps = {

@@ -1,4 +1,5 @@
-import { ComponentProps, forwardRef, useCallback } from 'react';
+import type { ComponentProps } from 'react';
+import { forwardRef, useCallback } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 

@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
@@ -16,10 +13,12 @@ import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
-import { AccountType, DBVariantAccount } from '../../../types/account';
-import { ETHMessage, ETHMessageTypes } from '../../../types/message';
+import { AccountType } from '../../../types/account';
+import { ETHMessageTypes } from '../../../types/message';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
+import type { DBVariantAccount } from '../../../types/account';
+import type { ETHMessage } from '../../../types/message';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
@@ -27,6 +26,7 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxCfx } from './types';
+import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

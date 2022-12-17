@@ -4,18 +4,18 @@ import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
-import { EdgeInsets } from 'react-native-safe-area-context';
 
 import { PortalExit } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
-import { DeviceState } from '../../Provider/device';
 import { useSafeAreaInsets, useUserDevice } from '../../Provider/hooks';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
+import type { DeviceState } from '../../Provider/device';
 import type { BottomTabBarProps } from '../BottomTabs/types';
+import type { EdgeInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_TABBAR_HEIGHT = 49;
 

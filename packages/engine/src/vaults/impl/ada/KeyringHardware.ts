@@ -1,8 +1,4 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { CardanoGetAddressMethodParams, PROTO } from '@onekeyfe/hd-core';
+import { PROTO } from '@onekeyfe/hd-core';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -13,12 +9,8 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import {
-  IHardwareGetAddressParams,
-  IPrepareHardwareAccountsParams,
-} from '../../types';
 
 import { getChangeAddress } from './helper/cardanoUtils';
 import { getCardanoApi } from './helper/sdk';
@@ -26,9 +18,20 @@ import {
   transformToOneKeyInputs,
   transformToOneKeyOutputs,
 } from './helper/transformations';
-import { IEncodedTxADA, NetworkId } from './types';
+import { NetworkId } from './types';
 
+import type { DBUTXOAccount } from '../../../types/account';
+import type {
+  IHardwareGetAddressParams,
+  IPrepareHardwareAccountsParams,
+} from '../../types';
+import type { IEncodedTxADA } from './types';
 import type AdaVault from './Vault';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { CardanoGetAddressMethodParams } from '@onekeyfe/hd-core';
 
 const PATH_PREFIX = `m/1852'/${COIN_TYPE}'`;
 const ProtocolMagic = 764824073;

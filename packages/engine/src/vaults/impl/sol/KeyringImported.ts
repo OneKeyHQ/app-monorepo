@@ -5,11 +5,12 @@ import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 import { signMessage, signTransaction } from './utils';
 
+import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,

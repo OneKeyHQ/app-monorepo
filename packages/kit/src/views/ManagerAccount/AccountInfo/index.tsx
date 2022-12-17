@@ -1,6 +1,7 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,15 +14,15 @@ import {
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  ManagerAccountModalRoutes,
-  ManagerAccountRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
+import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
+import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
 import { useWalletName } from '../../../hooks/useWalletName';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import AccountModifyNameDialog from '../ModifyAccount';
 import useRemoveAccountDialog from '../RemoveAccount';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManagerAccountRoutesParams,

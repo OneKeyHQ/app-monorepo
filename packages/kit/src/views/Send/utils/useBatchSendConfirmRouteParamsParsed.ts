@@ -1,11 +1,17 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
-import { ModalScreenProps } from '../../../routes/types';
-import { SendConfirmPayloadBase, SendRoutes, SendRoutesParams } from '../types';
+
+import type { ModalScreenProps } from '../../../routes/types';
+import type {
+  SendConfirmPayloadBase,
+  SendRoutes,
+  SendRoutesParams,
+} from '../types';
+import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 

@@ -1,6 +1,6 @@
 import Realm from 'realm';
 
-import { OneKeyContext } from '../../base';
+import type { OneKeyContext } from '../../base';
 
 class ContextSchema extends Realm.Object {
   public id!: string;

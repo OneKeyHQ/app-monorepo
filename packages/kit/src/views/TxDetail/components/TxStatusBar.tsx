@@ -1,9 +1,6 @@
 import { HStack } from '@onekeyhq/components';
-import {
-  IDecodedTx,
-  IDecodedTxStatus,
-  IHistoryTx,
-} from '@onekeyhq/engine/src/vaults/types';
+import type { IDecodedTx, IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 
 import { TxActionElementReplacedTxText } from '../elements/TxActionElementReplacedTxText';
 import { TxActionElementStatusText } from '../elements/TxActionElementStatusText';

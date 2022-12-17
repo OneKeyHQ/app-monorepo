@@ -1,4 +1,5 @@
-import { FC, useEffect, useMemo } from 'react';
+import type { FC } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { Image as NBImage } from 'native-base';
 import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
@@ -15,7 +16,6 @@ import {
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
-  WebTab,
   closeWebTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
@@ -26,6 +26,8 @@ import {
   showTabGridAnim,
   tabGridRefs,
 } from '../explorerAnimation';
+
+import type { WebTab } from '../../../../store/reducers/webTabs';
 
 const CELL_GAP = 16;
 const styles = StyleSheet.create({

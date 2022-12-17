@@ -1,4 +1,5 @@
-import { FC, useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,11 +25,12 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
-import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 
 import { ListEmptyComponent } from './Empty';
-import { WalletData, useEnabledAccountDynamicAccounts } from './hooks';
+import { useEnabledAccountDynamicAccounts } from './hooks';
 
+import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import type { WalletData } from './hooks';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

@@ -1,15 +1,15 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { BigNumber } from 'bignumber.js';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
-import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import Long from 'long';
 
 import { MessageType } from '../message';
-import { UnpackedMessage } from '../proto/protoDecode';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
 import type { SignDocHex, StdFee } from '../../type';
+import type { UnpackedMessage } from '../proto/protoDecode';
+import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 export function getDirectSignDoc(signDoc: SignDocHex): ProtoSignDoc {
   return new ProtoSignDoc(signDoc);

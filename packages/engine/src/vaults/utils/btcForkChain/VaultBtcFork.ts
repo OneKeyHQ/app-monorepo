@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 // @ts-expect-error
@@ -11,7 +9,7 @@ import coinSelect from 'coinselect';
 import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
-import {
+import type {
   IBlockBookTransaction,
   IEncodedTxBtc,
   IUTXOInput,
@@ -22,25 +20,33 @@ import {
 import { COINTYPE_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { DBUTXOAccount } from '../../../types/account';
 import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
-import { KeyringBaseMock } from '../../keyring/KeyringBase';
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import {
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+} from '../../types';
+import { VaultBase } from '../../VaultBase';
+
+import { Provider } from './provider';
+import { BlockBook } from './provider/blockbook';
+import { getAccountDefaultByPurpose } from './utils';
+
+import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
+import type { DBUTXOAccount } from '../../../types/account';
+import type { KeyringBaseMock } from '../../keyring/KeyringBase';
+import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import type {
   IApproveInfo,
   IDecodedTx,
   IDecodedTxActionNativeTransfer,
-  IDecodedTxActionType,
-  IDecodedTxDirection,
   IDecodedTxLegacy,
-  IDecodedTxStatus,
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
@@ -51,13 +57,10 @@ import {
   IUnsignedTxPro,
   IVaultSettings,
 } from '../../types';
-import { IKeyringMapKey, VaultBase } from '../../VaultBase';
-
-import { Provider } from './provider';
-import { BlockBook } from './provider/blockbook';
-import { getAccountDefaultByPurpose } from './utils';
-
+import type { IKeyringMapKey } from '../../VaultBase';
 import type { ArrayElement } from './types';
+import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;

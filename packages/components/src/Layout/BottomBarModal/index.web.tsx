@@ -1,11 +1,6 @@
 /* eslint-disable react/prop-types */
-import {
-  ForwardedRef,
-  MutableRefObject,
-  forwardRef,
-  useEffect,
-  useRef,
-} from 'react';
+import type { ForwardedRef, MutableRefObject } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 
 import { Modalize } from 'react-native-modalize';
 

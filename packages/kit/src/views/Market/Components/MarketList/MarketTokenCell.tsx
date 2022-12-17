@@ -1,4 +1,5 @@
-import { FC, memo, useCallback, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -22,15 +23,12 @@ import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import {
-  MARKET_FAVORITES_CATEGORYID,
-  MarketTokenItem,
-} from '@onekeyhq/kit/src/store/reducers/market';
+import type { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
-import { ListHeadTagType } from '../../types';
 import {
   formatDecimalZero,
   formatMarketValueForComma,
@@ -42,6 +40,7 @@ import {
 import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
 import SparklineChart from './SparklineChart';
 
+import type { ListHeadTagType } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 interface MarketTokenCellProps {

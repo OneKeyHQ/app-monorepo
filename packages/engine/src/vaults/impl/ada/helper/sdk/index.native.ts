@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import BigNumber from 'bignumber.js';
 
-import { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
+import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { IAdaOutputs, IAdaUTXO } from '../../types';
+import type { IAdaOutputs, IAdaUTXO } from '../../types';
+import type BigNumber from 'bignumber.js';
 
 const ProvideMethod = 'callCardanoWebEmbedMethod';
 enum CardanoEvent {

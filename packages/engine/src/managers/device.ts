@@ -1,4 +1,4 @@
-import { DBDevice, Device } from '../types/device';
+import type { DBDevice, Device } from '../types/device';
 
 function fromDBDeviceToDevice(device: DBDevice): Device {
   let payload: any = {};

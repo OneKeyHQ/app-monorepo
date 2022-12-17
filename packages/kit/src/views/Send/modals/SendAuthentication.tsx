@@ -1,22 +1,12 @@
-import {
-  FC,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { NavigationProp } from '@react-navigation/core';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Spinner, useToast } from '@onekeyhq/components';
-import {
-  OneKeyError,
-  OneKeyErrorClassNames,
-} from '@onekeyhq/engine/src/errors';
+import type { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -31,12 +21,15 @@ import { AuthExternalAccountInfo } from '../../ExternalAccount/SendConfirm/AuthE
 import { useSignOrSendOfExternalAccount } from '../../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
-import {
+
+import type {
   ISendAuthenticationModalTitleInfo,
   SendConfirmPayloadInfo,
   SendRoutes,
   SendRoutesParams,
 } from '../types';
+import type { NavigationProp } from '@react-navigation/core';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendAuthentication>;
 type NavigationProps = NavigationProp<

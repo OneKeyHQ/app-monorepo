@@ -3,11 +3,11 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, PresenceTransition, Text } from '@onekeyhq/components';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-  Wallet,
 } from '@onekeyhq/engine/src/types/wallet';
 
 import { useNetwork } from '../../../hooks/useNetwork';

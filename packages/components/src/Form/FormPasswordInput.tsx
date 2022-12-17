@@ -1,4 +1,5 @@
-import { ComponentProps, forwardRef, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { forwardRef, useState } from 'react';
 
 import { Platform } from 'react-native';
 

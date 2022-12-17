@@ -1,4 +1,5 @@
-import { FC, useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { isEqual } from 'lodash';
@@ -13,11 +14,11 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import {
+import type {
   ERC20TokenAllowance,
   ERC721TokenAllowance,
-  toFloat,
 } from '@onekeyhq/engine/src/managers/revoke';
+import { toFloat } from '@onekeyhq/engine/src/managers/revoke';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

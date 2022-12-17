@@ -1,6 +1,7 @@
-import { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
-import { ListRenderItem, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -12,7 +13,9 @@ import {
 
 import DAppIcon from '../DAppIcon';
 import { useTagDapps } from '../hooks';
-import { DAppItemType, DAppListProps } from '../type';
+
+import type { DAppItemType, DAppListProps } from '../type';
+import type { ListRenderItem } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {

@@ -8,7 +8,7 @@ import {
   Select,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { SelectItem } from '@onekeyhq/components/src/Select';
+import type { SelectItem } from '@onekeyhq/components/src/Select';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 

@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
@@ -10,7 +10,8 @@ import {
   TxActionElementAddressNormal,
   getTxActionElementAddressWithSecurityInfo,
 } from '../elements/TxActionElementAddress';
-import { ITxActionCardProps, ITxActionElementDetail } from '../types';
+
+import type { ITxActionCardProps, ITxActionElementDetail } from '../types';
 
 export function TxActionTransactionEvm(props: ITxActionCardProps) {
   const { decodedTx, action, meta, network } = props;

@@ -7,7 +7,8 @@ import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxA
 import { TxListActionBox } from '../components/TxListActionBox';
 import { TxStatusBarInList } from '../components/TxStatusBar';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaTitle,

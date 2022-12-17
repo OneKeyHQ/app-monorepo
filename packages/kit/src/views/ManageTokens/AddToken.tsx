@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,7 +15,7 @@ import {
   Typography,
   useToast,
 } from '@onekeyhq/components';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
+import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -29,8 +29,10 @@ import useDappParams from '../../hooks/useDappParams';
 import { wait } from '../../utils/helper';
 
 import { useTokenSecurityInfo } from './hooks';
-import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+import { ManageTokenRoutes } from './types';
 
+import type { ManageTokenRoutesParams } from './types';
+import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<

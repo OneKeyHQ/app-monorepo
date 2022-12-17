@@ -1,4 +1,5 @@
-import { FC, memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 

@@ -1,4 +1,5 @@
-import { FC, memo, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,12 +19,13 @@ import {
   useAppSelector,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
-import { ModalScreenProps, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import ExternalAccountImg from '../../views/ExternalAccount/components/ExternalAccountImg';
 import WalletAvatar from '../WalletSelector/WalletAvatar';
@@ -100,67 +102,65 @@ const AccountSelectorTrigger: FC<Props> = ({
   const showExternalImg = !platformEnv.isNativeAndroid;
   // const showExternalImg = true;
   return (
-    <>
-      <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
-        {({ isHovered }) => (
-          <Box
-            flexDirection="row"
-            alignItems="center"
-            w="full"
-            p={1}
-            pr={2}
-            borderRadius="12px"
-            maxW={`${maxItemWidth}px`}
-            bg={
-              // eslint-disable-next-line no-nested-ternary
-              visible && !isVerticalLayout
-                ? 'surface-selected'
-                : isHovered
-                ? 'surface-hovered'
-                : 'transparent'
-            }
-          >
-            <Box>
-              <WalletAvatar
-                walletImage={wallet.type}
-                hwWalletType={
-                  (wallet.deviceType as IOneKeyDeviceType) ||
-                  getDeviceTypeByDeviceId(wallet.associatedDevice)
-                }
-                avatar={wallet.avatar}
-                isPassphrase={isPassphrase}
-                size="sm"
-                mr={3}
-                status={hasWalletState ? walletState : undefined}
-              />
-              {showExternalImg ? (
-                <Box position="absolute" right="4px" bottom="-6px">
-                  <ExternalAccountImg
-                    size={4}
-                    radius="12px"
-                    accountId={account.id}
-                    account={account}
-                    borderWidth={2}
-                    borderColor="background-default"
-                  />
-                </Box>
-              ) : null}
-            </Box>
-            <Typography.Body2Strong
-              isTruncated
-              numberOfLines={1}
-              mr={1}
-              maxWidth={isVerticalLayout ? '106px' : '144px'}
-            >
-              {name}
-            </Typography.Body2Strong>
-            <Box ml={!isVerticalLayout ? 'auto' : undefined}>
-              <Icon size={20} name="ChevronDownMini" />
-            </Box>
+    <Pressable onPress={handleToggleVisible} w="full" justifyContent="center">
+      {({ isHovered }) => (
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          w="full"
+          p={1}
+          pr={2}
+          borderRadius="12px"
+          maxW={`${maxItemWidth}px`}
+          bg={
+            // eslint-disable-next-line no-nested-ternary
+            visible && !isVerticalLayout
+              ? 'surface-selected'
+              : isHovered
+              ? 'surface-hovered'
+              : 'transparent'
+          }
+        >
+          <Box>
+            <WalletAvatar
+              walletImage={wallet.type}
+              hwWalletType={
+                (wallet.deviceType as IOneKeyDeviceType) ||
+                getDeviceTypeByDeviceId(wallet.associatedDevice)
+              }
+              avatar={wallet.avatar}
+              isPassphrase={isPassphrase}
+              size="sm"
+              mr={3}
+              status={hasWalletState ? walletState : undefined}
+            />
+            {showExternalImg ? (
+              <Box position="absolute" right="4px" bottom="-6px">
+                <ExternalAccountImg
+                  size={4}
+                  radius="12px"
+                  accountId={account.id}
+                  account={account}
+                  borderWidth={2}
+                  borderColor="background-default"
+                />
+              </Box>
+            ) : null}
           </Box>
-        )}
-      </Pressable>
-    </>
+          <Typography.Body2Strong
+            isTruncated
+            numberOfLines={1}
+            mr={1}
+            maxWidth={isVerticalLayout ? '106px' : '144px'}
+          >
+            {name}
+          </Typography.Body2Strong>
+          <Box ml={!isVerticalLayout ? 'auto' : undefined}>
+            <Icon size={20} name="ChevronDownMini" />
+          </Box>
+        </Box>
+      )}
+    </Pressable>
   );
 };
 

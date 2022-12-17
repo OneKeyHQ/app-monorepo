@@ -1,13 +1,5 @@
-import {
-  ComponentProps,
-  FC,
-  ReactElement,
-  ReactNode,
-  cloneElement,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import type { ComponentProps, FC, ReactElement, ReactNode } from 'react';
+import { cloneElement, useCallback, useMemo, useState } from 'react';
 
 import { Modal as NBModal } from 'native-base';
 import { Platform } from 'react-native';

@@ -1,10 +1,11 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
 import DAppIcon from '../../DAppIcon';
-import { DAppItemType, SectionDataType } from '../../type';
 import { SectionTitle } from '../TitleView';
+
+import type { DAppItemType, SectionDataType } from '../../type';
 
 type DappTypeTuple = [DAppItemType | undefined, DAppItemType | undefined];
 

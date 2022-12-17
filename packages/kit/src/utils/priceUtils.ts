@@ -2,8 +2,12 @@ import BigNumber from 'bignumber.js';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import { SimpleTokenPrices, TokenBalanceValue } from '../store/reducers/tokens';
 import { formatDecimalZero } from '../views/Market/utils';
+
+import type {
+  SimpleTokenPrices,
+  TokenBalanceValue,
+} from '../store/reducers/tokens';
 
 export function calculateGains({
   basePrice,

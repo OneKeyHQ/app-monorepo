@@ -7,9 +7,11 @@ import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import { IPrepareImportedAccountsParams } from '../../types';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type { IPrepareImportedAccountsParams } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(

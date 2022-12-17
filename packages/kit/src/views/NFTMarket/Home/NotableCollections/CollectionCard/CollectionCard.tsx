@@ -1,4 +1,5 @@
-import { ComponentProps, FC, useCallback } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback } from 'react';
 
 import { MotiPressable } from 'moti/interactions';
 import { useIntl } from 'react-intl';

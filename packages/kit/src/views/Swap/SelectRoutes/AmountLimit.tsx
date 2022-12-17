@@ -1,10 +1,11 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { Typography } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useTokenAmount } from '../hooks/useSwap';
-import { QuoteLimited } from '../typings';
+
+import type { QuoteLimited } from '../typings';
 
 type AmountLimitProps = {
   limited?: QuoteLimited;

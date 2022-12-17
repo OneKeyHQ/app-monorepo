@@ -1,4 +1,4 @@
-import { ListHeadTagType } from './types';
+import type { ListHeadTagType } from './types';
 
 export const SUBMIT_TOKEN_URL = 'https://gr4yl99ujhl.typeform.com/to/ZM0qyr9e';
 

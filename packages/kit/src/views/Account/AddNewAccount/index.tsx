@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-shadow */
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,14 +22,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from '@onekeyhq/kit/src/routes';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
+import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { deviceUtils } from '../../../utils/hardware';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type PrivateKeyFormValues = {
   network: string;

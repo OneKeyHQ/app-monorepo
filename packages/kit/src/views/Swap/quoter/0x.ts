@@ -1,22 +1,11 @@
-import axios, { Axios } from 'axios';
+import axios from 'axios';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { estimatedTime, zeroXenabledNetworkIds } from '../config';
-import {
-  BuildTransactionParams,
-  BuildTransactionResponse,
-  FetchQuoteParams,
-  FetchQuoteResponse,
-  QuoteData,
-  Quoter,
-  QuoterType,
-  SerializableTransactionReceipt,
-  TransactionDetails,
-  TransactionProgress,
-} from '../typings';
+import { QuoterType } from '../typings';
 import {
   TokenAmount,
   affiliateAddress,
@@ -24,6 +13,19 @@ import {
   feeRecipient,
   nativeTokenAddress,
 } from '../utils';
+
+import type {
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  FetchQuoteResponse,
+  QuoteData,
+  Quoter,
+  SerializableTransactionReceipt,
+  TransactionDetails,
+  TransactionProgress,
+} from '../typings';
+import type { Axios } from 'axios';
 
 type QuoteParams = {
   sellToken: string;

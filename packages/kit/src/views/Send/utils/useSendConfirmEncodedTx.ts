@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
-
-import { SendConfirmParams } from '../types';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { prepareSendConfirmEncodedTx } from './prepareSendConfirmEncodedTx';
+
+import type { SendConfirmParams } from '../types';
 
 export function useSendConfirmEncodedTx({
   sendConfirmParams,

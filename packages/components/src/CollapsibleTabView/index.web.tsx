@@ -1,21 +1,15 @@
-import {
+import type {
   CSSProperties,
-  Children,
   ComponentProps,
   FC,
   ReactElement,
   ReactNode,
   SyntheticEvent,
-  createContext,
-  useContext,
-  useMemo,
-  useState,
 } from 'react';
+import { Children, createContext, useContext, useMemo, useState } from 'react';
 
 import MaterialTab from '@mui/material/Tab';
 import MaterialTabs from '@mui/material/Tabs';
-import { StyleProp, ViewStyle } from 'react-native';
-import { Container as BaseContainer } from 'react-native-collapsible-tab-view';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
@@ -25,6 +19,9 @@ import FlatList from '../FlatList';
 import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
+
+import type { StyleProp, ViewStyle } from 'react-native';
+import type { Container as BaseContainer } from 'react-native-collapsible-tab-view';
 
 type TabProps = {
   name: string;

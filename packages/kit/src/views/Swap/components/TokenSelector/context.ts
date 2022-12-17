@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 type TokenSelectorValues = {
   selectedToken?: Token;

@@ -1,4 +1,3 @@
-import { AxiosInstance } from 'axios';
 import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
@@ -8,6 +7,7 @@ import type {
   IQuery,
   QueryChainInfo,
 } from './IQuery';
+import type { AxiosInstance } from 'axios';
 
 interface Cw20TokenInfoResponse {
   'name': string;

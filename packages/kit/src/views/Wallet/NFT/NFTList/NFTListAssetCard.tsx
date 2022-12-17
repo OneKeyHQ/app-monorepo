@@ -1,5 +1,5 @@
-import { ComponentProps, memo } from 'react';
-import type { FC } from 'react';
+import { memo } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import {
   Box,
@@ -9,7 +9,7 @@ import {
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 

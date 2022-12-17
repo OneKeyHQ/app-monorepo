@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/restrict-plus-operands */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC, Key } from 'react';
+import type { FC, Key } from 'react';
 
 import { useIntl } from 'react-intl';
 

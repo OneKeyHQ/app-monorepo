@@ -2,10 +2,11 @@
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { formatServerToken, isValidTokenId } from '../../../managers/token';
-import { ServerToken, Token } from '../../../types/token';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 import { SimpleDbEntityLocalTokens } from './SimpleDbEntityLocalTokens';
+
+import type { ServerToken, Token } from '../../../types/token';
 
 export type ISimpleDbEntityTokensData = {
   [key: string]: Token[];

@@ -1,6 +1,5 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
-import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
 import { LottieView, Text } from '@onekeyhq/components';
@@ -9,7 +8,10 @@ import ConfirmOnMini from '@onekeyhq/kit/assets/animations/confirm-on-onekey-min
 import ConfirmOnPro from '@onekeyhq/kit/assets/animations/confirm-on-onekey-pro.json';
 import ConfirmOnTouch from '@onekeyhq/kit/assets/animations/confirm-on-onekey-touch.json';
 
-import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
+import BaseRequestView from './BaseRequest';
+
+import type { BaseRequestViewProps } from './BaseRequest';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const getConfirmAnimation = (type: IDeviceType) => {
   switch (type) {

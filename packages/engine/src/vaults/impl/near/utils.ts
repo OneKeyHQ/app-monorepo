@@ -1,9 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // import * as transactions from '@onekeyfe/blockchain-libs/dist/provider/chains/near/sdk/transaction';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BN from 'bn.js';
 import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';
@@ -13,20 +9,22 @@ import * as nearApiJs from 'near-api-js';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { Signer } from '../../../proxy';
 import { TxStatus } from '../../../types/covalent';
-import {
-  IDecodedTx,
-  IDecodedTxAction,
-  IDecodedTxActionType,
-  IDecodedTxLegacy,
-} from '../../types';
-import {
-  EVMDecodedItemERC20Transfer,
-  EVMDecodedTxType,
-} from '../evm/decoder/types';
+import { IDecodedTxActionType } from '../../types';
+import { EVMDecodedTxType } from '../evm/decoder/types';
 
 import type { Engine } from '../../../index';
+import type { Signer } from '../../../proxy';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxLegacy,
+} from '../../types';
+import type { EVMDecodedItemERC20Transfer } from '../evm/decoder/types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type {
   Action,
   SignedTransaction,

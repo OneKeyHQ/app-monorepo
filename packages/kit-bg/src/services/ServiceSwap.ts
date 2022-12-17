@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import axios from 'axios';
 
-import { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
+import type { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   clearState,
@@ -29,7 +29,7 @@ import {
   clearTransactions,
   updateTokenList,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
-import {
+import type {
   FieldType,
   QuoteData,
   QuoteLimited,

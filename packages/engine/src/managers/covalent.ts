@@ -6,9 +6,16 @@ import { COVALENT_API_KEY } from '@onekeyhq/shared/src/config/appConfig';
 import debugCodes from '@onekeyhq/shared/src/debug/debugCodes';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import {
+import { EVMTxFromType, TxStatus } from '../types/covalent';
+import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/types';
+import { isEvmNativeTransferType } from '../vaults/impl/evm/decoder/util';
+import { IDecodedTxActionType, IDecodedTxStatus } from '../vaults/types';
+import { convertTokenOnChainValueToAmount } from '../vaults/utils/tokenUtils';
+
+import { getAsset } from './nft';
+
+import type {
   BlockTransactionWithLogEvents,
-  EVMTxFromType,
   HistoryDetailList,
   ICovalentHistoryList,
   ICovalentHistoryListItem,
@@ -20,23 +27,11 @@ import {
   Transaction,
   Transfer,
   TransferEvent,
-  TxStatus,
 } from '../types/covalent';
-import { Token } from '../types/token';
-import { EVMDecodedTxType } from '../vaults/impl/evm/decoder/types';
-import { isEvmNativeTransferType } from '../vaults/impl/evm/decoder/util';
-import {
-  IDecodedTx,
-  IDecodedTxAction,
-  IDecodedTxActionType,
-  IDecodedTxStatus,
-} from '../vaults/types';
-import { convertTokenOnChainValueToAmount } from '../vaults/utils/tokenUtils';
-import { VaultBase } from '../vaults/VaultBase';
-
-import { getAsset } from './nft';
-
+import type { Token } from '../types/token';
 import type { IEncodedTxEvm } from '../vaults/impl/evm/Vault';
+import type { IDecodedTx, IDecodedTxAction } from '../vaults/types';
+import type { VaultBase } from '../vaults/VaultBase';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
 

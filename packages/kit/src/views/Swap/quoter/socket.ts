@@ -1,24 +1,11 @@
-import axios, { Axios } from 'axios';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  BuildTransactionParams,
-  BuildTransactionResponse,
-  FetchQuoteParams,
-  FetchQuoteResponse,
-  Provider,
-  Quoter,
-  QuoterType,
-  SerializableTransactionReceipt,
-  TransactionData,
-  TransactionDetails,
-  TransactionProgress,
-  TransactionStatus,
-} from '../typings';
+import { QuoterType } from '../typings';
 import {
   calculateRange,
   calculateRate,
@@ -28,6 +15,21 @@ import {
   getEvmTokenAddress,
   getTokenAmountString,
 } from '../utils';
+
+import type {
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  FetchQuoteResponse,
+  Provider,
+  Quoter,
+  SerializableTransactionReceipt,
+  TransactionData,
+  TransactionDetails,
+  TransactionProgress,
+  TransactionStatus,
+} from '../typings';
+import type { Axios } from 'axios';
 
 interface SocketAsset {
   address: string;

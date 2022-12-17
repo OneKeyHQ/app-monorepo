@@ -18,7 +18,8 @@ import {
   setBoardingCompleted,
   unlock,
 } from '@onekeyhq/kit/src/store/reducers/status';
-import extUtils, { OpenUrlRouteInfo } from '@onekeyhq/kit/src/utils/extUtils';
+import type { OpenUrlRouteInfo } from '@onekeyhq/kit/src/utils/extUtils';
+import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   getPassword,
@@ -41,7 +42,9 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import ServiceBase from './ServiceBase';
+
+import type { IServiceBaseProps } from './ServiceBase';
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {

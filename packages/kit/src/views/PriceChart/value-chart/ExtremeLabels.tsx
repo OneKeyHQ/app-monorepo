@@ -1,4 +1,5 @@
-import { ReactNode, memo, useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useChartData } from '@onekeyfe/react-native-animated-charts';
 import { Text, View } from 'react-native';

@@ -21,7 +21,6 @@ import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_WALLET } from '../../../Header/Accou
 import { useDeviceStatusOfHardwareWallet } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import {
   EWalletDataSectionType,
-  IWalletDataSection,
   useWalletSelectorSectionData,
 } from '../../hooks/useWalletSelectorSectionData';
 import { useWalletSelectorStatus } from '../../hooks/useWalletSelectorStatus';
@@ -30,6 +29,8 @@ import { WalletCreateSelectDropdown } from '../WalletCreateSelectDropdown';
 
 import { ListItemBase } from './ListItem';
 import { ListItemWithHidden } from './ListItemWithHidden';
+
+import type { IWalletDataSection } from '../../hooks/useWalletSelectorSectionData';
 
 export type IWalletDataBase = {
   wallet: IWallet | undefined;
@@ -177,130 +178,126 @@ function Body() {
     [scrollToItem],
   );
   return (
-    <>
-      <SectionList
-        ref={sectionListRef}
-        sections={sectionData}
-        keyExtractor={(item: IWalletDataBase, index) =>
-          `${item?.wallet?.id || ''}${index}`
-        }
-        renderSectionHeader={({ section }: { section: IWalletDataSection }) => {
-          const isEmptyData = !section?.data?.length;
+    <SectionList
+      ref={sectionListRef}
+      sections={sectionData}
+      keyExtractor={(item: IWalletDataBase, index) =>
+        `${item?.wallet?.id || ''}${index}`
+      }
+      renderSectionHeader={({ section }: { section: IWalletDataSection }) => {
+        const isEmptyData = !section?.data?.length;
 
-          return (
-            <>
-              <SectionHeader
-                section={section}
-                type={section.type}
-                isEmptyData={isEmptyData}
-              />
-            </>
-          );
-        }}
-        renderItem={({
-          item,
-          section,
-        }: {
-          item: IWalletDataBase;
-          section: IWalletDataSection;
-        }) => (
-          <ListItemWithHidden
-            item={item}
+        return (
+          <SectionHeader
             section={section}
-            deviceStatus={deviceStatus}
-            onLastItemRender={scrollToItemDebounced}
+            type={section.type}
+            isEmptyData={isEmptyData}
           />
-        )}
-        renderSectionFooter={({ section }: { section: IWalletDataSection }) => {
-          const isEmptyData = !section?.data?.length;
-          const showCreateWalletButton = shouldShowBigCreateButton({ section });
-          if (showCreateWalletButton) {
-            const bottomMargin: JSX.Element | null = <Box h={6} />;
-            if (section.type === EWalletDataSectionType.hd) {
-              // bottomMargin = null;
-            }
-            const createNewButton = null;
-            const iconFontSizeMap: { [size: string]: number } = {
-              'xs': 24,
-              'sm': 32,
-              'lg': 48,
-              'xl': 56,
-            };
-            const iconSizeName = platformEnv.isNative ? 'lg' : 'sm';
-            const iconSize = iconFontSizeMap[iconSizeName];
-            let leftView: JSX.Element | null = null;
-            let text = '';
-            if (section.type === EWalletDataSectionType.hd) {
-              text = intl.formatMessage({ id: 'action__add_app_wallet' });
-              leftView = (
-                <Center
-                  size={`${iconSize}px`}
-                  borderWidth={2}
-                  borderColor="border-default"
-                  borderStyle="dashed"
-                  borderRadius="full"
-                >
-                  <Icon
-                    size={platformEnv.isNative ? 24 : 20}
-                    name={platformEnv.isNative ? 'PlusOutline' : 'PlusMini'}
-                  />
-                </Center>
-              );
-            }
-            if (section.type === EWalletDataSectionType.hw) {
-              text = intl.formatMessage({
-                id: 'action__connect_hardware_wallet' as any,
-              });
-              leftView = (
-                <Center
-                  size={`${iconSize}px`}
-                  borderWidth={2}
-                  borderColor="border-default"
-                  borderStyle="dashed"
-                  borderRadius="full"
-                >
-                  <Icon
-                    size={platformEnv.isNative ? 24 : 20}
-                    name={platformEnv.isNative ? 'LinkOutline' : 'LinkMini'}
-                  />
-                </Center>
-              );
-            }
-            return (
-              <>
-                <Box px="8px">
-                  <WalletCreateSelectDropdown
-                    dropdownProps={{ width: '302px' }}
-                    walletType={section.type}
-                    renderTrigger={({ onPress }) => (
-                      <Box mx="-8px">
-                        <ListItemBase
-                          onPress={onPress}
-                          leftView={leftView}
-                          text={text}
-                        />
-                      </Box>
-                    )}
-                  />
-                </Box>
-                {bottomMargin}
-              </>
+        );
+      }}
+      renderItem={({
+        item,
+        section,
+      }: {
+        item: IWalletDataBase;
+        section: IWalletDataSection;
+      }) => (
+        <ListItemWithHidden
+          item={item}
+          section={section}
+          deviceStatus={deviceStatus}
+          onLastItemRender={scrollToItemDebounced}
+        />
+      )}
+      renderSectionFooter={({ section }: { section: IWalletDataSection }) => {
+        const isEmptyData = !section?.data?.length;
+        const showCreateWalletButton = shouldShowBigCreateButton({ section });
+        if (showCreateWalletButton) {
+          const bottomMargin: JSX.Element | null = <Box h={6} />;
+          if (section.type === EWalletDataSectionType.hd) {
+            // bottomMargin = null;
+          }
+          const createNewButton = null;
+          const iconFontSizeMap: { [size: string]: number } = {
+            'xs': 24,
+            'sm': 32,
+            'lg': 48,
+            'xl': 56,
+          };
+          const iconSizeName = platformEnv.isNative ? 'lg' : 'sm';
+          const iconSize = iconFontSizeMap[iconSizeName];
+          let leftView: JSX.Element | null = null;
+          let text = '';
+          if (section.type === EWalletDataSectionType.hd) {
+            text = intl.formatMessage({ id: 'action__add_app_wallet' });
+            leftView = (
+              <Center
+                size={`${iconSize}px`}
+                borderWidth={2}
+                borderColor="border-default"
+                borderStyle="dashed"
+                borderRadius="full"
+              >
+                <Icon
+                  size={platformEnv.isNative ? 24 : 20}
+                  name={platformEnv.isNative ? 'PlusOutline' : 'PlusMini'}
+                />
+              </Center>
             );
           }
-
-          return section.data?.length ? <Box h={6} /> : null;
-        }}
-        // The spacing between sections
-        py={2}
-        style={
-          {
-            // ERROR on iOS: JSON value '8px' of type NSString cannot be converted to YGVaule
-            // padding: '8px',
+          if (section.type === EWalletDataSectionType.hw) {
+            text = intl.formatMessage({
+              id: 'action__connect_hardware_wallet' as any,
+            });
+            leftView = (
+              <Center
+                size={`${iconSize}px`}
+                borderWidth={2}
+                borderColor="border-default"
+                borderStyle="dashed"
+                borderRadius="full"
+              >
+                <Icon
+                  size={platformEnv.isNative ? 24 : 20}
+                  name={platformEnv.isNative ? 'LinkOutline' : 'LinkMini'}
+                />
+              </Center>
+            );
           }
+          return (
+            <>
+              <Box px="8px">
+                <WalletCreateSelectDropdown
+                  dropdownProps={{ width: '302px' }}
+                  walletType={section.type}
+                  renderTrigger={({ onPress }) => (
+                    <Box mx="-8px">
+                      <ListItemBase
+                        onPress={onPress}
+                        leftView={leftView}
+                        text={text}
+                      />
+                    </Box>
+                  )}
+                />
+              </Box>
+              {bottomMargin}
+            </>
+          );
         }
-        ListFooterComponent={<Box h={insets.bottom} />}
-      />
-    </>
+
+        return section.data?.length ? <Box h={6} /> : null;
+      }}
+      // The spacing between sections
+      py={2}
+      style={
+        {
+          // ERROR on iOS: JSON value '8px' of type NSString cannot be converted to YGVaule
+          // padding: '8px',
+        }
+      }
+      ListFooterComponent={<Box h={insets.bottom} />}
+    />
   );
 }
 

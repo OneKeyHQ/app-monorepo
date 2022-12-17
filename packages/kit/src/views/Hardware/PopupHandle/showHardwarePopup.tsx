@@ -1,4 +1,4 @@
-import { ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
 import { Modal as NBModal } from 'native-base';

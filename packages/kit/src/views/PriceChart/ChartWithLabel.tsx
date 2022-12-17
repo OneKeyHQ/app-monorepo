@@ -1,14 +1,16 @@
-import { FC, ReactNode, useCallback, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 
 import { Box, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../hooks/useFormatDate';
 
-import { MarketApiData, OnHoverFunction } from './chartService';
 import ChartView from './ChartView';
 import SvgNoPriceData from './NoPriceData';
 import PriceLabel from './PriceLabel';
+
+import type { MarketApiData, OnHoverFunction } from './chartService';
 
 type ChartWithLabelProps = {
   data: MarketApiData[] | null;

@@ -2,10 +2,11 @@ import { hexToBytes } from '@noble/hashes/utils';
 
 import { IDecodedTxActionType } from '../../types';
 
-import { Message, MessageType, SendMessage } from './sdk/message';
+import { MessageType } from './sdk/message';
 import { makeTxRawBytes } from './sdk/signing';
 import { getDirectSignDoc } from './sdk/wrapper/utils';
 
+import type { Message, SendMessage } from './sdk/message';
 import type { UnpackedMessage } from './sdk/proto/protoDecode';
 import type { IEncodedTxCosmos } from './type';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';

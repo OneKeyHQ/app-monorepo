@@ -1,5 +1,8 @@
-import { IEncodedTx, IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
-import { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
+import type {
+  IEncodedTx,
+  IFeeInfoUnit,
+} from '@onekeyhq/engine/src/vaults/types';
+import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
   backgroundMethod,

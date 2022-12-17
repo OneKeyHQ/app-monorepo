@@ -10,7 +10,6 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
@@ -38,12 +37,7 @@ import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import { DbApi } from './dbs';
-import {
-  DBAPI,
-  DEFAULT_VERIFY_STRING,
-  ExportedSeedCredential,
-  checkPassword,
-} from './dbs/base';
+import { DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
 import simpleDb from './dbs/simple/simpleDb';
 import {
   AccountAlreadyExists,
@@ -81,64 +75,70 @@ import {
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
 import { syncLatestNetworkList } from './presets/network';
-import { ChartQueryParams, PriceController } from './priceController';
+import { PriceController } from './priceController';
 import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
-import {
-  Account,
-  AccountType,
-  DBAccount,
-  DBUTXOAccount,
-  DBVariantAccount,
-  ImportableHDAccount,
-} from './types/account';
+import { AccountType } from './types/account';
 import { CredentialType } from './types/credential';
-import { DevicePayload } from './types/device';
 import { GoPlusSupportApis } from './types/goplus';
-import {
-  HistoryEntry,
-  HistoryEntryMeta,
-  HistoryEntryStatus,
-  HistoryEntryTransaction,
-  HistoryEntryType,
-} from './types/history';
-import {
-  AddNetworkParams,
-  DBNetwork,
-  EIP1559Fee,
-  Network,
-  UpdateNetworkParams,
-} from './types/network';
-import { Token } from './types/token';
+import { HistoryEntryStatus } from './types/history';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-  Wallet,
 } from './types/wallet';
 import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
-import { IEncodedTxEvm, IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
-import {
+import { IDecodedTxActionType } from './vaults/types';
+import { VaultFactory } from './vaults/VaultFactory';
+
+import type { DBAPI, ExportedSeedCredential } from './dbs/base';
+import type { ChartQueryParams } from './priceController';
+import type {
+  Account,
+  DBAccount,
+  DBUTXOAccount,
+  DBVariantAccount,
+  ImportableHDAccount,
+} from './types/account';
+import type { BackupObject, ImportableHDWallet } from './types/backup';
+import type { DevicePayload } from './types/device';
+import type {
+  HistoryEntry,
+  HistoryEntryMeta,
+  HistoryEntryTransaction,
+  HistoryEntryType,
+} from './types/history';
+import type {
+  AddNetworkParams,
+  DBNetwork,
+  EIP1559Fee,
+  Network,
+  UpdateNetworkParams,
+} from './types/network';
+import type { Token } from './types/token';
+import type { Wallet } from './types/wallet';
+import type {
+  IEncodedTxEvm,
+  IUnsignedMessageEvm,
+} from './vaults/impl/evm/Vault';
+import type VaultEvm from './vaults/impl/evm/Vault';
+import type VaultSol from './vaults/impl/sol/Vault';
+import type {
   IDecodedTx,
   IDecodedTxAction,
-  IDecodedTxActionType,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
   ISetApprovalForAll,
+  ITransferInfo,
   IVaultSettings,
 } from './vaults/types';
-import { VaultFactory } from './vaults/VaultFactory';
-
-import type { BackupObject, ImportableHDWallet } from './types/backup';
-import type VaultEvm from './vaults/impl/evm/Vault';
-import type VaultSol from './vaults/impl/sol/Vault';
-import type { ITransferInfo } from './vaults/types';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const updateTokenCache: {
   [networkId: string]: boolean;

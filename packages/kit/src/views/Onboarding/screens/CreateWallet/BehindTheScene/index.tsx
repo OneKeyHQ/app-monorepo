@@ -1,16 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, ToastManager, useToast } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../../hooks/useAppNavigation';
@@ -22,18 +22,22 @@ import { savePassword } from '../../../../../utils/localAuthentication';
 import { useOnboardingClose } from '../../../hooks';
 import Layout from '../../../Layout';
 import { useOnboardingContext } from '../../../OnboardingContext';
-import { EOnboardingRoutes } from '../../../routes/enums';
-import {
-  IOnboardingBehindTheSceneParams,
-  IOnboardingRoutesParams,
-} from '../../../routes/types';
 
 import {
   ONBOARDING_PAUSED_INDEX_HARDWARE,
   ONBOARDING_PAUSED_INDEX_SOFTWARE,
 } from './consts';
-import ProcessAutoTyping, { IProcessAutoTypingRef } from './ProcessAutoTyping';
+import ProcessAutoTyping from './ProcessAutoTyping';
 import ProcessAutoTypingWebView from './ProcessAutoTypingWebView';
+
+import type { EOnboardingRoutes } from '../../../routes/enums';
+import type {
+  IOnboardingBehindTheSceneParams,
+  IOnboardingRoutesParams,
+} from '../../../routes/types';
+import type { IProcessAutoTypingRef } from './ProcessAutoTyping';
+import type { RouteProp } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NavigationProps = StackNavigationProp<
@@ -317,33 +321,31 @@ const BehindTheScene = () => {
     );
   }, [isRenderAsWebview, onPressFinished, pausedProcessIndex]);
   return (
-    <>
-      <Layout backButton={false} showCloseButton={showCloseButton} fullHeight>
-        <BehindTheSceneCreatingWalletMemo
-          routeParams={routeParams}
-          handleWalletCreated={handleWalletCreated}
-          shouldStartCreating={shouldStartCreating}
-          onPressOnboardingFinished={onPressFinished}
-          setIsNavBackDisabled={setIsNavBackDisabled}
-        />
-        {isRenderAsWebview ? (
-          <Center h="full" w="full">
-            {webviewAutoTyping}
-          </Center>
-        ) : (
-          <Box
-            flex={1}
-            h="full"
-            w="full"
-            // TODO how to make webview fullscreen?
-            minH={{ base: 480, sm: 320 }}
-            justifyContent="flex-end"
-          >
-            {builtInAutoTyping}
-          </Box>
-        )}
-      </Layout>
-    </>
+    <Layout backButton={false} showCloseButton={showCloseButton} fullHeight>
+      <BehindTheSceneCreatingWalletMemo
+        routeParams={routeParams}
+        handleWalletCreated={handleWalletCreated}
+        shouldStartCreating={shouldStartCreating}
+        onPressOnboardingFinished={onPressFinished}
+        setIsNavBackDisabled={setIsNavBackDisabled}
+      />
+      {isRenderAsWebview ? (
+        <Center h="full" w="full">
+          {webviewAutoTyping}
+        </Center>
+      ) : (
+        <Box
+          flex={1}
+          h="full"
+          w="full"
+          // TODO how to make webview fullscreen?
+          minH={{ base: 480, sm: 320 }}
+          justifyContent="flex-end"
+        >
+          {builtInAutoTyping}
+        </Box>
+      )}
+    </Layout>
   );
 };
 

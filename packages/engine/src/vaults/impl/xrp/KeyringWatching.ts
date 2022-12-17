@@ -1,9 +1,11 @@
 import { COINTYPE_XRP as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { InvalidAddress } from '../../../errors';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
-import { IPrepareWatchingAccountsParams } from '../../types';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type { IPrepareWatchingAccountsParams } from '../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(

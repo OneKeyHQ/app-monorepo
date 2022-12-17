@@ -1,13 +1,5 @@
-import {
-  Action,
-  Dispatch,
-  PayloadAction,
-  ThunkAction,
-  combineReducers,
-  configureStore,
-} from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { cloneDeep, isFunction, isString } from 'lodash';
-import { Reducer } from 'redux';
 import {
   FLUSH,
   PAUSE,
@@ -56,6 +48,14 @@ import swapReducer from './reducers/swap';
 import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
 import webTabsReducer from './reducers/webTabs'; // 24.34 MB **** +20 Mb UI components
+
+import type {
+  Action,
+  Dispatch,
+  PayloadAction,
+  ThunkAction,
+} from '@reduxjs/toolkit';
+import type { Reducer } from 'redux';
 
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,

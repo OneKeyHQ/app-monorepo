@@ -1,10 +1,11 @@
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Alert,
@@ -26,13 +27,11 @@ import { SubmitRequestRoutes } from '../../../routes';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 
 import { listUri } from './TicketService';
-import {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
-  TicketType,
-} from './types';
+import { HistoryRequestRoutes } from './types';
 
+import type { HistoryRequestModalRoutesParams, TicketType } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   HistoryRequestModalRoutesParams,

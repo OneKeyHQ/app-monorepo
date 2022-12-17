@@ -1,7 +1,6 @@
 import { memo, useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { RouteProp } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -32,10 +31,12 @@ import {
 } from '../../../../routes/routesEnum';
 import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
-import { EOnboardingRoutes } from '../../routes/enums';
-import { IOnboardingRoutesParams } from '../../routes/types';
 
 import SecondaryContent from './SecondaryContent';
+
+import type { EOnboardingRoutes } from '../../routes/enums';
+import type { IOnboardingRoutesParams } from '../../routes/types';
+import type { RouteProp } from '@react-navigation/native';
 
 function ConnectHardwareButton() {
   const intl = useIntl();

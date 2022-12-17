@@ -2,7 +2,6 @@ import { ok } from 'assert';
 
 import { providers as multicall } from '@0xsequence/multicall';
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { Log } from '@ethersproject/abstract-provider';
 import ERC20Artifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import B from 'bignumber.js';
@@ -20,16 +19,18 @@ import {
   fetchValidGoPlusChainId,
 } from '@onekeyhq/engine/src/managers/goplus';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
-import {
-  BackendProvider,
-  DUMMY_ADDRESS,
-  DUMMY_ADDRESS_2,
+import type {
   ERC20TokenAllowance,
   ERC20TokenApproval,
   ERC721Allowance,
   ERC721TokenAllowance,
   ERC721TokenApproval,
   Events,
+} from '@onekeyhq/engine/src/managers/revoke';
+import {
+  BackendProvider,
+  DUMMY_ADDRESS,
+  DUMMY_ADDRESS_2,
   compareBN,
   convertString,
   formatAllowance,
@@ -46,16 +47,16 @@ import {
   withFallback,
 } from '@onekeyhq/engine/src/managers/revoke';
 import { fetchData } from '@onekeyhq/engine/src/managers/token';
-import {
+import type {
   GoPlusApproval,
   GoPlusNFTApproval,
-  GoPlusSupportApis,
 } from '@onekeyhq/engine/src/types/goplus';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import { Erc721MethodSelectors } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/abi';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import {
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type {
   IERC721Approve,
   ISetApprovalForAll,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -68,6 +69,8 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
+
+import type { Log } from '@ethersproject/abstract-provider';
 
 export const ERC20 = ERC20Artifact.abi;
 export const ERC721Metadata = ERC721MetadataArtifact.abi;

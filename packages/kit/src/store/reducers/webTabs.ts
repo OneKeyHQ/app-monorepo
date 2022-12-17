@@ -1,10 +1,12 @@
-import { PayloadAction, createSlice, nanoid } from '@reduxjs/toolkit';
+import { createSlice, nanoid } from '@reduxjs/toolkit';
 
 import { ToastManager } from '@onekeyhq/components';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { webviewRefs } from '../../views/Discover/Explorer/explorerUtils';
+
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export interface WebTab {
   id: string;

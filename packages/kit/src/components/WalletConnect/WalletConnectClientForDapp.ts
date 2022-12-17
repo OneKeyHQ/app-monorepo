@@ -1,14 +1,7 @@
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import {
   ERROR_QRCODE_MODAL_NOT_PROVIDED,
   ERROR_QRCODE_MODAL_USER_CLOSED,
 } from '@walletconnect/core/dist/esm/errors';
-import {
-  IClientMeta,
-  IQRCodeModal,
-  ISessionStatus,
-  IWalletConnectSession,
-} from '@walletconnect/types';
 import { merge } from 'lodash';
 
 import { OneKeyWalletConnectModalCloseError } from '@onekeyhq/engine/src/errors';
@@ -17,18 +10,26 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { wait } from '../../utils/helper';
 
-import { WalletService } from './types';
 import walletConnectUtils from './utils/walletConnectUtils';
-import {
-  IWalletConnectClientEventRpc,
-  IWalletConnectClientOptions,
-  WalletConnectClientBase,
-} from './WalletConnectClient';
+import { WalletConnectClientBase } from './WalletConnectClient';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
 } from './walletConnectConsts';
 import { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
+
+import type { WalletService } from './types';
+import type {
+  IWalletConnectClientEventRpc,
+  IWalletConnectClientOptions,
+} from './WalletConnectClient';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  IClientMeta,
+  IQRCodeModal,
+  ISessionStatus,
+  IWalletConnectSession,
+} from '@walletconnect/types';
 
 export type ISessionStatusPro = ISessionStatus & {
   peerId?: string | null;

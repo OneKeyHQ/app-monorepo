@@ -1,4 +1,4 @@
-import { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import SegmentedControlBase from '@react-native-segmented-control/segmented-control';
 

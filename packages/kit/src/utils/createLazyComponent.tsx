@@ -1,4 +1,5 @@
-import { ComponentType, ReactNode, Suspense, lazy } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import { Suspense, lazy } from 'react';
 
 interface Params {
   fallback?: ReactNode;

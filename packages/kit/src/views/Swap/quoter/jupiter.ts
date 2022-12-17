@@ -1,23 +1,25 @@
-import axios, { Axios } from 'axios';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
+import { QuoterType } from '../typings';
+import { calculateRate, div, getTokenAmountString } from '../utils';
+
+import type {
   BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
   FetchQuoteResponse,
   QuoteData,
   Quoter,
-  QuoterType,
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
-import { calculateRate, div, getTokenAmountString } from '../utils';
+import type { Axios } from 'axios';
 
 type PriceInfo = {
   id: string;

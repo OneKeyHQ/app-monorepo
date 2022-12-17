@@ -19,7 +19,8 @@ import {
   TxActionElementTitleNormal,
 } from '../elements/TxActionElementTitle';
 import { useTxDetailContext } from '../TxDetailContext';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,

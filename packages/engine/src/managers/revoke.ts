@@ -1,12 +1,14 @@
-import { Filter, Log, Provider } from '@ethersproject/abstract-provider';
 import axios from 'axios';
 import { ChainId } from 'eth-chains';
-import { BigNumber, BigNumberish, Contract, utils } from 'ethers';
+import { BigNumber, Contract, utils } from 'ethers';
 import { getAddress, hexDataSlice } from 'ethers/lib/utils';
 
 import { getFiatEndpoint } from '../endpoint';
-import { Token } from '../types/token';
 import { OPENSEA_REGISTRY_ABI } from '../vaults/impl/evm/decoder/abi';
+
+import type { Token } from '../types/token';
+import type { Filter, Log, Provider } from '@ethersproject/abstract-provider';
+import type { BigNumberish } from 'ethers';
 
 export type Events = {
   transferEvents: Log[];

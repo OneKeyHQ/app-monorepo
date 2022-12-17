@@ -1,4 +1,4 @@
-import { Socket, io } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 import { getSocketEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { appSelector } from '@onekeyhq/kit/src/store';
@@ -8,10 +8,12 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { SocketEvents } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { SocketEvents } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
+
+import type { Socket } from 'socket.io-client';
 
 @backgroundClass()
 export default class ServiceSocket extends ServiceBase {

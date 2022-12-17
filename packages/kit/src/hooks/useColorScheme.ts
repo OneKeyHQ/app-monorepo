@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Appearance, ColorSchemeName } from 'react-native';
+import { Appearance } from 'react-native';
+
+import type { ColorSchemeName } from 'react-native';
 
 export function useColorScheme(delay = 500): NonNullable<ColorSchemeName> {
   const [colorScheme, setColorScheme] = useState(Appearance.getColorScheme());

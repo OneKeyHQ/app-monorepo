@@ -1,25 +1,25 @@
 import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
-import {
-  CurveName,
-  batchGetPublicKeys,
-} from '@onekeyfe/blockchain-libs/dist/secret';
+import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBVariantAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import {
+
+import { signTransaction } from './utils';
+
+import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { DBVariantAccount } from '../../../types/account';
+import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-
-import { signTransaction } from './utils';
+import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
+import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;

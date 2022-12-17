@@ -1,42 +1,24 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import {
-  PartialTokenInfo,
-  TransactionStatus,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { COINTYPE_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ExportedSeedCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { Account, AccountType, DBUTXOAccount } from '../../../types/account';
-import { Token } from '../../../types/token';
+import { AccountType } from '../../../types/account';
 import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
-  IDecodedTxActionNativeTransfer,
-  IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTx,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ISignedTx,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -54,7 +36,32 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IAdaAmount, IAdaHistory, IEncodeOutput, IEncodedTxADA } from './types';
+
+import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { Account, DBUTXOAccount } from '../../../types/account';
+import type { Token } from '../../../types/token';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionNativeTransfer,
+  IDecodedTxActionTokenTransfer,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
+import type {
+  IAdaAmount,
+  IAdaHistory,
+  IEncodeOutput,
+  IEncodedTxADA,
+} from './types';
+import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // @ts-ignore
 export default class Vault extends VaultBase {

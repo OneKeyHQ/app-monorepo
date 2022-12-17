@@ -1,20 +1,22 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBVariantAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import {
+
+import { signTransaction } from './utils';
+
+import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { DBVariantAccount } from '../../../types/account';
+import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-
-import { signTransaction } from './utils';
+import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

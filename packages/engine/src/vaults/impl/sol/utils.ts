@@ -1,11 +1,11 @@
-import {
+import bs58 from 'bs58';
+
+import type { Signer } from '../../../proxy';
+import type {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { PublicKey, Transaction } from '@solana/web3.js';
-import bs58 from 'bs58';
-
-import { Signer } from '../../../proxy';
+import type { PublicKey, Transaction } from '@solana/web3.js';
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,

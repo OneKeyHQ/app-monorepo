@@ -10,15 +10,16 @@ import {
 
 import { getFiatEndpoint } from '../endpoint';
 import { getPresetNetworks, networkIsPreset } from '../presets';
-import {
+
+import { getAccountNameInfoByImpl, implToCoinTypes } from './impl';
+
+import type {
   AddEVMNetworkParams,
   BlockExplorer,
   DBNetwork,
   Network,
 } from '../types/network';
-import { IVaultSettings } from '../vaults/types';
-
-import { getAccountNameInfoByImpl, implToCoinTypes } from './impl';
+import type { IVaultSettings } from '../vaults/types';
 
 export type ChainListConfig = {
   name?: string;

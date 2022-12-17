@@ -1,11 +1,9 @@
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
-import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing';
 import {
   AuthInfo,
   SignDoc,
-  SignerInfo,
   TxBody,
   TxRaw,
 } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
@@ -14,6 +12,9 @@ import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
 
 import { MessageType } from './message';
+
+import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
+import type { SignerInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
 function makeTxBodyBytes(body: Partial<TxBody>): Uint8Array {
   return TxBody.encode(

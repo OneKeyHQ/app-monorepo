@@ -1,12 +1,12 @@
-import { FC } from 'react';
-
-import { BaseToastProps as RNBaseToastProps } from 'react-native-toast-message';
+import type { FC } from 'react';
 
 import Box from '../Box';
 import Button from '../Button';
 import { useThemeValue } from '../Provider/hooks';
-import { ThemeToken } from '../Provider/theme';
 import { Text } from '../Typography';
+
+import type { ThemeToken } from '../Provider/theme';
+import type { BaseToastProps as RNBaseToastProps } from 'react-native-toast-message';
 
 type ActionToastProps = {
   bgColorToken?: ThemeToken;

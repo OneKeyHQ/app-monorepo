@@ -1,10 +1,10 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import { dequal as deepEqual } from 'dequal';
 import { debounce } from 'lodash';
 import uuid from 'react-native-uuid';
 
-import { LocaleSymbol } from '@onekeyhq/components/src/locale';
-import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
@@ -16,6 +16,7 @@ import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
 } from '../../utils/updates/type';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type FirmwareUpdate = {
   forceFirmware: boolean;

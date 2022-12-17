@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';

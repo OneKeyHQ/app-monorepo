@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,9 @@ import {
 } from '@onekeyhq/components';
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 
-import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
+import BaseRequestView from './BaseRequest';
+
+import type { BaseRequestViewProps } from './BaseRequest';
 
 type EnterPassphraseViewProps = {
   passphraseState?: string;
@@ -61,10 +63,8 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
             },
             validate: (value) => {
               if (!value.length) return true;
-              const passphraseReg = new RegExp(
-                '^[a-zA-Z0-9-><_.:@\\|*!()+%&-\\[\\]?{},#\'`;"~$\\^=]+$',
-                'i',
-              );
+              const passphraseReg =
+                /^[a-zA-Z0-9-><_.:@\|*!()+%&-\[\]?{},#'`;"~$\^=]+$/i;
               if (!passphraseReg.test(value)) {
                 return intl.formatMessage({
                   id: 'form__add_exsting_wallet_invalid',

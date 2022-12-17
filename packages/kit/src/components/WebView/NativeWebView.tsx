@@ -7,19 +7,15 @@ import {
 } from 'react';
 
 import { appDebugLogger } from '@onekeyfe/cross-inpage-provider-core';
-import { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
-import {
-  IWebViewWrapperRef,
-  JsBridgeNativeHost,
-} from '@onekeyfe/onekey-cross-webview';
+import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
 import { StyleSheet } from 'react-native';
-import {
-  WebView,
-  WebViewMessageEvent,
-  WebViewProps,
-} from 'react-native-webview';
+import { WebView } from 'react-native-webview';
 
 import ErrorView from './ErrorView';
+
+import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
 export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 

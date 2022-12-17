@@ -1,14 +1,8 @@
-import {
-  MutableRefObject,
-  RefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import type { MutableRefObject, RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isNil, isString, pick } from 'lodash';
-import { Dimensions, View, useWindowDimensions } from 'react-native';
+import { Dimensions, useWindowDimensions } from 'react-native';
 
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ModalRefStore } from '../Modal';
 
 import type { IDropdownPosition, IDropdownProps, SelectProps } from '../Select';
+import type { View } from 'react-native';
 
 interface UseDropdownProps {
   dropdownPosition?: IDropdownPosition;

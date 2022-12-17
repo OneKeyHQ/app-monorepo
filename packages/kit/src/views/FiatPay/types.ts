@@ -1,4 +1,4 @@
-import { TokenBalanceValue } from '../../store/reducers/tokens';
+import type { TokenBalanceValue } from '../../store/reducers/tokens';
 
 export type Provider = 'moonpay';
 

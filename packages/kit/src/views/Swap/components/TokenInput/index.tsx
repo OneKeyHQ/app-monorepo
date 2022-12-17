@@ -1,4 +1,5 @@
-import { ComponentProps, FC, useCallback } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,7 +11,7 @@ import {
   Typography,
   useToast,
 } from '@onekeyhq/components';
-import { Account } from '@onekeyhq/engine/src/types/account';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
@@ -22,7 +23,6 @@ import {
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
-import { Token as TokenType } from '../../../../store/typings';
 import { tokenReservedValues } from '../../config';
 import { useSwapQuoteCallback } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
@@ -30,6 +30,8 @@ import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
 import { NetworkName } from '../NetworkName';
 import { TokenDisplay } from '../TokenDisplay';
+
+import type { Token as TokenType } from '../../../../store/typings';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';

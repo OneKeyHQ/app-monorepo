@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';

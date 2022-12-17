@@ -1,23 +1,17 @@
-import {
-  ComponentProps,
-  ReactElement,
-  ReactNode,
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import { Input as BaseInput, Stack } from 'native-base';
 
 import Box from '../Box';
 import Divider from '../Divider';
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import Pressable from '../Pressable';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text, getTypographyStyleProps } from '../Typography';
 import { numberToString } from '../utils';
 
+import type { ICON_NAMES } from '../Icon';
 import type { TypographyStyle } from '../Typography';
 
 // @ts-expect-error
@@ -44,7 +38,7 @@ interface Props extends ComponentProps<typeof BaseInput> {
   onPressSecondaryRightIcon?: () => void;
 }
 
-const numberPattern = new RegExp('^(\\d+)?(\\.?(\\d*))?$');
+const numberPattern = /^(\d+)?(\.?(\d*))?$/;
 const Input = forwardRef<typeof BaseInput, Props>(
   (
     {

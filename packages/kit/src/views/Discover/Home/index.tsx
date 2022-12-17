@@ -1,12 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DiscoverContext, ItemSource } from './context';
-import { DiscoverProps } from './type';
+import { DiscoverContext } from './context';
+
+import type { ItemSource } from './context';
+import type { DiscoverProps } from './type';
 
 const Updater = () => {
   useEffect(() => {

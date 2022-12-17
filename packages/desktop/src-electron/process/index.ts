@@ -1,10 +1,11 @@
-import { BrowserWindow, app } from 'electron';
+import { app } from 'electron';
 import logger from 'electron-log';
 
 import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
 
 import type { LocalStore } from '../libs/store';
+import type { BrowserWindow } from 'electron';
 
 export type Dependencies = {
   mainWindow: BrowserWindow;

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
+import type { FC } from 'react';
 import {
-  FC,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
 import { IconButton, useToast } from '@onekeyhq/components';
 
@@ -17,6 +17,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../hooks';
 import { useAppSelector } from '../../hooks/redux';
 import { wait } from '../../utils/helper';
+
+import type { AppStateStatus } from 'react-native';
 
 type LocalAuthenticationButtonProps = {
   onOk?: (password: string) => void;

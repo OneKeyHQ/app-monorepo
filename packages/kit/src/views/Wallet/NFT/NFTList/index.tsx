@@ -1,4 +1,5 @@
-import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -11,7 +12,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -19,15 +20,10 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  CollectiblesModalRoutes,
-  CollectiblesRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

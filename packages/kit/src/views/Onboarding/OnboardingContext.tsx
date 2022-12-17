@@ -1,9 +1,9 @@
+import type { Dispatch, SetStateAction } from 'react';
 import {
-  Dispatch,
-  SetStateAction,
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useState,
 } from 'react';
 
@@ -39,10 +39,12 @@ function OnboardingContextProvider(
   //   }));
   // }, []);
 
+  const contextValue = useMemo(
+    () => ({ context, setContext, visible, forceVisibleUnfocused }),
+    [context, forceVisibleUnfocused, visible],
+  );
   return (
-    <OnboardingContext.Provider
-      value={{ context, setContext, visible, forceVisibleUnfocused }}
-    >
+    <OnboardingContext.Provider value={contextValue}>
       {children}
     </OnboardingContext.Provider>
   );

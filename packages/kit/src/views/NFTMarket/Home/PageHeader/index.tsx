@@ -12,17 +12,13 @@ import {
   Pressable,
   Text,
 } from '@onekeyhq/components';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import {
-  SearchNFTCollectionRoutes,
-  SearchNFTCollectionRoutesParams,
-} from '../../NFTSearchModal/type';
+import { SearchNFTCollectionRoutes } from '../../NFTSearchModal/type';
 import { useCollectionDetail } from '../hook';
+
+import type { SearchNFTCollectionRoutesParams } from '../../NFTSearchModal/type';
 
 type NavigationProps = ModalScreenProps<SearchNFTCollectionRoutesParams>;
 

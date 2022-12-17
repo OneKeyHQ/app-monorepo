@@ -1,8 +1,8 @@
-import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -26,7 +26,9 @@ import { useIsMounted } from '../../../hooks/useIsMounted';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 
 import { useCollectionDetailContext } from './context';
-import { ListProps } from './type';
+
+import type { ListProps } from './type';
+import type { ListRenderItem } from 'react-native';
 
 const Footer: FC = () => (
   <>

@@ -1,15 +1,7 @@
-import {
-  ReactElement,
-  ReactNode,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { ReactElement, ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { TouchableOpacity } from 'react-native';
 
@@ -25,18 +17,19 @@ import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
-import {
-  IFeeInfoInputProps,
-  SendConfirmParams,
-  SendRoutes,
-  SendRoutesParams,
-} from '../types';
+import { SendRoutes } from '../types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
 
 import { FeeSpeedLabel } from './FeeSpeedLabel';
 import { TxTitleDetailView } from './TxTitleDetailView';
 
+import type {
+  IFeeInfoInputProps,
+  SendConfirmParams,
+  SendRoutesParams,
+} from '../types';
+import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
@@ -207,17 +200,15 @@ function FeeInfoInputForTransfer({
 
     if (isPreset) {
       return (
-        <>
-          <Text typography={typography}>
-            <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
-            <FormatCurrencyNativeOfAccount
-              networkId={networkId}
-              accountId={accountId}
-              value={totalNative}
-              render={(ele) => <>(~ {ele})</>}
-            />
-          </Text>
-        </>
+        <Text typography={typography}>
+          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+          <FormatCurrencyNativeOfAccount
+            networkId={networkId}
+            accountId={accountId}
+            value={totalNative}
+            render={(ele) => <>(~ {ele})</>}
+          />
+        </Text>
       );
     }
     // TODO fallback to native value if fiat price is null
@@ -491,31 +482,27 @@ function FeeInfoInputForConfirmLite({
     const color = 'text-subdued';
     if (isPreset) {
       return (
-        <>
-          <Text color={color}>
-            <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
-            <FormatCurrencyNativeOfAccount
-              networkId={networkId}
-              accountId={accountId}
-              value={totalNative}
-              render={(ele) => <>(~ {ele})</>}
-            />
-          </Text>
-        </>
-      );
-    }
-    // TODO fallback to native value if fiat price is null
-    return (
-      <>
         <Text color={color}>
+          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
           <FormatCurrencyNativeOfAccount
             networkId={networkId}
             accountId={accountId}
             value={totalNative}
-            render={(ele) => <>{ele}</>}
+            render={(ele) => <>(~ {ele})</>}
           />
         </Text>
-      </>
+      );
+    }
+    // TODO fallback to native value if fiat price is null
+    return (
+      <Text color={color}>
+        <FormatCurrencyNativeOfAccount
+          networkId={networkId}
+          accountId={accountId}
+          value={totalNative}
+          render={(ele) => <>{ele}</>}
+        />
+      </Text>
     );
   }, [
     accountId,
@@ -578,28 +565,26 @@ function FeeInfoInputForConfirmLite({
 
     return (
       !!message && (
-        <>
-          <Tooltip
-            maxW="360px"
-            isOpen={hasTooltipOpen}
-            hasArrow
-            label={message}
-            bg="surface-neutral-default"
-            _text={{ color: 'text-default', fontSize: '14px' }}
-            px="16px"
-            py="8px"
-            placement="top"
-            borderRadius="12px"
-          >
-            <Box>
-              <Icon
-                name="ExclamationTriangleOutline"
-                size={20}
-                color="icon-warning"
-              />
-            </Box>
-          </Tooltip>
-        </>
+        <Tooltip
+          maxW="360px"
+          isOpen={hasTooltipOpen}
+          hasArrow
+          label={message}
+          bg="surface-neutral-default"
+          _text={{ color: 'text-default', fontSize: '14px' }}
+          px="16px"
+          py="8px"
+          placement="top"
+          borderRadius="12px"
+        >
+          <Box>
+            <Icon
+              name="ExclamationTriangleOutline"
+              size={20}
+              color="icon-warning"
+            />
+          </Box>
+        </Tooltip>
       )
     );
   }, [feeInfoError, hasTooltipOpen, intl]);

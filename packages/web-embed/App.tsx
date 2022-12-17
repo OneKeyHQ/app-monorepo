@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
-import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 // import { Provider } from '@onekeyhq/kit';
 
@@ -15,9 +16,8 @@ import {
 import { Box, Provider } from '@onekeyhq/components';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { ONBOARDING_WEBVIEW_METHODS } from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/consts';
-import ProcessAutoTyping, {
-  IProcessAutoTypingRef,
-} from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/ProcessAutoTyping';
+import type { IProcessAutoTypingRef } from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/ProcessAutoTyping';
+import ProcessAutoTyping from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/ProcessAutoTyping';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // css should be imported at last
 import '@onekeyhq/shared/src/web/index.css';

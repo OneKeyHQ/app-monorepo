@@ -1,18 +1,23 @@
-import { FC, ReactNode, createRef, useMemo } from 'react';
+import type { FC, ReactNode } from 'react';
+import { createRef, useMemo } from 'react';
 
 import { NativeBaseProvider, StatusBar, extendTheme } from 'native-base';
-import { IntlProvider, IntlShape, MessageDescriptor } from 'react-intl';
+import { IntlProvider } from 'react-intl';
 import { Easing, StyleSheet, useWindowDimensions } from 'react-native';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import LOCALES, { LocaleSymbol } from '../locale';
+import LOCALES from '../locale';
 import { Body1Props, Body2Props, SubheadingProps } from '../Typography';
 
 import { SCREEN_SIZE, getSize } from './device';
 import { Context, useLoadCustomFonts } from './hooks';
-import COLORS, { ThemeVariant } from './theme';
+import COLORS from './theme';
+
+import type { LocaleSymbol } from '../locale';
+import type { ThemeVariant } from './theme';
+import type { IntlShape, MessageDescriptor } from 'react-intl';
 
 export type UIProviderProps = {
   /**

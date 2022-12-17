@@ -1,10 +1,11 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import type {
   KeleDashboardGlobal,
   KeleETHStakingState,
   StakingActivity,
 } from '../../views/Staking/typing';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type StakingState = {
   showETH2UnableToUnstakeWarning: boolean;

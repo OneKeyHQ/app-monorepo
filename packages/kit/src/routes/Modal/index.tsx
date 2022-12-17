@@ -7,9 +7,11 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { createLazyComponent } from '../../utils/createLazyComponent';
-import { ModalRoutes, ModalRoutesParams } from '../types';
+import { ModalRoutes } from '../types';
 
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
+
+import type { ModalRoutesParams } from '../types';
 
 const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
 

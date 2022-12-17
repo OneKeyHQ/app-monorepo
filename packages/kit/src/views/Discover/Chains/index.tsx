@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';

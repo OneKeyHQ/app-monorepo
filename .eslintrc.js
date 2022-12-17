@@ -15,9 +15,15 @@ const jsRules = {
   'react/no-unused-prop-types': 'off',
   'global-require': 'off',
   'import/no-unresolved': 'off', // tsc can check this
+  'react/no-unstable-nested-components': 'warn',
+  'react/jsx-no-useless-fragment': ['warn', { allowExpressions: true }],
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
+  '@typescript-eslint/consistent-type-imports': [
+    'error',
+    { disallowTypeAnnotations: false },
+  ],
   '@typescript-eslint/no-var-requires': 'off',
   '@typescript-eslint/no-unused-vars': [isDev ? 'warn' : 'error'],
   '@typescript-eslint/no-use-before-define': ['error'],

@@ -1,9 +1,10 @@
-import { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { Text as NBDefaultText } from 'native-base';
-import { TextStyle } from 'react-native';
 
 import { useIsVerticalLayout } from '../Provider/hooks';
+
+import type { TextStyle } from 'react-native';
 
 export type TypographyStyle =
   | 'Display2XLarge'

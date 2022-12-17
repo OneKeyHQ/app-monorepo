@@ -1,17 +1,22 @@
-import { FC, useCallback, useLayoutEffect } from 'react';
+import type { FC } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-
-import { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type {
+  HomeRoutes,
+  HomeRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
 
 import { MyDAppListContext } from './context';
 import Desktop from './desktop';
 import Mobile from './mobile';
+
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MyDAppListScreen>;
 

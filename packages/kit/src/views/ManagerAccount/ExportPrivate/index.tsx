@@ -1,6 +1,7 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -23,12 +24,14 @@ import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import {
+import type {
   ManagerAccountModalRoutes,
   ManagerAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type ExportPrivateViewProps = {
   accountId: string;

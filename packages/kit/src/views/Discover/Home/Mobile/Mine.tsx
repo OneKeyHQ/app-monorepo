@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -33,6 +33,7 @@ import { EmptySkeleton } from './EmptySkeleton';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 import type { DAppItemType, SectionDataType } from '../../type';
+import type { ListRenderItem } from 'react-native';
 
 const styles = StyleSheet.create({
   listContentContainer: {

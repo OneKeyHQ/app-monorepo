@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem } from '@onekeyhq/components';
 import type { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
@@ -14,6 +13,8 @@ import { PriceString } from '../../../../PriceText';
 import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
+
+import type { ListRenderItem } from 'react-native';
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
@@ -58,61 +59,59 @@ const Desktop = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
 
   const renderItem: ListRenderItem<NFTMarketCapCollection> = useCallback(
     ({ item, index }) => (
-      <>
-        <ListItem
-          onPress={() => {
-            goToCollectionDetail({
-              contractAddress: item.contract_address as string,
-              networkId: context?.selectedNetwork?.id as string,
-              title: item.contract_name,
-            });
+      <ListItem
+        onPress={() => {
+          goToCollectionDetail({
+            contractAddress: item.contract_address as string,
+            networkId: context?.selectedNetwork?.id as string,
+            title: item.contract_name,
+          });
+        }}
+      >
+        <ListItem.Column>
+          <CollectionLogo
+            src={item.logo_url}
+            width="40px"
+            height="40px"
+            verified={item.openseaVerified}
+          />
+        </ListItem.Column>
+        <ListItem.Column
+          text={{
+            label: `${index + 1}`,
+            labelProps: { pb: '24px', typography: 'Body1Mono' },
           }}
-        >
-          <ListItem.Column>
-            <CollectionLogo
-              src={item.logo_url}
-              width="40px"
-              height="40px"
-              verified={item.openseaVerified}
-            />
-          </ListItem.Column>
-          <ListItem.Column
-            text={{
-              label: `${index + 1}`,
-              labelProps: { pb: '24px', typography: 'Body1Mono' },
-            }}
-          />
-          <ListItem.Column
-            flex={1}
-            text={{
-              label: item.contract_name,
-              labelProps: { isTruncated: true },
-              description: PriceString({
-                prefix: intl.formatMessage({
-                  id: 'content__floor',
-                }),
-                price: item.floor_price,
-                networkId: context?.selectedNetwork?.id,
+        />
+        <ListItem.Column
+          flex={1}
+          text={{
+            label: item.contract_name,
+            labelProps: { isTruncated: true },
+            description: PriceString({
+              prefix: intl.formatMessage({
+                id: 'content__floor',
               }),
-              descriptionProps: { numberOfLines: 1 },
-            }}
-          />
-          <ListItem.Column
-            w="160px"
-            text={{
-              label: PriceString({
-                price: formatMarketValueForComma(
-                  new BigNumber(item.market_cap ?? '0')
-                    .decimalPlaces(2)
-                    .toNumber(),
-                ),
-                networkId: context?.selectedNetwork?.id,
-              }),
-              labelProps: { textAlign: 'right' },
-            }}
-          />
-        </ListItem>
-      </>
+              price: item.floor_price,
+              networkId: context?.selectedNetwork?.id,
+            }),
+            descriptionProps: { numberOfLines: 1 },
+          }}
+        />
+        <ListItem.Column
+          w="160px"
+          text={{
+            label: PriceString({
+              price: formatMarketValueForComma(
+                new BigNumber(item.market_cap ?? '0')
+                  .decimalPlaces(2)
+                  .toNumber(),
+              ),
+              networkId: context?.selectedNetwork?.id,
+            }),
+            labelProps: { textAlign: 'right' },
+          }}
+        />
+      </ListItem>
     ),
     [context?.selectedNetwork?.id, goToCollectionDetail, intl],
   );

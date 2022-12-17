@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box, Modal } from '@onekeyhq/components';
 

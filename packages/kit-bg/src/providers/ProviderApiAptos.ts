@@ -2,14 +2,11 @@
 /* eslint-disable camelcase */
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { BCS, TxnBuilderTypes } from 'aptos';
 
 import { AptosMessageTypes } from '@onekeyhq/engine/src/types/message';
-import {
+import type {
   IEncodedTxAptos,
   SignMessagePayload,
   SignMessageResponse,
@@ -21,7 +18,7 @@ import {
   generateTransferCreateNft,
   transactionPayloadToTxPayload,
 } from '@onekeyhq/engine/src/vaults/impl/apt/utils';
-import VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
+import type VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
 import { decodeBytesTransaction } from '@onekeyhq/engine/src/vaults/impl/sui/utils';
 import {
   hexlify,
@@ -36,9 +33,10 @@ import {
 import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 type AccountInfo =
   | {

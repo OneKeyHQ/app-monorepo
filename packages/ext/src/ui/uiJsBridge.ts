@@ -1,15 +1,16 @@
-import {
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 import store from '@onekeyhq/kit/src/store';
+import type { IDispatchActionBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   DISPATCH_ACTION_BROADCAST_METHOD_NAME,
-  IDispatchActionBroadcastParams,
   buildReduxBatchAction,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 function init() {
   const jsBridgeReceiveHandler = (payload: IJsBridgeMessagePayload) => {

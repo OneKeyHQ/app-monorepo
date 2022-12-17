@@ -1,13 +1,17 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useRoute } from '@react-navigation/native';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
-import { SendRoutes, SendRoutesParams } from '../types';
 
-import type { SendConfirmPayloadBase } from '../types';
+import type {
+  SendConfirmPayloadBase,
+  SendRoutes,
+  SendRoutesParams,
+} from '../types';
+import type { RouteProp } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,

@@ -1,4 +1,5 @@
-import { FC, isValidElement } from 'react';
+import type { FC } from 'react';
+import { isValidElement } from 'react';
 
 import { Text } from '@onekeyhq/components';
 

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 import * as XRPL from 'xrpl';
@@ -14,14 +13,25 @@ import {
   InvalidTransferValue,
   OneKeyInternalError,
 } from '../../../errors';
-import { DBSimpleAccount } from '../../../types/account';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
-  IDecodedTx,
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
+} from '../../types';
+import { VaultBase } from '../../VaultBase';
+
+import { KeyringHardware } from './KeyringHardware';
+import { KeyringHd } from './KeyringHd';
+import { KeyringImported } from './KeyringImported';
+import { KeyringWatching } from './KeyringWatching';
+import settings from './settings';
+import { getDecodedTxStatus, getTxStatus } from './utils';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type {
+  IDecodedTx,
+  IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfo,
@@ -31,15 +41,8 @@ import {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import { VaultBase } from '../../VaultBase';
-
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
-import { IEncodedTxXrp, IXrpTransaction } from './types';
-import { getDecodedTxStatus, getTxStatus } from './utils';
+import type { IEncodedTxXrp, IXrpTransaction } from './types';
+import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 let clientInstance: XRPL.Client | null = null;
 // @ts-ignore

@@ -1,11 +1,5 @@
-import {
-  Dispatch,
-  SetStateAction,
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export type INFTListContentData = {
   priceType?: boolean;
@@ -36,8 +30,10 @@ function NFTListContentProvider(
       price,
     }));
   }, [priceType, price]);
+
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <NFTListContent.Provider value={{ context, setContext }}>
+    <NFTListContent.Provider value={contextValue}>
       {children}
     </NFTListContent.Provider>
   );

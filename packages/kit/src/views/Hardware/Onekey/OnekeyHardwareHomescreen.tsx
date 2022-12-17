@@ -1,10 +1,10 @@
-import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { MessageDescriptor, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -22,20 +22,22 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components/src/Provider/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
+import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import {
-  HomescreenItem,
-  getHomescreenData,
-} from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
+import type { HomescreenItem } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
+import { getHomescreenData } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import {
   generateUploadResParams,
   imageCache,
 } from '@onekeyhq/kit/src/utils/hardware/homescreens';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
+import type { RouteProp } from '@react-navigation/core';
+import type { MessageDescriptor } from 'react-intl';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,

@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-
 import { OneKeyInternalError } from '../../errors';
 
 import { KeyringBase } from './KeyringBase';
 
 import type { ISignCredentialOptions } from '../types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export abstract class KeyringWatchingBase extends KeyringBase {
   async signTransaction(

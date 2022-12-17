@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { Image } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -35,7 +35,12 @@ import { refreshConnectedSites } from '../../store/reducers/refresher';
 import { DappSecurityView } from '../Send/components/DappSecurityView';
 
 import RugConfirmDialog from './RugConfirmDialog';
-import { DappConnectionModalRoutes, DappConnectionRoutesParams } from './types';
+
+import type {
+  DappConnectionModalRoutes,
+  DappConnectionRoutesParams,
+} from './types';
+import type { RouteProp } from '@react-navigation/core';
 
 const MockData = {
   permissions: [

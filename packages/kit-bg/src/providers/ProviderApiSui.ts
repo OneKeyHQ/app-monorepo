@@ -2,13 +2,9 @@
 /* eslint-disable camelcase */
 import { Base64DataBuffer } from '@mysten/sui.js';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-} from '@onekeyfe/cross-inpage-provider-types';
-import { PermissionType } from '@onekeyfe/onekey-sui-provider';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
+import type VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -18,16 +14,17 @@ import {
 import { IMPL_SUI } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
 
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
   MoveCallTransaction,
   SignableTransaction,
   SuiAddress,
   SuiTransactionResponse,
 } from '@mysten/sui.js';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type { PermissionType } from '@onekeyfe/onekey-sui-provider';
 
 @backgroundClass()
 class ProviderApiSui extends ProviderApiBase {

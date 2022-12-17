@@ -1,7 +1,9 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type HardwareUiEventPayload = {
   type?: string;

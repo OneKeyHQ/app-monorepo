@@ -19,9 +19,11 @@ import { NetworkAccountSelectorEffectsSingleton } from '../../components/Network
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { createLazyComponent } from '../../utils/createLazyComponent';
-import { HomeRoutes, HomeRoutesParams } from '../types';
+import { HomeRoutes } from '../types';
 
 import renderCustomSubStackHeader from './Header';
+
+import type { HomeRoutesParams } from '../types';
 
 const DAppList = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Discover/DAppList'),

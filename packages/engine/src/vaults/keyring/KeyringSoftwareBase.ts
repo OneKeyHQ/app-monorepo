@@ -1,9 +1,3 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { Signer } from '@onekeyfe/blockchain-libs/dist/types/secret';
-
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyInternalError } from '../../errors';
@@ -11,6 +5,11 @@ import { OneKeyInternalError } from '../../errors';
 import { KeyringBase } from './KeyringBase';
 
 import type { ISignCredentialOptions } from '../types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { Signer } from '@onekeyfe/blockchain-libs/dist/types/secret';
 
 export abstract class KeyringSoftwareBase extends KeyringBase {
   // Implemented by HD & imported base.
