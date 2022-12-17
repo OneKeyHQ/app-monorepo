@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import type { FC } from 'react';
 
 import { Box, IconButton, Text } from '@onekeyhq/components';

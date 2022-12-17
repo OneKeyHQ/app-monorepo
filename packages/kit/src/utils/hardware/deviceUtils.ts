@@ -22,15 +22,11 @@ import { getHardwareSDKInstance } from './hardwareInstance';
 import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 import type {
   IDeviceType,
-  IDeviceType,
-  SearchDevice,
   SearchDevice,
   Success,
-  Success,
-  Unsuccessful,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
-import type { Deferred, Deferred } from '@onekeyfe/hd-shared';
+import type { Deferred } from '@onekeyfe/hd-shared';
 
 type IPollFn<T> = (time?: number, index?: number) => T;
 
