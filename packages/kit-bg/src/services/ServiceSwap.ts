@@ -24,6 +24,8 @@ import {
   setShowMoreQuoteDetail,
   setTypedValue,
   switchTokens,
+  setUserSelectedQuoter,
+  clearUserSelectedQuoter
 } from '@onekeyhq/kit/src/store/reducers/swap';
 import {
   clearTransactions,
@@ -37,6 +39,9 @@ import {
   QuoteLimited,
   Recipient,
 } from '@onekeyhq/kit/src/views/Swap/typings';
+import {
+ stringifyTokens
+} from '@onekeyhq/kit/src/views/Swap/utils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -469,5 +474,27 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setSwapFeePresetIndex(value: string) {
     return this.backgroundApi.dispatch(setSwapFeePresetIndex(value));
+  }
+
+  @backgroundMethod()
+  async setUserSelectedQuoter(hash: string, type: string) {
+    return this.backgroundApi.dispatch(setUserSelectedQuoter({ hash, type }))
+  }
+
+  @backgroundMethod()
+  async clearUserSelectedQuoter() {
+    return this.backgroundApi.dispatch(clearUserSelectedQuoter())
+  }
+
+  @backgroundMethod()
+  async getCurrentUserSelectedQuoter() {
+    const { appSelector } = this.backgroundApi
+    const userSelectedQuoter = appSelector(s => s.swap.userSelectedQuoter)
+    if (!userSelectedQuoter) { return undefined }
+    const inputToken = appSelector(s => s.swap.inputToken);
+    const outputToken = appSelector(s => s.swap.outputToken);
+    const hash = stringifyTokens(inputToken, outputToken);
+    if (!hash) { return undefined }
+    return userSelectedQuoter[hash]
   }
 }

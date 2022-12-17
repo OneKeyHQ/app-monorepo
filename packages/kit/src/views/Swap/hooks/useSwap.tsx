@@ -9,10 +9,11 @@ import {
   setError,
   setLoading,
   setQuoteLimited,
+  setResponses,
 } from '../../../store/reducers/swap';
 import { Token } from '../../../store/typings';
 import { SwapQuoter } from '../quoter';
-import { FetchQuoteParams, SwapError } from '../typings';
+import { FetchQuoteParams, SwapError, FetchQuoteResponse } from '../typings';
 import { formatAmount, greaterThanZeroOrUndefined } from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
@@ -71,7 +72,7 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const receivingAddress = useAppSelector((s) => s.swap.recipient?.address);
 
-  return useMemo(() => {
+  const params = useMemo(() => {
     if (
       !inputToken ||
       !outputToken ||
@@ -106,14 +107,16 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     sendingAccount,
     receivingAddress,
   ]);
+
+  return useDebounce(params, 500);
 }
 
 export const useSwapQuoteCallback = function (
   options: { showLoading: boolean } = { showLoading: false },
 ) {
   const { showLoading } = options;
-  const requestParams = useSwapQuoteRequestParams();
-  const params = useDebounce(requestParams, 500);
+  const params = useSwapQuoteRequestParams();
+  const quote = useAppSelector(s => s.swap.quote)
   const refs = useRef({ params, count: 0 });
 
   useEffect(() => {
@@ -129,34 +132,100 @@ export const useSwapQuoteCallback = function (
       backgroundApiProxy.dispatch(setLoading(true));
     }
     backgroundApiProxy.dispatch(setError(undefined));
-    try {
-      refs.current.params = params;
-      refs.current.count += 1;
-      const res = await SwapQuoter.client.fetchQuote(params);
-      if (refs.current.params === params) {
-        backgroundApiProxy.dispatch(setLoading(false));
-        if (res) {
-          backgroundApiProxy.serviceSwap.setQuote(res.data);
-          backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
-        } else {
-          backgroundApiProxy.dispatch(
-            setError(SwapError.NotSupport),
-            setQuoteLimited(undefined),
-          );
+
+    const findBestResponse = async (responses: FetchQuoteResponse[]): Promise<FetchQuoteResponse | undefined> => {
+      const items = responses.filter(item => !item.limited && item.data);
+      const quoter = await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
+      if (quoter) {
+        return items.find(item => item.data?.type === quoter)
+      } else {
+        const values = items.map(item => item.data?.buyAmount ? Number(item.data?.buyAmount): 0)
+        const maxValue = Math.max(...values);
+        if (!Number.isNaN(maxValue)) {
+          return items.find(item => item.data?.buyAmount === String(maxValue))
         }
       }
-    } catch (e) {
-      backgroundApiProxy.dispatch(
-        setError(SwapError.QuoteFailed),
-        setLoading(false),
-      );
-    } finally {
-      refs.current.count -= 1;
-      if (refs.current.count === 0) {
-        backgroundApiProxy.dispatch(setLoading(false));
+    }
+
+    const fetchQuote = async () => {
+      refs.current.params = params;
+      refs.current.count += 1;
+      const fetchAllQuotes = async () => {
+        const responses = await  SwapQuoter.client.fetchQuotes(params);
+        if (refs.current.params === params && responses) {
+          backgroundApiProxy.dispatch(setResponses(responses));
+          const res = await findBestResponse(responses);
+          if (res) {
+            backgroundApiProxy.serviceSwap.setQuote(res.data);
+            backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
+          }
+        }
+      }
+      fetchAllQuotes()
+      try {
+        const res = await SwapQuoter.client.fetchQuote(params);
+        if (refs.current.params === params) {
+          if (res) {
+            backgroundApiProxy.serviceSwap.setQuote(res.data);
+            backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
+          } else {
+            backgroundApiProxy.dispatch(
+              setError(SwapError.NotSupport),
+              setQuoteLimited(undefined),
+            );
+          }
+        }
+      } catch {
+        backgroundApiProxy.dispatch(
+          setError(SwapError.QuoteFailed),
+          setLoading(false),
+        );
+      } finally {
+        refs.current.count -= 1;
+        if (refs.current.count === 0) {
+          backgroundApiProxy.dispatch(setLoading(false));
+        }
       }
     }
-  }, [params, showLoading]);
+
+    const fetchQuotes = async () => {
+      refs.current.params = params;
+      refs.current.count += 1;
+      try {
+        const responses = await SwapQuoter.client.fetchQuotes(params);
+        if (refs.current.params === params) {
+          if (responses) {
+            backgroundApiProxy.dispatch(setResponses(responses));
+            const res = await findBestResponse(responses)
+            if (res) {
+              backgroundApiProxy.serviceSwap.setQuote(res.data);
+              backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
+            } else {
+              backgroundApiProxy.dispatch(
+                setError(SwapError.NotSupport),
+                setQuoteLimited(undefined),
+              );
+            }
+          }
+        }
+      } catch (e) {
+        backgroundApiProxy.dispatch(
+          setError(SwapError.QuoteFailed),
+          setLoading(false),
+        );
+      } finally {
+        refs.current.count -= 1;
+        if (refs.current.count === 0) {
+          backgroundApiProxy.dispatch(setLoading(false));
+        }
+      }
+    }
+    if (!quote) {
+      await fetchQuote()
+    } else {
+      await fetchQuotes()
+    }
+  }, [params, showLoading, quote]);
   return swapQuote;
 };
 

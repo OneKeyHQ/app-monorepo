@@ -146,7 +146,7 @@ const SwapQuote = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const quote = useAppSelector((s) => s.swap.quote);
-  // const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
+  const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
@@ -163,14 +163,14 @@ const SwapQuote = () => {
     });
   }, [navigation]);
 
-  // const onSelectRoute = useCallback(() => {
-  //   navigation.navigate(RootRoutes.Modal, {
-  //     screen: ModalRoutes.Swap,
-  //     params: {
-  //       screen: SwapRoutes.SelectRoutes,
-  //     },
-  //   });
-  // }, [navigation]);
+  const onSelectRoute = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Swap,
+      params: {
+        screen: SwapRoutes.SelectRoutes,
+      },
+    });
+  }, [navigation]);
 
   if (!quote) {
     return null;
@@ -266,13 +266,12 @@ const SwapQuote = () => {
               justifyContent="flex-end"
               alignItems="center"
             >
-              <SwappingVia providers={quote.providers} />
-              {/* <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
+              <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
                 <SwappingVia providers={quote.providers} />
               </Pressable>
               {quoteLimited ? null : (
                 <Icon size={16} name="ChevronRightOutline" />
-              )} */}
+              )}
             </Box>
           </Box>
           <Box

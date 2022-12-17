@@ -9,6 +9,7 @@ import type {
   QuoteLimited,
   Recipient,
   SwapError,
+  FetchQuoteResponse
 } from '../../views/Swap/typings';
 
 type SwapState = {
@@ -28,6 +29,8 @@ type SwapState = {
 
   sendingAccount?: Account | null;
   showMoreQuoteDetail?: boolean;
+  userSelectedQuoter?: Record<string, string>;
+  responses?: FetchQuoteResponse[]
 };
 
 const initialState: SwapState = {
@@ -88,6 +91,8 @@ export const swapSlice = createSlice({
       state.error = undefined;
       state.quoteLimited = undefined;
       state.showMoreQuoteDetail = false;
+      state.userSelectedQuoter = undefined
+      state.responses = undefined;
     },
     resetState(state) {
       state.inputToken = undefined;
@@ -104,6 +109,9 @@ export const swapSlice = createSlice({
       state.loading = false;
       state.error = undefined;
       state.quoteLimited = undefined;
+      state.showMoreQuoteDetail = false;
+      state.userSelectedQuoter = undefined;
+      state.responses = undefined;
     },
     setQuote(state, action: PayloadAction<QuoteData | undefined>) {
       // SUI Transaction: error TS2589: Type instantiation is excessively deep and possibly infinite.
@@ -134,6 +142,19 @@ export const swapSlice = createSlice({
     setShowMoreQuoteDetail(state, action: PayloadAction<boolean>) {
       state.showMoreQuoteDetail = action.payload;
     },
+    setUserSelectedQuoter(state, action: PayloadAction<{ hash: string, type: string }>) {
+      if (!state.userSelectedQuoter) {
+        state.userSelectedQuoter = {};
+      }
+      const { hash, type } = action.payload
+      state.userSelectedQuoter[hash] = type
+    },
+    clearUserSelectedQuoter(state) {
+      state.userSelectedQuoter = undefined;
+    },
+    setResponses(state, action: PayloadAction<FetchQuoteResponse[]>) {
+      state.responses = action.payload
+    }
   },
 });
 
@@ -153,6 +174,9 @@ export const {
   setRecipient,
   setSendingAccount,
   setShowMoreQuoteDetail,
+  setUserSelectedQuoter,
+  clearUserSelectedQuoter,
+  setResponses
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

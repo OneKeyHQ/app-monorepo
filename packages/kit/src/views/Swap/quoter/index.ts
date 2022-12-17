@@ -14,7 +14,7 @@ import {
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
-import { getTokenAmountString, nativeTokenAddress } from '../utils';
+import { getTokenAmountString, nativeTokenAddress, stringifyTokens } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
@@ -64,6 +64,7 @@ type FetchQuoteHttpParams = {
   slippagePercentage?: string;
   userAddress?: string;
   receivingAddress?: string;
+  quoterType?: string;
 };
 
 type FetchQuoteHttpResult = {
@@ -135,9 +136,8 @@ export class SwapQuoter {
     const toTokenDecimals = params.tokenOut.decimals;
     const fromTokenDecimals = params.tokenIn.decimals;
 
-    const { slippagePercentage } = params;
+    const { slippagePercentage, receivingAddress } = params;
     const userAddress = params.activeAccount.address;
-    const { receivingAddress } = params;
 
     let toTokenAmount: string | undefined;
     let fromTokenAmount: string | undefined;
@@ -268,6 +268,13 @@ export class SwapQuoter {
     if (!urlParams) {
       return;
     }
+
+    const quoterType = await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter()
+  
+    if (quoterType) {
+      urlParams.quoterType = quoterType;
+    }
+
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
     const url = `${serverEndPont}/swap/v2/quote`;

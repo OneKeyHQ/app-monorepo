@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
@@ -9,10 +9,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation } from '../../hooks';
+import { useAppSelector, useNavigation, usePrevious } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { SwapRoutes } from './typings';
+import { stringifyTokens } from './utils';
 
 const NetworkObserver = () => {
   useEffect(() => {
@@ -37,6 +38,19 @@ const AccountsObserver = () => {
   }, [accounts]);
   return null;
 };
+
+const UserSelectedQuoterObserver = () => {
+  const inputToken = useAppSelector(s => s.swap.inputToken);
+  const outputToken = useAppSelector(s => s.swap.outputToken);
+  const tokensHash = useMemo(() => stringifyTokens(inputToken, outputToken), [inputToken, outputToken])
+  const prevTokensHash = usePrevious(tokensHash);
+  useEffect(() => {
+    if (tokensHash !== prevTokensHash) {
+      backgroundApiProxy.serviceSwap.clearUserSelectedQuoter()
+    }
+  }, [tokensHash, prevTokensHash])
+  return null
+}
 
 const WelcomeObserver = () => {
   const navigation = useNavigation();
@@ -65,6 +79,7 @@ const SwapListener = () => (
   <>
     <NetworkObserver />
     <AccountsObserver />
+    <UserSelectedQuoterObserver />
     <WelcomeObserver />
   </>
 );
