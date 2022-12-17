@@ -19,7 +19,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
-import { useNavigation } from '@onekeyhq/kit/src/hooks';
+import { useActiveWalletAccount, useNavigation } from '@onekeyhq/kit/src/hooks';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -27,7 +27,11 @@ import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
 import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 
 import { ListEmptyComponent } from './Empty';
-import { WalletData, useEnabledAccountDynamicAccounts } from './hooks';
+import {
+  WalletData,
+  useAddressCanSubscribe,
+  useEnabledAccountDynamicAccounts,
+} from './hooks';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -45,6 +49,9 @@ const Item: FC<{
 }> = ({ divider, account, onChange, checked, icon }) => {
   const [loading, setLoading] = useState(false);
 
+  const { network } = useActiveWalletAccount();
+  const canSubscribe = useAddressCanSubscribe(account, network?.id);
+
   const handleChange = (value: boolean) => {
     setLoading(true);
     onChange(value).finally(() =>
@@ -53,6 +60,10 @@ const Item: FC<{
       }, 200),
     );
   };
+
+  if (!canSubscribe) {
+    return null;
+  }
 
   return (
     <Box

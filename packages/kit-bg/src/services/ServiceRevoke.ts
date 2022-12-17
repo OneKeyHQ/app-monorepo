@@ -231,28 +231,34 @@ export default class ServiceRevoke extends ServiceBase {
         (event) => new Contract(getAddress(event.address), ERC20, readProvider),
       );
 
-    const approvals = await Promise.all(
-      tokenContracts.map(async (contract) => {
-        const tokenApprovals = approvalEvents.filter(
-          (approval) => approval.address === contract.address,
-        );
-        const token = await engine.findToken({
-          networkId,
-          tokenIdOnNetwork: contract.address,
-        });
-        const totalSupplyRes = await contract.functions.totalSupply();
-        const balanceRes = await contract.functions.balanceOf(address);
-        return {
-          token: token as Token,
-          // eslint-disable-next-line
-          balance: String(balanceRes[0]),
-          contract,
-          approvals: tokenApprovals,
-          // eslint-disable-next-line
-          totalSupply: totalSupplyRes[0].toString(),
-        };
-      }),
-    );
+    const approvals = (
+      await Promise.all(
+        tokenContracts.map(async (contract) => {
+          const tokenApprovals = approvalEvents.filter(
+            (approval) => approval.address === contract.address,
+          );
+          try {
+            const token = await engine.findToken({
+              networkId,
+              tokenIdOnNetwork: contract.address,
+            });
+            const totalSupplyRes = await contract.functions.totalSupply();
+            const balanceRes = await contract.functions.balanceOf(address);
+            return {
+              token: token as Token,
+              // eslint-disable-next-line
+              balance: String(balanceRes[0]),
+              contract,
+              approvals: tokenApprovals,
+              // eslint-disable-next-line
+              totalSupply: totalSupplyRes[0].toString(),
+            };
+          } catch (error) {
+            // pass
+          }
+        }),
+      )
+    ).filter((n) => !!n) as ERC20TokenApproval[];
 
     const hasBalanceOrApprovals = (item: ERC20TokenApproval) =>
       item.approvals.length > 0 ||
