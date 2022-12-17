@@ -5714,7 +5714,6 @@ __metadata:
     cosmjs-types: ^0.5.2
     crypto-browserify: ^3.12.0
     elliptic: ^6.5.4
-    eth-chains: ^1.0.0
     fake-indexeddb: ^3.1.7
     js-conflux-sdk: ^2.1.6
     natsort: ^2.0.3
@@ -16339,13 +16338,6 @@ colour@latest:
   version: 1.8.1
   resolution: "etag@npm:1.8.1"
   checksum: 571aeb3dbe0f2bbd4e4fadbdb44f325fc75335cd5f6f6b6a091e6a06a9f25ed5392f0863c5442acb0646787446e816f13cbfc6edce5b07658541dff573cab1ff
-  languageName: node
-  linkType: hard
-
-"eth-chains@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "eth-chains@npm:1.0.0"
-  checksum: 8680c38d16be3031ff14d423d9e3bf3fda941ee4ff0982fb1fac3cc858ae6807ade4cf01b0e49575b44ba57f3eebf3097e5016a744d8ba6ecf5856de62d7d0ba
   languageName: node
   linkType: hard
 
