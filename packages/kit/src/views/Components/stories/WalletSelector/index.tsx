@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import { useIntl } from 'react-intl';
 
 import { Box, Center } from '@onekeyhq/components';

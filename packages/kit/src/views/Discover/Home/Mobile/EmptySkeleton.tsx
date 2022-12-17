@@ -1,4 +1,4 @@
-import { ComponentType, FC, ReactElement } from 'react';
+import type { ComponentType, FC, ReactElement } from 'react';
 
 import { Box, CustomSkeleton, FlatList } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

@@ -2,7 +2,7 @@
 import { debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
-import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import { ACCOUNT_SELECTOR_REFRESH_DEBOUNCE } from '@onekeyhq/kit/src/components/Header/AccountSelectorChildren/accountSelectorConsts';
 import type { AccountGroup } from '@onekeyhq/kit/src/components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';

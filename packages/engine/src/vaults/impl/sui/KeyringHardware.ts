@@ -1,25 +1,27 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { JsonRpcProvider } from '@mysten/sui.js';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { AptosMessage } from '../../../types/message';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import {
+import { addHexPrefix, hexlify } from '../../utils/hexUtils';
+
+import { toTransaction } from './utils';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type { AptosMessage } from '../../../types/message';
+import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
   SignedTxResult,
 } from '../../types';
-import { addHexPrefix, hexlify } from '../../utils/hexUtils';
-
-import { toTransaction } from './utils';
+import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

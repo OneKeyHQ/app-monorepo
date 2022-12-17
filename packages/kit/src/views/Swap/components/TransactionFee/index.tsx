@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';

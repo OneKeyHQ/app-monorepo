@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,7 +22,7 @@ import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DesktopVersion } from '../../../utils/updates/type';
+import type { DesktopVersion } from '../../../utils/updates/type';
 
 const AutoUpdateSectionItem: FC = () => {
   const intl = useIntl();

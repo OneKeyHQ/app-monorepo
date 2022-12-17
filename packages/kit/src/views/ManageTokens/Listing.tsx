@@ -1,8 +1,8 @@
-import { FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -40,9 +40,11 @@ import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
-import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+import { ManageTokenRoutes } from './types';
 
+import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
@@ -463,42 +465,40 @@ export const ListingModal: FC<ListingModalProps> = ({
   );
 
   return (
-    <>
-      <Modal
-        header={intl.formatMessage({
-          id: 'title__manage_tokens',
-          defaultMessage: 'Manage Tokens',
-        })}
-        height="560px"
-        headerDescription={activeNetwork?.shortName}
-        hidePrimaryAction
-        onSecondaryActionPress={() => {
-          navigation.navigate(ManageTokenRoutes.CustomToken);
-        }}
-        secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
-        secondaryActionTranslationId="action__add_custom_tokens"
-        flatListProps={{
-          data: listItems,
-          // @ts-ignore
-          renderItem,
-          keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
-          showsVerticalScrollIndicator: false,
-          ListEmptyComponent: (
-            <ListEmptyComponent isLoading={loading} terms={terms} />
-          ),
-          ListHeaderComponent: (
-            <Header
-              showTopsLabel={networkTokens.length > 0}
-              tokens={headerTokens}
-              keyword={keyword}
-              onChange={setKeyword}
-              onDelete={onRemoveAccountToken}
-            />
-          ),
-          mx: '-8px',
-        }}
-      />
-    </>
+    <Modal
+      header={intl.formatMessage({
+        id: 'title__manage_tokens',
+        defaultMessage: 'Manage Tokens',
+      })}
+      height="560px"
+      headerDescription={activeNetwork?.shortName}
+      hidePrimaryAction
+      onSecondaryActionPress={() => {
+        navigation.navigate(ManageTokenRoutes.CustomToken);
+      }}
+      secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
+      secondaryActionTranslationId="action__add_custom_tokens"
+      flatListProps={{
+        data: listItems,
+        // @ts-ignore
+        renderItem,
+        keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
+        showsVerticalScrollIndicator: false,
+        ListEmptyComponent: (
+          <ListEmptyComponent isLoading={loading} terms={terms} />
+        ),
+        ListHeaderComponent: (
+          <Header
+            showTopsLabel={networkTokens.length > 0}
+            tokens={headerTokens}
+            keyword={keyword}
+            onChange={setKeyword}
+            onDelete={onRemoveAccountToken}
+          />
+        ),
+        mx: '-8px',
+      }}
+    />
   );
 };
 

@@ -1,11 +1,13 @@
-import { Component, ReactNode, createRef } from 'react';
+import type { ReactNode } from 'react';
+import { Component, createRef } from 'react';
 
 import { UIManager, findNodeHandle } from 'react-native';
 
 import NativeNestedTabView, {
   getViewManagerConfig,
 } from './NativeNestedTabView';
-import { NativeNestedTabViewProps } from './types';
+
+import type { NativeNestedTabViewProps } from './types';
 
 type NestedTabViewProps = {
   renderHeader?: () => ReactNode;
@@ -14,6 +16,7 @@ type NestedTabViewProps = {
 export class NestedTabView extends Component<NestedTabViewProps> {
   private _nativeRef = createRef<typeof NativeNestedTabView>();
 
+  // eslint-disable-next-line react/no-unused-class-component-methods
   public setPageIndex = (selectedPage: number) => {
     UIManager.dispatchViewManagerCommand(
       findNodeHandle(this),

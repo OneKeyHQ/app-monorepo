@@ -1,24 +1,23 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ICON_NAMES } from '@onekeyhq/components/src';
 import {
   Box,
-  ICON_NAMES,
   Icon,
   Text,
   useIsVerticalLayout,
   useToast,
 } from '@onekeyhq/components/src';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
+import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import { SelectProps } from '@onekeyhq/components/src/Select';
+import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import type { SelectProps } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  MARKET_FAVORITES_CATEGORYID,
-  MarketTokenItem,
-} from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';

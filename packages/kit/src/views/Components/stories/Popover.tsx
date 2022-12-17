@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import { Button } from 'native-base';
 
 import { Box, Center, Popover, Text } from '@onekeyhq/components';

@@ -2,7 +2,9 @@
 import logger from 'electron-log';
 import fetch from 'node-fetch';
 
-import BaseProcess, { Status } from './BaseProcess';
+import BaseProcess from './BaseProcess';
+
+import type { Status } from './BaseProcess';
 
 class BridgeProcess extends BaseProcess {
   constructor() {

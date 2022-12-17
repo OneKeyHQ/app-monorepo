@@ -4,14 +4,15 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { currenciesSet } from '../../../store/reducers/data';
-import {
+
+import { MoonpayModeData } from './types';
+
+import type {
   CurrenciesPayload,
   MoonPayBuyQuotePayload,
   MoonpayCurrencyListPayload,
   MoonpayListType,
 } from '../types';
-
-import { MoonpayModeData } from './types';
 
 const moonpayHost = 'https://api.moonpay.com';
 

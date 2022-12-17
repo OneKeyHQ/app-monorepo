@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import {
+import type {
   IDecodedTx,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,

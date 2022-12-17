@@ -1,6 +1,6 @@
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
-import { List } from '@onekeyhq/components';
+import type { List } from '@onekeyhq/components';
 
 export enum TabEnum {
   Items = 'items',

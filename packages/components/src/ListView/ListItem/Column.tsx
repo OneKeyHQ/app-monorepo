@@ -1,5 +1,6 @@
 /* eslint-disable no-nested-ternary */
-import { ComponentProps, FC, ReactNode, isValidElement } from 'react';
+import type { ComponentProps, FC, ReactNode } from 'react';
+import { isValidElement } from 'react';
 
 import { Icon, Image, Text, VStack } from '@onekeyhq/components';
 

@@ -1,9 +1,9 @@
-import { ComponentProps, useCallback, useMemo } from 'react';
+import type { ComponentProps } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import natsort from 'natsort';
-import { FlatListProps } from 'react-native';
 
 import {
   Divider,
@@ -13,17 +13,15 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import {
-  EVMDecodedItem,
-  EVMDecodedTxType,
-} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { useManageTokensOfAccount } from '@onekeyhq/kit/src/hooks/useManageTokens';
-import {
-  HomeRoutes,
+import type {
   HomeRoutesParams,
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -37,6 +35,7 @@ import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { FlatListProps } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -178,9 +177,11 @@ function AssetsList({
       token={item}
       borderTopRadius={!flatStyle && showRoundTop && index === 0 ? '12px' : 0}
       borderRadius={
+        // eslint-disable-next-line no-unsafe-optional-chaining
         !flatStyle && index === valueSortedTokens?.length - 1 ? '12px' : '0px'
       }
       borderTopWidth={!flatStyle && showRoundTop && index === 0 ? 1 : 0}
+      // eslint-disable-next-line no-unsafe-optional-chaining
       borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
       borderColor={flatStyle ? 'transparent' : 'border-subdued'}
       onPress={() => {

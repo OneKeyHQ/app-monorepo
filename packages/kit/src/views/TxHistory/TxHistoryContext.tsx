@@ -1,10 +1,5 @@
-import {
-  Dispatch,
-  SetStateAction,
-  createContext,
-  useContext,
-  useState,
-} from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 
 export type ITxHistoryContextData = {
   refresh?: () => void;
@@ -43,8 +38,9 @@ function TxHistoryContextProvider(
   //   }));
   // }, [isLoading, isTab, headerView, refresh]);
 
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <TxHistoryContext.Provider value={{ context, setContext }}>
+    <TxHistoryContext.Provider value={contextValue}>
       {children}
     </TxHistoryContext.Provider>
   );

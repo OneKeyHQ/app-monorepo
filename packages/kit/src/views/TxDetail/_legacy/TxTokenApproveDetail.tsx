@@ -1,9 +1,9 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
-import {
+import type {
   EVMDecodedItem,
   EVMDecodedItemERC20Approve,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';

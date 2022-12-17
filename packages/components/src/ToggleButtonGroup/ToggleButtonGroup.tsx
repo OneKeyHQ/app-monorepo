@@ -1,22 +1,22 @@
-import { FC, ReactElement, useMemo } from 'react';
+import type { FC, ReactElement } from 'react';
+import { useMemo } from 'react';
 
-import { IBoxProps } from 'native-base';
-import { LayoutChangeEvent } from 'react-native';
-
+import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Center,
   HStack,
-  ICON_NAMES,
   Icon,
   NetImage,
   Pressable,
   Typography,
 } from '@onekeyhq/components';
 
-import { ThemeToken } from '../Provider/theme';
-import ScrollableButtonGroup, {
-  ScrollableButtonGroupProps,
-} from '../ScrollableButtonGroup/ScrollableButtonGroup';
+import ScrollableButtonGroup from '../ScrollableButtonGroup/ScrollableButtonGroup';
+
+import type { ThemeToken } from '../Provider/theme';
+import type { ScrollableButtonGroupProps } from '../ScrollableButtonGroup/ScrollableButtonGroup';
+import type { IBoxProps } from 'native-base';
+import type { LayoutChangeEvent } from 'react-native';
 
 export interface ToggleButtonProps {
   text: string;

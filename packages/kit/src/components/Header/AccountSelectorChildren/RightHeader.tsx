@@ -1,4 +1,5 @@
-import { FC, memo, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,8 +14,11 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
-import { SelectGroupItem, SelectItem } from '@onekeyhq/components/src/Select';
+import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import type {
+  SelectGroupItem,
+  SelectItem,
+} from '@onekeyhq/components/src/Select';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
@@ -29,12 +33,11 @@ import { useAppSelector } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import ManagerWalletDeleteDialog, {
-  DeleteWalletProp,
-} from '../../../views/ManagerWallet/DeleteWallet';
+import ManagerWalletDeleteDialog from '../../../views/ManagerWallet/DeleteWallet';
 import { ValidationFields } from '../../Protected';
 
 import type { DeviceStatusType } from '.';
+import type { DeleteWalletProp } from '../../../views/ManagerWallet/DeleteWallet';
 
 type RightHeaderProps = {
   selectedWallet?: Wallet | null;

@@ -5,16 +5,17 @@ import { uniq } from 'lodash';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import {
+import { GoPlusSupportApis } from '../types/goplus';
+
+import { fetchData } from './token';
+
+import type {
   GoPlusAddressSecurity,
   GoPlusDappContract,
   GoPlusDappSecurity,
   GoPlusPhishing,
-  GoPlusSupportApis,
   GoPlusTokenSecurity,
 } from '../types/goplus';
-
-import { fetchData } from './token';
 
 type CheckItemFunc = (item: any) => boolean;
 

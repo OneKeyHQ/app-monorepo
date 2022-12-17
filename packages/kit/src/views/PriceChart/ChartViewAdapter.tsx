@@ -4,9 +4,10 @@ import { ChartPathProvider } from '@onekeyfe/react-native-animated-charts';
 
 import { Box } from '@onekeyhq/components';
 
-import { ChartViewAdapterProps } from './chartService';
 import ChartWrapper from './value-chart/Chart';
 import useChartThrottledPoints from './value-chart/useChartThrottledPoints';
+
+import type { ChartViewAdapterProps } from './chartService';
 
 const ChartViewAdapter: FC<ChartViewAdapterProps> = ({
   data,

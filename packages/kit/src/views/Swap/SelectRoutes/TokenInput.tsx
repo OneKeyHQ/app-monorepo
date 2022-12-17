@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import {
   Box,
@@ -7,7 +7,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useNetwork } from '../../../hooks';
 import { formatAmount, getTokenAmountValue } from '../utils';

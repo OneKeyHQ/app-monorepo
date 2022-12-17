@@ -1,19 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import {
-  StackNavigationOptions,
-  TransitionPresets,
-} from '@react-navigation/stack';
-import {
-  StackCardStyleInterpolator,
-  TransitionPreset,
-} from '@react-navigation/stack/lib/typescript/src/types';
+import { TransitionPresets } from '@react-navigation/stack';
 import { isNil } from 'lodash';
 import { Easing } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { StackNavigationOptions } from '@react-navigation/stack';
+import type {
+  StackCardStyleInterpolator,
+  TransitionPreset,
+} from '@react-navigation/stack/lib/typescript/src/types';
 
 const extAnimConfig: {
   transition: Omit<

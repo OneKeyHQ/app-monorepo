@@ -1,5 +1,4 @@
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
-import { LinkingOptions } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { merge } from 'lodash';
 
@@ -18,6 +17,8 @@ import { SendRoutes } from '../views/Send/types';
 import { WalletConnectUniversalLinkPathSchema } from './deepLink';
 import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
+
+import type { LinkingOptions } from '@react-navigation/native';
 
 const prefix = Linking.createURL('/');
 

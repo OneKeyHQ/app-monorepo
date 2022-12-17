@@ -6,9 +6,10 @@ import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
 import {
   ScanQrcodeRoutes,
-  ScanResult,
   ScanSubResultCategory,
 } from '../views/ScanQrcode/types';
+
+import type { ScanResult } from '../views/ScanQrcode/types';
 
 export const handleScanResult = async (data: string) => {
   const scanResult: ScanResult = { type: ScanSubResultCategory.TEXT, data };

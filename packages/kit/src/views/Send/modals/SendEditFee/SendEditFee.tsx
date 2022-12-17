@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/naming-convention */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { cloneDeep, last } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -14,10 +14,10 @@ import {
   useForm,
   useToast,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IFeeInfoSelectedType,
   IFeeInfoUnit,
@@ -32,12 +32,7 @@ import { setFeePresetIndex } from '../../../../store/reducers/data';
 import { BaseSendModal } from '../../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../../components/DecodeTxButtonTest';
 import { ESendEditFeeTypes } from '../../enums';
-import {
-  ISendEditFeeValues,
-  SendConfirmParams,
-  SendRoutes,
-  SendRoutesParams,
-} from '../../types';
+import { SendRoutes } from '../../types';
 import {
   IS_REPLACE_ROUTE_TO_FEE_EDIT,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
@@ -49,6 +44,12 @@ import { SendEditFeeStandardForm } from './SendEditFeeStandardForm';
 import { SendEditFeeStandardFormLite } from './SendEditFeeStandardFormLite';
 import { SendEditFeeTabs } from './SendEditFeeTabs';
 
+import type {
+  ISendEditFeeValues,
+  SendConfirmParams,
+  SendRoutesParams,
+} from '../../types';
+import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendEditFee>;
@@ -427,16 +428,10 @@ function ScreenSendEditFee({ ...rest }) {
         </Box>
       </>
     ) : (
-      <>
-        <Box>{customFeeForm}</Box>
-      </>
+      <Box>{customFeeForm}</Box>
     );
     if (feeInfoPayload?.info?.customDisabled) {
-      content = (
-        <>
-          <Box>{presetFeeForm}</Box>
-        </>
-      );
+      content = <Box>{presetFeeForm}</Box>;
     }
   }
 

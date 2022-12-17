@@ -23,11 +23,12 @@ import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import { setFeePresetIndex } from '../../../store/reducers/data';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { SendEditFeeStandardFormLite } from '../modals/SendEditFee/SendEditFeeStandardFormLite';
-import { BatchSendConfirmParams, SendRoutes, SendRoutesParams } from '../types';
+import { SendRoutes } from '../types';
 import { useFeePresetIndex } from '../utils/useFeePresetIndex';
 
 import { FeeSpeedLabel } from './FeeSpeedLabel';
 
+import type { BatchSendConfirmParams, SendRoutesParams } from '../types';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 interface Props {

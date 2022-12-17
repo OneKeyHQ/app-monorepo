@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
-import { INetwork } from '@onekeyhq/engine/src/types';
+import type { INetwork } from '@onekeyhq/engine/src/types';
 
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';

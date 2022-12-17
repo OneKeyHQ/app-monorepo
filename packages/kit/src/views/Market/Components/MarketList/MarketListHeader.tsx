@@ -1,4 +1,5 @@
-import { FC, memo } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,7 +15,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { useListSort } from '../../hooks/useMarketList';
-import { ListHeadTagType } from '../../types';
+
+import type { ListHeadTagType } from '../../types';
 
 interface MarketListHeaderProps {
   headTags: ListHeadTagType[];

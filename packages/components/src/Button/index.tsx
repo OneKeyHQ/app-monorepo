@@ -1,25 +1,22 @@
-import {
-  ComponentProps,
-  FC,
-  memo,
-  useCallback,
-  useEffect,
-  useState,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
-import { Text } from 'native-base';
 import { StyleSheet } from 'react-native';
 
 import { usePrevious } from '@onekeyhq/kit/src/hooks';
 import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import { useProviderValue } from '../Provider/hooks';
-import { ThemeToken } from '../Provider/theme';
 import { Spinner } from '../Spinner';
-import { TypographyStyle, getTypographyStyleProps } from '../Typography';
+import { getTypographyStyleProps } from '../Typography';
 
 import NativeBaseButton from './ButtonCapture';
+
+import type { ICON_NAMES } from '../Icon';
+import type { ThemeToken } from '../Provider/theme';
+import type { TypographyStyle } from '../Typography';
+import type { Text } from 'native-base';
 
 type FontProps = ComponentProps<typeof Text>;
 

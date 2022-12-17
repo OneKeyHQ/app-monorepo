@@ -2,12 +2,12 @@ import { useCallback } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WalletService } from '../../components/WalletConnect/types';
 import { useWalletConnectQrcodeModal } from '../../components/WalletConnect/useWalletConnectQrcodeModal';
 import { WALLET_CONNECT_WALLET_NAMES } from '../../components/WalletConnect/walletConnectConsts';
 
 import { getInjectedConnector } from './injectedConnectors';
 
+import type { WalletService } from '../../components/WalletConnect/types';
 import type { IConnectWalletListViewProps } from '../../components/WalletConnect/WalletConnectQrcodeModal';
 
 export function useConnectExternalWallet(options: IConnectWalletListViewProps) {

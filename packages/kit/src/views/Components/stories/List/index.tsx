@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
@@ -193,91 +194,89 @@ const ListGallery = () => (
           data={MarketData}
           showDivider
           ListHeaderComponent={() => (
-            <>
-              <ListItem>
-                <ListItem.Column
-                  text={{
-                    label: '#',
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'center',
-                    },
-                  }}
-                  w="64px"
-                />
-                <ListItem.Column
-                  text={{
-                    label: 'NAME',
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                    },
-                  }}
-                  w="124px"
-                />
-                <ListItem.Column
-                  text={{
-                    label: 'PRICE',
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                  w="96px"
-                />
-                <ListItem.Column
-                  text={{
-                    label: '24H%',
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                  w="80px"
-                />
-                <ListItem.Column
-                  text={{
-                    label: '24H VOLUME%',
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                  flex={1}
-                  minW="120px"
-                />
-                <ListItem.Column
-                  text={{
-                    label: 'MARKET CAP',
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                  flex={1}
-                  minW="120px"
-                />
-                <ListItem.Column
-                  text={{
-                    label: '7 DAYS',
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                  minW="80px"
-                />
-                <ListItem.Column>
-                  <Box w="28px" />
-                </ListItem.Column>
-              </ListItem>
-            </>
+            <ListItem>
+              <ListItem.Column
+                text={{
+                  label: '#',
+                  labelProps: {
+                    typography: 'Subheading',
+                    color: 'text-subdued',
+                    textAlign: 'center',
+                  },
+                }}
+                w="64px"
+              />
+              <ListItem.Column
+                text={{
+                  label: 'NAME',
+                  labelProps: {
+                    typography: 'Subheading',
+                    color: 'text-subdued',
+                  },
+                }}
+                w="124px"
+              />
+              <ListItem.Column
+                text={{
+                  label: 'PRICE',
+                  labelProps: {
+                    typography: 'Subheading',
+                    color: 'text-subdued',
+                    textAlign: 'right',
+                  },
+                }}
+                w="96px"
+              />
+              <ListItem.Column
+                text={{
+                  label: '24H%',
+                  labelProps: {
+                    typography: 'Subheading',
+                    color: 'text-subdued',
+                    textAlign: 'right',
+                  },
+                }}
+                w="80px"
+              />
+              <ListItem.Column
+                text={{
+                  label: '24H VOLUME%',
+                  labelProps: {
+                    typography: 'Subheading',
+                    color: 'text-subdued',
+                    textAlign: 'right',
+                  },
+                }}
+                flex={1}
+                minW="120px"
+              />
+              <ListItem.Column
+                text={{
+                  label: 'MARKET CAP',
+                  labelProps: {
+                    typography: 'Subheading',
+                    color: 'text-subdued',
+                    textAlign: 'right',
+                  },
+                }}
+                flex={1}
+                minW="120px"
+              />
+              <ListItem.Column
+                text={{
+                  label: '7 DAYS',
+                  labelProps: {
+                    typography: 'Subheading',
+                    color: 'text-subdued',
+                    textAlign: 'right',
+                  },
+                }}
+                minW="80px"
+              />
+              <ListItem.Column>
+                <Box w="28px" />
+              </ListItem.Column>
+            </ListItem>
           )}
           renderItem={({ item }) => (
             <ListItem onPress={() => console.log('clicked')} flex={1}>

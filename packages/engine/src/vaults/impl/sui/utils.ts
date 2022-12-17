@@ -3,18 +3,8 @@
 import {
   Base64DataBuffer,
   Coin,
-  GetObjectDataResponse,
-  JsonRpcProvider,
   LocalTxnDataSerializer,
-  Pay,
-  PayAllSui,
-  PayTransaction,
-  Provider,
   SUI_TYPE_ARG,
-  SignableTransaction,
-  SuiMoveObject,
-  SuiObject,
-  SuiTransactionKind,
   getMoveObject,
   getObjectExistsResponse,
   getPaySuiTransaction,
@@ -25,8 +15,20 @@ import { isArray } from 'lodash';
 
 import { IDecodedTxActionType } from '../../types';
 
-import { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
-import { IEncodedTxSUI } from './types';
+import type { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
+import type { IEncodedTxSUI } from './types';
+import type {
+  GetObjectDataResponse,
+  JsonRpcProvider,
+  Pay,
+  PayAllSui,
+  PayTransaction,
+  Provider,
+  SignableTransaction,
+  SuiMoveObject,
+  SuiObject,
+  SuiTransactionKind,
+} from '@mysten/sui.js';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 export const ED25519_PUBLIC_KEY_SIZE = 32;

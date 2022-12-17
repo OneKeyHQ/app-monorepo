@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -28,10 +27,12 @@ import { RootRoutes } from '../../../../routes/routesEnum';
 import { setOnBoardingLoadingBehindModal } from '../../../../store/reducers/runtime';
 import Layout from '../../Layout';
 import { EOnboardingRoutes } from '../../routes/enums';
-import { IOnboardingRoutesParams } from '../../routes/types';
 
 import PressableListItem from './PressableListItem';
 import TermsOfService from './TermsOfService';
+
+import type { IOnboardingRoutesParams } from '../../routes/types';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
   IOnboardingRoutesParams,

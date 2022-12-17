@@ -1,13 +1,13 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
-import { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
-import { SwapQuoteTx } from '@onekeyhq/kit/src/views/Swap/typings';
+import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
+import type { SwapQuoteTx } from '@onekeyhq/kit/src/views/Swap/typings';
 
-import { Network } from '../../../../types/network';
-
-import { EVMDecodedItemInternalSwap, EVMDecodedTxType } from './types';
+import { EVMDecodedTxType } from './types';
 
 import type { Engine } from '../../../..';
+import type { Network } from '../../../../types/network';
+import type { EVMDecodedItemInternalSwap } from './types';
 
 const NativeCurrencyPseudoAddress =
   '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';

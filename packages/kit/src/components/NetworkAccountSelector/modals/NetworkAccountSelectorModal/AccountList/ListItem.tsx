@@ -1,5 +1,6 @@
 /* eslint-disable no-nested-ternary */
-import { FC, useLayoutEffect, useMemo } from 'react';
+import type { FC } from 'react';
+import { useLayoutEffect, useMemo } from 'react';
 
 import { Box, Pressable, Skeleton, Text } from '@onekeyhq/components';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
@@ -84,55 +85,53 @@ const ListItem: FC<ListItemProps> = ({
       }
     >
       {({ isHovered, isPressed }) => (
-        <>
-          <Box
-            flexDirection="row"
-            alignItems="center"
-            p={2}
-            pr={1.5}
-            rounded="xl"
-            bgColor={
-              isActive
-                ? 'surface-selected'
-                : isPressed
-                ? 'surface-pressed'
-                : isHovered
-                ? 'surface-hovered'
-                : 'transparent'
-            }
-          >
-            <ExternalAccountImg mr={3} accountId={account?.id} />
-            <Box flex={1} mr={3}>
-              <Text typography="Body2Strong" isTruncated numberOfLines={1}>
-                {label}
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          p={2}
+          pr={1.5}
+          rounded="xl"
+          bgColor={
+            isActive
+              ? 'surface-selected'
+              : isPressed
+              ? 'surface-pressed'
+              : isHovered
+              ? 'surface-hovered'
+              : 'transparent'
+          }
+        >
+          <ExternalAccountImg mr={3} accountId={account?.id} />
+          <Box flex={1} mr={3}>
+            <Text typography="Body2Strong" isTruncated numberOfLines={1}>
+              {label}
+            </Text>
+            <Box flexDirection="row">
+              <Text typography="Body2" color="text-subdued">
+                {address}
               </Text>
-              <Box flexDirection="row">
-                <Text typography="Body2" color="text-subdued">
-                  {address}
-                </Text>
-                <Box w={1} h={1} m={2} bgColor="icon-disabled" rounded="full" />
-                {nativeBalance ? (
-                  <>
-                    <Text typography="Body2" color="text-subdued" isTruncated>
-                      {formatAmount(nativeBalance, 6)}
-                    </Text>
-                    <Text typography="Body2" color="text-subdued" ml="2px">
-                      {network?.symbol.toUpperCase()}
-                    </Text>
-                  </>
-                ) : (
-                  <Skeleton shape="Body2" />
-                )}
-              </Box>
+              <Box w={1} h={1} m={2} bgColor="icon-disabled" rounded="full" />
+              {nativeBalance ? (
+                <>
+                  <Text typography="Body2" color="text-subdued" isTruncated>
+                    {formatAmount(nativeBalance, 6)}
+                  </Text>
+                  <Text typography="Body2" color="text-subdued" ml="2px">
+                    {network?.symbol.toUpperCase()}
+                  </Text>
+                </>
+              ) : (
+                <Skeleton shape="Body2" />
+              )}
             </Box>
-            <AccountItemSelectDropdown
-              // key={account?.id}
-              wallet={wallet}
-              account={account}
-              network={network}
-            />
           </Box>
-        </>
+          <AccountItemSelectDropdown
+            // key={account?.id}
+            wallet={wallet}
+            account={account}
+            network={network}
+          />
+        </Box>
       )}
     </Pressable>
   );

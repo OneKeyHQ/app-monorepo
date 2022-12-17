@@ -1,4 +1,5 @@
-import { FC, memo, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import {
   Box,

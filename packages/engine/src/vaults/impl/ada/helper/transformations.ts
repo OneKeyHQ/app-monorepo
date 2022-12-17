@@ -1,4 +1,4 @@
-import { IAdaUTXO } from '../types';
+import type { IAdaUTXO } from '../types';
 
 export enum CardanoAddressType {
   BASE = 0,

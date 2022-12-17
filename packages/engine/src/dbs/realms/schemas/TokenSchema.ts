@@ -1,6 +1,6 @@
 import Realm from 'realm';
 
-import { Token } from '../../../types/token';
+import type { Token } from '../../../types/token';
 
 class TokenSchema extends Realm.Object {
   public id!: string;

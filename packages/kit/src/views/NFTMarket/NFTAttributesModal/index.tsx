@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
-import { FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, TouchableOpacity } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 
 import {
   Box,
@@ -20,15 +21,15 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { CollectionAttribute } from '@onekeyhq/engine/src/types/nft';
 
-import {
-  NFTAttributesContext,
-  NFTAttributesContextValue,
-  useNFTAttributesContext,
-} from './context';
-import {
+import { NFTAttributesContext, useNFTAttributesContext } from './context';
+
+import type { NFTAttributesContextValue } from './context';
+import type {
   NFTAttributeFilterRoutes,
   NFTAttributeFilterRoutesParams,
 } from './type';
+import type { RouteProp } from '@react-navigation/core';
+import type { ListRenderItem } from 'react-native';
 
 type SubItemProps = {
   attributeName: string;
@@ -228,8 +229,10 @@ const NFTAttributesModal: FC = () => {
   }, [attributes, closeModal, context, onAttributeSelected]);
 
   const isVerticalLayout = useIsVerticalLayout();
+
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <NFTAttributesContext.Provider value={{ context, setContext }}>
+    <NFTAttributesContext.Provider value={contextValue}>
       <Modal
         primaryActionProps={{ isDisabled }}
         onPrimaryActionPress={onPrimaryActionPress}

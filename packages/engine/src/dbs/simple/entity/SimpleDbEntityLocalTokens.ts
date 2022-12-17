@@ -1,6 +1,6 @@
-import { Token } from '../../../types/token';
-
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+
+import type { Token } from '../../../types/token';
 
 export type ISimpleDbEntityLocalTokensData = {
   [accountId: string]: {

@@ -1,11 +1,14 @@
-import { FC, memo, useCallback } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback } from 'react';
 
-import Canvas, { CanvasRenderingContext2D } from 'react-native-canvas';
+import Canvas from 'react-native-canvas';
 
 import { Box } from '@onekeyhq/components/src';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDevicePixelRatio } from '../../hooks/useMarketLayout';
+
+import type { CanvasRenderingContext2D } from 'react-native-canvas';
 
 type SparkLineChartProps = {
   data?: number[];

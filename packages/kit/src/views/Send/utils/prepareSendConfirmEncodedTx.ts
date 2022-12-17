@@ -2,11 +2,11 @@
 import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
 
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { BatchSendConfirmParams, SendConfirmParams } from '../types';
+import type { BatchSendConfirmParams, SendConfirmParams } from '../types';
 
 // remove gas price if encodedTx build by DAPP
 function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {

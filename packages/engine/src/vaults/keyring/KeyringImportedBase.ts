@@ -1,7 +1,8 @@
-import { ExportedPrivateKeyCredential } from '../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../errors';
 
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
+
+import type { ExportedPrivateKeyCredential } from '../../dbs/base';
 
 export abstract class KeyringImportedBase extends KeyringSoftwareBase {
   override async getPrivateKeys(

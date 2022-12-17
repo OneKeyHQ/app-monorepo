@@ -1,8 +1,9 @@
-import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { Column, Row } from 'native-base';
-import { ListRenderItem, TouchableOpacity } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 
 import {
   Box,
@@ -14,15 +15,10 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import {
-  CollectiblesModalRoutes,
-  CollectiblesRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useRuntime } from '../../../hooks/redux';
@@ -31,7 +27,9 @@ import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { useGridListLayout } from '../../Wallet/NFT/SendNFTList';
 
 import { useCollectionDetailContext } from './context';
-import { ListProps } from './type';
+
+import type { ListProps } from './type';
+import type { ListRenderItem } from 'react-native';
 
 export function getRequestLimit(numberColumn: number) {
   switch (numberColumn) {
@@ -109,35 +107,30 @@ export const AssetListCell: FC<{
   const isSmallScreen = useIsVerticalLayout();
 
   return (
-    <>
-      <TouchableOpacity
-        style={{
-          marginHorizontal: isSmallScreen ? 4 : 12,
-          width: cardWidth,
-        }}
-        onPress={onPress}
-      >
-        <NFTListImage asset={asset} borderRadius="12px" size={cardWidth} />
-        <Box mt="8px" alignSelf="stretch">
+    <TouchableOpacity
+      style={{
+        marginHorizontal: isSmallScreen ? 4 : 12,
+        width: cardWidth,
+      }}
+      onPress={onPress}
+    >
+      <NFTListImage asset={asset} borderRadius="12px" size={cardWidth} />
+      <Box mt="8px" alignSelf="stretch">
+        <Text typography={{ sm: 'Body2Strong', md: 'Body1Strong' }} isTruncated>
+          {name}
+        </Text>
+        {price ? (
           <Text
-            typography={{ sm: 'Body2Strong', md: 'Body1Strong' }}
-            isTruncated
+            typography="Body2"
+            mt="4px"
+            color="text-subdued"
+            numberOfLines={1}
           >
-            {name}
+            {price}
           </Text>
-          {price ? (
-            <Text
-              typography="Body2"
-              mt="4px"
-              color="text-subdued"
-              numberOfLines={1}
-            >
-              {price}
-            </Text>
-          ) : null}
-        </Box>
-      </TouchableOpacity>
-    </>
+        ) : null}
+      </Box>
+    </TouchableOpacity>
   );
 };
 const AssetsList = ({

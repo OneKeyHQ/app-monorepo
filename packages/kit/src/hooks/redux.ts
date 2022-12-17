@@ -1,4 +1,5 @@
-import { DependencyList, useMemo } from 'react';
+import type { DependencyList } from 'react';
+import { useMemo } from 'react';
 
 import { useToast } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';

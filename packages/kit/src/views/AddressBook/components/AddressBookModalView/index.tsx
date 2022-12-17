@@ -1,11 +1,5 @@
-import {
-  ComponentProps,
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,7 +13,8 @@ import AddressInput from '../../../../components/AddressInput';
 import ChainSelector from '../../../../components/Form/ChainSelector';
 import { useAppSelector, useDebounce } from '../../../../hooks';
 import { setHideAddressBookAttention } from '../../../../store/reducers/status';
-import { ContactValues } from '../../routes';
+
+import type { ContactValues } from '../../routes';
 
 type ModalViewProps = ComponentProps<typeof Modal> & {
   defaultValues: ContactValues;

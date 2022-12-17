@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
-import {
-  IDecodedTxActionType,
+import type {
   IFeeInfoUnit,
   ISignedTx,
 } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -18,14 +18,7 @@ import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
 import { FeeInfoInputForConfirmLite } from '../../components/FeeInfoInput';
 import { SendConfirmErrorsAlert } from '../../components/SendConfirmErrorsAlert';
-import {
-  HardwareSwapContinueParams,
-  ITxConfirmViewProps,
-  ITxConfirmViewPropsHandleConfirm,
-  SendAuthenticationParams,
-  SendFeedbackReceiptParams,
-  SendRoutes,
-} from '../../types';
+import { SendRoutes } from '../../types';
 import {
   FEE_INFO_POLLING_INTERVAL,
   useFeeInfoPayload,
@@ -37,6 +30,14 @@ import { useSendConfirmRouteParamsParsed } from '../../utils/useSendConfirmRoute
 import { SendConfirmLoading } from './SendConfirmLoading';
 import { SendConfirmSpeedUpOrCancel } from './SendConfirmSpeedUpOrCancel';
 import { SendConfirmTransfer } from './SendConfirmTransfer';
+
+import type {
+  HardwareSwapContinueParams,
+  ITxConfirmViewProps,
+  ITxConfirmViewPropsHandleConfirm,
+  SendAuthenticationParams,
+  SendFeedbackReceiptParams,
+} from '../../types';
 
 function SendConfirm({
   sendConfirmParamsParsed,
@@ -287,14 +288,12 @@ function SendConfirm({
 
   // show SendConfirm TxDetail
   sharedProps.children = (
-    <>
-      <TxDetailView
-        sendConfirmParamsParsed={sendConfirmParamsParsed}
-        isSendConfirm
-        decodedTx={decodedTx}
-        feeInput={feeInput}
-      />
-    </>
+    <TxDetailView
+      sendConfirmParamsParsed={sendConfirmParamsParsed}
+      isSendConfirm
+      decodedTx={decodedTx}
+      feeInput={feeInput}
+    />
   );
 
   if (isSpeedUpOrCancel) {

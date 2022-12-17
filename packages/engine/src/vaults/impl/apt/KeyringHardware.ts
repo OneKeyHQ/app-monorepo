@@ -1,9 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { bytesToHex } from '@noble/hashes/utils';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient, BCS } from 'aptos';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
@@ -11,18 +7,24 @@ import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineC
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyHardwareError } from '../../../errors';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { AptosMessage } from '../../../types/message';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import {
+import { addHexPrefix } from '../../utils/hexUtils';
+
+import { buildSignedTx, generateUnsignedTransaction } from './utils';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type { AptosMessage } from '../../../types/message';
+import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import { addHexPrefix } from '../../utils/hexUtils';
-
-import { SignMessageRequest } from './types';
-import { buildSignedTx, generateUnsignedTransaction } from './utils';
+import type { SignMessageRequest } from './types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

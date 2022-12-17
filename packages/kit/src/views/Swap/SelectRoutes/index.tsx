@@ -1,15 +1,14 @@
+import type { ComponentProps, FC } from 'react';
 import {
-  ComponentProps,
-  FC,
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -24,11 +23,13 @@ import { useAppSelector, useNavigation } from '../../../hooks';
 import { ArrivalTime } from '../components/ArrivalTime';
 import { useSwapQuoteRequestParams, useSwapRecipient } from '../hooks/useSwap';
 import { SwapQuoter } from '../quoter';
-import { FetchQuoteResponse } from '../typings';
 
 import { AmountLimit } from './AmountLimit';
 import { LiquiditySources } from './LiquiditySources';
 import { TokenInput } from './TokenInput';
+
+import type { FetchQuoteResponse } from '../typings';
+import type { ListRenderItem } from 'react-native';
 
 type RoutesProps = {
   responses: FetchQuoteResponse[];
@@ -158,9 +159,12 @@ const SelectRoutes = () => {
     }
     navigation.goBack();
   }, [selectedIndex, responses, navigation]);
-
+  const contextValue = useMemo(
+    () => ({ selectedIndex, onSelect }),
+    [selectedIndex],
+  );
   return (
-    <SelectRoutesContext.Provider value={{ selectedIndex, onSelect }}>
+    <SelectRoutesContext.Provider value={contextValue}>
       <Modal
         size="lg"
         header={intl.formatMessage({ id: 'title__select_route' })}

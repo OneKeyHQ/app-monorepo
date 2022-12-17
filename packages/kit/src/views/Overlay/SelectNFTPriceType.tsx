@@ -1,6 +1,7 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { MessageDescriptor, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
 import { Box, Icon, Text } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
@@ -11,6 +12,8 @@ import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { showOverlay } from '../../utils/overlayUtils';
 
 import { OverlayPanel } from './OverlayPanel';
+
+import type { MessageDescriptor } from 'react-intl';
 
 const SelectNFTPriceType: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,

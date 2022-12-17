@@ -1,11 +1,7 @@
-import { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -29,11 +25,10 @@ import { TabRoutes } from '../../routes/types';
 import { setIncomingUrl } from '../../store/reducers/webTabs';
 import { AddressBookRoutes } from '../AddressBook/routes';
 
-import {
-  ScanQrcodeRoutes,
-  ScanQrcodeRoutesParams,
-  ScanSubResultCategory,
-} from './types';
+import { ScanQrcodeRoutes, ScanSubResultCategory } from './types';
+
+import type { ScanQrcodeRoutesParams } from './types';
+import type { NavigationProp, RouteProp } from '@react-navigation/core';
 
 const pressableProps = {
   p: '4',

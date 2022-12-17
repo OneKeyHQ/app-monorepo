@@ -1,12 +1,11 @@
-import { FC, useEffect, useRef } from 'react';
+import type { FC } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { createChart } from 'lightweight-charts';
 
-import {
-  ChartViewAdapterProps,
-  createChartDom,
-  updateChartDom,
-} from './chartService';
+import { createChartDom, updateChartDom } from './chartService';
+
+import type { ChartViewAdapterProps } from './chartService';
 
 const ChartViewAdapter: FC<ChartViewAdapterProps> = ({
   data,

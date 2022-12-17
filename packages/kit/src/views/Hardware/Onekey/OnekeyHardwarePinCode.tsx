@@ -1,6 +1,7 @@
-import { FC, useState } from 'react';
+import type { FC } from 'react';
+import { useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -16,15 +17,17 @@ import {
 } from '@onekeyhq/components';
 import OnekeyMiniEnterPin from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_classic_enter_pin_code.json';
 // import OnekeyClassicEnterPin from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_mini_enter_pin_code.json';
-import {
+import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import {
+import type {
   ModalScreenProps,
-  RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 type RouteProps = RouteProp<

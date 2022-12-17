@@ -1,8 +1,4 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { RefTransaction, getHDPath, getScriptType } from '@onekeyfe/hd-core';
+import { getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
@@ -17,14 +13,23 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import { IGetAddressParams, IPrepareHardwareAccountsParams } from '../../types';
 
-import { TxInput, TxOutput, UTXO } from './types';
 import { getAccountDefaultByPurpose } from './utils';
 
+import type { DBUTXOAccount } from '../../../types/account';
+import type {
+  IGetAddressParams,
+  IPrepareHardwareAccountsParams,
+} from '../../types';
+import type { TxInput, TxOutput, UTXO } from './types';
 import type BTCForkVault from './VaultBtcFork';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { RefTransaction } from '@onekeyfe/hd-core';
 import type { Messages } from '@onekeyfe/hd-transport';
 
 export class KeyringHardware extends KeyringHardwareBase {

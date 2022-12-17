@@ -1,9 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient } from 'aptos';
 import * as SHA3 from 'js-sha3';
 
@@ -11,15 +7,21 @@ import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineC
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import {
-  IPrepareImportedAccountsParams,
-  ISignCredentialOptions,
-} from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
 
 import { generateUnsignedTransaction, signRawTransaction } from './utils';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {

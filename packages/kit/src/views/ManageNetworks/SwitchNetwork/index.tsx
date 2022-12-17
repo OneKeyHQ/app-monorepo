@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,14 +13,16 @@ import {
   Spinner,
   Typography,
 } from '@onekeyhq/components';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
+import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { SwitchEthereumChainParameter } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
-import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+
+import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,

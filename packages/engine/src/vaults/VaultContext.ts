@@ -7,13 +7,12 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from '../managers/account';
-import { AccountType, DBAccount, DBVariantAccount } from '../types/account';
-import { Network } from '../types/network';
-
-import { IVaultFactoryOptions } from './types';
+import { AccountType } from '../types/account';
 
 import type { Engine } from '../index';
-import type { IVaultOptions } from './types';
+import type { DBAccount, DBVariantAccount } from '../types/account';
+import type { Network } from '../types/network';
+import type { IVaultFactoryOptions, IVaultOptions } from './types';
 
 export class VaultContextBase {
   constructor(options: IVaultFactoryOptions) {

@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SectionDataType } from '../../type';
+import type { SectionDataType } from '../../type';
 
 let CardViewImpl: any;
 

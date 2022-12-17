@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { IconButton, Text } from '@onekeyhq/components';
-import { INetwork } from '@onekeyhq/engine/src/types';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { INetwork } from '@onekeyhq/engine/src/types';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import {
   FormatCurrencyTokenOfAccount,

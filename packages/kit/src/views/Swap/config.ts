@@ -1,6 +1,6 @@
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import { Provider } from './typings';
+import type { Provider } from './typings';
 
 export const swftcCustomerSupportUrl =
   'https://www.bangwo8.com/osp2016/im/pc/index.php?vendorID=782460&uid=&customSource=onekey';

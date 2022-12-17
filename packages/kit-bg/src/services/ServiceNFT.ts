@@ -3,7 +3,7 @@ import axios from 'axios';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
-import {
+import type {
   Collection,
   NFTAsset,
   NFTMarketCapCollection,

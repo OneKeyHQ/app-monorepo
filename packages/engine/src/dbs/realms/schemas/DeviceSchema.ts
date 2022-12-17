@@ -1,6 +1,6 @@
 import Realm from 'realm';
 
-import { DBDevice } from '../../../types/device';
+import type { DBDevice } from '../../../types/device';
 
 class DeviceSchema extends Realm.Object {
   /**

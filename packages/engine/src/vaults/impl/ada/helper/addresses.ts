@@ -15,9 +15,11 @@ import {
   // @ts-expect-error
 } from 'cardano-crypto.js';
 
-import { Address, BIP32Path, NetworkId } from '../types';
+import { NetworkId } from '../types';
 
 import { HARDENED_THRESHOLD } from './constants';
+
+import type { Address, BIP32Path } from '../types';
 
 export const encodeAddress = (address: Buffer): Address => {
   const addressType = getAddressType(address);

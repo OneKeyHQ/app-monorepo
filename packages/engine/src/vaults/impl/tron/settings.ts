@@ -1,4 +1,4 @@
-import { IVaultSettings } from '../../types';
+import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = {
   feeInfoEditable: false,

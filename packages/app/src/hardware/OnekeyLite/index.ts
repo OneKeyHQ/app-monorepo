@@ -2,7 +2,9 @@ import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { Callback, CallbackError, CardErrors, CardInfo } from './types';
+import { CardErrors } from './types';
+
+import type { Callback, CallbackError, CardInfo } from './types';
 
 const { OKLiteManager } = NativeModules;
 
@@ -44,7 +46,7 @@ class OnekeyLite {
 
       const meta = payload.slice(-8);
 
-      const regexp = new RegExp('^ffff[a-f0-9]{4}$');
+      const regexp = /^ffff[a-f0-9]{4}$/;
       if (regexp.test(meta)) {
         const version = parseInt(meta.slice(4, 6), 10);
         const enMnemonic = payload.slice(0, -8);

@@ -1,4 +1,5 @@
-import { FC, memo, useLayoutEffect } from 'react';
+import type { FC } from 'react';
+import { memo, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 

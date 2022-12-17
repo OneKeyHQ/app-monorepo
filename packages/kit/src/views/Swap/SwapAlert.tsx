@@ -1,4 +1,5 @@
-import { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,7 +33,7 @@ const DepositLimitAlert = () => {
       </Box>
     );
   }
-  return <></>;
+  return null;
 };
 
 const ErrorAlert = () => {
@@ -64,7 +65,7 @@ const ErrorAlert = () => {
       </Box>
     );
   }
-  return <></>;
+  return null;
 };
 
 const SwapWarning: FC = () => (

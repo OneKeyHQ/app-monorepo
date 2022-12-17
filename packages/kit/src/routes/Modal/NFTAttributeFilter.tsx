@@ -1,12 +1,11 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import NFTAttributesModal from '../../views/NFTMarket/NFTAttributesModal';
-import {
-  NFTAttributeFilterRoutes,
-  NFTAttributeFilterRoutesParams,
-} from '../../views/NFTMarket/NFTAttributesModal/type';
+import { NFTAttributeFilterRoutes } from '../../views/NFTMarket/NFTAttributesModal/type';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { NFTAttributeFilterRoutesParams } from '../../views/NFTMarket/NFTAttributesModal/type';
 
 const NFTAttributeFilterNavigator =
   createStackNavigator<NFTAttributeFilterRoutesParams>();

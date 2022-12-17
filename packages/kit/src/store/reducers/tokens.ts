@@ -1,7 +1,9 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import { merge } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
+
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type TokenBalanceValue = string | undefined;
 export type TokenChartData = [number, number][];

@@ -6,8 +6,9 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-import { WalletService } from './types';
 import { WALLET_CONNECT_WALLET_NAMES } from './walletConnectConsts';
+
+import type { WalletService } from './types';
 
 // https://registry.walletconnect.org/data/wallets.json
 function buildEnabledWallets({

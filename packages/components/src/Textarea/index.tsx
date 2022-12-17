@@ -1,13 +1,16 @@
 /* eslint-disable react/prop-types */
-import { ComponentProps, forwardRef, useCallback } from 'react';
+import type { ComponentProps } from 'react';
+import { forwardRef, useCallback } from 'react';
 
 import { TextArea as NativeBaseTextArea } from 'native-base';
 
 import Box from '../Box';
 import Button from '../Button';
-import { ICON_NAMES } from '../Icon';
 import { useIsVerticalLayout } from '../Provider/hooks';
-import { Text, getTypographyStyleProps } from '../Typography';
+import { getTypographyStyleProps } from '../Typography';
+
+import type { ICON_NAMES } from '../Icon';
+import type { Text } from '../Typography';
 
 export type TextAreaAction = {
   icon?: ICON_NAMES;

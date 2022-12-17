@@ -6,13 +6,12 @@ import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
-import { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
-
-import * as SubModalRoutesParams from './Modal/types';
 // define enum here to avoid cycle import
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
+import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 import type { StackBasicRoutesParams } from './Dev';
+import type * as SubModalRoutesParams from './Modal/types';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type {
   CompositeScreenProps,

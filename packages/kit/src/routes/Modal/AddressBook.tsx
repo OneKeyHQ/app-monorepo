@@ -4,12 +4,11 @@ import EditAddress from '../../views/AddressBook/EditAddress';
 import EnterAddress from '../../views/AddressBook/EnterAddress';
 import NewAddress from '../../views/AddressBook/NewAddress';
 import PickAddress from '../../views/AddressBook/PickAddress';
-import {
-  AddressBookRoutes,
-  AddressBookRoutesParams,
-} from '../../views/AddressBook/routes';
+import { AddressBookRoutes } from '../../views/AddressBook/routes';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { AddressBookRoutesParams } from '../../views/AddressBook/routes';
 
 const AddressBookNavigator = createStackNavigator<AddressBookRoutesParams>();
 

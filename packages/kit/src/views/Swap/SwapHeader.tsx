@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -18,12 +19,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
-import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import { HomeRoutes } from '../../routes/types';
 import { setSwapPopoverShown } from '../../store/reducers/status';
 
 import { useSwapQuoteCallback } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
 
+import type { HomeRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;

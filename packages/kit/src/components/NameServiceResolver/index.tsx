@@ -1,8 +1,8 @@
 /* eslint-disable no-nested-ternary */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { IBoxProps } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,10 +13,12 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { SelectGroupItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
+
+import type { IBoxProps } from 'native-base';
 
 type NameServiceState = {
   isSearching: boolean;

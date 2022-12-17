@@ -1,9 +1,10 @@
-import { ComponentProps, FC, useCallback } from 'react';
+/* eslint-disable react/no-unstable-nested-components */
+import type { ComponentProps, FC } from 'react';
+import { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem, Text } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -14,6 +15,8 @@ import { PriceString } from '../../../../PriceText';
 import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
+
+import type { ListRenderItem } from 'react-native';
 
 type Props = { listData: NFTMarketRanking[]; selectNetwork?: Network } & Pick<
   ComponentProps<typeof List>,

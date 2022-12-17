@@ -10,9 +10,8 @@ import {
   setLoading,
   setQuoteLimited,
 } from '../../../store/reducers/swap';
-import { Token } from '../../../store/typings';
 import { SwapQuoter } from '../quoter';
-import { FetchQuoteParams, SwapError } from '../typings';
+import { SwapError } from '../typings';
 import {
   formatAmount,
   greaterThanZeroOrUndefined,
@@ -20,6 +19,9 @@ import {
 } from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
+
+import type { Token } from '../../../store/typings';
+import type { FetchQuoteParams } from '../typings';
 
 class TokenAmount {
   amount: BigNumber;

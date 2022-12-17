@@ -45,8 +45,8 @@ function logToConsole(props: IConsoleFuncProps) {
       .filter(Boolean)
       .join(' | ')} : `;
     let logContent = [prefix];
-    if (props?.rawMsg && isArray(props?.rawMsg)) {
-      logContent = [...logContent, ...props?.rawMsg];
+    if (props?.rawMsg && isArray(props.rawMsg)) {
+      logContent = [...logContent, ...props.rawMsg];
     }
     if (props?.level?.text === 'error') {
       console.error(...logContent);

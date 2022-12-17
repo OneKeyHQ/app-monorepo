@@ -1,23 +1,12 @@
-import {
-  IDeviceType,
-  SearchDevice,
-  Success,
-  Unsuccessful,
-} from '@onekeyfe/hd-core';
-import {
-  Deferred,
-  HardwareErrorCode,
-  createDeferred,
-} from '@onekeyfe/hd-shared';
+/* eslint-disable no-promise-executor-return */
+import { HardwareErrorCode, createDeferred } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { Toast as ToastManager } from '@onekeyhq/components/src/Toast/useToast';
-import {
-  OneKeyErrorClassNames,
-  OneKeyHardwareError,
-} from '@onekeyhq/engine/src/errors';
+import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
@@ -25,11 +14,19 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import showHardwarePopup, {
   CUSTOM_UI_RESPONSE,
-  HardwarePopup,
 } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
+
+import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import type {
+  IDeviceType,
+  SearchDevice,
+  Success,
+  Unsuccessful,
+} from '@onekeyfe/hd-core';
+import type { Deferred } from '@onekeyfe/hd-shared';
 
 type IPollFn<T> = (time?: number, index?: number) => T;
 

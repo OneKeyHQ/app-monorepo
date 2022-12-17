@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -7,7 +7,8 @@ import HStack from '../../../HStack';
 import Typography from '../../../Typography';
 
 import NavigationButton from './NavigationButton';
-import { HeaderProps } from './type';
+
+import type { HeaderProps } from './type';
 
 const Header: FC<HeaderProps> = ({
   header,

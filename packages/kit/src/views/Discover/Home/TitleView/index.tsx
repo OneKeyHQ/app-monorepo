@@ -1,4 +1,5 @@
-import { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,17 +10,18 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import {
   HomeRoutes,
-  HomeRoutesParams,
   ModalRoutes,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import { DAppItemType, DiscoverModalRoutes } from '../../type';
+import { DiscoverModalRoutes } from '../../type';
 
+import type { DAppItemType } from '../../type';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type SectionTitleProps = {

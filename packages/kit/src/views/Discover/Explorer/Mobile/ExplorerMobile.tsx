@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
@@ -11,16 +12,18 @@ import {
   RootRoutes,
   TabRoutes,
 } from '../../../../routes/routesEnum';
-import { ModalScreenProps } from '../../../../routes/types';
-import { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
+import { DiscoverModalRoutes } from '../../type';
 import WebHomeContainer from '../Content/WebHomeContainer';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useIncomingUrl } from '../Controller/useIncomingUrl';
 import { minimizeFloatingWindow } from '../explorerAnimation';
-import { MatchDAppItemType } from '../explorerUtils';
 
 import ExplorerBar from './ExplorerBarMobile';
 import FloatingContainer from './FloatingContainer';
+
+import type { ModalScreenProps } from '../../../../routes/types';
+import type { DiscoverRoutesParams } from '../../type';
+import type { MatchDAppItemType } from '../explorerUtils';
 
 type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 

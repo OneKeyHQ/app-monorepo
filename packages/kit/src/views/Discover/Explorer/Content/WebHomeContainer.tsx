@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import DiscoverHome from '../../Home';
 import { openMatchDApp } from '../Controller/gotoSite';

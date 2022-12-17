@@ -4,9 +4,9 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
-import { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -29,13 +29,15 @@ import {
   useSwapRecipient,
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
-import { FetchQuoteParams, QuoteData, SwapError, SwapRoutes } from './typings';
+import { SwapError, SwapRoutes } from './typings';
 import {
-  TokenAmount,
   formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
 } from './utils';
+
+import type { FetchQuoteParams, QuoteData } from './typings';
+import type { TokenAmount } from './utils';
 
 function convertToSwapInfo(options: {
   swapQuote: QuoteData;

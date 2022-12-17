@@ -1,6 +1,7 @@
-import { ComponentType, FC, ReactElement, useCallback, useMemo } from 'react';
+import type { ComponentType, FC, ReactElement } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { ListRenderItem, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -9,6 +10,8 @@ import {
   Pressable,
   Skeleton,
 } from '@onekeyhq/components';
+
+import type { ListRenderItem } from 'react-native';
 
 type EmptySkeletonContentProps = {
   ListHeaderComponent?: ComponentType<any> | ReactElement | null | undefined;

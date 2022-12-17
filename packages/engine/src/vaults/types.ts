@@ -1,14 +1,14 @@
-import { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
-
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
-import { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
-
-import { WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING } from '../types/wallet';
+import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
 import type { EIP1559Fee } from '../types/network';
 import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
+import type {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_WATCHING,
+} from '../types/wallet';
 import type { IEncodedTxADA } from './impl/ada/types';
 import type { IEncodedTxAlgo } from './impl/algo/types';
 import type { IEncodedTxAptos } from './impl/apt/types';
@@ -33,6 +33,7 @@ import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
+import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
 import type {
   SignedTx,
   UnsignedTx,

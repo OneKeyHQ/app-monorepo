@@ -1,5 +1,5 @@
+import type { FC } from 'react';
 import {
-  FC,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -7,30 +7,27 @@ import {
   useRef,
 } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Select, useIsVerticalLayout } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { useActiveWalletAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useTokenInfo } from '../../hooks/useTokenInfo';
-import {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalRoutes,
-  RootRoutes,
-} from '../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { ManageTokenRoutes } from '../ManageTokens/types';
 import PriceChart from '../PriceChart/PriceChart';
 import StakedAssets from '../Staking/components/StakedAssets';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
-import { TokenDetailRoutesParams } from './routes';
 import TokenInfo from './TokenInfo';
 
+import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import type { TokenDetailRoutesParams } from './routes';
+import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type TokenDetailViewProps = NativeStackScreenProps<

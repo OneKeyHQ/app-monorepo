@@ -15,7 +15,8 @@ import {
 import { TxStatusBarInList } from '../components/TxStatusBar';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,

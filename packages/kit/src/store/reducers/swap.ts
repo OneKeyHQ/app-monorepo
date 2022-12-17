@@ -1,4 +1,4 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -10,6 +10,7 @@ import type {
   Recipient,
   SwapError,
 } from '../../views/Swap/typings';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 type SwapState = {
   inputTokenNetwork?: Network | null;

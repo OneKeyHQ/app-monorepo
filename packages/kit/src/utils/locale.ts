@@ -1,6 +1,7 @@
 import * as Localization from 'expo-localization';
 
-import { LOCALES_OPTION, LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 
 const locales = LOCALES_OPTION.map((locale) => locale.value);
 

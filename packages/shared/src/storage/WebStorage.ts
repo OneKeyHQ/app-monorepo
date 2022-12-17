@@ -1,14 +1,15 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
-import { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
-import {
+import { Semaphore } from 'async-mutex';
+import localforage from 'localforage';
+
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+import type {
   Callback,
   CallbackWithResult,
   KeyValuePair,
   MultiCallback,
   MultiGetCallback,
 } from '@react-native-async-storage/async-storage/lib/typescript/types';
-import { Semaphore } from 'async-mutex';
-import localforage from 'localforage';
 
 localforage.config({
   name: 'OneKeyStorage',

@@ -1,4 +1,5 @@
-import { ComponentProps, ComponentPropsWithoutRef, FC, Fragment } from 'react';
+import type { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
+import { Fragment } from 'react';
 
 import type Box from '../Box';
 import type { Pressable } from 'react-native';

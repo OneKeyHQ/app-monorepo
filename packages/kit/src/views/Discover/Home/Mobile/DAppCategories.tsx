@@ -1,12 +1,12 @@
 import { useContext, useMemo } from 'react';
 
-import { ListRenderItem } from 'react-native';
-
 import { FlatList, Pressable, Typography } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useCategories } from '../../hooks';
 import { DiscoverContext } from '../context';
+
+import type { ListRenderItem } from 'react-native';
 
 export const DAppCategories = () => {
   const { categoryId, setCategoryId } = useContext(DiscoverContext);

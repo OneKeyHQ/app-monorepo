@@ -4,8 +4,7 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 import memoziee from 'memoizee';
 
-import {
-  AddressEncodings,
+import type {
   AddressValidation,
   ChainInfo,
   SignedTx,
@@ -15,10 +14,13 @@ import {
   UTXO,
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import { getBlockBook } from './blockbook';
-import { Network, getNetwork } from './networks';
+import { getNetwork } from './networks';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
+
+import type { Network } from './networks';
 
 type GetAccountParams =
   | {

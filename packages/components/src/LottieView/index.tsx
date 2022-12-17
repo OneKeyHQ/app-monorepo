@@ -1,10 +1,12 @@
-import { LegacyRef, useEffect, useRef } from 'react';
+import type { LegacyRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
 import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
 import type { AnimatedLottieViewProps as LottieNativeProps } from 'lottie-react-native';
+import type { AppStateStatus } from 'react-native';
 
 // Stick props the same as LottieNative by now
 type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {

@@ -1,8 +1,9 @@
-import { FC, ReactElement, cloneElement } from 'react';
-
-import { IBoxProps } from 'native-base';
+import type { FC, ReactElement } from 'react';
+import { cloneElement } from 'react';
 
 import Box from '../Box';
+
+import type { IBoxProps } from 'native-base';
 
 interface IContentItemProps {
   hasDivider?: boolean;

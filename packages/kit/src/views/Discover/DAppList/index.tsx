@@ -1,12 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import { FC, useLayoutEffect } from 'react';
+import type { FC } from 'react';
+import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutes,
+  HomeRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.DAppListScreen>;
 

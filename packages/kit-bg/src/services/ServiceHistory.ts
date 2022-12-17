@@ -3,11 +3,11 @@ import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider
 import { cloneDeep, isEmpty, isNil, isNumber } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import {
-  IDecodedTxStatus,
+import type {
   IFeeInfoUnit,
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import { refreshHistory } from '@onekeyhq/kit/src/store/reducers/refresher';
 import type {
   SendConfirmOnSuccessData,

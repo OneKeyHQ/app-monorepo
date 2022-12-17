@@ -52,7 +52,7 @@ const FailedTxs = () => {
     });
   }, [confirmedTxs]);
   if (confirmedTxs.length === 0) {
-    return <></>;
+    return null;
   }
   if (confirmedTxs.length === 1) {
     return (

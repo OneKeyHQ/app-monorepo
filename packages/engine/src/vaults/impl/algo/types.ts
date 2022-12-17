@@ -1,4 +1,4 @@
-import * as sdk from 'algosdk';
+import type * as sdk from 'algosdk';
 
 export type IEncodedTxAlgo = string; // Base64 encoded string
 

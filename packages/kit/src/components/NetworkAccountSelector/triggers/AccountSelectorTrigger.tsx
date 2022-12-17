@@ -1,4 +1,5 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,10 +8,9 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import { useActiveWalletAccount, useNavigationActions } from '../../../hooks';
 import ExternalAccountImg from '../../../views/ExternalAccount/components/ExternalAccountImg';
 
-import {
-  BaseSelectorTrigger,
-  INetworkAccountSelectorTriggerProps,
-} from './BaseSelectorTrigger';
+import { BaseSelectorTrigger } from './BaseSelectorTrigger';
+
+import type { INetworkAccountSelectorTriggerProps } from './BaseSelectorTrigger';
 
 interface AccountSelectorTriggerProps
   extends INetworkAccountSelectorTriggerProps {

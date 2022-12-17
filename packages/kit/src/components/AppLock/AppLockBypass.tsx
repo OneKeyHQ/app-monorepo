@@ -49,5 +49,5 @@ export const SkipAppLock = () => {
       AppLockBypass.Singleton.release();
     };
   }, []);
-  return <></>;
+  return null;
 };

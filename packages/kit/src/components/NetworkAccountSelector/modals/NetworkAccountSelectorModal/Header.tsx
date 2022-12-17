@@ -26,15 +26,13 @@ import reducerAccountSelector from '../../../../store/reducers/reducerAccountSel
 import { setFistTimeShowCheckRPCNodeTooltip } from '../../../../store/reducers/status';
 import { wait } from '../../../../utils/helper';
 import { useRpcMeasureStatus } from '../../../../views/ManageNetworks/hooks';
-import {
-  ManageNetworkRoutes,
-  ManageNetworkRoutesParams,
-} from '../../../../views/ManageNetworks/types';
-import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
 
 import Speedindicator from './SpeedIndicator';
 import { WalletSelectDropdown } from './WalletSelectDropdown';
 
+import type { ManageNetworkRoutesParams } from '../../../../views/ManageNetworks/types';
+import type { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const { updateIsLoading } = reducerAccountSelector.actions;
@@ -111,11 +109,7 @@ function Header({
 
   const rpcStatusElement = useMemo(() => {
     if (!status || loading) {
-      return (
-        <>
-          <Skeleton shape="Caption" />
-        </>
-      );
+      return <Skeleton shape="Caption" />;
     }
     return (
       <>

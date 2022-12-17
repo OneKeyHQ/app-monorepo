@@ -1,11 +1,7 @@
-import { ComponentProps, FC, useCallback, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
@@ -32,17 +28,19 @@ import { useAddressName, useNetworkSimple } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { useTransactionsAccount } from '../../hooks/useTransactions';
-import {
-  SwapRoutes,
-  SwapRoutesParams,
-  TransactionDetails,
-  TransactionStatus,
-} from '../../typings';
 import { formatAmount } from '../../utils';
 import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
+
+import type {
+  SwapRoutes,
+  SwapRoutesParams,
+  TransactionDetails,
+  TransactionStatus,
+} from '../../typings';
+import type { NavigationProp, RouteProp } from '@react-navigation/native';
 
 type TransactionProps = {
   tx: TransactionDetails;

@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { NavigationProp } from '@react-navigation/core';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { isEmpty, map } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -14,10 +13,8 @@ import {
   Text,
   useToast,
 } from '@onekeyhq/components';
-import {
-  OneKeyError,
-  OneKeyErrorClassNames,
-} from '@onekeyhq/engine/src/errors';
+import type { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -30,13 +27,16 @@ import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { BatchSendState } from '../enums';
-import {
+import { useBatchSendConfirmDecodedTxs } from '../utils/useBatchSendConfirmDecodedTxs';
+
+import type {
   ISendAuthenticationModalTitleInfo,
   SendConfirmPayloadInfo,
   SendRoutes,
   SendRoutesParams,
 } from '../types';
-import { useBatchSendConfirmDecodedTxs } from '../utils/useBatchSendConfirmDecodedTxs';
+import type { NavigationProp } from '@react-navigation/core';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.BatchSendProgress>;
 type NavigationProps = NavigationProp<
@@ -289,27 +289,25 @@ function SendProgress({
         <Progress.Circle
           progress={progress}
           text={
-            <>
-              <Text
-                typography="Body2Strong"
-                color="text-subdued"
-                textAlign="center"
-              >
-                {intl.formatMessage(
-                  {
-                    id: 'form__str_transactions',
-                  },
-                  {
-                    0: (
-                      <Text
-                        typography="DisplayMedium"
-                        textAlign="center"
-                      >{`${currentFinished} / ${txCount}\n`}</Text>
-                    ),
-                  },
-                )}
-              </Text>
-            </>
+            <Text
+              typography="Body2Strong"
+              color="text-subdued"
+              textAlign="center"
+            >
+              {intl.formatMessage(
+                {
+                  id: 'form__str_transactions',
+                },
+                {
+                  0: (
+                    <Text
+                      typography="DisplayMedium"
+                      textAlign="center"
+                    >{`${currentFinished} / ${txCount}\n`}</Text>
+                  ),
+                },
+              )}
+            </Text>
           }
         />
       </Box>

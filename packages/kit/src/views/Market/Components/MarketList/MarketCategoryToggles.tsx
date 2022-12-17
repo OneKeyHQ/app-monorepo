@@ -1,4 +1,5 @@
-import { FC, memo, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,13 +8,14 @@ import {
   CustomSkeleton,
   ToggleButtonGroup,
 } from '@onekeyhq/components/src';
-import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
+import type { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { MARKET_FAKE_SKELETON_CATEGORY_ARRAY } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
-import { MarketCategoryHeadProps } from '../../types';
+
+import type { MarketCategoryHeadProps } from '../../types';
 
 const MarketCategoryToggles: FC<MarketCategoryHeadProps> = ({ categorys }) => {
   const selectedCategoryId = useMarketSelectedCategoryId();

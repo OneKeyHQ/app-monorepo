@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { Account } from '@onekeyhq/engine/src/types/account';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks/redux';
-import { TransactionDetails } from '../typings';
+
+import type { TransactionDetails } from '../typings';
 
 export function isTransactionRecent(tx: TransactionDetails): boolean {
   return new Date().getTime() - tx.addedTime < 86400000;

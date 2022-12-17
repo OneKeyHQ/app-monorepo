@@ -1,4 +1,5 @@
-import { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +13,8 @@ import {
   Typography,
   ZStack,
 } from '@onekeyhq/components';
-import Button, { ButtonType } from '@onekeyhq/components/src/Button';
+import type { ButtonType } from '@onekeyhq/components/src/Button';
+import Button from '@onekeyhq/components/src/Button';
 import lottieNFCConnectComplete from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_complete.json';
 import lottieNFCConnecting from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_connect.json';
 import lottieNFCTransferData from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transfer.json';

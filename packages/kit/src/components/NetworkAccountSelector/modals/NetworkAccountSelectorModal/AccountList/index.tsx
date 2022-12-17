@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -22,9 +23,7 @@ import { useActiveWalletAccount } from '../../../../../hooks/redux';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AccountSectionLoadingSkeleton } from '../../../../Header/AccountSelectorChildren/RightAccountSection';
 import { scrollToSectionItem } from '../../../../WalletSelector';
-import { useAccountSelectorInfo } from '../../../hooks/useAccountSelectorInfo';
 import {
-  INetworkAccountSelectorAccountListSectionData,
   isListAccountsSingleWalletMode,
   useAccountSelectorSectionData,
 } from '../../../hooks/useAccountSelectorSectionData';
@@ -35,6 +34,9 @@ import {
 
 import ListItem from './ListItem';
 import SectionHeader from './SectionHeader';
+
+import type { useAccountSelectorInfo } from '../../../hooks/useAccountSelectorInfo';
+import type { INetworkAccountSelectorAccountListSectionData } from '../../../hooks/useAccountSelectorSectionData';
 
 type EmptyAccountStateProps = {
   walletId: string;
@@ -181,109 +183,103 @@ function AccountList({
   }
 
   return (
-    <>
-      <SectionList
-        initialNumToRender={20}
-        // TODO auto scroll to active item
-        ref={sectionListRef}
-        //    this.refs.foo.scrollToLocation({
-        //       sectionIndex: sectionIndex,
-        //       itemIndex: itemIndex
-        //     });
-        stickySectionHeadersEnabled
-        sections={data}
-        keyExtractor={(item: IAccount) => item.id}
-        renderSectionHeader={({
+    <SectionList
+      initialNumToRender={20}
+      // TODO auto scroll to active item
+      ref={sectionListRef}
+      //    this.refs.foo.scrollToLocation({
+      //       sectionIndex: sectionIndex,
+      //       itemIndex: itemIndex
+      //     });
+      stickySectionHeadersEnabled
+      sections={data}
+      keyExtractor={(item: IAccount) => item.id}
+      renderSectionHeader={({
+        section,
+      }: {
+        // eslint-disable-next-line react/no-unused-prop-types
+        section: INetworkAccountSelectorAccountListSectionData;
+      }) => {
+        if (isListAccountsSingleWalletMode) {
+          return null;
+        }
+        const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo({
           section,
-        }: {
-          // eslint-disable-next-line react/no-unused-prop-types
-          section: INetworkAccountSelectorAccountListSectionData;
-        }) => {
-          if (isListAccountsSingleWalletMode) {
-            return null;
-          }
-          const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
-            { section },
-          );
-          return (
-            <>
-              <SectionHeader
-                wallet={section?.wallet}
-                networkId={selectedNetworkId}
-                emptySectionData={isEmptySectionData}
-                isCreateLoading={isPreloadingCreate}
-              />
-            </>
-          );
-        }}
-        renderItem={({
-          item,
+        });
+        return (
+          <SectionHeader
+            wallet={section?.wallet}
+            networkId={selectedNetworkId}
+            emptySectionData={isEmptySectionData}
+            isCreateLoading={isPreloadingCreate}
+          />
+        );
+      }}
+      renderItem={({
+        item,
+        section,
+      }: {
+        // eslint-disable-next-line react/no-unused-prop-types
+        item: IAccount;
+        // eslint-disable-next-line react/no-unused-prop-types
+        section: INetworkAccountSelectorAccountListSectionData;
+      }) => {
+        const { isPreloadingCreate } = getSectionMetaInfo({ section });
+        if (
+          isPreloadingCreate &&
+          preloadingCreateAccount &&
+          preloadingCreateAccount?.accountId === item.id
+        ) {
+          // footer should render AccountSectionLoadingSkeleton, so here render null
+          return null;
+        }
+        return (
+          <ListItem
+            key={item.id}
+            onLastItemRender={scrollToItemDebounced}
+            account={item}
+            wallet={section?.wallet}
+            network={selectedNetwork}
+            networkId={selectedNetworkId}
+            walletId={section?.wallet?.id}
+            label={item.name}
+            // TODO uppercase address
+            address={shortenAddress(item.address)}
+            // TODO wait Overview implements all accounts balance
+            balance={undefined}
+          />
+        );
+      }}
+      ItemSeparatorComponent={() => <Box h={2} />}
+      renderSectionFooter={({
+        section,
+      }: {
+        // eslint-disable-next-line react/no-unused-prop-types
+        section: INetworkAccountSelectorAccountListSectionData;
+      }) => {
+        const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo({
           section,
-        }: {
-          // eslint-disable-next-line react/no-unused-prop-types
-          item: IAccount;
-          // eslint-disable-next-line react/no-unused-prop-types
-          section: INetworkAccountSelectorAccountListSectionData;
-        }) => {
-          const { isPreloadingCreate } = getSectionMetaInfo({ section });
-          if (
-            isPreloadingCreate &&
-            preloadingCreateAccount &&
-            preloadingCreateAccount?.accountId === item.id
-          ) {
-            // footer should render AccountSectionLoadingSkeleton, so here render null
-            return null;
-          }
-          return (
-            <>
-              <ListItem
-                key={item.id}
-                onLastItemRender={scrollToItemDebounced}
-                account={item}
-                wallet={section?.wallet}
-                network={selectedNetwork}
-                networkId={selectedNetworkId}
-                walletId={section?.wallet?.id}
-                label={item.name}
-                // TODO uppercase address
-                address={shortenAddress(item.address)}
-                // TODO wait Overview implements all accounts balance
-                balance={undefined}
-              />
-            </>
-          );
-        }}
-        ItemSeparatorComponent={() => <Box h={2} />}
-        renderSectionFooter={({
-          section,
-        }: {
-          // eslint-disable-next-line react/no-unused-prop-types
-          section: INetworkAccountSelectorAccountListSectionData;
-        }) => {
-          const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo(
-            { section },
-          );
-          return (
-            <>
-              {isPreloadingCreate ? (
-                <AccountSectionLoadingSkeleton isLoading />
-              ) : null}
+        });
+        return (
+          <>
+            {isPreloadingCreate ? (
+              <AccountSectionLoadingSkeleton isLoading />
+            ) : null}
 
-              {isEmptySectionData && !isPreloadingCreate ? (
-                <EmptyAccountState
-                  walletId={section.wallet.id}
-                  networkId={section.networkId}
-                />
-              ) : null}
+            {isEmptySectionData && !isPreloadingCreate ? (
+              <EmptyAccountState
+                walletId={section.wallet.id}
+                networkId={section.networkId}
+              />
+            ) : null}
 
-              <Box h={6} />
-            </>
-          );
-        }}
-        ListFooterComponent={<Box h={`${insets.bottom}px`} />}
-        px={{ base: 2, md: 4 }}
-      />
-    </>
+            <Box h={6} />
+          </>
+        );
+      }}
+      ListFooterComponent={<Box h={`${insets.bottom}px`} />}
+      px={{ base: 2, md: 4 }}
+    />
   );
 }
 

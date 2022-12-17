@@ -1,35 +1,24 @@
-import {
-  ComponentProps,
-  FC,
-  forwardRef,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TextInput } from 'react-native';
 
-import {
-  HStack,
-  ICON_NAMES,
-  IconButton,
-  Input,
-  Pressable,
-} from '@onekeyhq/components';
+import type { ICON_NAMES } from '@onekeyhq/components';
+import { HStack, IconButton, Input, Pressable } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { NetworkAccountSelectorTriggerDesktop } from '../../../../components/NetworkAccountSelector';
 import { homeTab } from '../../../../store/reducers/webTabs';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
-import {
+import SearchView from '../Search/SearchView';
+
+import type {
   MatchDAppItemType,
   SearchViewKeyEventType,
   SearchViewRef,
 } from '../explorerUtils';
-import SearchView from '../Search/SearchView';
+import type { TextInput } from 'react-native';
 
 type BrowserURLInputProps = {
   onClear?: () => void;

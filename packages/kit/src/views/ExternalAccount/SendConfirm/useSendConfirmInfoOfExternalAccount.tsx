@@ -4,29 +4,24 @@ import { DialogManager } from '@onekeyhq/components';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';
-import {
-  IConnectToWalletResult,
-  useWalletConnectQrcodeModal,
-} from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
+import { useWalletConnectQrcodeModal } from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
 import { terminateWcConnection } from '../../../components/WalletConnect/utils/terminateWcConnection';
-import { WalletConnectClientForDapp } from '../../../components/WalletConnect/WalletConnectClientForDapp';
 import {
   WALLET_CONNECT_SEND_SHOW_MISMATCH_CONFIRM_DELAY,
   WALLET_CONNECT_SEND_SHOW_RECONNECT_QRCODE_MODAL_DELAY,
 } from '../../../components/WalletConnect/walletConnectConsts';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { wait } from '../../../utils/helper';
-import { IWalletConnectExternalAccountInfo } from '../../Send/types';
-import {
-  InjectedConnectorInfo,
-  getInjectedConnector,
-} from '../injectedConnectors';
+import { getInjectedConnector } from '../injectedConnectors';
 
-import {
-  DialogConfirmMismatchOrContinue,
-  IDialogConfirmMismatchContinueInfo,
-} from './DialogConfirmMismatchOrContinue';
+import { DialogConfirmMismatchOrContinue } from './DialogConfirmMismatchOrContinue';
+
+import type { OneKeyWalletConnector } from '../../../components/WalletConnect/OneKeyWalletConnector';
+import type { IConnectToWalletResult } from '../../../components/WalletConnect/useWalletConnectQrcodeModal';
+import type { WalletConnectClientForDapp } from '../../../components/WalletConnect/WalletConnectClientForDapp';
+import type { IWalletConnectExternalAccountInfo } from '../../Send/types';
+import type { InjectedConnectorInfo } from '../injectedConnectors';
+import type { IDialogConfirmMismatchContinueInfo } from './DialogConfirmMismatchOrContinue';
 
 type IGetExternalConnectorReturn = {
   injectedConnectorInfo?: InjectedConnectorInfo;

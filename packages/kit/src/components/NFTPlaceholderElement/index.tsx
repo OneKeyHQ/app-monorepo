@@ -1,4 +1,5 @@
-import { FC, memo } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import { Box, Center, Icon, Image, NetImage } from '@onekeyhq/components';
 import CollectionDefaultLogo from '@onekeyhq/components/img/collection_default_logo.png';

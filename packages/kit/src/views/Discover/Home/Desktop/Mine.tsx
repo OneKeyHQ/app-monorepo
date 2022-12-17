@@ -1,4 +1,5 @@
-import { FC, useContext, useLayoutEffect, useMemo } from 'react';
+import type { FC } from 'react';
+import { useContext, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,12 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalRoutes,
-  RootRoutes,
-} from '../../../../routes/types';
+import { HomeRoutes, ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
@@ -37,6 +33,7 @@ import { DiscoverContext } from '../context';
 import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
+import type { HomeRoutesParams } from '../../../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const styles = StyleSheet.create({

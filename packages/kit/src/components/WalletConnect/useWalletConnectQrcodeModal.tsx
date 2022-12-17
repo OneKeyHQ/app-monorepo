@@ -2,8 +2,6 @@
 import { useCallback, useRef, useState } from 'react';
 
 import QRCodeModalWeb from '@walletconnect/qrcode-modal';
-import { IQRCodeModal, IWalletConnectSession } from '@walletconnect/types';
-import { Web3ReactState } from '@web3-react/types';
 import { Linking } from 'react-native';
 
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -21,17 +19,18 @@ import {
 } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 
-import { WalletService } from './types';
 import walletConnectUtils from './utils/walletConnectUtils';
-import {
-  ISessionStatusPro,
-  WalletConnectClientForDapp,
-} from './WalletConnectClientForDapp';
+import { WalletConnectClientForDapp } from './WalletConnectClientForDapp';
 import {
   WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL,
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
+
+import type { WalletService } from './types';
+import type { ISessionStatusPro } from './WalletConnectClientForDapp';
+import type { IQRCodeModal, IWalletConnectSession } from '@walletconnect/types';
+import type { Web3ReactState } from '@web3-react/types';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;

@@ -1,6 +1,6 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -15,11 +15,13 @@ import {
 } from '@onekeyhq/components';
 import CloudLock from '@onekeyhq/kit/assets/3d_cloud_lock.png';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
-import {
+import type {
   ImportBackupPasswordRoutes,
   ImportBackupPasswordRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ImportBackupPassword';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ImportBackupPasswordRoutesParams,

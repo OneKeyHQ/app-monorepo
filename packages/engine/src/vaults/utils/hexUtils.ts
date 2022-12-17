@@ -1,4 +1,6 @@
-import { BytesLike, utils } from 'ethers';
+import { utils } from 'ethers';
+
+import type { BytesLike } from 'ethers';
 
 const ethersHexlify = (...args: Parameters<typeof utils.hexlify>) =>
   utils.hexlify.apply(utils.hexlify, args);

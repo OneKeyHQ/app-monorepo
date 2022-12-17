@@ -21,17 +21,17 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import useFormatDate from '../../../../hooks/useFormatDate';
-import {
-  HomeRoutes,
-  HomeRoutesParams,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../../../routes/types';
+import { HomeRoutes } from '../../../../routes/types';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
 import Wrapper from './Wrapper';
 
+import type {
+  HomeRoutesParams,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../../../routes/types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

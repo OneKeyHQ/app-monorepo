@@ -1,7 +1,8 @@
 import { Center, Spinner } from '@onekeyhq/components';
 
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
-import { IBatchTxsConfirmViewProps } from '../../types';
+
+import type { IBatchTxsConfirmViewProps } from '../../types';
 
 function BatchSendConfirmLoading(props: IBatchTxsConfirmViewProps) {
   return (

@@ -1,24 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Base64DataBuffer, JsonRpcProvider } from '@mysten/sui.js';
 import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import * as SHA3 from 'js-sha3';
 
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 import { addHexPrefix } from '../../utils/hexUtils';
 
 import { toTransaction } from './utils';
 
+import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   SignedTxResult,
 } from '../../types';
+import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {

@@ -1,10 +1,11 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import type { Tool } from '@onekeyhq/engine/src/types/token';
 import { stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { CurrencyType, MoonpayListType } from '../../views/FiatPay/types';
+import type { CurrencyType, MoonpayListType } from '../../views/FiatPay/types';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type DataInitialState = {
   isAppRenderReady: boolean;

@@ -1,12 +1,11 @@
-import {
+import * as sdk from 'algosdk';
+
+import type { Signer } from '../../../proxy';
+import type { IEncodedTxAlgo } from './types';
+import type {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import * as sdk from 'algosdk';
-
-import { Signer } from '../../../proxy';
-
-import type { IEncodedTxAlgo } from './types';
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,

@@ -1,8 +1,9 @@
 import * as bchaddrjs from 'bchaddrjs';
 import * as BitcoinForkJS from 'bitcoinforkjs';
-import { Psbt } from 'bitcoinjs-lib';
 
 import { Provider as BaseProvider } from '../../utils/btcForkChain/provider';
+
+import type { Psbt } from 'bitcoinjs-lib';
 
 export default class Provider extends BaseProvider {
   override decodeAddress(address: string): string {

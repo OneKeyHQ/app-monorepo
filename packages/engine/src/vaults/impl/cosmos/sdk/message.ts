@@ -1,6 +1,5 @@
-import { Any } from 'cosmjs-types/google/protobuf/any';
-
 import type { Coin } from '../type';
+import type { Any } from 'cosmjs-types/google/protobuf/any';
 
 export enum MessageType {
   SEND = '/cosmos.bank.v1beta1.MsgSend',

@@ -3,12 +3,11 @@ import Connection from '@onekeyhq/kit/src/views/DappModals/Connection';
 import NetworkNotMatch from '@onekeyhq/kit/src/views/DappModals/NetworkNotMatch';
 
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
-import {
-  DappConnectionModalRoutes,
-  DappConnectionRoutesParams,
-} from '../../views/DappModals/types';
+import { DappConnectionModalRoutes } from '../../views/DappModals/types';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { DappConnectionRoutesParams } from '../../views/DappModals/types';
 
 const DappConnectionModalNavigator =
   createStackNavigator<DappConnectionRoutesParams>();
