@@ -216,11 +216,11 @@ export function useCategories() {
 
 export function useShowBookmark() {
   const isApple = platformEnv.isNativeIOS || platformEnv.isMas;
-  const showFullLayout = useAppSelector((s) => s.discover.showBookmark);
+  const showBookmark = useAppSelector((s) => s.discover.showBookmark);
   return useMemo(() => {
     if (!isApple) {
       return true;
     }
-    return showFullLayout;
-  }, [showFullLayout, isApple]);
+    return showBookmark;
+  }, [showBookmark, isApple]);
 }
