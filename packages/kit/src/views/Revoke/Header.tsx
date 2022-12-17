@@ -22,7 +22,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
-import { RevokeChainSelector } from './ChainSelector';
 import showAboutOverlay from './Overlays/About';
 import SvgRevoke from './Svg';
 import { RevokeRoutes } from './types';
@@ -133,10 +132,6 @@ const RevokeHeader: FC<Props> = ({ onChange }) => {
             placeholder={intl.formatMessage({
               id: 'form__enter_address_ens_name',
             })}
-          />
-          <RevokeChainSelector
-            value={networkId ?? ''}
-            onChange={setNetworkId}
           />
         </HStack>
         {accountAddress !== addressOrName && (

@@ -31,7 +31,10 @@ import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
-import { useEnabledAccountDynamicAccounts } from '../PushNotification/hooks';
+import {
+  useAddressCanSubscribe,
+  useEnabledAccountDynamicAccounts,
+} from '../PushNotification/hooks';
 
 import { OverlayPanel } from './OverlayPanel';
 
@@ -61,6 +64,8 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
     [enabledAccounts, account],
   );
 
+  const addressCanSubscribe = useAddressCanSubscribe(account, network?.id);
+
   useEffect(() => {
     (async () => {
       if (!network) return false;
@@ -84,6 +89,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
   const showSubscriptionIcon =
     !!account &&
     !loading &&
+    addressCanSubscribe &&
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
 

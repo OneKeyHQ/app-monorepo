@@ -19,22 +19,6 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   override enableCache = true;
 
-  private defaultStableTokens: {
-    [networkId: string]: string[];
-  } = {};
-
-  private saveDefaultTokenCache(data: ISimpleDbEntityTokensData) {
-    for (const [networkId, tokens] of Object.entries(data)) {
-      this.defaultStableTokens[networkId] = tokens.map((t) => t.address || '');
-    }
-  }
-
-  // private async initTop50Tokens() {
-  //   for (const { impl, chainId, tokens } of top50) {
-  //     await this.updateTokens(impl, chainId, tokens);
-  //   }
-  // }
-
   async updateTokens(impl: string, chainId: string, tokens: ServerToken[]) {
     const networkId = `${impl}--${chainId}`;
     const normalizedTokens = tokens.map((t) => formatServerToken(t));
@@ -47,7 +31,6 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
       ...(savedTokens || {}),
       [networkId]: tokens || [],
     };
-    this.saveDefaultTokenCache(data);
     return this.setRawData(data);
   }
 
@@ -64,10 +47,6 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
       return this.getAccountTokens(networkId, accountId);
     }
     const tokensMap = await this.getRawData();
-    // if (!tokensMap) {
-    //   await this.initTop50Tokens();
-    // }
-    // tokensMap = await this.getRawData();
     if (typeof tokensMap !== 'object' || tokensMap === null) {
       return [];
     }
