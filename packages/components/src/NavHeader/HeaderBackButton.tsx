@@ -8,7 +8,7 @@ import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 const HeaderBackButton: FC = () => {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
-  return navigation.canGoBack() ? (
+  return navigation.getState().routes.length > 0 ? (
     <IconButton
       type="plain"
       name={isVertical ? 'ChevronLeftSolid' : 'ArrowLeftSolid'}
