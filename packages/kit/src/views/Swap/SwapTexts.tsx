@@ -5,27 +5,45 @@ import { Animated } from 'react-native';
 
 import { Box, Divider, HStack, Icon, Typography } from '@onekeyhq/components';
 
+
+const SwapFeatureText = () => {
+  const intl = useIntl()
+  return (
+    <Box flexDirection="row">
+      <Box flexDirection="row">
+        <Icon size={16} name="RectangleGroupMini" />
+        <Box w="1" />
+        <Typography.CaptionStrong color="text-subdued">
+          {intl.formatMessage({ id: 'form__cross_chain_swap' })}
+        </Typography.CaptionStrong>
+      </Box>
+      <Box w="2" />
+      <Box flexDirection="row">
+        <Icon size={16} name="ShieldCheckMini" />
+        <Box w="1" />
+        <Typography.CaptionStrong color="text-subdued">
+          {intl.formatMessage({
+            id: 'form__exact_amount_allowance',
+          })}
+        </Typography.CaptionStrong>
+      </Box>
+      <Box w="2" />
+      <Box flexDirection="row">
+        <Icon size={16} name="Square3Stack3Dmini" />
+        <Box w="1" />
+        <Typography.CaptionStrong color="text-subdued">
+          {intl.formatMessage({
+            id: 'form__anti_sandwich_attack',
+          })}
+        </Typography.CaptionStrong>
+      </Box>
+    </Box>
+  )
+}
+
 const SwapTexts = () => {
-  const intl = useIntl();
   const ref = useRef({ outer: 0, inner: [] as number[] });
   const animatedValue = useRef(new Animated.Value(0)).current;
-  const data = useMemo(
-    () => [
-      {
-        icon: 'RectangleGroupMini' as const,
-        text: intl.formatMessage({ id: 'form__cross_chain_swap' }),
-      },
-      {
-        icon: 'ShieldCheckMini' as const,
-        text: intl.formatMessage({ id: 'form__exact_amount_allowance' }),
-      },
-      {
-        icon: 'Square3Stack3Dmini' as const,
-        text: intl.formatMessage({ id: 'form__anti_sandwich_attack' }),
-      },
-    ],
-    [intl],
-  );
 
   const renderLayout = useCallback(() => {
     let innersWidth = ref.current.inner.reduce((a, b) => a + b, 0);
@@ -53,7 +71,7 @@ const SwapTexts = () => {
   }, [animatedValue]);
 
   return (
-    <Box>
+    <Box pb='4'>
       <Box px="4">
         <Divider />
       </Box>
@@ -73,11 +91,9 @@ const SwapTexts = () => {
           <Animated.View
             style={[{ transform: [{ translateX: animatedValue }] }]}
           >
-            <HStack flexDirection="row" space="4">
-              {data.map((item, i) => (
+            <HStack flexDirection="row" space="2">
+              {[1, 2, 3].map((item, i) => (
                 <Box
-                  key={item.icon}
-                  flexDirection="row"
                   onLayout={({
                     nativeEvent: {
                       layout: { width },
@@ -86,11 +102,7 @@ const SwapTexts = () => {
                     ref.current.inner[i] = width;
                   }}
                 >
-                  <Icon size={16} name={item.icon} />
-                  <Box w="1" />
-                  <Typography.CaptionStrong color="text-subdued">
-                    {item.text}
-                  </Typography.CaptionStrong>
+                  <SwapFeatureText />
                 </Box>
               ))}
             </HStack>
