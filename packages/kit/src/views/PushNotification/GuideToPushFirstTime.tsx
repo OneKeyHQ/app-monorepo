@@ -17,7 +17,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
@@ -64,7 +63,6 @@ const GuideToPushFirstTime: FC = () => {
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { wallets } = useEnabledAccountDynamicAccounts();
-  const { networkId } = useActiveWalletAccount();
 
   useEffect(() => {
     dispatch(setGuideToPushFistTime(true));
@@ -77,10 +75,7 @@ const GuideToPushFirstTime: FC = () => {
         if (count >= 50) {
           return;
         }
-        const accountCanSubscribe = await checkAccountCanSubscribe(
-          a,
-          networkId,
-        );
+        const accountCanSubscribe = await checkAccountCanSubscribe(a);
         if (accountCanSubscribe) {
           await serviceNotification.addAccountDynamic({
             // @ts-ignore
@@ -93,7 +88,7 @@ const GuideToPushFirstTime: FC = () => {
         }
       }
     }
-  }, [wallets, serviceNotification, networkId]);
+  }, [wallets, serviceNotification]);
 
   const onPrimaryActionPress = useCallback(
     async ({ close }: { close: () => void }) => {
