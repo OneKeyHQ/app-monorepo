@@ -20,7 +20,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
-import { useActiveWalletAccount, useNavigation } from '@onekeyhq/kit/src/hooks';
+import { useNavigation } from '@onekeyhq/kit/src/hooks';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -50,8 +50,7 @@ const Item: FC<{
 }> = ({ divider, account, onChange, checked, icon }) => {
   const [loading, setLoading] = useState(false);
 
-  const { network } = useActiveWalletAccount();
-  const canSubscribe = useAddressCanSubscribe(account, network?.id);
+  const canSubscribe = useAddressCanSubscribe(account);
 
   const handleChange = (value: boolean) => {
     setLoading(true);
