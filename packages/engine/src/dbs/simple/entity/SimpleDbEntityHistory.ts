@@ -3,13 +3,11 @@ import { uniqBy } from 'lodash';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import {
-  IDecodedTxAction,
-  IDecodedTxStatus,
-  IHistoryTx,
-} from '../../../vaults/types';
+import { IDecodedTxStatus } from '../../../vaults/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+
+import type { IDecodedTxAction, IHistoryTx } from '../../../vaults/types';
 
 export type ISimpleDbEntityHistoryData = {
   items: IHistoryTx[];

@@ -1,4 +1,5 @@
-import { FC, useEffect, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Animated, Text } from 'react-native';
 import RNTypeWriter from 'react-native-typewriter';

@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { HStack, Pressable } from '@onekeyhq/components';
 

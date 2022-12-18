@@ -1,5 +1,6 @@
 /* eslint-disable no-nested-ternary */
-import { FC, isValidElement } from 'react';
+import type { FC } from 'react';
+import { isValidElement } from 'react';
 
 import { Box, HStack, Pressable, Text } from '@onekeyhq/components';
 

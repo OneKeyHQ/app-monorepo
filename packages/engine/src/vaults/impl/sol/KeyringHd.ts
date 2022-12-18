@@ -1,24 +1,25 @@
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { PublicKey } from '@solana/web3.js';
 
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { signMessage, signTransaction } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

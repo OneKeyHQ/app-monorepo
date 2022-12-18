@@ -7,8 +7,8 @@ import { groupBy, keys } from 'lodash';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import {
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type {
   IEncodedTx,
   ISetApprovalForAll,
   ISignedTx,

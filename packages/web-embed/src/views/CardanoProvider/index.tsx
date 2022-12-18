@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 import { memo, useCallback, useEffect } from 'react';
 
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
 import { Box } from '@onekeyhq/components';
+
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const LibLoader = async () => import('cardano-coin-selection-asmjs');
 

@@ -1,4 +1,4 @@
-import { HasName } from './base';
+import type { HasName } from './base';
 
 export type DBDevice = HasName & {
   features: string;

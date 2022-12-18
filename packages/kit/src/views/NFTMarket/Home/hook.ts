@@ -7,8 +7,9 @@ import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useRuntime } from '../../../hooks/redux';
-import { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
+import { HomeRoutes } from '../../../routes/types';
 
+import type { HomeRoutesParams } from '../../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const ethNetwokId = OnekeyNetwork.eth;

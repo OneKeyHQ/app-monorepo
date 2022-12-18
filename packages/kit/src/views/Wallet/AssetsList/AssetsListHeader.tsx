@@ -1,4 +1,5 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,12 +14,14 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
+import type {
+  HomeRoutesParams,
+  RootRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
 import {
   HomeRoutes,
-  HomeRoutesParams,
   ModalRoutes,
   RootRoutes,
-  RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 

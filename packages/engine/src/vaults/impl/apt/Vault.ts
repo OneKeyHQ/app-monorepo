@@ -3,18 +3,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  TransactionStatus,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient, BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { get, groupBy, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
-import { Token } from '@onekeyhq/kit/src/store/typings';
+import type { Token } from '@onekeyhq/kit/src/store/typings';
 import {
   getTimeDurationMs,
   getTimeStamp,
@@ -32,26 +28,10 @@ import {
   OneKeyError,
   OneKeyInternalError,
 } from '../../../errors';
-import { DBSimpleAccount } from '../../../types/account';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
-  IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTx,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ISignedTx,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import {
   convertFeeGweiToValue,
@@ -65,7 +45,6 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IEncodedTxAptos } from './types';
 import {
   APTOS_COINSTORE,
   APTOS_NATIVE_COIN,
@@ -85,6 +64,28 @@ import {
   getTransactionTypeByPayload,
   waitPendingTransaction,
 } from './utils';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionTokenTransfer,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
+import type { IEncodedTxAptos } from './types';
+import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -817,7 +818,7 @@ export default class Vault extends VaultBase {
         const [coinType] = types;
 
         const from = get(tx, 'sender', undefined);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, no-unsafe-optional-chaining
         const [moveAddr] = func?.split('::');
 
         const actionType = getTransactionType(tx);

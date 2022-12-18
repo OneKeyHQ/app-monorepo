@@ -4,8 +4,9 @@ import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { MatchDAppItemType } from '../Explorer/explorerUtils';
-import { DAppItemType, WebSiteHistory } from '../type';
+
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { DAppItemType, WebSiteHistory } from '../type';
 
 export function useAllDapps(): DAppItemType[] {
   const dapps = useAppSelector((s) => s.discover.dappItems);
@@ -215,11 +216,11 @@ export function useCategories() {
 
 export function useShowBookmark() {
   const isApple = platformEnv.isNativeIOS || platformEnv.isMas;
-  const showFullLayout = useAppSelector((s) => s.discover.showBookmark);
+  const showBookmark = useAppSelector((s) => s.discover.showBookmark);
   return useMemo(() => {
     if (!isApple) {
       return true;
     }
-    return showFullLayout;
-  }, [showFullLayout, isApple]);
+    return showBookmark;
+  }, [showBookmark, isApple]);
 }

@@ -3,11 +3,11 @@
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { sign } from 'ripple-keypairs';
-import { TransactionMetadata, encode, encodeForSigning, hashes } from 'xrpl';
+import { encode, encodeForSigning, hashes } from 'xrpl';
 
 import { IDecodedTxStatus } from '../../types';
 
-import type { Transaction } from 'xrpl';
+import type { Transaction, TransactionMetadata } from 'xrpl';
 
 export function signature(
   transaction: Transaction,

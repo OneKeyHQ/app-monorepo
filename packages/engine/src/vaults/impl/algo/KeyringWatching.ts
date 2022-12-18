@@ -2,9 +2,10 @@ import * as sdk from 'algosdk';
 
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
+import type { DBSimpleAccount } from '../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {

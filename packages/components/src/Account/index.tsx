@@ -1,4 +1,4 @@
-import { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import Address from '../Address';
 import Avatar from '../Avatar';

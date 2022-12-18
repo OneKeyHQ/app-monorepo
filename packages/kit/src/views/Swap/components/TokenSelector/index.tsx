@@ -1,7 +1,7 @@
-import { FC, useCallback, useContext, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -16,9 +16,9 @@ import {
   ToggleButtonGroup,
   Token as TokenComponent,
 } from '@onekeyhq/components';
-import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
+import type { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import {
   useAppSelector,
@@ -33,6 +33,8 @@ import {
 
 import { TokenSelectorContext } from './context';
 import { EmptySkeleton } from './EmptySkeleton';
+
+import type { ListRenderItem } from 'react-native';
 
 type NetworkItemProp = ToggleButtonProps & { networkId?: string };
 
@@ -253,31 +255,25 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
   }
 
   return (
-    <>
-      <Modal
-        header={intl.formatMessage({ id: 'title__select_a_token' })}
-        height="560px"
-        footer={null}
-        hidePrimaryAction
-        flatListProps={{
-          data: dataSources,
-          // @ts-ignore
-          renderItem,
-          keyExtractor: (item) =>
-            `${(item as Token)?.tokenIdOnNetwork}:${
-              (item as Token)?.networkId
-            }`,
-          showsVerticalScrollIndicator: false,
-          ListEmptyComponent: (
-            <ListEmptyComponent isLoading={isLoading} terms={searchQuery} />
-          ),
-          ListHeaderComponent: (
-            <Header keyword={keyword} onChange={setKeyword} />
-          ),
-          mx: '-8px',
-        }}
-      />
-    </>
+    <Modal
+      header={intl.formatMessage({ id: 'title__select_a_token' })}
+      height="560px"
+      footer={null}
+      hidePrimaryAction
+      flatListProps={{
+        data: dataSources,
+        // @ts-ignore
+        renderItem,
+        keyExtractor: (item) =>
+          `${(item as Token)?.tokenIdOnNetwork}:${(item as Token)?.networkId}`,
+        showsVerticalScrollIndicator: false,
+        ListEmptyComponent: (
+          <ListEmptyComponent isLoading={isLoading} terms={searchQuery} />
+        ),
+        ListHeaderComponent: <Header keyword={keyword} onChange={setKeyword} />,
+        mx: '-8px',
+      }}
+    />
   );
 };
 

@@ -1,11 +1,10 @@
-import BigNumber from 'bignumber.js';
-import {
+import type { ITransferInfo } from '../../types';
+import type BigNumber from 'bignumber.js';
+import type {
   NonWitnessUtxo,
   RedeemScript,
   WitnessUtxo,
 } from 'bip174/src/lib/interfaces';
-
-import type { ITransferInfo } from '../../types';
 
 export enum AddressEncodings {
   P2PKH = 'P2PKH', // Legacy BIP-44

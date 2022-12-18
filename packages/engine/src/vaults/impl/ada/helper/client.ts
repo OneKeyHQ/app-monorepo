@@ -1,12 +1,12 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
-import { DBUTXOAccount } from '../../../../types/account';
-import { Token } from '../../../../types/token';
-import {
+import type { DBUTXOAccount } from '../../../../types/account';
+import type { Token } from '../../../../types/token';
+import type {
   IAdaAccount,
   IAdaAddress,
   IAdaAddressDetail,
@@ -16,6 +16,7 @@ import {
   IAdaUTXO,
   IAsset,
 } from '../types';
+import type { AxiosInstance } from 'axios';
 
 class Client {
   readonly request: AxiosInstance;

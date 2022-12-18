@@ -1,10 +1,5 @@
-import {
-  Dispatch,
-  SetStateAction,
-  createContext,
-  useContext,
-  useState,
-} from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type ITransactionSendContextData = {};
@@ -32,15 +27,17 @@ function TransactionSendContextProvider(
   //     ...ctx,
   //   }));
   // }, []);
+  const contextValue = useMemo(
+    () => ({
+      isTransactionSendFlow: true,
+      context,
+      setContext,
+    }),
+    [context],
+  );
 
   return (
-    <TransactionSendContext.Provider
-      value={{
-        isTransactionSendFlow: true,
-        context,
-        setContext,
-      }}
-    >
+    <TransactionSendContext.Provider value={contextValue}>
       {children}
     </TransactionSendContext.Provider>
   );

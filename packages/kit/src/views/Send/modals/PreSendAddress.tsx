@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
-import {
-  GoPlusAddressSecurity,
-  GoPlusSupportApis,
-} from '@onekeyhq/engine/src/types/goplus';
+import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
+import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
@@ -25,15 +23,15 @@ import NameServiceResolver, {
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { BaseSendModal } from '../components/BaseSendModal';
-import { SendRoutes, SendRoutesParams } from '../types';
+import { SendRoutes } from '../types';
+
+import type { ModalScreenProps } from '../../../routes/types';
+import type { SendRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 

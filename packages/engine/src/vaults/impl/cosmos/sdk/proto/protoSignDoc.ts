@@ -4,13 +4,10 @@ import Long from 'long';
 
 import { UnknownMessage } from '../message';
 
-import {
-  ProtoDecode,
-  UnpackedMessage,
-  defaultProtoDecodeRegistry,
-} from './protoDecode';
+import { defaultProtoDecodeRegistry } from './protoDecode';
 
 import type { SignDocHex } from '../../type';
+import type { ProtoDecode, UnpackedMessage } from './protoDecode';
 
 export class ProtoSignDoc {
   public static decode(bytes: Uint8Array): ProtoSignDoc {

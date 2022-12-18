@@ -1,7 +1,7 @@
-import { FC, useEffect, useRef } from 'react';
+import type { FC } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { IBoxProps } from 'native-base';
-import { Modalize, ModalizeProps } from 'react-native-modalize';
+import { Modalize } from 'react-native-modalize';
 
 import {
   Box,
@@ -12,12 +12,15 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
-import {
-  CloseBackDrop,
+import type { ModalProps } from '@onekeyhq/components/src/Modal';
+import type {
   IDropdownPosition,
   SelectProps,
 } from '@onekeyhq/components/src/Select';
+import { CloseBackDrop } from '@onekeyhq/components/src/Select';
+
+import type { IBoxProps } from 'native-base';
+import type { ModalizeProps } from 'react-native-modalize';
 
 const ModalizedPanel: FC<{
   closeOverlay: () => void;

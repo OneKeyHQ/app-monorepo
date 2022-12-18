@@ -1,4 +1,4 @@
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 

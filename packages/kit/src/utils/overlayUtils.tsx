@@ -1,4 +1,5 @@
-import { ReactElement, createContext } from 'react';
+import type { ReactElement } from 'react';
+import { createContext } from 'react';
 
 import RootSiblings from 'react-native-root-siblings';
 

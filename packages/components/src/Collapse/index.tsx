@@ -1,19 +1,15 @@
-import {
-  ComponentProps,
-  ReactNode,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { MotiView } from 'moti';
 import { HStack, Pressable } from 'native-base';
 import Collapsible from 'react-native-collapsible';
-import { GestureResponderEvent } from 'react-native-modal/dist/types';
 
 import { Box } from '@onekeyhq/components';
 
 import Icon from '../Icon';
+
+import type { GestureResponderEvent } from 'react-native-modal/dist/types';
 
 type CollapseProps = {
   trigger?: ReactNode;
@@ -85,12 +81,10 @@ const Collapse = ({
   ]);
 
   return (
-    <>
-      <Box {...rest}>
-        {triggerView}
-        <Collapsible collapsed={collapsed}>{children}</Collapsible>
-      </Box>
-    </>
+    <Box {...rest}>
+      {triggerView}
+      <Collapsible collapsed={collapsed}>{children}</Collapsible>
+    </Box>
   );
 };
 

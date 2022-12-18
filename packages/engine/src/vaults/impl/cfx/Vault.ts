@@ -5,13 +5,8 @@ import {
 } from '@conflux-dev/conflux-address-js';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
-import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { Conflux, address as confluxAddress } from 'js-conflux-sdk';
@@ -26,27 +21,13 @@ import {
   OneKeyInternalError,
 } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
-import { Account, DBAccount, DBVariantAccount } from '../../../types/account';
-import { Token } from '../../../types/token';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import { DBAccount } from '../../../types/account';
 import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
   IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTx,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
   IEncodedTxUpdateType,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
   ISignCredentialOptions,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import {
   convertFeeGweiToValue,
@@ -59,16 +40,34 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import {
-  IEncodedTxCfx,
-  IOnChainTransferType,
-  ITxOnChainHistoryResp,
-} from './types';
+import { IOnChainTransferType } from './types';
 import {
   getApiExplorerTransferType,
   getTransactionStatus,
   parseTransaction,
 } from './utils';
+
+import type { Account, DBVariantAccount } from '../../../types/account';
+import type { Token } from '../../../types/token';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
+import type { IEncodedTxCfx, ITxOnChainHistoryResp } from './types';
+import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const TOKEN_TRANSFER_FUNCTION_SIGNATURE = '0xa9059cbb';
 const TOKEN_APPROVE_FUNCTION_SIGNATURE = '0x095ea7b3';

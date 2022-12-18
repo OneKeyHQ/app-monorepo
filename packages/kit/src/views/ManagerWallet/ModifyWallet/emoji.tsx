@@ -1,6 +1,7 @@
-import { FC, memo, useCallback, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { chunk } from 'lodash';
 
@@ -16,11 +17,14 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
-import {
+import type {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import { EmojiTypes, colors, emojiList } from '@onekeyhq/shared/src/emojiUtils';
+import type { EmojiTypes } from '@onekeyhq/shared/src/emojiUtils';
+import { colors, emojiList } from '@onekeyhq/shared/src/emojiUtils';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManagerWalletRoutesParams,

@@ -1,9 +1,7 @@
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import {
   Children,
-  ComponentProps,
   Fragment,
-  ReactElement,
-  ReactNode,
   cloneElement,
   isValidElement,
   useMemo,

@@ -1,7 +1,7 @@
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
 import { Box } from '@onekeyhq/components';
-import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
 type Props = {
   backgroundColor: ThemeToken;

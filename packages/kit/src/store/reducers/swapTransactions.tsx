@@ -1,8 +1,9 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type { TransactionDetails } from '../../views/Swap/typings';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 type TokenListItem = {
   name: string;

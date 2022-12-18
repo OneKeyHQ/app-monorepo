@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, SectionListRenderItem } from 'react-native';
 
 import {
   Badge,
@@ -22,16 +21,19 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
 import { useAppSelector } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
-import { Contact } from '../../../store/reducers/contacts';
-import { AddressBookRoutes, AddressBookRoutesParams } from '../routes';
+import { AddressBookRoutes } from '../routes';
 
+import type { Contact } from '../../../store/reducers/contacts';
+import type { AddressBookRoutesParams } from '../routes';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ListRenderItem, SectionListRenderItem } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   AddressBookRoutesParams,

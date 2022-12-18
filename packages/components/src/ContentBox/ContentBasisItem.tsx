@@ -4,11 +4,12 @@ import { Center } from 'native-base';
 
 import Box from '../Box';
 import Divider from '../Divider';
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import IconButton from '../IconButton';
 import PressableItem from '../Pressable/PressableItem';
 import Typography, { Text } from '../Typography';
 
+import type { ICON_NAMES } from '../Icon';
 import type { ContentItemBaseProps } from './Container';
 import type { ColorType } from 'native-base/lib/typescript/components/types';
 

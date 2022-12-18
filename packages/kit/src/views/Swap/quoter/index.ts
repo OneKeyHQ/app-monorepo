@@ -2,18 +2,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  BuildTransactionParams,
-  BuildTransactionResponse,
-  FetchQuoteParams,
-  FetchQuoteResponse,
-  QuoteLimited,
-  Quoter,
-  QuoterType,
-  TransactionData,
-  TransactionDetails,
-  TransactionProgress,
-} from '../typings';
+import { QuoterType } from '../typings';
 import { getTokenAmountString, nativeTokenAddress } from '../utils';
 
 import { SimpleQuoter } from './0x';
@@ -21,6 +10,18 @@ import { JupiterQuoter } from './jupiter';
 import { MdexQuoter } from './mdex';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
+
+import type {
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  FetchQuoteResponse,
+  QuoteLimited,
+  Quoter,
+  TransactionData,
+  TransactionDetails,
+  TransactionProgress,
+} from '../typings';
 
 type TransactionOrder = {
   platformAddr: string;

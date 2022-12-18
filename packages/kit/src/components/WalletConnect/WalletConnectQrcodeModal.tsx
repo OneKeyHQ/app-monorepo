@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { ImageSourcePropType, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -22,16 +21,19 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LogoWalletConnect from '../../../assets/onboarding/logo_walletconnect.png';
-import { CreateWalletModalRoutes } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 import { useConnectExternalWallet } from '../../views/ExternalAccount/useConnectExternalWallet';
 
-import { WalletService } from './types';
 import { useMobileRegistryOfWalletServices } from './useMobileRegistryOfWalletServices';
-import { IConnectToWalletResult } from './useWalletConnectQrcodeModal';
 import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from './walletConnectConsts';
 
 import type { CreateWalletRoutesParams } from '../../routes';
+import type { CreateWalletModalRoutes } from '../../routes/routesEnum';
+import type { WalletService } from './types';
+import type { IConnectToWalletResult } from './useWalletConnectQrcodeModal';
+import type { RouteProp } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { ImageSourcePropType } from 'react-native';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NavigationProps = StackNavigationProp<

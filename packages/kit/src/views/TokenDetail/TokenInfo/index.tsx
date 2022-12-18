@@ -1,4 +1,5 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,7 +12,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
+import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
   useActiveWalletAccount,
@@ -22,12 +23,9 @@ import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
-import { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import type { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import { ManageTokenRoutes } from '../../ManageTokens/types';

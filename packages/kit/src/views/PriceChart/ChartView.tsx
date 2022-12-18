@@ -1,9 +1,11 @@
-import { FC, memo } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import { useThemeValue } from '@onekeyhq/components';
 
-import { ChartViewProps } from './chartService';
 import ChartViewAdapter from './ChartViewAdapter';
+
+import type { ChartViewProps } from './chartService';
 
 const ChartView: FC<ChartViewProps> = ({
   data,

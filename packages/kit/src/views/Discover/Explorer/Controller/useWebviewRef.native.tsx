@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
-import { OnWebviewNavigation } from '../explorerUtils';
-
+import type { OnWebviewNavigation } from '../explorerUtils';
 import type { WebView } from 'react-native-webview';
 
 export const useWebviewRef = ({

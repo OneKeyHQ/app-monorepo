@@ -1,6 +1,7 @@
-import { ComponentProps, FC, memo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { memo } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,8 +12,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { HomeRoutes } from '../../../../routes/routesEnum';
-import { HomeRoutesParams } from '../../../../routes/types';
 import AssetsList from '../AssetsList';
 import CollectionInfo from '../CollectionInfo';
 import { useCollectionDetailContext } from '../context';
@@ -20,6 +19,10 @@ import TransactionList, {
   ListHeader as TransactionListHeader,
 } from '../TransactionList';
 import { TabEnum } from '../type';
+
+import type { HomeRoutes } from '../../../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../../../routes/types';
+import type { RouteProp } from '@react-navigation/core';
 
 const MemoCollectionInfo = memo(CollectionInfo);
 

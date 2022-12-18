@@ -2,10 +2,7 @@
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import {
   Coin,
-  GetObjectDataResponse,
   JsonRpcProvider,
-  SuiMoveObject,
-  SuiObject,
   getMoveObject,
   getObjectExistsResponse,
   isGetObjectDataResponse,
@@ -15,6 +12,11 @@ import { get } from 'lodash';
 import { Nft } from './NFT';
 
 import type { CoinObject, NftObject } from '../types';
+import type {
+  GetObjectDataResponse,
+  SuiMoveObject,
+  SuiObject,
+} from '@mysten/sui.js';
 
 function getCoinObject(obj: SuiMoveObject): CoinObject {
   const arg = Coin.getCoinTypeArg(obj);

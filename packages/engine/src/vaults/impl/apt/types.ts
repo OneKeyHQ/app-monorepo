@@ -9,7 +9,9 @@
  * Module:{ code: Bytes }
  */
 
-import { BCS, TxnBuilderTypes } from 'aptos';
+import { TxnBuilderTypes } from 'aptos';
+
+import type { BCS } from 'aptos';
 
 // TODO: add more types
 export type PayloadType = 'entry_function_payload';

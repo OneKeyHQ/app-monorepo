@@ -1,9 +1,10 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box, Typography, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { SwappingViaLogos } from '../components/SwappingVia';
-import { Provider } from '../typings';
+
+import type { Provider } from '../typings';
 
 type LiquiditySourcesProps = {
   providers?: Provider[];

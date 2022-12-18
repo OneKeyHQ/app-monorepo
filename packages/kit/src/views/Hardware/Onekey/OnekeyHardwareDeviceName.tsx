@@ -1,6 +1,7 @@
-import { FC, memo, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -18,15 +19,17 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
-import {
+import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { deviceUtils, getDeviceType } from '@onekeyhq/kit/src/utils/hardware';
-import {
+import type {
   IOneKeyDeviceFeatures,
   IOneKeyDeviceType,
 } from '@onekeyhq/shared/types';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type FieldValues = { name: string };
 
@@ -117,50 +120,48 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
   );
 
   return (
-    <>
-      <KeyboardDismissView px={{ base: 4, md: 6 }}>
-        {ImageView}
-        <Form mt="3" mb="2">
-          <Form.Item
-            name="name"
-            control={control}
-            rules={{
-              maxLength: {
-                value: 16,
-                message: intl.formatMessage({
-                  id: 'msg__exceeding_the_maximum_word_limit',
-                }),
-              },
-            }}
-          >
-            <Form.Input size="xl" autoFocus />
-          </Form.Item>
-        </Form>
-        <Typography.Body2 color="text-subdued">
-          {intl.formatMessage({
-            id: 'form__wallet_name_help_text',
-          })}
-        </Typography.Body2>
-        <Button
-          mt="6"
-          type="primary"
-          size="xl"
-          isLoading={loading}
-          onPress={onSubmit}
+    <KeyboardDismissView px={{ base: 4, md: 6 }}>
+      {ImageView}
+      <Form mt="3" mb="2">
+        <Form.Item
+          name="name"
+          control={control}
+          rules={{
+            maxLength: {
+              value: 16,
+              message: intl.formatMessage({
+                id: 'msg__exceeding_the_maximum_word_limit',
+              }),
+            },
+          }}
         >
-          {intl.formatMessage({
-            id: 'action__done',
-          })}
-        </Button>
-      </KeyboardDismissView>
-    </>
+          <Form.Input size="xl" autoFocus />
+        </Form.Item>
+      </Form>
+      <Typography.Body2 color="text-subdued">
+        {intl.formatMessage({
+          id: 'form__wallet_name_help_text',
+        })}
+      </Typography.Body2>
+      <Button
+        mt="6"
+        type="primary"
+        size="xl"
+        isLoading={loading}
+        onPress={onSubmit}
+      >
+        {intl.formatMessage({
+          id: 'action__done',
+        })}
+      </Button>
+    </KeyboardDismissView>
   );
 };
 
 const OnekeyHardwareDeviceNameModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId } = route?.params;
+  const { walletId } = route?.params || {};
 
   return (
     <Modal

@@ -1,9 +1,9 @@
-import { TokenSchema, WalletSchema } from '.';
-
 import Realm from 'realm';
 
-import {
-  AccountType,
+import { AccountType } from '../../../types/account';
+
+import type { TokenSchema, WalletSchema } from '.';
+import type {
   DBAccount,
   DBSimpleAccount,
   DBUTXOAccount,

@@ -1,12 +1,14 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
-import { NetworkList, networkList } from '@onekeyfe/network-list';
+import { networkList } from '@onekeyfe/network-list';
 import axios from 'axios';
 
-import { PresetNetwork } from '../types/network';
+import { REMOTE_URL, checkVersion } from './base';
 
-import { REMOTE_URL, Version, checkVersion } from './base';
+import type { PresetNetwork } from '../types/network';
+import type { Version } from './base';
+import type { NetworkList } from '@onekeyfe/network-list';
 
 // TODO: desc order is expected in network list
 

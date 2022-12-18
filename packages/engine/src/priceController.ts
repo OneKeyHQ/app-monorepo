@@ -3,7 +3,7 @@ import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/res
 import BigNumber from 'bignumber.js';
 import lru from 'tiny-lru';
 
-import { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 
 import { getFiatEndpoint } from './endpoint';
 import { getPresetNetworks } from './presets';

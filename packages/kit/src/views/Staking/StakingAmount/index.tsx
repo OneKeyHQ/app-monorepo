@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet, useWindowDimensions } from 'react-native';
@@ -21,7 +21,7 @@ import {
   useToast,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import KeleLogoPNG from '../../../../assets/staking/kele_pool.png';
@@ -41,7 +41,10 @@ import { useTokenInfo } from '../../../hooks/useTokenInfo';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
-import { StakingRoutes, StakingRoutesParams } from '../typing';
+import { StakingRoutes } from '../typing';
+
+import type { StakingRoutesParams } from '../typing';
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
 

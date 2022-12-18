@@ -1,6 +1,7 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
-import { Network } from '../typings';
+import type { Network } from '../typings';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 type InitialState = {
   network: Network[] | null;

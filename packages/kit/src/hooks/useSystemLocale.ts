@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
 import { getDefaultLocale } from '../utils/locale';
+
+import type { AppStateStatus } from 'react-native';
 
 export function useSystemLocale() {
   const appState = useRef(AppState.currentState);

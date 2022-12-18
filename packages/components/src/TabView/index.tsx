@@ -1,16 +1,17 @@
-import { FC, ReactNode, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useState } from 'react';
 
 import { Box } from 'native-base';
 import { StyleSheet, useWindowDimensions } from 'react-native';
-import {
-  NavigationState,
-  TabView as RNTabView,
-  SceneRendererProps,
-  TabBar,
-  Route as TabViewRoute,
-} from 'react-native-tab-view';
+import { TabView as RNTabView, TabBar } from 'react-native-tab-view';
 
 import { useThemeValue } from '../Provider/hooks';
+
+import type {
+  NavigationState,
+  SceneRendererProps,
+  Route as TabViewRoute,
+} from 'react-native-tab-view';
 
 type State = NavigationState<TabViewRoute>;
 

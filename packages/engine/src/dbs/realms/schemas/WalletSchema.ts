@@ -1,10 +1,9 @@
-import { AccountSchema, DeviceSchema } from '.';
-
 import Realm from 'realm';
 
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 
-import { Wallet, WalletType } from '../../../types/wallet';
+import type { AccountSchema, DeviceSchema } from '.';
+import type { Wallet, WalletType } from '../../../types/wallet';
 
 class WalletSchema extends Realm.Object {
   public id!: string;

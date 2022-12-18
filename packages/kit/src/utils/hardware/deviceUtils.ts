@@ -1,24 +1,12 @@
-import {
-  IDeviceType,
-  SearchDevice,
-  Success,
-  Unsuccessful,
-} from '@onekeyfe/hd-core';
-import {
-  Deferred,
-  HardwareErrorCode,
-  createDeferred,
-} from '@onekeyfe/hd-shared';
-import BleManager from 'react-native-ble-manager';
+/* eslint-disable no-promise-executor-return */
+import { HardwareErrorCode, createDeferred } from '@onekeyfe/hd-shared';
 import semver from 'semver';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { Toast as ToastManager } from '@onekeyhq/components/src/Toast/useToast';
-import {
-  OneKeyErrorClassNames,
-  OneKeyHardwareError,
-} from '@onekeyhq/engine/src/errors';
+import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
@@ -26,11 +14,19 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import showHardwarePopup, {
   CUSTOM_UI_RESPONSE,
-  HardwarePopup,
 } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 import * as Error from './errors';
 import { getHardwareSDKInstance } from './hardwareInstance';
+
+import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import type {
+  IDeviceType,
+  SearchDevice,
+  Success,
+  Unsuccessful,
+} from '@onekeyfe/hd-core';
+import type { Deferred } from '@onekeyfe/hd-shared';
 
 type IPollFn<T> = (time?: number, index?: number) => T;
 
@@ -51,7 +47,7 @@ class DeviceUtils {
 
   checkBonded = false;
 
-  bleManager?: typeof BleManager;
+  bleManager?: typeof import('react-native-ble-manager');
 
   async getSDKInstance() {
     return getHardwareSDKInstance();
@@ -59,11 +55,14 @@ class DeviceUtils {
 
   getBleManager() {
     if (!platformEnv.isNative) return null;
-    if (this.bleManager) {
-      return Promise.resolve(this.bleManager);
+    if (!this.bleManager) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const BleManager = require('react-native-ble-manager')
+        .default as typeof import('react-native-ble-manager');
+      BleManager.start({ showAlert: false });
+      this.bleManager = BleManager;
     }
-    BleManager.start({ showAlert: false });
-    this.bleManager = BleManager;
+    return this.bleManager;
   }
 
   startDeviceScan(
@@ -193,7 +192,7 @@ class DeviceUtils {
   }
 
   async getBondedDevices() {
-    const bleManager = await this.getBleManager();
+    const bleManager = this.getBleManager();
     if (!bleManager) {
       return [];
     }

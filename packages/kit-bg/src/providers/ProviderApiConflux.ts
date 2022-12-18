@@ -1,19 +1,14 @@
 /* eslint-disable camelcase */
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
-import VaultConflux, {
-  IEncodedTxCfx,
-} from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
+import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
+import type { IEncodedTxCfx } from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
+import type VaultConflux from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -23,9 +18,13 @@ import {
 import { IMPL_CFX } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 export type WatchAssetParameters = {
   type: string;

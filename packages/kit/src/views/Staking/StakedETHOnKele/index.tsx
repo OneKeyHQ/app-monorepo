@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { format as dateFormat } from 'date-fns';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Alert,
@@ -19,7 +18,7 @@ import {
   Stack,
   Typography,
 } from '@onekeyhq/components';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import EthLogo from '../../../../assets/staking/eth_logo.png';
 import KeleLogoPNG from '../../../../assets/staking/kele_pool.png';
@@ -29,7 +28,10 @@ import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { useAccountStakingActivity, useKelePoolStakingState } from '../hooks';
-import { StakingRoutes, StakingRoutesParams } from '../typing';
+import { StakingRoutes } from '../typing';
+
+import type { StakingRoutesParams } from '../typing';
+import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 

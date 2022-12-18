@@ -4,7 +4,6 @@ import { cloneDeep } from 'lodash';
 import { Image } from 'native-base';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -18,7 +17,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { DappSiteConnection } from '@onekeyhq/kit/src/store/reducers/dapp';
+import type { DappSiteConnection } from '@onekeyhq/kit/src/store/reducers/dapp';
 import {
   IMPL_ALGO,
   IMPL_CFX,
@@ -36,6 +35,8 @@ import { showOverlay } from '../../utils/overlayUtils';
 
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
+
+import type { ListRenderItem } from 'react-native';
 
 const parseConnectionsSite = (connections: DappSiteConnection[]) => {
   // remove repeat & sort & add hostname
@@ -197,10 +198,12 @@ export default function ConnectedSites() {
           bgColor="surface-default"
           borderTopRadius={index === 0 ? '12px' : '0px'}
           borderRadius={
+            // eslint-disable-next-line no-unsafe-optional-chaining
             index === parsedConnections?.length - 1 ? '12px' : '0px'
           }
           borderWidth={1}
           borderTopWidth={index === 0 ? 1 : 0}
+          // eslint-disable-next-line no-unsafe-optional-chaining
           borderBottomWidth={index === parsedConnections?.length - 1 ? 1 : 0}
           borderColor="border-subdued"
         >

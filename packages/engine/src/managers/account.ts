@@ -3,7 +3,7 @@ import { isEmpty } from 'lodash';
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../errors';
-import { Account, AccountType } from '../types/account';
+import { AccountType } from '../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -14,6 +14,8 @@ import {
 
 import { isCoinTypeCompatibleWithImpl } from './impl';
 import { parseNetworkId } from './network';
+
+import type { Account } from '../types/account';
 
 function getCoinTypeFromAccountId(accountId: string): string {
   if (

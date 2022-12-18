@@ -1,4 +1,5 @@
-import { FC, useEffect, useLayoutEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -15,16 +16,16 @@ import type { IBackupItemSummary } from '@onekeyhq/shared/src/services/ServiceCl
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
-import {
-  HomeRoutes,
-  HomeRoutesParams,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../../../routes/types';
+import { HomeRoutes } from '../../../../routes/types';
 
 import BackupSummary from './BackupSummary';
 import Wrapper from './Wrapper';
 
+import type {
+  HomeRoutesParams,
+  RootRoutes,
+  RootRoutesParams,
+} from '../../../../routes/types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

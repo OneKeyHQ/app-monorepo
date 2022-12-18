@@ -1,11 +1,7 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  useIsFocused,
-  useRoute,
-} from '@react-navigation/core';
+import { useIsFocused, useRoute } from '@react-navigation/core';
 import { Camera as ExpoCamera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
@@ -29,7 +25,10 @@ import { handleScanResult } from '../../utils/gotoScanQrcode';
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
 import SvgScanArea from './SvgScanArea';
-import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
+import { ScanQrcodeRoutes } from './types';
+
+import type { ScanQrcodeRoutesParams } from './types';
+import type { NavigationProp, RouteProp } from '@react-navigation/core';
 
 const { isWeb, isNative: isApp } = platformEnv;
 

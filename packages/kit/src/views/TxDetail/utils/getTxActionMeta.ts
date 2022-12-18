@@ -39,7 +39,8 @@ import {
   TxActionTransferT0,
   getTxActionTransferInfo,
 } from '../TxAction/TxActionTransfer';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionMeta,
   ITxActionMetaComponents,

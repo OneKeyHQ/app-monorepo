@@ -1,10 +1,11 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { MessageDescriptor, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
+import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
-  ICON_NAMES,
   Icon,
   Text,
   useIsVerticalLayout,
@@ -21,9 +22,9 @@ import { showOverlay } from '../../../utils/overlayUtils';
 import { DiscoverModalRoutes } from '../../Discover/type';
 import { OverlayPanel } from '../OverlayPanel';
 
-import { ShowMenuProps } from './type';
-
 import type { MatchDAppItemType } from '../../Discover/Explorer/explorerUtils';
+import type { ShowMenuProps } from './type';
+import type { MessageDescriptor } from 'react-intl';
 
 const DiscoverFavoriteMenu: FC<{
   closeOverlay: () => void;

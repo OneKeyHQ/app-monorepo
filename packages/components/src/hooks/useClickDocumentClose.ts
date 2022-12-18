@@ -2,8 +2,6 @@ import { useEffect, useMemo } from 'react';
 
 import uuid from 'react-native-uuid';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 function domContains(root: HTMLElement, n: HTMLElement) {
   let node = n;
   while (node) {
@@ -15,7 +13,7 @@ function domContains(root: HTMLElement, n: HTMLElement) {
   return false;
 }
 
-function useDomID(name: string) {
+export function useDomID(name: string) {
   const domId = useMemo(() => `${name}-${uuid.v4() as string}`, [name]);
   return { domId };
 }
@@ -29,7 +27,7 @@ export default function useClickDocumentClose({
   visible: boolean;
   toggleVisible?: (...args: any) => any;
 }): { domId: string } {
-  const domId = useMemo(() => `${name}-${uuid.v4() as string}`, [name]);
+  const { domId } = useDomID(name);
 
   useEffect(() => {
     const documentClick = (event: MouseEvent) => {
@@ -56,17 +54,11 @@ export default function useClickDocumentClose({
         toggleVisible();
       }, 150);
     };
-    if (platformEnv.isRuntimeBrowser) {
-      window.addEventListener('click', documentClick);
-    }
+    window.addEventListener('click', documentClick);
     return () => {
-      if (platformEnv.isRuntimeBrowser) {
-        window.removeEventListener('click', documentClick);
-      }
+      window.removeEventListener('click', documentClick);
     };
   }, [domId, toggleVisible, visible]);
 
   return { domId };
 }
-
-export { useDomID };

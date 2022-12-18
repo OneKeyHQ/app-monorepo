@@ -1,9 +1,10 @@
 import { NotImplemented } from '../../../errors';
-import { IEncodedTx, INativeTx, IRawTx } from '../../types';
 import { VaultHelperBase } from '../../VaultHelperBase';
 
-import { IEncodedTxNear, INativeTxNear } from './types';
 import { deserializeTransaction } from './utils';
+
+import type { IEncodedTx, INativeTx, IRawTx } from '../../types';
+import type { IEncodedTxNear, INativeTxNear } from './types';
 
 export default class VaultHelper extends VaultHelperBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -1,6 +1,6 @@
-import { Collection } from '../../../types/nft';
-
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+
+import type { Collection } from '../../../types/nft';
 
 export type ISimpleDbEntityNFTData = Record<string, Collection[]>;
 

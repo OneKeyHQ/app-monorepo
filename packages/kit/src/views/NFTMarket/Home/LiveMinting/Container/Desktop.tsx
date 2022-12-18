@@ -4,7 +4,6 @@ import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem } from '@onekeyhq/components';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -15,6 +14,8 @@ import { PriceString } from '../../../PriceText';
 import { useCollectionDetail } from '../../hook';
 import EmptyView from '../../Stats/EmptyView';
 import { useLiveMintContext } from '../context';
+
+import type { ListRenderItem } from 'react-native';
 
 const ListHeaderComponent = () => {
   const intl = useIntl();

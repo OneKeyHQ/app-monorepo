@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 
 import { ResourceSavingView } from '@react-navigation/elements';
-import { StyleProp, View, ViewProps, ViewStyle } from 'react-native';
+import { View } from 'react-native';
+
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
 type Props = {
   visible: boolean;

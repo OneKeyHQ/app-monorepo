@@ -1,12 +1,11 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import NFTSearchModal from '../../views/NFTMarket/NFTSearchModal';
-import {
-  SearchNFTCollectionRoutes,
-  SearchNFTCollectionRoutesParams,
-} from '../../views/NFTMarket/NFTSearchModal/type';
+import { SearchNFTCollectionRoutes } from '../../views/NFTMarket/NFTSearchModal/type';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { SearchNFTCollectionRoutesParams } from '../../views/NFTMarket/NFTSearchModal/type';
 
 const SearchNFTCollectionNavigator =
   createStackNavigator<SearchNFTCollectionRoutesParams>();

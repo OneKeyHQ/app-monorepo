@@ -1,6 +1,7 @@
-import { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { BlurView } from 'expo-blur';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -28,21 +29,18 @@ import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/Na
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   getActiveWalletAccount,
   useActiveWalletAccount,
 } from '@onekeyhq/kit/src/hooks/redux';
-import {
+import type {
   CollectiblesModalRoutes,
   CollectiblesRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -53,6 +51,8 @@ import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
 
 import CollectibleContent from './CollectibleContent';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
@@ -363,43 +363,41 @@ const NFTDetailModal: FC = () => {
               {intl.formatMessage({ id: 'content__attributes' })}
             </Typography.Heading>
             {platformEnv.isNative ? (
-              <>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  mb="-8px"
-                  mx="-16px"
-                  pl="16px"
-                >
-                  {asset.assetAttributes.map((trait, index) => (
-                    <Box
-                      key={`${trait.attribute_name}-${index}`}
-                      px="12px"
-                      py="8px"
-                      mr="8px"
-                      mb="8px"
-                      bgColor="surface-neutral-subdued"
-                      borderRadius="12px"
-                    >
-                      <HStack justifyContent="space-between" mb="4px">
-                        <Typography.Caption
-                          mr="12px"
-                          numberOfLines={1}
-                          color="text-subdued"
-                        >
-                          {trait.attribute_name}
-                        </Typography.Caption>
-                        <Typography.Caption color="text-success">
-                          {trait.percentage}
-                        </Typography.Caption>
-                      </HStack>
-                      <Typography.Body2Strong>
-                        {trait.attribute_value}
-                      </Typography.Body2Strong>
-                    </Box>
-                  ))}
-                </ScrollView>
-              </>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                mb="-8px"
+                mx="-16px"
+                pl="16px"
+              >
+                {asset.assetAttributes.map((trait, index) => (
+                  <Box
+                    key={`${trait.attribute_name}-${index}`}
+                    px="12px"
+                    py="8px"
+                    mr="8px"
+                    mb="8px"
+                    bgColor="surface-neutral-subdued"
+                    borderRadius="12px"
+                  >
+                    <HStack justifyContent="space-between" mb="4px">
+                      <Typography.Caption
+                        mr="12px"
+                        numberOfLines={1}
+                        color="text-subdued"
+                      >
+                        {trait.attribute_name}
+                      </Typography.Caption>
+                      <Typography.Caption color="text-success">
+                        {trait.percentage}
+                      </Typography.Caption>
+                    </HStack>
+                    <Typography.Body2Strong>
+                      {trait.attribute_value}
+                    </Typography.Body2Strong>
+                  </Box>
+                ))}
+              </ScrollView>
             ) : (
               <Box flexDirection="row" flexWrap="wrap" mb="-8px" mr="-8px">
                 {asset.assetAttributes.map((trait, index) => (

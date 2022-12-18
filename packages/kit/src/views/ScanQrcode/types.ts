@@ -1,8 +1,8 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-import { StyleProp, ViewStyle } from 'react-native';
+import type { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 
-import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 export enum ScanSubResultCategory {
   URL = 'url',

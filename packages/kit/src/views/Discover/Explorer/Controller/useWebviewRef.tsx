@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  OnWebviewNavigation,
-  crossWebviewLoadUrl,
-  getWebviewWrapperRef,
-} from '../explorerUtils';
+import { crossWebviewLoadUrl, getWebviewWrapperRef } from '../explorerUtils';
+
+import type { OnWebviewNavigation } from '../explorerUtils';
+import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
 export const useWebviewRef = ({
   ref,

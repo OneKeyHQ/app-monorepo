@@ -9,9 +9,9 @@ import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { OnHoverFunction } from '../chartService';
-
 import ExtremeLabels from './ExtremeLabels';
+
+import type { OnHoverFunction } from '../chartService';
 
 export const { width: WIDTH } = Dimensions.get('window');
 

@@ -1,27 +1,28 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import {
-  IPrepareSoftwareAccountsParams,
-  ISignCredentialOptions,
-} from '../../types';
 
 import { getPathIndex, getXprvString } from './helper/bip32';
 import { getCardanoApi } from './helper/sdk';
 import { batchGetShelleyAddresses } from './helper/shelley-address';
-import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
+import { NetworkId } from './types';
 
+import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { DBUTXOAccount } from '../../../types/account';
+import type {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
+import type { IAdaUTXO, IEncodedTxADA } from './types';
 import type Vault from './Vault';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(

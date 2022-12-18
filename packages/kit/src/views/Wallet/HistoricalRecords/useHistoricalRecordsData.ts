@@ -2,10 +2,10 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Account } from '@onekeyhq/engine/src/types/account';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import { TxStatus } from '@onekeyhq/engine/src/types/covalent';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';

@@ -6,11 +6,6 @@ import { Buffer } from 'buffer';
 
 import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
-import {
-  BaseClient,
-  BaseProvider,
-  ClientFilter,
-} from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
 import {
   N,
@@ -18,16 +13,7 @@ import {
   uncompressPublicKey,
 } from '@onekeyfe/blockchain-libs/dist/secret';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { ChainInfo } from '@onekeyfe/blockchain-libs/dist/types/chain';
-import {
-  TransactionStatus,
-  TxInput,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import {
-  Signer as ISigner,
-  Verifier as IVerifier,
-} from '@onekeyfe/blockchain-libs/dist/types/secret';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -50,10 +36,25 @@ import {
 import { OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
 import { getPresetNetworks } from './presets';
-import { DBAccount, DBSimpleAccount } from './types/account';
 import { HistoryEntryStatus } from './types/history';
-import { DBNetwork, EIP1559Fee, Network } from './types/network';
-import { Token } from './types/token';
+
+import type { DBAccount, DBSimpleAccount } from './types/account';
+import type { DBNetwork, EIP1559Fee, Network } from './types/network';
+import type { Token } from './types/token';
+import type {
+  BaseClient,
+  BaseProvider,
+  ClientFilter,
+} from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type { ChainInfo } from '@onekeyfe/blockchain-libs/dist/types/chain';
+import type {
+  TxInput,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type {
+  Signer as ISigner,
+  Verifier as IVerifier,
+} from '@onekeyfe/blockchain-libs/dist/types/secret';
 
 // IMPL naming aren't necessarily the same.
 export const IMPL_MAPPINGS: Record<

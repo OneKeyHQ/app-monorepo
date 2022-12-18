@@ -1,5 +1,5 @@
+import type { FC } from 'react';
 import {
-  FC,
   useCallback,
   useContext,
   useLayoutEffect,
@@ -9,7 +9,6 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -27,12 +26,13 @@ import { useNavigation } from '../../../hooks';
 import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
 import DAppIcon from '../DAppIcon';
-import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { useDiscoverFavorites, useDiscoverHistory } from '../hooks';
 
 import { MyDAppListContext } from './context';
 
 import type { ShowMenuProps } from '../../Overlay/Discover/type';
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { ListRenderItem } from 'react-native';
 
 type RenderItemProps = { item: MatchDAppItemType; callback: ShowMenuProps };
 

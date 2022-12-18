@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
-import { NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
+import type { FontProps } from '@onekeyhq/components/src/Typography';
 
-import { FontProps } from '@onekeyhq/components/src/Typography';
+import type { NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
 
 type TabViewStyle = {
   height: number;

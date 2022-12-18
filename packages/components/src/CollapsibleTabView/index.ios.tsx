@@ -1,7 +1,8 @@
-import { Children, FC, Fragment, createContext } from 'react';
+import type { FC } from 'react';
+import { Children, Fragment, createContext } from 'react';
 
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView.ios';
-import { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
+import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
 
 import FlatList from '../FlatList';
 import { useThemeValue } from '../Provider/hooks';
@@ -9,7 +10,7 @@ import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
-import { ContainerProps } from './types';
+import type { ContainerProps } from './types';
 
 const Context = createContext<string>('');
 

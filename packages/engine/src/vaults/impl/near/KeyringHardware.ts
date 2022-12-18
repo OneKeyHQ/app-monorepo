@@ -1,9 +1,5 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import * as nearApiJs from 'near-api-js';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
@@ -11,16 +7,21 @@ import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCo
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import { baseEncode, serializeTransaction } from './utils';
 
+import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

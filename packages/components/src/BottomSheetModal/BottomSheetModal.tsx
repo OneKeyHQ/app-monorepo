@@ -1,6 +1,7 @@
-import { FC, ReactNode, useEffect, useRef } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { Modalize, ModalizeProps } from 'react-native-modalize';
+import { Modalize } from 'react-native-modalize';
 
 import {
   Box,
@@ -14,6 +15,8 @@ import {
 import { CloseBackDrop } from '@onekeyhq/components/src/Select';
 import { useCloseOnEsc } from '@onekeyhq/kit/src/hooks/useOnKeydown';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { ModalizeProps } from 'react-native-modalize';
 
 interface BottomSheetModalProps {
   closeOverlay: () => void;

@@ -1,4 +1,5 @@
-import { FC, memo } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,8 +10,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-
-import { MAX_PAGE_CONTAINER_WIDTH } from '../../../../../shared/src/config/appConfig';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 const ListItemSkeleton: FC<{ borderBottomRadius?: number }> = ({
   borderBottomRadius = 0,

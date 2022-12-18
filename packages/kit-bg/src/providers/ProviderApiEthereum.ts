@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars */
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import { debounce, get } from 'lodash';
@@ -13,9 +9,9 @@ import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
+import type { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import {
+import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -37,10 +33,13 @@ import type {
   WatchAssetParameters,
 } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
 
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 import type { IUpdateChainParams } from '@walletconnect/types';
 
 function convertToEthereumChainResult(result: Network | undefined | null) {

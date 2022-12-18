@@ -1,6 +1,7 @@
-import { FC, useEffect, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
@@ -11,16 +12,17 @@ import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import {
+import type {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
 
 import type { AdvancedValues, RecoverAccountType } from './types';
+import type { RouteProp } from '@react-navigation/native';
 
 type RecoverConfirmDoneProps = {
   password: string;

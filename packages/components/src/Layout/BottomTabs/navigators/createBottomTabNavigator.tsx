@@ -1,11 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
-  DefaultNavigatorOptions,
-  ParamListBase,
-  TabActionHelpers,
-  TabNavigationState,
   TabRouter,
-  TabRouterOptions,
   createNavigatorFactory,
   useNavigationBuilder,
 } from '@react-navigation/native';
@@ -18,6 +13,13 @@ import type {
   BottomTabNavigationEventMap,
   BottomTabNavigationOptions,
 } from '../types';
+import type {
+  DefaultNavigatorOptions,
+  ParamListBase,
+  TabActionHelpers,
+  TabNavigationState,
+  TabRouterOptions,
+} from '@react-navigation/native';
 
 type Props = DefaultNavigatorOptions<
   ParamListBase,

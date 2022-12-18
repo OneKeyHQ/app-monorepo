@@ -15,7 +15,8 @@ import {
 } from '@onekeyhq/components';
 
 import Speedindicator from '../../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/SpeedIndicator';
-import { MeasureResult } from '../hooks';
+
+import type { MeasureResult } from '../hooks';
 
 export const RPCItem = ({
   url,

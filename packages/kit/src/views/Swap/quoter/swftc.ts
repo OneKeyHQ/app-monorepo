@@ -1,23 +1,11 @@
-import axios, { Axios } from 'axios';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  BuildTransactionParams,
-  BuildTransactionResponse,
-  FetchQuoteParams,
-  FetchQuoteResponse,
-  QuoteData,
-  Quoter,
-  QuoterType,
-  SwftcTransactionReceipt,
-  TransactionData,
-  TransactionDetails,
-  TransactionProgress,
-} from '../typings';
+import { QuoterType } from '../typings';
 import {
   TokenAmount,
   div,
@@ -27,6 +15,20 @@ import {
   nativeTokenAddress,
   plus,
 } from '../utils';
+
+import type {
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  FetchQuoteResponse,
+  QuoteData,
+  Quoter,
+  SwftcTransactionReceipt,
+  TransactionData,
+  TransactionDetails,
+  TransactionProgress,
+} from '../typings';
+import type { Axios } from 'axios';
 
 const networkId2SwftcNetworkName: Record<string, string> = {
   [OnekeyNetwork.btc]: 'BTC',

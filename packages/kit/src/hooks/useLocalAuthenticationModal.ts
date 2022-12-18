@@ -1,9 +1,9 @@
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import { ValidationFields } from '../components/Protected';
-
 import useAppNavigation from './useAppNavigation';
+
+import type { ValidationFields } from '../components/Protected';
 
 export default function useLocalAuthenticationModal() {
   const navigation = useAppNavigation();

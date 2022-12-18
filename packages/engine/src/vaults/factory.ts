@@ -64,11 +64,11 @@ import VaultTron from './impl/tron/Vault';
 import VaultHelperTron from './impl/tron/VaultHelper';
 import VaultXrp from './impl/xrp/Vault';
 import VaultHelperXrp from './impl/xrp/VaultHelper';
-import { VaultHelperBase } from './VaultHelperBase';
 
 import type { KeyringBase } from './keyring/KeyringBase';
 import type { IVaultFactoryOptions, IVaultOptions } from './types';
 import type { VaultBase } from './VaultBase';
+import type { VaultHelperBase } from './VaultHelperBase';
 
 export function createVaultHelperInstance(
   options: IVaultFactoryOptions,

@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { runOnJS } from 'react-native-reanimated';
 import {
@@ -8,7 +8,7 @@ import {
 } from 'react-native-vision-camera';
 import { BarcodeFormat, scanBarcodes } from 'vision-camera-code-scanner';
 
-import { ScanCameraProps } from './types';
+import type { ScanCameraProps } from './types';
 
 const ScanCamera: FC<ScanCameraProps> = ({
   style,

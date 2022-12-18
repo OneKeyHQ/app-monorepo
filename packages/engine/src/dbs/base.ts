@@ -1,27 +1,27 @@
 import { Buffer } from 'buffer';
 
-import { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { IDeviceType } from '@onekeyfe/hd-core';
 
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 
-import { DBAccount } from '../types/account';
-import { PrivateKeyCredential } from '../types/credential';
-import { Device, DevicePayload } from '../types/device';
-import {
+import type { DBAccount } from '../types/account';
+import type { PrivateKeyCredential } from '../types/credential';
+import type { Device, DevicePayload } from '../types/device';
+import type {
   HistoryEntry,
   HistoryEntryMeta,
   HistoryEntryStatus,
   HistoryEntryType,
 } from '../types/history';
-import { DBNetwork, UpdateNetworkParams } from '../types/network';
-import { Token } from '../types/token';
-import { Wallet } from '../types/wallet';
+import type { DBNetwork, UpdateNetworkParams } from '../types/network';
+import type { Token } from '../types/token';
+import type { Wallet } from '../types/wallet';
+import type { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type OneKeyContext = {
   id: string;

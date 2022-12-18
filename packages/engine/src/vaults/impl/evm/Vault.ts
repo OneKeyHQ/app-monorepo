@@ -4,20 +4,14 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import { ethers } from '@onekeyfe/blockchain-libs';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
-import { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  TransactionStatus,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import {
+import type {
   BatchSendConfirmPayloadInfo,
   SendConfirmPayloadInfo,
 } from '@onekeyhq/kit/src/views/Send/types';
@@ -35,42 +29,12 @@ import {
 } from '../../../managers/nft';
 import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
-import { ICovalentHistoryListItem } from '../../../types/covalent';
+import { HistoryEntryStatus } from '../../../types/history';
+import { ETHMessageTypes } from '../../../types/message';
 import {
-  HistoryEntry,
-  HistoryEntryStatus,
-  HistoryEntryTransaction,
-} from '../../../types/history';
-import {
-  AptosMessage,
-  ETHMessage,
-  ETHMessageTypes,
-} from '../../../types/message';
-import { EIP1559Fee } from '../../../types/network';
-import { NFTTransaction } from '../../../types/nft';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
   IDecodedTxActionType,
-  IDecodedTxInteractInfo,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTx,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTokenApprove,
-  IEncodedTxUpdatePayloadTransfer,
   IEncodedTxUpdateType,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  INFTInfo,
-  IRawTx,
-  ISetApprovalForAll,
-  ISignCredentialOptions,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
@@ -82,8 +46,6 @@ import {
   Erc721MethodSelectors,
 } from './decoder/abi';
 import {
-  EVMDecodedItemERC20Approve,
-  EVMDecodedItemERC20Transfer,
   EVMDecodedTxType,
   EVMTxDecoder,
   InfiniteAmountHex,
@@ -95,9 +57,48 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { IRpcTxEvm } from './types';
 
 import type { Account, DBAccount } from '../../../types/account';
+import type { ICovalentHistoryListItem } from '../../../types/covalent';
+import type {
+  HistoryEntry,
+  HistoryEntryTransaction,
+} from '../../../types/history';
+import type { AptosMessage, ETHMessage } from '../../../types/message';
+import type { EIP1559Fee } from '../../../types/network';
+import type { NFTTransaction } from '../../../types/nft';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxInteractInfo,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTokenApprove,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  INFTInfo,
+  IRawTx,
+  ISetApprovalForAll,
+  ISignCredentialOptions,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
+import type {
+  EVMDecodedItemERC20Approve,
+  EVMDecodedItemERC20Transfer,
+} from './decoder/decoder';
+import type { IRpcTxEvm } from './types';
+import type { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
+import type {
+  PartialTokenInfo,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const OPTIMISM_NETWORKS: string[] = [
   OnekeyNetwork.optimism,

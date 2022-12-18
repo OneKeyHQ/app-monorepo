@@ -1,12 +1,13 @@
-import { Filter, Log, Provider } from '@ethersproject/abstract-provider';
 import axios from 'axios';
-import { ChainId } from 'eth-chains';
-import { BigNumber, BigNumberish, Contract, utils } from 'ethers';
+import { BigNumber, Contract, utils } from 'ethers';
 import { getAddress, hexDataSlice } from 'ethers/lib/utils';
 
 import { getFiatEndpoint } from '../endpoint';
-import { Token } from '../types/token';
 import { OPENSEA_REGISTRY_ABI } from '../vaults/impl/evm/decoder/abi';
+
+import type { Token } from '../types/token';
+import type { Filter, Log, Provider } from '@ethersproject/abstract-provider';
+import type { BigNumberish } from 'ethers';
 
 export type Events = {
   transferEvents: Log[];
@@ -59,8 +60,68 @@ export const ADDRESS_ZERO_PADDED =
 export const ADDRESS_ZERO = '0x0000000000000000000000000000000000000000';
 export const DUMMY_ADDRESS = '0x0000000000000000000000000000000000000001';
 export const DUMMY_ADDRESS_2 = '0x0000000000000000000000000000000000000002';
+export const DUMMY_ADDRESS_3 = '0x000000000000000000000000000000000000dead';
 export const OPENSEA_REGISTRY_ADDRESS =
   '0xa5409ec958C83C3f309868babACA7c86DCB077c1';
+
+enum ChainId {
+  EthereumMainnet = 1,
+  Ropsten = 3,
+  Rinkeby = 4,
+  Goerli = 5,
+  Optimism = 10,
+  CronosMainnetBeta = 25,
+  RSKMainnet = 30,
+  RSKTestnet = 31,
+  TelosEVMMainnet = 40,
+  TelosEVMTestnet = 41,
+  Kovan = 42,
+  BinanceSmartChainMainnet = 56,
+  SyscoinMainnet = 57,
+  BinanceSmartChainTestnet = 97,
+  Gnosis = 100,
+  FuseMainnet = 122,
+  FuseSparknet = 123,
+  HuobiECOChainMainnet = 128,
+  PolygonMainnet = 137,
+  BitTorrentChainMainnet = 199,
+  FantomOpera = 250,
+  HuobiECOChainTestnet = 256,
+  Shiden = 336,
+  CronosTestnet = 338,
+  OptimisticEthereumTestnetGoerli = 420,
+  MetisStardustTestnet = 588,
+  Astar = 592,
+  KlaytnTestnetBaobab = 1001,
+  CLVParachain = 1024,
+  BitTorrentChainTestnet = 1028,
+  MetisAndromedaMainnet = 1088,
+  Moonbeam = 1284,
+  Moonriver = 1285,
+  MoonbaseAlpha = 1287,
+  FantomTestnet = 4002,
+  IoTeXNetworkMainnet = 4689,
+  IoTeXNetworkTestnet = 4690,
+  SyscoinTanenbaumTestnet = 5700,
+  KlaytnMainnetCypress = 8217,
+  EvmosTestnet = 9000,
+  Evmos = 9001,
+  SmartBitcoinCash = 10000,
+  SmartBitcoinCashTestnet = 10001,
+  ArbitrumOne = 42161,
+  CeloMainnet = 42220,
+  AvalancheFujiTestnet = 43113,
+  'AvalancheC-Chain' = 43114,
+  CeloAlfajoresTestnet = 44787,
+  GodwokenMainnet = 71402,
+  Mumbai = 80001,
+  ArbitrumRinkeby = 421611,
+  Sepolia = 11155111,
+  AuroraMainnet = 1313161554,
+  AuroraTestnet = 1313161555,
+  HarmonyMainnetShard0 = 1666600000,
+  Palm = 11297108109,
+}
 
 export const PROVIDER_SUPPORTED_CHAINS = [
   ChainId.EthereumMainnet,

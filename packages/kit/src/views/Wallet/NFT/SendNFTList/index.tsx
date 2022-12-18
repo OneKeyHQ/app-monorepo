@@ -11,9 +11,9 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -22,21 +22,15 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { SendRoutes } from '../../../../routes/routesEnum';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '../../../../routes/types';
-import { PreSendParams } from '../../../Send/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 
 import SelectNFTCard from './SelectNFTCard';
-import {
-  SelectAsset,
-  SendNFTContentProvider,
-  useSendNFTContent,
-} from './SendNFTContent';
+import { SendNFTContentProvider, useSendNFTContent } from './SendNFTContent';
 
 import type { SendRoutesParams } from '../../../../routes';
+import type { ModalScreenProps } from '../../../../routes/types';
+import type { PreSendParams } from '../../../Send/types';
+import type { SelectAsset } from './SendNFTContent';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 

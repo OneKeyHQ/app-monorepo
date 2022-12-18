@@ -1,4 +1,5 @@
-import { FC, memo, useCallback, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';

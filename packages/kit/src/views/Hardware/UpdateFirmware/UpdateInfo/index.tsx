@@ -1,6 +1,7 @@
-import { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -17,18 +18,18 @@ import {
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  HardwareUpdateModalRoutes,
-  HardwareUpdateRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../../utils/hardware';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<HardwareUpdateRoutesParams>;
 type RouteProps = RouteProp<

@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-import { NavigationButtonProps } from './NavigationButton';
+import type { NavigationButtonProps } from './NavigationButton';
 
 export interface HeaderProps {
   header?: string;

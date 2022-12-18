@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-member-access */
-import axios, { Axios } from 'axios';
+import axios from 'axios';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
@@ -8,7 +8,7 @@ import {
   setKeleETH2StakingState,
   setShowETH2UnableToUnstakeWarning,
 } from '@onekeyhq/kit/src/store/reducers/staking';
-import {
+import type {
   KeleDashboardGlobal,
   KeleETHStakingState,
   StakingActivity,
@@ -20,6 +20,8 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
+
+import type { Axios } from 'axios';
 
 const TestnetContractAddress = '0xdCAe38cC28606e61B1e54D8b4b134588e4ca7Ab7';
 const MainnetContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';

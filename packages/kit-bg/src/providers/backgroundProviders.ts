@@ -1,10 +1,7 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
-
 import ProviderAlgo from './ProviderAlgo';
 import ProviderApiAptos from './ProviderApiAptos';
-import ProviderApiBase from './ProviderApiBase';
 import ProviderApiCardano from './ProviderApiCardano';
 import ProviderApiConflux from './ProviderApiConflux';
 import ProviderApiEthereum from './ProviderApiEthereum';
@@ -14,6 +11,9 @@ import ProviderApiSolana from './ProviderApiSolana';
 import ProviderApiStarcoin from './ProviderApiStarcoin';
 import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTron from './ProviderApiTron';
+
+import type { IBackgroundApi, IBackgroundApiBridge } from '../IBackgroundApi';
+import type ProviderApiBase from './ProviderApiBase';
 
 function createBackgroundProviders({
   backgroundApi,

@@ -1,4 +1,3 @@
-import { ColorType } from 'native-base/lib/typescript/components/types';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -9,7 +8,8 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+import type { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+import type { ColorType } from 'native-base/lib/typescript/components/types';
 
 export interface ISelectorTriggerSharedProps {
   type?: 'basic' | 'plain'; // basic with outline border

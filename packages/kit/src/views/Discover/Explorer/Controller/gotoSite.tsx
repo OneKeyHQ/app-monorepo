@@ -11,13 +11,10 @@ import {
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
-import { WebSiteHistory } from '../../type';
-import {
-  MatchDAppItemType,
-  crossWebviewLoadUrl,
-  validateUrl,
-  webHandler,
-} from '../explorerUtils';
+import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
+
+import type { WebSiteHistory } from '../../type';
+import type { MatchDAppItemType } from '../explorerUtils';
 
 export const gotoSite = ({
   url,

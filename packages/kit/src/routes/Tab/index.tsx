@@ -16,9 +16,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { LazyDisplayView } from '../../components/LazyDisplayView';
 import { useNavigationActions } from '../../hooks';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
-import { TabRoutes, TabRoutesParams } from '../types';
+import { TabRoutes } from '../types';
 
 import { getStackTabScreen, tabRoutes } from './routes';
+
+import type { TabRoutesParams } from '../types';
 
 const Tab = createBottomTabNavigator<TabRoutesParams>();
 

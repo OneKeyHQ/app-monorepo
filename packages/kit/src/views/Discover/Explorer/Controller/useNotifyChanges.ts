@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 
-import { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import { throttle } from 'lodash';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -13,6 +12,8 @@ import { TabRoutes } from '../../../../routes/routesEnum';
 import { getWebviewWrapperRef } from '../explorerUtils';
 
 import { useWebTabs } from './useWebTabs';
+
+import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 
 const notifyChanges = throttle(
   (url: string, fromScene?: string) => {

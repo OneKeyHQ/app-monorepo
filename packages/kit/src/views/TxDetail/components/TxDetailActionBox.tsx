@@ -4,7 +4,8 @@ import { Box, Collapse, Divider, HStack, VStack } from '@onekeyhq/components';
 
 import { TxActionElementDetailCell } from '../elements/TxActionElementDetailCell';
 import { useTxDetailContext } from '../TxDetailContext';
-import { ITxActionCardViewProps } from '../types';
+
+import type { ITxActionCardViewProps } from '../types';
 
 export function TxDetailActionBox(props: ITxActionCardViewProps) {
   const {

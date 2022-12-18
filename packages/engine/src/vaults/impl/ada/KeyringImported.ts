@@ -1,25 +1,27 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import {
-  IPrepareImportedAccountsParams,
-  ISignCredentialOptions,
-} from '../../types';
 
 import { encodePrivateKey, getPathIndex, getXprvString } from './helper/bip32';
 import { getCardanoApi } from './helper/sdk';
 import { batchGetShelleyAddressByRootKey } from './helper/shelley-address';
-import { IAdaUTXO, IEncodedTxADA, NetworkId } from './types';
+import { NetworkId } from './types';
+
+import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
+import type { DBUTXOAccount } from '../../../types/account';
+import type {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
+import type { IAdaUTXO, IEncodedTxADA } from './types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getPrivateKeys(

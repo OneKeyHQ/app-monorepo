@@ -1,6 +1,7 @@
-import { FC, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useMemo, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -20,13 +21,14 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  ManagerWalletModalRoutes,
-  ManagerWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-import { Avatar, defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import { defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type FieldValues = { name: string };
 

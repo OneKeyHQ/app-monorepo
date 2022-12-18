@@ -18,7 +18,8 @@ import {
   TxActionElementAmountNormal,
   TxActionElementAmountSmall,
 } from '../elements/TxActionElementAmount';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,

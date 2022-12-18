@@ -1,9 +1,6 @@
 import { useContext, useMemo } from 'react';
 
-import { ListRenderItem } from 'react-native';
-
-import { FlatList, Pressable, Typography } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
 import { useCategories } from '../../hooks';
 import { DiscoverContext } from '../context';
@@ -19,38 +16,36 @@ export const DAppCategories = () => {
     return [{ name: 'Mine', _id: '' }].concat(categories);
   }, [categories]);
 
-  const renderItem: ListRenderItem<{ name: string; _id: string }> = ({
-    item,
-  }) => (
-    <Pressable
-      py="2"
-      px="3"
-      bg={categoryId === item._id ? 'surface-selected' : undefined}
-      onPress={() => setCategoryId(item._id)}
-      borderRadius={12}
-    >
-      <Typography.Body2
-        color={categoryId === item._id ? 'text-default' : 'text-subdued'}
-      >
-        {item.name}
-      </Typography.Body2>
-    </Pressable>
-  );
   if (!data.length) {
     return null;
   }
+
   return (
-    <FlatList
+    <ScrollView
       horizontal
-      data={data}
-      renderItem={renderItem}
-      removeClippedSubviews
-      windowSize={5}
-      showsHorizontalScrollIndicator={platformEnv.isDesktop}
-      keyExtractor={(item) => item._id}
+      showsHorizontalScrollIndicator={false}
       contentContainerStyle={{
         paddingHorizontal: 16,
       }}
-    />
+    >
+      <Box flexDirection="row">
+        {data.map((item) => (
+          <Pressable
+            key={item._id}
+            py="2"
+            px="3"
+            bg={categoryId === item._id ? 'surface-selected' : undefined}
+            onPress={() => setCategoryId(item._id)}
+            borderRadius={12}
+          >
+            <Typography.Body2
+              color={categoryId === item._id ? 'text-default' : 'text-subdued'}
+            >
+              {item.name}
+            </Typography.Body2>
+          </Pressable>
+        ))}
+      </Box>
+    </ScrollView>
   );
 };

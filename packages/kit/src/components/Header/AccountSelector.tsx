@@ -1,13 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import {
-  FC,
-  ReactNode,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import type { FC, ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useDrawerStatus } from '@react-navigation/drawer';
 

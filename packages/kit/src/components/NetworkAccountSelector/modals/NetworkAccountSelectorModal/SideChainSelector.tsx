@@ -26,8 +26,9 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
-import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 import { RpcStatusButton } from '../../RpcStatusButton';
+
+import type { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
 function ChainNetworkIcon({
   onLastItemRender,

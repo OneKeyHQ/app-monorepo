@@ -1,9 +1,10 @@
-import { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -36,11 +37,14 @@ import CollectionLogo from '../CollectionLogo';
 import { useDefaultNetWork } from '../Home/hook';
 import RankingList from '../Home/Stats/Ranking/Container/Mobile';
 
-import {
+import { useCollectionSearch } from './useCollectionSearch';
+
+import type {
   SearchNFTCollectionRoutes,
   SearchNFTCollectionRoutesParams,
 } from './type';
-import { useCollectionSearch } from './useCollectionSearch';
+import type { RouteProp } from '@react-navigation/core';
+import type { ListRenderItem } from 'react-native';
 
 const Header: FC<{
   keyword: string;
@@ -120,28 +124,26 @@ const DefaultList: FC<Props> = ({ selectNetwork }) => {
   }, [selectNetwork?.id, serviceNFT]);
 
   return (
-    <>
-      <RankingList
-        selectNetwork={selectNetwork}
-        headerProps={{
-          title: intl.formatMessage({
-            id: 'content__ranking',
-          }),
-          actions: [
-            {
-              label: intl.formatMessage(
-                {
-                  id: 'content__int_day_volume',
-                },
-                { 0: 1 },
-              ),
-              onPress: () => {},
-            },
-          ],
-        }}
-        listData={listData}
-      />
-    </>
+    <RankingList
+      selectNetwork={selectNetwork}
+      headerProps={{
+        title: intl.formatMessage({
+          id: 'content__ranking',
+        }),
+        actions: [
+          {
+            label: intl.formatMessage(
+              {
+                id: 'content__int_day_volume',
+              },
+              { 0: 1 },
+            ),
+            onPress: () => {},
+          },
+        ],
+      }}
+      listData={listData}
+    />
   );
 };
 
@@ -166,55 +168,51 @@ const SearchResultList: FC<Props> = ({
         ? `${item?.floorPrice} ${item.priceSymbol ?? ''}`
         : undefined;
       return (
-        <>
-          <ListItem
-            onPress={() => {
-              onSelectCollection({
-                networkId: selectNetwork.id,
-                contractAddress: item.contractAddress as string,
-              });
-            }}
-          >
-            <ListItem.Column>
-              <CollectionLogo
-                src={item.logoUrl}
-                width="56px"
-                height="56px"
-                verified={item.openseaVerified}
-              />
-            </ListItem.Column>
-            <ListItem.Column
-              flex={1}
-              text={{
-                label: item.name,
-                labelProps: { numberOfLines: 1 },
-                description: (
-                  <>
-                    <HStack space="8px" alignItems="center">
-                      <Text typography="Body2" color="text-subdued">
-                        {intl.formatMessage(
-                          {
-                            id: 'content__int_items',
-                          },
-                          {
-                            0: items || '–',
-                          },
-                        )}
-                      </Text>
-                      <Box bgColor="text-subdued" size="4px" rounded="full" />
-                      <Text typography="Body2" color="text-subdued">
-                        {intl.formatMessage({
-                          id: 'content__floor',
-                        })}{' '}
-                        {floorPrice || '–'}
-                      </Text>
-                    </HStack>
-                  </>
-                ),
-              }}
+        <ListItem
+          onPress={() => {
+            onSelectCollection({
+              networkId: selectNetwork.id,
+              contractAddress: item.contractAddress as string,
+            });
+          }}
+        >
+          <ListItem.Column>
+            <CollectionLogo
+              src={item.logoUrl}
+              width="56px"
+              height="56px"
+              verified={item.openseaVerified}
             />
-          </ListItem>
-        </>
+          </ListItem.Column>
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.name,
+              labelProps: { numberOfLines: 1 },
+              description: (
+                <HStack space="8px" alignItems="center">
+                  <Text typography="Body2" color="text-subdued">
+                    {intl.formatMessage(
+                      {
+                        id: 'content__int_items',
+                      },
+                      {
+                        0: items || '–',
+                      },
+                    )}
+                  </Text>
+                  <Box bgColor="text-subdued" size="4px" rounded="full" />
+                  <Text typography="Body2" color="text-subdued">
+                    {intl.formatMessage({
+                      id: 'content__floor',
+                    })}{' '}
+                    {floorPrice || '–'}
+                  </Text>
+                </HStack>
+              ),
+            }}
+          />
+        </ListItem>
       );
     },
     [intl, onSelectCollection, selectNetwork.id],

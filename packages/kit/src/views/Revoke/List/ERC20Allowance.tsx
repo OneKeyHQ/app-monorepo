@@ -1,4 +1,5 @@
-import { FC, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import B from 'bignumber.js';
@@ -29,10 +30,10 @@ import {
   useSpenderAppName,
   useUpdateAllowance,
 } from '../hooks';
-import showAllowanceDetailOverlay, {
-  ActionKey,
-} from '../Overlays/AllowanceDetail';
+import showAllowanceDetailOverlay from '../Overlays/AllowanceDetail';
 import { AssetType, RevokeRoutes } from '../types';
+
+import type { ActionKey } from '../Overlays/AllowanceDetail';
 
 type Props = {
   spender: string;

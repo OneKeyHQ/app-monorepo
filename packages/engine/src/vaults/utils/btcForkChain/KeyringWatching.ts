@@ -1,8 +1,9 @@
 import { InvalidAddress } from '../../../errors';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
-import { IPrepareWatchingAccountsParams } from '../../types';
 
+import type { DBUTXOAccount } from '../../../types/account';
+import type { IPrepareWatchingAccountsParams } from '../../types';
 import type BTCForkVault from './VaultBtcFork';
 
 export class KeyringWatching extends KeyringWatchingBase {

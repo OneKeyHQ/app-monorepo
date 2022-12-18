@@ -1,12 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DiscoverContext, ItemSource } from './context';
-import { DiscoverProps } from './type';
+import { DiscoverContext } from './context';
+
+import type { ItemSource } from './context';
+import type { DiscoverProps } from './type';
 
 const Updater = () => {
   useEffect(() => {
@@ -36,18 +39,19 @@ const DiscoverPage: FC<DiscoverProps> = ({
     Desktop = require('./Desktop').Desktop;
   }
   const [itemSource, setItemSource] = useState<ItemSource>('Favorites');
-
+  const contextValue = useMemo(
+    () => ({
+      categoryId,
+      setCategoryId,
+      itemSource,
+      setItemSource,
+      onItemSelect,
+      onItemSelectHistory,
+    }),
+    [categoryId, itemSource, onItemSelect, onItemSelectHistory],
+  );
   return (
-    <DiscoverContext.Provider
-      value={{
-        categoryId,
-        setCategoryId,
-        itemSource,
-        setItemSource,
-        onItemSelect,
-        onItemSelectHistory,
-      }}
-    >
+    <DiscoverContext.Provider value={contextValue}>
       {isSmall ? <Mobile /> : <Desktop />}
       <Updater />
     </DiscoverContext.Provider>

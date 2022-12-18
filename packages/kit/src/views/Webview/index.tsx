@@ -1,6 +1,8 @@
-import { FC, useLayoutEffect, useRef, useState } from 'react';
+/* eslint-disable react/no-unstable-nested-components */
+import type { FC } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 import { URL } from 'react-native-url-polyfill';
@@ -8,10 +10,15 @@ import { URL } from 'react-native-url-polyfill';
 import { Box, Icon, Select, ToastManager } from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutes,
+  HomeRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
 
 import WebView from '../../components/WebView';
 import { openUrlExternal } from '../../utils/openUrl';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.SettingsWebviewScreen>;
 
@@ -19,7 +26,7 @@ export const SettingsWebViews: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
-  const { url, title } = route?.params;
+  const { url, title } = route?.params || {};
   const [currentUrl, setCurrentUrl] = useState(url);
   const containerRef = useRef<typeof Box>(null);
 

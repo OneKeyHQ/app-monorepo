@@ -1,4 +1,5 @@
-import { FC, memo, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,10 +13,8 @@ import {
 } from '@onekeyhq/components/src';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  MarketTokenDetail,
-  SWAP_TAB_NAME,
-} from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market';
+import { SWAP_TAB_NAME } from '@onekeyhq/kit/src/store/reducers/market';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';

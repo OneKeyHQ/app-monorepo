@@ -1,21 +1,15 @@
 /* eslint-disable @typescript-eslint/lines-between-class-members, lines-between-class-members, max-classes-per-file, camelcase, @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
-import {
-  IEncodedTxEvm,
-  IUnsignedMessageEvm,
-} from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { IEncodedTxSTC } from '@onekeyhq/engine/src/vaults/impl/stc/types';
+import type { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxSTC } from '@onekeyhq/engine/src/vaults/impl/stc/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -26,9 +20,13 @@ import { IMPL_STC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { fixAddressCase } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 /**
  * @type Transaction

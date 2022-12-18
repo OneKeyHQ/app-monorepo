@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import axios from 'axios';
 import { StyleSheet, View } from 'react-native';

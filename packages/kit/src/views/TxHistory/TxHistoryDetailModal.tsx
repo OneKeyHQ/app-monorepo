@@ -1,10 +1,10 @@
-import { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { RouteProp } from '@react-navigation/native';
 
 import { Button, Modal, Spinner } from '@onekeyhq/components';
-import {
+import type {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
@@ -13,6 +13,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { TxActionElementTime } from '../TxDetail/elements/TxActionElementTime';
 import { TxDetailView } from '../TxDetail/TxDetailView';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type TransactionDetailRouteProp = RouteProp<
   TransactionDetailRoutesParams,

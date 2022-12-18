@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
-import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-
 import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -11,11 +9,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import ProviderApiBase from './providers/ProviderApiBase';
-
 import type { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
+import type ProviderApiBase from './providers/ProviderApiBase';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
+  IInjectedProviderNames,
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsonRpcResponse,

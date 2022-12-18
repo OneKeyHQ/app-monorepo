@@ -1,5 +1,5 @@
+import type { FC } from 'react';
 import {
-  FC,
   forwardRef,
   useImperativeHandle,
   useMemo,
@@ -7,13 +7,8 @@ import {
   useState,
 } from 'react';
 
-import { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
-import {
-  IWebViewWrapperRef,
-  useWebViewBridge,
-} from '@onekeyfe/onekey-cross-webview';
+import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { Box, Progress } from 'native-base';
-import { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
 import { Center, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -27,7 +22,10 @@ import { DesktopWebView } from './DesktopWebView';
 import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
 
+import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps } from 'react-native-webview';
+import type { WebViewSource } from 'react-native-webview/lib/WebViewTypes';
 
 const { isDesktop, isWeb, isExtension, isNative } = platformEnv;
 const isApp = isNative;

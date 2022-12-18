@@ -7,12 +7,13 @@ import {
   useRef,
 } from 'react';
 
-import { IBoxProps } from 'native-base';
 import Animated from 'react-native-reanimated';
 
 import { Box } from '@onekeyhq/components';
 
 import { useForwardRef } from '../utils/useForwardRef';
+
+import type { IBoxProps } from 'native-base';
 
 export interface ScrollableButtonGroupProps extends IBoxProps {
   selectedIndex?: number;

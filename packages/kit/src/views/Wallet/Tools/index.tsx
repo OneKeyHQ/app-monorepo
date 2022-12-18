@@ -1,34 +1,28 @@
-import {
-  ComponentProps,
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Center,
-  FlatList,
   HStack,
   Icon,
   Pressable,
+  ScrollView,
   Token,
   Typography,
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  HomeRoutes,
+import type {
   HomeRoutesParams,
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -151,66 +145,56 @@ const ToolsPage: FC = () => {
     fetchData();
   }, [fetchData, homeTabName]);
 
-  const renderItem = useCallback(
-    ({ item, index }: { item: typeof data[0]; index: number }) => (
-      <Pressable
-        flex={1 / 2}
-        mb="4"
-        onPress={() => {
-          handlePress(item.key);
-        }}
-        pl={!isVertical && index % 2 === 1 ? 4 : 0}
-      >
-        <HStack
-          bg="surface-default"
-          borderWidth={1}
-          borderColor="divider"
-          borderRadius="12px"
-          px="3"
-          h="80px"
-          alignItems="center"
+  return (
+    <ScrollView
+      px={isVertical ? 4 : 0}
+      contentContainerStyle={{
+        marginTop: 32,
+        paddingHorizontal: responsivePadding,
+        alignItems: 'center',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+      }}
+    >
+      {items.map((item, index) => (
+        <Pressable
+          width={isVertical ? '100%' : '50%'}
+          key={item.title}
+          mb="4"
+          onPress={() => {
+            handlePress(item.key);
+          }}
+          pl={!isVertical && index % 2 === 1 ? 4 : 0}
         >
-          <Center w="8" h="8">
-            {typeof item.icon === 'string' ? (
-              <Token token={{ logoURI: item.icon }} size={8} />
-            ) : (
-              <Icon {...item.icon} size={32} />
-            )}
-          </Center>
-          <VStack ml="4" flex="1">
-            <Typography.Body1Strong numberOfLines={1} isTruncated>
-              {intl.formatMessage({ id: item.title })}
-            </Typography.Body1Strong>
-            <Typography.Caption numberOfLines={2} isTruncated>
-              {intl.formatMessage({ id: item.description })}
-            </Typography.Caption>
-          </VStack>
-        </HStack>
-      </Pressable>
-    ),
-    [intl, handlePress, isVertical],
+          <HStack
+            bg="surface-default"
+            borderWidth={1}
+            borderColor="divider"
+            borderRadius="12px"
+            px="3"
+            h="80px"
+            alignItems="center"
+          >
+            <Center w="8" h="8">
+              {typeof item.icon === 'string' ? (
+                <Token token={{ logoURI: item.icon }} size={8} />
+              ) : (
+                <Icon {...item.icon} size={32} />
+              )}
+            </Center>
+            <VStack ml="4" flex="1">
+              <Typography.Body1Strong numberOfLines={1} isTruncated>
+                {intl.formatMessage({ id: item.title })}
+              </Typography.Body1Strong>
+              <Typography.Caption numberOfLines={2} isTruncated>
+                {intl.formatMessage({ id: item.description })}
+              </Typography.Caption>
+            </VStack>
+          </HStack>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
-
-  const container = useMemo(
-    () => (
-      <FlatList
-        px={isVertical ? 4 : 0}
-        key={String(isVertical)}
-        contentContainerStyle={{
-          marginTop: 32,
-          paddingHorizontal: responsivePadding,
-        }}
-        numColumns={isVertical ? undefined : 2}
-        showsHorizontalScrollIndicator={false}
-        data={items}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.title}
-      />
-    ),
-    [isVertical, renderItem, items, responsivePadding],
-  );
-
-  return container;
 };
 
 export default ToolsPage;

@@ -7,8 +7,8 @@ import BigNumber from 'bignumber.js';
 
 import { useToast } from '@onekeyhq/components';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import {
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type {
   IDecodedTx,
   IEncodedTx,
   IFeeInfo,

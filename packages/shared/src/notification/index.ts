@@ -1,6 +1,5 @@
 import {
   IosAuthorizationStatus,
-  NotificationPermissionsStatus,
   getPermissionsAsync,
 } from 'expo-notifications';
 import JPush from 'jpush-react-native';
@@ -8,6 +7,8 @@ import JPush from 'jpush-react-native';
 import { JPUSH_KEY } from '../config/appConfig';
 import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
+
+import type { NotificationPermissionsStatus } from 'expo-notifications';
 
 let jpushInited = false;
 export const hasPermission = (settings: NotificationPermissionsStatus) =>

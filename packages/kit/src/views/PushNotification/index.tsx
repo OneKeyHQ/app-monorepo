@@ -1,11 +1,5 @@
-import {
-  FC,
-  ReactElement,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-} from 'react';
+import type { FC, ReactElement } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -21,22 +15,22 @@ import {
   Text,
   useTheme,
 } from '@onekeyhq/components';
-import { PressableItemProps } from '@onekeyhq/components/src/Pressable/Pressable';
-import { SelectItem } from '@onekeyhq/components/src/Select';
+import type { PressableItemProps } from '@onekeyhq/components/src/Pressable/Pressable';
+import type { SelectItem } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
 import { useSettings, useStatus } from '@onekeyhq/kit/src/hooks/redux';
+import type { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
-  SettingsState,
   defaultPushNotification,
   setPushNotificationConfig,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 
 import { HomeRoutes } from '../../routes/routesEnum';
-import { HomeRoutesParams } from '../../routes/types';
 
 import { useEnabledAccountDynamicAccounts, usePriceAlertlist } from './hooks';
 
+import type { HomeRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

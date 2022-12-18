@@ -1,14 +1,14 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
-import { StyleSheet, TextStyle } from 'react-native';
-import {
-  BaseToastProps as RNBaseToastProps,
-  BaseToast as RNToast,
-} from 'react-native-toast-message';
+import { StyleSheet } from 'react-native';
+import { BaseToast as RNToast } from 'react-native-toast-message';
 
 import { useThemeValue } from '../Provider/hooks';
-import { ThemeToken } from '../Provider/theme';
 import { Body1Props } from '../Typography';
+
+import type { ThemeToken } from '../Provider/theme';
+import type { TextStyle } from 'react-native';
+import type { BaseToastProps as RNBaseToastProps } from 'react-native-toast-message';
 
 type BaseToastProps = {
   bgColorToken?: ThemeToken;

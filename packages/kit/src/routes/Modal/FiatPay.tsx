@@ -3,10 +3,10 @@ import AmountInput from '@onekeyhq/kit/src/views/FiatPay/AmountInput';
 import MoonpayWebView from '@onekeyhq/kit/src/views/FiatPay/MoonpayWebView';
 import SupportTokenList from '@onekeyhq/kit/src/views/FiatPay/SupportTokenList';
 
-import { CurrencyType } from '../../views/FiatPay/types';
-
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
+
+import type { CurrencyType } from '../../views/FiatPay/types';
 
 export enum FiatPayRoutes {
   SupportTokenListModal = 'SupportTokenList',

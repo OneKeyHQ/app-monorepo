@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { Box, ToggleButtonGroup } from '@onekeyhq/components';
-import { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
+import type { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 
 const buttons: ToggleButtonProps[] = [
   {

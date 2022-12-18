@@ -1,12 +1,5 @@
-import {
-  ComponentProps,
-  FC,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Box,
@@ -20,17 +13,17 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-  Wallet,
 } from '@onekeyhq/engine/src/types/wallet';
 import { useAppSelector, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';

@@ -1,16 +1,12 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { MessageDescriptor, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  ICON_NAMES,
-  Icon,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import type { ICON_NAMES } from '@onekeyhq/components';
+import { Box, Icon, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { SelectProps } from '@onekeyhq/components/src/Select';
+import type { SelectProps } from '@onekeyhq/components/src/Select';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -20,6 +16,8 @@ import { showOverlay } from '../../utils/overlayUtils';
 
 import { OverlayPanel } from './OverlayPanel';
 import UpdateItem from './UpdateItem';
+
+import type { MessageDescriptor } from 'react-intl';
 
 const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
   closeOverlay,

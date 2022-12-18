@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import { RequestPayload, UploadAttachmentsPayload } from './types';
+import type { RequestPayload, UploadAttachmentsPayload } from './types';
 
 const host = 'https://ticket.onekey.so';
 
