@@ -14,6 +14,12 @@ import type { StyleProp, ViewStyle } from 'react-native';
 
 const DrawerStack = createDrawerNavigator();
 
+const tabsDisabledSwipe: string[] = [
+  TabRoutes.Discover,
+  TabRoutes.NFT,
+  TabRoutes.Market,
+];
+
 const DrawerStackNavigator = () => {
   const isWeb = !platformEnv.isNative;
   const drawerStyle: Partial<StyleProp<ViewStyle>> = {
@@ -45,17 +51,17 @@ const DrawerStackNavigator = () => {
         drawerStyle,
         swipeEnabled: !platformEnv.isNativeIOSPad,
       }}
-      // drawerContent={(props) => <AccountSelectorMobile {...props} />}
+      // eslint-disable-next-line react/no-unstable-nested-components
       drawerContent={(props) => <WalletSelectorMobile {...props} />}
     >
       <DrawerStack.Screen
         name={RootRoutes.Tab}
         component={Tab}
         options={({ route }) => {
-          const routeName = getFocusedRouteNameFromRoute(route);
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          const routeName = getFocusedRouteNameFromRoute(route)!;
           return {
-            swipeEnabled:
-              routeName !== TabRoutes.Discover && routeName !== TabRoutes.NFT,
+            swipeEnabled: !tabsDisabledSwipe.includes(routeName),
           };
         }}
       />
