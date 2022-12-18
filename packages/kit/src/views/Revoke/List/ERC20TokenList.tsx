@@ -1,4 +1,5 @@
-import { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,10 +15,8 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import {
-  ERC20TokenAllowance,
-  toFloat,
-} from '@onekeyhq/engine/src/managers/revoke';
+import type { ERC20TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
+import { toFloat } from '@onekeyhq/engine/src/managers/revoke';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { useIsVerticalOrMiddleLayout } from '../hooks';

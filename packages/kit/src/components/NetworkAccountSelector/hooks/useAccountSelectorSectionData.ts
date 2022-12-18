@@ -1,4 +1,5 @@
-import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useState } from 'react';
 
 import { debounce } from 'lodash';
 
@@ -8,7 +9,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 
-import { useAccountSelectorInfo } from './useAccountSelectorInfo';
+import type { useAccountSelectorInfo } from './useAccountSelectorInfo';
 
 export type INetworkAccountSelectorAccountListSectionData = {
   wallet: IWallet;

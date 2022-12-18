@@ -1,11 +1,11 @@
-import { AxiosInstance } from 'axios';
-import BigNumber from 'bignumber.js';
-
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { CosmwasmQuery } from './CosmwasmQuery';
 import { MintScanQuery } from './MintScanQuery';
 import { SecretwasmQuery } from './SecretwasmQuery';
+
+import type { AxiosInstance } from 'axios';
+import type BigNumber from 'bignumber.js';
 
 export interface Cw20AssetInfo {
   contractAddress: string;

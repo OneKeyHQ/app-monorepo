@@ -11,11 +11,12 @@ import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
-import { IBatchTxsConfirmViewProps } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';
 import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
+
+import type { IBatchTxsConfirmViewProps } from '../types';
 
 function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
   const {

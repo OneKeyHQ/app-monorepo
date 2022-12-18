@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
-import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks/useNetwork';

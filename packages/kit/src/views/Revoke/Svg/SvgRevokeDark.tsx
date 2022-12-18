@@ -1,4 +1,6 @@
-import Svg, { ClipPath, Defs, G, Path, Rect, SvgProps } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
+
+import type { SvgProps } from 'react-native-svg';
 
 export default function SvgRevokeDark(props: SvgProps) {
   return (

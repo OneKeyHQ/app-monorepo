@@ -5,12 +5,11 @@ import { ShareView } from '@onekeyhq/kit/src/views/Discover/Share';
 
 import { getAppNavigation } from '../../hooks/useAppNavigation';
 import MyDAppList from '../../views/Discover/MyDAppList';
-import {
-  DiscoverModalRoutes,
-  DiscoverRoutesParams,
-} from '../../views/Discover/type';
+import { DiscoverModalRoutes } from '../../views/Discover/type';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { DiscoverRoutesParams } from '../../views/Discover/type';
 
 const DiscoverNavigator = createStackNavigator<DiscoverRoutesParams>();
 

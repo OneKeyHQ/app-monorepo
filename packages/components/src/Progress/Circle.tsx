@@ -1,7 +1,9 @@
 import { Box, VStack } from 'native-base';
-import { CirclePropTypes, Circle as RNCircle } from 'react-native-progress';
+import { Circle as RNCircle } from 'react-native-progress';
 
 import { useThemeValue } from '../Provider/hooks';
+
+import type { CirclePropTypes } from 'react-native-progress';
 
 type Props = {
   text?: JSX.Element | string | number;

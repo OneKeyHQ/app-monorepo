@@ -1,6 +1,6 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,14 +19,17 @@ import {
   useActiveWalletAccount,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import FormChainSelector from '../../components/Form/ChainSelector';
 import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
-import { ModalRoutes, ModalScreenProps, RootRoutes } from '../../routes/types';
-import { SendRoutes, SendRoutesParams } from '../Send/types';
+import { ModalRoutes, RootRoutes } from '../../routes/types';
+import { SendRoutes } from '../Send/types';
 
-import { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
+import type { ModalScreenProps } from '../../routes/types';
+import type { SendRoutesParams } from '../Send/types';
+import type { ScanQrcodeRoutes, ScanQrcodeRoutesParams } from './types';
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 type PreviewSendProps = {

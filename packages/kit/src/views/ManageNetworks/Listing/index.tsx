@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,11 +23,9 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
-import {
-  ManageNetworkRoutes,
-  ManageNetworkRoutesParams,
-} from '../../../routes/Modal/ManageNetwork';
+import { ManageNetworkRoutes } from '../../../routes/Modal/ManageNetwork';
 
+import type { ManageNetworkRoutesParams } from '../../../routes/Modal/ManageNetwork';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

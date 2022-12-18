@@ -16,7 +16,8 @@ import BackupsList from '../screens/RestoreFromCloud/BackupsList';
 import Welcome from '../screens/Welcome';
 
 import { EOnboardingRoutes } from './enums';
-import { IOnboardingRoutesParams } from './types';
+
+import type { IOnboardingRoutesParams } from './types';
 
 export const stackScreenList = [
   {

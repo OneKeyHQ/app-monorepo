@@ -2,14 +2,15 @@ import {
   getErc20TransferHistories,
   getTxHistories,
 } from '../../../../managers/covalent';
-import { Transaction, TxStatus } from '../../../../types/covalent';
-import { HistoryEntryTransaction } from '../../../../types/history';
-import { Network } from '../../../../types/network';
+import { TxStatus } from '../../../../types/covalent';
 
 import { parseCovalent } from './covalentParser';
 import { EVMTxDecoder } from './decoder';
 
 import type { Engine } from '../../../..';
+import type { Transaction } from '../../../../types/covalent';
+import type { HistoryEntryTransaction } from '../../../../types/history';
+import type { Network } from '../../../../types/network';
 
 const PAGE_SIZE = 50;
 

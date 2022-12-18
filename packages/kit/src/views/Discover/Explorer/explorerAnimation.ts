@@ -1,7 +1,7 @@
 import { createRef } from 'react';
 
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import { captureRef } from 'react-native-view-shot';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -10,6 +10,7 @@ import { appSelector } from '../../../store';
 import { setWebTabData } from '../../../store/reducers/webTabs';
 
 import type { View } from 'react-native';
+import type ViewShot from 'react-native-view-shot';
 // for mobile tab animations
 export const MIN_OR_HIDE = 0;
 export const MAX_OR_SHOW = 1;

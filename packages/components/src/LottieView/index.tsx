@@ -1,33 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, global-require, @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-call */
-import React, {
-  LegacyRef,
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from 'react';
+import type { LegacyRef } from 'react';
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
-import { AppState, AppStateStatus } from 'react-native';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { AppState } from 'react-native';
 
 import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
 import type { AnimatedLottieViewProps as LottieNativeProps } from 'lottie-react-native';
-
-// A hack for document unfound on native error
-let LottieViewNative: typeof import('lottie-react-native').default | undefined;
-let LottieViewWeb: typeof import('lottie-react').default | undefined;
-try {
-  LottieViewNative = require('lottie-react-native');
-} catch (e) {
-  // Ignore
-}
-try {
-  LottieViewWeb = require('lottie-react').default;
-} catch (e) {
-  // Ignore
-}
+import type { AppStateStatus } from 'react-native';
 
 // Stick props the same as LottieNative by now
 type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
@@ -36,98 +15,63 @@ type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
   autoPlay?: boolean;
 };
 
-const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
-  ({ source, autoPlay, loop, ...props }, ref) => {
-    const animationRef = useRef<AnimatedLottieView | null>();
+const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(({
+  source, autoPlay, loop, ...props
+}, ref) => {
+  const animationRef = useRef<AnimatedLottieView | null>();
 
-    const appStateRef = useRef(AppState.currentState);
-    useEffect(() => {
-      if (!platformEnv.isNativeIOS) return;
-      // fix animation is stopped after entered background state on iOS
-      // https://github.com/lottie-react-native/lottie-react-native/issues/412
-      const handleStateChange = (nextAppState: AppStateStatus) => {
-        if (
-          appStateRef.current &&
-          /inactive|background/.exec(appStateRef.current) &&
-          nextAppState === 'active'
-        ) {
-          animationRef.current?.play?.();
-        }
-        appStateRef.current = nextAppState;
-      };
-      const subscription = AppState.addEventListener(
-        'change',
-        handleStateChange,
-      );
-      return () => {
-        if (subscription && typeof subscription === 'function') {
-          // @ts-expect-error
-          subscription();
-        } else {
-          AppState.removeEventListener('change', handleStateChange);
-        }
-      };
-    }, []);
-
-    useEffect(() => {
-      // animation won't work in navigate(), needs delay here
-      setTimeout(() => {
-        if (autoPlay) {
-          animationRef.current?.play?.();
-        } else {
-          animationRef.current?.pause?.();
-        }
-      }, 300);
-    }, [autoPlay]);
-
-    useImperativeHandle(ref as any, () => ({
-      play: () => {
+  const appStateRef = useRef(AppState.currentState);
+  useEffect(() => {
+    // fix animation is stopped after entered background state on iOS
+    // https://github.com/lottie-react-native/lottie-react-native/issues/412
+    const handleStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appStateRef.current &&
+        /inactive|background/.exec(appStateRef.current) &&
+        nextAppState === 'active'
+      ) {
         animationRef.current?.play?.();
-      },
-      pause: () => {
+      }
+      appStateRef.current = nextAppState;
+    };
+    const subscription = AppState.addEventListener('change', handleStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    // animation won't work in navigate(), needs delay here
+    setTimeout(() => {
+      if (autoPlay) {
+        animationRef.current?.play?.();
+      } else {
         animationRef.current?.pause?.();
-      },
-      reset: () => {
-        if (platformEnv.isNative) {
-          animationRef.current?.reset();
-        } else {
-          // @ts-expect-error
-          animationRef.current?.goToAndStop?.(0);
-        }
-      },
-    }));
+      }
+    }, 300);
+  }, [autoPlay]);
 
-    if (platformEnv.isNative && !!LottieViewNative) {
-      return (
-        <LottieViewNative
-          source={source as LottieNativeProps['source']}
-          autoPlay={autoPlay}
-          loop={!!loop}
-          {...props}
-          ref={animationRef as LegacyRef<AnimatedLottieView>}
-        />
-      );
-    }
+  useImperativeHandle(ref as any, () => ({
+    play: () => {
+      animationRef.current?.play?.();
+    },
+    pause: () => {
+      animationRef.current?.pause?.();
+    },
+    reset: () => {
+      animationRef.current?.reset();
+    },
+  }));
 
-    if (!platformEnv.isNative && !!LottieViewWeb) {
-      return (
-        <LottieViewWeb
-          animationData={source}
-          autoPlay={autoPlay}
-          loop={loop}
-          {...props}
-          lottieRef={animationRef as any}
-        />
-      );
-    }
-
-    return null;
-  },
-);
-
-LottieView.displayName = 'LottieView';
-LottieView.defaultProps = {
-  autoPlay: false,
-};
+  return (
+    <AnimatedLottieView
+      source={source as LottieNativeProps['source']}
+      autoPlay={autoPlay}
+      loop={!!loop}
+      {...props}
+      ref={animationRef as LegacyRef<AnimatedLottieView>}
+    />
+  );
+});
 
 export default LottieView;

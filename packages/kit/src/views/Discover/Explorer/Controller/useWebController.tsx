@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -11,11 +9,14 @@ import {
   homeTab,
   setWebTabData,
 } from '../../../../store/reducers/webTabs';
-import { OnWebviewNavigation, webviewRefs } from '../explorerUtils';
+import { webviewRefs } from '../explorerUtils';
 
 import { gotoSite } from './gotoSite';
 import { getWebTabs } from './useWebTabs';
 import { useWebviewRef } from './useWebviewRef';
+
+import type { OnWebviewNavigation } from '../explorerUtils';
+import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 export const onNavigation: OnWebviewNavigation = ({
   url,

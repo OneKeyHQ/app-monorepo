@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,14 +13,16 @@ import {
   Typography,
   useToast,
 } from '@onekeyhq/components';
-import { ModalProps } from '@onekeyhq/components/src/Modal';
+import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import { Text } from '@onekeyhq/components/src/Typography';
 import type { AddEthereumChainParameter } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
-import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+
+import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,

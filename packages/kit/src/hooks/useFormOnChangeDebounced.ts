@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
-import { UseFormReturn, WatchObserver } from 'react-hook-form';
 
 import { useDebounce } from './useDebounce';
+
+import type { UseFormReturn, WatchObserver } from 'react-hook-form';
 
 function useFormOnChangeDebounced<T>({
   useFormReturn,

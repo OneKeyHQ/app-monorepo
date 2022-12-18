@@ -1,16 +1,18 @@
 import { ethers } from '@onekeyfe/blockchain-libs';
 
-import { LogEvent, Transaction, Transfer } from '../../../../types/covalent';
-import { Network } from '../../../../types/network';
-import { Token } from '../../../../types/token';
-
-import {
-  EVMDecodedItemERC20Transfer,
-  EVMTxDecoder,
-  InfiniteAmountText,
-} from './decoder';
+import { EVMTxDecoder, InfiniteAmountText } from './decoder';
 import { parseGasInfo } from './gasParser';
-import { EVMDecodedInfoType, EVMDecodedItem, EVMDecodedTxType } from './types';
+import { EVMDecodedTxType } from './types';
+
+import type {
+  LogEvent,
+  Transaction,
+  Transfer,
+} from '../../../../types/covalent';
+import type { Network } from '../../../../types/network';
+import type { Token } from '../../../../types/token';
+import type { EVMDecodedItemERC20Transfer } from './decoder';
+import type { EVMDecodedInfoType, EVMDecodedItem } from './types';
 
 type ParseResult = {
   type: EVMDecodedTxType;

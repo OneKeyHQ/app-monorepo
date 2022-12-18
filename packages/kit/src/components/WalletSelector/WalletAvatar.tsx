@@ -1,19 +1,23 @@
 /* eslint-disable no-nested-ternary */
-import { ComponentProps, FC, memo, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Box, Center, Icon, Image } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
-import { Text, TypographyStyle } from '@onekeyhq/components/src/Typography';
+import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
+import { Text } from '@onekeyhq/components/src/Typography';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
-import { Avatar, defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import { defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { getDeviceTypeByDeviceId } from '../../utils/hardware';
-import {
+
+import type {
   DeviceStatusType,
   IHardwareDeviceStatusMap,
 } from '../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';

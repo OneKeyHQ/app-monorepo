@@ -1,10 +1,11 @@
-import { FC, ReactElement } from 'react';
+import type { FC, ReactElement } from 'react';
 
 import Box from '../Box';
 import RadioBox from '../RadioBox';
-import { RadioBoxProps } from '../RadioBox/RadioBox';
-import { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
 import Typography, { Text } from '../Typography';
+
+import type { RadioBoxProps } from '../RadioBox/RadioBox';
+import type { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
 
 export type RadioFeeItemProps = {
   value: string;

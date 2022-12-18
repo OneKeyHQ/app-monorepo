@@ -1,15 +1,11 @@
 /* eslint-disable max-classes-per-file */
 // import WalletConnect1 from '@walletconnect/client';
-import {
-  IInjectedProviderNames,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
-import { ISessionStatus } from '@walletconnect/types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { debounce } from 'lodash';
 
 import unlockUtils from '@onekeyhq/kit/src/components/AppLock/unlockUtils';
-import { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
-import {
+import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
+import type {
   IWalletConnectClientEventDestroy,
   IWalletConnectClientEventRpc,
 } from '@onekeyhq/kit/src/components/WalletConnect/WalletConnectClient';
@@ -24,12 +20,14 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
 import { WalletConnectRequestProxyAptos } from './WalletConnectRequestProxyAptos';
 import { WalletConnectRequestProxyEvm } from './WalletConnectRequestProxyEvm';
 
 import type { IBackgroundApi } from '../../IBackgroundApi';
+import type { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { ISessionStatus } from '@walletconnect/types';
 
 @backgroundClass()
 class ProviderApiWalletConnect extends WalletConnectClientForWallet {
@@ -182,7 +180,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       );
     }
 
-    const { networkImpl } = connector?.session;
+    const { networkImpl } = connector.session;
     const { dispatch } = this.backgroundApi;
     dispatch(closeDappConnectionPreloading());
 

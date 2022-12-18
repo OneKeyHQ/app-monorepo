@@ -1,14 +1,17 @@
-import { FC, ReactNode, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useState } from 'react';
 
 import { Box } from 'native-base';
 
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import IconButton from '../IconButton';
 import Pressable from '../Pressable';
 import { useThemeValue } from '../Provider/hooks';
-import { ThemeValues } from '../Provider/theme';
 import Typography from '../Typography';
 import VStack from '../VStack';
+
+import type { ICON_NAMES } from '../Icon';
+import type { ThemeValues } from '../Provider/theme';
 
 type AlertType = 'info' | 'warn' | 'error' | 'success' | 'SeriousWarning';
 type ActionType = 'bottom' | 'right';

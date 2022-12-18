@@ -1,16 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 /* eslint max-classes-per-file: "off" */
 
-import { ethers } from '@onekeyfe/blockchain-libs';
-import {
-  BaseClient,
-  BaseProvider,
-} from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import {
-  PartialTokenInfo,
-  TransactionStatus,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
@@ -26,16 +16,19 @@ import {
   PendingQueueTooLong,
 } from '../errors';
 import { IMPL_MAPPINGS } from '../proxy';
-import { Account, DBAccount } from '../types/account';
-import { HistoryEntry, HistoryEntryStatus } from '../types/history';
-import { WalletType } from '../types/wallet';
 
-import {
+import { IDecodedTxActionType, IDecodedTxDirection } from './types';
+import { VaultContext } from './VaultContext';
+
+import type { Account, DBAccount } from '../types/account';
+import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
+import type { WalletType } from '../types/wallet';
+import type { IEncodedTxEvm } from './impl/evm/Vault';
+import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
+import type {
   IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
-  IDecodedTxActionType,
-  IDecodedTxDirection,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
@@ -43,20 +36,24 @@ import {
   IFeeInfoUnit,
   IHistoryTx,
   ISetApprovalForAll,
-  ITransferInfo,
-  IUnsignedTxPro,
-} from './types';
-import { VaultContext } from './VaultContext';
-
-import type { IEncodedTxEvm } from './impl/evm/Vault';
-import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
-import type {
   ISignCredentialOptions,
   ISignedTx,
+  ITransferInfo,
+  IUnsignedTxPro,
   IVaultSettings,
 } from './types';
 import type { VaultHelperBase } from './VaultHelperBase';
-import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { ethers } from '@onekeyfe/blockchain-libs';
+import type {
+  BaseClient,
+  BaseProvider,
+} from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 

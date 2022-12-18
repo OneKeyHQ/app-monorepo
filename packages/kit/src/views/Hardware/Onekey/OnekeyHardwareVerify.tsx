@@ -1,7 +1,8 @@
 /* eslint-disable global-require */
-import { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import axios from 'axios';
 import { useIntl } from 'react-intl';
 
@@ -20,7 +21,7 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
+import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
@@ -28,6 +29,8 @@ import { getTimeStamp, hexlify } from '@onekeyhq/kit/src/utils/helper';
 import { CERTIFICATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 import { deviceUtils } from '../../../utils/hardware';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
@@ -270,7 +273,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
 const OneKeyHardwareVerify: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId } = route?.params;
+  const { walletId } = route?.params || {};
 
   return (
     <Modal

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react/no-unknown-property */
+import type { ComponentProps, Ref } from 'react';
 import {
-  ComponentProps,
-  Ref,
   forwardRef,
   useCallback,
   useEffect,
@@ -12,15 +11,7 @@ import {
 } from 'react';
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
-import {
-  IElectronWebView,
-  InpageProviderWebViewProps,
-} from '@onekeyfe/cross-inpage-provider-types';
-import {
-  IWebViewWrapperRef,
-  JsBridgeDesktopHost,
-} from '@onekeyfe/onekey-cross-webview';
-import { LoadURLOptions } from 'electron';
+import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 import isArray from 'lodash/isArray';
 import isEmpty from 'lodash/isEmpty';
 import isNil from 'lodash/isNil';
@@ -30,6 +21,13 @@ import { Freeze } from 'react-freeze';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import ErrorView from './ErrorView';
+
+import type {
+  IElectronWebView,
+  InpageProviderWebViewProps,
+} from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type { LoadURLOptions } from 'electron';
 
 const isDev = process.env.NODE_ENV !== 'production';
 

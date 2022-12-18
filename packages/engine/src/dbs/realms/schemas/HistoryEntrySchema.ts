@@ -1,11 +1,9 @@
 import Realm from 'realm';
 
 import { NotImplemented } from '../../../errors';
-import {
-  HistoryEntry,
-  HistoryEntryStatus,
-  HistoryEntryType,
-} from '../../../types/history';
+import { HistoryEntryType } from '../../../types/history';
+
+import type { HistoryEntry, HistoryEntryStatus } from '../../../types/history';
 
 class HistoryEntrySchema extends Realm.Object {
   // Transaction base below.

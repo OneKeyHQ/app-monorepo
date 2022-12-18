@@ -1,10 +1,11 @@
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { InvalidAccount, InvalidAddress } from '../../../errors';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
-import { IPrepareWatchingAccountsParams } from '../../types';
 
+import type { DBUTXOAccount } from '../../../types/account';
+import type { IPrepareWatchingAccountsParams } from '../../types';
 import type AdaVault from './Vault';
 
 export class KeyringWatching extends KeyringWatchingBase {

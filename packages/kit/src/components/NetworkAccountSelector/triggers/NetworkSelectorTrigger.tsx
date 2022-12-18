@@ -1,4 +1,5 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { Box, Token } from '@onekeyhq/components';
 
@@ -6,10 +7,9 @@ import { useActiveWalletAccount, useNavigationActions } from '../../../hooks';
 import { useRpcMeasureStatus } from '../../../views/ManageNetworks/hooks';
 import Speedindicator from '../modals/NetworkAccountSelectorModal/SpeedIndicator';
 
-import {
-  BaseSelectorTrigger,
-  INetworkAccountSelectorTriggerProps,
-} from './BaseSelectorTrigger';
+import { BaseSelectorTrigger } from './BaseSelectorTrigger';
+
+import type { INetworkAccountSelectorTriggerProps } from './BaseSelectorTrigger';
 
 interface NetworkSelectorTriggerProps
   extends INetworkAccountSelectorTriggerProps {

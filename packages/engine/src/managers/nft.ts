@@ -1,14 +1,13 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 
-import {
+import type {
   Collection,
   NFTAsset,
-  NFTChainMap,
   NFTServiceResp,
-  NFTSymbolMap,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
+import { NFTChainMap, NFTSymbolMap } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 

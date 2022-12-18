@@ -1,4 +1,5 @@
-import { FC, memo, useEffect } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -22,11 +23,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { createLazyComponent } from '../../utils/createLazyComponent';
 import { buildModalOpenAnimationOptions } from '../Modal/buildModalStackNavigatorOptions';
-import {
-  UpdateFeatureModalRoutes,
-  UpdateFeatureRoutesParams,
-} from '../Modal/UpdateFeature';
-import { ModalRoutes, ModalScreenProps, RootRoutes } from '../types';
+import { UpdateFeatureModalRoutes } from '../Modal/UpdateFeature';
+import { ModalRoutes, RootRoutes } from '../types';
+
+import type { UpdateFeatureRoutesParams } from '../Modal/UpdateFeature';
+import type { ModalScreenProps } from '../types';
 
 const ModalStackNavigator = createLazyComponent(() => import('../Modal'));
 const OnLanding = createLazyComponent(

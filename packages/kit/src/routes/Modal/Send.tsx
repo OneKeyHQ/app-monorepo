@@ -1,8 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import {
-  SendRoutes,
-  SendRoutesParams,
-} from '@onekeyhq/kit/src/views/Send/types';
+import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
+import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import { BaseSendRouteScreen } from '../../views/Send/components/BaseSendRouteScreen';
 import { BatchSendConfirm } from '../../views/Send/modals/BatchSendConfirm';

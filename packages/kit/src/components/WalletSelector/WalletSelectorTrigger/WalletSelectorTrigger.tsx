@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { FC, ReactNode, memo, useCallback, useMemo, useRef } from 'react';
+import type { FC, ReactNode } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import type { DesktopRef } from '@onekeyhq/components/src/Select/Container/Desktop';

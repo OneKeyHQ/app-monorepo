@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { chunk } from 'lodash';
 import { Center, Column, Pressable, Row } from 'native-base';

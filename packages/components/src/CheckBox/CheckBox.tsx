@@ -1,12 +1,15 @@
-import { ComponentProps, FC, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useMemo } from 'react';
 
-import { Checkbox as BaseCheckBox, IBoxProps } from 'native-base';
+import { Checkbox as BaseCheckBox } from 'native-base';
 
 import Box from '../Box';
 import Pressable from '../Pressable';
 import Typography from '../Typography';
 
 import { getCheckBoxIcon } from './CheckBoxIcon';
+
+import type { IBoxProps } from 'native-base';
 
 export type CheckBoxProps = {
   name?: string;

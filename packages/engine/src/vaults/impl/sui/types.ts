@@ -1,4 +1,4 @@
-import { SignableTransaction, SuiMoveObject } from '@mysten/sui.js';
+import type { SignableTransaction, SuiMoveObject } from '@mysten/sui.js';
 
 export type IEncodedTxSUI = SignableTransaction;
 

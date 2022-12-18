@@ -1,18 +1,14 @@
-import {
+import type {
   ComponentProps,
   MutableRefObject,
   ReactElement,
   ReactNode,
   RefObject,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
 } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
-import { ColorType } from 'native-base/lib/typescript/components/types';
 import {
   InteractionManager,
   StyleSheet,
@@ -20,10 +16,9 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { GestureResponderEvent } from 'react-native-modal';
 
 import Box from '../Box';
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import { ChevronDown } from '../Icon/react/mini';
 import { OverlayContainer } from '../OverlayContainer';
 import Pressable from '../Pressable';
@@ -33,6 +28,10 @@ import { Text } from '../Typography';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
+
+import type { ICON_NAMES } from '../Icon';
+import type { ColorType } from 'native-base/lib/typescript/components/types';
+import type { GestureResponderEvent } from 'react-native-modal';
 
 interface CloseButtonProps {
   onClose: (event: GestureResponderEvent) => void;

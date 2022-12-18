@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import Box from '../../../Box';
 import Center from '../../../Center';
@@ -6,7 +6,7 @@ import HStack from '../../../HStack';
 import IconButton from '../../../IconButton';
 import Typography from '../../../Typography';
 
-import { HeaderProps } from './type';
+import type { HeaderProps } from './type';
 
 const Header: FC<HeaderProps> = ({
   header,

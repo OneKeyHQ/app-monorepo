@@ -1,4 +1,4 @@
-import { INetwork } from '@onekeyhq/engine/src/types';
+import type { INetwork } from '@onekeyhq/engine/src/types';
 import { IMPL_FIL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { makeSelector } from './redux';

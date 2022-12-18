@@ -9,9 +9,10 @@ import { useNetworkSimple } from '../../hooks';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
-import { ITxActionListViewProps } from './types';
 import { getTxActionMeta } from './utils/getTxActionMeta';
 import { getDisplayedActions } from './utils/utilsTxDetail';
+
+import type { ITxActionListViewProps } from './types';
 
 function BatchTxsItemView(props: ITxActionListViewProps) {
   const {

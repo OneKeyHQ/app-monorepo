@@ -1,15 +1,11 @@
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-
 import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
-import {
+import type {
   AddNetworkParams,
   Network,
   UpdateNetworkParams,
 } from '@onekeyhq/engine/src/types/network';
-import {
-  GeneralInitialState,
-  changeActiveNetwork,
-} from '@onekeyhq/kit/src/store/reducers/general';
+import type { GeneralInitialState } from '@onekeyhq/kit/src/store/reducers/general';
+import { changeActiveNetwork } from '@onekeyhq/kit/src/store/reducers/general';
 import { updateNetworks } from '@onekeyhq/kit/src/store/reducers/runtime';
 import { updateUserSwitchNetworkFlag } from '@onekeyhq/kit/src/store/reducers/status';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
@@ -22,9 +18,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import ProviderApiBase from '../providers/ProviderApiBase';
-
 import ServiceBase from './ServiceBase';
+
+import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {

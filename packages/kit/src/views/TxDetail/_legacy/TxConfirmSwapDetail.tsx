@@ -1,13 +1,13 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
-import {
+import type {
   EVMDecodedItem,
   EVMDecodedItemInternalSwap,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import Address from './Address';

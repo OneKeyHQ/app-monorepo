@@ -1,13 +1,13 @@
-import { IWalletConnectSession } from '@walletconnect/types';
-
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
+import type { WalletService } from '@onekeyhq/kit/src/components/WalletConnect/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import ServiceBase from './ServiceBase';
+
+import type { IWalletConnectSession } from '@walletconnect/types';
 
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {

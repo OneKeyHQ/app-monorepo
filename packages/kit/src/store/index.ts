@@ -1,13 +1,5 @@
-import {
-  Action,
-  Dispatch,
-  PayloadAction,
-  ThunkAction,
-  combineReducers,
-  configureStore,
-} from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { cloneDeep, isFunction, isString } from 'lodash';
-import { Reducer } from 'redux';
 import {
   FLUSH,
   PAUSE,
@@ -57,6 +49,14 @@ import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
 import webTabsReducer from './reducers/webTabs'; // 24.34 MB **** +20 Mb UI components
 
+import type {
+  Action,
+  Dispatch,
+  PayloadAction,
+  ThunkAction,
+} from '@reduxjs/toolkit';
+import type { Reducer } from 'redux';
+
 const allReducers = combineReducers({
   autoUpdate: autoUpdateReducer,
   cloudBackup: cloudBackupReducer,
@@ -85,6 +85,7 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
   const higherState = {
     state: initialState,
   };
+  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last
   return function (state = {}, action: PayloadAction): any {
     switch (action.type) {
       // sync background redux to ui redux

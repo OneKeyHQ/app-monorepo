@@ -3,7 +3,8 @@
 import { Engine } from '@onekeyhq/engine';
 
 import BackgroundApiBase from './BackgroundApiBase';
-import { IBackgroundApi } from './IBackgroundApi';
+
+import type { IBackgroundApi } from './IBackgroundApi';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   engine = new Engine();

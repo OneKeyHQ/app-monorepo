@@ -1,8 +1,8 @@
-import { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { Box, Image, Text } from '@onekeyhq/components';
 
-import { Provider } from '../../typings';
+import type { Provider } from '../../typings';
 
 type SwappingViaProps = {
   providers?: Provider[];

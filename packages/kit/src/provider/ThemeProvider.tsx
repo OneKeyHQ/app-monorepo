@@ -1,7 +1,9 @@
-import { ComponentProps, FC, memo, useEffect, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { Provider } from '@onekeyhq/components';
-import LOCALES, { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import LOCALES from '@onekeyhq/components/src/locale';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useColorScheme } from '@onekeyhq/kit/src/hooks/useColorScheme';
 import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/store/reducers/settings';

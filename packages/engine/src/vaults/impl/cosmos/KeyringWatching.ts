@@ -1,9 +1,10 @@
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { InvalidAddress } from '../../../errors';
-import { AccountType, DBVariantAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
+import type { DBVariantAccount } from '../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../types';
 
 // @ts-ignore

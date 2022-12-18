@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { ListRenderItem } from 'react-native';
 
 import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
 
@@ -9,6 +8,8 @@ import LiveMintingModule from './LiveMinting';
 import NotableCollections from './NotableCollections';
 import PageHeader from './PageHeader';
 import StatsModule from './Stats';
+
+import type { ListRenderItem } from 'react-native';
 
 export enum NFTModule {
   Collection = 'Collection',
@@ -20,6 +21,8 @@ export enum NFTModule {
 type ModuleData = {
   id: string;
 };
+
+const renderSeparator = () => <Box h={{ base: '32px', md: '48px' }} />;
 const Content = () => {
   const { bottom } = useSafeAreaInsets();
   const data: ModuleData[] = [
@@ -46,7 +49,7 @@ const Content = () => {
   return (
     <FlatList
       data={data}
-      ItemSeparatorComponent={() => <Box h={{ base: '32px', md: '48px' }} />}
+      ItemSeparatorComponent={renderSeparator}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
       p={{ base: '16px', md: '32px' }}

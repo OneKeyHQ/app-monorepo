@@ -1,7 +1,6 @@
+import type { ComponentProps, ReactElement } from 'react';
 import {
   Children,
-  ComponentProps,
-  ReactElement,
   cloneElement,
   forwardRef,
   useCallback,
@@ -9,7 +8,6 @@ import {
   useRef,
 } from 'react';
 
-import { IBoxProps } from 'native-base';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -20,6 +18,8 @@ import Animated, {
 import { Box, Center, IconButton } from '@onekeyhq/components';
 
 import { useForwardRef } from '../utils/useForwardRef';
+
+import type { IBoxProps } from 'native-base';
 
 export interface ScrollableButtonGroupProps extends IBoxProps {
   selectedIndex?: number;

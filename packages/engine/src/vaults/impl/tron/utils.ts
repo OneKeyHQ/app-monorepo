@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { keccak256 } from '@ethersproject/keccak256';
 import { uncompressPublicKey } from '@onekeyfe/blockchain-libs/dist/secret';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import TronWeb from 'tronweb';
 
 import type { Signer } from '../../../proxy';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export function publicKeyToAddress(publicKey: string): string {
   const uncompressed = uncompressPublicKey(

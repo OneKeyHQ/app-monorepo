@@ -1,17 +1,21 @@
-import { FC, ReactNode, useMemo } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   Center,
-  ICON_NAMES,
   Icon,
   Select,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { IDropdownProps, SelectItem } from '@onekeyhq/components/src/Select';
+import type {
+  IDropdownProps,
+  SelectItem,
+} from '@onekeyhq/components/src/Select';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,7 +28,8 @@ import {
 } from '../../../routes/routesEnum';
 import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
 import { useCreateAccountInWallet } from '../../NetworkAccountSelector/hooks/useCreateAccountInWallet';
-import { EWalletDataSectionType } from '../hooks/useWalletSelectorSectionData';
+
+import type { EWalletDataSectionType } from '../hooks/useWalletSelectorSectionData';
 
 const OptionLeading: FC<{ iconName: ICON_NAMES }> = ({ iconName }) => {
   const isVerticalLayout = useIsVerticalLayout();

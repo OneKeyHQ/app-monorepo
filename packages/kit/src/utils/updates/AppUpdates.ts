@@ -22,7 +22,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getDefaultLocale } from '../locale';
 
 import { getChangeLog, getPreReleaseInfo, getReleaseInfo } from './server';
-import { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
+
+import type { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
 
 class AppUpdates {
   addedListener = false;

@@ -2,12 +2,8 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
-import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  TransactionStatus,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import * as sdk from 'algosdk';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
@@ -23,25 +19,11 @@ import {
   OneKeyInternalError,
   RecipientHasNotActived,
 } from '../../../errors';
-import { DBSimpleAccount } from '../../../types/account';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
   IEncodedTxUpdateType,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ISignedTx,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -52,6 +34,22 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { encodeTransaction } from './utils';
 
+import type { DBSimpleAccount } from '../../../types/account';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxLegacy,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
 import type {
   IAccountInformation,
   IAccountTransactionsResp,
@@ -59,6 +57,8 @@ import type {
   IEncodedTxAlgo,
   IPendingTransactionInformation,
 } from './types';
+import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const ASSET_ID_END_BOUNDARY = new BigNumber('0x10000000000000000');
 

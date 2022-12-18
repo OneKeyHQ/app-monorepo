@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import { getHDPath, getScriptType } from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
@@ -11,17 +10,19 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import { getAccountDefaultByPurpose } from './utils';
 
+import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
 import type BTCVault from './Vault';
+import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import type {
   SignedTx,
   TxInput,

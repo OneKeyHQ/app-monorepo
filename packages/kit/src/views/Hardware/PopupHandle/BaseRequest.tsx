@@ -1,9 +1,10 @@
-import { FC, ReactNode, useEffect, useMemo, useState } from 'react';
-
-import { IBoxProps } from 'native-base';
+import type { FC, ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Box, Center, IconButton, Spinner } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IBoxProps } from 'native-base';
 
 export type CloseWay = 'delay' | 'now' | 'never';
 

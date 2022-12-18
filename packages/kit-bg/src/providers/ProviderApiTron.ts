@@ -1,11 +1,6 @@
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
-import { SignedTransaction } from 'tronweb';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import VaultTron from '@onekeyhq/engine/src/vaults/impl/tron/Vault';
+import type VaultTron from '@onekeyhq/engine/src/vaults/impl/tron/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -15,9 +10,14 @@ import {
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
+import type { SignedTransaction } from 'tronweb';
 
 export type WatchAssetParameters = {
   type: string;

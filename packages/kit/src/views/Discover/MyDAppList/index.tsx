@@ -1,17 +1,22 @@
-import { FC, useCallback, useLayoutEffect } from 'react';
+import type { FC } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-
-import { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type {
+  HomeRoutes,
+  HomeRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
 
 import { MyDAppListContext } from './context';
 import Desktop from './desktop';
 import Mobile from './mobile';
+
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MyDAppListScreen>;
 
@@ -37,11 +42,12 @@ const MyDappList: FC = () => {
     },
     [navigation, onItemSelect],
   );
-
+  const contextValue = useMemo(
+    () => ({ onItemSelect: onSelect, defaultIndex }),
+    [defaultIndex, onSelect],
+  );
   return (
-    <MyDAppListContext.Provider
-      value={{ onItemSelect: onSelect, defaultIndex }}
-    >
+    <MyDAppListContext.Provider value={contextValue}>
       <Box flex="1" bg="background-default">
         {isSmallScreen ? <Mobile /> : <Desktop />}
       </Box>

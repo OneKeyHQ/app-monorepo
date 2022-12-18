@@ -1,16 +1,17 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type {
+  FetchQuoteResponse,
   QuoteData,
   QuoteLimited,
   Recipient,
   SwapError,
-  FetchQuoteResponse
 } from '../../views/Swap/typings';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 type SwapState = {
   inputTokenNetwork?: Network | null;
@@ -30,7 +31,7 @@ type SwapState = {
   sendingAccount?: Account | null;
   showMoreQuoteDetail?: boolean;
   userSelectedQuoter?: Record<string, string>;
-  responses?: FetchQuoteResponse[]
+  responses?: FetchQuoteResponse[];
 };
 
 const initialState: SwapState = {
@@ -91,7 +92,7 @@ export const swapSlice = createSlice({
       state.error = undefined;
       state.quoteLimited = undefined;
       state.showMoreQuoteDetail = false;
-      state.userSelectedQuoter = undefined
+      state.userSelectedQuoter = undefined;
       state.responses = undefined;
     },
     resetState(state) {
@@ -142,19 +143,22 @@ export const swapSlice = createSlice({
     setShowMoreQuoteDetail(state, action: PayloadAction<boolean>) {
       state.showMoreQuoteDetail = action.payload;
     },
-    setUserSelectedQuoter(state, action: PayloadAction<{ hash: string, type: string }>) {
+    setUserSelectedQuoter(
+      state,
+      action: PayloadAction<{ hash: string; type: string }>,
+    ) {
       if (!state.userSelectedQuoter) {
         state.userSelectedQuoter = {};
       }
-      const { hash, type } = action.payload
-      state.userSelectedQuoter[hash] = type
+      const { hash, type } = action.payload;
+      state.userSelectedQuoter[hash] = type;
     },
     clearUserSelectedQuoter(state) {
       state.userSelectedQuoter = undefined;
     },
     setResponses(state, action: PayloadAction<FetchQuoteResponse[]>) {
-      state.responses = action.payload
-    }
+      state.responses = action.payload;
+    },
   },
 });
 
@@ -176,7 +180,7 @@ export const {
   setShowMoreQuoteDetail,
   setUserSelectedQuoter,
   clearUserSelectedQuoter,
-  setResponses
+  setResponses,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

@@ -1,9 +1,10 @@
 import { batchGetPrivateKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 
-import { ExportedSeedCredential } from '../../dbs/base';
 import { OneKeyInternalError } from '../../errors';
 
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
+
+import type { ExportedSeedCredential } from '../../dbs/base';
 
 export abstract class KeyringHdBase extends KeyringSoftwareBase {
   override async getPrivateKeys(

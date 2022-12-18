@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
 
 import { useToast } from '@onekeyhq/components';
-import {
+import type {
   IEncodedTx,
   IFeeInfo,
   IFeeInfoPayload,

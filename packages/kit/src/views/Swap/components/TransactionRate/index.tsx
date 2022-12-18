@@ -1,10 +1,11 @@
-import { ComponentProps, FC, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import { Icon, Pressable, Text } from '@onekeyhq/components';
-import { TypographyStyle } from '@onekeyhq/components/src/Typography';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { formatAmount } from '../../utils';
 

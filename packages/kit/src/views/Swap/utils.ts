@@ -3,10 +3,11 @@ import BigNumber from 'bignumber.js';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import type { FetchQuoteParams } from './typings';
+
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 export const feeRecipient = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
 export const affiliateAddress = '0x4F5FC02bE49Bea15229041b87908148b04c14717';
-import type { FetchQuoteParams } from './typings'
 
 export class TokenAmount {
   amount: BigNumber;
@@ -174,8 +175,10 @@ export function calculateRange(
 }
 
 export function stringifyTokens(a?: Token, b?: Token) {
-  if (!a || !b) { return '' }
+  if (!a || !b) {
+    return '';
+  }
   const input = `input:${a.networkId}-${b.tokenIdOnNetwork}`;
   const output = `output:${a.networkId}-${b.tokenIdOnNetwork}`;
-  return `${input}|${output} `
+  return `${input}|${output} `;
 }

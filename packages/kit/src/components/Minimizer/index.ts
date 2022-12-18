@@ -1,6 +1,6 @@
 import { NativeModules } from 'react-native';
 
-import { MinimizerInterface } from '@onekeyhq/app/src/types/NativeModules';
+import type { MinimizerInterface } from '@onekeyhq/app/src/types/NativeModules';
 
 const { Minimizer } = NativeModules;
 

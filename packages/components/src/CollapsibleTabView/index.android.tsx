@@ -1,10 +1,11 @@
-import { Children, FC, Fragment } from 'react';
+import type { FC } from 'react';
+import { Children, Fragment } from 'react';
 
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
 
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NativeNestedTabView';
-import { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
+import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
 
 import FlatList from '../FlatList';
 import { useThemeValue } from '../Provider/hooks';
@@ -12,7 +13,7 @@ import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
-import { ContainerProps } from './types';
+import type { ContainerProps } from './types';
 
 // TODO: Compatible with the pad
 const Container: FC<ContainerProps> = ({

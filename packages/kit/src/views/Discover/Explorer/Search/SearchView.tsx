@@ -9,7 +9,7 @@ import {
 
 import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { FlatListProps, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -27,12 +27,14 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
-import { DAppItemType } from '../../type';
-import {
+
+import type { DAppItemType } from '../../type';
+import type {
   SearchViewKeyEventType,
   SearchViewProps,
   SearchViewRef,
 } from '../explorerUtils';
+import type { FlatListProps } from 'react-native';
 
 const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
   (

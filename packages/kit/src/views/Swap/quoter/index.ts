@@ -2,25 +2,30 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { QuoterType } from '../typings';
 import {
-  BuildTransactionParams,
-  BuildTransactionResponse,
-  FetchQuoteParams,
-  FetchQuoteResponse,
-  QuoteLimited,
-  Quoter,
-  QuoterType,
-  TransactionData,
-  TransactionDetails,
-  TransactionProgress,
-} from '../typings';
-import { getTokenAmountString, nativeTokenAddress, stringifyTokens } from '../utils';
+  getTokenAmountString,
+  nativeTokenAddress,
+  stringifyTokens,
+} from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
 import { MdexQuoter } from './mdex';
 import { SocketQuoter } from './socket';
 import { SwftcQuoter } from './swftc';
+
+import type {
+  BuildTransactionParams,
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  FetchQuoteResponse,
+  QuoteLimited,
+  Quoter,
+  TransactionData,
+  TransactionDetails,
+  TransactionProgress,
+} from '../typings';
 
 type TransactionOrder = {
   platformAddr: string;
@@ -269,8 +274,9 @@ export class SwapQuoter {
       return;
     }
 
-    const quoterType = await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter()
-  
+    const quoterType =
+      await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
+
     if (quoterType) {
       urlParams.quoterType = quoterType;
     }

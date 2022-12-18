@@ -1,19 +1,17 @@
 import { useEffect } from 'react';
 
-import {
-  NavigationProp,
-  StackActions,
-  useNavigation,
-} from '@react-navigation/native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import useDappParams from '../../../hooks/useDappParams';
-import {
+import { SendRoutes } from '../types';
+
+import type {
   SendConfirmParams,
-  SendRoutes,
   SendRoutesParams,
   SignMessageConfirmParams,
 } from '../types';
+import type { NavigationProp } from '@react-navigation/native';
 
 type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 

@@ -1,5 +1,6 @@
 /* eslint-disable global-require */
-import { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
 import * as SplashScreen from 'expo-splash-screen';
 // TODO: add .d.ts for react-native-animated-splash-screen

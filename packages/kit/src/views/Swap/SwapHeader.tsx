@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-
-import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -26,13 +25,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
-import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import { HomeRoutes } from '../../routes/types';
 import { setSwapPopoverShown } from '../../store/reducers/status';
 
 import { useSwapQuoteCallback } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
 import { SwapError } from './typings';
 
+import type { HomeRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;

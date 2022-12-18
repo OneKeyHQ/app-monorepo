@@ -5,25 +5,27 @@ import {
 } from '@mysten/sui.js';
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { AptosMessage } from '../../../types/message';
+import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import {
+import { addHexPrefix } from '../../utils/hexUtils';
+
+import { toTransaction } from './utils';
+
+import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { DBSimpleAccount } from '../../../types/account';
+import type { AptosMessage } from '../../../types/message';
+import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   SignedTxResult,
 } from '../../types';
-import { addHexPrefix } from '../../utils/hexUtils';
-
-import { toTransaction } from './utils';
+import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

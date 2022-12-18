@@ -8,7 +8,7 @@ import {
 import { enUS, zhCN } from 'date-fns/locale';
 
 import { useLocale } from '@onekeyhq/components';
-import { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 
 const parseLocal = (localeSymbol: LocaleSymbol) => {
   switch (localeSymbol) {

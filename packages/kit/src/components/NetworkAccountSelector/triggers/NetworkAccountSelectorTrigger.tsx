@@ -1,12 +1,13 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { HStack, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useActiveWalletAccount } from '../../../hooks';
 
 import { AccountSelectorTrigger } from './AccountSelectorTrigger';
-import { INetworkAccountSelectorTriggerProps } from './BaseSelectorTrigger';
 import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
+
+import type { INetworkAccountSelectorTriggerProps } from './BaseSelectorTrigger';
 
 const defaultProps = {
   type: 'plain',

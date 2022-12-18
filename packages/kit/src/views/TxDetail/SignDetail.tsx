@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useMemo, useState } from 'react';
 
 import * as ethUtils from 'ethereumjs-util';
 import { isNil } from 'lodash';
@@ -22,7 +23,7 @@ import {
   AptosMessageTypes,
   ETHMessageTypes,
 } from '@onekeyhq/engine/src/types/message';
-import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import X from '@onekeyhq/kit/assets/red_x.png';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 

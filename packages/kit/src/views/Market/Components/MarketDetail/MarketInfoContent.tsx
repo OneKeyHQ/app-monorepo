@@ -1,4 +1,5 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,7 +11,7 @@ import {
   VStack,
 } from '@onekeyhq/components/src';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
-import {
+import type {
   MarketEXplorer,
   MarketLinks,
   MarketNews,

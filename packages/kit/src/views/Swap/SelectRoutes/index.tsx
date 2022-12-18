@@ -1,16 +1,14 @@
+import type { ComponentProps, FC } from 'react';
 import {
-  ComponentProps,
-  FC,
   createContext,
   useCallback,
   useContext,
-  useState,
-  useMemo,
   useEffect,
+  useMemo,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -24,12 +22,14 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ArrivalTime } from '../components/ArrivalTime';
 import { useSwapQuoteRequestParams } from '../hooks/useSwap';
-import { FetchQuoteResponse } from '../typings';
+import { stringifyTokens } from '../utils';
 
 import { AmountLimit } from './AmountLimit';
 import { LiquiditySources } from './LiquiditySources';
 import { TokenInput } from './TokenInput';
-import { stringifyTokens } from '../utils';
+
+import type { FetchQuoteResponse } from '../typings';
+import type { ListRenderItem } from 'react-native';
 
 type RoutesProps = {
   responses: FetchQuoteResponse[];
@@ -131,19 +131,19 @@ const SelectRoutes = () => {
   const navigation = useNavigation();
   const [selectedIndex, onSelectIndex] = useState(-1);
   const params = useSwapQuoteRequestParams();
-  const quote = useAppSelector(s => s.swap.quote)
-  const responses = useAppSelector(s => s.swap.responses)
-  const data = useMemo(()  => responses ?? [], [responses])
+  const quote = useAppSelector((s) => s.swap.quote);
+  const responses = useAppSelector((s) => s.swap.responses);
+  const data = useMemo(() => responses ?? [], [responses]);
 
   useEffect(() => {
     async function main() {
-      const index = data.findIndex(item => item.data?.type === quote?.type);
+      const index = data.findIndex((item) => item.data?.type === quote?.type);
       if (index !== -1) {
-        onSelectIndex(index)
+        onSelectIndex(index);
       }
     }
-    main()
-  }, [data, quote])
+    main();
+  }, [data, quote]);
 
   const onPrimaryActionPress = useCallback(() => {
     const response = data[selectedIndex];
@@ -151,15 +151,21 @@ const SelectRoutes = () => {
       if (response.data) {
         backgroundApiProxy.serviceSwap.setQuote(response.data);
         const hash = stringifyTokens(params?.tokenIn, params?.tokenOut);
-        backgroundApiProxy.serviceSwap.setUserSelectedQuoter(hash, response.data.type)
+        backgroundApiProxy.serviceSwap.setUserSelectedQuoter(
+          hash,
+          response.data.type,
+        );
       }
       backgroundApiProxy.serviceSwap.setQuoteLimited(response.limited);
     }
     navigation.goBack();
   }, [selectedIndex, responses, navigation]);
-
+  const contextValue = useMemo(
+    () => ({ selectedIndex, onSelect: onSelectIndex }),
+    [selectedIndex],
+  );
   return (
-    <SelectRoutesContext.Provider value={{ selectedIndex, onSelect: onSelectIndex }}>
+    <SelectRoutesContext.Provider value={contextValue}>
       <Modal
         size="lg"
         header={intl.formatMessage({ id: 'title__select_route' })}

@@ -1,4 +1,5 @@
-import { FC, ReactElement, memo, useCallback, useEffect } from 'react';
+import type { FC, ReactElement } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { requestPermissionsAsync } from 'expo-notifications';
 import { AppState, NativeModules } from 'react-native';

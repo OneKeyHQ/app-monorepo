@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import { ComponentProps, FC, ReactNode } from 'react';
+import type { ComponentProps, FC, ReactNode } from 'react';
 
 import {
   Header as NavigationHeader,

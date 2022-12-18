@@ -1,13 +1,11 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 
-import { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
+import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
-import {
-  AccountType,
-  DBVariantAccount,
-} from '@onekeyhq/engine/src/types/account';
+import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 

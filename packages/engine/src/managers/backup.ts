@@ -3,7 +3,8 @@ import uuid from 'react-native-uuid';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyInternalError } from '../errors';
-import { AccountType, DBAccount } from '../types/account';
+
+import type { AccountType, DBAccount } from '../types/account';
 
 // uuid.v5('onekey', '00000000-0000-0000-0000-000000000000')
 // const ONEKEY_NAMESPACE = '30303338-6435-5664-a334-323538396638';

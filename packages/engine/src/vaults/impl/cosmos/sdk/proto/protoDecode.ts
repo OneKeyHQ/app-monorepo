@@ -11,11 +11,12 @@ import {
   MsgExecuteContract,
   MsgInstantiateContract,
 } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
-import { Any } from 'cosmjs-types/google/protobuf/any';
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
-import * as $protobuf from 'protobufjs';
 
 import { MessageType, UnknownMessage } from '../message';
+
+import type { Any } from 'cosmjs-types/google/protobuf/any';
+import type * as $protobuf from 'protobufjs';
 
 export type UnpackedMessage =
   | Any

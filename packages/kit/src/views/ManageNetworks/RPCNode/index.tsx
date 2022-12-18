@@ -1,6 +1,7 @@
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -20,8 +21,11 @@ import { updateCustomNetworkRpc } from '../../../store/reducers/settings';
 import AddNodeDialog from '../components/AddNodeDialog';
 import RestartAppDialog from '../components/RestartDialog';
 import { RPCItem } from '../components/RPCItem';
-import { MeasureResult, measureRpc, useRPCUrls } from '../hooks';
-import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import { measureRpc, useRPCUrls } from '../hooks';
+
+import type { MeasureResult } from '../hooks';
+import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,

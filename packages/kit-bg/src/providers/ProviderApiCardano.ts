@@ -1,13 +1,9 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { NetworkId } from '@onekeyhq/engine/src/vaults/impl/ada/types';
-import AdaVault from '@onekeyhq/engine/src/vaults/impl/ada/Vault';
+import type AdaVault from '@onekeyhq/engine/src/vaults/impl/ada/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -16,9 +12,13 @@ import {
 import { IMPL_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ProviderApiCardano extends ProviderApiBase {
@@ -72,11 +72,12 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   private getConnectedAccount(request: IJsBridgeMessagePayload) {
-    const [account] =
-      this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
+    const [account] = this.backgroundApi.serviceDapp.getActiveConnectedAccounts(
+      {
         origin: request.origin as string,
         impl: IMPL_ADA,
-      });
+      },
+    );
 
     return Promise.resolve({ address: account?.address ?? null });
   }

@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
@@ -25,29 +26,29 @@ import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import {
-  OneKeyErrorClassNames,
-  OneKeyHardwareError,
-} from '@onekeyhq/engine/src/errors';
+import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { Device } from '@onekeyhq/engine/src/types/device';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import KeepDeviceAroundSource from '@onekeyhq/kit/assets/wallet/keep_device_close.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
-import {
+import type {
   ModalScreenProps,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { SearchDevice, deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import {
   BleLocationServiceError,
@@ -56,8 +57,6 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '../../../utils/hardware/errors';
-
-import type { Wallet } from '../../../../../engine/src/types/wallet';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
@@ -434,9 +433,7 @@ const ConnectHardwareModal: FC = () => {
   };
 
   const content = platformEnv.isNative ? (
-    <>
-      <Center>{renderConnectScreen()}</Center>
-    </>
+    <Center>{renderConnectScreen()}</Center>
   ) : (
     <VStack space={8} alignItems="center">
       <Box>

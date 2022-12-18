@@ -1,10 +1,10 @@
-import { ComponentProps, FC, ReactElement, cloneElement } from 'react';
+import type { ComponentProps, FC, ReactElement } from 'react';
+import { cloneElement } from 'react';
 
 import Box from '../Box';
-import Pressable from '../Pressable';
 
-import { RadioBoxProps } from './RadioBox';
-
+import type Pressable from '../Pressable';
+import type { RadioBoxProps } from './RadioBox';
 import type { IBoxProps, IRadioValue } from 'native-base';
 
 interface IRadioBoxGroupProps extends IBoxProps<RadioBoxGroupProps> {

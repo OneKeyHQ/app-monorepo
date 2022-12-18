@@ -1,8 +1,8 @@
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
+import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
-  CheckParams,
   checkSite,
   getAddressRiskyItems,
   getTokenRiskyItems,
@@ -11,11 +11,9 @@ import {
   fetchTokenSource,
   fetchTools,
 } from '@onekeyhq/engine/src/managers/token';
-import {
-  AccountType,
-  DBVariantAccount,
-} from '@onekeyhq/engine/src/types/account';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   addAccountTokens,
@@ -35,7 +33,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import ServiceBase from './ServiceBase';
+
+import type { IServiceBaseProps } from './ServiceBase';
 
 export type IFetchAccountTokensParams = {
   activeAccountId: string;

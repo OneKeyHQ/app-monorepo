@@ -1,4 +1,5 @@
-import { ComponentProps, memo } from 'react';
+import type { ComponentProps } from 'react';
+import { memo } from 'react';
 
 import { Image } from '@onekeyhq/components';
 import type { IAccount } from '@onekeyhq/engine/src/types';

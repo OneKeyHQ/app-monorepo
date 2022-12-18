@@ -1,16 +1,19 @@
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
-import { HomeRoutes } from '../../../routes/routesEnum';
-import { HomeRoutesParams } from '../../../routes/types';
 import ChainSelector from '../ChainSelector';
 import { StatsList } from '../Home/Stats';
-import { StatsListContext, StatsListContextValue } from '../Home/Stats/context';
+import { StatsListContext } from '../Home/Stats/context';
+
+import type { HomeRoutes } from '../../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../../routes/types';
+import type { StatsListContextValue } from '../Home/Stats/context';
+import type { RouteProp } from '@react-navigation/core';
 
 const StatsListScreen = () => {
   const { bottom } = useSafeAreaInsets();
@@ -49,8 +52,9 @@ const StatsListScreen = () => {
     });
   }, [intl, navigation, selectedNetwork]);
 
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <StatsListContext.Provider value={{ context, setContext }}>
+    <StatsListContext.Provider value={contextValue}>
       <ScrollView
         p={{ base: '16px', md: '32px' }}
         contentContainerStyle={{

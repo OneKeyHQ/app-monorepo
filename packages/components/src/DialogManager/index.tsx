@@ -1,4 +1,5 @@
-import { ReactElement, cloneElement } from 'react';
+import type { ReactElement } from 'react';
+import { cloneElement } from 'react';
 
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 

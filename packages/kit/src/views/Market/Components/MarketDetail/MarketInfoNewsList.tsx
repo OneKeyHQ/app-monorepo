@@ -1,7 +1,7 @@
-import { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -12,8 +12,10 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-import { MarketNews } from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketNews } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+
+import type { ListRenderItem } from 'react-native';
 
 type NewsItemProps = {
   title?: string;

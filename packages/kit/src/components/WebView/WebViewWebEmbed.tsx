@@ -2,12 +2,12 @@ import { useMemo } from 'react';
 
 import WebView from './index';
 
-import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeProviderVariant } from '../../provider/ThemeProvider';
+
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 // /onboarding/auto_typing
 export function WebViewWebEmbed({

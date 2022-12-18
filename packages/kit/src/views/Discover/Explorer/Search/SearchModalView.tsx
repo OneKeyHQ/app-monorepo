@@ -1,6 +1,7 @@
-import { FC, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 
 import {
   Box,
@@ -16,12 +17,13 @@ import { homeTab } from '../../../../store/reducers/webTabs';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
-import { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
 import { getWebTabs } from '../Controller/useWebTabs';
-import { MatchDAppItemType } from '../explorerUtils';
 
 import { Header, ListEmptyComponent } from './Header';
 
+import type { DiscoverModalRoutes, DiscoverRoutesParams } from '../../type';
+import type { MatchDAppItemType } from '../explorerUtils';
+import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
 type RouteProps = RouteProp<
@@ -74,6 +76,7 @@ export const SearchModalView: FC = () => {
         p={4}
         key={`${index}-${item.id}`}
         borderTopRadius={index === 0 ? '12px' : '0px'}
+        // eslint-disable-next-line no-unsafe-optional-chaining
         borderRadius={index === flatListData?.length - 1 ? '12px' : '0px'}
         onPress={() => {
           onSelectHistory(item);

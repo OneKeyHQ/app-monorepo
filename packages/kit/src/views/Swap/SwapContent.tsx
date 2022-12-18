@@ -41,7 +41,7 @@ const SwapContent = () => {
   const { wallet, network } = useActiveWalletAccount();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { formattedAmounts } = useDerivedSwapState();
-  const params = useSwapQuoteRequestParams()
+  const params = useSwapQuoteRequestParams();
   const isDisabled = !wallet || !network || swapMaintain;
 
   const onSelectInput = useCallback(() => {

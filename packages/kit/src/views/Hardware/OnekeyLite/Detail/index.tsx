@@ -1,4 +1,5 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,27 +16,26 @@ import {
   Text,
   useLocale,
 } from '@onekeyhq/components';
-import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
-import { SelectItem } from '@onekeyhq/components/src/Select';
+import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import type { SelectItem } from '@onekeyhq/components/src/Select';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  CreateWalletModalRoutes,
+import type {
   CreateWalletRoutesParams,
-  OnekeyLiteChangePinModalRoutes,
   OnekeyLiteChangePinRoutesParams,
-  OnekeyLiteResetModalRoutes,
   OnekeyLiteResetRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+  CreateWalletModalRoutes,
+  OnekeyLiteChangePinModalRoutes,
+  OnekeyLiteResetModalRoutes,
+} from '@onekeyhq/kit/src/routes';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 

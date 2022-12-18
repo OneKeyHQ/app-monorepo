@@ -1,4 +1,5 @@
-import { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,7 +33,7 @@ const DepositLimitAlert = () => {
       </Box>
     );
   }
-  return <></>;
+  return null;
 };
 
 const ErrorAlert = () => {
@@ -51,19 +52,6 @@ const ErrorAlert = () => {
       </Box>
     );
   }
-  // if (error === SwapError.QuoteFailed) {
-  //   return (
-  //     <Box mt="6">
-  //       <Alert
-  //         title={intl.formatMessage({
-  //           id: 'msg__failed_to_get_price',
-  //         })}
-  //         alertType="warn"
-  //         dismiss={false}
-  //       />
-  //     </Box>
-  //   );
-  // }
   return null;
 };
 

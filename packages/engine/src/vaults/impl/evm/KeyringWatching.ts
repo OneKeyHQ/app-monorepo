@@ -1,19 +1,20 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-
 import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { InvalidAddress } from '../../../errors';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
-import {
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type {
   IEncodedTx,
   IPrepareWatchingAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringWatching extends KeyringWatchingBase {
   // TODO remove

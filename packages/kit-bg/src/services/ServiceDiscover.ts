@@ -18,8 +18,8 @@ import {
   setHomeData,
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import { setWebTabData } from '@onekeyhq/kit/src/store/reducers/webTabs';
-import { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
-import { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
+import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
+import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 import {
   backgroundClass,
   backgroundMethod,

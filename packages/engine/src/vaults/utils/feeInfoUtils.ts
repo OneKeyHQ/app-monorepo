@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
-import { EIP1559Fee, Network } from '../../types/network';
-import { IFeeInfo, IFeeInfoUnit } from '../types';
+import type { EIP1559Fee, Network } from '../../types/network';
+import type { IFeeInfo, IFeeInfoUnit } from '../types';
 
 // onChainValue -> GWEI
 export function convertFeeValueToGwei({

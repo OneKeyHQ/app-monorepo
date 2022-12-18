@@ -2,25 +2,26 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { Transaction, TxStatus } from '../../../../types/covalent';
-import { HistoryEntryTransaction } from '../../../../types/history';
+import { TxStatus } from '../../../../types/covalent';
 
 import { ABI } from './abi';
 import { parseGasInfo, updateGasInfo } from './gasParser';
 import { updateWithHistoryEntry } from './historyParser';
 import { parsePayload } from './payloadParser';
-import {
+import { EVMDecodedTxType } from './types';
+import { isEvmNativeTransferType, jsonToEthersTx } from './util';
+
+import type { Engine } from '../../../..';
+import type { Transaction } from '../../../../types/covalent';
+import type { HistoryEntryTransaction } from '../../../../types/history';
+import type VaultEvm from '../Vault';
+import type {
   EVMBaseDecodedItem,
   EVMDecodedItem,
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
   EVMDecodedItemInternalSwap,
-  EVMDecodedTxType,
 } from './types';
-import { isEvmNativeTransferType, jsonToEthersTx } from './util';
-
-import type { Engine } from '../../../..';
-import type VaultEvm from '../Vault';
 
 export const InfiniteAmountText = 'Infinite';
 export const InfiniteAmountHex =

@@ -6,9 +6,9 @@ import ModifyWalletEmojiView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyW
 import ModifyWalletNameView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWallet/name';
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 
-import { ValidationFields } from '../../components/Protected/types';
-
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
+
+import type { ValidationFields } from '../../components/Protected/types';
 
 export enum ManagerWalletModalRoutes {
   ManagerWalletModal = 'ManagerWalletModal',

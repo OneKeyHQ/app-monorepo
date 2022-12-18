@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 

@@ -1,25 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient } from 'aptos';
 import * as SHA3 from 'js-sha3';
 
 import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ExportedSeedCredential } from '../../../dbs/base';
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
-import { AptosMessage } from '../../../types/message';
+import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-import {
-  IPrepareSoftwareAccountsParams,
-  ISignCredentialOptions,
-} from '../../types';
 import { addHexPrefix } from '../../utils/hexUtils';
 
 import {
@@ -27,6 +17,18 @@ import {
   generateUnsignedTransaction,
   signRawTransaction,
 } from './utils';
+
+import type { ExportedSeedCredential } from '../../../dbs/base';
+import type { DBSimpleAccount } from '../../../types/account';
+import type { AptosMessage } from '../../../types/message';
+import type {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

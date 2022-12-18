@@ -1,14 +1,7 @@
-import {
-  ComponentProps,
-  FC,
-  createElement,
-  isValidElement,
-  useCallback,
-  useMemo,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { createElement, isValidElement, useCallback, useMemo } from 'react';
 
 import { Box, Center } from 'native-base';
-import { ResponsiveValue } from 'native-base/lib/typescript/components/types';
 import { useIntl } from 'react-intl';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
@@ -26,6 +19,8 @@ import Pressable from '../Pressable';
 import { useToast } from '../Toast/useToast';
 import { Body2, Text } from '../Typography';
 import { shortenAddress } from '../utils';
+
+import type { ResponsiveValue } from 'native-base/lib/typescript/components/types';
 
 export type TokenProps = {
   token?: Partial<IToken>;

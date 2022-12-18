@@ -1,25 +1,25 @@
 /* eslint-disable max-classes-per-file, @typescript-eslint/no-unused-vars */
 
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
-import {
-  IClientMeta,
-  IWalletConnectOptions,
-  IWalletConnectSession,
-} from '@walletconnect/types';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
-import { WalletService } from './types';
 import {
   WALLET_CONNECT_BRIDGE,
   WALLET_CONNECT_CONNECTION_TIMEOUT,
 } from './walletConnectConsts';
 
+import type { WalletService } from './types';
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  IClientMeta,
+  IWalletConnectOptions,
+  IWalletConnectSession,
+} from '@walletconnect/types';
 
 // Same to
 //  class OneKeyWalletConnect extends Connector {

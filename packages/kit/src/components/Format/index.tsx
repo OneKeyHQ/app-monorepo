@@ -1,5 +1,6 @@
 /* eslint-disable no-nested-ternary */
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -15,9 +16,10 @@ import {
   useSettings,
 } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
-import { Token } from '../../store/typings';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { formatDecimalZero, getFiatCodeUnit } from '../../views/Market/utils';
+
+import type { Token } from '../../store/typings';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */

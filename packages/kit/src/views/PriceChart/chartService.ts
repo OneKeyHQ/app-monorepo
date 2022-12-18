@@ -1,12 +1,12 @@
-import {
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
+import type {
   BusinessDay,
   ChartOptions,
   IChartApi,
   ISeriesApi,
   UTCTimestamp,
 } from 'lightweight-charts';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]

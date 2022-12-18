@@ -1,12 +1,14 @@
-import { ComponentProps, FC, useEffect, useRef, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
-import { ISizes } from 'native-base/lib/typescript/theme/base/sizes';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import Typography from '../Typography';
+
+import type { ISizes } from 'native-base/lib/typescript/theme/base/sizes';
 
 export type SwitchSize = 'sm' | 'lg' | 'mini';
 export type LabelType = 'false' | 'after' | 'before';

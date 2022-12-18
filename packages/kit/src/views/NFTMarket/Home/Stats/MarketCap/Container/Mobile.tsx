@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem, Text } from '@onekeyhq/components';
 import type { NFTMarketCapCollection } from '@onekeyhq/engine/src/types/nft';
@@ -15,6 +14,10 @@ import { useCollectionDetail } from '../../../hook';
 import { useStatsListContext } from '../../context';
 import EmptyView from '../../EmptyView';
 
+import type { ListRenderItem } from 'react-native';
+
+const renderSeparator = () => <Box h="4px" />;
+const renderFooter = () => <Box height="20px" />;
 const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
@@ -103,8 +106,8 @@ const Mobile = ({ listData }: { listData: NFTMarketCapCollection[] }) => {
         keyExtractor={(item, index) =>
           `${item.contract_address as string}${index}`
         }
-        ItemSeparatorComponent={() => <Box h="4px" />}
-        ListFooterComponent={() => <Box height="20px" />}
+        ItemSeparatorComponent={renderSeparator}
+        ListFooterComponent={renderFooter}
       />
     </MotiView>
   );

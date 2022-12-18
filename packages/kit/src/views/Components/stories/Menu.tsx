@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import { Center, Divider, Menu, Pressable, Text } from '@onekeyhq/components';
 
 const MenuGallery = () => (

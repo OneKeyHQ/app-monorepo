@@ -1,4 +1,4 @@
-import { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
+import type { ComponentProps, ComponentPropsWithoutRef, FC } from 'react';
 
 import { Pressable } from 'react-native';
 

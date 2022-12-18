@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
-import { Account } from '@onekeyhq/engine/src/types/account';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -40,17 +40,20 @@ const AccountsObserver = () => {
 };
 
 const UserSelectedQuoterObserver = () => {
-  const inputToken = useAppSelector(s => s.swap.inputToken);
-  const outputToken = useAppSelector(s => s.swap.outputToken);
-  const tokensHash = useMemo(() => stringifyTokens(inputToken, outputToken), [inputToken, outputToken])
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const tokensHash = useMemo(
+    () => stringifyTokens(inputToken, outputToken),
+    [inputToken, outputToken],
+  );
   const prevTokensHash = usePrevious(tokensHash);
   useEffect(() => {
     if (tokensHash !== prevTokensHash) {
-      backgroundApiProxy.serviceSwap.clearUserSelectedQuoter()
+      backgroundApiProxy.serviceSwap.clearUserSelectedQuoter();
     }
-  }, [tokensHash, prevTokensHash])
-  return null
-}
+  }, [tokensHash, prevTokensHash]);
+  return null;
+};
 
 const WelcomeObserver = () => {
   const navigation = useNavigation();

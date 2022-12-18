@@ -17,9 +17,9 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import ProviderApiPrivate from '../providers/ProviderApiPrivate';
-
 import ServiceBase from './ServiceBase';
+
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 type RemoteSetting = {
   enableAppRatings: boolean;

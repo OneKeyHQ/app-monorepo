@@ -1,6 +1,6 @@
 /* eslint-disable no-nested-ternary */
+import type { FC } from 'react';
 import {
-  FC,
   createContext,
   useCallback,
   useContext,
@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 
-import { ListRenderItem, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -26,11 +26,13 @@ import { useAppSelector } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../DAppIcon';
 import { useCategoryDapps } from '../../hooks';
-import { DAppItemType } from '../../type';
 import { DiscoverContext } from '../context';
 
 import { DAppCategories } from './DAppCategories';
 import { EmptySkeletonContent } from './EmptySkeleton';
+
+import type { DAppItemType } from '../../type';
+import type { ListRenderItem } from 'react-native';
 
 type ChainsSelectorValues = {
   selectedNetworkId: string;
@@ -238,10 +240,13 @@ export const Others = () => {
     setSelectedNetworkId('');
   }, [categoryId]);
 
+  const contextValue = useMemo(
+    () => ({ selectedNetworkId, setSelectedNetworkId }),
+    [selectedNetworkId],
+  );
+
   return (
-    <SelectedNetworkContext.Provider
-      value={{ selectedNetworkId, setSelectedNetworkId }}
-    >
+    <SelectedNetworkContext.Provider value={contextValue}>
       <Container />
     </SelectedNetworkContext.Provider>
   );

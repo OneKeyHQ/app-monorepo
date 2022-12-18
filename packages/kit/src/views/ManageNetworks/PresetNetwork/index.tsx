@@ -1,15 +1,7 @@
-import {
-  FC,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { FC, ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
 import {
@@ -30,12 +22,15 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks';
 import { URITester } from '../CustomNetwork';
-import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
 import { DiscardAlert } from './DiscardAlert';
 
 import type { NetworkRpcURLStatus } from '../CustomNetwork';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type {
+  NativeStackNavigationProp,
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,

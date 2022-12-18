@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
-import { TabRoutes } from '../routes/routesEnum';
-
 import useNavigation from './useNavigation';
+
+import type { TabRoutes } from '../routes/routesEnum';
 
 export const useIsFocusedInTab = (tabName: TabRoutes) => {
   const isFocused = useIsFocused();

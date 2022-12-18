@@ -1,13 +1,15 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { Text } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { useAppSelector } from '../../../hooks';
 import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
-import { TokenBalanceValue } from '../../../store/reducers/tokens';
 import { getSummedValues } from '../../../utils/priceUtils';
+
+import type { TokenBalanceValue } from '../../../store/reducers/tokens';
 
 export const AssetsSummedValues: FC<{
   networkId: string;

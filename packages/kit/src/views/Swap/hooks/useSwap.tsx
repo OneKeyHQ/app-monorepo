@@ -11,12 +11,14 @@ import {
   setQuoteLimited,
   setResponses,
 } from '../../../store/reducers/swap';
-import { Token } from '../../../store/typings';
 import { SwapQuoter } from '../quoter';
-import { FetchQuoteParams, SwapError, FetchQuoteResponse } from '../typings';
+import { SwapError } from '../typings';
 import { formatAmount, greaterThanZeroOrUndefined } from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
+
+import type { Token } from '../../../store/typings';
+import type { FetchQuoteParams, FetchQuoteResponse } from '../typings';
 
 class TokenAmount {
   amount: BigNumber;
@@ -116,7 +118,7 @@ export const useSwapQuoteCallback = function (
 ) {
   const { showLoading } = options;
   const params = useSwapQuoteRequestParams();
-  const quote = useAppSelector(s => s.swap.quote)
+  const quote = useAppSelector((s) => s.swap.quote);
   const refs = useRef({ params, count: 0 });
 
   useEffect(() => {
@@ -133,25 +135,29 @@ export const useSwapQuoteCallback = function (
     }
     backgroundApiProxy.dispatch(setError(undefined));
 
-    const findBestResponse = async (responses: FetchQuoteResponse[]): Promise<FetchQuoteResponse | undefined> => {
-      const items = responses.filter(item => !item.limited && item.data);
-      const quoter = await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
+    const findBestResponse = async (
+      responses: FetchQuoteResponse[],
+    ): Promise<FetchQuoteResponse | undefined> => {
+      const items = responses.filter((item) => !item.limited && item.data);
+      const quoter =
+        await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
       if (quoter) {
-        return items.find(item => item.data?.type === quoter)
-      } else {
-        const values = items.map(item => item.data?.buyAmount ? Number(item.data?.buyAmount): 0)
-        const maxValue = Math.max(...values);
-        if (!Number.isNaN(maxValue)) {
-          return items.find(item => item.data?.buyAmount === String(maxValue))
-        }
+        return items.find((item) => item.data?.type === quoter);
       }
-    }
+      const values = items.map((item) =>
+        item.data?.buyAmount ? Number(item.data?.buyAmount) : 0,
+      );
+      const maxValue = Math.max(...values);
+      if (!Number.isNaN(maxValue)) {
+        return items.find((item) => item.data?.buyAmount === String(maxValue));
+      }
+    };
 
     const fetchQuote = async () => {
       refs.current.params = params;
       refs.current.count += 1;
       const fetchAllQuotes = async () => {
-        const responses = await  SwapQuoter.client.fetchQuotes(params);
+        const responses = await SwapQuoter.client.fetchQuotes(params);
         if (refs.current.params === params && responses) {
           backgroundApiProxy.dispatch(setResponses(responses));
           const res = await findBestResponse(responses);
@@ -160,8 +166,8 @@ export const useSwapQuoteCallback = function (
             backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
           }
         }
-      }
-      fetchAllQuotes()
+      };
+      fetchAllQuotes();
       try {
         const res = await SwapQuoter.client.fetchQuote(params);
         if (refs.current.params === params) {
@@ -186,7 +192,7 @@ export const useSwapQuoteCallback = function (
           backgroundApiProxy.dispatch(setLoading(false));
         }
       }
-    }
+    };
 
     const fetchQuotes = async () => {
       refs.current.params = params;
@@ -196,7 +202,7 @@ export const useSwapQuoteCallback = function (
         if (refs.current.params === params) {
           if (responses) {
             backgroundApiProxy.dispatch(setResponses(responses));
-            const res = await findBestResponse(responses)
+            const res = await findBestResponse(responses);
             if (res) {
               backgroundApiProxy.serviceSwap.setQuote(res.data);
               backgroundApiProxy.serviceSwap.setQuoteLimited(res.limited);
@@ -219,11 +225,11 @@ export const useSwapQuoteCallback = function (
           backgroundApiProxy.dispatch(setLoading(false));
         }
       }
-    }
+    };
     if (!quote) {
-      await fetchQuote()
+      await fetchQuote();
     } else {
-      await fetchQuotes()
+      await fetchQuotes();
     }
   }, [params, showLoading, quote]);
   return swapQuote;

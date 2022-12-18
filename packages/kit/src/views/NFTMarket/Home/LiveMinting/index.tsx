@@ -1,4 +1,5 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -15,18 +16,16 @@ import {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { HomeRoutes, HomeRoutesParams } from '../../../../routes/types';
+import { HomeRoutes } from '../../../../routes/types';
 import ChainSelector from '../../ChainSelector';
 import { useDefaultNetWork } from '../hook';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';
-import {
-  LiveMintListContext,
-  LiveMintListContextValue,
-  useLiveMintContext,
-} from './context';
+import { LiveMintListContext, useLiveMintContext } from './context';
 
+import type { HomeRoutesParams } from '../../../../routes/types';
+import type { LiveMintListContextValue } from './context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -189,8 +188,9 @@ const LiveMintingModule = () => {
     isTab: true,
     selectedNetwork: defaultNetwork,
   });
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <LiveMintListContext.Provider value={{ context, setContext }}>
+    <LiveMintListContext.Provider value={contextValue}>
       <ListHeader />
       <LiveMintingList />
     </LiveMintListContext.Provider>
