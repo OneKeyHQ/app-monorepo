@@ -12,6 +12,8 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useNetwork } from '../../../hooks';
 import { formatAmount, getTokenAmountValue } from '../utils';
 
+import { useTokenOutput } from './utils';
+
 type TokenInputProps = {
   token?: Token;
   amount?: string;
@@ -25,11 +27,8 @@ export const TokenInput: FC<TokenInputProps> = ({
 }) => {
   const isSmall = useIsVerticalLayout();
   const { network } = useNetwork({ networkId: token?.networkId });
+  const text = useTokenOutput({ token, amount });
 
-  let text = '';
-  if (token && amount) {
-    text = formatAmount(getTokenAmountValue(token, amount), 4);
-  }
   if (!token) return null;
   return (
     <Box flexDirection={rightAlign ? 'row-reverse' : 'row'} alignItems="center">

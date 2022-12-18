@@ -13,20 +13,23 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   CustomSkeleton,
-  FlatList,
+  Divider,
   Modal,
   Pressable,
+  ScrollView,
+  Typography,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ArrivalTime } from '../components/ArrivalTime';
 import { useSwapQuoteRequestParams } from '../hooks/useSwap';
-import { stringifyTokens } from '../utils';
+import { multiply, stringifyTokens } from '../utils';
 
 import { AmountLimit } from './AmountLimit';
 import { LiquiditySources } from './LiquiditySources';
 import { TokenInput } from './TokenInput';
+import { useTokenOutput } from './utils';
 
 import type { FetchQuoteResponse } from '../typings';
 import type { ListRenderItem } from 'react-native';
@@ -71,6 +74,16 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
   const { inputToken, outputToken } = useAppSelector((s) => s.swap);
   const { selectedIndex, onSelect } = useContext(SelectRoutesContext);
   const { data, limited } = response;
+  const buyAmount = data?.buyAmount ?? '0';
+  let percentageFee = data?.percentageFee ? Number(data?.percentageFee) : 0;
+  if (data?.type === 'swftc') {
+    percentageFee += 0.002;
+  }
+  const noFeeAmount = multiply(buyAmount, 1 - percentageFee);
+  const nofeePrice = useTokenOutput({
+    token: outputToken,
+    amount: noFeeAmount,
+  });
 
   return (
     <Pressable
@@ -81,6 +94,8 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
       p="4"
       borderRadius={12}
       onPress={() => onSelect(index)}
+      isDisabled={!!limited}
+      mb="3"
     >
       <Box
         flexDirection="row"
@@ -98,31 +113,64 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         </Box>
         <Box flex="1" flexDirection="row">
           <PlaceholderLine mr={2} />
-          <TokenInput token={outputToken} amount={data?.buyAmount} rightAlign />
+          <TokenInput token={outputToken} amount={buyAmount} rightAlign />
         </Box>
       </Box>
       <Box mt="3" flexDirection="row" justifyContent="space-between">
         <Box>
-          <AmountLimit limited={limited} token={inputToken} />
+          <ArrivalTime value={data?.arrivalTime} />
         </Box>
-        <ArrivalTime value={data?.arrivalTime} />
+        <Box>
+          <Typography.Caption color="text-subdued">
+            No Fee Price: {nofeePrice}
+          </Typography.Caption>
+        </Box>
       </Box>
+      {response.data?.type === 'swftc' ? (
+        <Box>
+          <Divider my="3" />
+          <Typography.Caption color="text-subdued">
+            Cap: 50,000 USDT/Day. Rates may change due to market.
+          </Typography.Caption>
+        </Box>
+      ) : null}
     </Pressable>
   );
 };
 
 const Routes: FC<RoutesProps> = ({ responses }) => {
-  const renderItem: ListRenderItem<FetchQuoteResponse> = ({ item, index }) => (
-    <RouteOption response={item} index={index} />
-  );
+  const data = responses.map((res, index) => ({ ...res, index }));
+  const limited = data.filter((item) => item.limited);
+  const notLimited = data.filter((item) => !item.limited);
+
   return (
-    <FlatList
-      data={responses}
-      renderItem={renderItem}
-      keyExtractor={(item, index) => item.data?.type ?? String(index)}
-      ItemSeparatorComponent={ItemSeparatorComponent}
-      ListEmptyComponent={ListEmptyComponent}
-    />
+    <ScrollView>
+      <Box>
+        <Box>
+          {notLimited.map((item) => (
+            <RouteOption
+              key={item.data?.type ?? ''}
+              response={item}
+              index={item.index}
+            />
+          ))}
+        </Box>
+        {limited.length ? (
+          <Box>
+            <Typography.Subheading mb="3">Unavailable</Typography.Subheading>
+            <Box>
+              {limited.map((item) => (
+                <RouteOption
+                  key={item.data?.type ?? ''}
+                  response={item}
+                  index={item.index}
+                />
+              ))}
+            </Box>
+          </Box>
+        ) : null}
+      </Box>
+    </ScrollView>
   );
 };
 
