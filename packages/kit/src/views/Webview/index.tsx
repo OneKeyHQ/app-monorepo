@@ -26,7 +26,7 @@ export const SettingsWebViews: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
-  const { url, title } = route?.params || {};
+  const { url, title, modalMode } = route.params;
   const [currentUrl, setCurrentUrl] = useState(url);
   const containerRef = useRef<typeof Box>(null);
 
@@ -41,7 +41,7 @@ export const SettingsWebViews: FC = () => {
           borderBottomColor="divider"
         >
           <NavHeader
-            safeTop={0}
+            safeTop={modalMode ? 0 : undefined}
             headerRight={() => (
               <Select
                 autoAdjustPosition={false}
