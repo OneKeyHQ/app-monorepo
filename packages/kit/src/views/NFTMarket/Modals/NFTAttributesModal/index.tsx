@@ -23,11 +23,8 @@ import type { CollectionAttribute } from '@onekeyhq/engine/src/types/nft';
 
 import { NFTAttributesContext, useNFTAttributesContext } from './context';
 
+import type { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 import type { NFTAttributesContextValue } from './context';
-import type {
-  NFTAttributeFilterRoutes,
-  NFTAttributeFilterRoutesParams,
-} from './type';
 import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
@@ -161,12 +158,7 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
 const NFTAttributesModal: FC = () => {
   const intl = useIntl();
   const route =
-    useRoute<
-      RouteProp<
-        NFTAttributeFilterRoutesParams,
-        NFTAttributeFilterRoutes.FilterModal
-      >
-    >();
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.FilterModal>>();
 
   const {
     collection,

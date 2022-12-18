@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unstable-nested-components */
 import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
@@ -8,7 +7,10 @@ import { useIntl } from 'react-intl';
 
 import { Box, List, ListItem, Text } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { NFTMarketRanking } from '@onekeyhq/engine/src/types/nft';
+import type {
+  Collection,
+  NFTMarketRanking,
+} from '@onekeyhq/engine/src/types/nft';
 
 import CollectionLogo from '../../../../CollectionLogo';
 import { PriceString } from '../../../../PriceText';
@@ -18,12 +20,31 @@ import EmptyView from '../../EmptyView';
 
 import type { ListRenderItem } from 'react-native';
 
-type Props = { listData: NFTMarketRanking[]; selectNetwork?: Network } & Pick<
+type Props = {
+  listData: NFTMarketRanking[];
+  selectNetwork?: Network;
+  onSelectCollection?: ({
+    collection,
+    networkId,
+    contractAddress,
+    title,
+  }: {
+    collection?: Collection;
+    networkId: string;
+    contractAddress: string;
+    title?: string;
+  }) => void;
+} & Pick<
   ComponentProps<typeof List>,
   'ListHeaderComponent' | 'ListFooterComponent' | 'headerProps'
 >;
 
-const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
+const Mobile: FC<Props> = ({
+  onSelectCollection,
+  selectNetwork,
+  listData,
+  ...listProps
+}) => {
   const context = useStatsListContext()?.context;
   const intl = useIntl();
   const goToCollectionDetail = useCollectionDetail();
@@ -49,11 +70,19 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
       return (
         <ListItem
           onPress={() => {
-            goToCollectionDetail({
-              contractAddress: item.contract_address as string,
-              networkId: network?.id as string,
-              title: item.contract_name,
-            });
+            if (onSelectCollection) {
+              onSelectCollection({
+                contractAddress: item.contract_address as string,
+                networkId: network?.id as string,
+                title: item.contract_name,
+              });
+            } else {
+              goToCollectionDetail({
+                contractAddress: item.contract_address as string,
+                networkId: network?.id as string,
+                title: item.contract_name,
+              });
+            }
           }}
         >
           <ListItem.Column>
@@ -117,7 +146,13 @@ const Mobile: FC<Props> = ({ selectNetwork, listData, ...listProps }) => {
         </ListItem>
       );
     },
-    [intl, network?.id, context?.selectedNetwork?.id, goToCollectionDetail],
+    [
+      intl,
+      network?.id,
+      context?.selectedNetwork?.id,
+      onSelectCollection,
+      goToCollectionDetail,
+    ],
   );
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {

@@ -152,6 +152,7 @@
   "action__pause": "يوقف",
   "action__permanently_delete": "حذف بشكل دائم",
   "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
+  "action__profit_and_loss": "الربح والخسارة",
   "action__protection": "حماية",
   "action__quick_add": "إضافة سريعة",
   "action__receive": "تسلم",
@@ -185,6 +186,7 @@
   "action__scan": "مسح",
   "action__scan_to_connect": "مسح للاتصال",
   "action__see_all": "اظهار الكل",
+  "action__select_a_project": "اختر مشروعًا",
   "action__select_token": "حدد رمز",
   "action__sell": "يبيع",
   "action__sell_crypto": "بيع العملات المشفرة",
@@ -247,7 +249,7 @@
   "action_unstake": "نزع",
   "alert__some_of_words_you_typed_are_wrong": "بعض الكلمات التي كتبتها خاطئة",
   "alert_only_use_a_recovery_seed_from_device": "قم فقط بتدوين عبارات الاسترداد التي عرضها جهازك أثناء الإعداد.",
-  "app__app_name": "مفتاح واحد",
+  "app__app_name": "OneKey",
   "app__hardware_name_onekey_lite": "OneKey Lite",
   "asset__collectibles": "المقتنيات",
   "asset__collectibles_empty_desc": "ستظهر NFTs هنا.",
@@ -332,7 +334,7 @@
   "content__bluetooth_firmware_version": "إصدار البرنامج الثابت للبلوتوث",
   "content__bluetooth_name": "اسم البلوتوث",
   "content__btc_dominance": "هيمنة BTC",
-  "content__calculate_fee": "🚀 سيحسب OneKey الرسوم بعد إدخال العنوان والمبلغ.",
+  "content__calculate_fee": "لا توجد رسوم متاحة.",
   "content__categories": "فئات",
   "content__chain_is_not_matched": "السلسلة غير متطابقة",
   "content__change_password_attention": "احتفظ بالتطبيق مفتوحًا أثناء تغيير كلمات المرور.",
@@ -352,6 +354,7 @@
   "content__created": "مخلوق",
   "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
   "content__creating_your_wallet": "<a> إنشاء </a> <b> محفظتك </b>",
+  "content__creator_fee": "رسوم المنشئ",
   "content__currency": "عملة",
   "content__current_price_str": "السعر الحالي: {0}",
   "content__custom": "مخصص",
@@ -375,11 +378,13 @@
   "content__enter_pin_in_app": "أدخل رقم التعريف الشخصي في التطبيق",
   "content__enter_your_recovery_seed": "أدخل عبارة الاسترداد الخاصة بك",
   "content__enter_your_recovery_seed_desc": "أدخل عبارة الاسترداد التي كتبتها من قبل ، وتحقق منها.",
+  "content__entry_price": "سعر الدخول",
   "content__estimated": "مُقدَّر",
   "content__ether_price": "سعر الأثير",
   "content__every_time_we_find_the_best_prices": "نجد دائمًا أفضل السيولة والأسعار من الموردين. يتضمن كل عرض أسعار 1٪ رسوم لمساعدة OneKey على تقديم خدمة أفضل لك.",
   "content__exchange_any_tokens": "تبادل أي رموز",
   "content__existing": "موجود",
+  "content__exit_value": "قيمة الخروج",
   "content__ext_metamask_tutorials_1": "انقر على الصورة الرمزية في الشريط العلوي",
   "content__external_account": "الحسابات الخارجية",
   "content__face_id": "معرف الوجه",
@@ -400,6 +405,7 @@
   "content__for_people_who_dont_have_hardware_wallet": "للأشخاص الذين ليس لديهم محفظة أجهزة.",
   "content__for_people_who_have_hardware_wallet": "للأشخاص الذين لديهم محفظة أجهزة.",
   "content__from": "من عند",
+  "content__gas_fee": "رسوم الغاز",
   "content__gas_limit": "حد الغاز",
   "content__gas_price": "سعر الغاز",
   "content__gas_used": "الغاز المستخدم",
@@ -412,6 +418,7 @@
   "content__hash": "تجزئة",
   "content__have_been_connected": "متصل سابقًا",
   "content__height": "ارتفاع",
+  "content__hodl_duration": "مدة HODL",
   "content__hours": "ساعات",
   "content__how_to_receive_push_in_str": "كيفية تلقي الدفع في {0}",
   "content__how_to_receive_push_in_str_desc": "1. وافق على تطبيق إذن إعلام OneKey في المتصفح.\n 2. في إعدادات النظام ، افتح إذن إعلام المتصفح.",
@@ -455,6 +462,7 @@
   "content__max_priority_fee": "رسوم الأولوية القصوى",
   "content__maybe_in_30s": "ربما في الثلاثينيات",
   "content__min": "دقيقة",
+  "content__mint": "نعناع",
   "content__minutes_lowercase": "الدقائق",
   "content__more_details": "المزيد من التفاصيل",
   "content__native_metamask_tutorials_1": "انقر فوق زر القائمة في الشريط العلوي",
@@ -494,6 +502,7 @@
   "content__pin_error_the_data_of_this_device_will_be_erased_after_str_more_wrong_tries": "خطأ رقم التعريف الشخصي ، سيتم مسح بيانات هذا الجهاز بعد {count} من المحاولات الخاطئة",
   "content__pin_onekey_ext": "تثبيت OneKey على شريط الأدوات لتسهيل الوصول إليه:",
   "content__place_your_onekey_lite_close_to_the_back_of_here": "ضع OneKey Lite الخاص بك\n بالقرب من الجزء الخلفي من هنا",
+  "content__platform_fee": "رسوم المنصة",
   "content__powered_by": "مشغل بواسطة",
   "content__preset_rpc": "عناوين URL محددة مسبقًا لـ RPC",
   "content__previous_backups": "النسخ الاحتياطية السابقة",
@@ -511,6 +520,7 @@
   "content__receive_notifications_of_account_dynamics_and_asset_changes": "تلقي إخطارات ديناميكيات الحساب وتغييرات الأصول.",
   "content__recovery_phrase_restore": "إذا نسيت كلمة المرور الخاصة بك ، فيمكنك استخدام عبارة الاسترداد للعودة إلى محفظتك.",
   "content__rocket_fast": "🚀 سريع",
+  "content__royalty_fees_are_excluded": "لا تشمل رسوم الامتياز",
   "content__running_official_firmware": "جهازك يقوم بتشغيل البرامج الثابتة الرسمية.",
   "content__safe_to_enter_into_onekey": "هل من الآمن إدخاله في OneKey؟",
   "content__safe_to_enter_into_onekey_desc": "نعم. سيتم تخزينه محليًا ولن يترك جهازك أبدًا دون إذن صريح منك.",
@@ -520,7 +530,7 @@
   "content__search_cryptos": "البحث في التشفير",
   "content__search_dapps_or_type_url": "ابحث أو اكتب URL",
   "content__search_for_token_name_or_contract_address": "ابحث عن اسم الرمز أو عنوان العقد.",
-  "content__search_or_enter_dapp_url": "ابحث أو أدخل عنوان URL لـ DApp ...",
+  "content__search_or_enter_dapp_url": "ابحث أو أدخل عنوان URL ...",
   "content__search_token_or_contract_address": "ابحث عن رمز أو عنوان العقد",
   "content__sec": "ثانية",
   "content__seconds__lowercase": "ثواني",
@@ -543,6 +553,7 @@
   "content__since_str": "منذ {0}",
   "content__slow": "بطيء",
   "content__spend_limit_amount": "مبلغ حد الإنفاق",
+  "content__spent": "أنفق",
   "content__staked_eth_can_t_be_taken_back_now": "لا يمكن إرجاع ETH المكدس الآن.",
   "content__staked_eth_can_t_be_taken_back_now_desc": "يعد Ethereum 2.0 مبكرًا. سيتم قفل الرموز المميزة ETH الخاصة بعقدة التحقق حتى المرحلة 1.5 بعد التخزين المؤقت. تحدد خطط Ethereum الوقت والقواعد.",
   "content__standard": "اساسي",
@@ -677,6 +688,8 @@
   "empty__no_purchasable_tokens_desc": "يرجى تبديل الشبكة والمحاولة مرة أخرى.",
   "empty__no_recoverable_account_desc": "لم يتم العثور على حسابات قابلة للاسترداد.",
   "empty__no_salable_tokens": "لا توجد رموز قابلة للبيع",
+  "empty__no_sales_record": "لا يوجد سجل مبيعات",
+  "empty__no_sales_record_desc": "هذا الحساب لم يبيع أي NFTs",
   "empty__no_tokens": "لا توجد رموز",
   "empty__no_tokens_desc": "سيتم عرض الرموز المميزة {0} هنا.",
   "empty__no_wallet_desc": "ابدأ بإنشاء محفظة جديدة.",
@@ -738,6 +751,7 @@
   "form__amount_recipient_activate": "المستلم يتطلب حجز {amount} {unit} للتفعيل",
   "form__anti_sandwich_attack": "هجوم مضاد للساندويتش",
   "form__anti_sandwich_attack_desc": "نجد أفضل الطرق للتداول اللامركزي (DEX) مع تجنب الانزلاق وهجمات MEV.",
+  "form__anti_scam": "مكافحة الغش",
   "form__anti_whale": "مكافحة الحوت",
   "form__anti_whale_desc": "يحتوي العقد على وظيفة تحديد الحد الأقصى لمقدار المعاملات أو الحد الأقصى لمقدار العملات المعدنية المحتفظ بها.",
   "form__app_lock": "القفل التلقائي للتطبيق",
@@ -855,9 +869,9 @@
   "form__gas_fee_settings": "إعدادات رسوم الغاز",
   "form__gas_limit_invalid_min": "يجب ألا يقل حد الغاز عن {0}",
   "form__gas_limit_invalid_too_much": "حد الغاز أعلى من اللازم.",
-  "form__gas_price_invalid_min_str": "سعر الغاز الحد الأدنى غير صالح {0}",
-  "form__gas_price_invalid_too_low": "سعر الغاز غير صالح منخفض جدًا",
-  "form__gas_price_invalid_too_much": "سعر الغاز غير صالح كثيرا",
+  "form__gas_price_invalid_min_str": "لا يمكن أن يكون سعر الغاز أقل من {0}",
+  "form__gas_price_invalid_too_low": "قد يكون سعر الغاز منخفضًا جدًا",
+  "form__gas_price_invalid_too_much": "قد يكون سعر الغاز أكثر من اللازم",
   "form__general_uppercase": "جنرال لواء",
   "form__generate_amount": "توليد المبلغ",
   "form__google _search_str": "بحث Google {0}",
@@ -867,6 +881,8 @@
   "form__help_support": "ساعد لدعم",
   "form__hidden_owner": "المالك المخفي",
   "form__hidden_owner_desc": "لا يزال بإمكان المطورين تعديل العقود التي تم التخلي عنها مع المالكين السريين.",
+  "form__hide_0_amount_transfers": "إخفاء 0 مبلغ التحويلات",
+  "form__hide_0_amount_transfers_desc": "منع المحتالين من استخدام العناوين التي لها نفس النهاية وانتحال عنوانك بتحويل 0 مبلغ.",
   "form__hide_balance": "إخفاء الرصيد",
   "form__hide_risk_tokens": "إخفاء رموز المخاطرة",
   "form__hide_small_balance": "إخفاء الرصيد الصغير",
@@ -990,8 +1006,10 @@
   "form__payment_address": "عنوان الدفع",
   "form__performance": "أداء",
   "form__pin_error": "خطأ في رمز PIN. سيتم مسح بيانات هذا الجهاز بعد {0} المزيد من محاولات PIN الفاشلة.",
+  "form__platform": "برنامج",
   "form__please_confirm_on_device": "الرجاء التأكيد على الجهاز ...",
   "form__pool_uppercase": "حمام سباحة",
+  "form__preferences": "التفضيلات",
   "form__price_alert": "تنبيه السعر",
   "form__price_alert_desc": "عندما يصل الرمز المميز إلى السعر المحدد",
   "form__price_impact_desc": "تغيرات الأسعار التي قد تكون ناجمة عن معاملتك.",
@@ -1127,6 +1145,7 @@
   "form__unknown_tokens_desc": "يأتي الرمز المميز التالي من جهة خارجية غير معروفة. من فضلك كن على علم بالمخاطر!",
   "form__unlimited": "غير محدود",
   "form__unlimited_allowance": "إذن غير محدود",
+  "form__unlock_time_uppercase": "فتح الوقت",
   "form__update_downloading": "جاري التحميل ... {0}",
   "form__updated": "محدث",
   "form__updating_resource": "جارٍ تحديث الموارد ...",
@@ -1177,6 +1196,7 @@
   "modal__backup_interrupted_desc": "تأكد من أن الجهاز قريب من وحدة NFC بالهاتف ، ثم حاول مرة أخرى",
   "modal__bluetooth_access_not_granted": "الوصول إلى البلوتوث غير مسموح به",
   "modal__bluetooth_access_not_granted_desc": "انتقل إلى \"الإعدادات\" لتشغيل الوصول إلى البلوتوث.",
+  "modal__calculator": "آلة حاسبة",
   "modal__camera_access_not_granted": "لم يتم منح الوصول إلى الكاميرا",
   "modal__camera_access_not_granted_desc": "انتقل إلى \"الإعدادات\" لتشغيل الوصول إلى الكاميرا.",
   "modal__charts": "الرسوم البيانية",
@@ -1219,7 +1239,7 @@
   "modal__enter_bootloader_mode_error": "فشل إعادة تشغيل محمل الإقلاع",
   "modal__enter_bootloader_mode_error_desc": "فشل إعادة التشغيل. يرجى المحاولة مرة أخرى أو إدخال أداة تحميل التشغيل يدويًا",
   "modal__enter_bootloader_mode_mini_desc": "استمر في الضغط على زر قفل الشاشة في OneKey Mini وأعد توصيل كابل USB.",
-  "modal__enter_bootloader_mode_touch": "1. قم بإيقاف تشغيل الجهاز\n 2. اضغط مع الاستمرار على زر التبديل TOUCH أثناء التمرير على الشاشة\n 3. سيعرض الجهاز الآن الكلمات \"وضع التحديث\"",
+  "modal__enter_bootloader_mode_touch": "1. إيقاف TOUCH\n 2. اضغط مع الاستمرار على زر الطاقة بالجهاز أثناء التمرير على الشاشة\n 3. سيعرض الجهاز \"وضع التحديث\"",
   "modal__enter_pin": "أدخل رقم التعريف الشخصي",
   "modal__enter_pin_desc": "تحقق من شاشة جهازك باستخدام تخطيط لوحة المفاتيح العشوائي",
   "modal__failed_to_connect": "فشل الاتصال",
@@ -1240,7 +1260,7 @@
   "modal__import_backup_desc": "تحقق من كلمة المرور لاستيراد نسخة احتياطية",
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
-  "modal__install_onekey_bridge_desc": "OneKey Bridge هو أداة اتصال لتسهيل الاتصال بين OneKey ومتصفح الإنترنت الخاص بك.",
+  "modal__install_onekey_bridge_desc": "يتيح تثبيت OneKey Bridge لمحفظة أجهزتك إنشاء اتصال بمتصفحك.",
   "modal__keep_device_close": "أبقِ الجهاز قريبًا",
   "modal__location_access_not_granted": "الوصول إلى البلوتوث غير مسموح به",
   "modal__location_access_not_granted_use_bluetooth_desc": "يتم منح إذن الموقع لاستخدام البلوتوث ، يرجى الانتقال إلى الإعدادات لفتحها.",
@@ -1333,7 +1353,7 @@
   "msg__engine__incorrect_transfer_value": "قيمة التحويل غير صحيحة",
   "msg__engine__internal_error": "خطأ داخلي.",
   "msg__engine__invalid_mnemonic": "ذاكري غير صالح",
-  "msg__engine__not_implemented": "لم تنفذ.",
+  "msg__engine__not_implemented": "لم يتم تنفيذ هذه الميزة بعد.",
   "msg__engine__too_many_derived_accounts": "حسابات كثيرة جدًا",
   "msg__engine__too_many_hd_wallets": "عدد كبير جدًا من المحافظ",
   "msg__engine__too_many_hw_wallets": "عدد كبير جدًا من محافظ الأجهزة",
@@ -1540,6 +1560,7 @@
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
   "title__buy_str": "شراء {0}",
   "title__channel": "قناة",
+  "title__chart_mode": "وضع الرسم البياني",
   "title__choose_an_account": "اختيار حساب",
   "title__client_download": "تحميل العميل",
   "title__connect_sites": "المواقع المتصلة",
@@ -1652,6 +1673,7 @@
   "title__share_with_your_friends": "تقاسم هو الاهتمام ",
   "title__share_with_your_friends_desc": "شارك Revoke.gg مع أصدقائك حتى يتمكنوا من الحفاظ على أمان حساباتهم.",
   "title__signature_request": "طلب التوقيع",
+  "title__simple_mode": "الوضع البسيط",
   "title__slippage": "الانزلاق",
   "title__stake_str": "حصة {0}",
   "title__staked_on_str": "مخزون في {0}",
