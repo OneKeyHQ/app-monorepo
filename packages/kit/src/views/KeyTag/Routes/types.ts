@@ -1,7 +1,10 @@
+import { IWallet } from '@onekeyhq/engine/src/types';
+
 import { KeyTagRoutes } from './enums';
 
 export type IkeyTagShowDotMapParams = {
   mnemonic: string;
+  wallet?: IWallet;
 };
 
 export type IKeytagRoutesParams = {

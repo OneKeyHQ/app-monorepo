@@ -18,17 +18,15 @@ type NavigationProps = ModalScreenProps<KeyTagVerifyWalletRoutesParams>;
 const VerifyPassword = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { walletId } = route.params;
-  console.log('VerifyPassword--', walletId);
+  const { walletId, wallet } = route.params;
   return (
     <Modal footer={null}>
       <Protected walletId={walletId} field={ValidationFields.Secret}>
         {(password) => {
-          console.log('password--', password);
-          // navigation.navigate(KeyTagRoutes.Attentions, { walletId, password });
           navigation.replace(KeyTagVerifyWalletRoutes.KeyTagAttensions, {
             walletId,
             password,
+            wallet,
           });
         }}
       </Protected>

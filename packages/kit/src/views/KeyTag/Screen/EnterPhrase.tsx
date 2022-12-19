@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
   Form,
   Icon,
   Typography,
@@ -39,11 +40,22 @@ const EnterPhrase = () => {
       secondaryContent={
         !isVertical ? (
           <Box>
-            <Icon name="DotsCircleHorizontalOutline" />
+            <Center
+              mb={6}
+              size={12}
+              bgColor="decorative-surface-one"
+              borderRadius="9999px"
+            >
+              <Icon
+                size={24}
+                color="decorative-icon-one"
+                name="DotsCircleHorizontalOutline"
+              />
+            </Center>
             <Typography.Body2Strong>
               What is a recovery phrase?
             </Typography.Body2Strong>
-            <Typography.Body2 color="text-subdued">
+            <Typography.Body2 mt={2} color="text-subdued">
               It is a 12-, 18 or 24-word phrase that can be used to restore your
               wallet.
             </Typography.Body2>
@@ -58,13 +70,12 @@ const EnterPhrase = () => {
             name="text"
             rules={{
               validate: async (t) => {
-                console.log('validate--', t);
                 if (!t) return true;
                 try {
                   await backgroundApiProxy.validator.validateMnemonic(t);
                   return true;
                 } catch (e) {
-                  console.log('validate--', e);
+                  console.error('validate mnemonic', e);
                 }
 
                 return intl.formatMessage({
@@ -84,7 +95,6 @@ const EnterPhrase = () => {
             isDisabled={submitDisable}
             size={isVertical ? 'xl' : 'lg'}
             onPromise={handleSubmit((values) => {
-              console.log('handleSubmit--', values);
               navigation.navigate(KeyTagRoutes.ShowDotMap, {
                 mnemonic: values.text,
               });

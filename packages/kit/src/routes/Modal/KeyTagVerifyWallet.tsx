@@ -1,6 +1,10 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { IWallet } from '@onekeyhq/engine/src/types';
+import { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+
 import KeyTagBackupWalletAttentions from '../../views/KeyTag/Screen/KeyTagAttentions';
 import VerifyPassword from '../../views/KeyTag/Screen/VerifyPassword';
+
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
@@ -13,9 +17,11 @@ export type KeyTagVerifyWalletRoutesParams = {
   [KeyTagVerifyWalletRoutes.KeyTagAttensions]: {
     walletId: string;
     password: string;
+    wallet?: IWallet;
   };
   [KeyTagVerifyWalletRoutes.KeyTagVerifyPassword]: {
     walletId: string;
+    wallet?: IWallet;
   };
 };
 

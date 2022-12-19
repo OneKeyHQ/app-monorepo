@@ -9,10 +9,11 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import iconNFCScanHint from '@onekeyhq/kit/assets/hardware/ic_pair_hint_scan_lite.png';
+import introductionImage from '@onekeyhq/kit/assets/keytag/introduction@2x.png';
 
 import { useNavigation } from '../../../hooks';
 import LayoutContainer from '../../Onboarding/Layout';
+import { useIntroductionBigImage } from '../hooks/useKeyTagLayout';
 import { KeyTagRoutes } from '../Routes/enums';
 import { IKeytagRoutesParams } from '../Routes/types';
 
@@ -20,18 +21,30 @@ type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
 const Introduce = () => {
   const isVertical = useIsVerticalLayout();
+  const { imageHeight, imageWidth, marginT } = useIntroductionBigImage();
+
   const navigation = useNavigation<NavigationProps>();
   const components = useMemo(() => {
     const res: { image?: ReactElement; detail?: ReactElement } = {};
     res.image = (
-      <Box flex="1">
-        <Image source={iconNFCScanHint} />
+      <Box flexDirection="column" alignItems="center">
+        <Image
+          w={imageWidth}
+          h={imageHeight}
+          marginTop={marginT}
+          resizeMode="contain"
+          source={introductionImage}
+        />
       </Box>
     );
     res.detail = (
-      <Box flex="1">
-        <Typography.DisplayLarge>
-          Like a Dot-Punching Game, Record Your Recovery Phrase
+      <Box h="250px">
+        <Typography.DisplayLarge
+          fontSize="24px"
+          fontWeight={700}
+          numberOfLines={2}
+        >
+          Let's Play the Dot-Punching Game
         </Typography.DisplayLarge>
         <Typography.Body1 mt={2}>
           OneKey converts your KeyTag's recovery phrase to BIP39 dot map. Follow
@@ -42,17 +55,17 @@ const Introduce = () => {
           onPress={() => {
             navigation.navigate(KeyTagRoutes.KeyTagBackUpWallet);
           }}
-          mt={3}
+          mt={6}
         >
           Get started
         </Button>
       </Box>
     );
     return res;
-  }, [navigation]);
+  }, [imageHeight, imageWidth, marginT, navigation]);
   return (
     <LayoutContainer backButton>
-      <Box flex="1" flexDirection={isVertical ? 'column' : 'row'}>
+      <Box flexDirection={isVertical ? 'column' : 'row'}>
         {isVertical ? (
           <>
             {components.image}
@@ -60,8 +73,10 @@ const Introduce = () => {
           </>
         ) : (
           <>
-            {components.detail}
-            {components.image}
+            <Box flex={1}>{components.detail}</Box>
+            <Box flex={1} px={15}>
+              {components.image}
+            </Box>
           </>
         )}
       </Box>

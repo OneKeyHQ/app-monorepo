@@ -25,7 +25,7 @@ const KeyTagBackupWalletAttentions = () => {
   console.log('KeyTagBackupWalletAttentions');
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
-  const { walletId, password } = route.params;
+  const { walletId, password, wallet } = route.params;
   const intl = useIntl();
   const onPress = useCallback(async () => {
     const mnemonic = await backgroundApiProxy.engine.revealHDWalletMnemonic(
@@ -38,8 +38,10 @@ const KeyTagBackupWalletAttentions = () => {
       });
       return;
     }
-    navigation.getParent()?.navigate(KeyTagRoutes.ShowDotMap, { mnemonic });
-  }, [navigation, walletId, password]);
+    navigation
+      .getParent()
+      ?.navigate(KeyTagRoutes.ShowDotMap, { mnemonic, wallet });
+  }, [walletId, password, navigation, wallet]);
   return (
     <Attentions
       // pressTitle={intl.formatMessage({ id: 'action__show_dotmap_for_keytag' })}

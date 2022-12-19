@@ -13,17 +13,31 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { TabRoutesParams } from '../../../routes/types';
+import {
+  RootRoutes,
+  RootRoutesParams,
+  TabRoutesParams,
+} from '../../../routes/types';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagImportMatrix } from '../Component/KeyTagMatrix/keyTagImportMatrix';
 import { generalKeyTagMnemonic, keyTagWordDataToMnemonic } from '../utils';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
+import { IOnboardingRoutesParams } from '../../Onboarding/routes/types';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { IKeytagRoutesParams } from '../Routes/types';
+import { KeyTagRoutes } from '../Routes/enums';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
-type NavigationProps = NativeStackNavigationProp<TabRoutesParams>;
+type NavigationProps = StackNavigationProp<
+  IKeytagRoutesParams,
+  KeyTagRoutes.ImportKeytag
+>;
 
 const ImportKeyTag: FC = () => {
   const navigation = useNavigation<NavigationProps>();
+  const appNavigation = useAppNavigation();
   const [wordCount, setWordCount] = useState(12);
   const [mnemonicWordDatas, setMnemonicWordDatas] = useState(() =>
     generalKeyTagMnemonic(wordCount),
@@ -52,7 +66,16 @@ const ImportKeyTag: FC = () => {
     [mnemonicWordDatas],
   );
 
-  const importValidation = useCallback(() => {}, []);
+  const importValidation = useCallback(() => {
+    const mnemonic = mnemonicWordDatas
+      .map((item) => item.mnemonicWord)
+      .join(' ');
+    console.log('mnemonic', mnemonic);
+    appNavigation.navigate(RootRoutes.Onboarding, {
+      screen: EOnboardingRoutes.SetPassword,
+      params: { mnemonic },
+    });
+  }, [appNavigation, mnemonicWordDatas]);
   navigation.setOptions({
     headerShown: true,
     headerRight: () => (
@@ -60,7 +83,7 @@ const ImportKeyTag: FC = () => {
         Import
       </Button>
     ),
-    headerTitle: () => '',
+    headerTitle: () => <Box />,
   });
   const [showResult, setShowResult] = useState(true);
   const isVertical = useIsVerticalLayout();

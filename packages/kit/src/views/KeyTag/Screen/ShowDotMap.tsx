@@ -1,4 +1,4 @@
-import { FC, useCallback } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -8,6 +8,7 @@ import {
   Button,
   Center,
   Icon,
+  Image,
   ScrollView,
   Typography,
   useIsVerticalLayout,
@@ -18,6 +19,11 @@ import { KeyTagMatrix } from '../Component/KeyTagMatrix/KeyTagMatrix';
 import { KeyTagRoutes } from '../Routes/enums';
 import { IKeytagRoutesParams } from '../Routes/types';
 import { mnemonicWordsToKeyTagMnemonic } from '../utils';
+import { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import { IWallet } from '@onekeyhq/engine/src/types';
+import { WalletAvatarPro } from '../../../components/WalletSelector/WalletAvatar';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 
 type RouteProps = RouteProp<IKeytagRoutesParams, KeyTagRoutes.ShowDotMap>;
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
@@ -28,16 +34,30 @@ const RightDoneBtn = ({ onDone }: { onDone?: () => void }) => (
   </Button>
 );
 
-const TopMidCompoment = () => {
-  console.log('TopMidCompoment');
+const TopMidCompoment = ({
+  mnemonic,
+  wallet,
+}: {
+  mnemonic: string;
+  wallet?: IWallet;
+}) => {
+  const mnemonicCounts = useMemo(() => mnemonic.split(' ').length, [mnemonic]);
   return (
     <Center flexDirection="row" alignItems="center">
-      <Box mr={2}>
-        <Icon name="WalletOutline" />
-      </Box>
-      <Box flexDirection="column">
-        <Typography.Body1Strong>Wallet #1</Typography.Body1Strong>
-        <Typography.Caption>24 words</Typography.Caption>
+      {wallet ? (
+        <WalletAvatarPro
+          size={platformEnv.isNative ? 'lg' : 'sm'}
+          wallet={wallet}
+          deviceStatus={undefined}
+        />
+      ) : null}
+      <Box ml={wallet ? 3 : 0} flexDirection="column">
+        {wallet ? (
+          <Typography.Body1Strong>{wallet.name}</Typography.Body1Strong>
+        ) : null}
+        <Typography.Caption>
+          {`${mnemonicCounts} words`} words
+        </Typography.Caption>
       </Box>
     </Center>
   );
@@ -45,15 +65,23 @@ const TopMidCompoment = () => {
 
 const ShowDotMap: FC = () => {
   const route = useRoute<RouteProps>();
-  const { mnemonic } = route.params;
+  const { mnemonic, wallet } = route.params;
   const keyTagData = mnemonicWordsToKeyTagMnemonic(mnemonic);
   const navigation = useNavigation<NavigationProps>();
   const isVertical = useIsVerticalLayout();
   navigation.setOptions({
     headerShown: true,
     headerTitleAlign: 'center',
-    headerRight: () => <RightDoneBtn />,
-    headerTitle: () => <TopMidCompoment />,
+    headerRight: () => (
+      <RightDoneBtn
+        onDone={() => {
+          navigation
+            .getParent()
+            ?.navigate(RootRoutes.Tab, { screen: TabRoutes.Home });
+        }}
+      />
+    ),
+    headerTitle: () => <TopMidCompoment mnemonic={mnemonic} wallet={wallet} />,
   });
   return (
     <LayoutContainer backButton={false}>
@@ -63,7 +91,10 @@ const ShowDotMap: FC = () => {
             {keyTagData?.length && keyTagData.length > 12 ? (
               <>
                 <KeyTagMatrix keyTagData={keyTagData.slice(0, 12)} />
-                <KeyTagMatrix keyTagData={keyTagData.slice(12)} />
+                <KeyTagMatrix
+                  keyTagData={keyTagData.slice(12)}
+                  startIndex={13}
+                />
               </>
             ) : (
               <KeyTagMatrix keyTagData={keyTagData} />
