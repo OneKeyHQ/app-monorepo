@@ -16,6 +16,7 @@ import {
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -118,11 +119,8 @@ const isBurnAddress = (address: string) =>
     address,
   );
 
-export const checkAccountCanSubscribe = async (
-  account: Account | null,
-  networkId?: string,
-) => {
-  if (!account || !networkId) {
+export const checkAccountCanSubscribe = async (account: Account | null) => {
+  if (!account) {
     return false;
   }
   const { address, coinType } = account || {};
@@ -132,22 +130,28 @@ export const checkAccountCanSubscribe = async (
   if (!isCoinTypeCompatibleWithImpl(coinType, IMPL_EVM)) {
     return false;
   }
-  const isContract = await makeTimeoutPromise({
+  const isContractArray = await makeTimeoutPromise({
     asyncFunc: async () =>
-      backgroundApiProxy.validator.isContractAddress(networkId, address),
-    timeout: 600,
-    timeoutResult: false,
+      Promise.all(
+        [
+          OnekeyNetwork.eth,
+          OnekeyNetwork.polygon,
+          OnekeyNetwork.arbitrum,
+          OnekeyNetwork.optimism,
+        ].map((networkId) =>
+          backgroundApiProxy.validator.isContractAddress(networkId, address),
+        ),
+      ),
+    timeout: 6000,
+    timeoutResult: [],
   });
-  return !isContract;
+  return isContractArray.every((n) => n !== true);
 };
 
-export const useAddressCanSubscribe = (
-  account: Account | null,
-  networkId?: string,
-) => {
+export const useAddressCanSubscribe = (account: Account | null) => {
   const { result } = useAsync(
-    async () => checkAccountCanSubscribe(account, networkId ?? ''),
-    [account, networkId],
+    async () => checkAccountCanSubscribe(account),
+    [account],
   );
   return result ?? false;
 };

@@ -64,7 +64,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
     [enabledAccounts, account],
   );
 
-  const addressCanSubscribe = useAddressCanSubscribe(account, network?.id);
+  const addressCanSubscribe = useAddressCanSubscribe(account);
 
   useEffect(() => {
     (async () => {

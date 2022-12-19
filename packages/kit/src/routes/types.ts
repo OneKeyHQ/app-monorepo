@@ -93,7 +93,11 @@ export type HomeRoutesParams = {
     networkId?: string;
   };
   [HomeRoutes.DebugScreen]: undefined;
-  [HomeRoutes.SettingsWebviewScreen]: { url: string; title?: string };
+  [HomeRoutes.SettingsWebviewScreen]: {
+    url: string;
+    title?: string;
+    modalMode?: boolean;
+  };
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
   [HomeRoutes.ExploreScreen]: {
     onItemSelect?: (item: DAppItemType) => Promise<boolean>;
