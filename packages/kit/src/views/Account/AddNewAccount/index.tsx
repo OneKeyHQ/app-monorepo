@@ -184,7 +184,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const addressTypeHelpLink = useHelpLink({ path: 'articles/360002057776' });
   const onAddressTypeHelpLinkPressed = useCallback(() => {
     const title = intl.formatMessage({ id: 'title__help_center' });
-    openUrl(addressTypeHelpLink, title);
+    openUrl(addressTypeHelpLink, title, { modalMode: true });
   }, [addressTypeHelpLink, intl]);
 
   const authenticationDone = useCallback(
