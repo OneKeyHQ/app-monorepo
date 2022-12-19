@@ -28,7 +28,7 @@ const PriceChart: FC<PriceChartProps> = ({ contract, networkId, style }) => {
   });
   const { selectedFiatMoneySymbol } = useSettings();
   // const tokenId = contract || 'main';
-  const isNoPriceData = price === undefined || price === null;
+  const isNoPriceData = price === undefined;
   // const dayData = reduxCachedCharts[tokenId];
   const dataMap = useRef<MarketApiData[][]>([]);
   let points: string | undefined;
