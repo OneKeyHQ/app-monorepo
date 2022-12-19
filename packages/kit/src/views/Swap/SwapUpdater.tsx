@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 

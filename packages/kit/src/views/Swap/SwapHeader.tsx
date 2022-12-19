@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 

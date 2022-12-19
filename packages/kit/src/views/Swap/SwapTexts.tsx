@@ -1,13 +1,12 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Animated } from 'react-native';
 
 import { Box, Divider, HStack, Icon, Typography } from '@onekeyhq/components';
 
-
 const SwapFeatureText = () => {
-  const intl = useIntl()
+  const intl = useIntl();
   return (
     <Box flexDirection="row">
       <Box flexDirection="row">
@@ -38,8 +37,8 @@ const SwapFeatureText = () => {
         </Typography.CaptionStrong>
       </Box>
     </Box>
-  )
-}
+  );
+};
 
 const SwapTexts = () => {
   const ref = useRef({ outer: 0, inner: [] as number[] });
@@ -71,7 +70,7 @@ const SwapTexts = () => {
   }, [animatedValue]);
 
   return (
-    <Box pb='4'>
+    <Box pb="4">
       <Box px="4">
         <Divider />
       </Box>

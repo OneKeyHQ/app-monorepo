@@ -26,13 +26,11 @@ import { ArrivalTime } from '../components/ArrivalTime';
 import { useSwapQuoteRequestParams } from '../hooks/useSwap';
 import { multiply, stringifyTokens } from '../utils';
 
-import { AmountLimit } from './AmountLimit';
 import { LiquiditySources } from './LiquiditySources';
 import { TokenInput } from './TokenInput';
 import { useTokenOutput } from './utils';
 
 import type { FetchQuoteResponse } from '../typings';
-import type { ListRenderItem } from 'react-native';
 
 type RoutesProps = {
   responses: FetchQuoteResponse[];
@@ -48,8 +46,6 @@ const SelectRoutesContext = createContext({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSelect: (index: number) => {},
 });
-
-const ItemSeparatorComponent = () => <Box h="3" />;
 
 const ListEmptyComponent = () => (
   <Box>
@@ -184,7 +180,7 @@ const SelectRoutes = () => {
   const data = useMemo(() => responses ?? [], [responses]);
 
   useEffect(() => {
-    async function main() {
+    function main() {
       const index = data.findIndex((item) => item.data?.type === quote?.type);
       if (index !== -1) {
         onSelectIndex(index);
@@ -207,11 +203,17 @@ const SelectRoutes = () => {
       backgroundApiProxy.serviceSwap.setQuoteLimited(response.limited);
     }
     navigation.goBack();
-  }, [selectedIndex, responses, navigation]);
+  }, [selectedIndex, data, navigation, params]);
+
   const contextValue = useMemo(
     () => ({ selectedIndex, onSelect: onSelectIndex }),
     [selectedIndex],
   );
+
+  if (data.length === 0) {
+    return <ListEmptyComponent />;
+  }
+
   return (
     <SelectRoutesContext.Provider value={contextValue}>
       <Modal
