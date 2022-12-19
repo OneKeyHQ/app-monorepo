@@ -39,7 +39,7 @@ const HeaderTitle: FC<TitleProps> = ({ title, subtitle }) => {
         )}
       </Box>
     ),
-    [navigation, subtitle, title],
+    [notFirstPage, subtitle, title],
   );
 
   const LargeScreenTitle = useMemo(
