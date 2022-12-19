@@ -1,18 +1,23 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
 import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 
-const HeaderBackButton: FC = () => {
+const HeaderBackButton: FC<ComponentProps<typeof IconButton>> = ({
+  ...rest
+}) => {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
   return navigation.getState().routes.length > 0 ? (
     <IconButton
       type="plain"
-      name={isVertical ? 'ChevronLeftSolid' : 'ArrowLeftSolid'}
+      size="lg"
+      name={isVertical ? 'ArrowLeftOutline' : 'ArrowSmallLeftOutline'}
       onPress={() => navigation.goBack()}
+      circle
+      {...rest}
     />
   ) : null;
 };

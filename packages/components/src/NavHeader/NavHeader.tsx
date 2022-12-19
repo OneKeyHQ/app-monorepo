@@ -59,7 +59,7 @@ const NavHeader: FC<HeaderProps> = ({
           pointerEvents="box-none"
           style={[styles.left, { marginStart: insets.left }]}
         >
-          {enableBackButton && <HeaderBackButton />}
+          {enableBackButton && <HeaderBackButton ml={-1.5} mr={2} />}
           {headerLeft?.()}
         </View>
         {titleComponent}
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
   },
   left: {
     justifyContent: 'center',
