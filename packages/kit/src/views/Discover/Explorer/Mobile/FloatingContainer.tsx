@@ -111,6 +111,7 @@ const FloatingContainer: FC<
           StyleSheet.absoluteFill,
           useAnimatedStyle(
             () => ({
+              opacity: containerHeight > 0 ? 1 : 0,
               zIndex: containerHeight > 0 && hasTabs ? 1 : -1,
               transform: [
                 {
