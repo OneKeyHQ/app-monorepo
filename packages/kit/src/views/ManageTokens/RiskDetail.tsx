@@ -103,7 +103,7 @@ const RiskDetail: FC = () => {
 
   const footer = useMemo(
     () => (
-      <VStack pb={`${insets.bottom}px`}>
+      <VStack pb={`${insets.bottom}px`} mt="8">
         <Divider />
         <Pressable onPress={linkToGoPlus}>
           <HStack alignItems="center" justifyContent="center" mt="4">
