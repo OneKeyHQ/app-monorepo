@@ -48,7 +48,7 @@ const NavHeader: FC<HeaderProps> = ({
       pointerEvents="box-none"
       style={{
         height,
-        paddingTop: safeTop ?? insets.top,
+        marginTop: safeTop ?? insets.top,
       }}
     >
       <View
