@@ -17,23 +17,19 @@ interface TitleProps {
 const HeaderTitle: FC<TitleProps> = ({ title, subtitle }) => {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
+  const notFirstPage =
+    navigation.getState().routes.length > 0 ? 'Heading' : 'PageHeading';
 
   const SmallScreenTitle = useMemo(
     () => (
       <Box
         flex={1}
         justifyContent="center"
-        alignItems={
-          navigation.getState().routes.length > 0 ? 'center' : 'flex-start'
-        }
+        alignItems={notFirstPage ? 'center' : 'flex-start'}
         style={StyleSheet.absoluteFill}
         zIndex={-1}
       >
-        <Text
-          typography={
-            navigation.getState().routes.length > 0 ? 'Heading' : 'PageHeading'
-          }
-        >
+        <Text typography={notFirstPage ? 'Heading' : 'PageHeading'}>
           {title}
         </Text>
         {subtitle && (
