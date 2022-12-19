@@ -5,6 +5,7 @@ import type { FC, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import Box from '../Box';
 import { useIsVerticalLayout } from '../Provider/hooks';
 
 import HeaderBackButton from './HeaderBackButton';
@@ -59,7 +60,11 @@ const NavHeader: FC<HeaderProps> = ({
           pointerEvents="box-none"
           style={[styles.left, { marginStart: insets.left }]}
         >
-          {enableBackButton && <HeaderBackButton ml={-1.5} mr={2} />}
+          {enableBackButton && (
+            <Box ml={-1.5} mr={2}>
+              <HeaderBackButton />
+            </Box>
+          )}
           {headerLeft?.()}
         </View>
         {titleComponent}
