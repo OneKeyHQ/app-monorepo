@@ -11,8 +11,10 @@ const HeaderBackButton: FC = () => {
   return navigation.getState().routes.length > 0 ? (
     <IconButton
       type="plain"
-      name={isVertical ? 'ChevronLeftSolid' : 'ArrowLeftSolid'}
+      size="lg"
+      name={isVertical ? 'ArrowLeftOutline' : 'ArrowSmallLeftOutline'}
       onPress={() => navigation.goBack()}
+      circle
     />
   ) : null;
 };
