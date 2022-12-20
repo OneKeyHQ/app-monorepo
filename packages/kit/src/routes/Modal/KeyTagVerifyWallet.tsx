@@ -1,6 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { IWallet } from '@onekeyhq/engine/src/types';
-import { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 
 import KeyTagBackupWalletAttentions from '../../views/KeyTag/Screen/KeyTagAttentions';
 import VerifyPassword from '../../views/KeyTag/Screen/VerifyPassword';

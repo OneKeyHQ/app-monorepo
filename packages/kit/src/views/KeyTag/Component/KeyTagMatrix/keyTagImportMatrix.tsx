@@ -21,7 +21,7 @@ export const KeyTagImportMatrix: FC<KeyTagImportMatrixProps> = ({
 }) => {
   console.log('KeyTagImportMatrix--');
   return (
-    <Box flex="1" justifyContent="center" alignItems="center">
+    <Box justifyContent="center" alignItems="center">
       <KeyTagMatrixTopTitle keyTagData={keyTagData} startIndex={startIndex} />
       <Box justifyContent="center" alignItems="center">
         {keyTagData?.map((data, i) => (

@@ -94,21 +94,16 @@ const ShowDotMap: FC = () => {
   return (
     <LayoutContainer backButton={false}>
       <Box flex="1">
-        <ScrollView>
-          <Box flexDirection={isVertical ? 'column' : 'row'}>
-            {keyTagData?.length && keyTagData.length > 12 ? (
-              <>
-                <KeyTagMatrix keyTagData={keyTagData.slice(0, 12)} />
-                <KeyTagMatrix
-                  keyTagData={keyTagData.slice(12)}
-                  startIndex={13}
-                />
-              </>
-            ) : (
-              <KeyTagMatrix keyTagData={keyTagData} />
-            )}
-          </Box>
-        </ScrollView>
+        <Box flexDirection={isVertical ? 'column' : 'row'}>
+          {keyTagData?.length && keyTagData.length > 12 ? (
+            <>
+              <KeyTagMatrix keyTagData={keyTagData.slice(0, 12)} />
+              <KeyTagMatrix keyTagData={keyTagData.slice(12)} startIndex={13} />
+            </>
+          ) : (
+            <KeyTagMatrix keyTagData={keyTagData} />
+          )}
+        </Box>
       </Box>
     </LayoutContainer>
   );

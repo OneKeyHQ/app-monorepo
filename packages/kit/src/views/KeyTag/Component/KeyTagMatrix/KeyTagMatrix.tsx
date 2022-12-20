@@ -31,7 +31,7 @@ export const KeyTagMatrixTopTitle: FC<KeyTagMatrixProps> = ({
   );
   return (
     <Box
-      mt={14}
+      mt={4}
       mb={4}
       w="full"
       flexDirection="column"
@@ -59,7 +59,7 @@ export const KeyTagMatrix: FC<KeyTagMatrixProps> = ({
         bgColor="surface-subdued"
         // justifyContent="center"
         alignItems="center"
-        pt={6}
+        pt={4}
         w="332px"
         h="343px"
       >

@@ -1,4 +1,5 @@
-import React, { FC, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useState } from 'react';
 
 import { Box, Center, Pressable } from '@onekeyhq/components';
 
@@ -49,4 +50,4 @@ const DotSpace: FC<DotSpaceProps> = ({
   );
 };
 
-export default React.memo(DotSpace);
+export default memo(DotSpace);

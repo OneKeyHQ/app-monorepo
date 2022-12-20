@@ -1,11 +1,14 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Box, HStack, Icon, Typography } from '@onekeyhq/components';
-import { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
-import { KeyTagMnemonic, KeyTagMnemonicStatus } from '../../types';
+import { KeyTagMnemonicStatus } from '../../types';
 
 import DotSpace from './DotSpace';
+
+import type { KeyTagMnemonic } from '../../types';
 
 type DotMnemonicWordProps = {
   size?: number;
@@ -175,7 +178,11 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
           <Box flexDirection="column" justifyContent="flex-end">
             {showIcon ? (
               <Box mb={3}>
-                <Icon size={32} name="PlusOutline" />
+                <Icon
+                  size={32}
+                  name="OnekeyLogoOutline"
+                  color="icon-disabled"
+                />
               </Box>
             ) : null}
             <Box
@@ -209,4 +216,4 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
   );
 };
 
-export default React.memo(DotMnemonicWord);
+export default memo(DotMnemonicWord);

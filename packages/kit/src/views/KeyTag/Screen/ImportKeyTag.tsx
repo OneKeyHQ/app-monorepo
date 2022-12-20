@@ -67,7 +67,7 @@ const ImportKeyTag: FC = () => {
   }, [appNavigation, mnemonicWordDatas]);
   const rightButton = useMemo(
     () => (
-      <Button type="primary" size="base" onPress={importValidation}>
+      <Button mr={6} type="primary" size="base" onPress={importValidation}>
         Import
       </Button>
     ),
@@ -96,6 +96,7 @@ const ImportKeyTag: FC = () => {
           </Typography.Body1>
         </Box>
         <Box
+          mt={4}
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
@@ -128,27 +129,26 @@ const ImportKeyTag: FC = () => {
         </Box>
       </Box>
       <Box flex="1">
-        <ScrollView>
-          <Box flexDirection={isVertical ? 'column' : 'row'}>
-            {mnemonicWordDatas.length > 12 ? (
-              <>
-                <KeyTagImportMatrix
-                  onChange={onKeyTagChenge}
-                  keyTagData={mnemonicWordDatas.slice(0, 12)}
-                />
-                <KeyTagImportMatrix
-                  keyTagData={mnemonicWordDatas.slice(12)}
-                  onChange={onKeyTagChenge}
-                />
-              </>
-            ) : (
+        <Box mt={6} flexDirection={isVertical ? 'column' : 'row'}>
+          {mnemonicWordDatas.length > 12 ? (
+            <>
               <KeyTagImportMatrix
-                keyTagData={mnemonicWordDatas}
+                onChange={onKeyTagChenge}
+                keyTagData={mnemonicWordDatas.slice(0, 12)}
+              />
+              <KeyTagImportMatrix
+                startIndex={13}
+                keyTagData={mnemonicWordDatas.slice(12)}
                 onChange={onKeyTagChenge}
               />
-            )}
-          </Box>
-        </ScrollView>
+            </>
+          ) : (
+            <KeyTagImportMatrix
+              keyTagData={mnemonicWordDatas}
+              onChange={onKeyTagChenge}
+            />
+          )}
+        </Box>
       </Box>
     </LayoutContainer>
   );
