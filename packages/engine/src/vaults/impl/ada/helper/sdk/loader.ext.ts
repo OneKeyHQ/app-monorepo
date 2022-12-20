@@ -1,1 +1,1 @@
-export const LibLoader = async () => import('cardano-coin-selection-asmjs');
+export const LibLoader = () => null;
