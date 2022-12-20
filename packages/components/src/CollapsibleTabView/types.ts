@@ -13,4 +13,5 @@ export type ContainerProps = {
   onIndexChange?: (index: number | string) => void;
   onRefresh?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
+  scrollEnabled?: boolean;
 };

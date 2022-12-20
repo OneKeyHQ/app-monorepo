@@ -4,7 +4,7 @@ import { Children, Fragment } from 'react';
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
 
-import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NativeNestedTabView';
+import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
 
@@ -68,6 +68,7 @@ const Container: FC<ContainerProps> = ({
           onRefresh?.();
         }, 0);
       }}
+      renderHeader={renderHeader}
       onChange={(e) => {
         onTabChange?.({
           tabName: e.nativeEvent.tabName,
@@ -76,7 +77,6 @@ const Container: FC<ContainerProps> = ({
         onIndexChange?.(e.nativeEvent.index);
       }}
     >
-      {renderHeader?.()}
       {children}
     </NestedTabView>
   );

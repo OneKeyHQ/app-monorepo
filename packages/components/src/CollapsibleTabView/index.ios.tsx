@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { Children, Fragment, createContext } from 'react';
 
-import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView.ios';
+import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
 
@@ -25,6 +25,7 @@ const Container: FC<ContainerProps> = ({
   onRefresh,
   refreshing,
   containerStyle,
+  scrollEnabled = true,
   // ref,
 }) => {
   const tabs = Children.map(children, (child) =>
@@ -57,6 +58,7 @@ const Container: FC<ContainerProps> = ({
       <NestedTabView
         // ref={iosRef}
         style={containerStyle}
+        scrollEnabled={scrollEnabled}
         values={tabs}
         defaultIndex={selectedIndex}
         disableRefresh={disableRefresh}
