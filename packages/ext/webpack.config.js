@@ -63,7 +63,7 @@ class HtmlLazyScriptPlugin {
   apply(compiler) {
     compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
       console.log('HtmlLazyScriptPlugin >>>>>>>> ');
-      const doTask = require('./development/htmlLazyScript');
+      const { doTask } = require('./development/htmlLazyScript');
       doTask();
     });
   }

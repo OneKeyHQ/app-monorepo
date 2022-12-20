@@ -4,8 +4,10 @@ process.env.NODE_ENV = 'production';
 process.env.ASSET_PATH = '/';
 
 const webpack = require('webpack');
+const path = require('path');
 const configs = require('../webpack.config');
 const devUtils = require('./devUtils');
+const { renameJsFileOfBackgroundHtml } = require('./htmlLazyScript');
 
 devUtils.cleanBrowserBuild();
 
@@ -22,6 +24,11 @@ webpack(configs, (err, stats) => {
     console.error(stats);
     process.exit(1);
   }
+
+  // renameJsFileOfBackgroundHtml({
+  //   folder: path.resolve(__dirname, '../build/firefox'),
+  // });
+
   // Done processing
   process.exit(0);
 });
