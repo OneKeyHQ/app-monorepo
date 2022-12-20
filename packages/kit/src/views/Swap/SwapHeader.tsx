@@ -137,6 +137,7 @@ const RefreshButton = () => {
   const error = useAppSelector((s) => s.swap.error);
   const quote = useAppSelector((s) => s.swap.quote);
   const limited = useAppSelector((s) => s.swap.quoteLimited);
+  const loading = useAppSelector((s) => s.swap.loading);
 
   const isOk = useMemo(() => {
     if (error || limited || !quote) {
@@ -219,7 +220,13 @@ const RefreshButton = () => {
   }, [isOk, isFocused, lottie]);
 
   return (
-    <Button type="plain" onPress={onRefresh} pl="2" pr="2">
+    <Button
+      type="plain"
+      onPress={onRefresh}
+      pl="2"
+      pr="2"
+      isDisabled={loading || !isOk}
+    >
       <Animated.View
         style={{
           transform: [

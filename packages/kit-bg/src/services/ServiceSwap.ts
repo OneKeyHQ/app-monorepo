@@ -19,7 +19,6 @@ import {
   setOutputToken,
   setQuote,
   setQuoteLimited,
-  setQuoteTime,
   setRecipient,
   setSendingAccount,
   setShowMoreQuoteDetail,
@@ -34,6 +33,7 @@ import {
   updateTokenList,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import type {
+  FetchQuoteParams,
   FieldType,
   QuoteData,
   QuoteLimited,
@@ -51,6 +51,8 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   request = axios.create({ timeout: 60 * 1000 });
+
+  prevParams: FetchQuoteParams | undefined;
 
   getNetwork(networkId?: string): Network | undefined {
     if (!networkId) {
@@ -205,17 +207,20 @@ export default class ServiceSwap extends ServiceBase {
   async setQuote(data?: QuoteData) {
     const { dispatch } = this.backgroundApi;
     const actions: any[] = [setQuote(data)];
-    if (data) {
-      actions.push(setQuoteTime(Date.now()));
-    } else {
-      actions.push(setQuoteTime(undefined));
-    }
     dispatch(...actions);
   }
 
   @backgroundMethod()
-  async getQuote() {
-    return this.backgroundApi.appSelector((s) => s.swap.quote);
+  async refreshParams(params: FetchQuoteParams | undefined) {
+    const quote = this.backgroundApi.appSelector((s) => s.swap.quote);
+    let result = false;
+    if (this.prevParams) {
+      const hash = JSON.stringify(params);
+      const prevHash = JSON.stringify(this.prevParams);
+      result = hash === prevHash && !!quote;
+    }
+    this.prevParams = params;
+    return result;
   }
 
   @backgroundMethod()

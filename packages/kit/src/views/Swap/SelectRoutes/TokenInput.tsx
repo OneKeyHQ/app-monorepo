@@ -17,12 +17,14 @@ type TokenInputProps = {
   token?: Token;
   amount?: string;
   rightAlign?: boolean;
+  isDisabled?: boolean;
 };
 
 export const TokenInput: FC<TokenInputProps> = ({
   token,
   amount,
   rightAlign,
+  isDisabled,
 }) => {
   const isSmall = useIsVerticalLayout();
   const { network } = useNetwork({ networkId: token?.networkId });
@@ -48,21 +50,31 @@ export const TokenInput: FC<TokenInputProps> = ({
       <Box w="2" />
       {isSmall ? (
         <Box>
-          <Typography.Body2 isTruncated color="text-default">
+          <Typography.Body2
+            isTruncated
+            color={isDisabled ? 'text-disabled' : 'text-default'}
+          >
             {text}
           </Typography.Body2>
         </Box>
       ) : (
         <Box flex="1">
           <Box flex="1" flexDirection="row">
-            <Typography.Body2Strong isTruncated>{text}</Typography.Body2Strong>
-            <Typography.Body2Strong>
+            <Typography.Body2Strong
+              isTruncated
+              color={isDisabled ? 'text-disabled' : 'text-default'}
+            >
+              {text}
+            </Typography.Body2Strong>
+            <Typography.Body2Strong
+              color={isDisabled ? 'text-disabled' : 'text-default'}
+            >
               {token.symbol.toUpperCase()}
             </Typography.Body2Strong>
           </Box>
           <Typography.Caption
             isTruncated
-            color="text-subdued"
+            color={isDisabled ? 'text-disabled' : 'text-subdued'}
             textAlign={rightAlign ? 'right' : 'left'}
           >
             {network?.name}

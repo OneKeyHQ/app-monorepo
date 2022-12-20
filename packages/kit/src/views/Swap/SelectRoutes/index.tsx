@@ -13,7 +13,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   CustomSkeleton,
-  Divider,
   Modal,
   Pressable,
   ScrollView,
@@ -26,6 +25,7 @@ import { ArrivalTime } from '../components/ArrivalTime';
 import { useSwapQuoteRequestParams } from '../hooks/useSwap';
 import { multiply, stringifyTokens } from '../utils';
 
+import { AmountLimit } from './AmountLimit';
 import { LiquiditySources } from './LiquiditySources';
 import { TokenInput } from './TokenInput';
 import { useTokenOutput } from './utils';
@@ -72,6 +72,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
   const { selectedIndex, onSelect } = useContext(SelectRoutesContext);
   const { data, limited } = response;
   const buyAmount = data?.buyAmount ?? '0';
+  const isDisabled = !!limited;
   let percentageFee = data?.percentageFee ? Number(data?.percentageFee) : 0;
   if (data?.type === 'swftc') {
     percentageFee += 0.002;
@@ -91,7 +92,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
       p="4"
       borderRadius={12}
       onPress={() => onSelect(index)}
-      isDisabled={!!limited}
+      isDisabled={isDisabled}
       mb="3"
     >
       <Box
@@ -101,17 +102,29 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         w="full"
       >
         <Box flex="1" flexDirection="row">
-          <TokenInput token={inputToken} amount={data?.sellAmount} />
+          <TokenInput
+            token={inputToken}
+            amount={data?.sellAmount}
+            isDisabled={isDisabled}
+          />
           <PlaceholderLine ml={2} />
         </Box>
         <Box flex="1" justifyContent="center" flexDirection="row">
           <PlaceholderLine mr={2} />
-          <LiquiditySources providers={data?.providers} />
+          <LiquiditySources
+            providers={data?.providers}
+            isDisabled={isDisabled}
+          />
           <PlaceholderLine ml={2} />
         </Box>
         <Box flex="1" flexDirection="row">
           <PlaceholderLine mr={2} />
-          <TokenInput token={outputToken} amount={buyAmount} rightAlign />
+          <TokenInput
+            token={outputToken}
+            amount={buyAmount}
+            rightAlign
+            isDisabled={isDisabled}
+          />
         </Box>
       </Box>
       <Box mt="3" flexDirection="row" justifyContent="space-between">
@@ -125,17 +138,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
           </Typography.Caption>
         </Box>
       </Box>
-      {response.data?.type === 'swftc' ? (
-        <Box>
-          <Divider my="3" />
-          <Typography.Caption color="text-subdued">
-            {intl.formatMessage(
-              { id: 'form__cap_str_day_rates_may_change_due_to_market' },
-              { '0': '200,000 USDT' },
-            )}
-          </Typography.Caption>
-        </Box>
-      ) : null}
+      <AmountLimit response={response} token={inputToken} />
     </Pressable>
   );
 };
@@ -160,7 +163,7 @@ const Routes: FC<RoutesProps> = ({ responses }) => {
         </Box>
         {limited.length ? (
           <Box>
-            <Typography.Subheading mb="3">
+            <Typography.Subheading mb="3" color="text-subdued">
               {intl.formatMessage({ id: 'form__unavailable_uppercase' })}
             </Typography.Subheading>
             <Box>
