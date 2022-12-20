@@ -183,7 +183,7 @@ const Container: FC<ContainerProps> = ({
             activeColor={activeLabelColor}
             inactiveColor={labelColor}
             labelStyle={{
-              ...Body2StrongProps,
+              fontWeight: 600,
             }}
             indicatorStyle={{ backgroundColor: indicatorColor }}
             handleChange={handleChange}
