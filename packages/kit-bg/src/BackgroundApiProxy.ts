@@ -142,6 +142,7 @@ class BackgroundApiProxy
   ) as ServiceTransaction;
 
   servicePrice = this._createProxyService('servicePrice') as ServicePrice;
+
   serviceOverview = this._createProxyService(
     'serviceOverview',
   ) as ServiceOverview;
