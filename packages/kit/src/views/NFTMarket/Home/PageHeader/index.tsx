@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   HStack,
   Hidden,
   Icon,
@@ -12,26 +13,38 @@ import {
   Pressable,
   Text,
 } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutesParams,
+  ModalScreenProps,
+} from '@onekeyhq/kit/src/routes/types';
 
-import { SearchNFTCollectionRoutes } from '../../NFTSearchModal/type';
+import { NFTMarketRoutes } from '../../Modals/type';
 import { useCollectionDetail } from '../hook';
 
-import type { SearchNFTCollectionRoutesParams } from '../../NFTSearchModal/type';
+import type { NFTMarketRoutesParams } from '../../Modals/type';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-type NavigationProps = ModalScreenProps<SearchNFTCollectionRoutesParams>;
-
+type ModalNavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.NFTNPLScreen
+>;
 const PageHeader = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
+  const navigation = useNavigation<NavigationProps>();
   const goToCollectionDetail = useCollectionDetail();
 
   const searchAction = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.SearchNFT,
+    modalNavigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.NFTMarket,
       params: {
-        screen: SearchNFTCollectionRoutes.SearchModal,
+        screen: NFTMarketRoutes.SearchModal,
         params: {
           onSelectCollection: ({ networkId, contractAddress, collection }) => {
             goToCollectionDetail({
@@ -43,7 +56,14 @@ const PageHeader = () => {
         },
       },
     });
-  }, [goToCollectionDetail, navigation]);
+  }, [goToCollectionDetail, modalNavigation]);
+
+  const nplAction = useCallback(() => {
+    // const nplAddress = await serviceNFT.getNPLAddress();
+    navigation.navigate(HomeRoutes.NFTNPLScreen, {
+      address: '',
+    });
+  }, [navigation]);
 
   return (
     <HStack
@@ -56,37 +76,67 @@ const PageHeader = () => {
       <HStack flex={1} alignItems="center">
         <Text typography={{ sm: 'PageHeading', md: 'Heading' }}>NFT</Text>
         <Hidden from="base" till="md">
-          <HStack alignItems="center">
-            <Box ml="16px" mr="8px" h="16px" w="1px" bgColor="divider" />
-            <Pressable
+          <HStack justifyContent="space-between" flex={1}>
+            <HStack alignItems="center">
+              <Box ml="16px" mr="8px" h="16px" w="1px" bgColor="divider" />
+              <Pressable
+                onPress={() => {
+                  searchAction();
+                }}
+                flexDirection="row"
+                p="8px"
+                borderRadius="xl"
+                _hover={{ bg: 'surface-hovered' }}
+                _pressed={{ bg: 'surface-pressed' }}
+              >
+                <Icon
+                  name="MagnifyingGlassMini"
+                  size={20}
+                  color="icon-subdued"
+                />
+                <Text typography="Body2" color="text-subdued" ml={2}>
+                  {intl.formatMessage({ id: 'form__nft_search_placeholder' })}
+                </Text>
+              </Pressable>
+            </HStack>
+            <Button
               onPress={() => {
-                searchAction();
+                nplAction();
               }}
-              flexDirection="row"
-              p="8px"
-              borderRadius="xl"
-              _hover={{ bg: 'surface-hovered' }}
-              _pressed={{ bg: 'surface-pressed' }}
+              type="plain"
+              leftIconName="DocumentChartBarMini"
+              rightIcon={
+                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+              }
+              mx={-4}
             >
-              <Icon name="MagnifyingGlassMini" size={20} color="icon-subdued" />
-              <Text typography="Body2" color="text-subdued" ml={2}>
-                {intl.formatMessage({ id: 'form__nft_search_placeholder' })}
-              </Text>
-            </Pressable>
+              {intl.formatMessage({ id: 'action__profit_and_loss' })}
+            </Button>
           </HStack>
         </Hidden>
       </HStack>
       {/* Right */}
       <Hidden from="md">
-        <IconButton
-          type="plain"
-          size="lg"
-          name="MagnifyingGlassOutline"
-          circle
-          onPress={() => {
-            searchAction();
-          }}
-        />
+        <HStack space="8px">
+          <IconButton
+            name="DocumentChartBarOutline"
+            type="plain"
+            size="lg"
+            circle
+            onPress={() => {
+              nplAction();
+            }}
+          />
+          <IconButton
+            name="MagnifyingGlassOutline"
+            type="plain"
+            size="lg"
+            circle
+            onPress={() => {
+              searchAction();
+            }}
+          />
+        </HStack>
       </Hidden>
     </HStack>
   );
