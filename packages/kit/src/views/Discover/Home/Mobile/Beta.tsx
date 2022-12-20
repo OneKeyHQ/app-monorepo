@@ -2,7 +2,6 @@ import { useCallback, useContext, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -24,6 +23,7 @@ import { DiscoverContext } from '../context';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
 import type { SectionDataType } from '../../type';
+import type { ListRenderItem } from 'react-native';
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();

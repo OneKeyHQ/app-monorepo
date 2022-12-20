@@ -1,4 +1,5 @@
-import { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,11 +10,10 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../hooks';
-import { HomeRoutes } from '../../routes/types';
 import AssetsList from '../Wallet/AssetsList';
 
-import { FullTokenListRoutesParams } from './routes';
-
+import type { HomeRoutes } from '../../routes/types';
+import type { FullTokenListRoutesParams } from './routes';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type FullTokenListProps = NativeStackScreenProps<

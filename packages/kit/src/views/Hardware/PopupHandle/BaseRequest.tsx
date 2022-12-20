@@ -1,14 +1,15 @@
-import { FC, useEffect, useMemo, useState } from 'react';
-
-import { IBoxProps } from 'native-base';
+import type { FC, ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Box, Center, IconButton, Spinner } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import type { IBoxProps } from 'native-base';
+
 export type CloseWay = 'delay' | 'now' | 'never';
 
 export type BaseRequestViewProps = {
-  children: React.ReactNode;
+  children: ReactNode;
   mobileFillWidth?: boolean;
   loading?: boolean;
   closeWay?: CloseWay;

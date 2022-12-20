@@ -1,9 +1,8 @@
-import { NativeModule } from 'react-native';
-
-import {
+import type {
   CardInfo,
   Callback as LiteCallback,
 } from '../hardware/OnekeyLite/types';
+import type { NativeModule } from 'react-native';
 
 export interface PermissionManagerInterface extends NativeModule {
   isOpenLocation: () => boolean;

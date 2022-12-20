@@ -1,13 +1,19 @@
-import React, { FC, useLayoutEffect } from 'react';
+import type { FC } from 'react';
+import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutes,
+  HomeRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
 
 import HistoricalRecords from '../Wallet/HistoricalRecords';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   HomeRoutesParams,

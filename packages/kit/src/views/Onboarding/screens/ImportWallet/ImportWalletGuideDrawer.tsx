@@ -1,4 +1,5 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -78,89 +79,87 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
   );
 
   return (
-    <>
-      <PresenceTransition
-        as={ZStack}
-        // @ts-expect-error
-        position="absolute"
-        top={0}
-        right={0}
-        bottom={0}
-        left={0}
-        visible={visible}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 150 } }}
-      >
-        {/* Backdrop */}
-        {!isVerticalLayout ? (
-          <Pressable
-            top={0}
-            right={0}
-            bottom={0}
-            left={0}
-            bgColor="backdrop"
-            opacity={0.75}
-            onPress={onClose}
-          />
-        ) : null}
-        {/* Content */}
-        <PresenceTransition
-          visible={visible}
-          as={Box}
-          // @ts-expect-error
+    <PresenceTransition
+      as={ZStack}
+      // @ts-expect-error
+      position="absolute"
+      top={0}
+      right={0}
+      bottom={0}
+      left={0}
+      visible={visible}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: { duration: 150 } }}
+    >
+      {/* Backdrop */}
+      {!isVerticalLayout ? (
+        <Pressable
           top={0}
           right={0}
           bottom={0}
-          w="full"
-          maxW={400}
-          pt={`${16 + insets.top}px`}
-          bgColor="background-default"
-          pointerEvents="auto"
-          initial={{ opacity: 0, translateX: 400 }}
-          animate={{ opacity: 1, translateX: 0, transition: { duration: 150 } }}
-        >
-          <IconButton
-            type="plain"
-            circle
-            size="lg"
-            name="XMarkOutline"
-            alignSelf="flex-end"
-            onPress={onClose}
-            mr={4}
+          left={0}
+          bgColor="backdrop"
+          opacity={0.75}
+          onPress={onClose}
+        />
+      ) : null}
+      {/* Content */}
+      <PresenceTransition
+        visible={visible}
+        as={Box}
+        // @ts-expect-error
+        top={0}
+        right={0}
+        bottom={0}
+        w="full"
+        maxW={400}
+        pt={`${16 + insets.top}px`}
+        bgColor="background-default"
+        pointerEvents="auto"
+        initial={{ opacity: 0, translateX: 400 }}
+        animate={{ opacity: 1, translateX: 0, transition: { duration: 150 } }}
+      >
+        <IconButton
+          type="plain"
+          circle
+          size="lg"
+          name="XMarkOutline"
+          alignSelf="flex-end"
+          onPress={onClose}
+          mr={4}
+        />
+        <ScrollView flex={1} px={{ base: 6, sm: 12 }}>
+          <Image
+            source={LogoMetaMask}
+            size={8}
+            rounded="xl"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-subdued"
           />
-          <ScrollView flex={1} px={{ base: 6, sm: 12 }}>
-            <Image
-              source={LogoMetaMask}
-              size={8}
-              rounded="xl"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="border-subdued"
-            />
-            <Text mt={4} mb={8} typography="DisplayLarge">
-              {intl.formatMessage(
-                { id: 'content__import_wallet_from_str' },
-                { '0': 'MetaMask' },
-              )}
-            </Text>
-            {steps.map((step, index) => (
-              <Box mb={8} key={index}>
-                <Text typography="Body2" mb={4}>
-                  {step.index}. {step.desc}
-                </Text>
-                {step.image ? (
-                  <Image
-                    w="full"
-                    h={step.imageHeight}
-                    source={step.image}
-                    resizeMode="cover"
-                  />
-                ) : null}
-              </Box>
-            ))}
-          </ScrollView>
-        </PresenceTransition>
+          <Text mt={4} mb={8} typography="DisplayLarge">
+            {intl.formatMessage(
+              { id: 'content__import_wallet_from_str' },
+              { '0': 'MetaMask' },
+            )}
+          </Text>
+          {steps.map((step, index) => (
+            <Box mb={8} key={index}>
+              <Text typography="Body2" mb={4}>
+                {step.index}. {step.desc}
+              </Text>
+              {step.image ? (
+                <Image
+                  w="full"
+                  h={step.imageHeight}
+                  source={step.image}
+                  resizeMode="cover"
+                />
+              ) : null}
+            </Box>
+          ))}
+        </ScrollView>
       </PresenceTransition>
-    </>
+    </PresenceTransition>
   );
 };
 

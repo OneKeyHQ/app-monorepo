@@ -1,8 +1,8 @@
-import { FC, useEffect, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { SectionListProps } from 'react-native';
 
 import {
   Badge,
@@ -19,22 +19,22 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Transaction, TxStatus } from '@onekeyhq/engine/src/types/covalent';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Transaction } from '@onekeyhq/engine/src/types/covalent';
+import { TxStatus } from '@onekeyhq/engine/src/types/covalent';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
-import { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
+import type { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
 import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
+
+import type { SectionListProps } from 'react-native';
 
 type NavigationProp = ModalScreenProps<TransactionDetailRoutesParams>;
 
@@ -43,7 +43,7 @@ export type HistoricalRecordProps = {
   networkId?: string | null;
   tokenId?: string | null | undefined;
   historyFilter?: (item: any) => boolean;
-  headerView?: React.ReactNode | null;
+  headerView?: ReactNode | null;
   hiddenHeader?: boolean;
   isTab?: boolean;
 };

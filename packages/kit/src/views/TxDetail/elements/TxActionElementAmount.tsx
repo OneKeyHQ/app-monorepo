@@ -1,4 +1,5 @@
-import React, { ComponentProps, useMemo } from 'react';
+import type { ComponentProps } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -7,9 +8,10 @@ import { Text, VStack } from '@onekeyhq/components';
 import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 
 import { formatBalanceDisplay } from '../../../components/Format';
-import { ITxActionAmountProps } from '../types';
 
 import { TxActionElementPressable } from './TxActionElementPressable';
+
+import type { ITxActionAmountProps } from '../types';
 
 export function TxActionElementAmount(props: ITxActionAmountProps) {
   const { direction, amount, symbol, onPress, decimals, subText, ...others } =

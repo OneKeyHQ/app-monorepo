@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -17,7 +15,8 @@ import {
 import { TxStatusBarInList } from '../components/TxStatusBar';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,

@@ -1,18 +1,21 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import {
+import type {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 
 import { useNavigation } from '../../../hooks';
+
+import type { RouteProp } from '@react-navigation/native';
 
 export type EnableLocalAuthenticationProps = {
   password: string;

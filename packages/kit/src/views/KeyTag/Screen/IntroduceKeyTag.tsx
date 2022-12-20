@@ -1,6 +1,5 @@
-import { ReactElement, useMemo } from 'react';
-
-import { StackNavigationProp } from '@react-navigation/stack';
+import type { ReactElement } from 'react';
+import { useMemo } from 'react';
 
 import {
   Box,
@@ -15,7 +14,9 @@ import { useNavigation } from '../../../hooks';
 import LayoutContainer from '../../Onboarding/Layout';
 import { useIntroductionBigImage } from '../hooks/useKeyTagLayout';
 import { KeyTagRoutes } from '../Routes/enums';
-import { IKeytagRoutesParams } from '../Routes/types';
+
+import type { IKeytagRoutesParams } from '../Routes/types';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 

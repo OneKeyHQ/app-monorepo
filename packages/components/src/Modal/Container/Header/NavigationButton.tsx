@@ -1,4 +1,4 @@
-import { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -20,6 +20,7 @@ const NavigationButton: FC<NavigationButtonProps> = ({
     onPress={onPress}
     p="4px"
     rounded="full"
+    hitSlop={8}
     borderWidth={StyleSheet.hairlineWidth}
     borderColor="border-default"
     bgColor="action-secondary-default"

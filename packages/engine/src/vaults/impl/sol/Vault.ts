@@ -5,8 +5,6 @@ import {
 } from '@onekeyfe/blockchain-libs/dist/provider/chains/sol';
 import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -44,8 +42,7 @@ import {
   getNFTTransactionHistory,
 } from '../../../managers/nft';
 import { extractResponseError } from '../../../proxy';
-import { NFTTransaction } from '../../../types/nft';
-import { IDecodedTxActionType, IDecodedTxStatus, ISignedTx } from '../../types';
+import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -55,6 +52,7 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
 import type { DBSimpleAccount } from '../../../types/account';
+import type { NFTTransaction } from '../../../types/nft';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
@@ -68,6 +66,7 @@ import type {
   IFeeInfoUnit,
   IHistoryTx,
   INFTInfo,
+  ISignedTx,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -76,6 +75,8 @@ import type {
   INativeTxSol,
   ParsedAccountInfo,
 } from './types';
+import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 export default class Vault extends VaultBase {
   keyringMap = {

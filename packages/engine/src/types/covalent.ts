@@ -1,12 +1,11 @@
 /* eslint-disable camelcase */
-import { IDecodedTx } from '../vaults/types';
-
 import type {
   EVMDecodedItemERC20Approve,
   EVMDecodedItemERC20Transfer,
   EVMDecodedItemInternalSwap,
   EVMDecodedTxType,
 } from '../vaults/impl/evm/decoder/decoder';
+import type { IDecodedTx } from '../vaults/types';
 
 enum TxStatus {
   Pending = 'Pending',

@@ -1,4 +1,5 @@
-import React, { FC, memo, useCallback, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,7 +23,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { LazyDisplayView } from '../../LazyDisplayView';
-import { useAccountSelectorInfo } from '../../NetworkAccountSelector/hooks/useAccountSelectorInfo';
 
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SELECTED_WALLET_DEBOUNCED,
@@ -36,6 +36,8 @@ import RightAccountSection, {
 } from './RightAccountSection';
 import RightChainSelector from './RightChainSelector';
 import RightHeader from './RightHeader';
+
+import type { useAccountSelectorInfo } from '../../NetworkAccountSelector/hooks/useAccountSelectorInfo';
 
 export type AccountType = 'hd' | 'hw' | 'imported' | 'watching';
 export type DeviceStatusType = {

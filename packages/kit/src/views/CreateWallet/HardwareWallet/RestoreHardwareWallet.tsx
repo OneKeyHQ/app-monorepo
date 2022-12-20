@@ -1,6 +1,6 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,16 +13,13 @@ import {
 } from '@onekeyhq/components';
 import UnboxingPng from '@onekeyhq/kit/assets/wallet/unboxing.png';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type RouteProps = RouteProp<
@@ -37,7 +34,7 @@ const RestoreHardwareWalletModal: FC = () => {
 
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { device } = route?.params;
+  const { device } = route?.params || {};
 
   const content = (
     <Center>

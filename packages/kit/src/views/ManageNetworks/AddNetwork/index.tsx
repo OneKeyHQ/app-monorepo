@@ -1,7 +1,8 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -24,8 +25,10 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useDebounce } from '../../../hooks';
 import { RpcNodePattern } from '../constants';
-import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import { ManageNetworkRoutes } from '../types';
 
+import type { ManageNetworkRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<

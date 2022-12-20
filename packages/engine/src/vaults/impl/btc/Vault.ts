@@ -1,12 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { BlockBook } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/blockbook';
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  TxInput,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 // @ts-ignore
@@ -15,32 +10,20 @@ import coinSelect from 'coinselect';
 import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
-import { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import {
   InsufficientBalance,
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { Account, DBAccount, DBUTXOAccount } from '../../../types/account';
+import { Account, DBAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxActionNativeTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTx,
-  IEncodedTxUpdateOptions,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
-import { EVMDecodedItem, EVMDecodedTxType } from '../evm/decoder/types';
+import { EVMDecodedTxType } from '../evm/decoder/types';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -49,7 +32,28 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { getAccountDefaultByPurpose } from './utils';
 
+import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
+import type { DBUTXOAccount } from '../../../types/account';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxActionNativeTransfer,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
+import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IBlockBookTransaction, IBtcUTXO, IEncodedTxBtc } from './types';
+import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
+import type {
+  PartialTokenInfo,
+  TxInput,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const DEFAULT_BLOCK_NUMS = [5, 2, 1];
 const DEFAULT_BLOCK_TIME = 600; // Average block time is 10 minutes.

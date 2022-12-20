@@ -1,13 +1,13 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { ethers } from '@onekeyfe/blockchain-libs';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
-import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 export type TotalFeeProps = {
   tx: EVMDecodedItem;

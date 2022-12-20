@@ -1,5 +1,3 @@
-import React from 'react';
-
 import {
   Box,
   Center,
@@ -7,7 +5,8 @@ import {
   ScrollView,
   Typography,
 } from '@onekeyhq/components';
-import Icons, { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import type { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import Icons from '@onekeyhq/components/src/Icon/Icons';
 
 const IconGallery = () => (
   <ScrollView bg="background-hovered">

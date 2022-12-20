@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Form, useForm } from '@onekeyhq/components';
@@ -10,9 +10,11 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { BaseSendModal } from '../components/BaseSendModal';
-import { SendRoutes, SendRoutesParams } from '../types';
+import { SendRoutes } from '../types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 
+import type { SendRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<

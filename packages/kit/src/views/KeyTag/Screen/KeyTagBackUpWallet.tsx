@@ -1,8 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { StackNavigationProp } from '@react-navigation/stack';
-import { ListRenderItem } from 'react-native';
-
 import {
   Box,
   Center,
@@ -12,7 +9,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { IWallet } from '@onekeyhq/engine/src/types';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useWalletSelectorSectionData } from '../../../components/WalletSelector/hooks/useWalletSelectorSectionData';
@@ -24,7 +21,10 @@ import { KeyTagVerifyWalletRoutes } from '../../../routes/Modal/KeyTagVerifyWall
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
-import { IKeytagRoutesParams } from '../Routes/types';
+
+import type { IKeytagRoutesParams } from '../Routes/types';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 

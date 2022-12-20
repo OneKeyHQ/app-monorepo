@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
@@ -12,7 +13,6 @@ import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
   MIN_OR_HIDE,
-  ToggleFloatingWindowEvents,
   expandAnim,
   expandFloatingWindow,
   hideTabGrid,
@@ -29,6 +29,8 @@ import { ControllerBarMobile } from './ControllerBarMobile';
 import FloatingBar from './FloatingBar';
 import WebTabFront from './WebTabFront';
 import WebTabGrid from './WebTabGrid';
+
+import type { ToggleFloatingWindowEvents } from '../explorerAnimation';
 
 const FloatingContainer: FC<
   ToggleFloatingWindowEvents & {
@@ -109,6 +111,7 @@ const FloatingContainer: FC<
           StyleSheet.absoluteFill,
           useAnimatedStyle(
             () => ({
+              opacity: containerHeight > 0 ? 1 : 0,
               zIndex: containerHeight > 0 && hasTabs ? 1 : -1,
               transform: [
                 {

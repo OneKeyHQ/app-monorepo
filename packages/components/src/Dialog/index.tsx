@@ -1,12 +1,5 @@
-import React, {
-  ComponentProps,
-  FC,
-  ReactElement,
-  cloneElement,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import type { ComponentProps, FC, ReactElement, ReactNode } from 'react';
+import { cloneElement, useCallback, useMemo, useState } from 'react';
 
 import { Modal as NBModal } from 'native-base';
 import { Platform } from 'react-native';
@@ -79,7 +72,7 @@ export type DialogProps = {
   canceledOnTouchOutside?: boolean;
   contentProps?: ComponentProps<typeof DialogCommon.Content>;
   footerButtonProps?: ComponentProps<typeof DialogCommon.FooterButton>;
-  footerMoreView?: React.ReactNode;
+  footerMoreView?: ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
   hasFormInsideDialog?: boolean;

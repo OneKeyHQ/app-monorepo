@@ -1,12 +1,12 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { ChangeModal } from '../../views/Revoke/ChangeModal';
 import { ShareModal } from '../../views/Revoke/ShareModal';
-import { RevokeRoutes, RevokeRoutesParams } from '../../views/Revoke/types';
+import { RevokeRoutes } from '../../views/Revoke/types';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { RevokeRoutesParams } from '../../views/Revoke/types';
 
 const RevokeNavigator = createStackNavigator<RevokeRoutesParams>();
 

@@ -1,9 +1,10 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
 import { Box, Text } from '@onekeyhq/components';
 
-import { ITxActionElementDetail } from '../types';
 import { fallbackTextComponent } from '../utils/utilsTxDetail';
+
+import type { ITxActionElementDetail } from '../types';
 
 export function TxActionElementDetailCellTitleText(
   props: ComponentProps<typeof Text>,

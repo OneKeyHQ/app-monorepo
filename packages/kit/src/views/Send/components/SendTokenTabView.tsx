@@ -1,15 +1,15 @@
-import React, { ComponentType, FC, useMemo, useState } from 'react';
+import type { ComponentType, FC } from 'react';
+import { useMemo, useState } from 'react';
 
-import {
-  TabView as RNTabView,
-  Route as TabViewRoute,
-} from 'react-native-tab-view';
+import { TabView as RNTabView } from 'react-native-tab-view';
 
 import {
   SceneMap,
   SegmentedControl,
   useThemeValue,
 } from '@onekeyhq/components';
+
+import type { Route as TabViewRoute } from 'react-native-tab-view';
 
 type TabViewItem = {
   label: string;

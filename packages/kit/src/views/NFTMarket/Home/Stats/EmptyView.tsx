@@ -1,4 +1,5 @@
-import React, { ComponentProps, FC, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useMemo } from 'react';
 
 import {
   Box,
@@ -13,13 +14,14 @@ type Props = {
   isTab?: boolean;
   numberOfData: number;
 } & Pick<ComponentProps<typeof List>, 'ListHeaderComponent'>;
+const renderSeparator = () => <Box h="4px" />;
 const EmptyView: FC<Props> = ({ isTab, numberOfData, ...rest }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const listData = new Array(numberOfData).fill(0);
   const SeparatorConfig = useMemo(() => {
     if (isVerticalLayout)
       return {
-        ItemSeparatorComponent: () => <Box h="4px" />,
+        ItemSeparatorComponent: renderSeparator,
       };
     return {
       showDivider: true,

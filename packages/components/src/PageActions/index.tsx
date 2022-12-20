@@ -1,11 +1,11 @@
-import React, { FC } from 'react';
-
-import { IBoxProps } from 'native-base';
+import type { FC } from 'react';
 
 import Box from '../Box';
 import Button from '../Button';
 import Divider from '../Divider';
 import Typography from '../Typography';
+
+import type { IBoxProps } from 'native-base';
 
 interface IPageActionProps extends IBoxProps<IPageActionProps> {
   primaryButton: string;

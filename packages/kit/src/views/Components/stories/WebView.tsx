@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, Button } from '@onekeyhq/components';
 
 import WebView from '../../../components/WebView';

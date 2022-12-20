@@ -1,7 +1,7 @@
-import React, { FC, ReactNode, useCallback, useMemo, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
-import { IBoxProps } from 'native-base';
 
 import {
   Box,
@@ -20,6 +20,8 @@ import {
   OnboardingContextProvider,
   useOnboardingContext,
 } from './OnboardingContext';
+
+import type { IBoxProps } from 'native-base';
 
 type LayoutProps = {
   disableAnimation?: boolean;

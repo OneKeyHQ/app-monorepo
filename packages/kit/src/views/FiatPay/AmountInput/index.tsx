@@ -1,6 +1,7 @@
-import React, { FC, useCallback, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import useSWR from 'swr';
@@ -23,14 +24,11 @@ import {
   useMoonpayPayCurrency,
   useSettings,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDebounce } from '../../../hooks';
-import {
-  FiatPayModalRoutesParams,
-  FiatPayRoutes,
-} from '../../../routes/Modal/FiatPay';
+import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 import { getFiatCode } from '../../../utils/FiatCurrency';
 import {
   buyWidgetUrl,
@@ -38,9 +36,12 @@ import {
   sellWidgetUrl,
   signMoonpayUrl,
 } from '../Service';
-import { MoonpayListType, Provider } from '../types';
 
 import { AutoSizeText } from './AutoSizeText';
+
+import type { FiatPayModalRoutesParams } from '../../../routes/Modal/FiatPay';
+import type { MoonpayListType, Provider } from '../types';
+import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
 type RouteProps = RouteProp<

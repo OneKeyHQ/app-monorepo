@@ -1,5 +1,5 @@
 // TODO packages/kit/src/components/Header/AccountSelectorChildren/RightHeader.tsx
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,7 +11,7 @@ import {
   Select,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import type {
   SelectGroupItem,
   SelectItem,
@@ -32,12 +32,12 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
-import ManagerWalletDeleteDialog, {
-  DeleteWalletProp,
-} from '../../../views/ManagerWallet/DeleteWallet';
-import { IHardwareDeviceStatusMap } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
+import ManagerWalletDeleteDialog from '../../../views/ManagerWallet/DeleteWallet';
 import { ValidationFields } from '../../Protected';
 import { WalletStatus, useHardwareWalletInfo } from '../WalletAvatar';
+
+import type { DeleteWalletProp } from '../../../views/ManagerWallet/DeleteWallet';
+import type { IHardwareDeviceStatusMap } from '../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 
 enum EWalletSelectorListItemSelectOptions {
   rename = 'rename',

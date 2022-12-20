@@ -1,4 +1,6 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
+
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 type CloudBackupState = {
   isAvailable: boolean;
@@ -11,7 +13,7 @@ type CloudBackupState = {
 const initialState: CloudBackupState = {
   isAvailable: false,
   inProgress: false,
-  enabled: true,
+  enabled: false,
   backupRequests: 1,
   lastBackup: undefined,
 };

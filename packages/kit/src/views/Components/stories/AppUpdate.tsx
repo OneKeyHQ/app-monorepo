@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { Markdown, Modal } from '@onekeyhq/components';
 
@@ -70,11 +70,7 @@ const AppUpdateGallery = () => {
   - Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla porta leo urna blandit.
   `;
 
-  return (
-    <>
-      <ChangeLogModal md={md} />
-    </>
-  );
+  return <ChangeLogModal md={md} />;
 };
 
 export default AppUpdateGallery;

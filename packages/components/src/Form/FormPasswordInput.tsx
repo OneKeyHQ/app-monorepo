@@ -1,4 +1,5 @@
-import React, { ComponentProps, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { forwardRef, useState } from 'react';
 
 import { Platform } from 'react-native';
 
@@ -9,7 +10,7 @@ type FormInputProps = {
   onChange?: (text: string) => void;
 };
 
-const FormPasswordInput = React.forwardRef<
+const FormPasswordInput = forwardRef<
   typeof Input,
   FormInputProps & ComponentProps<typeof Input>
 >(({ onChange, ...props }, ref) => {

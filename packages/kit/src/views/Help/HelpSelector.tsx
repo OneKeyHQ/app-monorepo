@@ -1,26 +1,27 @@
-import React, { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
+import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   Center,
-  ICON_NAMES,
   Icon,
   Select,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import {
-  SubmitRequestModalRoutesParams,
-  SubmitRequestRoutes,
-} from '@onekeyhq/kit/src/routes';
+import type { SubmitRequestModalRoutesParams } from '@onekeyhq/kit/src/routes';
+import { SubmitRequestRoutes } from '@onekeyhq/kit/src/routes';
+import type {
+  HomeRoutesParams,
+  ModalScreenProps,
+} from '@onekeyhq/kit/src/routes/types';
 import {
   HomeRoutes,
-  HomeRoutesParams,
   ModalRoutes,
-  ModalScreenProps,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,11 +29,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useHelpLink } from '../../hooks/useHelpLink';
 
-import {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
-} from './Request/types';
+import { HistoryRequestRoutes } from './Request/types';
 
+import type { HistoryRequestModalRoutesParams } from './Request/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = ModalScreenProps<SubmitRequestModalRoutesParams> &

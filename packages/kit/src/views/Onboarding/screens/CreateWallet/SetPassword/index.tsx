@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { type RouteProp, useRoute } from '@react-navigation/native';
+import { type StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
 import { Center, Spinner } from '@onekeyhq/components';
@@ -15,7 +15,7 @@ import { useData } from '../../../../../hooks/redux';
 import { wait } from '../../../../../utils/helper';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import { IOnboardingRoutesParams } from '../../../routes/types';
+import { type IOnboardingRoutesParams } from '../../../routes/types';
 
 import SecondaryContent from './SecondaryContent';
 
@@ -69,7 +69,7 @@ function RedirectToRecoveryPhrase({
   );
 }
 
-const RedirectToRecoveryPhraseMemo = React.memo(RedirectToRecoveryPhrase);
+const RedirectToRecoveryPhraseMemo = memo(RedirectToRecoveryPhrase);
 
 const SetPassword = () => {
   const intl = useIntl();
@@ -98,34 +98,32 @@ const SetPassword = () => {
   );
 
   return (
-    <>
-      <Layout
-        // make sure Spinner display
-        fullHeight
-        disableAnimation={disableAnimation}
-        title={title}
-        subTitle={subTitle}
-        secondaryContent={
-          isPasswordSet ? <SecondaryContent /> : <SecondaryContent />
-        }
+    <Layout
+      // make sure Spinner display
+      fullHeight
+      disableAnimation={disableAnimation}
+      title={title}
+      subTitle={subTitle}
+      secondaryContent={
+        isPasswordSet ? <SecondaryContent /> : <SecondaryContent />
+      }
+    >
+      <Protected
+        isAutoHeight
+        hideTitle
+        walletId={null}
+        skipSavePassword
+        field={ValidationFields.Wallet}
       >
-        <Protected
-          isAutoHeight
-          hideTitle
-          walletId={null}
-          skipSavePassword
-          field={ValidationFields.Wallet}
-        >
-          {(password, { withEnableAuthentication }) => (
-            <RedirectToRecoveryPhraseMemo
-              password={password}
-              withEnableAuthentication={withEnableAuthentication}
-              importedMnemonic={mnemonic}
-            />
-          )}
-        </Protected>
-      </Layout>
-    </>
+        {(password, { withEnableAuthentication }) => (
+          <RedirectToRecoveryPhraseMemo
+            password={password}
+            withEnableAuthentication={withEnableAuthentication}
+            importedMnemonic={mnemonic}
+          />
+        )}
+      </Protected>
+    </Layout>
   );
 };
 

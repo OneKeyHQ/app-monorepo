@@ -1,7 +1,7 @@
-import React, { FC, memo } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import {
-  DrawerContentComponentProps,
   DrawerContentScrollView,
   useDrawerStatus,
 } from '@react-navigation/drawer';
@@ -12,6 +12,8 @@ import { LazyDisplayView } from '../LazyDisplayView';
 import { useAccountSelectorInfo } from '../NetworkAccountSelector/hooks/useAccountSelectorInfo';
 
 import AccountSelectorChildren from './AccountSelectorChildren';
+
+import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 
 const AccountSelectorMobile: FC<DrawerContentComponentProps> = (props) => {
   const status = useDrawerStatus();

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -13,15 +13,15 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
-import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
+import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  HomeRoutes,
+import type {
   HomeRoutesParams,
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import {
   setLocale,
   setSelectedFiatMoneySymbol,

@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { Box, Icon, Image, NetImage } from '@onekeyhq/components';
 import DAppIconBG from '@onekeyhq/kit/assets/DAppIcon_bg.png';

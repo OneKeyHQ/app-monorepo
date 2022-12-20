@@ -1,9 +1,10 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -29,18 +30,18 @@ import type {
 } from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../../hooks';
-import ChainSelector from '../ChainSelector';
-import CollectionLogo from '../CollectionLogo';
-import { useDefaultNetWork } from '../Home/hook';
-import RankingList from '../Home/Stats/Ranking/Container/Mobile';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useDebounce } from '../../../../hooks';
+import ChainSelector from '../../ChainSelector';
+import CollectionLogo from '../../CollectionLogo';
+import { useDefaultNetWork } from '../../Home/hook';
+import RankingList from '../../Home/Stats/Ranking/Container/Mobile';
 
-import {
-  SearchNFTCollectionRoutes,
-  SearchNFTCollectionRoutesParams,
-} from './type';
 import { useCollectionSearch } from './useCollectionSearch';
+
+import type { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
+import type { RouteProp } from '@react-navigation/core';
+import type { ListRenderItem } from 'react-native';
 
 const Header: FC<{
   keyword: string;
@@ -49,6 +50,10 @@ const Header: FC<{
   onSelectNetWork: (network: Network) => void;
 }> = ({ keyword, setKeyword, selectNetwork, onSelectNetWork }) => {
   const intl = useIntl();
+  const route =
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
+  const { ethOnly } = route.params;
+
   const modalClose = useModalClose();
   return (
     <HStack
@@ -84,12 +89,14 @@ const Header: FC<{
         mr="12px"
       />
       <HStack space="16px" alignItems="center">
-        <ChainSelector
-          selectedNetwork={selectNetwork}
-          onChange={(n) => {
-            onSelectNetWork(n);
-          }}
-        />
+        {!!ethOnly === false && (
+          <ChainSelector
+            selectedNetwork={selectNetwork}
+            onChange={(n) => {
+              onSelectNetWork(n);
+            }}
+          />
+        )}
         {!platformEnv.isNativeIOS && <NavigationButton onPress={modalClose} />}
       </HStack>
     </HStack>
@@ -105,7 +112,9 @@ type Props = {
 const DefaultList: FC<Props> = ({ selectNetwork }) => {
   const { serviceNFT } = backgroundApiProxy;
   const intl = useIntl();
-
+  const route =
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
+  const { onSelectCollection } = route.params;
   const [listData, updateListData] = useState<NFTMarketRanking[]>([]);
   useEffect(() => {
     (async () => {
@@ -120,28 +129,27 @@ const DefaultList: FC<Props> = ({ selectNetwork }) => {
   }, [selectNetwork?.id, serviceNFT]);
 
   return (
-    <>
-      <RankingList
-        selectNetwork={selectNetwork}
-        headerProps={{
-          title: intl.formatMessage({
-            id: 'content__ranking',
-          }),
-          actions: [
-            {
-              label: intl.formatMessage(
-                {
-                  id: 'content__int_day_volume',
-                },
-                { 0: 1 },
-              ),
-              onPress: () => {},
-            },
-          ],
-        }}
-        listData={listData}
-      />
-    </>
+    <RankingList
+      onSelectCollection={onSelectCollection}
+      selectNetwork={selectNetwork}
+      headerProps={{
+        title: intl.formatMessage({
+          id: 'content__ranking',
+        }),
+        actions: [
+          {
+            label: intl.formatMessage(
+              {
+                id: 'content__int_day_volume',
+              },
+              { 0: 1 },
+            ),
+            onPress: () => {},
+          },
+        ],
+      }}
+      listData={listData}
+    />
   );
 };
 
@@ -152,12 +160,7 @@ const SearchResultList: FC<Props> = ({
 }) => {
   const intl = useIntl();
   const route =
-    useRoute<
-      RouteProp<
-        SearchNFTCollectionRoutesParams,
-        SearchNFTCollectionRoutes.SearchModal
-      >
-    >();
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
   const { onSelectCollection } = route.params;
   const renderItem: ListRenderItem<Collection> = useCallback(
     ({ item }) => {
@@ -166,55 +169,51 @@ const SearchResultList: FC<Props> = ({
         ? `${item?.floorPrice} ${item.priceSymbol ?? ''}`
         : undefined;
       return (
-        <>
-          <ListItem
-            onPress={() => {
-              onSelectCollection({
-                networkId: selectNetwork.id,
-                contractAddress: item.contractAddress as string,
-              });
-            }}
-          >
-            <ListItem.Column>
-              <CollectionLogo
-                src={item.logoUrl}
-                width="56px"
-                height="56px"
-                verified={item.openseaVerified}
-              />
-            </ListItem.Column>
-            <ListItem.Column
-              flex={1}
-              text={{
-                label: item.name,
-                labelProps: { numberOfLines: 1 },
-                description: (
-                  <>
-                    <HStack space="8px" alignItems="center">
-                      <Text typography="Body2" color="text-subdued">
-                        {intl.formatMessage(
-                          {
-                            id: 'content__int_items',
-                          },
-                          {
-                            0: items || '–',
-                          },
-                        )}
-                      </Text>
-                      <Box bgColor="text-subdued" size="4px" rounded="full" />
-                      <Text typography="Body2" color="text-subdued">
-                        {intl.formatMessage({
-                          id: 'content__floor',
-                        })}{' '}
-                        {floorPrice || '–'}
-                      </Text>
-                    </HStack>
-                  </>
-                ),
-              }}
+        <ListItem
+          onPress={() => {
+            onSelectCollection({
+              networkId: selectNetwork.id,
+              contractAddress: item.contractAddress as string,
+            });
+          }}
+        >
+          <ListItem.Column>
+            <CollectionLogo
+              src={item.logoUrl}
+              width="56px"
+              height="56px"
+              verified={item.openseaVerified}
             />
-          </ListItem>
-        </>
+          </ListItem.Column>
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: item.name,
+              labelProps: { numberOfLines: 1 },
+              description: (
+                <HStack space="8px" alignItems="center">
+                  <Text typography="Body2" color="text-subdued">
+                    {intl.formatMessage(
+                      {
+                        id: 'content__int_items',
+                      },
+                      {
+                        0: items || '–',
+                      },
+                    )}
+                  </Text>
+                  <Box bgColor="text-subdued" size="4px" rounded="full" />
+                  <Text typography="Body2" color="text-subdued">
+                    {intl.formatMessage({
+                      id: 'content__floor',
+                    })}{' '}
+                    {floorPrice || '–'}
+                  </Text>
+                </HStack>
+              ),
+            }}
+          />
+        </ListItem>
       );
     },
     [intl, onSelectCollection, selectNetwork.id],

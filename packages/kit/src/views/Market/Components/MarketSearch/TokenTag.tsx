@@ -1,4 +1,5 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import {
   Box,
@@ -41,4 +42,4 @@ const TokenTag: FC<TokenTagProps> = ({ name, logoURI, onPress }) => {
   );
 };
 
-export default React.memo(TokenTag);
+export default memo(TokenTag);

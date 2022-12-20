@@ -1,17 +1,19 @@
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Text } from '@onekeyhq/components';
 
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import { IOnboardingRoutesParams } from '../../../routes/types';
 
 import SecondaryContent from './SecondaryContent';
+
+import type { IOnboardingRoutesParams } from '../../../routes/types';
+import type { RouteProp } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
   IOnboardingRoutesParams,
@@ -83,43 +85,41 @@ const RecoveryPhrase = () => {
   );
 
   return (
-    <>
-      <Layout
-        title={intl.formatMessage({ id: 'title__recovery_phrase' })}
-        description={intl.formatMessage({ id: 'title__recovery_phrase_desc' })}
-        secondaryContent={
-          <SecondaryContent
-            mnemonic={mnemonic}
-            onPressShowPhraseButton={onPressShowPhraseButton}
-            onPressSavedPhrase={onPressSavedPhrase}
-          />
-        }
-        fullHeight
-      >
-        <Box my={-3} mt={{ base: 4, sm: 0 }}>
-          {lists.map((item, index) => (
-            <Box key={index} flexDir="row" alignItems="center" py={3}>
-              <Box
-                p={2.5}
-                mr={4}
-                rounded="full"
-                bgColor={getListItemLeadingColor(item.type)?.bgColor}
-                alignSelf="flex-start"
-              >
-                <Icon
-                  name={item.icon}
-                  color={getListItemLeadingColor(item.type)?.iconColor}
-                  size={20}
-                />
-              </Box>
-              <Text flex={1} typography="Body2">
-                {item.para}
-              </Text>
+    <Layout
+      title={intl.formatMessage({ id: 'title__recovery_phrase' })}
+      description={intl.formatMessage({ id: 'title__recovery_phrase_desc' })}
+      secondaryContent={
+        <SecondaryContent
+          mnemonic={mnemonic}
+          onPressShowPhraseButton={onPressShowPhraseButton}
+          onPressSavedPhrase={onPressSavedPhrase}
+        />
+      }
+      fullHeight
+    >
+      <Box my={-3} mt={{ base: 4, sm: 0 }}>
+        {lists.map((item, index) => (
+          <Box key={index} flexDir="row" alignItems="center" py={3}>
+            <Box
+              p={2.5}
+              mr={4}
+              rounded="full"
+              bgColor={getListItemLeadingColor(item.type)?.bgColor}
+              alignSelf="flex-start"
+            >
+              <Icon
+                name={item.icon}
+                color={getListItemLeadingColor(item.type)?.iconColor}
+                size={20}
+              />
             </Box>
-          ))}
-        </Box>
-      </Layout>
-    </>
+            <Text flex={1} typography="Body2">
+              {item.para}
+            </Text>
+          </Box>
+        ))}
+      </Box>
+    </Layout>
   );
 };
 

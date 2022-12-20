@@ -1,4 +1,4 @@
-import { DappSiteConnection } from '../../store/reducers/dapp';
+import type { DappSiteConnection } from '../../store/reducers/dapp';
 
 export enum ManageConnectedSitesRoutes {
   ManageConnectedSitesModel = 'ManageConnectedSitesModal',

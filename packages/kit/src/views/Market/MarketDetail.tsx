@@ -1,13 +1,8 @@
-import React, {
-  FC,
-  ReactElement,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+/* eslint-disable react/no-unstable-nested-components */
+import type { FC, ReactElement } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -24,27 +19,24 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
 import { useFiatPay } from '../../hooks/redux';
 import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
-import {
-  FiatPayModalRoutesParams,
-  FiatPayRoutes,
-} from '../../routes/Modal/FiatPay';
-import {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-  TabRoutes,
-  TabRoutesParams,
-} from '../../routes/types';
-import { MarketTokenItem } from '../../store/reducers/market';
-import { CurrencyType } from '../FiatPay/types';
+import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
+import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/types';
 import { StakingRoutes } from '../Staking/typing';
 
 import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
 import { useMarketDetail } from './hooks/useMarketDetail';
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
+import type { FiatPayModalRoutesParams } from '../../routes/Modal/FiatPay';
+import type {
+  HomeRoutes,
+  HomeRoutesParams,
+  ModalScreenProps,
+  TabRoutesParams,
+} from '../../routes/types';
+import type { MarketTokenItem } from '../../store/reducers/market';
+import type { CurrencyType } from '../FiatPay/types';
+import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;

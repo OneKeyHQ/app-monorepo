@@ -1,14 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import type { FC } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { createChart } from 'lightweight-charts';
 
-import {
-  ChartViewAdapterProps,
-  createChartDom,
-  updateChartDom,
-} from './chartService';
+import { createChartDom, updateChartDom } from './chartService';
 
-const ChartViewAdapter: React.FC<ChartViewAdapterProps> = ({
+import type { ChartViewAdapterProps } from './chartService';
+
+const ChartViewAdapter: FC<ChartViewAdapterProps> = ({
   data,
   onHover,
   lineColor,

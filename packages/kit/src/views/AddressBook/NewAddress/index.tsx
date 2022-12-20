@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { useToast } from '@onekeyhq/components';
@@ -9,11 +9,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useRuntime } from '../../../hooks/redux';
 import { create } from '../../../store/reducers/contacts';
 import AddressBookModalView from '../components/AddressBookModalView';
-import {
+
+import type {
   AddressBookRoutes,
   AddressBookRoutesParams,
   ContactValues,
 } from '../routes';
+import type { RouteProp } from '@react-navigation/core';
 
 type NewAddressRouteProp = RouteProp<
   AddressBookRoutesParams,

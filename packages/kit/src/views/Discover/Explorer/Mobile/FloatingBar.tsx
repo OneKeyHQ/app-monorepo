@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 

@@ -1,7 +1,5 @@
-import { FC, useCallback, useEffect, useMemo } from 'react';
-
-import { LayoutChangeEvent } from 'react-native';
-import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Box, Button, Pressable, Typography } from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
@@ -9,12 +7,15 @@ import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGrou
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
 import {
-  WebTab,
   addWebTab,
   closeWebTab,
   homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
+
+import type { WebTab } from '../../../../store/reducers/webTabs';
+import type { LayoutChangeEvent } from 'react-native';
+import type Animated from 'react-native-reanimated';
 
 const Tab: FC<
   WebTab & {
@@ -98,7 +99,7 @@ const AddTabButton: FC = () => (
 const TabBarDesktop: FC = () => {
   const tabs = useAppSelector((s) => s.webTabs.tabs);
   const tabsExceptHome = useMemo(() => tabs.slice(1), [tabs]);
-  const ref = useAnimatedRef<Animated.ScrollView>();
+  const ref = useRef<Animated.ScrollView>(null);
   useEffect(() => {
     setTimeout(() => ref.current?.scrollToEnd(), 50);
   }, [ref, tabs.length]);

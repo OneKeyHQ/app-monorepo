@@ -1,11 +1,12 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
 import { Box, HStack, Text } from '@onekeyhq/components';
 
 import { TxActionElementIconLarge } from '../elements/TxActionElementIcon';
 import { TxActionElementTitleNormal } from '../elements/TxActionElementTitle';
-import { ITxActionMetaIcon, ITxActionMetaTitle } from '../types';
 import { fallbackTextComponent } from '../utils/utilsTxDetail';
+
+import type { ITxActionMetaIcon, ITxActionMetaTitle } from '../types';
 
 export type ITxListActionBoxProps = {
   icon?: JSX.Element;

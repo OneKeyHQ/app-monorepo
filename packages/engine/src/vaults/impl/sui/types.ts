@@ -1,4 +1,4 @@
-import { ObjectId, SignableTransaction, SuiMoveObject } from '@mysten/sui.js';
+import type { SignableTransaction, SuiMoveObject } from '@mysten/sui.js';
 
 export type IEncodedTxSUI = SignableTransaction;
 
@@ -18,13 +18,4 @@ export type NftObject = {
   objectType: string;
   fields: Record<string, any>;
   hasPublicTransfer: boolean;
-};
-
-export type CoinMetadata = {
-  decimals: number;
-  name: string;
-  symbol: string;
-  description: string;
-  iconUrl: string | null;
-  id: ObjectId | null;
 };

@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Image, Modal, Typography } from '@onekeyhq/components';
@@ -12,7 +12,10 @@ import { HistoryRequestRoutes } from '../../Help/Request/types';
 import Transaction from '../components/Transaction';
 import { swftcCustomerSupportUrl } from '../config';
 import { useWalletsSwapTransactions } from '../hooks/useTransactions';
-import { SwapRoutes, SwapRoutesParams } from '../typings';
+import { SwapRoutes } from '../typings';
+
+import type { SwapRoutesParams } from '../typings';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
 

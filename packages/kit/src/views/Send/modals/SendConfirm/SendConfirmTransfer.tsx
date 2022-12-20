@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
+import type {
   IDecodedTx,
   IEncodedTxUpdatePayloadTransfer,
-  IEncodedTxUpdateType,
 } from '@onekeyhq/engine/src/vaults/types';
+import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
@@ -15,7 +15,11 @@ import {
 } from '../../../../hooks';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
-import { ITxConfirmViewProps, TransferSendParamsPayload } from '../../types';
+
+import type {
+  ITxConfirmViewProps,
+  TransferSendParamsPayload,
+} from '../../types';
 
 // For native transfer only
 function SendConfirmTransfer(props: ITxConfirmViewProps) {

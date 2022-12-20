@@ -1,19 +1,20 @@
-import React, { FC } from 'react';
-
-import { IBoxProps } from 'native-base';
+import type { FC, ReactElement } from 'react';
+import { cloneElement } from 'react';
 
 import Box from '../Box';
 
+import type { IBoxProps } from 'native-base';
+
 interface IContentItemProps {
   hasDivider?: boolean;
-  children?: React.ReactElement<any> | null;
+  children?: ReactElement<any> | null;
 }
 export type ContentItemBaseProps = IContentItemProps;
 
 interface IContainerProps extends IBoxProps<IContainerProps> {
   children:
-    | (React.ReactElement<ContentItemBaseProps> | boolean)[]
-    | React.ReactElement<ContentItemBaseProps>
+    | (ReactElement<ContentItemBaseProps> | boolean)[]
+    | ReactElement<ContentItemBaseProps>
     | boolean
     | null;
 }
@@ -33,7 +34,7 @@ const Container: FC<ContainerProps> = ({ children, ...props }) => (
         (child, index) => {
           if (child === true || child === false || child === null) return;
           const { children: childChildren } = child.props;
-          return React.cloneElement(child, {
+          return cloneElement(child, {
             ...child.props,
             key: index.toString(),
             hasDivider:

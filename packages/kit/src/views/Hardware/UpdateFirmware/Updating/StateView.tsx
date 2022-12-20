@@ -1,6 +1,6 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,7 +10,9 @@ import {
   Text,
   Typography,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
+
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export type StateViewType =
   | 'pre-check-failure'

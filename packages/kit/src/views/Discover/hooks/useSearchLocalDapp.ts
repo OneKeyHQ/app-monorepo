@@ -5,8 +5,9 @@ import { useShowBookmark } from '.';
 import Fuse from 'fuse.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { MatchDAppItemType } from '../Explorer/explorerUtils';
-import { DAppItemType } from '../type';
+
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { DAppItemType } from '../type';
 
 const options = {
   includeScore: true,

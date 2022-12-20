@@ -1,8 +1,8 @@
-import { FC, useCallback, useContext, useLayoutEffect, useMemo } from 'react';
+import type { FC } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -25,6 +25,7 @@ import CardView from '../CardView';
 import { DiscoverContext } from '../context';
 
 import type { SectionDataType } from '../../type';
+import type { ListRenderItem } from 'react-native';
 
 const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();

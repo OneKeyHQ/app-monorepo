@@ -1,8 +1,10 @@
-import { ChildProcess, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import path from 'path';
 
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
+
+import type { ChildProcess } from 'child_process';
 
 export type Status = {
   service: boolean;

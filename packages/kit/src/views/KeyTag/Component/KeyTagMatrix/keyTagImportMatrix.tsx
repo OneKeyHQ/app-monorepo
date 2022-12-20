@@ -1,11 +1,12 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box } from '@onekeyhq/components';
 
-import { KeyTagMnemonic } from '../../types';
 import DotMnemonicWord from '../DotMap/DotMnemonicWord';
 
 import { KeyTagMatrixTopTitle } from './KeyTagMatrix';
+
+import type { KeyTagMnemonic } from '../../types';
 
 type KeyTagImportMatrixProps = {
   keyTagData?: KeyTagMnemonic[];

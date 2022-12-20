@@ -1,11 +1,11 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Icon, Pressable } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
-import { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
@@ -18,9 +18,10 @@ import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementDetailCellTitleText } from '../elements/TxActionElementDetailCell';
 import { TxActionElementPressable } from '../elements/TxActionElementPressable';
-import { ITxActionElementDetail, ITxActionListViewProps } from '../types';
 
 import { TxDetailActionBox } from './TxDetailActionBox';
+
+import type { ITxActionElementDetail, ITxActionListViewProps } from '../types';
 
 function getFeeInNativeText(options: {
   network?: Network | null;

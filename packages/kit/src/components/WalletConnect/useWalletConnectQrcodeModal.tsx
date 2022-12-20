@@ -1,9 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import QRCodeModalWeb from '@walletconnect/qrcode-modal';
-import { IQRCodeModal, IWalletConnectSession } from '@walletconnect/types';
-import { Web3ReactState } from '@web3-react/types';
 import { Linking } from 'react-native';
 
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -21,17 +19,18 @@ import {
 } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 
-import { WalletService } from './types';
 import walletConnectUtils from './utils/walletConnectUtils';
-import {
-  ISessionStatusPro,
-  WalletConnectClientForDapp,
-} from './WalletConnectClientForDapp';
+import { WalletConnectClientForDapp } from './WalletConnectClientForDapp';
 import {
   WALLET_CONNECT_IS_NATIVE_QRCODE_MODAL,
   WALLET_CONNECT_OPEN_WALLET_APP_DELAY,
   WALLET_CONNECT_WALLETS_LIST,
 } from './walletConnectConsts';
+
+import type { WalletService } from './types';
+import type { ISessionStatusPro } from './WalletConnectClientForDapp';
+import type { IQRCodeModal, IWalletConnectSession } from '@walletconnect/types';
+import type { Web3ReactState } from '@web3-react/types';
 
 export type IWalletConnectQrcodeModalState = {
   visible: boolean;
@@ -66,8 +65,8 @@ export function useWalletConnectQrcodeModal() {
   const walletServiceSelectedInModalRef = useRef<WalletService | undefined>();
 
   // node_modules/@walletconnect/react-native-dapp/dist/providers/WalletConnectProvider.js
-  //    const connectToWalletService = React.useCallback(async (walletService, uri)
-  //    const open = React.useCallback(async (uri, cb) =>
+  //    const connectToWalletService = useCallback(async (walletService, uri)
+  //    const open = useCallback(async (uri, cb) =>
   const connectToWalletService = useCallback(
     async (walletService: WalletService, uri?: string) => {
       if (typeof uri !== 'string' || !uri.length) {

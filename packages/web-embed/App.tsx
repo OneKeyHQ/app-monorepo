@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // import { Provider } from '@onekeyhq/kit';
 
@@ -13,11 +14,12 @@ import {
 } from 'react-router-dom';
 
 import { Box, Provider } from '@onekeyhq/components';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import LOCALES from '@onekeyhq/components/src/locale';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { ONBOARDING_WEBVIEW_METHODS } from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/consts';
-import ProcessAutoTyping, {
-  IProcessAutoTypingRef,
-} from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/ProcessAutoTyping';
+import type { IProcessAutoTypingRef } from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/ProcessAutoTyping';
+import ProcessAutoTyping from '@onekeyhq/kit/src/views/Onboarding/screens/CreateWallet/BehindTheScene/ProcessAutoTyping';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // css should be imported at last
 import '@onekeyhq/shared/src/web/index.css';
@@ -28,7 +30,7 @@ import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 function useRouteQuery() {
   const { search } = useLocation();
-  return React.useMemo(() => new URLSearchParams(search), [search]);
+  return useMemo(() => new URLSearchParams(search), [search]);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -137,9 +139,23 @@ const appSettings = window.WEB_EMBED_ONEKEY_APP_SETTINGS || {
   localeVariant: 'en-US',
   enableHaptics: true,
 };
+const localeVariant = appSettings.localeVariant as LocaleSymbol;
+const cachedLocale = LOCALES[localeVariant];
 
 const App: FC = function () {
-  return (
+  const [localeReady, setLocaleReady] = useState(
+    typeof cachedLocale !== 'function',
+  );
+  useEffect(() => {
+    if (typeof cachedLocale === 'function') {
+      cachedLocale().then((module) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        LOCALES[localeVariant] = module.default;
+        setLocaleReady(true);
+      });
+    }
+  }, []);
+  return localeReady ? (
     <Provider
       themeVariant={appSettings.themeVariant}
       locale={appSettings.localeVariant}
@@ -160,7 +176,7 @@ const App: FC = function () {
         </Routes>
       </HashRouter>
     </Provider>
-  );
+  ) : null;
 };
 
 export default App;

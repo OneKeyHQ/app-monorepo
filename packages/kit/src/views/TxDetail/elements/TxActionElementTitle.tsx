@@ -1,10 +1,10 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
 
-import { ITxActionMeta } from '../types';
+import type { ITxActionMeta } from '../types';
 
 export function TxActionElementTitle(
   props: ITxActionMeta & ComponentProps<typeof Text>,

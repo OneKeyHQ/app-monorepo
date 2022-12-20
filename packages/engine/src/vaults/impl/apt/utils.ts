@@ -1,15 +1,8 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
-import {
-  AptosClient,
-  BCS,
-  MaybeHexString,
-  TransactionBuilder,
-  TxnBuilderTypes,
-  Types,
-} from 'aptos';
+import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
 import { get } from 'lodash';
 
 import {
@@ -22,14 +15,16 @@ import { IDecodedTxActionType } from '../../types';
 import { hexlify, stripHexPrefix } from '../../utils/hexUtils';
 
 import { TypeTagParser } from './builder_utils';
-import {
-  ArgumentABI,
+import { ArgumentABI } from './types';
+
+import type { Signer } from '../../../proxy';
+import type {
   SignMessagePayload,
   SignMessageRequest,
   TxPayload,
 } from './types';
-
-import type { Signer } from '../../../proxy';
+import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { AptosClient, MaybeHexString, Types } from 'aptos';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 
@@ -269,6 +264,7 @@ export function convertRpcError(error: string): OneKeyError {
 export function waitPendingTransaction(
   client: AptosClient,
   txHash: string,
+  right = true,
   retryCount = 10,
 ): Promise<Types.Transaction | undefined> {
   let retry = 0;
@@ -282,10 +278,12 @@ export function waitPendingTransaction(
     try {
       transaction = await client.getTransactionByHash(txHash);
     } catch (error: any) {
-      const { errorCode } = error;
-      // ignore transaction not found
-      if (errorCode !== 'transaction_not_found') {
-        return Promise.reject(new OneKeyError(errorCode));
+      if (right) {
+        const { errorCode } = error;
+        // ignore transaction not found
+        if (errorCode !== 'transaction_not_found') {
+          return Promise.reject(new OneKeyError(errorCode));
+        }
       }
     }
 
@@ -299,7 +297,7 @@ export function waitPendingTransaction(
       );
     }
     if (retry > retryCount) {
-      return Promise.resolve(transaction);
+      return Promise.reject(new OneKeyError('transaction timeout'));
     }
 
     return new Promise(

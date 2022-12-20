@@ -1,9 +1,7 @@
-import React from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Typography } from '@onekeyhq/components';
-import { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { getTxStatusInfo } from '../utils/utilsTxDetail';
 

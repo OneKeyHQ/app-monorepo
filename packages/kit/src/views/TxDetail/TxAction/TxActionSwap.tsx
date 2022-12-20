@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,7 +18,8 @@ import {
   TxActionElementAmountNormal,
   TxActionElementAmountSmall,
 } from '../elements/TxActionElementAmount';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,

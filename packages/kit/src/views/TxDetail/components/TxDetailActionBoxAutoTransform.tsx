@@ -1,7 +1,5 @@
-import React from 'react';
-
 import { Box } from '@onekeyhq/components';
-import {
+import type {
   IDecodedTx,
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -19,14 +17,15 @@ import {
   TxActionElementTitleNormal,
 } from '../elements/TxActionElementTitle';
 import { useTxDetailContext } from '../TxDetailContext';
-import {
+
+import { TxDetailActionBox } from './TxDetailActionBox';
+import { TxStatusBarInDetail } from './TxStatusBar';
+
+import type {
   ITxActionCardViewProps,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
-
-import { TxDetailActionBox } from './TxDetailActionBox';
-import { TxStatusBarInDetail } from './TxStatusBar';
 
 export function TxDetailActionBoxAutoTransform(
   props: ITxActionCardViewProps & {

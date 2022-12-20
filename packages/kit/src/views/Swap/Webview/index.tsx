@@ -1,11 +1,11 @@
-import React from 'react';
-
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 
 import { Modal } from '@onekeyhq/components';
 
 import WebView from '../../../components/WebView';
-import { SwapRoutes, SwapRoutesParams } from '../typings';
+
+import type { SwapRoutes, SwapRoutesParams } from '../typings';
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Webview>;
 

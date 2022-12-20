@@ -1,11 +1,6 @@
-import React, { useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import {
-  NavigationProp,
-  RouteProp,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { useToast } from '@onekeyhq/components';
@@ -16,13 +11,15 @@ import useDappApproveAction from '../../../../hooks/useDappApproveAction';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
 import SignDetail from '../../../TxDetail/SignDetail';
 import { BaseSignMessageConfirmModal } from '../../components/BaseSignMessageConfirmModal';
-import {
+import { SendRoutes } from '../../types';
+
+import type {
   ISignMessageConfirmViewProps,
   ISignMessageConfirmViewPropsHandleConfirm,
   SendAuthenticationParams,
-  SendRoutes,
   SendRoutesParams,
 } from '../../types';
+import type { NavigationProp, RouteProp } from '@react-navigation/native';
 
 type NavigationProps = NavigationProp<
   SendRoutesParams,

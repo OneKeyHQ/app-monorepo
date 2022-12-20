@@ -1,12 +1,14 @@
-import { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
+import type { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
-import {
-  MARKET_FAVORITES_CATEGORYID,
+import type {
   MarketCategory,
   MarketListSortType,
   MarketTokenItem,
   MarketTopTabName,
+} from '@onekeyhq/kit/src/store/reducers/market';
+import {
+  MARKET_FAVORITES_CATEGORYID,
   cancleMarketFavorite,
   clearMarketSearchTokenHistory,
   moveTopMarketFavorite,
@@ -25,7 +27,7 @@ import {
   updateSearchTokens,
   updateSelectedCategory,
 } from '@onekeyhq/kit/src/store/reducers/market';
-import { ServerToken } from '@onekeyhq/kit/src/store/typings';
+import type { ServerToken } from '@onekeyhq/kit/src/store/typings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import {
   backgroundClass,

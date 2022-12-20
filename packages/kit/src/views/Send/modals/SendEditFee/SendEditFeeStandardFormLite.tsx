@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { RadioFee } from '@onekeyhq/components';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FeeSpeedLabel } from '../../components/FeeSpeedLabel';
 

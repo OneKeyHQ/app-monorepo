@@ -1,8 +1,9 @@
 /* eslint-disable no-nested-ternary */
-import React, { useEffect, useMemo, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { debounce } from 'lodash';
-import { IntlShape, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -20,9 +21,11 @@ import { useRuntime } from '../../../../hooks/redux';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { getWalletName } from '../../../../hooks/useWalletName';
 import { WalletAvatarPro } from '../../../WalletSelector/WalletAvatar';
-import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
 import { CreateAccountButton } from './CreateAccountButton';
+
+import type { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+import type { IntlShape } from 'react-intl';
 
 const buildData = debounce(
   ({
@@ -32,8 +35,8 @@ const buildData = debounce(
   }: {
     intl: IntlShape;
     wallets: IWallet[];
-    setData: React.Dispatch<
-      React.SetStateAction<{ label: string; value: string; wallet: IWallet }[]>
+    setData: Dispatch<
+      SetStateAction<{ label: string; value: string; wallet: IWallet }[]>
     >;
   }) => {
     const data = wallets.map((wallet) => ({

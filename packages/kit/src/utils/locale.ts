@@ -1,5 +1,6 @@
 import * as Localization from 'expo-localization';
 
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 
 const locales = LOCALES_OPTION.map((locale) => locale.value);
@@ -9,22 +10,22 @@ export function getDefaultLocale() {
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
     if (locale === current) {
-      return locale;
+      return locale as LocaleSymbol;
     }
   }
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
     const code = current.split('-')[0];
     if (code === current) {
-      return locale;
+      return locale as LocaleSymbol;
     }
   }
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
     const code = current.split('-')[0];
     if (locale.startsWith(code)) {
-      return locale;
+      return locale as LocaleSymbol;
     }
   }
-  return locales[0];
+  return locales[0] as LocaleSymbol;
 }

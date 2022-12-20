@@ -1,6 +1,8 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { Radio as BaseRadio, IRadioGroupProps } from 'native-base';
+import { Radio as BaseRadio } from 'native-base';
+
+import type { IRadioGroupProps } from 'native-base';
 
 export type RadioGroupProps = {
   /**

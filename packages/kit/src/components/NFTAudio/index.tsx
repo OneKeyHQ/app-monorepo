@@ -1,6 +1,7 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { AVPlaybackStatus, Audio } from 'expo-av';
+import { Audio } from 'expo-av';
 
 import {
   Box,
@@ -10,6 +11,8 @@ import {
   Pressable,
   Spinner,
 } from '@onekeyhq/components';
+
+import type { AVPlaybackStatus } from 'expo-av';
 
 type Props = {
   size: number;

@@ -1,36 +1,26 @@
-import React, {
-  FC,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import type { FC } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Hidden, IconButton } from '@onekeyhq/components';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { HomeRoutes } from '../../../routes/routesEnum';
-import { HomeRoutesParams } from '../../../routes/types';
-import {
-  NFTAttributeFilterRoutes,
-  NFTAttributeFilterRoutesParams,
-} from '../NFTAttributesModal/type';
+import { NFTMarketRoutes } from '../Modals/type';
 
-import {
-  CollectionDetailContext,
-  CollectionDetailContextValue,
-} from './context';
+import { CollectionDetailContext } from './context';
 import Screen from './Screen';
 
-type NavigationProps = ModalScreenProps<NFTAttributeFilterRoutesParams>;
+import type { HomeRoutes } from '../../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../../routes/types';
+import type { NFTMarketRoutesParams } from '../Modals/type';
+import type { CollectionDetailContextValue } from './context';
+import type { RouteProp } from '@react-navigation/core';
+
+type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
 const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
   onPress,
@@ -105,9 +95,9 @@ const CollectionDetail = () => {
               }
               onPress={() => {
                 navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.NFTAttributeFilter,
+                  screen: ModalRoutes.NFTMarket,
                   params: {
-                    screen: NFTAttributeFilterRoutes.FilterModal,
+                    screen: NFTMarketRoutes.FilterModal,
                     params: {
                       collection: ctxCollection,
                       attributes: context.attributes,
@@ -159,8 +149,9 @@ const CollectionDetail = () => {
     })();
   }, [contractAddress, networkId, serviceNFT]);
 
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <CollectionDetailContext.Provider value={{ context, setContext }}>
+    <CollectionDetailContext.Provider value={contextValue}>
       <Screen />
     </CollectionDetailContext.Provider>
   );

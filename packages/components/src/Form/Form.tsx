@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import VStack from '../VStack';
 

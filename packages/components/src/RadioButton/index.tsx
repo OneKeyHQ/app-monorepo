@@ -1,8 +1,9 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { IRadioValue } from 'native-base';
+import Button from '../Button';
 
-import Button, { ButtonProps } from '../Button';
+import type { ButtonProps } from '../Button';
+import type { IRadioValue } from 'native-base';
 
 export type RadioButtonProps = {
   /**

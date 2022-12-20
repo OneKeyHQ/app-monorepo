@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { useSendConfirmRouteParamsParsed } from '../Send/utils/useSendConfirmRouteParamsParsed';
+import type { useSendConfirmRouteParamsParsed } from '../Send/utils/useSendConfirmRouteParamsParsed';
 
 export type ITxDetailContextData = {
   isSendConfirm?: boolean;
@@ -12,7 +13,7 @@ export type ITxDetailContextData = {
 
 export type ITxDetailContext = {
   context: ITxDetailContextData;
-  setContext: React.Dispatch<React.SetStateAction<ITxDetailContextData>>;
+  setContext: Dispatch<SetStateAction<ITxDetailContextData>>;
 };
 
 const TxDetailContext = createContext<ITxDetailContext | null>(null);
@@ -53,8 +54,10 @@ function TxDetailContextProvider(
     sendConfirmParamsParsed,
     isCollapse,
   ]);
+
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <TxDetailContext.Provider value={{ context, setContext }}>
+    <TxDetailContext.Provider value={contextValue}>
       {children}
     </TxDetailContext.Provider>
   );

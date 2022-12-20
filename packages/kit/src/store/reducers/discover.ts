@@ -1,4 +1,4 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import type {
   DAppItemType,
@@ -6,6 +6,7 @@ import type {
   HistoryItemData,
   WebSiteHistory,
 } from '../../views/Discover/type';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 type InitialState = {
   dappHistory?: Record<string, HistoryItemData>;

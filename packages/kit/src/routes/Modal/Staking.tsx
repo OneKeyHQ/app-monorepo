@@ -1,10 +1,6 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import {
-  StakingRoutes,
-  StakingRoutesParams,
-} from '@onekeyhq/kit/src/views/Staking/typing';
+import type { StakingRoutesParams } from '@onekeyhq/kit/src/views/Staking/typing';
+import { StakingRoutes } from '@onekeyhq/kit/src/views/Staking/typing';
 
 import StakedETHOnKele from '../../views/Staking/StakedETHOnKele';
 import StakingAmount from '../../views/Staking/StakingAmount';

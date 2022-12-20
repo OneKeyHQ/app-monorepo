@@ -1,6 +1,7 @@
-import { HostComponent, UIManager, requireNativeComponent } from 'react-native';
+import { UIManager, requireNativeComponent } from 'react-native';
 
 import type { NativeNestedTabViewProps } from './types';
+import type { HostComponent } from 'react-native';
 
 const VIEW_MANAGER_NAME = 'NestedTabView';
 

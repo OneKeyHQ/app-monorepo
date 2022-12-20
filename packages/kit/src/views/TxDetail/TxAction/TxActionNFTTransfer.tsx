@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Box, HStack, Text } from '@onekeyhq/components';
@@ -21,7 +19,8 @@ import {
   TxActionElementTitleNormal,
 } from '../elements/TxActionElementTitle';
 import { useTxDetailContext } from '../TxDetailContext';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { map } from 'lodash';
 
-import {
+import type {
   IDecodedTx,
   IDecodedTxInteractInfo,
   IDecodedTxLegacy,

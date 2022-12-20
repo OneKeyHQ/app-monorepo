@@ -1,4 +1,4 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
 import { Box, Image, Modal, Text } from '@onekeyhq/components';
 

@@ -1,4 +1,5 @@
-import React, { FC, useState } from 'react';
+import type { FC } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,60 +33,58 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
   const [showInpagePhrase, setIsShowInpagePhrase] = useState(false);
 
   return (
-    <>
-      <Center flex={{ sm: 1 }} mt="auto">
-        {showInpagePhrase ? (
+    <Center flex={{ sm: 1 }} mt="auto">
+      {showInpagePhrase ? (
+        <Hidden from="base" till="sm">
+          <PresenceTransition
+            visible={showInpagePhrase}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              transition: {
+                duration: 150,
+              },
+            }}
+            style={{
+              flex: 1,
+              alignSelf: 'stretch',
+            }}
+          >
+            <PhraseSheet
+              mnemonic={mnemonic}
+              onPressSavedPhrase={onPressSavedPhrase}
+            />
+          </PresenceTransition>
+        </Hidden>
+      ) : (
+        <>
           <Hidden from="base" till="sm">
-            <PresenceTransition
-              visible={showInpagePhrase}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                transition: {
-                  duration: 150,
-                },
-              }}
-              style={{
-                flex: 1,
-                alignSelf: 'stretch',
-              }}
-            >
-              <PhraseSheet
-                mnemonic={mnemonic}
-                onPressSavedPhrase={onPressSavedPhrase}
-              />
-            </PresenceTransition>
-          </Hidden>
-        ) : (
-          <>
-            <Hidden from="base" till="sm">
-              <Text typography="Body2" mb={4} textAlign="center">
-                {intl.formatMessage({
-                  id: 'content__read_information_on_the_left',
-                })}
-              </Text>
-            </Hidden>
-            <Button
-              type="primary"
-              size={isVerticalLayout ? 'xl' : 'base'}
-              alignSelf={isVerticalLayout ? 'stretch' : 'auto'}
-              onPress={
-                isVerticalLayout
-                  ? onPressShowPhraseButton
-                  : () => {
-                      setIsShowInpagePhrase(true);
-                    }
-              }
-            >
+            <Text typography="Body2" mb={4} textAlign="center">
               {intl.formatMessage({
-                id: 'action__show_recovery_phrase',
+                id: 'content__read_information_on_the_left',
               })}
-            </Button>
-          </>
-        )}
-      </Center>
-    </>
+            </Text>
+          </Hidden>
+          <Button
+            type="primary"
+            size={isVerticalLayout ? 'xl' : 'base'}
+            alignSelf={isVerticalLayout ? 'stretch' : 'auto'}
+            onPress={
+              isVerticalLayout
+                ? onPressShowPhraseButton
+                : () => {
+                    setIsShowInpagePhrase(true);
+                  }
+            }
+          >
+            {intl.formatMessage({
+              id: 'action__show_recovery_phrase',
+            })}
+          </Button>
+        </>
+      )}
+    </Center>
   );
 };
 

@@ -1,4 +1,5 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
 
@@ -13,7 +14,7 @@ const NFTVideo: FC<Props> = ({ url, size }) => {
   const [innerUrl, setInnerUrl] = useState<string>();
   const [isMuted, setIsMuted] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>();
-  const video = React.useRef<Video | null>(null);
+  const video = useRef<Video | null>(null);
   const isPlaying = useRef<boolean | null>(null);
   useEffect(() => {
     setInnerUrl(url);

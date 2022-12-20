@@ -15,9 +15,18 @@ const jsRules = {
   'react/no-unused-prop-types': 'off',
   'global-require': 'off',
   'import/no-unresolved': 'off', // tsc can check this
+  'react/no-unstable-nested-components': 'warn',
+  'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
+  'no-promise-executor-return': 'off',
+  'default-param-last': 'off',
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
+  '@typescript-eslint/default-param-last': 'off',
+  '@typescript-eslint/consistent-type-imports': [
+    'error',
+    { disallowTypeAnnotations: false },
+  ],
   '@typescript-eslint/no-var-requires': 'off',
   '@typescript-eslint/no-unused-vars': [isDev ? 'warn' : 'error'],
   '@typescript-eslint/no-use-before-define': ['error'],
@@ -67,14 +76,14 @@ const tsRules = {
       'warnOnUnassignedImports': true,
     },
   ],
-  // 'no-restricted-syntax': [
-  //   'error',
-  //   {
-  //     selector:
-  //       "ImportDeclaration[source.value='react'][specifiers.0.type='ImportDefaultSpecifier']",
-  //     message: 'Default React import not allowed',
-  //   },
-  // ],
+  'no-restricted-syntax': [
+    'error',
+    {
+      selector:
+        "ImportDeclaration[source.value='react'][specifiers.0.type='ImportDefaultSpecifier']",
+      message: 'Default React import not allowed',
+    },
+  ],
 };
 module.exports = {
   ignorePatterns: ['packages/components/src/Icon/*'],

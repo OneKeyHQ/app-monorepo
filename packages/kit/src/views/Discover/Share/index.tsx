@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import ViewShot from 'react-native-view-shot';
@@ -18,7 +18,8 @@ import LogoPrimary from '@onekeyhq/components/src/Icon/react/illus/LogoPrimary';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DiscoverModalRoutes, DiscoverRoutesParams } from '../type';
+import type { DiscoverModalRoutes, DiscoverRoutesParams } from '../type';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,

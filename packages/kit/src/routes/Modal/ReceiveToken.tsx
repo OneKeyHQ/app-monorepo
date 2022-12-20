@@ -1,11 +1,7 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ReceiveToken from '@onekeyhq/kit/src/views/ReceiveToken';
-import {
-  ReceiveTokenRoutes,
-  ReceiveTokenRoutesParams,
-} from '@onekeyhq/kit/src/views/ReceiveToken/types';
+import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/views/ReceiveToken/types';
+import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/views/ReceiveToken/types';
 
 import createStackNavigator from './createStackNavigator';
 

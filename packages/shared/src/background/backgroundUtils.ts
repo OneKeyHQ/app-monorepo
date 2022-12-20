@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import axios, { Method } from 'axios';
+import axios from 'axios';
 import {
   isArray,
   isBoolean,
@@ -35,6 +35,7 @@ import platformEnv from '../platformEnv';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { Method } from 'axios';
 import type { AnyAction } from 'redux';
 
 export function throwCrossError(msg: string, ...args: any) {
@@ -383,6 +384,7 @@ export function buildReduxBatchAction(...actions: AnyAction[]) {
 
 export async function fetchData<T>(
   path: string,
+  // eslint-disable-next-line default-param-last, @typescript-eslint/default-param-last
   query: Record<string, unknown> = {},
   fallback: T,
   method: Method = 'GET',

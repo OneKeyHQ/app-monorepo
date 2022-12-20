@@ -1,4 +1,5 @@
-import React, { ComponentProps, FC, useCallback, useEffect } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,7 +24,9 @@ import {
   useAccountStakingActivity,
   useKelePoolStakingState,
 } from '../../../../hooks';
-import { KeleETHStakingState, StakingRoutes } from '../../../../typing';
+import { StakingRoutes } from '../../../../typing';
+
+import type { KeleETHStakingState } from '../../../../typing';
 
 type StakingButtonProps = Exclude<ComponentProps<typeof Button>, 'onPress'>;
 

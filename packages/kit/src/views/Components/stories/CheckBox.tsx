@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import {
   Box,
@@ -112,7 +112,7 @@ const Checkbox8 = () => {
 };
 
 const CheckboxGroup1 = () => {
-  const [groupValue, setGroupValue] = React.useState(['Phone', 'Email']);
+  const [groupValue, setGroupValue] = useState(['Phone', 'Email']);
   return (
     <Box>
       <CheckBox.Group

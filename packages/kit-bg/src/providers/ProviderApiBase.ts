@@ -1,9 +1,4 @@
 /* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
-import {
-  IInjectedProviderNamesStrings,
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
 
 import {
   PROVIDER_API_METHOD_PREFIX,
@@ -11,7 +6,12 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
 
-import { IBackgroundApi } from '../IBackgroundApi';
+import type { IBackgroundApi } from '../IBackgroundApi';
+import type {
+  IInjectedProviderNamesStrings,
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 export type IProviderBaseBackgroundNotifyInfo = {
   send: (data: any) => void;

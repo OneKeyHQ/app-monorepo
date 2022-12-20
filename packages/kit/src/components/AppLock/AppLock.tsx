@@ -1,4 +1,5 @@
-import React, { FC, useEffect, useMemo } from 'react';
+import type { FC } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { Box, OverlayContainer } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

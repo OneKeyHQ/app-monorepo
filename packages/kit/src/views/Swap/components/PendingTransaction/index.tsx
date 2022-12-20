@@ -1,9 +1,11 @@
-import React, { FC, useCallback, useEffect } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { updateTransaction } from '../../../../store/reducers/swapTransactions';
 import { SwapQuoter } from '../../quoter';
-import { TransactionDetails } from '../../typings';
+
+import type { TransactionDetails } from '../../typings';
 
 type PendingTransactionProps = {
   tx: TransactionDetails;
@@ -87,7 +89,7 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
     };
     // eslint-disable-next-line
   }, []);
-  return <></>;
+  return null;
 };
 
 export default PendingTransaction;

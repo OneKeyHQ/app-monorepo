@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { chunk } from 'lodash';
 import { useWindowDimensions } from 'react-native';
@@ -8,8 +8,9 @@ import { Box, Pressable, Typography } from '@onekeyhq/components';
 import { useDebounce } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../DAppIcon';
-import { DAppItemType, SectionDataType } from '../../type';
 import { SectionTitle } from '../TitleView';
+
+import type { DAppItemType, SectionDataType } from '../../type';
 
 type RowProps = {
   items: DAppItemType[];

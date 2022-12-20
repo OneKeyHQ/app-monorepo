@@ -1,5 +1,5 @@
-import React, {
-  FC,
+import type { FC } from 'react';
+import {
   useCallback,
   useContext,
   useLayoutEffect,
@@ -10,7 +10,7 @@ import React, {
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -24,13 +24,15 @@ import {
 
 import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
-import { ShowMenuProps } from '../../Overlay/Discover/type';
 import { Chains } from '../Chains';
 import DAppIcon from '../DAppIcon';
-import { MatchDAppItemType } from '../Explorer/explorerUtils';
 import { useDiscoverFavorites, useDiscoverHistory } from '../hooks';
 
 import { MyDAppListContext } from './context';
+
+import type { ShowMenuProps } from '../../Overlay/Discover/type';
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { ListRenderItem } from 'react-native';
 
 const FavoratesListEmptyComponent = () => {
   const intl = useIntl();

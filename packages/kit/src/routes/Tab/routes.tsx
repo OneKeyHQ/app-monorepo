@@ -1,11 +1,12 @@
-import React, { useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
 import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
@@ -37,6 +38,7 @@ import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
+import NPLDetailScreen from '../../views/NFTMarket/NPL/NPLDetail';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
@@ -44,11 +46,11 @@ import { HomeRoutes, TabRoutes } from '../types';
 export interface TabRouteConfig {
   name: TabRoutes;
   translationId: LocaleIds;
-  component: React.FC;
+  component: FC;
   tabBarIcon: (props: { focused?: boolean }) => string;
   children?: {
     name: HomeRoutes;
-    component: React.FC<any>;
+    component: FC<any>;
     alwaysShowBackButton?: boolean;
   }[];
 }
@@ -132,6 +134,10 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.NFTMarketCollectionScreen,
         component: NFTMarketCollectionScreen,
+      },
+      {
+        name: HomeRoutes.NFTNPLScreen,
+        component: NPLDetailScreen,
       },
     ],
   },

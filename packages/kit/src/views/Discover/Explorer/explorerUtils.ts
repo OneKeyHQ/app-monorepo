@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -38,7 +40,7 @@ export interface WebControllerBarProps {
   onStopLoading?: () => void;
   showExplorerBar?: boolean;
   onMore?: (value: boolean) => void;
-  moreView?: React.ReactNode;
+  moreView?: ReactNode;
 }
 
 export type SearchViewKeyEventType = 'ArrowUp' | 'ArrowDown' | 'Enter';

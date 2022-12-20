@@ -1,13 +1,13 @@
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 import { Modal } from '@onekeyhq/components';
-import {
-  KeyTagVerifyWalletRoutes,
-  KeyTagVerifyWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { KeyTagVerifyWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
+import { KeyTagVerifyWalletRoutes } from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import Protected, { ValidationFields } from '../../../components/Protected';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   KeyTagVerifyWalletRoutesParams,

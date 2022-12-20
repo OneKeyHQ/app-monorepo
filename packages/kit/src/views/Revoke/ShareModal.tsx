@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import ViewShot from 'react-native-view-shot';

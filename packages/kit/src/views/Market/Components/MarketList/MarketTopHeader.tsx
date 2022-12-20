@@ -1,4 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -25,7 +26,7 @@ import { useMarketTopTabName } from '../../hooks/useMarketList';
 import { useMarketSearchTokenChange } from '../../hooks/useMarketSearch';
 import { showMarketSearch } from '../../MarketSearch';
 
-const Header: React.FC = () => {
+const Header: FC = () => {
   const intl = useIntl();
   const searchOnChangeDebounce = useMarketSearchTokenChange();
   const [searchInput, setSearchInput] = useState(() => '');
@@ -86,7 +87,7 @@ const Header: React.FC = () => {
   );
 };
 
-const HeaderSmall: React.FC = () => {
+const HeaderSmall: FC = () => {
   const tabName = useMarketTopTabName();
   const handleBg = useThemeValue('icon-subdued');
   const intl = useIntl();
@@ -159,10 +160,10 @@ const HeaderSmall: React.FC = () => {
   );
 };
 
-const MarketHeader: React.FC = () => {
+const MarketHeader: FC = () => {
   const isVerticalLayout = useIsVerticalLayout();
 
   return isVerticalLayout ? <HeaderSmall /> : <Header />;
 };
 
-export default React.memo(MarketHeader);
+export default memo(MarketHeader);

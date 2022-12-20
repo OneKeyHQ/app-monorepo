@@ -1,7 +1,8 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { RouteProp, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 
 import {
   Box,
@@ -14,19 +15,16 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import {
-  CollectiblesModalRoutes,
-  CollectiblesRoutesParams,
-} from '../../../routes/Modal/Collectibles';
+import { CollectiblesModalRoutes } from '../../../routes/Modal/Collectibles';
 
 import NFTListAssetCard from './NFTList/NFTListAssetCard';
+
+import type { CollectiblesRoutesParams } from '../../../routes/Modal/Collectibles';
+import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
@@ -97,7 +95,7 @@ const CollectionModal: FC<CollectionModalProps> = () => {
   const { collectible, network } = route.params;
 
   // Open Asset detail modal
-  const handleSelectAsset = React.useCallback(
+  const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,

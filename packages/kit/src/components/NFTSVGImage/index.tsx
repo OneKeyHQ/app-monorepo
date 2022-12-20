@@ -1,10 +1,11 @@
-import React, { ComponentProps, FC, useEffect, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useEffect, useState } from 'react';
 
 import axios from 'axios';
 import { SvgUri } from 'react-native-svg';
 
 import { Box } from '@onekeyhq/components';
-import NetImage from '@onekeyhq/components/src/NetImage';
+import type NetImage from '@onekeyhq/components/src/NetImage';
 import { syncImage } from '@onekeyhq/engine/src/managers/nft';
 
 type Props = {

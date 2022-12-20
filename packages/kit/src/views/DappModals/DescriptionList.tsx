@@ -1,4 +1,11 @@
-import React, { ComponentProps, useMemo } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
+import {
+  Children,
+  Fragment,
+  cloneElement,
+  isValidElement,
+  useMemo,
+} from 'react';
 
 import {
   Box,
@@ -8,15 +15,15 @@ import {
   Pressable,
   Text,
 } from '@onekeyhq/components';
-import { PressableItemProps } from '@onekeyhq/components/src/Pressable/PressableItem';
+import type { PressableItemProps } from '@onekeyhq/components/src/Pressable/PressableItem';
 
 export const DescriptionList = ({
   children,
   ...props
 }: ComponentProps<typeof Box>) => {
-  const validChildren = React.Children.toArray(children).filter((child) =>
-    React.isValidElement(child),
-  ) as React.ReactElement<DescriptionListItemProps>[];
+  const validChildren = Children.toArray(children).filter((child) =>
+    isValidElement(child),
+  ) as ReactElement<DescriptionListItemProps>[];
 
   const clones = validChildren.map((child, index) => {
     // Prefer provided child key, fallback to index
@@ -25,10 +32,10 @@ export const DescriptionList = ({
     const divider = isLast ? null : <Divider />;
 
     return (
-      <React.Fragment key={key}>
+      <Fragment key={key}>
         {child}
         {divider}
-      </React.Fragment>
+      </Fragment>
     );
   });
 
@@ -47,7 +54,7 @@ export const DescriptionList = ({
 
 type DescriptionListItemProps = {
   title?: string;
-  detail?: React.ReactNode;
+  detail?: ReactNode;
   editable?: boolean;
   isRug?: boolean;
   detailNumberOfLines?: number;
@@ -63,8 +70,8 @@ export const DescriptionListItem = ({
   ...pressableProps
 }: PressableItemProps & DescriptionListItemProps) => {
   const detailContent = useMemo(() => {
-    const key = (detail as React.ReactElement)?.key || 'detail';
-    const textProps: React.ComponentProps<typeof Text> = {
+    const key = (detail as ReactElement)?.key || 'detail';
+    const textProps: ComponentProps<typeof Text> = {
       key,
       textAlign: 'right',
       typography: { sm: 'Body1Strong', md: 'Body2Strong' },
@@ -72,8 +79,8 @@ export const DescriptionListItem = ({
       numberOfLines: detailNumberOfLines,
     };
 
-    if (React.isValidElement(detail)) {
-      return React.cloneElement(detail, {
+    if (isValidElement(detail)) {
+      return cloneElement(detail, {
         // For Format component
         render: (text: string) => <Text {...textProps}>{text}</Text>,
         ...detail.props,
@@ -88,7 +95,7 @@ export const DescriptionListItem = ({
 
   const itemContent = useMemo(
     () =>
-      React.isValidElement(children)
+      isValidElement(children)
         ? children
         : // Since fragment acts like a single child, the space prop of Stack would not be working, using array instead of fragment here
           [

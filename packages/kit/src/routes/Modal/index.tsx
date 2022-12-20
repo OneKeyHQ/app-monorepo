@@ -7,13 +7,16 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { createLazyComponent } from '../../utils/createLazyComponent';
-import { ModalRoutes, ModalRoutesParams } from '../types';
+import { ModalRoutes } from '../types';
 
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
+
+import type { ModalRoutesParams } from '../types';
 
 const KeyTagVerifyWalletModal = createLazyComponent(
   () => import('./KeyTagVerifyWallet'),
 );
+
 const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
 
 const CollectibleModal = createLazyComponent(() => import('./Collectibles'));
@@ -56,9 +59,7 @@ const ManagerAccountModal = createLazyComponent(
 );
 const ManagerWalletModal = createLazyComponent(() => import('./ManagerWallet'));
 const ManageTokenModal = createLazyComponent(() => import('./ManageToken'));
-const NFTAttributeFilter = createLazyComponent(
-  () => import('./NFTAttributeFilter'),
-);
+const NFTMarket = createLazyComponent(() => import('./NFTMarket'));
 const PasswordModal = createLazyComponent(() => import('./Password'));
 const PushNotification = createLazyComponent(
   () => import('./PushNotification'),
@@ -66,7 +67,6 @@ const PushNotification = createLazyComponent(
 const ReceiveToken = createLazyComponent(() => import('./ReceiveToken'));
 const Revoke = createLazyComponent(() => import('./Revoke'));
 const ScanQrcode = createLazyComponent(() => import('./ScanQrcode'));
-const SearchNFT = createLazyComponent(() => import('./SearchNFTCollection'));
 const Send = createLazyComponent(() => import('./Send'));
 const StakingModal = createLazyComponent(() => import('./Staking'));
 const SubmitRequestModal = createLazyComponent(() => import('./SubmitRequest'));
@@ -214,12 +214,8 @@ const modalStackScreenList = [
     component: Revoke,
   },
   {
-    name: ModalRoutes.SearchNFT,
-    component: SearchNFT,
-  },
-  {
-    name: ModalRoutes.NFTAttributeFilter,
-    component: NFTAttributeFilter,
+    name: ModalRoutes.NFTMarket,
+    component: NFTMarket,
   },
   { name: ModalRoutes.KeyTagVerifyWallet, component: KeyTagVerifyWalletModal },
 ];

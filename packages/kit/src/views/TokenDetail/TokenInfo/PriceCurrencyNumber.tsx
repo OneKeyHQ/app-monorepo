@@ -1,10 +1,11 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { TokenBalanceValue } from '../../../store/reducers/tokens';
-import { Token } from '../../../store/typings';
 import { getTokenValue } from '../../../utils/priceUtils';
+
+import type { TokenBalanceValue } from '../../../store/reducers/tokens';
+import type { Token } from '../../../store/typings';
 
 export const PriceCurrencyNumber: FC<{
   networkId: string;

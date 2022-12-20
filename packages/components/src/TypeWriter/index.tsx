@@ -17,4 +17,4 @@ type ITypeWriter = typeof BaseTypeWriter & {
 const TypeWriter = Base as ITypeWriter;
 export default TypeWriter;
 // @ts-ignore
-// export default React.memo(TypeWriter) as ITypeWriter;
+// export default memo(TypeWriter) as ITypeWriter;

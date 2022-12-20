@@ -1,11 +1,10 @@
-import React from 'react';
-
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Pressable, useTheme } from '@onekeyhq/components';
 import Typography, { Text } from '@onekeyhq/components/src/Typography';
-import { HomeRoutes, HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

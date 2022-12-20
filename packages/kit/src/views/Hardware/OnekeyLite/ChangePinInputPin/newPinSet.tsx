@@ -1,16 +1,18 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  OnekeyLiteChangePinModalRoutes,
+import type {
   OnekeyLiteChangePinRoutesParams,
   OnekeyLiteResetRoutesParams,
 } from '@onekeyhq/kit/src/routes';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { OnekeyLiteChangePinModalRoutes } from '@onekeyhq/kit/src/routes';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import HardwarePinCode from '../../BasePinCode';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<OnekeyLiteResetRoutesParams> &
   ModalScreenProps<OnekeyLiteChangePinRoutesParams>;

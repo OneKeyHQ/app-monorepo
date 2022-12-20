@@ -1,6 +1,6 @@
 import Realm from 'realm';
 
-import { DBNetwork } from '../../../types/network';
+import type { DBNetwork } from '../../../types/network';
 
 class NetworkSchema extends Realm.Object {
   public id!: string;

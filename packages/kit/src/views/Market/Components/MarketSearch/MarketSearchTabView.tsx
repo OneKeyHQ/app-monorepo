@@ -1,19 +1,13 @@
-import React, {
-  ComponentType,
-  FC,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
+import type { ComponentType, FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import {
-  TabView as RNTabView,
-  Route as TabViewRoute,
-} from 'react-native-tab-view';
+import { TabView as RNTabView } from 'react-native-tab-view';
 
 import { SceneMap, SegmentedControl } from '@onekeyhq/components';
 
 import { useMarketSearchContainerStyle } from '../../hooks/useMarketSearch';
+
+import type { Route as TabViewRoute } from 'react-native-tab-view';
 
 export type SearchTabItem = {
   tabId: string;

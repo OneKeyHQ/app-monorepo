@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { Platform } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
@@ -11,7 +11,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useNavigation } from '../../../hooks';
 import Transaction from '../components/Transaction';
 import { useWalletsSwapTransactions } from '../hooks/useTransactions';
-import { SwapRoutes, SwapRoutesParams } from '../typings';
+
+import type { SwapRoutes, SwapRoutesParams } from '../typings';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
 

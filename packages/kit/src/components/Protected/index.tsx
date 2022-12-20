@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,7 +11,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import Session from './Session';
 import Setup from './Setup';
@@ -27,7 +28,7 @@ type ProtectedProps = {
   /** walletId for current flow, null means createWallet flow */
   walletId: string | null;
   field?: ValidationFields;
-  children: (password: string, options: ProtectedOptions) => React.ReactNode;
+  children: (password: string, options: ProtectedOptions) => ReactNode;
   hideTitle?: boolean;
   isAutoHeight?: boolean;
 };
@@ -169,14 +170,12 @@ const Protected: FC<ProtectedProps> = ({
     }
 
     return (
-      <>
-        <Box h="100%" justifyContent="center" alignItems="center">
-          <Spinner size="lg" />
-          <Typography.DisplayMedium mt={6}>
-            {intl.formatMessage({ id: 'modal__device_status_check' })}
-          </Typography.DisplayMedium>
-        </Box>
-      </>
+      <Box h="100%" justifyContent="center" alignItems="center">
+        <Spinner size="lg" />
+        <Typography.DisplayMedium mt={6}>
+          {intl.formatMessage({ id: 'modal__device_status_check' })}
+        </Typography.DisplayMedium>
+      </Box>
     );
   }
 
@@ -197,5 +196,5 @@ const Protected: FC<ProtectedProps> = ({
   );
 };
 
-export default React.memo(Protected);
+export default memo(Protected);
 export { ValidationFields };

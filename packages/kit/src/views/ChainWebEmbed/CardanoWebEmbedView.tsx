@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-
 import { Box } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebView/WebViewWebEmbed';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 export function CardanoWebEmbedView() {
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);

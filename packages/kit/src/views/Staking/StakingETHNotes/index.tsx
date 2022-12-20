@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -14,7 +14,9 @@ import { getActiveWalletAccount } from '../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { SendRoutes } from '../../Send/types';
 import { useKelePoolStakingState } from '../hooks';
-import { StakingRoutes, StakingRoutesParams } from '../typing';
+
+import type { StakingRoutes, StakingRoutesParams } from '../typing';
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingETHNotes>;
 

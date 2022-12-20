@@ -1,12 +1,7 @@
-import React, {
-  ReactNode,
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 export type SelectAsset = NFTAsset & { selected: boolean };
 export type ISendNFTContentData = {
@@ -16,7 +11,7 @@ export type ISendNFTContentData = {
 
 export type ISendNFTContent = {
   context: ISendNFTContentData;
-  setContext: React.Dispatch<React.SetStateAction<ISendNFTContentData>>;
+  setContext: Dispatch<SetStateAction<ISendNFTContentData>>;
 };
 
 const SendNFTContent = createContext<ISendNFTContent | null>(null);
@@ -38,8 +33,9 @@ function SendNFTContentProvider(
     }));
   }, [multiSelect, listData]);
 
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <SendNFTContent.Provider value={{ context, setContext }}>
+    <SendNFTContent.Provider value={contextValue}>
       {children}
     </SendNFTContent.Provider>
   );

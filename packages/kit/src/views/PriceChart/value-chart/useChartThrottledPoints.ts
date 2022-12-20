@@ -5,7 +5,7 @@ import { debounce } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MarketApiData } from '../chartService';
+import type { MarketApiData } from '../chartService';
 
 export const POINT_LIMITS = platformEnv.isNativeIOSPad ? 300 : 100;
 const DUMMY_POINTS = 10;

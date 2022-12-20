@@ -1,12 +1,10 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Container, Typography } from '@onekeyhq/components';
-import {
-  EVMDecodedItem,
-  EVMDecodedTxType,
-} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 

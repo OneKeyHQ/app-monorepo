@@ -1,6 +1,7 @@
-import React, { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { chunk } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -12,7 +13,7 @@ import {
   ScrollView,
   useToast,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -20,13 +21,15 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '../../../routes';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { wait } from '../../../utils/helper';
 import { savePassword } from '../../../utils/localAuthentication';
+
+import type {
+  CreateWalletModalRoutes,
+  CreateWalletRoutesParams,
+} from '../../../routes';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,

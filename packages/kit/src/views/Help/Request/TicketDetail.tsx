@@ -1,11 +1,11 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
 import axios from 'axios';
 import { SimpleGrid } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import { Box, Modal, NetImage, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -14,15 +14,17 @@ import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 
 import { attachmentUri, commentsUri } from './TicketService';
-import {
+import { HistoryRequestRoutes } from './types';
+
+import type {
   AttachmentsType,
   CommentType,
   HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
   RequestPayload,
 } from './types';
-
+import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ListRenderItem } from 'react-native';
 
 type RouteProps = RouteProp<
   HistoryRequestModalRoutesParams,
@@ -95,7 +97,7 @@ export const TicketDetail: FC = () => {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const route = useRoute<RouteProps>();
-  const { id } = route?.params.order;
+  const { id } = route?.params.order || {};
   const submitterId = route.params.order.submitter_id;
   const imageSize = (260 - 16) / 3;
   const navigation = useNavigation<NavigationProps>();

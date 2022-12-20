@@ -1,11 +1,12 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Divider, Typography, VStack } from '@onekeyhq/components/src';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
-import { MarketStats } from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketStats } from '@onekeyhq/kit/src/store/reducers/market';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';

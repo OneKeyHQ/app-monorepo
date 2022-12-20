@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -21,8 +22,9 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../hooks';
-import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import { ManageNetworkRoutes } from '../types';
 
+import type { ManageNetworkRoutesParams } from '../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

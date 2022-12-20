@@ -1,22 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, {
-  ComponentProps,
-  FC,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { NativeSyntheticEvent, TextInputFocusEventData } from 'react-native';
 
 import Box from '../Box';
 import Divider from '../Divider';
 import Input from '../Input';
 import RadioButton from '../RadioButton';
 import Typography from '../Typography';
+
+import type {
+  NativeSyntheticEvent,
+  TextInputFocusEventData,
+} from 'react-native';
 
 type NumberInputProps = ComponentProps<typeof Input> & {
   decimal?: number;

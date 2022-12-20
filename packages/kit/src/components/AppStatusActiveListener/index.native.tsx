@@ -1,6 +1,9 @@
-import { FC, useCallback, useEffect, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
+
+import type { AppStateStatus } from 'react-native';
 
 type AppStatusActiveListenerProps = { onActive: () => void };
 

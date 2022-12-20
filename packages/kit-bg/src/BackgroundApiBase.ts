@@ -1,13 +1,4 @@
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import {
-  IInjectedProviderNames,
-  IInjectedProviderNamesStrings,
-  IJsBridgeMessagePayload,
-  IJsBridgeReceiveHandler,
-  IJsonRpcRequest,
-  IJsonRpcResponse,
-} from '@onekeyfe/cross-inpage-provider-types';
-import { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 import cloneDeep from 'lodash/cloneDeep';
 
@@ -18,9 +9,9 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IDispatchActionBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   DISPATCH_ACTION_BROADCAST_METHOD_NAME,
-  IDispatchActionBroadcastParams,
   buildReduxBatchAction,
   ensurePromiseObject,
   ensureSerializable,
@@ -29,9 +20,19 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IBackgroundApiBridge } from './IBackgroundApi';
 import { createBackgroundProviders } from './providers/backgroundProviders';
-import ProviderApiBase from './providers/ProviderApiBase';
+
+import type { IBackgroundApiBridge } from './IBackgroundApi';
+import type ProviderApiBase from './providers/ProviderApiBase';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type {
+  IInjectedProviderNamesStrings,
+  IJsBridgeMessagePayload,
+  IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
+  IJsonRpcResponse,
+} from '@onekeyfe/cross-inpage-provider-types';
+import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 const PRIVATE_WHITE_LIST_ORIGIN = [
   'https://onekey.so',

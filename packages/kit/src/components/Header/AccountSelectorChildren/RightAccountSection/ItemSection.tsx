@@ -1,4 +1,5 @@
-import React, { FC, memo, useCallback } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback } from 'react';
 
 import { InteractionManager } from 'react-native';
 

@@ -4,11 +4,13 @@ import { pick } from 'lodash';
 import { Dimensions } from 'react-native';
 
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import {
+import type {
   AddPriceAlertConfig,
   NotificationExtra,
   NotificationType,
   RemovePriceAlertConfig,
+} from '@onekeyhq/engine/src/managers/notification';
+import {
   addAccountDynamic,
   addPriceAlertConfig,
   queryAccountDynamic,
@@ -19,10 +21,8 @@ import {
   syncLocalEnabledAccounts,
   syncPushNotificationConfig,
 } from '@onekeyhq/engine/src/managers/notification';
-import {
-  EVMDecodedItem,
-  EVMDecodedTxType,
-} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import logo from '@onekeyhq/kit/assets/logo.png';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {

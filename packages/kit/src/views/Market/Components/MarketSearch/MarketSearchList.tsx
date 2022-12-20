@@ -1,4 +1,5 @@
-import React, { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,7 +9,7 @@ import {
   Icon,
   useIsVerticalLayout,
 } from '@onekeyhq/components/src';
-import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { ListHeadTagsForSearch, SUBMIT_TOKEN_URL } from '../../config';
@@ -69,4 +70,4 @@ const MarketSearchList: FC<{
   );
 };
 
-export default React.memo(MarketSearchList);
+export default memo(MarketSearchList);

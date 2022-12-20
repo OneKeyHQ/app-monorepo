@@ -1,6 +1,7 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 import type { AccountGroup } from '../../components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export enum EAccountSelectorMode {
   Wallet = 'Wallet',

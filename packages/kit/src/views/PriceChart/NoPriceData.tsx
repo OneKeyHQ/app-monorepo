@@ -1,12 +1,6 @@
-import * as React from 'react';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import Svg, {
-  Defs,
-  LinearGradient,
-  Path,
-  Stop,
-  SvgProps,
-} from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 
 function SvgNoPriceData(props: SvgProps) {
   return (

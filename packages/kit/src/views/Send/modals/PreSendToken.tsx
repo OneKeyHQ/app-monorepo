@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { merge } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -11,9 +11,11 @@ import AssetsList from '../../Wallet/AssetsList';
 import SendNFTList from '../../Wallet/NFT/SendNFTList';
 import { BaseSendModal } from '../components/BaseSendModal';
 import SendTokenTabView from '../components/SendTokenTabView';
-import { SendRoutes, SendRoutesParams } from '../types';
+import { SendRoutes } from '../types';
 import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 
+import type { SendRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -117,6 +119,6 @@ function PreSendTokenScreen() {
   );
 }
 
-const PreSendToken = React.memo(PreSendTokenScreen);
+const PreSendToken = memo(PreSendTokenScreen);
 
 export { PreSendToken };

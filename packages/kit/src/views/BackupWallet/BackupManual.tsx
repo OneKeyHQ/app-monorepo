@@ -1,15 +1,16 @@
-import React, { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 import { Modal } from '@onekeyhq/components';
-import {
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import Protected, { ValidationFields } from '../../components/Protected';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
 
@@ -31,7 +32,7 @@ const BackupDone: FC<BackupDoneProps> = ({ password, walletId }) => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return <></>;
+  return null;
 };
 
 const BackupManual = () => {

@@ -1,22 +1,22 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { RouteProp } from '@react-navigation/native';
-import { IntlShape, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 
 import { Modal, Spinner } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import {
-  EVMDecodedItem,
-  EVMDecodedTxType,
-} from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import {
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import type {
   TransactionDetailModalRoutes,
   TransactionDetailRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
 
 import TxHistoryDetail from '../TxDetail/_legacy/TxHistoryDetail';
+
+import type { RouteProp } from '@react-navigation/native';
+import type { IntlShape } from 'react-intl';
 
 type TransactionDetailRouteProp = RouteProp<
   TransactionDetailRoutesParams,

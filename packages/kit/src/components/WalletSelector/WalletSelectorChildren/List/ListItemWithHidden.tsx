@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,11 +7,11 @@ import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
 import { useIsPassphraseMode } from '../../hooks/useIsPassphraseMode';
-import { IWalletDataSection } from '../../hooks/useWalletSelectorSectionData';
 
 import ListItem from './ListItem';
 
 import type { IHardwareDeviceStatusMap } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
+import type { IWalletDataSection } from '../../hooks/useWalletSelectorSectionData';
 import type { IWalletDataBase } from './index';
 
 function ListItemWithHidden({

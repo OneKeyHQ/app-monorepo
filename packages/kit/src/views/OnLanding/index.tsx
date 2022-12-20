@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';

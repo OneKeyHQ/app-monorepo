@@ -1,7 +1,7 @@
 /* eslint-disable global-require */
-import React, { useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -22,7 +22,9 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import { BaseSendModal } from '../components/BaseSendModal';
-import { SendRoutes, SendRoutesParams } from '../types';
+
+import type { SendRoutes, SendRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.HardwareSwapContinue>;
 

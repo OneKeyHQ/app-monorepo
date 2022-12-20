@@ -1,13 +1,8 @@
-import React, { FC, useCallback, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import {
-  ListRenderItem,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  RefreshControl,
-  ScrollView as ScrollViewType,
-} from 'react-native';
+import { RefreshControl } from 'react-native';
 
 import {
   Box,
@@ -18,11 +13,8 @@ import {
 } from '@onekeyhq/components/src';
 import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 
-import { HomeRoutes, HomeRoutesParams } from '../../routes/types';
-import {
-  MARKET_FAVORITES_CATEGORYID,
-  MarketCategory,
-} from '../../store/reducers/market';
+import { HomeRoutes } from '../../routes/types';
+import { MARKET_FAVORITES_CATEGORYID } from '../../store/reducers/market';
 
 import MarketCategoryToggles from './Components/MarketList/MarketCategoryToggles';
 import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMenu';
@@ -38,7 +30,15 @@ import {
 import { useMarketMidLayout } from './hooks/useMarketLayout';
 import { useMarketList } from './hooks/useMarketList';
 
+import type { HomeRoutesParams } from '../../routes/types';
+import type { MarketCategory } from '../../store/reducers/market';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type {
+  ListRenderItem,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView as ScrollViewType,
+} from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React from 'react';
 
-import { NavigationProp, RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 
 import {
@@ -12,12 +11,12 @@ import {
   Pressable,
   Typography,
 } from '@onekeyhq/components';
-import {
-  StackBasicRoutesParams,
-  StackRoutes,
-} from '@onekeyhq/kit/src/routes/Dev';
+import type { StackBasicRoutesParams } from '@onekeyhq/kit/src/routes/Dev';
+import { StackRoutes } from '@onekeyhq/kit/src/routes/Dev';
 
 import { useNavigationBack } from '../../hooks/useAppNavigation';
+
+import type { NavigationProp, RouteProp } from '@react-navigation/core';
 
 type StackRoutesType = typeof StackRoutes;
 

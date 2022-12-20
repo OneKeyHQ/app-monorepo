@@ -1,19 +1,15 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Center,
-  ICON_NAMES,
-  Icon,
-  Image,
-  Typography,
-} from '@onekeyhq/components';
-import { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
+import type { ICON_NAMES } from '@onekeyhq/components';
+import { Center, Icon, Image, Typography } from '@onekeyhq/components';
+import type { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
 import { TxStatus } from '@onekeyhq/engine/src/types/covalent';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
-import { Token } from '../../../store/typings';
+import type { Token } from '../../../store/typings';
 
 const getHeaderIconInfo = (
   headerInfo:

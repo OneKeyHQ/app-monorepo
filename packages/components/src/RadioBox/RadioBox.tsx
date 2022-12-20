@@ -1,8 +1,9 @@
-import React, { ComponentProps, FC, useState } from 'react';
-
-import { IRadioValue } from 'native-base';
+import type { ComponentProps, FC } from 'react';
+import { useState } from 'react';
 
 import Pressable from '../Pressable';
+
+import type { IRadioValue } from 'native-base';
 
 export type RadioBoxProps = {
   /**

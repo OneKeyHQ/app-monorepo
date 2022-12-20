@@ -1,4 +1,5 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -10,7 +11,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import {
   FormatBalance,

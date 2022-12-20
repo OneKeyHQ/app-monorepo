@@ -1,17 +1,11 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-
 import {
   Base64DataBuffer,
   Coin,
-  GetObjectDataResponse,
+  Ed25519PublicKey,
   LocalTxnDataSerializer,
-  SignatureScheme,
-  SuiMoveObject,
-  SuiObject,
-  SuiTransactionResponse,
-  UnserializedSignableTransaction,
   getCertifiedTransaction,
   getExecutionStatus,
   getMoveCallTransaction,
@@ -31,17 +25,14 @@ import {
   getTransferSuiTransaction,
   isValidSuiAddress,
 } from '@mysten/sui.js';
-import { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import { hexToBytes } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
-  PartialTokenInfo,
-  TransactionStatus,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { groupBy, isArray, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
-import { Token } from '@onekeyhq/kit/src/store/typings';
+import type { Token } from '@onekeyhq/kit/src/store/typings';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -53,24 +44,10 @@ import {
   OneKeyError,
   OneKeyInternalError,
 } from '../../../errors';
-import { DBSimpleAccount } from '../../../types/account';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTx,
-  IEncodedTxUpdateOptions,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ISignedTx,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
@@ -82,7 +59,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
 import settings from './settings';
-import { IEncodedTxSUI } from './types';
 import {
   GAS_TYPE_ARG,
   SUI_NATIVE_COIN,
@@ -97,6 +73,34 @@ import {
   moveCallTxnName,
   toTransaction,
 } from './utils';
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
+import type { IEncodedTxSUI } from './types';
+import type {
+  GetObjectDataResponse,
+  SignatureScheme,
+  SuiMoveObject,
+  SuiObject,
+  SuiTransactionResponse,
+  UnserializedSignableTransaction,
+} from '@mysten/sui.js';
+import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -335,6 +339,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
+            true,
             new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
           );
         if (isArray(decode)) {
@@ -677,6 +682,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
+            true,
             new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
           );
         let data;
@@ -781,10 +787,10 @@ export default class Vault extends VaultBase {
       }
 
       const transactionResponse = await client.executeTransaction(
-        signedTx.rawTx,
+        new Base64DataBuffer(signedTx.rawTx),
         scheme,
-        Buffer.from(stripHexPrefix(signature), 'hex').toString('base64'),
-        Buffer.from(stripHexPrefix(publicKey), 'hex').toString('base64'),
+        new Base64DataBuffer(hexToBytes(stripHexPrefix(signature))),
+        new Ed25519PublicKey(hexToBytes(stripHexPrefix(publicKey))),
       );
 
       const txid = getTransactionDigest(transactionResponse);

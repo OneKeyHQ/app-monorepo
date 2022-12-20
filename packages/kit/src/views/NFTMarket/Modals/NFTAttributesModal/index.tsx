@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, TouchableOpacity } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 
 import {
   Box,
@@ -20,15 +21,12 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { CollectionAttribute } from '@onekeyhq/engine/src/types/nft';
 
-import {
-  NFTAttributesContext,
-  NFTAttributesContextValue,
-  useNFTAttributesContext,
-} from './context';
-import {
-  NFTAttributeFilterRoutes,
-  NFTAttributeFilterRoutesParams,
-} from './type';
+import { NFTAttributesContext, useNFTAttributesContext } from './context';
+
+import type { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
+import type { NFTAttributesContextValue } from './context';
+import type { RouteProp } from '@react-navigation/core';
+import type { ListRenderItem } from 'react-native';
 
 type SubItemProps = {
   attributeName: string;
@@ -160,12 +158,7 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
 const NFTAttributesModal: FC = () => {
   const intl = useIntl();
   const route =
-    useRoute<
-      RouteProp<
-        NFTAttributeFilterRoutesParams,
-        NFTAttributeFilterRoutes.FilterModal
-      >
-    >();
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.FilterModal>>();
 
   const {
     collection,
@@ -228,8 +221,10 @@ const NFTAttributesModal: FC = () => {
   }, [attributes, closeModal, context, onAttributeSelected]);
 
   const isVerticalLayout = useIsVerticalLayout();
+
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <NFTAttributesContext.Provider value={{ context, setContext }}>
+    <NFTAttributesContext.Provider value={contextValue}>
       <Modal
         primaryActionProps={{ isDisabled }}
         onPrimaryActionPress={onPrimaryActionPress}

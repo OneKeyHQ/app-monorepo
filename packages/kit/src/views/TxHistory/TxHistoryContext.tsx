@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 
 export type ITxHistoryContextData = {
   refresh?: () => void;
@@ -9,7 +10,7 @@ export type ITxHistoryContextData = {
 
 export type ITxHistoryContext = {
   context: ITxHistoryContextData;
-  setContext: React.Dispatch<React.SetStateAction<ITxHistoryContextData>>;
+  setContext: Dispatch<SetStateAction<ITxHistoryContextData>>;
 };
 
 const TxHistoryContext = createContext<ITxHistoryContext | null>(null);
@@ -37,8 +38,9 @@ function TxHistoryContextProvider(
   //   }));
   // }, [isLoading, isTab, headerView, refresh]);
 
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <TxHistoryContext.Provider value={{ context, setContext }}>
+    <TxHistoryContext.Provider value={contextValue}>
       {children}
     </TxHistoryContext.Provider>
   );

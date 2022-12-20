@@ -22,7 +22,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getDefaultLocale } from '../locale';
 
 import { getChangeLog, getPreReleaseInfo, getReleaseInfo } from './server';
-import { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
+
+import type { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
 
 class AppUpdates {
   addedListener = false;
@@ -131,13 +132,14 @@ class AppUpdates {
     newVersion: string,
   ): Promise<string | undefined> {
     const releaseInfo = await getChangeLog(oldVersion, newVersion);
+    if (!releaseInfo) return;
 
     let locale = store.getState().settings.locale ?? 'en-US';
     if (locale === 'system') {
       locale = getDefaultLocale();
     }
 
-    return releaseInfo?.[locale];
+    return releaseInfo[locale];
   }
 
   _openUrl(url: string) {

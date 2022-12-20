@@ -1,14 +1,11 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import GuideToPushFirstTime from '../../views/PushNotification/GuideToPushFirstTime';
-import {
-  PushNotificationRoutes,
-  PushNotificationRoutesParams,
-} from '../../views/PushNotification/types';
+import { PushNotificationRoutes } from '../../views/PushNotification/types';
 
 import createStackNavigator from './createStackNavigator';
+
+import type { PushNotificationRoutesParams } from '../../views/PushNotification/types';
 
 const PushNotificationNavigator =
   createStackNavigator<PushNotificationRoutesParams>();

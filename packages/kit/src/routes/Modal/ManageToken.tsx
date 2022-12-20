@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import {
@@ -11,15 +9,14 @@ import {
 } from '../../views/ManageTokens';
 import ActivateTokenAuthModal from '../../views/ManageTokens/ActivateTokenAuthModal';
 import TokenRiskDetail from '../../views/ManageTokens/RiskDetail';
-import {
-  ManageTokenRoutes,
-  ManageTokenRoutesParams,
-} from '../../views/ManageTokens/types';
+import { ManageTokenRoutes } from '../../views/ManageTokens/types';
 import { PriceAlertAddModal } from '../../views/PushNotification/PriceAlertAddModal';
 import { PriceAlertListModal } from '../../views/PushNotification/PriceAlertListModal';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
+
+import type { ManageTokenRoutesParams } from '../../views/ManageTokens/types';
 
 const ManageTokenNavigator = createStackNavigator<ManageTokenRoutesParams>();
 

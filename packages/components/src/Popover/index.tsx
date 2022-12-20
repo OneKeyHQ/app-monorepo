@@ -1,8 +1,10 @@
-import React, { ComponentProps, FC, useCallback, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useState } from 'react';
 
-import { IPopoverProps, Popover as NBPopover } from 'native-base';
+import { Popover as NBPopover } from 'native-base';
 
-import { ThemeToken } from '../Provider/theme';
+import type { ThemeToken } from '../Provider/theme';
+import type { IPopoverProps } from 'native-base';
 
 export type PopoverProps = {
   trigger: ({ ...props }) => JSX.Element;

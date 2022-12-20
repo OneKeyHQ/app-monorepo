@@ -1,12 +1,5 @@
-import { ComponentProps, useCallback } from 'react';
-
-import { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import {
-  WebViewNavigation,
-  WebViewOpenWindowEvent,
-  WebViewSource,
-} from 'react-native-webview/lib/WebViewTypes';
+import type { ComponentProps } from 'react';
+import { useCallback } from 'react';
 
 import { Box, Button, Center } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,6 +8,14 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import extUtils from '../../utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
+
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import type {
+  WebViewNavigation,
+  WebViewOpenWindowEvent,
+  WebViewSource,
+} from 'react-native-webview/lib/WebViewTypes';
 
 function WebView({
   id,

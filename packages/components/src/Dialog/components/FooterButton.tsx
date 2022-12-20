@@ -1,11 +1,14 @@
-import React, { ComponentProps, FC, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import Box from '../../Box';
-import Button, { ButtonSize } from '../../Button';
-import { LocaleIds } from '../../locale';
+import Button from '../../Button';
 import { useUserDevice } from '../../Provider/hooks';
+
+import type { ButtonSize } from '../../Button';
+import type { LocaleIds } from '../../locale';
 
 export type OnCloseCallback = { onClose?: (() => void) | undefined };
 

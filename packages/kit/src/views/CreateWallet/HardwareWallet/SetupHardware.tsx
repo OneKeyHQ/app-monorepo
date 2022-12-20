@@ -1,6 +1,6 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -13,15 +13,12 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type RouteProps = RouteProp<
@@ -34,77 +31,75 @@ const SetupHardwareModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
 
-  const { device } = route?.params;
+  const { device } = route?.params || {};
 
   const content = (
-    <>
-      <VStack space={4} w="full">
-        {/* Setup new device option */}
-        <PressableItem
-          borderRadius="12px"
-          px={4}
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
+    <VStack space={4} w="full">
+      {/* Setup new device option */}
+      <PressableItem
+        borderRadius="12px"
+        px={4}
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateWallet,
+            params: {
+              screen: CreateWalletModalRoutes.SetupNewDeviceModal,
               params: {
-                screen: CreateWalletModalRoutes.SetupNewDeviceModal,
-                params: {
-                  device,
-                  type: 'SetupNew',
-                },
+                device,
+                type: 'SetupNew',
               },
-            });
-          }}
-        >
-          <HStack justifyContent="space-between" alignItems="center">
-            <Center size={12} borderRadius="12px" bg="surface-neutral-default">
-              <Icon name="PlusCircleOutline" />
-            </Center>
-            <Icon name="ChevronRightOutline" size={24} />
-          </HStack>
-          <VStack space={1} mt={3}>
-            <Typography.Body1Strong>
-              {intl.formatMessage({ id: 'modal__setup_new_device' })}
-            </Typography.Body1Strong>
+            },
+          });
+        }}
+      >
+        <HStack justifyContent="space-between" alignItems="center">
+          <Center size={12} borderRadius="12px" bg="surface-neutral-default">
+            <Icon name="PlusCircleOutline" />
+          </Center>
+          <Icon name="ChevronRightOutline" size={24} />
+        </HStack>
+        <VStack space={1} mt={3}>
+          <Typography.Body1Strong>
+            {intl.formatMessage({ id: 'modal__setup_new_device' })}
+          </Typography.Body1Strong>
 
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage({ id: 'modal__setup_new_device_desc' })}
-            </Typography.Body2>
-          </VStack>
-        </PressableItem>
+          <Typography.Body2 color="text-subdued">
+            {intl.formatMessage({ id: 'modal__setup_new_device_desc' })}
+          </Typography.Body2>
+        </VStack>
+      </PressableItem>
 
-        {/* Restore Hardware Wallet option */}
-        <PressableItem
-          borderRadius="12px"
-          px={4}
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.RestoreHardwareWalletModal,
-                params: { device },
-              },
-            });
-          }}
-        >
-          <HStack justifyContent="space-between" alignItems="center">
-            <Center size={12} borderRadius="12px" bg="surface-neutral-default">
-              <Icon name="RestoreOutline" />
-            </Center>
-            <Icon name="ChevronRightOutline" size={24} />
-          </HStack>
-          <VStack space={1} mt={3}>
-            <Typography.Body1Strong>
-              {intl.formatMessage({ id: 'modal__restore_wallet' })}
-            </Typography.Body1Strong>
+      {/* Restore Hardware Wallet option */}
+      <PressableItem
+        borderRadius="12px"
+        px={4}
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateWallet,
+            params: {
+              screen: CreateWalletModalRoutes.RestoreHardwareWalletModal,
+              params: { device },
+            },
+          });
+        }}
+      >
+        <HStack justifyContent="space-between" alignItems="center">
+          <Center size={12} borderRadius="12px" bg="surface-neutral-default">
+            <Icon name="RestoreOutline" />
+          </Center>
+          <Icon name="ChevronRightOutline" size={24} />
+        </HStack>
+        <VStack space={1} mt={3}>
+          <Typography.Body1Strong>
+            {intl.formatMessage({ id: 'modal__restore_wallet' })}
+          </Typography.Body1Strong>
 
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage({ id: 'modal__restore_wallet_desc' })}
-            </Typography.Body2>
-          </VStack>
-        </PressableItem>
-      </VStack>
-    </>
+          <Typography.Body2 color="text-subdued">
+            {intl.formatMessage({ id: 'modal__restore_wallet_desc' })}
+          </Typography.Body2>
+        </VStack>
+      </PressableItem>
+    </VStack>
   );
 
   // const footer = (

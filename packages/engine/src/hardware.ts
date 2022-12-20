@@ -3,14 +3,9 @@
  */
 import { splitSignature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
-import { UnsignedTransaction, serialize } from '@ethersproject/transactions';
+import { serialize } from '@ethersproject/transactions';
 import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { Success, Unsuccessful } from '@onekeyfe/hd-core';
 import { BigNumber } from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 
@@ -29,10 +24,17 @@ import { ETHMessageTypes } from './types/message';
 
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import type { WalletPassphraseState } from './vaults/keyring/KeyringHardwareBase';
+import type { UnsignedTransaction } from '@ethersproject/transactions';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type {
   CoreApi,
   EVMTransaction,
   EVMTransactionEIP1559,
+  Success,
+  Unsuccessful,
 } from '@onekeyfe/hd-core';
 
 /**

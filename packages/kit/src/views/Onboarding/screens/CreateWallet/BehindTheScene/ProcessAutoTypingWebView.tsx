@@ -1,26 +1,21 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useRef,
-} from 'react';
-
-import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import {
-  IJsBridgeReceiveHandler,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
-import { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
+import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WebViewWebEmbed } from '../../../../../components/WebView/WebViewWebEmbed';
 
 import { ONBOARDING_WEBVIEW_METHODS } from './consts';
-import {
+
+import type {
   IProcessAutoTypingProps,
   IProcessAutoTypingRef,
 } from './ProcessAutoTyping';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type {
+  IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 export type IProcessAutoTypingWebViewProps = IProcessAutoTypingProps & {
   onContentLoaded?: () => void; // currently works in NativeWebView only

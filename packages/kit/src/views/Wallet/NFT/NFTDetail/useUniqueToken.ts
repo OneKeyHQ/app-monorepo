@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
 import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 export enum ComponentType {
   Image = 0,

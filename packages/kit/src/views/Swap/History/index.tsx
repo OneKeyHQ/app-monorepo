@@ -1,5 +1,5 @@
-import React, {
-  FC,
+import type { FC } from 'react';
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,7 +10,6 @@ import React, {
 import { useNavigation } from '@react-navigation/core';
 import { format as dateFormat } from 'date-fns';
 import { useIntl } from 'react-intl';
-import { SectionListData, SectionListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -26,10 +25,12 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { useWalletsSwapTransactions } from '../hooks/useTransactions';
-import { TransactionDetails } from '../typings';
 
 import { HistoryItem } from './HistoryItem';
 import Summary from './Summary';
+
+import type { TransactionDetails } from '../typings';
+import type { SectionListData, SectionListRenderItem } from 'react-native';
 
 const ItemSeparatorComponent = () => (
   <Box mx="4">

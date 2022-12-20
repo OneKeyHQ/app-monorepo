@@ -1,5 +1,3 @@
-import * as React from 'react';
+import { createContext } from 'react';
 
-export default React.createContext<((height: number) => void) | undefined>(
-  undefined,
-);
+export default createContext<((height: number) => void) | undefined>(undefined);

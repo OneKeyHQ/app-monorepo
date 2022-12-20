@@ -1,20 +1,22 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 
 import { Box, LottieView, Modal, Typography } from '@onekeyhq/components';
 // import OnekeyClassicConfirm from '@onekeyhq/kit/assets/hardware/lottie_hardware_onekey_classic_confirm.json';
 import OnekeyMiniConfirm from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_mini_confirm.json';
-import {
+import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import {
+import type {
   ModalScreenProps,
-  RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 type RouteProps = RouteProp<

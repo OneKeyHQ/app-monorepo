@@ -1,5 +1,3 @@
-import React from 'react';
-
 import emojis from 'emojis-list';
 
 import { Center, ScrollView, Text } from '@onekeyhq/components';

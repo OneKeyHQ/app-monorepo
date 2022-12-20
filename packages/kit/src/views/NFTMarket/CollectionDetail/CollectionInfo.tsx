@@ -1,4 +1,5 @@
-import React, { ComponentProps, FC, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 

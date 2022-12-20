@@ -5,8 +5,6 @@
 
 import { StcClient } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/starcoin';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import Decimal from 'decimal.js';
 
@@ -18,26 +16,11 @@ import {
   OneKeyInternalError,
 } from '../../../errors';
 import { extractResponseError } from '../../../proxy';
-import { DBSimpleAccount } from '../../../types/account';
-import { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
-  IDecodedTxActionNativeTransfer,
   IDecodedTxActionType,
   IDecodedTxDirection,
-  IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTx,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
   IEncodedTxUpdateType,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ITransferInfo,
-  IUnsignedTxPro,
 } from '../../types';
 import {
   convertFeeGweiToValue,
@@ -58,8 +41,27 @@ import {
   getAddressHistoryFromExplorer,
 } from './utils';
 
+import type { DBSimpleAccount } from '../../../types/account';
 import type { Token } from '../../../types/token';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionNativeTransfer,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '../../types';
 import type { IEncodedTxSTC } from './types';
+import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const MAIN_TOKEN_ADDRESS = '0x00000000000000000000000000000001::STC::STC';
 const DEFAULT_GAS_LIMIT_NATIVE_TRANSFER = '105547';

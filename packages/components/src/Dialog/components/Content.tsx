@@ -1,9 +1,11 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import Box from '../../Box';
 import Center from '../../Center';
-import Icon, { ICON_NAMES } from '../../Icon';
+import Icon from '../../Icon';
 import { Text } from '../../Typography';
+
+import type { ICON_NAMES } from '../../Icon';
 
 export type IconType = 'danger' | 'info' | 'success' | 'warning';
 

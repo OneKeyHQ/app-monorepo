@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { createContext, useContext } from 'react';
 
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -18,7 +19,7 @@ export type StatsListContextValue = {
 
 export type IStatsListContent = {
   context: StatsListContextValue;
-  setContext: React.Dispatch<React.SetStateAction<StatsListContextValue>>;
+  setContext: Dispatch<SetStateAction<StatsListContextValue>>;
 };
 
 export const StatsListContext = createContext<IStatsListContent | null>(null);

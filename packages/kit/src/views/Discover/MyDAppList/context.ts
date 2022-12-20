@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 
-import { MatchDAppItemType } from '../Explorer/explorerUtils';
+import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 
 export type ItemSource = 'Favorites' | 'History';
 

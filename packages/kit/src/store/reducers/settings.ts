@@ -1,10 +1,10 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 import { dequal as deepEqual } from 'dequal';
 import { debounce } from 'lodash';
 import uuid from 'react-native-uuid';
 
-import { LocaleSymbol } from '@onekeyhq/components/src/locale';
-import { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
+import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
@@ -16,6 +16,7 @@ import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
 } from '../../utils/updates/type';
+import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type FirmwareUpdate = {
   forceFirmware: boolean;
@@ -26,6 +27,7 @@ export type FirmwareUpdate = {
 
 export type SettingsState = {
   theme: ThemeVariant | 'system';
+  lastLocale: LocaleSymbol;
   locale: LocaleSymbol;
   version: string;
   buildNumber?: string;
@@ -96,6 +98,7 @@ export const defaultPushNotification = {
 
 const initialState: SettingsState = {
   theme: 'system',
+  lastLocale: 'system',
   locale: 'system',
   version: process.env.VERSION ?? '1.0.0',
   buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
@@ -199,6 +202,7 @@ export const settingsSlice = createSlice({
       state.theme = action.payload;
     },
     setLocale: (state, action: PayloadAction<LocaleSymbol>) => {
+      state.lastLocale = state.locale;
       state.locale = action.payload;
     },
     setEnableAppLock: (state, action: PayloadAction<boolean>) => {

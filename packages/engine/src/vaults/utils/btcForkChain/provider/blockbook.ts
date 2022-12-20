@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import axios, { AxiosError, AxiosInstance } from 'axios';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { TransactionStatus } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
@@ -10,6 +10,8 @@ import type {
   IBtcUTXO,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import type { AxiosError, AxiosInstance } from 'axios';
 
 const BTC_PER_KBYTES_TO_SAT_PER_BYTE = 10 ** 5;
 

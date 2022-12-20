@@ -1,4 +1,5 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
+import { memo } from 'react';
 
 import { Image } from '@onekeyhq/components';
 import type { IAccount } from '@onekeyhq/engine/src/types';
@@ -78,4 +79,4 @@ function ExternalAccountImg({
   // return <MockExternalAccountImg {...others} />;
 }
 
-export default React.memo(ExternalAccountImg);
+export default memo(ExternalAccountImg);

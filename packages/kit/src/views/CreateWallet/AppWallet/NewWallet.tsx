@@ -1,4 +1,5 @@
-import React, { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -6,11 +7,9 @@ import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 type NewWalletProps = {
   password: string;

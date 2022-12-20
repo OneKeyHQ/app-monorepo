@@ -20,9 +20,11 @@ import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { createLazyComponent } from '../../utils/createLazyComponent';
 import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
-import { HomeRoutes, HomeRoutesParams } from '../types';
+import { HomeRoutes } from '../types';
 
 import renderCustomSubStackHeader from './Header';
+
+import type { HomeRoutesParams } from '../types';
 
 const DAppList = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Discover/DAppList'),
@@ -115,6 +117,10 @@ const ChainWebEmbed = createLazyComponent(
 
 const AddressBook = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/AddressBook/Listing'),
+);
+
+const NPLDetailScreen = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/NFTMarket/NPL/NPLDetail'),
 );
 
 export const stackScreenList = [
@@ -216,6 +222,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.RevokeRedirect,
     component: RevokeRedirectPage,
+  },
+  {
+    name: HomeRoutes.NFTNPLScreen,
+    component: NPLDetailScreen,
   },
 ];
 

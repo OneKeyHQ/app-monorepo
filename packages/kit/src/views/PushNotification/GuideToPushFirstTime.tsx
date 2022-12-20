@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useEffect, useMemo } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,8 +12,6 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
-import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -24,7 +23,10 @@ import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setGuideToPushFistTime } from '../../store/reducers/status';
 import { wait } from '../../utils/helper';
 
-import { useEnabledAccountDynamicAccounts } from './hooks';
+import {
+  checkAccountCanSubscribe,
+  useEnabledAccountDynamicAccounts,
+} from './hooks';
 import { PushNotificationRoutes } from './types';
 
 export function GuideToPushFirstTimeCheck() {
@@ -73,7 +75,8 @@ const GuideToPushFirstTime: FC = () => {
         if (count >= 50) {
           return;
         }
-        if (isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM)) {
+        const accountCanSubscribe = await checkAccountCanSubscribe(a);
+        if (accountCanSubscribe) {
           await serviceNotification.addAccountDynamic({
             // @ts-ignore
             passphrase: isPassphraseWallet(w),

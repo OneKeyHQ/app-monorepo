@@ -1,4 +1,5 @@
-import React, { ComponentProps, FC, useCallback } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback } from 'react';
 
 import { Button, Center, ScrollView, Stack } from '@onekeyhq/components';
 

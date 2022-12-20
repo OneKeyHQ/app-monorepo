@@ -1,12 +1,14 @@
-// @ts-gnore
-import React, { useCallback } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback } from 'react';
 
-import Canvas, { CanvasRenderingContext2D } from 'react-native-canvas';
+import Canvas from 'react-native-canvas';
 
 import { Box } from '@onekeyhq/components/src';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDevicePixelRatio } from '../../hooks/useMarketLayout';
+
+import type { CanvasRenderingContext2D } from 'react-native-canvas';
 
 type SparkLineChartProps = {
   data?: number[];
@@ -21,7 +23,7 @@ type SparkLineChartProps = {
 
 const offsetY = 5;
 
-const SparkLineChart: React.FC<SparkLineChartProps> = ({
+const SparkLineChart: FC<SparkLineChartProps> = ({
   data,
   lineColor = 'rgba(0, 184, 18, 1)',
   linearGradientColor = 'rgba(0, 184, 18, 0.3)',
@@ -135,4 +137,4 @@ const SparkLineChart: React.FC<SparkLineChartProps> = ({
   );
 };
 
-export default React.memo(SparkLineChart);
+export default memo(SparkLineChart);

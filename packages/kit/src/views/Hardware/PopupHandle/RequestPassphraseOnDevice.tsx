@@ -1,6 +1,5 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
-import { IDeviceType } from '@onekeyfe/hd-core';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
@@ -11,7 +10,10 @@ import EnterPassphraseOnPro from '@onekeyhq/kit/assets/animations/lottie-onekey-
 import EnterPassphraseOnTouch from '@onekeyhq/kit/assets/animations/lottie-onekey-touch-enter-passphrase-on-device.json';
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 
-import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
+import BaseRequestView from './BaseRequest';
+
+import type { BaseRequestViewProps } from './BaseRequest';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type RequestPassphraseOnDeviceViewProps = {
   deviceType: IDeviceType;

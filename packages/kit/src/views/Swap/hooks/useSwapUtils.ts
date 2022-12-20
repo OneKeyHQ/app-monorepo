@@ -2,8 +2,9 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { TransactionDetails } from '../typings';
 import { formatAmount } from '../utils';
+
+import type { TransactionDetails } from '../typings';
 
 export function useSummaryTx() {
   const intl = useIntl();

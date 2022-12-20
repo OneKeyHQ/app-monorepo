@@ -1,11 +1,7 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ConnectedSites from '@onekeyhq/kit/src/views/ManageConnectedSites/ConnectedSites';
-import {
-  ManageConnectedSitesRoutes,
-  ManageConnectedSitesRoutesParams,
-} from '@onekeyhq/kit/src/views/ManageConnectedSites/types';
+import type { ManageConnectedSitesRoutesParams } from '@onekeyhq/kit/src/views/ManageConnectedSites/types';
+import { ManageConnectedSitesRoutes } from '@onekeyhq/kit/src/views/ManageConnectedSites/types';
 
 import createStackNavigator from './createStackNavigator';
 

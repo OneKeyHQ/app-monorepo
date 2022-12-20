@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback, useEffect, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -28,7 +28,7 @@ function useDisableNavigationBack({ condition }: { condition: boolean }) {
     [navigation],
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     // only android works for addListener beforeRemove
     // if you addListener beforeRemove in iOS, and swipe back by gesture, the navigation will be broken.
     if (!platformEnv.isNativeAndroid) {
@@ -50,7 +50,7 @@ function useDisableNavigationBack({ condition }: { condition: boolean }) {
     };
   }, [condition, navigation, navEventAction]);
 
-  React.useLayoutEffect(() => {
+  useLayoutEffect(() => {
     // return;
 
     // disable animation if auto navigate

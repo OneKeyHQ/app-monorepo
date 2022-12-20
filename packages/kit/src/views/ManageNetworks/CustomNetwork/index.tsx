@@ -1,7 +1,7 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
 import {
@@ -20,9 +20,12 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useDebounce } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import { RpcNodePattern } from '../constants';
-import { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type {
+  NativeStackNavigationProp,
+  NativeStackScreenProps,
+} from '@react-navigation/native-stack';
 
 type NetworkValues = {
   name?: string;

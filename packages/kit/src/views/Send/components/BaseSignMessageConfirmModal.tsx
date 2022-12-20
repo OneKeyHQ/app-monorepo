@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 
 import { useActiveSideAccount } from '../../../hooks';
-import { ISignMessageConfirmViewProps } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';
+
+import type { ISignMessageConfirmViewProps } from '../types';
 
 function BaseSignMessageConfirmModal(props: ISignMessageConfirmViewProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

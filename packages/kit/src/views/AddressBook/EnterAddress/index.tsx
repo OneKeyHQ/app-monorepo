@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
@@ -8,7 +8,9 @@ import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
 import { useDebounce } from '../../../hooks';
-import { AddressBookRoutes, AddressBookRoutesParams } from '../routes';
+
+import type { AddressBookRoutes, AddressBookRoutesParams } from '../routes';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   AddressBookRoutesParams,

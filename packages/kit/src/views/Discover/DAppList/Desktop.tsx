@@ -1,6 +1,7 @@
-import { FC, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { ListRenderItem, StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -14,7 +15,9 @@ import {
 import { Chains } from '../Chains';
 import DAppIcon from '../DAppIcon';
 import { useTagDapps } from '../hooks';
-import { DAppItemType, DAppListProps } from '../type';
+
+import type { DAppItemType, DAppListProps } from '../type';
+import type { ListRenderItem } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {

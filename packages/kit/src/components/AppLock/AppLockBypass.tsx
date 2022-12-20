@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
 export class AppLockBypass {
   static Singleton: AppLockBypass = new AppLockBypass();
@@ -49,5 +49,5 @@ export const SkipAppLock = () => {
       AppLockBypass.Singleton.release();
     };
   }, []);
-  return <></>;
+  return null;
 };

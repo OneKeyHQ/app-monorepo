@@ -1,11 +1,7 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { Password } from '@onekeyhq/kit/src/views/Password';
-import {
-  PasswordRoutes,
-  PasswordRoutesParams,
-} from '@onekeyhq/kit/src/views/Password/types';
+import type { PasswordRoutesParams } from '@onekeyhq/kit/src/views/Password/types';
+import { PasswordRoutes } from '@onekeyhq/kit/src/views/Password/types';
 
 import createStackNavigator from './createStackNavigator';
 

@@ -1,11 +1,14 @@
-import React, { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, HStack, IconButton, Typography } from '@onekeyhq/components';
 
 import showExtraFilters from './Overlays/ExtraFilters';
-import { AssetType, Filter } from './types';
+import { AssetType } from './types';
+
+import type { Filter } from './types';
 
 export type Props = Filter & {
   onChange: (filter: Filter) => void;

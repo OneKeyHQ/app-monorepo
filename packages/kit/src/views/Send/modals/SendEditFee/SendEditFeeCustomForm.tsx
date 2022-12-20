@@ -1,25 +1,26 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
-import { UseFormReturn } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { Form, Typography, useIsVerticalLayout } from '@onekeyhq/components';
-import {
+import type {
   OneKeyError,
-  OneKeyErrorClassNames,
   OneKeyValidatorError,
 } from '@onekeyhq/engine/src/errors';
-import { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 import { calculateTotalFeeRange } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useFormOnChangeDebounced } from '../../../../hooks/useFormOnChangeDebounced';
 import { FeeTipsWarning } from '../../components/FeeTipsWarning';
-import { ISendEditFeeValues } from '../../types';
 import { SEND_EDIT_FEE_PRICE_UP_RATIO } from '../../utils/sendConfirmConsts';
+
+import type { ISendEditFeeValues } from '../../types';
+import type { UseFormReturn } from 'react-hook-form';
 
 function printError(error: OneKeyError | any) {
   const e = error as OneKeyError;

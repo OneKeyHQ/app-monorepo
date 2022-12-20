@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,10 +24,10 @@ export default function useRemoveAccountDialog() {
   const { serviceAccount } = backgroundApiProxy;
   const successCall = useRef<() => void>();
 
-  const [visible, setVisible] = React.useState(false);
-  const [accountId, setAccountId] = React.useState('');
-  const [walletId, setWalletId] = React.useState('');
-  const [password, setPassword] = React.useState<string | undefined>();
+  const [visible, setVisible] = useState(false);
+  const [accountId, setAccountId] = useState('');
+  const [walletId, setWalletId] = useState('');
+  const [password, setPassword] = useState<string | undefined>();
   const { showVerify } = useLocalAuthenticationModal();
   const onSubmit = useCallback(async () => {
     if (!accountId) return Promise.resolve();

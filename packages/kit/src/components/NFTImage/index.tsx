@@ -1,4 +1,5 @@
-import React, { ComponentProps, FC, useCallback } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback } from 'react';
 
 import NetImage from '@onekeyhq/components/src/NetImage';
 import { syncImage } from '@onekeyhq/engine/src/managers/nft';

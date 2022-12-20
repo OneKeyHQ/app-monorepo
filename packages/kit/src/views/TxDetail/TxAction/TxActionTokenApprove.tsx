@@ -1,17 +1,10 @@
-import React from 'react';
-
 import { useNavigation } from '@react-navigation/core';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIntl } from 'react-intl';
 
 import { Typography } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
-import {
-  SendRoutes,
-  SendRoutesParams,
-  TokenApproveAmountEditParams,
-} from '../../Send/types';
+import { SendRoutes } from '../../Send/types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/utils/sendConfirmConsts';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
@@ -22,12 +15,18 @@ import {
 } from '../elements/TxActionElementAddress';
 import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
 import { useTxDetailContext } from '../TxDetailContext';
-import {
+
+import type {
+  SendRoutesParams,
+  TokenApproveAmountEditParams,
+} from '../../Send/types';
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,
   ITxActionMetaTitle,
 } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,

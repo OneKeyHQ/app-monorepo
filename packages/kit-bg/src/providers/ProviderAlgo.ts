@@ -1,10 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-} from '@onekeyfe/cross-inpage-provider-types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import VaultAlgo from '@onekeyhq/engine/src/vaults/impl/algo/Vault';
+import type VaultAlgo from '@onekeyhq/engine/src/vaults/impl/algo/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -14,9 +11,10 @@ import {
 import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
+
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ProviderApiAlgo extends ProviderApiBase {

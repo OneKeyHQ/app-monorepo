@@ -2,10 +2,8 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import PreviewSend from '@onekeyhq/kit/src/views/ScanQrcode/PreviewSend';
 import ScanQrcode from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcode';
 import ScanQrcodeResult from '@onekeyhq/kit/src/views/ScanQrcode/ScanQrcodeResult';
-import {
-  ScanQrcodeRoutes,
-  ScanQrcodeRoutesParams,
-} from '@onekeyhq/kit/src/views/ScanQrcode/types';
+import type { ScanQrcodeRoutesParams } from '@onekeyhq/kit/src/views/ScanQrcode/types';
+import { ScanQrcodeRoutes } from '@onekeyhq/kit/src/views/ScanQrcode/types';
 
 import createStackNavigator from './createStackNavigator';
 

@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,7 +13,10 @@ import {
 } from '@onekeyhq/components';
 
 import { useUpdateAllowance } from './hooks';
-import { AssetType, RevokeRoutes, RevokeRoutesParams } from './types';
+import { AssetType } from './types';
+
+import type { RevokeRoutes, RevokeRoutesParams } from './types';
+import type { RouteProp } from '@react-navigation/native';
 
 type FieldValues = {
   allowance: string;

@@ -3,13 +3,14 @@
 import { Buffer } from 'buffer';
 
 import { bytesToHex } from '@noble/hashes/utils';
-import { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import { ResourceType } from '@onekeyfe/hd-transport';
-import { Action, SaveFormat, manipulateAsync } from 'expo-image-manipulator';
+import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { HomescreenItem } from './constants/homescreens';
+import type { HomescreenItem } from './constants/homescreens';
+import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
+import type { Action } from 'expo-image-manipulator';
 
 const T1_WIDTH = 128;
 const T1_HEIGHT = 64;

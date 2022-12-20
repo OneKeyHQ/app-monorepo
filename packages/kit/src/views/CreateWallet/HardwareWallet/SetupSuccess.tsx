@@ -1,11 +1,12 @@
-import React, { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Modal, Typography } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import {
+import type {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
@@ -16,6 +17,8 @@ import {
   useOnboardingDone,
 } from '../../../hooks/useOnboardingRequired';
 import { wait } from '../../../utils/helper';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   CreateWalletRoutesParams,
@@ -32,7 +35,7 @@ const SetupSuccessModal: FC = () => {
 
   // const isSmallScreen = useIsVerticalLayout();
 
-  const { device, onPressOnboardingFinished } = route?.params;
+  const { device, onPressOnboardingFinished } = route?.params || {};
 
   const content = (
     <>

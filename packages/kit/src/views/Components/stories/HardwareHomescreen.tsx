@@ -1,4 +1,5 @@
-import React, { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import {
   Box,
@@ -110,4 +111,4 @@ const HomescreenSetting = () => {
     </ScrollView>
   );
 };
-export default React.memo(HomescreenSetting);
+export default memo(HomescreenSetting);

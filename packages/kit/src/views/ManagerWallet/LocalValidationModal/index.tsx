@@ -1,15 +1,18 @@
-import React, { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
-import { RouteProp, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 
 import { Modal, Spinner } from '@onekeyhq/components';
 import Protected from '@onekeyhq/kit/src/components/Protected';
-import {
+import type {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManagerWalletRoutesParams,

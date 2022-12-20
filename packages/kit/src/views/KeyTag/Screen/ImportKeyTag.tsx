@@ -1,11 +1,11 @@
-import { FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
 import {
   Box,
   Button,
-  Center,
   ScrollView,
   Select,
   Switch,
@@ -13,22 +13,16 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import {
-  RootRoutes,
-  RootRoutesParams,
-  TabRoutesParams,
-} from '../../../routes/types';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { RootRoutes } from '../../../routes/types';
 import LayoutContainer from '../../Onboarding/Layout';
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 import { KeyTagImportMatrix } from '../Component/KeyTagMatrix/keyTagImportMatrix';
 import { generalKeyTagMnemonic, keyTagWordDataToMnemonic } from '../utils';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
-import { IOnboardingRoutesParams } from '../../Onboarding/routes/types';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { IKeytagRoutesParams } from '../Routes/types';
-import { KeyTagRoutes } from '../Routes/enums';
-import useAppNavigation from '../../../hooks/useAppNavigation';
+import type { KeyTagRoutes } from '../Routes/enums';
+import type { IKeytagRoutesParams } from '../Routes/types';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
   IKeytagRoutesParams,
@@ -45,9 +39,6 @@ const ImportKeyTag: FC = () => {
 
   const onKeyTagChenge = useCallback(
     (wordIndex: number, index: number, value: boolean) => {
-      console.log('wordIndex', wordIndex);
-      console.log('index', index);
-      console.log('value', value);
       const newMnemonicWordDatas = [...mnemonicWordDatas];
       const changeMnemonicWord = newMnemonicWordDatas.find(
         (item) => item.index === wordIndex,
@@ -59,7 +50,6 @@ const ImportKeyTag: FC = () => {
         changeMnemonicWord.mnemonicWord = mnemonicWord;
         changeMnemonicWord.mnemonicIndexNumber = mnemonicIndexNumber;
         changeMnemonicWord.status = status;
-        console.log('mnemonicWordDatas------', newMnemonicWordDatas);
         setMnemonicWordDatas(newMnemonicWordDatas);
       }
     },
@@ -70,20 +60,24 @@ const ImportKeyTag: FC = () => {
     const mnemonic = mnemonicWordDatas
       .map((item) => item.mnemonicWord)
       .join(' ');
-    console.log('mnemonic', mnemonic);
     appNavigation.navigate(RootRoutes.Onboarding, {
       screen: EOnboardingRoutes.SetPassword,
       params: { mnemonic },
     });
   }, [appNavigation, mnemonicWordDatas]);
-  navigation.setOptions({
-    headerShown: true,
-    headerRight: () => (
+  const rightButton = useMemo(
+    () => (
       <Button type="primary" size="base" onPress={importValidation}>
         Import
       </Button>
     ),
-    headerTitle: () => <Box />,
+    [importValidation],
+  );
+  const title = useMemo(() => <Box />, []);
+  navigation.setOptions({
+    headerShown: true,
+    headerRight: () => rightButton,
+    headerTitle: () => title,
   });
   const [showResult, setShowResult] = useState(true);
   const isVertical = useIsVerticalLayout();

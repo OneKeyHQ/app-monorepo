@@ -1,16 +1,16 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { IBoxProps } from 'native-base';
-
+import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   Hidden,
-  ICON_NAMES,
   Icon,
   Pressable,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+
+import type { IBoxProps } from 'native-base';
 
 type PressableListItemProps = {
   icon: ICON_NAMES;

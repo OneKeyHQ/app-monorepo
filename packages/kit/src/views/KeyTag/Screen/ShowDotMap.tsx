@@ -1,29 +1,29 @@
-import { FC, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useNavigation, useRoute } from '@react-navigation/core';
 
 import {
   Box,
   Button,
   Center,
-  Icon,
-  Image,
   ScrollView,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { IWallet } from '@onekeyhq/engine/src/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WalletAvatarPro } from '../../../components/WalletSelector/WalletAvatar';
+import { RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagMatrix } from '../Component/KeyTagMatrix/KeyTagMatrix';
-import { KeyTagRoutes } from '../Routes/enums';
-import { IKeytagRoutesParams } from '../Routes/types';
 import { mnemonicWordsToKeyTagMnemonic } from '../utils';
-import { Avatar } from '@onekeyhq/shared/src/emojiUtils';
-import { IWallet } from '@onekeyhq/engine/src/types';
-import { WalletAvatarPro } from '../../../components/WalletSelector/WalletAvatar';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { RootRoutes, TabRoutes } from '../../../routes/routesEnum';
+
+import type { KeyTagRoutes } from '../Routes/enums';
+import type { IKeytagRoutesParams } from '../Routes/types';
+import type { RouteProp } from '@react-navigation/core';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type RouteProps = RouteProp<IKeytagRoutesParams, KeyTagRoutes.ShowDotMap>;
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
@@ -69,10 +69,8 @@ const ShowDotMap: FC = () => {
   const keyTagData = mnemonicWordsToKeyTagMnemonic(mnemonic);
   const navigation = useNavigation<NavigationProps>();
   const isVertical = useIsVerticalLayout();
-  navigation.setOptions({
-    headerShown: true,
-    headerTitleAlign: 'center',
-    headerRight: () => (
+  const rightDoneBtn = useMemo(
+    () => (
       <RightDoneBtn
         onDone={() => {
           navigation
@@ -81,7 +79,17 @@ const ShowDotMap: FC = () => {
         }}
       />
     ),
-    headerTitle: () => <TopMidCompoment mnemonic={mnemonic} wallet={wallet} />,
+    [navigation],
+  );
+  const titleHeader = useMemo(
+    () => <TopMidCompoment mnemonic={mnemonic} wallet={wallet} />,
+    [mnemonic, wallet],
+  );
+  navigation.setOptions({
+    headerShown: true,
+    headerTitleAlign: 'center',
+    headerRight: () => rightDoneBtn,
+    headerTitle: () => titleHeader,
   });
   return (
     <LayoutContainer backButton={false}>

@@ -1,11 +1,13 @@
-import { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { WebTab, setWebTabData } from '../../../../store/reducers/webTabs';
+import { setWebTabData } from '../../../../store/reducers/webTabs';
 import { webviewRefs } from '../explorerUtils';
 
+import type { WebTab } from '../../../../store/reducers/webTabs';
 import type { WebViewProps } from 'react-native-webview';
 
 const WebContent: FC<WebTab & WebViewProps> = ({ id, url }) => {

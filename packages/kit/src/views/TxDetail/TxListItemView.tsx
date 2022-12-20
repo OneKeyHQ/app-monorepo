@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -12,23 +10,20 @@ import {
   VStack,
   useTheme,
 } from '@onekeyhq/components';
-import {
-  IDecodedTxStatus,
-  IHistoryTx,
-} from '@onekeyhq/engine/src/vaults/types';
+import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { TransactionDetailModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
-import {
-  HistoryListViewNavigationProp,
-  TxResendButtons,
-} from './components/TxResendButtons';
+import { TxResendButtons } from './components/TxResendButtons';
 import { TxActionElementTime } from './elements/TxActionElementTime';
 import { TxActionsListView } from './TxActionsListView';
 import { getTxStatusInfo } from './utils/utilsTxDetail';
+
+import type { HistoryListViewNavigationProp } from './components/TxResendButtons';
 
 function TxListItemView(props: {
   historyTx: IHistoryTx;

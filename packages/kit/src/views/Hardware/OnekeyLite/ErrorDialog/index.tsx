@@ -1,10 +1,10 @@
-import { FC } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { CardErrors } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import { Dialog } from '@onekeyhq/components';
-import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
 export interface ErrorDialogViewProps {
   code: number;

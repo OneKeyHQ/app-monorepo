@@ -1,8 +1,7 @@
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
-import { Image as NBImage } from 'native-base';
-
-import { ThemeToken } from '../Provider/theme';
+import type { ThemeToken } from '../Provider/theme';
+import type { Image as NBImage } from 'native-base';
 
 export type ImageState = 'loading' | 'success' | 'fail' | null;
 

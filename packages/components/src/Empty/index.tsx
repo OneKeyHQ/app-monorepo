@@ -1,13 +1,15 @@
-import React, { ComponentProps, FC, ReactNode, isValidElement } from 'react';
+import type { ComponentProps, FC, ReactNode } from 'react';
+import { isValidElement } from 'react';
 
 import Box from '../Box';
 import Button from '../Button';
 import Center from '../Center';
 import Icon from '../Icon';
-import { ICON_NAMES } from '../Icon/Icons';
 import Image from '../Image';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import { Text } from '../Typography';
+
+import type { ICON_NAMES } from '../Icon/Icons';
 
 type BoxProps = ComponentProps<typeof Box>;
 type NonString<T> = T extends string ? never : T;

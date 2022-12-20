@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { createContext, useContext } from 'react';
 
 export type NFTAttributesContextValue = {
@@ -6,7 +7,7 @@ export type NFTAttributesContextValue = {
 
 export type INFTAttributesContent = {
   context: NFTAttributesContextValue;
-  setContext: React.Dispatch<React.SetStateAction<NFTAttributesContextValue>>;
+  setContext: Dispatch<SetStateAction<NFTAttributesContextValue>>;
 };
 
 export const NFTAttributesContext = createContext<INFTAttributesContent | null>(

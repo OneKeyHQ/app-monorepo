@@ -1,14 +1,14 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Container, Typography } from '@onekeyhq/components';
-import {
+import type {
   EVMDecodedItem,
   EVMDecodedItemERC20Transfer,
-  EVMDecodedTxType,
 } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import Address from './Address';
 import HeaderIcon from './HeaderIcon';

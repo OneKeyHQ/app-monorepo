@@ -8,9 +8,9 @@ import {
   getCoinTypeFromNetworkId,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
-import { INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
-import { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
+import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
+import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
 import { passwordSet, release } from '@onekeyhq/kit/src/store/reducers/data';
@@ -40,7 +40,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import { Avatar, randomAvatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import { randomAvatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   COINTYPE_ETH,
   IMPL_CFX,
@@ -53,11 +54,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import ProviderApiBase from '../providers/ProviderApiBase';
+import ServiceBase from './ServiceBase';
 
-import ServiceBase, { IServiceBaseProps } from './ServiceBase';
+import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { IServiceBaseProps } from './ServiceBase';
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore

@@ -1,4 +1,5 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import {
   Box,
@@ -10,7 +11,7 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components/src';
-import { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
@@ -84,4 +85,4 @@ const MarketSearchTokenDestopCell: FC<{
   );
 };
 
-export default React.memo(MarketSearchTokenDestopCell);
+export default memo(MarketSearchTokenDestopCell);

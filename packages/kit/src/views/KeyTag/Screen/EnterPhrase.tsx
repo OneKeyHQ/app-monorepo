@@ -1,5 +1,4 @@
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,7 +16,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
-import { IKeytagRoutesParams } from '../Routes/types';
+
+import type { IKeytagRoutesParams } from '../Routes/types';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 

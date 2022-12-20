@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import { MatchDAppItemType } from '../explorerUtils';
+import type { MatchDAppItemType } from '../explorerUtils';
 
 type HeaderHistoriesProps = {
   keyword: string;

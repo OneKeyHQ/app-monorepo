@@ -1,7 +1,7 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { IDeviceType } from '@onekeyfe/hd-core';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
@@ -12,12 +12,15 @@ import ClassicSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-clas
 import MiniSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-mini-device.png';
 import TouchSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-touch-device.png';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
-import {
+import type {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+
+import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { RouteProp } from '@react-navigation/native';
 
 export type SetupNewDeviceType = 'SetupNew' | 'Restore';
 
@@ -58,7 +61,7 @@ const SetupNewDeviceModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const route = useRoute<RouteProps>();
-  const { device, type } = route?.params;
+  const { device, type } = route?.params || {};
 
   const miniActivateHelp = useHelpLink({ path: 'articles/4408289773455' });
   const classicActivateHelp = useHelpLink({ path: 'articles/360004487195' });

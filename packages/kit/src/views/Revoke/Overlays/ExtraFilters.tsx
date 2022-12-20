@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,7 +7,9 @@ import { Box, Switch, VStack } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
 import { BottomSheetSettings } from '../../Overlay/AccountValueSettings';
-import { AssetType, Filter } from '../types';
+import { AssetType } from '../types';
+
+import type { Filter } from '../types';
 
 type Props = {
   onChange: (filter: Filter) => void;

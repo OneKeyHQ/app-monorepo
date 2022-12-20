@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
 import {
-  DrawerContentComponentProps,
   DrawerContentScrollView,
   useDrawerStatus,
 } from '@react-navigation/drawer';
@@ -12,6 +11,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
 
 import WalletSelectorChildren from './WalletSelectorChildren';
+
+import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 
 const { updateMobileWalletSelectorDrawerOpen } = reducerAccountSelector.actions;
 function WalletSelectorMobile(props: DrawerContentComponentProps) {

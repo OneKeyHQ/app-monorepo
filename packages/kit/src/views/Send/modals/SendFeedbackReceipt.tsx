@@ -1,7 +1,7 @@
 /* eslint-disable global-require */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { isFunction } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -13,7 +13,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveSideAccount, useInterval } from '../../../hooks';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { BaseSendModal } from '../components/BaseSendModal';
-import { SendRoutes, SendRoutesParams } from '../types';
+
+import type { SendRoutes, SendRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendFeedbackReceipt>;
 

@@ -1,4 +1,4 @@
-import Axios, { AxiosError, AxiosInstance } from 'axios';
+import Axios from 'axios';
 
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 
@@ -11,6 +11,7 @@ import type {
   GasInfo,
   TransactionResponseInfo,
 } from './type';
+import type { AxiosError, AxiosInstance } from 'axios';
 
 export declare enum BroadcastMode {
   /** BROADCAST_MODE_UNSPECIFIED - zero-value for mode ordering */

@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-
-import { StyleProp, ViewStyle } from 'react-native';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -8,19 +7,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useSettings } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 
-import { MarketApiData, PriceApiProps, fetchChartData } from './chartService';
+import { fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
+
+import type { MarketApiData, PriceApiProps } from './chartService';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 type PriceChartProps = Omit<PriceApiProps, 'days'> & {
   style?: StyleProp<ViewStyle>;
 };
 
-const PriceChart: React.FC<PriceChartProps> = ({
-  contract,
-  networkId,
-  style,
-}) => {
+const PriceChart: FC<PriceChartProps> = ({ contract, networkId, style }) => {
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   // const { charts: reduxCachedCharts } = useManageTokens();

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Box, Center, Markdown, ScrollView } from '@onekeyhq/components';
 
 const MarkdownGallery = () => {

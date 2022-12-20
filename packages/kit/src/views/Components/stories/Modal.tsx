@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { Toast } from 'native-base';
 
@@ -98,20 +98,18 @@ const Modal5 = () => {
 };
 
 const Modal6 = () => (
-  <>
-    <Modal
-      hideSecondaryAction
-      header="MODAL 6"
-      onClose={() => Math.random() > 0.5}
-      trigger={<Button>弹窗 6</Button>}
-    >
-      <Center>
-        <Typography.Body2 my="2">
-          关闭按钮通过 onClose 返回值控制，可以关闭前二次确认
-        </Typography.Body2>
-      </Center>
-    </Modal>
-  </>
+  <Modal
+    hideSecondaryAction
+    header="MODAL 6"
+    onClose={() => Math.random() > 0.5}
+    trigger={<Button>弹窗 6</Button>}
+  >
+    <Center>
+      <Typography.Body2 my="2">
+        关闭按钮通过 onClose 返回值控制，可以关闭前二次确认
+      </Typography.Body2>
+    </Center>
+  </Modal>
 );
 
 const ModalGallery = () => (

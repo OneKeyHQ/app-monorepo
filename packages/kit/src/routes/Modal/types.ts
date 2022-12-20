@@ -34,3 +34,4 @@ export type { RevokeRoutesParams } from './Revoke';
 export type { SearchNFTCollectionRoutesParams } from './SearchNFTCollection';
 export type { NFTAttributeFilterRoutesParams } from './NFTAttributeFilter';
 export type { KeyTagVerifyWalletRoutesParams } from './KeyTagVerifyWallet';
+export type { NFTMarketRoutesParams } from './NFTMarket';

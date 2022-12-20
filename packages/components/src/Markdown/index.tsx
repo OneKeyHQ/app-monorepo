@@ -1,6 +1,7 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { StyleSheet, TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
 import RNMarkdown from 'react-native-markdown-display';
 
 import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
@@ -10,6 +11,8 @@ import {
   DisplayMediumProps,
   DisplaySmallProps,
 } from '../Typography';
+
+import type { TextStyle } from 'react-native';
 
 // all markdown style
 // https://github.com/iamacup/react-native-markdown-display/blob/master/src/lib/styles.js

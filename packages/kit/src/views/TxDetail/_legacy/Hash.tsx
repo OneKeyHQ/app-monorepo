@@ -1,9 +1,10 @@
-import React, { FC, useCallback } from 'react';
+import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Container, useToast } from '@onekeyhq/components';
-import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
+import type { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 

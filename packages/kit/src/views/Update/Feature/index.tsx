@@ -1,6 +1,7 @@
-import React, { FC, useLayoutEffect } from 'react';
+import type { FC } from 'react';
+import { useLayoutEffect } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,10 +12,11 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import {
+import type {
   UpdateFeatureModalRoutes,
   UpdateFeatureRoutesParams,
 } from '../../../routes/Modal/UpdateFeature';
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   UpdateFeatureRoutesParams,

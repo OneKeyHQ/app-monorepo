@@ -4,14 +4,15 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { currenciesSet } from '../../../store/reducers/data';
-import {
+
+import { MoonpayModeData } from './types';
+
+import type {
   CurrenciesPayload,
   MoonPayBuyQuotePayload,
   MoonpayCurrencyListPayload,
   MoonpayListType,
 } from '../types';
-
-import { MoonpayModeData } from './types';
 
 const moonpayHost = 'https://api.moonpay.com';
 
@@ -65,17 +66,21 @@ export const fetchCurrencies = async () => {
   if (!moonpayApiKey) {
     return;
   }
-  const request1 = await axios
+  const request1 = axios
     .get<CurrenciesPayload>(`${getFiatEndpoint()}/public/currencies.json`)
     .then((ret) => ret.data);
-  const request2 = await axios
+  const request2 = axios
     .get<MoonpayCurrencyListPayload>(getCurrenciesListUri())
     .then((ret) => ret.data);
+  const [onekeySupportList, currencyList] = await Promise.all([
+    request1,
+    request2,
+  ]);
   const { dispatch } = backgroundApiProxy;
   dispatch(
     currenciesSet({
-      onekeySupportList: request1,
-      currencyList: request2,
+      onekeySupportList,
+      currencyList,
     }),
   );
 };

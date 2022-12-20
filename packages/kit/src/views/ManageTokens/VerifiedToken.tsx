@@ -1,6 +1,7 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -25,14 +26,17 @@ import { useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { useTokenSecurityInfo, useTokenSourceList } from './hooks';
-import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+import { ManageTokenRoutes } from './types';
+
+import type { ManageTokenRoutesParams } from './types';
+import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = RouteProp<
   ManageTokenRoutesParams,
   ManageTokenRoutes.VerifiedToken
 >;
 
-const VerifiedTokens: React.FC = () => {
+const VerifiedTokens: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const route = useRoute<NavigationProps>();

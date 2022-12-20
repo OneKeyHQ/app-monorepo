@@ -1,13 +1,9 @@
-import React from 'react';
-
 import { isString } from 'lodash';
 
-import { ICON_NAMES } from '@onekeyhq/components';
-import { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
-import {
-  IDecodedTx,
-  IDecodedTxStatus,
-} from '@onekeyhq/engine/src/vaults/types';
+import type { ICON_NAMES } from '@onekeyhq/components';
+import type { ThemeValues } from '@onekeyhq/components/src/Provider/theme';
+import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 
 export function fallbackTextComponent(
   target: JSX.Element | string | undefined,

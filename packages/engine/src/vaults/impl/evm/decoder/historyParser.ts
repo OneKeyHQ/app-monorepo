@@ -1,7 +1,7 @@
 import { TxStatus } from '../../../../types/covalent';
-import { HistoryEntryTransaction } from '../../../../types/history';
 
-import { EVMDecodedItem } from './types';
+import type { HistoryEntryTransaction } from '../../../../types/history';
+import type { EVMDecodedItem } from './types';
 
 const txStatusFromHistoryEntry = (historyEntry: HistoryEntryTransaction) => {
   const { status } = historyEntry;

@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import {
   CustomSkeleton,
@@ -9,7 +9,7 @@ import {
   getContentWithAsset,
   getHttpImageWithAsset,
 } from '@onekeyhq/engine/src/managers/nft';
-import { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NFTAudio from '../../../../components/NFTAudio';

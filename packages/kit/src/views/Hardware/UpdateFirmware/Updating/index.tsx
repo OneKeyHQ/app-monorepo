@@ -1,23 +1,24 @@
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Modal, ToastManager } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import {
+import type {
   HardwareUpdateModalRoutes,
   HardwareUpdateRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import {
   closeHardwarePopup,
@@ -26,7 +27,10 @@ import {
 import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup';
 
 import RunningView from './RunningView';
-import StateView, { StateViewTypeInfo } from './StateView';
+import StateView from './StateView';
+
+import type { StateViewTypeInfo } from './StateView';
+import type { RouteProp } from '@react-navigation/core';
 
 type ProgressStepType =
   | 'pre-check'

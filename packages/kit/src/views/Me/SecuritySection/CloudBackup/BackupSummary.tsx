@@ -1,16 +1,12 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { IBoxProps } from 'native-base';
-
-import {
-  Box,
-  ICON_NAMES,
-  Icon,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import type { ICON_NAMES } from '@onekeyhq/components';
+import { Box, Icon, Text, useIsVerticalLayout } from '@onekeyhq/components';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
+
+import type { IBoxProps } from 'native-base';
 
 type BackupSummaryDisplayProps = {
   backupTime: number;

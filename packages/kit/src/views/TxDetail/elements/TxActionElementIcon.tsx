@@ -1,8 +1,8 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
 import { Center, Icon, Token } from '@onekeyhq/components';
 
-import { ITxActionMeta } from '../types';
+import type { ITxActionMeta } from '../types';
 
 export function TxActionElementIcon(
   props: ITxActionMeta & {

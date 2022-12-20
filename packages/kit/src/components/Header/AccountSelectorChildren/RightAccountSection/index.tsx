@@ -1,4 +1,5 @@
-import React, { FC, memo, useMemo } from 'react';
+import type { FC } from 'react';
+import { memo, useMemo } from 'react';
 
 import { SectionList } from 'react-native';
 
@@ -10,9 +11,11 @@ import { NetworkIcon } from '@onekeyhq/kit/src/views/ManageNetworks/Listing/Netw
 
 import { useAppSelector } from '../../../../hooks';
 
-import AccountSectionItem, { AccountGroup } from './ItemSection';
+import AccountSectionItem from './ItemSection';
 
-export const AccountSectionLoadingSkeleton = React.memo(
+import type { AccountGroup } from './ItemSection';
+
+export const AccountSectionLoadingSkeleton = memo(
   ({ isLoading }: { isLoading: boolean }) =>
     isLoading ? (
       <Box mx="2" borderRadius={12} p="2">

@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -22,8 +23,9 @@ import {
 } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
-import { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+import { ManageTokenRoutes } from './types';
 
+import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackScreenProps<

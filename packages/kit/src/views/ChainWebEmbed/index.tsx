@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -22,4 +22,4 @@ function ChainWebEmbed() {
   return content;
 }
 
-export default React.memo(ChainWebEmbed);
+export default memo(ChainWebEmbed);

@@ -1,8 +1,8 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { Image as NBImage } from 'native-base';
 
-import { InnerImageProps } from '../type';
+import type { InnerImageProps } from '../type';
 
 export const PlatformImage: FC<InnerImageProps> = ({
   onLoad,

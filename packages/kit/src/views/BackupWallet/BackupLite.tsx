@@ -1,18 +1,21 @@
-import React, { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 import { Center, Modal, Spinner } from '@onekeyhq/components';
-import {
+import type {
   BackupWalletModalRoutes,
   BackupWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../components/Protected';
 import { CreateWalletModalRoutes } from '../../routes';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
 

@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
@@ -8,11 +8,13 @@ import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
 import { useAppSelector } from '../../../../hooks';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
 import Layout from '../../Layout';
-import { EOnboardingRoutes } from '../../routes/enums';
-import { IOnboardingRoutesParams } from '../../routes/types';
 
 import Drawer from './ImportWalletGuideDrawer';
 import SecondaryContent from './SecondaryContent';
+
+import type { EOnboardingRoutes } from '../../routes/enums';
+import type { IOnboardingRoutesParams } from '../../routes/types';
+import type { RouteProp } from '@react-navigation/native';
 
 const defaultProps = {} as const;
 
@@ -34,29 +36,22 @@ const ImportWallet = () => {
   }, []);
   const disableAnimation = route?.params?.disableAnimation;
 
-  return (
+  return onBoardingLoadingBehindModal ? (
+    <Center bgColor={bgColor} flex={1} height="full">
+      <Spinner size="lg" />
+    </Center>
+  ) : (
     <>
-      {onBoardingLoadingBehindModal ? (
-        <Center bgColor={bgColor} flex={1} height="full">
-          <Spinner size="lg" />
-        </Center>
-      ) : (
-        <>
-          <Layout
-            disableAnimation={disableAnimation}
-            title={intl.formatMessage({ id: 'action__import_wallet' })}
-            secondaryContent={
-              <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
-            }
-          >
-            <OnboardingAddExistingWallet />
-          </Layout>
-          <Drawer
-            visible={drawerVisible}
-            onClose={() => setDrawerVisible(false)}
-          />
-        </>
-      )}
+      <Layout
+        disableAnimation={disableAnimation}
+        title={intl.formatMessage({ id: 'action__import_wallet' })}
+        secondaryContent={
+          <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
+        }
+      >
+        <OnboardingAddExistingWallet />
+      </Layout>
+      <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
     </>
   );
 };

@@ -1,11 +1,7 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import EnableLocalAuthentication from '@onekeyhq/kit/src/views/EnableLocalAuthentication';
-import {
-  EnableLocalAuthenticationRoutes,
-  EnableLocalAuthenticationRoutesParams,
-} from '@onekeyhq/kit/src/views/EnableLocalAuthentication/types';
+import type { EnableLocalAuthenticationRoutesParams } from '@onekeyhq/kit/src/views/EnableLocalAuthentication/types';
+import { EnableLocalAuthenticationRoutes } from '@onekeyhq/kit/src/views/EnableLocalAuthentication/types';
 import EnableWebAuthn from '@onekeyhq/kit/src/views/EnableWebAuthn';
 
 import createStackNavigator from './createStackNavigator';

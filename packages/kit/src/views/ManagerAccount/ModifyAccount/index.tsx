@@ -1,4 +1,5 @@
-import React, { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,7 +34,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
   const toast = useToast();
   const { serviceAccount } = backgroundApiProxy;
 
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const isSmallScreen = useIsVerticalLayout();
 
   const { control, handleSubmit, setError, reset } = useForm<FieldValues>({

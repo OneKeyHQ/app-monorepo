@@ -1,6 +1,7 @@
-import React, { FC, useCallback, useEffect, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,24 +14,23 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
-import {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import {
-  ModalRoutes,
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type {
   ModalScreenProps,
-  RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { CustomOneKeyHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { setOnBoardingLoadingBehindModal } from '../../../store/reducers/runtime';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
@@ -75,6 +75,7 @@ const DeviceStatusCheckModal: FC = () => {
         // 30s timeout for device connection
         const result = await Promise.race([
           serviceHardware.getFeatures(device.connectId ?? ''),
+          // eslint-disable-next-line no-promise-executor-return
           new Promise((_, reject) => setTimeout(reject, 30 * 1000)),
         ]);
         features = result as IOneKeyDeviceFeatures;

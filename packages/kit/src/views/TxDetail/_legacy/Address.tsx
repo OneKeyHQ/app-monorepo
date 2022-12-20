@@ -1,10 +1,11 @@
-import React, { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
 import _ from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
-import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
+import type { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 

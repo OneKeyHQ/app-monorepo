@@ -1,14 +1,16 @@
-import React, { FC, useEffect, useLayoutEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 
 import { Box, Modal } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
-import {
+import type {
   FiatPayModalRoutesParams,
   FiatPayRoutes,
 } from '../../../routes/Modal/FiatPay';
+import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   FiatPayModalRoutesParams,
@@ -17,7 +19,7 @@ type RouteProps = RouteProp<
 
 export const MoonpayWebView: FC = () => {
   const route = useRoute<RouteProps>();
-  const { url } = route?.params;
+  const { url } = route?.params || {};
   const navigation = useNavigation();
 
   useLayoutEffect(() => {

@@ -1,7 +1,7 @@
 import { PROTO } from '@onekeyfe/hd-core';
 
-import { DBUTXOAccount } from '../../../../types/account';
-import { IChangeAddress } from '../types';
+import type { DBUTXOAccount } from '../../../../types/account';
+import type { IChangeAddress } from '../types';
 
 export const getChangeAddress = (dbAccount: DBUTXOAccount): IChangeAddress => ({
   address: dbAccount.address,

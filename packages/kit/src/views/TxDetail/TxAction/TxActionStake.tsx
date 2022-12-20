@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Typography } from '@onekeyhq/components';
@@ -14,7 +12,8 @@ import {
   TxActionElementAmountLarge,
   TxActionElementAmountNormal,
 } from '../elements/TxActionElementAmount';
-import {
+
+import type {
   ITxActionCardProps,
   ITxActionElementDetail,
   ITxActionMetaIcon,

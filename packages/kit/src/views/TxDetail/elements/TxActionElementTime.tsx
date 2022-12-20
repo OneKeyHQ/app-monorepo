@@ -1,4 +1,5 @@
-import React, { ComponentProps, useMemo } from 'react';
+import type { ComponentProps } from 'react';
+import { useMemo } from 'react';
 
 import { Text } from '@onekeyhq/components';
 

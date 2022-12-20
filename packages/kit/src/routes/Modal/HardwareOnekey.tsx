@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import OnekeyHardwareConfirm from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConfirm';
 import OnekeyHardwareConnect from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConnect';
@@ -8,7 +6,7 @@ import OnekeyHardwareDeviceName from '@onekeyhq/kit/src/views/Hardware/Onekey/On
 import OnekeyHardwareHomescreen from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareHomescreen';
 import OnekeyHardwarePinCode from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwarePinCode';
 import OnekeyHardwareVerify from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareVerify';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';

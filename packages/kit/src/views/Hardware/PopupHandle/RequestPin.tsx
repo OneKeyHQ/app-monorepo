@@ -1,6 +1,6 @@
-import { FC, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { IDeviceType } from '@onekeyfe/hd-core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,7 +18,10 @@ import EnterPinCodeOnPro from '@onekeyhq/kit/assets/animations/enter-pin-code-on
 import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-touch.json';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import BaseRequestView, { BaseRequestViewProps } from './BaseRequest';
+import BaseRequestView from './BaseRequest';
+
+import type { BaseRequestViewProps } from './BaseRequest';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export const PINCodeMaxLength = 9;
 

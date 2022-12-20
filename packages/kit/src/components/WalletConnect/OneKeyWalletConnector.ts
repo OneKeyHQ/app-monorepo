@@ -6,12 +6,10 @@ import {
 import * as cryptoLib from '@walletconnect/iso-crypto';
 import { isNil, toLower } from 'lodash';
 
-import {
-  OneKeyWalletConnectSocketTransport,
-  getOrCreateTransport,
-} from './OneKeyWalletConnectSocketTransport';
+import { getOrCreateTransport } from './OneKeyWalletConnectSocketTransport';
 import { WALLET_CONNECT_BRIDGE } from './walletConnectConsts';
 
+import type { OneKeyWalletConnectSocketTransport } from './OneKeyWalletConnectSocketTransport';
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type {
   IPushServerOptions,

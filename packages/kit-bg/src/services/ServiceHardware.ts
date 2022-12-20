@@ -1,24 +1,14 @@
 import {
-  BleReleaseInfoEvent,
-  CoreMessage,
   DEVICE,
-  DeviceSendSupportFeatures,
-  DeviceSettingsParams,
-  DeviceSupportFeaturesPayload,
-  DeviceUploadResourceParams,
   FIRMWARE,
   FIRMWARE_EVENT,
-  IDeviceType,
-  KnownDevice,
   LOG_EVENT,
-  ReleaseInfoEvent,
-  UiResponseEvent,
   getDeviceType,
 } from '@onekeyfe/hd-core';
 import { get } from 'lodash';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
-import { DevicePayload } from '@onekeyhq/engine/src/types/device';
+import type { DevicePayload } from '@onekeyhq/engine/src/types/device';
 import {
   addConnectedConnectId,
   removeConnectedConnectId,
@@ -35,7 +25,7 @@ import {
   InitIframeTimeout,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
-import {
+import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
@@ -47,9 +37,22 @@ import {
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
+
+import type {
+  BleReleaseInfoEvent,
+  CoreMessage,
+  DeviceSendSupportFeatures,
+  DeviceSettingsParams,
+  DeviceSupportFeaturesPayload,
+  DeviceUploadResourceParams,
+  IDeviceType,
+  KnownDevice,
+  ReleaseInfoEvent,
+  UiResponseEvent,
+} from '@onekeyfe/hd-core';
 
 type ConnectedEvent = { device: KnownDevice };
 

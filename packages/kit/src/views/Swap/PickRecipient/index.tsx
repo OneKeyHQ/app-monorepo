@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { ListRenderItem, SectionListRenderItem } from 'react-native';
 
 import {
   Badge,
@@ -17,19 +16,22 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
-import { Account } from '@onekeyhq/engine/src/types/account';
-import { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
-import { IOneKeyDeviceType } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../../components/WalletSelector/WalletAvatar';
 import { useAppSelector } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
-import { Contact } from '../../../store/reducers/contacts';
-import { SwapRoutes, SwapRoutesParams } from '../typings';
+import { SwapRoutes } from '../typings';
 
+import type { Contact } from '../../../store/reducers/contacts';
+import type { SwapRoutesParams } from '../typings';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ListRenderItem, SectionListRenderItem } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   SwapRoutesParams,

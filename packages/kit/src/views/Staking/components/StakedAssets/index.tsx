@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box } from '@onekeyhq/components';
 import { useTokenSupportStakedAssets } from '@onekeyhq/kit/src/hooks/useTokens';

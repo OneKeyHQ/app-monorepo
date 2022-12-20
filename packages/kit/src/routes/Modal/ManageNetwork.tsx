@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { AddNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/AddNetwork';
 import { CustomNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/CustomNetwork';
@@ -7,10 +5,8 @@ import { Listing } from '@onekeyhq/kit/src/views/ManageNetworks/Listing';
 import { SortableView } from '@onekeyhq/kit/src/views/ManageNetworks/Listing/SortableView';
 import { PresetNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/PresetNetwork';
 import { ManageNetworkRPCNode } from '@onekeyhq/kit/src/views/ManageNetworks/RPCNode';
-import {
-  ManageNetworkRoutes,
-  ManageNetworkRoutesParams,
-} from '@onekeyhq/kit/src/views/ManageNetworks/types';
+import type { ManageNetworkRoutesParams } from '@onekeyhq/kit/src/views/ManageNetworks/types';
+import { ManageNetworkRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 
 import { NetworkAccountSelectorModal } from '../../components/NetworkAccountSelector';
 import { NetworkSelectorModal } from '../../components/NetworkAccountSelector/modals/NetworkSelectorModal/NetworkSelectorModal';

@@ -1,23 +1,25 @@
-import React, { FC, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
-import OnekeyLite, {
-  NfcConnectUiState,
-} from '@onekeyhq/app/src/hardware/OnekeyLite';
-import {
+import type { NfcConnectUiState } from '@onekeyhq/app/src/hardware/OnekeyLite';
+import OnekeyLite from '@onekeyhq/app/src/hardware/OnekeyLite';
+import type {
   CallbackError,
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
-import { ButtonType } from '@onekeyhq/components/src/Button';
-import { OnekeyLiteResetRoutesParams } from '@onekeyhq/kit/src/routes';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ButtonType } from '@onekeyhq/components/src/Button';
+import type { OnekeyLiteResetRoutesParams } from '@onekeyhq/kit/src/routes';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import { SkipAppLock } from '../../../../components/AppLock';
-import HardwareConnect, { OperateType } from '../../BaseConnect';
+import HardwareConnect from '../../BaseConnect';
 import ErrorDialog from '../ErrorDialog';
+
+import type { OperateType } from '../../BaseConnect';
 
 type NavigationProps = ModalScreenProps<OnekeyLiteResetRoutesParams>;
 

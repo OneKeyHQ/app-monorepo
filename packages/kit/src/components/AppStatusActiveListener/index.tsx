@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useEffect, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

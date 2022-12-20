@@ -1,11 +1,10 @@
 import { useCallback } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components/src/Toast/useToast';
-import {
+import type {
   KeyTagVerifyWalletRoutes,
   KeyTagVerifyWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
@@ -13,7 +12,10 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Attentions } from '../../CreateWallet/AppWallet/Attentions';
 import { KeyTagRoutes } from '../Routes/enums';
-import { IKeytagRoutesParams } from '../Routes/types';
+
+import type { IKeytagRoutesParams } from '../Routes/types';
+import type { RouteProp } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type RouteProps = RouteProp<
   KeyTagVerifyWalletRoutesParams,

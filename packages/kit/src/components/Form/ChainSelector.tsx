@@ -1,6 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { ControllerProps, FieldValues } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { Form } from '@onekeyhq/components';
@@ -8,6 +7,8 @@ import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
+
+import type { ControllerProps, FieldValues } from 'react-hook-form';
 
 type FormChainSelectorProps = {
   selectableNetworks?: Array<string>;

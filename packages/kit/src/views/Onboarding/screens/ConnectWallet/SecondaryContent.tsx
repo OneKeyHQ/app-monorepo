@@ -1,4 +1,5 @@
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -39,47 +40,45 @@ const SecondaryContent: FC = () => {
   );
 
   return (
-    <>
-      <Center flex={1}>
-        <Hidden from="sm">
-          <Box
-            testID="ConnectWallet-SecondaryContent-Divider"
-            w="full"
-            h={platformEnv.isNative ? StyleSheet.hairlineWidth : '1px'}
-            bgColor="divider"
-            mt={-4}
-            mb={1}
-          />
-        </Hidden>
+    <Center flex={1}>
+      <Hidden from="sm">
         <Box
-          flexDir={{ sm: 'row' }}
-          flexWrap={{ sm: 'wrap' }}
-          alignSelf="stretch"
-          mx={-2}
-        >
-          <ConnectWalletListView
-            onConnectResult={async (result) => {
-              await addExternalAccount(result);
-              await onboardingDone();
-              await wait(600);
-              toast.show({
-                title: intl.formatMessage({ id: 'msg__account_imported' }),
-              });
-            }}
+          testID="ConnectWallet-SecondaryContent-Divider"
+          w="full"
+          h={platformEnv.isNative ? StyleSheet.hairlineWidth : '1px'}
+          bgColor="divider"
+          mt={-4}
+          mb={1}
+        />
+      </Hidden>
+      <Box
+        flexDir={{ sm: 'row' }}
+        flexWrap={{ sm: 'wrap' }}
+        alignSelf="stretch"
+        mx={-2}
+      >
+        <ConnectWalletListView
+          onConnectResult={async (result) => {
+            await addExternalAccount(result);
+            await onboardingDone();
+            await wait(600);
+            toast.show({
+              title: intl.formatMessage({ id: 'msg__account_imported' }),
+            });
+          }}
+        />
+        {thirdPartyHardwareOptions.map((option) => (
+          <ConnectWalletListItem
+            key={option.label}
+            label={option.label}
+            available={option.available}
+            logoSource={option.logo}
+            onPress={() => {}}
           />
-          {thirdPartyHardwareOptions.map((option) => (
-            <ConnectWalletListItem
-              key={option.label}
-              label={option.label}
-              available={option.available}
-              logoSource={option.logo}
-              onPress={() => {}}
-            />
-          ))}
-        </Box>
-      </Center>
-    </>
+        ))}
+      </Box>
+    </Center>
   );
 };
 
-export default React.memo(SecondaryContent);
+export default memo(SecondaryContent);

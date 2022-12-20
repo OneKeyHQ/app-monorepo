@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/no-unsafe-member-access */
-import { Middleware } from 'redux';
+import type { Middleware } from 'redux';
 // import logger from 'redux-logger';
 
 // const simpleLogger: Middleware<unknown, unknown> =

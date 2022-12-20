@@ -1,4 +1,5 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import { Box, Center, Icon, Image, NetImage } from '@onekeyhq/components';
 import CollectionDefaultLogo from '@onekeyhq/components/img/collection_default_logo.png';
@@ -56,4 +57,4 @@ const FallbackElement: FC<Props> = ({ ...props }) => {
   );
 };
 
-export const MemoFallbackElement = React.memo(FallbackElement);
+export const MemoFallbackElement = memo(FallbackElement);

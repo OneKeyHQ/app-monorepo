@@ -1,4 +1,5 @@
-import React, { FC, useState } from 'react';
+import type { FC } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,7 +9,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import walletConnectUtils from '../../../components/WalletConnect/utils/walletConnectUtils';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
-import { AddConnectionSideDialogProps } from '../types';
+
+import type { AddConnectionSideDialogProps } from '../types';
 
 const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
   closeOverlay,

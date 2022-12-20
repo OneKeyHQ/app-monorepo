@@ -1,7 +1,8 @@
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import B from 'bignumber.js';
 import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -25,12 +26,13 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
-import {
+import { PreSendAmountPreview } from '../Send/modals/PreSendAmount';
+
+import type {
   ManageTokenRoutes,
   ManageTokenRoutesParams,
 } from '../ManageTokens/types';
-import { PreSendAmountPreview } from '../Send/modals/PreSendAmount';
-
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -226,7 +228,7 @@ export const PriceAlertAddModal: FC = () => {
             <Box mt={6}>
               <Keyboard
                 itemHeight={shortScreen ? '44px' : undefined}
-                pattern={new RegExp(`^(0|([1-9][0-9]*))?.?([0-9]+)?$`)}
+                pattern={/^(0|([1-9][0-9]*))?.?([0-9]+)?$/}
                 text={text}
                 onTextChange={onTextChange}
               />

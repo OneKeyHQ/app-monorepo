@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from 'react';
 
-import { INetwork } from '@onekeyhq/engine/src/types';
+import type { INetwork } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 

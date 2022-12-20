@@ -1,8 +1,4 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import {
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
 import { cloneDeep, debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -10,10 +6,12 @@ import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import type { IDappSignAndSendParams } from '@onekeyhq/kit/src/hooks/useDappParams';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import {
+import type {
   DappSiteConnection,
   DappSiteConnectionRemovePayload,
   DappSiteConnectionSavePayload,
+} from '@onekeyhq/kit/src/store/reducers/dapp';
+import {
   dappRemoveSiteConnections,
   dappSaveSiteConnection,
 } from '@onekeyhq/kit/src/store/reducers/dapp';
@@ -39,6 +37,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
+
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 type CommonRequestParams = {
   request: IJsBridgeMessagePayload;

@@ -1,10 +1,11 @@
-import React, { FC } from 'react';
-
-import { IBoxProps, IRadioValue } from 'native-base';
+import type { FC, ReactElement } from 'react';
 
 import Box from '../Box';
-import { ButtonSize } from '../Button';
-import RadioButton, { RadioButtonProps } from '../RadioButton';
+import RadioButton from '../RadioButton';
+
+import type { ButtonSize } from '../Button';
+import type { RadioButtonProps } from '../RadioButton';
+import type { IBoxProps, IRadioValue } from 'native-base';
 
 interface IRadioButtonGroupProps extends IBoxProps<IRadioButtonGroupProps> {
   /**
@@ -31,7 +32,7 @@ interface IRadioButtonGroupProps extends IBoxProps<IRadioButtonGroupProps> {
    * 选中状态的回调
    */
   onChange?: (value: IRadioValue) => any;
-  children: React.ReactElement<RadioButtonProps>[];
+  children: ReactElement<RadioButtonProps>[];
 }
 
 export type RadioButtonGroupProps = IRadioButtonGroupProps;

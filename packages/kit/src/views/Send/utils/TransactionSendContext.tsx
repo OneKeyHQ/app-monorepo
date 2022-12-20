@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type ITransactionSendContextData = {};
@@ -6,7 +7,7 @@ export type ITransactionSendContextData = {};
 export type ITransactionSendContext = {
   isTransactionSendFlow: boolean;
   context: ITransactionSendContextData;
-  setContext: React.Dispatch<React.SetStateAction<ITransactionSendContextData>>;
+  setContext: Dispatch<SetStateAction<ITransactionSendContextData>>;
 };
 
 const TransactionSendContext = createContext<ITransactionSendContext | null>(
@@ -26,15 +27,17 @@ function TransactionSendContextProvider(
   //     ...ctx,
   //   }));
   // }, []);
+  const contextValue = useMemo(
+    () => ({
+      isTransactionSendFlow: true,
+      context,
+      setContext,
+    }),
+    [context],
+  );
 
   return (
-    <TransactionSendContext.Provider
-      value={{
-        isTransactionSendFlow: true,
-        context,
-        setContext,
-      }}
-    >
+    <TransactionSendContext.Provider value={contextValue}>
       {children}
     </TransactionSendContext.Provider>
   );

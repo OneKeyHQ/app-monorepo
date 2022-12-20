@@ -1,6 +1,6 @@
-import React, { ComponentProps, FC, useCallback } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback } from 'react';
 
-import { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -14,15 +14,15 @@ import {
   Pressable,
   Typography,
 } from '@onekeyhq/components';
-import { BadgeType } from '@onekeyhq/components/src/Badge';
+import type { BadgeType } from '@onekeyhq/components/src/Badge';
 import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
 import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
-import {
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
+
+import type { RouteProp } from '@react-navigation/core';
 
 export type BackupWalletViewProps = {
   walletId: string;

@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import {
   Box,

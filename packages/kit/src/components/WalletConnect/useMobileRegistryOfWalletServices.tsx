@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -6,8 +6,9 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-import { WalletService } from './types';
 import { WALLET_CONNECT_WALLET_NAMES } from './walletConnectConsts';
+
+import type { WalletService } from './types';
 
 // https://registry.walletconnect.org/data/wallets.json
 function buildEnabledWallets({
@@ -44,8 +45,8 @@ const defaultState: {
 });
 // import { useMobileRegistry } from '@walletconnect/react-native-dapp';
 export default function useMobileRegistry() {
-  const [state, setState] = React.useState(defaultState);
-  React.useEffect(() => {
+  const [state, setState] = useState(defaultState);
+  useEffect(() => {
     (async () => {
       try {
         const result = await fetch(

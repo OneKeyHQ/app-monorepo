@@ -1,19 +1,21 @@
-import React, { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 
 import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 
-import { HomeRoutes } from '../../../routes/routesEnum';
-import { HomeRoutesParams } from '../../../routes/types';
 import ChainSelector from '../ChainSelector';
 import { useDefaultNetWork } from '../Home/hook';
 import { LiveMintingList } from '../Home/LiveMinting';
 import {
   LiveMintListContext,
-  LiveMintListContextValue,
   useLiveMintContext,
 } from '../Home/LiveMinting/context';
+
+import type { HomeRoutes } from '../../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../../routes/types';
+import type { LiveMintListContextValue } from '../Home/LiveMinting/context';
+import type { RouteProp } from '@react-navigation/core';
 
 const List = () => {
   const { bottom } = useSafeAreaInsets();
@@ -68,8 +70,9 @@ const LiveMintingScreen = () => {
     selectedNetwork: network,
   });
 
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
-    <LiveMintListContext.Provider value={{ context, setContext }}>
+    <LiveMintListContext.Provider value={contextValue}>
       <List />
     </LiveMintListContext.Provider>
   );

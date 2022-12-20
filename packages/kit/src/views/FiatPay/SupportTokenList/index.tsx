@@ -1,9 +1,9 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Fuse from 'fuse.js';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import {
   Box,
@@ -16,16 +16,17 @@ import {
   Token as TokenImage,
 } from '@onekeyhq/components';
 import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import { useManageTokens } from '../../../hooks';
 import { useFiatPay } from '../../../hooks/redux';
-import {
-  FiatPayModalRoutesParams,
-  FiatPayRoutes,
-} from '../../../routes/Modal/FiatPay';
-import { TokenBalanceValue } from '../../../store/reducers/tokens';
-import { CurrencyType } from '../types';
+import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
+
+import type { FiatPayModalRoutesParams } from '../../../routes/Modal/FiatPay';
+import type { TokenBalanceValue } from '../../../store/reducers/tokens';
+import type { CurrencyType } from '../types';
+import type { RouteProp } from '@react-navigation/native';
+import type { ListRenderItem } from 'react-native';
 
 type RouteProps = RouteProp<
   FiatPayModalRoutesParams,

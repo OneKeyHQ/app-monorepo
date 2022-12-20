@@ -1,10 +1,10 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
-import { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
-import { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import type { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
+import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 
 export type HashProps = {
   tx: EVMDecodedItem;

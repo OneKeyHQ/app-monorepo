@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,7 +15,7 @@ import {
   useForm,
   useToast,
 } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -24,8 +25,7 @@ import { useAppSelector, useData } from '../../hooks/redux';
 import { setEnableLocalAuthentication } from '../../store/reducers/settings';
 import { savePassword } from '../../utils/localAuthentication';
 
-import { PasswordRoutes, PasswordRoutesParams } from './types';
-
+import type { PasswordRoutes, PasswordRoutesParams } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

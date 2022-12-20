@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box, IconButton, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,34 +16,32 @@ const Header: FC<HeaderProps> = ({ title }) => {
   const { closeWalletSelector } = useNavigationActions();
 
   return (
-    <>
-      <Box
-        flexDirection="row"
-        alignItems="center"
-        py={platformEnv.isNative ? 4 : 3}
-        pr="15px"
-        pl={4}
+    <Box
+      flexDirection="row"
+      alignItems="center"
+      py={platformEnv.isNative ? 4 : 3}
+      pr="15px"
+      pl={4}
+    >
+      <Text
+        flex={1}
+        typography={platformEnv.isNative ? 'PageHeading' : 'Heading'}
+        mr={3}
+        isTruncated
       >
-        <Text
-          flex={1}
-          typography={platformEnv.isNative ? 'PageHeading' : 'Heading'}
-          mr={3}
-          isTruncated
-        >
-          {title}
-        </Text>
-        <IconButton
-          circle
-          name="PlusMini"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Onboarding);
-            setTimeout(() => {
-              closeWalletSelector();
-            }, 300);
-          }}
-        />
-      </Box>
-    </>
+        {title}
+      </Text>
+      <IconButton
+        circle
+        name="PlusMini"
+        onPress={() => {
+          navigation.navigate(RootRoutes.Onboarding);
+          setTimeout(() => {
+            closeWalletSelector();
+          }, 300);
+        }}
+      />
+    </Box>
   );
 };
 

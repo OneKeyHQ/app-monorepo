@@ -1,6 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-
-import { StyleProp, ViewStyle } from 'react-native';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,12 +11,14 @@ import TimeControl, {
 } from '../../../PriceChart/TimeControl';
 import { useMarketTokenChart } from '../../hooks/useMarketToken';
 
+import type { StyleProp, ViewStyle } from 'react-native';
+
 type MarketPriceChartProps = {
   coingeckoId: string;
   style?: StyleProp<ViewStyle>;
 };
 
-const MarketPriceChart: React.FC<MarketPriceChartProps> = ({
+const MarketPriceChart: FC<MarketPriceChartProps> = ({
   coingeckoId,
   style,
 }) => {

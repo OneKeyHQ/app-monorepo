@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -31,49 +31,47 @@ const ChainSelector: FC<ChainSelectorProps> = () => {
   ];
 
   return (
-    <>
+    <Box
+      alignSelf="stretch"
+      borderRightWidth={StyleSheet.hairlineWidth}
+      borderColor="divider"
+    >
+      <FlatList
+        data={ChainList}
+        keyExtractor={(item) => item.logoURL}
+        renderItem={({ item }) => (
+          <Pressable>
+            {({ isHovered, isPressed }) => (
+              <Box
+                p={1.5}
+                m={1}
+                borderWidth={2}
+                borderColor={
+                  item.isActive
+                    ? 'interactive-default'
+                    : isPressed
+                    ? 'border-default'
+                    : isHovered
+                    ? 'border-subdued'
+                    : 'transparent'
+                }
+                rounded="full"
+              >
+                <Token size={8} token={{ logoURI: item.logoURL }} />
+              </Box>
+            )}
+          </Pressable>
+        )}
+        style={{ flex: 1, padding: 4 }}
+      />
       <Box
-        alignSelf="stretch"
-        borderRightWidth={StyleSheet.hairlineWidth}
+        p={2}
+        borderTopWidth={StyleSheet.hairlineWidth}
         borderColor="divider"
       >
-        <FlatList
-          data={ChainList}
-          keyExtractor={(item) => item.logoURL}
-          renderItem={({ item }) => (
-            <Pressable>
-              {({ isHovered, isPressed }) => (
-                <Box
-                  p={1.5}
-                  m={1}
-                  borderWidth={2}
-                  borderColor={
-                    item.isActive
-                      ? 'interactive-default'
-                      : isPressed
-                      ? 'border-default'
-                      : isHovered
-                      ? 'border-subdued'
-                      : 'transparent'
-                  }
-                  rounded="full"
-                >
-                  <Token size={8} token={{ logoURI: item.logoURL }} />
-                </Box>
-              )}
-            </Pressable>
-          )}
-          style={{ flex: 1, padding: 4 }}
-        />
-        <Box
-          p={2}
-          borderTopWidth={StyleSheet.hairlineWidth}
-          borderColor="divider"
-        >
-          <IconButton name="CogOutline" size="xl" type="plain" circle />
-        </Box>
+        <IconButton name="CogOutline" size="xl" type="plain" circle />
       </Box>
-    </>
+    </Box>
   );
 };
 

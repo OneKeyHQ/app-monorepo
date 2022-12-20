@@ -1,6 +1,4 @@
-import React from 'react';
-
-import { RouteProp, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,13 +9,15 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HomeRoutes } from '../../../../routes/routesEnum';
-import { HomeRoutesParams } from '../../../../routes/types';
 import AssetsList from '../AssetsList';
 import CollectionInfo from '../CollectionInfo';
 import { useCollectionDetailContext } from '../context';
 import TransactionList from '../TransactionList';
 import { TabEnum } from '../type';
+
+import type { HomeRoutes } from '../../../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../../../routes/types';
+import type { RouteProp } from '@react-navigation/core';
 
 const Screen = () => {
   const intl = useIntl();

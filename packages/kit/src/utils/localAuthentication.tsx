@@ -1,73 +1,14 @@
-import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
-
-import LOCALES from '@onekeyhq/components/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { getDefaultLocale } from './locale';
+import type { LocalAuthenticationResult } from 'expo-local-authentication';
 
 export const hasHardwareSupported = () =>
   new Promise<boolean>((resolve) => {
-    if (platformEnv.isNative) {
-      const p = LocalAuthentication.hasHardwareAsync().then((supported) =>
-        LocalAuthentication.isEnrolledAsync().then(
-          (isEnrolled) => supported && isEnrolled,
-        ),
-      );
-      resolve(p);
-    } else if (platformEnv.isDesktop) {
-      const result = window?.desktopApi?.canPromptTouchID();
-      resolve(!!result);
-    } else {
-      resolve(false);
-    }
+    resolve(false);
   });
 
-export const localAuthenticate: () => Promise<LocalAuthentication.LocalAuthenticationResult> =
-  async () => {
-    const supported = await hasHardwareSupported();
-    if (!supported) {
-      return { success: false, error: 'no supported' };
-    }
-    if (platformEnv.isNative) {
-      return LocalAuthentication.authenticateAsync({
-        cancelLabel: 'Cancel',
-      });
-    }
-    if (platformEnv.isDesktop) {
-      try {
-        const defaultLocale = getDefaultLocale();
-        const reason = LOCALES[defaultLocale]?.action__unlock ?? 'unlock';
-        const result = await window?.desktopApi?.promptTouchID(
-          reason.toLowerCase(),
-        );
-        return {
-          success: result.success,
-          error: result.error ?? 'no supported',
-        };
-      } catch {
-        return { success: false, error: 'no supported' };
-      }
-    } else {
-      return { success: false, error: 'no supported' };
-    }
-  };
+export const localAuthenticate: () => Promise<LocalAuthenticationResult> = () =>
+  Promise.resolve({ success: false, error: 'no supported' });
 
-export const savePassword = async (password: string) => {
-  if (platformEnv.isNative) {
-    await SecureStore.setItemAsync('password', password);
-  }
-  if (platformEnv.isDesktop) {
-    window?.desktopApi.secureSetItemAsync('password', password);
-  }
-};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const savePassword = (password: string) => Promise.resolve();
 
-export const getPassword = async () => {
-  if (platformEnv.isNative) {
-    return SecureStore.getItemAsync('password');
-  }
-  if (platformEnv.isDesktop) {
-    return window?.desktopApi.secureGetItemAsync('password');
-  }
-  return null;
-};
+export const getPassword = () => Promise.resolve(null);

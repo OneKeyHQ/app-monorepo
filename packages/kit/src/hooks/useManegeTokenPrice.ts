@@ -33,7 +33,7 @@ export const useSimpleTokenPriceValue = ({
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
   return useMemo(() => {
     if (!networkId) return undefined;
-    if (priceInfo && priceInfo[vsCurrency]) {
+    if (priceInfo) {
       return priceInfo[vsCurrency];
     }
   }, [networkId, priceInfo, vsCurrency]);

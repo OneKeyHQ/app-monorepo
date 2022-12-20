@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 
 import { AppLockBypass } from './AppLockBypass';
+
+import type { AppStateStatus } from 'react-native';
 
 const NativeUpdator = () => {
   const appState = useRef(AppState.currentState);

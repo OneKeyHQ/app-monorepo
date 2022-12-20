@@ -1,16 +1,17 @@
-import React, { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import { Center } from 'native-base';
-import { ColorType } from 'native-base/lib/typescript/components/types';
 
 import Box from '../Box';
 import Divider from '../Divider';
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import IconButton from '../IconButton';
 import PressableItem from '../Pressable/PressableItem';
 import Typography, { Text } from '../Typography';
 
-import { ContentItemBaseProps } from './Container';
+import type { ICON_NAMES } from '../Icon';
+import type { ContentItemBaseProps } from './Container';
+import type { ColorType } from 'native-base/lib/typescript/components/types';
 
 /**
  * @name Container.Item
@@ -23,17 +24,17 @@ export type ContentItemProps = {
   subDescribe?: string | string[] | null;
   hasArrow?: boolean;
   customArrowIconName?: ICON_NAMES;
-  subDescribeCustom?: React.ReactNode | null;
+  subDescribeCustom?: ReactNode | null;
   /**
    * @warning: This is not a good practice, but it's a workaround for the.
    */
-  wrap?: React.ReactNode | null;
+  wrap?: ReactNode | null;
   hidePadding?: boolean;
   /**
    * @deprecated
    * Not recommended to use this prop.
    */
-  children?: React.ReactNode | null;
+  children?: ReactNode | null;
   onPress?: (() => void) | null;
   onArrowIconPress?: (() => void) | null;
 } & ContentItemBaseProps;

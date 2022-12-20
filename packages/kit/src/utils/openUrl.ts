@@ -31,6 +31,7 @@ export const openUrlByWebview = (
         params: {
           url,
           title,
+          modalMode: true,
         },
       },
     });

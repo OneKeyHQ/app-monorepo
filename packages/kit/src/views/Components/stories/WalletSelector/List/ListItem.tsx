@@ -1,4 +1,4 @@
-import React, { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { Badge, Box, IconButton, Pressable, Text } from '@onekeyhq/components';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';

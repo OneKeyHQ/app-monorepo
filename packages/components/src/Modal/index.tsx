@@ -1,13 +1,10 @@
-import {
+import type {
   ComponentProps,
   MutableRefObject,
   ReactElement,
   ReactNode,
-  cloneElement,
-  useCallback,
-  useMemo,
-  useRef,
 } from 'react';
+import { cloneElement, useCallback, useMemo, useRef } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { RootSiblingParent } from 'react-native-root-siblings';
@@ -15,17 +12,20 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
-import Button from '../Button';
-import FlatList, { FlatListProps } from '../FlatList';
-import { LocaleIds } from '../locale';
+import FlatList from '../FlatList';
 import { useIsVerticalLayout, useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
-import SectionList, { SectionListProps } from '../SectionList';
+import SectionList from '../SectionList';
 import SortableList from '../SortableList';
 
 import Desktop from './Container/Desktop';
-import { HeaderProps } from './Container/Header/type';
 import Mobile from './Container/Mobile';
+
+import type Button from '../Button';
+import type { FlatListProps } from '../FlatList';
+import type { LocaleIds } from '../locale';
+import type { SectionListProps } from '../SectionList';
+import type { HeaderProps } from './Container/Header/type';
 
 export type ModalProps = {
   headerShown?: boolean;

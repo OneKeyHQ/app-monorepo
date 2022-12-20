@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { createContext, useContext } from 'react';
 
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -12,7 +13,7 @@ export type LiveMintListContextValue = {
 
 export type ILiveMintListContent = {
   context: LiveMintListContextValue;
-  setContext: React.Dispatch<React.SetStateAction<LiveMintListContextValue>>;
+  setContext: Dispatch<SetStateAction<LiveMintListContextValue>>;
 };
 
 export const LiveMintListContext = createContext<ILiveMintListContent | null>(

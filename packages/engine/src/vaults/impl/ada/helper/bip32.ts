@@ -6,9 +6,9 @@ import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 // @ts-expect-error
 import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
-import { BIP32Path } from '../types';
-
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
+
+import type { BIP32Path } from '../types';
 
 export function toBip32StringPath(derivationPath: BIP32Path) {
   return `m/${derivationPath

@@ -1,11 +1,7 @@
-import React, {
-  ComponentProps,
-  ReactElement,
-  cloneElement,
-  useCallback,
-} from 'react';
+import type { ComponentProps, ReactElement } from 'react';
+import { cloneElement, useCallback } from 'react';
 
-import { Controller, ControllerProps, FieldValues } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
@@ -13,15 +9,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
-import { ICON_NAMES } from '../Icon';
 import IconButton from '../IconButton';
 import { useIsVerticalLayout } from '../Provider/hooks';
 import Stack from '../Stack';
-import { TextAreaAction } from '../Textarea';
 import Typography from '../Typography';
 import { getClipboard } from '../utils/ClipboardUtils';
 
 import { FormControlMessage } from './FormControlMessage';
+
+import type { ICON_NAMES } from '../Icon';
+import type { TextAreaAction } from '../Textarea';
+import type { ControllerProps, FieldValues } from 'react-hook-form';
 
 type InternalActionList = 'paste' | 'scan';
 
@@ -103,7 +101,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                       />
                     );
                   }
-                  if (item === 'scan' && !platformEnv.isExtFirefoxUiPopup) {
+                  if (item === 'scan') {
                     return (
                       <IconButton
                         key={i}

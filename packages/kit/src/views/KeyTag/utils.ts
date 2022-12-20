@@ -1,6 +1,8 @@
 import * as bip39 from 'bip39';
 
-import { KeyTagMnemonic, KeyTagMnemonicStatus } from './types';
+import { KeyTagMnemonicStatus } from './types';
+
+import type { KeyTagMnemonic } from './types';
 
 const bitCount = 12;
 

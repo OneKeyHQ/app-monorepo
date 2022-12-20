@@ -1,10 +1,5 @@
-import React, {
-  ComponentProps,
-  FC,
-  useCallback,
-  useEffect,
-  useState,
-} from 'react';
+import type { ComponentProps, FC, ReactElement } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
@@ -18,20 +13,21 @@ import {
   Typography,
   utils,
 } from '@onekeyhq/components';
-import { Network } from '@onekeyhq/engine/src/types/network';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setRecipient } from '../../../../store/reducers/swap';
-import { Token as TokenType } from '../../../../store/typings';
 import { useSwapQuoteCallback, useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
 import { NetworkName } from '../NetworkName';
 import { TokenDisplay } from '../TokenDisplay';
+
+import type { Token as TokenType } from '../../../../store/typings';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
@@ -153,7 +149,7 @@ const TokenInputReceivingAddress: FC = () => {
     }
   }, [label]);
 
-  let text: React.ReactElement | undefined;
+  let text: ReactElement | undefined;
   const { address, name } = recipient ?? {};
   if (address && name) {
     text = (

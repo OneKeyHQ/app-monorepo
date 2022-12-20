@@ -1,9 +1,10 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import FastImage from 'react-native-fast-image';
 
 import { useThemeValue } from '../../Provider/hooks';
-import { InnerImageProps } from '../type';
+
+import type { InnerImageProps } from '../type';
 
 function NBPropToFastImageProp(str?: number | string): number {
   if (typeof str === 'number') return str;

@@ -1,4 +1,5 @@
-import { FC, useCallback, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Pressable } from 'native-base';
 
@@ -7,7 +8,8 @@ import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PlatformImage } from './PlatformImage';
-import { ImageProps, ImageState } from './type';
+
+import type { ImageProps, ImageState } from './type';
 
 export const Image: FC<ImageProps & { onPress?: () => void }> = ({
   retry = 0,

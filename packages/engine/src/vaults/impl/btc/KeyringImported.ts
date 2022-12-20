@@ -1,10 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
-import { ExtendedKey } from '@onekeyfe/blockchain-libs/dist/secret';
-import {
-  BaseBip32KeyDeriver,
-  Bip32KeyDeriver,
-} from '@onekeyfe/blockchain-libs/dist/secret/bip32';
+import { BaseBip32KeyDeriver } from '@onekeyfe/blockchain-libs/dist/secret/bip32';
 import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import {
   decrypt,
@@ -16,11 +11,15 @@ import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 
 import { OneKeyInternalError } from '../../../errors';
 import { Signer } from '../../../proxy';
-import { AccountType, DBUTXOAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
-import { IPrepareImportedAccountsParams } from '../../types';
 
+import type { DBUTXOAccount } from '../../../types/account';
+import type { IPrepareImportedAccountsParams } from '../../types';
 import type BTCVault from './Vault';
+import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
+import type { ExtendedKey } from '@onekeyfe/blockchain-libs/dist/secret';
+import type { Bip32KeyDeriver } from '@onekeyfe/blockchain-libs/dist/secret/bip32';
 
 const deriver = new BaseBip32KeyDeriver(
   Buffer.from('Bitcoin seed'),

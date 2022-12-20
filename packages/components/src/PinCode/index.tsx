@@ -1,15 +1,18 @@
-import React, { ComponentProps, FC, useEffect, useMemo, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import {
   CodeField,
   Cursor,
-  RenderCellOptions,
   useBlurOnFulfill,
   useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 
 import { useTheme, useThemeValue } from '../Provider/hooks';
+
+import type { View } from 'react-native';
+import type { RenderCellOptions } from 'react-native-confirmation-code-field';
 
 const CELL_SIZE = 42;
 const CELL_BORDER_RADIUS = 12;

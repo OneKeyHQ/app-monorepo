@@ -1,4 +1,5 @@
-import React, { FC } from 'react';
+/* eslint-disable react/no-unstable-nested-components */
+import type { FC } from 'react';
 
 import { Box, IconButton, Text } from '@onekeyhq/components';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
@@ -16,9 +17,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({
 }) => {
   // eslint-disable-next-line @typescript-eslint/ban-types
   const AddAccountAction: FC<{}> = () => (
-    <>
-      <IconButton type="plain" name="PlusCircleMini" circle />
-    </>
+    <IconButton type="plain" name="PlusCircleMini" circle />
   );
 
   return (

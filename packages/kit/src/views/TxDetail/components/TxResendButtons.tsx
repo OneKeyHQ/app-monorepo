@@ -1,25 +1,25 @@
-import React from 'react';
-
-import { NavigationProp } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
 import { Toast } from '@onekeyhq/components/src/Toast/useToast';
-import { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
-import { SendRoutes, TransactionDetailRoutesParams } from '../../../routes';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '../../../routes/types';
-import { SendConfirmActionType, SendConfirmParams } from '../../Send/types';
+import { SendRoutes } from '../../../routes';
+import { ModalRoutes, RootRoutes } from '../../../routes/types';
+
+import type { TransactionDetailRoutesParams } from '../../../routes';
+import type { ModalScreenProps } from '../../../routes/types';
+import type {
+  SendConfirmActionType,
+  SendConfirmParams,
+} from '../../Send/types';
+import type { NavigationProp } from '@react-navigation/native';
 
 export type HistoryListViewNavigationProp =
   ModalScreenProps<TransactionDetailRoutesParams>;

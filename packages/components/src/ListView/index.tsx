@@ -1,19 +1,22 @@
 /* eslint-disable react/prop-types */
 /* eslint-disable no-nested-ternary */
-import { ReactElement, useCallback, useMemo } from 'react';
+import type { ReactElement } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   FlatList as NBFlatList,
   SectionList as NBSectionList,
 } from '@onekeyhq/components';
-import { FlatListProps } from '@onekeyhq/components/src/FlatList';
-import { SectionListProps } from '@onekeyhq/components/src/SectionList';
+import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import type { SectionListProps } from '@onekeyhq/components/src/SectionList';
 
 import Footer from './Footer';
-import Header, { HeaderProps } from './Header';
+import Header from './Header';
 import ListItem from './ListItem';
 import ListItemSeparator from './ListItemSeparator';
 import SectionHeader from './SectionHeader';
+
+import type { HeaderProps } from './Header';
 
 interface ListProps<T> extends FlatListProps<T> {
   headerProps?: HeaderProps;

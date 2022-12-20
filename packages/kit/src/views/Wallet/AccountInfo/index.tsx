@@ -1,4 +1,5 @@
-import { FC, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -24,13 +25,13 @@ import {
 import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import {
   ModalRoutes,
-  ModalScreenProps,
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
+import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -38,7 +39,6 @@ import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
-import { SimpleTokenPrices } from '../../../store/reducers/tokens';
 import { getTimeDurationMs } from '../../../utils/helper';
 import {
   calculateGains,
@@ -47,6 +47,8 @@ import {
 } from '../../../utils/priceUtils';
 import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
+
+import type { SimpleTokenPrices } from '../../../store/reducers/tokens';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;

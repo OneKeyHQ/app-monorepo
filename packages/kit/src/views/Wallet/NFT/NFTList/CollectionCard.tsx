@@ -1,5 +1,5 @@
-import React, { ComponentProps, memo } from 'react';
-import type { FC } from 'react';
+import { memo } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { Row } from 'native-base';
 
@@ -12,7 +12,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
-import { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 

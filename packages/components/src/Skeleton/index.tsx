@@ -1,8 +1,6 @@
-import React, { ComponentProps, FC, PropsWithChildren } from 'react';
+import type { ComponentProps, FC, PropsWithChildren } from 'react';
 
-import ContentLoader, {
-  IContentLoaderProps,
-} from 'react-content-loader/native';
+import ContentLoader from 'react-content-loader/native';
 import { Rect } from 'react-native-svg';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -19,6 +17,8 @@ import {
   Heading,
   PageHeading,
 } from './Shapes';
+
+import type { IContentLoaderProps } from 'react-content-loader/native';
 
 type SkeletonProps = {
   /*

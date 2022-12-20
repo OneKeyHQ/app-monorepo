@@ -1,9 +1,10 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { CheckBox, Dialog, useToast } from '@onekeyhq/components';
-import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -31,9 +32,9 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   const { closeWalletSelector } = useNavigationActions();
 
   const { walletId, password, hardware } = deleteWallet ?? {};
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   // If a hardware wallet is being deleted, no second confirmation is required.
-  const [confirmed, setConfirmed] = React.useState(hardware ?? false);
+  const [confirmed, setConfirmed] = useState(hardware ?? false);
 
   return (
     <Dialog

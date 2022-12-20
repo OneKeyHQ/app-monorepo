@@ -1,15 +1,15 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
 import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
-import {
-  HardwareUpdateModalRoutes,
-  HardwareUpdateRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
-import { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<HardwareUpdateRoutesParams>;
 type RouteProps = RouteProp<

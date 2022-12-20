@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -18,9 +16,8 @@ import DeviceStatusCheck from '@onekeyhq/kit/src/views/CreateWallet/HardwareWall
 import RestoreHardwareWallet from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWallet';
 import RestoreHardwareWalletDescription from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/RestoreHardwareWalletDescription';
 import SetupHardware from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupHardware';
-import SetupNewDevice, {
-  SetupNewDeviceType,
-} from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupNewDevice';
+import type { SetupNewDeviceType } from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupNewDevice';
+import SetupNewDevice from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupNewDevice';
 import SetupSuccess from '@onekeyhq/kit/src/views/CreateWallet/HardwareWallet/SetupSuccess';
 import OnekeyLiteBackup from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/Backup';
 import OnekeyLiteBackupPinCode from '@onekeyhq/kit/src/views/Hardware/OnekeyLite/PinCode/BackupPinCodeVerify';

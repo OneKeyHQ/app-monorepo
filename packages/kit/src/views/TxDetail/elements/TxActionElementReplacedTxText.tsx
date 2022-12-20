@@ -1,10 +1,10 @@
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
-import { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 
 export function getReplacedTxTextKey({
   historyTx,

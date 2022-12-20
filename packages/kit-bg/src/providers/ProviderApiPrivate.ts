@@ -1,15 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
-import {
-  IInjectedProviderNames,
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
-import {
-  IWebViewWrapperRef,
-  JsBridgeDesktopHost,
-} from '@onekeyfe/onekey-cross-webview';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import walletConnectUtils from '@onekeyhq/kit/src/components/WalletConnect/utils/walletConnectUtils';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
@@ -22,11 +14,18 @@ import {
 import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import ProviderApiBase, {
-  IProviderBaseBackgroundNotifyInfo,
-} from './ProviderApiBase';
+import ProviderApiBase from './ProviderApiBase';
 
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type ProviderApiEthereum from './ProviderApiEthereum';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  IWebViewWrapperRef,
+  JsBridgeDesktopHost,
+} from '@onekeyfe/onekey-cross-webview';
 
 @backgroundClass()
 class ProviderApiPrivate extends ProviderApiBase {

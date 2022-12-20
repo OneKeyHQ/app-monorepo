@@ -1,4 +1,4 @@
-import React, {
+import {
   isValidElement,
   useCallback,
   useEffect,
@@ -6,9 +6,9 @@ import React, {
   useState,
 } from 'react';
 
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { MessageDescriptor, useIntl } from 'react-intl';
+import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -33,10 +33,13 @@ import { useTokenInfo } from '../../../hooks/useTokenInfo';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { BaseSendModal } from '../components/BaseSendModal';
-import { SendRoutes, SendRoutesParams } from '../types';
+import { SendRoutes } from '../types';
 import { usePreSendAmountInfo } from '../utils/usePreSendAmountInfo';
 
+import type { SendRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MessageDescriptor } from 'react-intl';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,

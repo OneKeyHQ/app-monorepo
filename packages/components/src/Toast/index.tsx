@@ -1,10 +1,12 @@
-import React, { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import Box from '../Box';
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import Pressable from '../Pressable';
-import { ThemeValues } from '../Provider/theme';
 import { Text } from '../Typography';
+
+import type { ICON_NAMES } from '../Icon';
+import type { ThemeValues } from '../Provider/theme';
 
 type ToastStatus = 'info' | 'warning' | 'danger' | 'success' | undefined;
 

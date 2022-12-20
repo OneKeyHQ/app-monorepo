@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { JsBridgeSimple } from '@onekeyfe/cross-inpage-provider-core';
-import { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 it('two bridge communication', async () => {
   let currentChainId = '0x3';

@@ -1,6 +1,6 @@
 import { useRoute } from '@react-navigation/core';
 
-import { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';

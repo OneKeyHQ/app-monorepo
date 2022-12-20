@@ -1,9 +1,10 @@
+/* eslint-disable react/no-unstable-nested-components */
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/restrict-plus-operands */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { FC } from 'react';
+import type { FC, Key } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -129,7 +130,7 @@ const Body: FC<BodyProps> = () => {
               {item.hiddenWallets?.map(
                 (
                   hiddenWalletName: string | undefined,
-                  index: React.Key | null | undefined,
+                  index: Key | null | undefined,
                 ) => (
                   <ListItem
                     key={index}

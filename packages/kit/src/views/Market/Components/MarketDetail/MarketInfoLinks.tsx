@@ -1,9 +1,10 @@
-import { FC, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, ScrollView } from '@onekeyhq/components';
-import { MarketLinks } from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketLinks } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 type MarketInfoLinksProps = {

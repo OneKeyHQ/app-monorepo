@@ -1,17 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Divider, VStack } from '@onekeyhq/components';
-import { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
 
 import { TxActionErrorBoundary } from './components/TxActionErrorBoundary';
-import { ITxActionListViewProps } from './types';
 import { getTxActionMeta } from './utils/getTxActionMeta';
 import { getDisplayedActions } from './utils/utilsTxDetail';
+
+import type { ITxActionListViewProps } from './types';
 
 function useOriginHistoryTxOfCancelTx(cancelTx?: IHistoryTx) {
   const [originTx, setOriginTx] = useState<IHistoryTx | undefined>();

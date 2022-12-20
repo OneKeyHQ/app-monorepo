@@ -1,11 +1,5 @@
-import React, {
-  FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
@@ -136,4 +130,4 @@ const NotableCollection = () => {
   );
 };
 
-export default React.memo(NotableCollection);
+export default memo(NotableCollection);

@@ -1,16 +1,18 @@
-import React, { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { RouteProp } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Modal, Spinner, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
+import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,

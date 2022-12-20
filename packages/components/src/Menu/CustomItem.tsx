@@ -1,13 +1,16 @@
 /* eslint-disable no-nested-ternary */
-import { FC } from 'react';
+import type { FC } from 'react';
 
-import { IMenuItemProps, Menu } from 'native-base';
+import { Menu } from 'native-base';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HStack from '../HStack';
-import Icon, { ICON_NAMES } from '../Icon';
+import Icon from '../Icon';
 import { Text } from '../Typography';
+
+import type { ICON_NAMES } from '../Icon';
+import type { IMenuItemProps } from 'native-base';
 
 interface CustomItemProps extends IMenuItemProps {
   icon?: ICON_NAMES;

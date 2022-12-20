@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
-import React, { FC, useMemo } from 'react';
+import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import QRCodeUtil from 'qrcode';
-import * as ReactNative from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, Image, Rect } from 'react-native-svg';
+
+import type * as ReactNative from 'react-native';
 
 export type QRCodeProps = {
   size: number;

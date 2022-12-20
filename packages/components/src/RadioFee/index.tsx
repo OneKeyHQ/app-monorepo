@@ -1,18 +1,19 @@
-import React, { FC } from 'react';
+import type { FC, ReactElement } from 'react';
 
 import Box from '../Box';
 import RadioBox from '../RadioBox';
-import { RadioBoxProps } from '../RadioBox/RadioBox';
-import { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
 import Typography, { Text } from '../Typography';
+
+import type { RadioBoxProps } from '../RadioBox/RadioBox';
+import type { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
 
 export type RadioFeeItemProps = {
   value: string;
-  title: string | React.ReactElement<any>;
-  titleSecond?: string | React.ReactElement<any>;
-  describe?: string | React.ReactElement<any>;
-  describeSecond?: string | React.ReactElement<any>;
-  describeThird?: string | React.ReactElement<any>;
+  title: string | ReactElement<any>;
+  titleSecond?: string | ReactElement<any>;
+  describe?: string | ReactElement<any>;
+  describeSecond?: string | ReactElement<any>;
+  describeThird?: string | ReactElement<any>;
 } & RadioBoxProps;
 
 export type RadioFeeProps = {
@@ -21,7 +22,7 @@ export type RadioFeeProps = {
 
 const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
   const readItemComponents = () => {
-    const itemComponents: React.ReactElement<RadioBoxProps>[] = [];
+    const itemComponents: ReactElement<RadioBoxProps>[] = [];
     items.forEach((item) => {
       itemComponents.push(
         <RadioBox

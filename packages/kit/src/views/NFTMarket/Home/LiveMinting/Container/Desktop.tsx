@@ -1,10 +1,9 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { MotiView } from 'moti';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { ListRenderItem } from 'react-native';
 
 import { Box, List, ListItem } from '@onekeyhq/components';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -15,6 +14,8 @@ import { PriceString } from '../../../PriceText';
 import { useCollectionDetail } from '../../hook';
 import EmptyView from '../../Stats/EmptyView';
 import { useLiveMintContext } from '../context';
+
+import type { ListRenderItem } from 'react-native';
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
@@ -68,7 +69,7 @@ const ListHeaderComponent = () => {
 
 const Desktop = () => {
   const context = useLiveMintContext()?.context;
-  const { formatDistance } = useFormatDate();
+  const { formatDistanceToNow } = useFormatDate();
   const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
@@ -116,14 +117,14 @@ const Desktop = () => {
           flex={2}
           text={{
             label: item.mintTimestamp
-              ? formatDistance(item.mintTimestamp)
+              ? formatDistanceToNow(item.mintTimestamp)
               : '_',
             labelProps: { textAlign: 'right' },
           }}
         />
       </ListItem>
     ),
-    [context?.selectedNetwork?.id, formatDistance, goToCollectionDetail],
+    [context?.selectedNetwork?.id, formatDistanceToNow, goToCollectionDetail],
   );
 
   if (

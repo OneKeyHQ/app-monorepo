@@ -1,11 +1,13 @@
-import React from 'react';
+import type { FC } from 'react';
+import { memo } from 'react';
 
 import { useThemeValue } from '@onekeyhq/components';
 
-import { ChartViewProps } from './chartService';
 import ChartViewAdapter from './ChartViewAdapter';
 
-const ChartView: React.FC<ChartViewProps> = ({
+import type { ChartViewProps } from './chartService';
+
+const ChartView: FC<ChartViewProps> = ({
   data,
   onHover,
   height,
@@ -28,4 +30,4 @@ const ChartView: React.FC<ChartViewProps> = ({
   );
 };
 ChartView.displayName = 'ChartView';
-export default React.memo(ChartView);
+export default memo(ChartView);

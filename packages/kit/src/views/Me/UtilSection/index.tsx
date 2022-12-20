@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -13,22 +13,18 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import {
-  ModalRoutes,
-  ModalScreenProps,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
-import {
-  ManageConnectedSitesRoutes,
-  ManageConnectedSitesRoutesParams,
-} from '../../ManageConnectedSites/types';
+import { ManageConnectedSitesRoutes } from '../../ManageConnectedSites/types';
 
 import { showEnableExtTipsSheet } from './enableExtSheet';
+
+import type { ManageConnectedSitesRoutesParams } from '../../ManageConnectedSites/types';
 
 type NavigationProps = ModalScreenProps<ManageConnectedSitesRoutesParams>;
 

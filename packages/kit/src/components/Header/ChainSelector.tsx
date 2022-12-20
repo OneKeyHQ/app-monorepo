@@ -1,4 +1,5 @@
-import React, { FC, memo, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,9 +18,10 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../hooks';
-import { ModalRoutes, RootRoutes, RootRoutesParams } from '../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
 
+import type { RootRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

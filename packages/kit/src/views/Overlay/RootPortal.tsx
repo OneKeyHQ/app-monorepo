@@ -1,11 +1,12 @@
 // from https://github.com/magicismight/react-native-root-portal
 /* eslint-disable no-plusplus */
-import { FC, ReactNode, useEffect, useMemo, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
-import wrapRootComponent, {
-  RootSiblingManager,
-} from 'react-native-root-siblings/lib/wrapRootComponent';
+import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
+
+import type { RootSiblingManager } from 'react-native-root-siblings/lib/wrapRootComponent';
 
 const portalManagers: Map<string, RootSiblingManager> = new Map();
 let portalUuid = 0;
@@ -20,7 +21,7 @@ export function isPortalExisted(name: string): boolean {
 
 export interface PortalManager {
   update: (
-    updater: React.ReactNode,
+    updater: ReactNode,
     updateCallback?: (() => void) | undefined,
   ) => void;
   destroy: (destroyCallback?: () => void) => void;

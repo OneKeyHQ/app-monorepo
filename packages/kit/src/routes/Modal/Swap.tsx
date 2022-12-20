@@ -2,10 +2,8 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import Input from '@onekeyhq/kit/src/views/Swap/Input';
 import Output from '@onekeyhq/kit/src/views/Swap/Output';
 import Settings from '@onekeyhq/kit/src/views/Swap/Settings';
-import {
-  SwapRoutes,
-  SwapRoutesParams,
-} from '@onekeyhq/kit/src/views/Swap/typings';
+import type { SwapRoutesParams } from '@onekeyhq/kit/src/views/Swap/typings';
+import { SwapRoutes } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import CustomToken from '../../views/ManageTokens/CustomToken';
 import EnterAddress from '../../views/Swap/EnterAddress';

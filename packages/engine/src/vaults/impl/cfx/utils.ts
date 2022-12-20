@@ -1,22 +1,17 @@
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
-import { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { Transaction } from 'js-conflux-sdk';
-import { Conflux, Contract } from 'js-conflux-sdk/dist/types/index';
 import memoizee from 'memoizee';
 
-import { Signer } from '../../../proxy';
-import {
-  IDecodedTxActionType,
-  IDecodedTxStatus,
-  IUnsignedTxPro,
-} from '../../types';
+import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 
-import {
-  IEncodedTxCfx,
-  IOnChainTransferType,
-  ITxAbiDecodeResult,
-} from './types';
+import { IOnChainTransferType } from './types';
+
+import type { Signer } from '../../../proxy';
+import type { IUnsignedTxPro } from '../../types';
+import type { IEncodedTxCfx, ITxAbiDecodeResult } from './types';
+import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import type { Conflux, Contract } from 'js-conflux-sdk/dist/types/index';
 
 const getCodeCache = memoizee(
   async (to: string, client: Conflux) => client.getCode(to),

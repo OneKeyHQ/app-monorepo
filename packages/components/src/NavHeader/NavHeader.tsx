@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable no-nested-ternary */
-import { FC, ReactNode } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,7 +48,7 @@ const NavHeader: FC<HeaderProps> = ({
       pointerEvents="box-none"
       style={{
         height,
-        paddingTop: safeTop ?? insets.top,
+        marginTop: safeTop ?? insets.top,
       }}
     >
       <View

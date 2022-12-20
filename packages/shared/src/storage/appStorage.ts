@@ -2,31 +2,16 @@
 //    redux-persist failed to create sync storage. falling back to noop storage.
 // import storage from 'redux-persist/lib/storage';
 
-import AsyncStorage, {
-  AsyncStorageStatic,
-} from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import platformEnv from '../platformEnv';
-
-import ExtensionStorage from './ExtensionStorage';
 import MockStorage from './MockStorage';
-import WebStorage from './WebStorage';
 
-const appStorage: AsyncStorageStatic = (() => {
-  if (platformEnv.isExtension) {
-    // Extension cross storage for firefox & chrome
-    return new ExtensionStorage();
-  }
-  if (platformEnv.isDesktop || platformEnv.isWeb) {
-    // IndexedDB in web:
-    //    OneKeyStorage -> keyvaluepairs
-    return new WebStorage();
-  }
-  // iOS/Android AsyncStorage
-  return AsyncStorage;
-})();
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
-const mockStorage = new MockStorage();
+const appStorage: AsyncStorageStatic = // iOS/Android AsyncStorage
+  AsyncStorage;
+
+export const mockStorage = new MockStorage();
 
 /*
 - Extension internal: ExtensionStorage
@@ -35,7 +20,7 @@ const mockStorage = new MockStorage();
 - Desktop | Web: WebStorage -> IndexedDB
  */
 
-if (platformEnv.isDev) {
+if (process.env.NODE_ENV !== 'production') {
   global.$$appStorage = appStorage;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   global.$$appStorage.print = async () => {
@@ -55,5 +40,4 @@ if (platformEnv.isDev) {
   };
 }
 
-export { mockStorage };
 export default appStorage;

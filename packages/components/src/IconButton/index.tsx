@@ -1,7 +1,9 @@
-import React, { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
-import Button, { ButtonSize, ButtonType } from '../Button';
-import { ICON_NAMES } from '../Icon';
+import Button from '../Button';
+
+import type { ButtonSize, ButtonType } from '../Button';
+import type { ICON_NAMES } from '../Icon';
 
 type IconButtonProps = {
   name: ICON_NAMES;

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import React, { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { debounce } from 'lodash';
 import { StyleSheet } from 'react-native';
@@ -26,8 +26,9 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
-import { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 import { RpcStatusButton } from '../../RpcStatusButton';
+
+import type { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
 function ChainNetworkIcon({
   onLastItemRender,

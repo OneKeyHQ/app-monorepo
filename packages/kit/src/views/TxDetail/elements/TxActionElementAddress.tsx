@@ -1,4 +1,5 @@
-import React, { ComponentProps, useEffect, useState } from 'react';
+import type { ComponentProps } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Divider, HStack, Icon, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';

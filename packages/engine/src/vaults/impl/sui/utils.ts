@@ -3,18 +3,8 @@
 import {
   Base64DataBuffer,
   Coin,
-  GetObjectDataResponse,
-  JsonRpcProvider,
   LocalTxnDataSerializer,
-  Pay,
-  PayAllSui,
-  PayTransaction,
-  Provider,
   SUI_TYPE_ARG,
-  SignableTransaction,
-  SuiMoveObject,
-  SuiObject,
-  SuiTransactionKind,
   getMoveObject,
   getObjectExistsResponse,
   getPaySuiTransaction,
@@ -25,8 +15,20 @@ import { isArray } from 'lodash';
 
 import { IDecodedTxActionType } from '../../types';
 
-import { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
-import { IEncodedTxSUI } from './types';
+import type { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
+import type { IEncodedTxSUI } from './types';
+import type {
+  GetObjectDataResponse,
+  JsonRpcProvider,
+  Pay,
+  PayAllSui,
+  PayTransaction,
+  Provider,
+  SignableTransaction,
+  SuiMoveObject,
+  SuiObject,
+  SuiTransactionKind,
+} from '@mysten/sui.js';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 export const ED25519_PUBLIC_KEY_SIZE = 32;
@@ -88,7 +90,6 @@ export async function toTransaction(
   tx: SignableTransaction | string | Base64DataBuffer,
 ) {
   const address = sender;
-  const serializer = new LocalTxnDataSerializer(client);
   let txBytes: string;
   if (typeof tx === 'string') {
     txBytes = tx;
@@ -103,42 +104,17 @@ export async function toTransaction(
           decodeBytesTransaction(tx.data),
         ).toString();
         break;
-      case 'mergeCoin':
-        txBytes = (await serializer.newMergeCoin(address, tx.data)).toString();
-        break;
-      case 'moveCall':
-        txBytes = (await serializer.newMoveCall(address, tx.data)).toString();
-        break;
-      case 'pay':
-        txBytes = (await serializer.newPay(address, tx.data)).toString();
-        break;
-      case 'payAllSui':
-        txBytes = (await serializer.newPayAllSui(address, tx.data)).toString();
-        break;
-      case 'paySui':
-        txBytes = (await serializer.newPaySui(address, tx.data)).toString();
-        break;
-      case 'publish':
-        txBytes = (await serializer.newPublish(address, tx.data)).toString();
-        break;
-      case 'splitCoin':
-        txBytes = (await serializer.newSplitCoin(address, tx.data)).toString();
-        break;
-      case 'transferObject':
-        txBytes = (
-          await serializer.newTransferObject(address, tx.data)
-        ).toString();
-        break;
-      case 'transferSui':
-        txBytes = (
-          await serializer.newTransferSui(address, tx.data)
-        ).toString();
-        break;
       default:
-        throw new Error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `Error, unknown transaction kind ${kind}. Can't dry run transaction.`,
-        );
+        try {
+          const serializer = new LocalTxnDataSerializer(client);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          txBytes = (await serializer.serializeToBytes(address, tx)).toString();
+        } catch (e) {
+          throw new Error(
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            `Error, unknown transaction kind ${kind}. Can't dry run transaction.`,
+          );
+        }
     }
   }
   return txBytes;

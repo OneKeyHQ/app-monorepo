@@ -1,4 +1,5 @@
-import { FC, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import * as Linking from 'expo-linking';
 import { BackHandler } from 'react-native';
@@ -6,16 +7,13 @@ import { BackHandler } from 'react-native';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  WebTab,
-  homeTab,
-  setWebTabData,
-} from '../../../../store/reducers/webTabs';
+import { homeTab, setWebTabData } from '../../../../store/reducers/webTabs';
 import { gotoSite } from '../Controller/gotoSite';
 import { onNavigation } from '../Controller/useWebController';
 import { MAX_OR_SHOW, expandAnim } from '../explorerAnimation';
 import { webviewRefs } from '../explorerUtils';
 
+import type { WebTab } from '../../../../store/reducers/webTabs';
 import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
 
 const WebContent: FC<WebTab & WebViewProps> = ({

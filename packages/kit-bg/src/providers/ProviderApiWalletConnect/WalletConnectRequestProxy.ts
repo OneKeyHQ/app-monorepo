@@ -1,8 +1,7 @@
-import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-
 import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
 
 import type ProviderApiWalletConnect from './ProviderApiWalletConnect';
+import type { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 export abstract class WalletConnectRequestProxy {
   constructor({ client }: { client: ProviderApiWalletConnect }) {

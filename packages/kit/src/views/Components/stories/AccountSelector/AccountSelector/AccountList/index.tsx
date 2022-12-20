@@ -1,7 +1,8 @@
+/* eslint-disable react/no-unstable-nested-components */
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import { Box, SectionList } from '@onekeyhq/components';
 
@@ -37,33 +38,24 @@ const AccountList: FC<AccountListProps> = () => {
   ];
 
   return (
-    <>
-      <SectionList
-        sections={DATA}
-        keyExtractor={(item) => item.address}
-        renderSectionHeader={({ section: { wallet, data } }) => (
-          <>
-            <SectionHeader
-              walletName={wallet}
-              emptySectionData={!data?.length}
-            />
-          </>
-        )}
-        renderItem={({ item }) => (
-          <>
-            <ListItem
-              isActive={item.isActive}
-              label={item.label}
-              address={item.address}
-              balance={item.balance}
-            />
-          </>
-        )}
-        ItemSeparatorComponent={() => <Box h={2} />}
-        renderSectionFooter={() => <Box h={6} />}
-        style={{ padding: 8 }}
-      />
-    </>
+    <SectionList
+      sections={DATA}
+      keyExtractor={(item) => item.address}
+      renderSectionHeader={({ section: { wallet, data } }) => (
+        <SectionHeader walletName={wallet} emptySectionData={!data?.length} />
+      )}
+      renderItem={({ item }) => (
+        <ListItem
+          isActive={item.isActive}
+          label={item.label}
+          address={item.address}
+          balance={item.balance}
+        />
+      )}
+      ItemSeparatorComponent={() => <Box h={2} />}
+      renderSectionFooter={() => <Box h={6} />}
+      style={{ padding: 8 }}
+    />
   );
 };
 

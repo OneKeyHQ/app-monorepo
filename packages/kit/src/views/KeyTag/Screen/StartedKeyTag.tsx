@@ -1,4 +1,3 @@
-import { StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,7 +17,9 @@ import { useNavigation } from '../../../hooks';
 import LayoutContainer from '../../Onboarding/Layout';
 import { useStartedKeyTagImage } from '../hooks/useKeyTagLayout';
 import { KeyTagRoutes } from '../Routes/enums';
-import { IKeytagRoutesParams } from '../Routes/types';
+
+import type { IKeytagRoutesParams } from '../Routes/types';
+import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 

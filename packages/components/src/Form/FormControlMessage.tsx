@@ -1,9 +1,11 @@
-import React, { FC } from 'react';
+import type { FC } from 'react';
 
 import Box from '../Box';
-import Icon, { ICON_NAMES } from '../Icon';
-import { ThemeToken } from '../Provider/theme';
+import Icon from '../Icon';
 import Typography from '../Typography';
+
+import type { ICON_NAMES } from '../Icon';
+import type { ThemeToken } from '../Provider/theme';
 
 type FormControlMessageProps = {
   message?: string;

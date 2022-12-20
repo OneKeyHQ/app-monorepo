@@ -6,9 +6,8 @@ import BigNumber from 'bignumber.js';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ISTCExplorerTransaction } from './types';
-
 import type { Token } from '../../../types/token';
+import type { ISTCExplorerTransaction } from './types';
 
 type IDecodedSTCPayload = {
   ScriptFunction: {

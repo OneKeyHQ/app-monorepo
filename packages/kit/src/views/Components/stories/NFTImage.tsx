@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Center } from '@onekeyhq/components';
 
 import NFTImage from '../../../components/NFTImage';

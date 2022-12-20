@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import { debounce, orderBy } from 'lodash';
@@ -35,8 +36,8 @@ const buildData = debounce(
     setData,
   }: {
     wallets: IWallet[];
-    setData: React.Dispatch<
-      React.SetStateAction<
+    setData: Dispatch<
+      SetStateAction<
         { type: EWalletDataSectionType; data: IWalletDataBase[] }[]
       >
     >;

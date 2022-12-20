@@ -1,22 +1,25 @@
-import React, { FC, useEffect } from 'react';
+import type { FC } from 'react';
+import { useEffect } from 'react';
 
-import { RouteProp, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Modal, Spinner, useToast } from '@onekeyhq/components';
-import { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import {
+import type {
   CreateWalletModalRoutes,
   CreateWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { savePassword } from '@onekeyhq/kit/src/utils/localAuthentication';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type PasswordViewProps = {
   password: string;

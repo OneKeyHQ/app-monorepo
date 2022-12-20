@@ -1,7 +1,3 @@
-import {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { hashes } from 'xrpl';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
@@ -9,14 +5,19 @@ import { COINTYPE_XRP as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
-import { AccountType, DBSimpleAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-import {
+
+import type { DBSimpleAccount } from '../../../types/account';
+import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
-
-import { IEncodedTxXrp } from './types';
+import type { IEncodedTxXrp } from './types';
+import type {
+  SignedTx,
+  UnsignedTx,
+} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

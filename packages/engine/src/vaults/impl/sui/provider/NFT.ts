@@ -1,7 +1,7 @@
-import { SuiMoveObject } from '@mysten/sui.js';
 import { get } from 'lodash';
 
-import { NftObject } from '../types';
+import type { NftObject } from '../types';
+import type { SuiMoveObject } from '@mysten/sui.js';
 
 export class Nft {
   public static isNft(obj: SuiMoveObject) {

@@ -1,4 +1,5 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Center, Spinner } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

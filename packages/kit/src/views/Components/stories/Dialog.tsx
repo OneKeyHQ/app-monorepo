@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { Icon } from 'native-base';
 
@@ -11,7 +11,7 @@ import {
   Stack,
   Typography,
 } from '@onekeyhq/components';
-import { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { Metamask } from '@onekeyhq/components/src/Icon/react/illus';
 
 const Modal1 = () => {

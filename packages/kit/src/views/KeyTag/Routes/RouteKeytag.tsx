@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
@@ -6,14 +6,13 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import EnterPhrase from '../Screen/EnterPhrase';
 import ImportKeyTag from '../Screen/ImportKeyTag';
 import Introduce from '../Screen/IntroduceKeyTag';
-import KeyTagBackupWalletAttentions from '../Screen/KeyTagAttentions';
 import KeyTagBackUpWallet from '../Screen/KeyTagBackUpWallet';
 import ShowDotMap from '../Screen/ShowDotMap';
 import StartedKeyTag from '../Screen/StartedKeyTag';
-import VerifyPassword from '../Screen/VerifyPassword';
 
 import { KeyTagRoutes } from './enums';
-import { IKeytagRoutesParams } from './types';
+
+import type { IKeytagRoutesParams } from './types';
 
 export const stackScreenList = [
   { name: KeyTagRoutes.StartedKeytag, component: StartedKeyTag },
