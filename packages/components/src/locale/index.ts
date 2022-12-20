@@ -2,7 +2,14 @@ import ISO6391 from 'iso-639-1';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import enUS from './en-US.json';
+import { LOCALES as _LOCALES, enUS } from './localeJsonMap';
+
+export type LocaleSymbol = keyof typeof _LOCALES | 'system';
+export type LocaleIds = keyof typeof enUS;
+const LOCALES = _LOCALES as Record<
+  LocaleSymbol,
+  Record<keyof typeof enUS, string> | (() => Promise<any>)
+>;
 
 const defaultLanguage: Record<string, string> = {
   'zh-CN': '简体中文',
@@ -24,35 +31,6 @@ const getLanguage = (symbol: string): string => {
 
   return languageName || symbol;
 };
-
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _LOCALES = {
-  'en-US': enUS,
-  'zh-CN': () => import('./zh-CN.json'),
-  'zh-HK': () => import('./zh_HK.json'),
-  'ja-JP': () => import('./ja_JP.json'),
-  'ko-KR': () => import('./ko_KR.json'),
-  'bn': () => import('./bn.json'),
-  'de': () => import('./de.json'),
-  'es': () => import('./es.json'),
-  'fil': () => import('./fil.json'),
-  'fr-FR': () => import('./fr_FR.json'),
-  'hi-IN': () => import('./hi_IN.json'),
-  'it-IT': () => import('./it_IT.json'),
-  'mn-MN': () => import('./mn_MN.json'),
-  'pt': () => import('./pt.json'),
-  'ru': () => import('./ru.json'),
-  'th-TH': () => import('./th_TH.json'),
-  'uk-UA': () => import('./uk_UA.json'),
-  'vi': () => import('./vi.json'),
-};
-export type LocaleSymbol = keyof typeof _LOCALES | 'system';
-export type LocaleIds = keyof typeof enUS;
-
-const LOCALES = _LOCALES as Record<
-  LocaleSymbol,
-  Record<keyof typeof enUS, string> | (() => Promise<any>)
->;
 
 if (process.env.NODE_ENV !== 'production') {
   // Check if i18n keys are complete

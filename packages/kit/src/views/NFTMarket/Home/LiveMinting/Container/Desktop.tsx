@@ -69,7 +69,7 @@ const ListHeaderComponent = () => {
 
 const Desktop = () => {
   const context = useLiveMintContext()?.context;
-  const { formatDistance } = useFormatDate();
+  const { formatDistanceToNow } = useFormatDate();
   const goToCollectionDetail = useCollectionDetail();
 
   const renderItem: ListRenderItem<NFTAsset> = useCallback(
@@ -117,14 +117,14 @@ const Desktop = () => {
           flex={2}
           text={{
             label: item.mintTimestamp
-              ? formatDistance(item.mintTimestamp)
+              ? formatDistanceToNow(item.mintTimestamp)
               : '_',
             labelProps: { textAlign: 'right' },
           }}
         />
       </ListItem>
     ),
-    [context?.selectedNetwork?.id, formatDistance, goToCollectionDetail],
+    [context?.selectedNetwork?.id, formatDistanceToNow, goToCollectionDetail],
   );
 
   if (

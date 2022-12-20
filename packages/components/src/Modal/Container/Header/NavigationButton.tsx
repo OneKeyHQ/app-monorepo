@@ -20,6 +20,7 @@ const NavigationButton: FC<NavigationButtonProps> = ({
     onPress={onPress}
     p="4px"
     rounded="full"
+    hitSlop={8}
     borderWidth={StyleSheet.hairlineWidth}
     borderColor="border-default"
     bgColor="action-secondary-default"
