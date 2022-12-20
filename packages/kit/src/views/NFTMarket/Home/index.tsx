@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/core';
 
 import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
 
+// import Banner from './Banner';
 import LiveMintingModule from './LiveMinting';
 import NotableCollections from './NotableCollections';
 import PageHeader from './PageHeader';
@@ -12,6 +13,7 @@ import StatsModule from './Stats';
 import type { ListRenderItem } from 'react-native';
 
 export enum NFTModule {
+  BannerSection = 'BannerSection',
   Collection = 'Collection',
   Stats = 'Stats',
   Category = 'Category',
@@ -21,11 +23,10 @@ export enum NFTModule {
 type ModuleData = {
   id: string;
 };
-
-const renderSeparator = () => <Box h={{ base: '32px', md: '48px' }} />;
 const Content = () => {
   const { bottom } = useSafeAreaInsets();
   const data: ModuleData[] = [
+    // { id: NFTModule.BannerSection },
     { id: NFTModule.Collection },
     { id: NFTModule.Stats },
     // { id: NFTModule.Category },
@@ -34,6 +35,9 @@ const Content = () => {
 
   const renderItem: ListRenderItem<ModuleData> = useCallback(({ item }) => {
     const { id } = item;
+    // if (id === NFTModule.BannerSection) {
+    //   return <Banner />;
+    // }
     if (id === NFTModule.Collection) {
       return <NotableCollections />;
     }
@@ -49,7 +53,7 @@ const Content = () => {
   return (
     <FlatList
       data={data}
-      ItemSeparatorComponent={renderSeparator}
+      ItemSeparatorComponent={() => <Box h={{ base: '32px', md: '48px' }} />}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
       p={{ base: '16px', md: '32px' }}
