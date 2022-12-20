@@ -43,8 +43,7 @@ export enum ModalRoutes {
   PushNotification = 'PushNotification',
   Webview = 'Webview',
   Revoke = 'Revoke',
-  SearchNFT = 'SearchNFT',
-  NFTAttributeFilter = 'NFTAttributeFilter',
+  NFTMarket = 'NFTMarket',
 }
 
 export enum RootRoutes {
@@ -89,6 +88,7 @@ export enum HomeRoutes {
   NFTMarketStatsList = 'NFTMarketStatsList',
   NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
+  NFTNPLScreen = 'NFTNPLScreen',
 }
 export enum TabRoutes {
   // Overview = 'overview',
