@@ -1,9 +1,10 @@
 import type { FC } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
@@ -18,14 +19,28 @@ import { SwapError } from './typings';
 
 const RecipientBox = () => {
   const intl = useIntl();
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
   const { wallet } = useActiveWalletAccount();
+  const accounts = useAppSelector((s) => s.runtime.accounts);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+
   const network = useNetworkSimple(outputToken?.networkId);
   const { createAccount } = useCreateAccountInWallet({
     networkId: network?.id,
     walletId: wallet?.id,
   });
-  const accounts = useAppSelector((s) => s.runtime.accounts);
+
+  const show = useMemo(() => {
+    if (!outputToken) {
+      return false;
+    }
+    if (wallet?.accounts.length === 0) {
+      return true;
+    }
+    const result = wallet?.accounts.every(
+      (acc) => !isAccountCompatibleWithNetwork(acc, outputToken.networkId),
+    );
+    return result;
+  }, [wallet, outputToken]);
 
   useEffect(() => {
     if (network) {
@@ -33,7 +48,7 @@ const RecipientBox = () => {
     }
   }, [accounts, network]);
 
-  return (
+  return show ? (
     <Box mt="6">
       <Alert
         title={intl.formatMessage(
@@ -49,14 +64,16 @@ const RecipientBox = () => {
         dismiss={false}
       />
     </Box>
-  );
+  ) : null;
 };
 
 const RecipientAlert = () => {
   const recipient = useAppSelector((s) => s.swap.recipient);
+
   if (recipient) {
     return null;
   }
+
   return <RecipientBox />;
 };
 
