@@ -61,7 +61,7 @@ const NavHeader: FC<HeaderProps> = ({
           style={[styles.left, { marginStart: insets.left }]}
         >
           {enableBackButton && (
-            <Box ml={-1.5} mr={2}>
+            <Box ml="-6px" mr="8px">
               <HeaderBackButton />
             </Box>
           )}
