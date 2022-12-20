@@ -9,18 +9,18 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { NFTAttributeFilterRoutes } from '../NFTAttributesModal/type';
+import { NFTMarketRoutes } from '../Modals/type';
 
 import { CollectionDetailContext } from './context';
 import Screen from './Screen';
 
 import type { HomeRoutes } from '../../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../../routes/types';
-import type { NFTAttributeFilterRoutesParams } from '../NFTAttributesModal/type';
+import type { NFTMarketRoutesParams } from '../Modals/type';
 import type { CollectionDetailContextValue } from './context';
 import type { RouteProp } from '@react-navigation/core';
 
-type NavigationProps = ModalScreenProps<NFTAttributeFilterRoutesParams>;
+type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
 const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
   onPress,
@@ -95,9 +95,9 @@ const CollectionDetail = () => {
               }
               onPress={() => {
                 navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.NFTAttributeFilter,
+                  screen: ModalRoutes.NFTMarket,
                   params: {
-                    screen: NFTAttributeFilterRoutes.FilterModal,
+                    screen: NFTMarketRoutes.FilterModal,
                     params: {
                       collection: ctxCollection,
                       attributes: context.attributes,

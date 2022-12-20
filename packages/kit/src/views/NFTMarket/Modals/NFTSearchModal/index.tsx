@@ -30,19 +30,16 @@ import type {
 } from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useDebounce } from '../../../hooks';
-import ChainSelector from '../ChainSelector';
-import CollectionLogo from '../CollectionLogo';
-import { useDefaultNetWork } from '../Home/hook';
-import RankingList from '../Home/Stats/Ranking/Container/Mobile';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useDebounce } from '../../../../hooks';
+import ChainSelector from '../../ChainSelector';
+import CollectionLogo from '../../CollectionLogo';
+import { useDefaultNetWork } from '../../Home/hook';
+import RankingList from '../../Home/Stats/Ranking/Container/Mobile';
 
 import { useCollectionSearch } from './useCollectionSearch';
 
-import type {
-  SearchNFTCollectionRoutes,
-  SearchNFTCollectionRoutesParams,
-} from './type';
+import type { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
@@ -53,6 +50,10 @@ const Header: FC<{
   onSelectNetWork: (network: Network) => void;
 }> = ({ keyword, setKeyword, selectNetwork, onSelectNetWork }) => {
   const intl = useIntl();
+  const route =
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
+  const { ethOnly } = route.params;
+
   const modalClose = useModalClose();
   return (
     <HStack
@@ -88,12 +89,14 @@ const Header: FC<{
         mr="12px"
       />
       <HStack space="16px" alignItems="center">
-        <ChainSelector
-          selectedNetwork={selectNetwork}
-          onChange={(n) => {
-            onSelectNetWork(n);
-          }}
-        />
+        {!!ethOnly === false && (
+          <ChainSelector
+            selectedNetwork={selectNetwork}
+            onChange={(n) => {
+              onSelectNetWork(n);
+            }}
+          />
+        )}
         {!platformEnv.isNativeIOS && <NavigationButton onPress={modalClose} />}
       </HStack>
     </HStack>
@@ -109,7 +112,9 @@ type Props = {
 const DefaultList: FC<Props> = ({ selectNetwork }) => {
   const { serviceNFT } = backgroundApiProxy;
   const intl = useIntl();
-
+  const route =
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
+  const { onSelectCollection } = route.params;
   const [listData, updateListData] = useState<NFTMarketRanking[]>([]);
   useEffect(() => {
     (async () => {
@@ -125,6 +130,7 @@ const DefaultList: FC<Props> = ({ selectNetwork }) => {
 
   return (
     <RankingList
+      onSelectCollection={onSelectCollection}
       selectNetwork={selectNetwork}
       headerProps={{
         title: intl.formatMessage({
@@ -154,12 +160,7 @@ const SearchResultList: FC<Props> = ({
 }) => {
   const intl = useIntl();
   const route =
-    useRoute<
-      RouteProp<
-        SearchNFTCollectionRoutesParams,
-        SearchNFTCollectionRoutes.SearchModal
-      >
-    >();
+    useRoute<RouteProp<NFTMarketRoutesParams, NFTMarketRoutes.SearchModal>>();
   const { onSelectCollection } = route.params;
   const renderItem: ListRenderItem<Collection> = useCallback(
     ({ item }) => {
