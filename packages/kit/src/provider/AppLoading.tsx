@@ -12,8 +12,6 @@ import { Box, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { fetchCurrencies } from '../views/FiatPay/Service';
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
@@ -26,8 +24,6 @@ const AppLoading: FC = ({ children }) => {
       refreshInterval: 5 * 60 * 1000,
     },
   );
-
-  useSWR(initDataReady ? 'currencies' : null, fetchCurrencies);
 
   const bgColor = useThemeValue('background-default');
 
