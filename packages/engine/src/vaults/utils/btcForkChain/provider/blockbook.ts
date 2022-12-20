@@ -11,6 +11,8 @@ import type {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { TransferValueTooSmall } from '../../../../errors';
+
 import type { AxiosError, AxiosInstance } from 'axios';
 
 const BTC_PER_KBYTES_TO_SAT_PER_BYTE = 10 ** 5;
@@ -135,6 +137,10 @@ class BlockBook {
       return res?.result ?? '';
     } catch (e: unknown) {
       const err = e as SendTxRequestError;
+      if (err.response?.data?.error?.includes('-26: dust')) {
+        throw new TransferValueTooSmall();
+      }
+
       if (
         err.response?.data?.error?.includes(
           'transaction already in block chain',
