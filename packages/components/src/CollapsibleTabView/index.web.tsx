@@ -180,6 +180,9 @@ const Container: FC<ContainerProps> = ({
             value={value}
             activeColor={activeLabelColor}
             inactiveColor={labelColor}
+            labelStyle={{
+              fontFamily: 'BlinkMacSystemFont',
+            }}
             indicatorStyle={{ backgroundColor: indicatorColor }}
             handleChange={handleChange}
             options={options}
