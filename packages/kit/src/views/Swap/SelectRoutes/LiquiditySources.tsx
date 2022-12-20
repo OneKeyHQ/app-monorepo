@@ -17,7 +17,7 @@ export const LiquiditySources: FC<LiquiditySourcesProps> = ({ providers }) => {
   let text = 'OneKey Swap';
   if (providers?.length === 1) {
     text = providers[0].name;
-  } else if (providers?.length === 2) {
+  } else if (providers?.length && providers?.length >= 2) {
     text = `${providers.length} Exchanges`;
   }
   if (isSmall) {

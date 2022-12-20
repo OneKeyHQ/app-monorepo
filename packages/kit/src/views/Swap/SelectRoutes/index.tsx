@@ -98,6 +98,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
+        w="full"
       >
         <Box flex="1" flexDirection="row">
           <TokenInput token={inputToken} amount={data?.sellAmount} />

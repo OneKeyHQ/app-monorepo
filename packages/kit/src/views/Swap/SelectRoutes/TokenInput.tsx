@@ -30,7 +30,11 @@ export const TokenInput: FC<TokenInputProps> = ({
 
   if (!token) return null;
   return (
-    <Box flexDirection={rightAlign ? 'row-reverse' : 'row'} alignItems="center">
+    <Box
+      flexDirection={rightAlign ? 'row-reverse' : 'row'}
+      alignItems="center"
+      maxW="full"
+    >
       <Box position="relative">
         <Image w="6" h="6" src={token?.logoURI} borderRadius="full" />
         {network ? (
@@ -43,14 +47,21 @@ export const TokenInput: FC<TokenInputProps> = ({
       </Box>
       <Box w="2" />
       {isSmall ? (
-        <Typography.Body2 color="text-default">{text}</Typography.Body2>
-      ) : (
         <Box>
-          <Typography.Body2Strong>
+          <Typography.Body2 isTruncated color="text-default">
             {text}
-            {token.symbol.toUpperCase()}
-          </Typography.Body2Strong>
+          </Typography.Body2>
+        </Box>
+      ) : (
+        <Box flex="1">
+          <Box flex="1" flexDirection="row">
+            <Typography.Body2Strong isTruncated>{text}</Typography.Body2Strong>
+            <Typography.Body2Strong>
+              {token.symbol.toUpperCase()}
+            </Typography.Body2Strong>
+          </Box>
           <Typography.Caption
+            isTruncated
             color="text-subdued"
             textAlign={rightAlign ? 'right' : 'left'}
           >
