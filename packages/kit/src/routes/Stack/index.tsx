@@ -118,6 +118,10 @@ const AddressBook = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/AddressBook/Listing'),
 );
 
+const NPLDetailScreen = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/NFTMarket/NPL/NPLDetail'),
+);
+
 export const stackScreenList = [
   {
     name: HomeRoutes.FullTokenListScreen,
@@ -217,6 +221,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.RevokeRedirect,
     component: RevokeRedirectPage,
+  },
+  {
+    name: HomeRoutes.NFTNPLScreen,
+    component: NPLDetailScreen,
   },
 ];
 
