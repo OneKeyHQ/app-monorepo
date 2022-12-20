@@ -2449,7 +2449,7 @@ class Engine {
   @backgroundMethod()
   async listFiats(): Promise<Record<string, string>> {
     const ret: Record<string, string> = {};
-    const fiatSymbolList = new Set(['usd', 'cny', 'jpy', 'hkd']);
+    const fiatSymbolList = ['usd', 'cny', 'jpy', 'hkd', 'btc'];
     try {
       const fiats = await this.priceManager.getFiats(fiatSymbolList);
       Object.keys(fiats).forEach((f) => {
@@ -2458,7 +2458,7 @@ class Engine {
       return ret;
     } catch (e) {
       // 获取出错，返回空的列表
-      return Array.from(fiatSymbolList).reduce(
+      return fiatSymbolList.reduce(
         (memo, current) => ({ ...memo, [current]: undefined }),
         {},
       );
