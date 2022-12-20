@@ -25,9 +25,9 @@ webpack(configs, (err, stats) => {
     process.exit(1);
   }
 
-  // renameJsFileOfBackgroundHtml({
-  //   folder: path.resolve(__dirname, '../build/firefox'),
-  // });
+  renameJsFileOfBackgroundHtml({
+    folder: path.resolve(__dirname, '../build/firefox'),
+  });
 
   // Done processing
   process.exit(0);
