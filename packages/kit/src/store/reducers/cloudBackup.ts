@@ -13,7 +13,7 @@ type CloudBackupState = {
 const initialState: CloudBackupState = {
   isAvailable: false,
   inProgress: false,
-  enabled: true,
+  enabled: false,
   backupRequests: 1,
   lastBackup: undefined,
 };
