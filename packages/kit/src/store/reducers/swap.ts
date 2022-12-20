@@ -156,7 +156,10 @@ export const swapSlice = createSlice({
     clearUserSelectedQuoter(state) {
       state.userSelectedQuoter = undefined;
     },
-    setResponses(state, action: PayloadAction<FetchQuoteResponse[]>) {
+    setResponses(
+      state,
+      action: PayloadAction<FetchQuoteResponse[] | undefined>,
+    ) {
       state.responses = action.payload;
     },
   },

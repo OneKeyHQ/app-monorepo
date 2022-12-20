@@ -328,6 +328,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 borderRadius={0}
                 onChangeText={onChange}
                 // pt="1.5"
+                pr="2"
                 pb="12"
                 textAlign="right"
                 isDisabled={isDisabled}

@@ -26,7 +26,7 @@ import { SwapRoutes } from './typings';
 
 const SwapArrivalTime = () => {
   const arrivalTime = useAppSelector((s) => s.swap.quote?.arrivalTime);
-  return <ArrivalTime value={arrivalTime} />;
+  return <ArrivalTime value={arrivalTime} typography="Body2" />;
 };
 
 const SwapExactAmoutAllowance = () => {
@@ -47,9 +47,9 @@ const SwapExactAmoutAllowance = () => {
       alignItems="center"
       mb="4"
     >
-      <Typography.Caption color="text-disabled" mr="2">
+      <Typography.Body2 color="text-disabled" mr="2">
         {intl.formatMessage({ id: 'form__exact_amount_allowance' })}
-      </Typography.Caption>
+      </Typography.Body2>
       <Box flex="1" flexDirection="row" justifyContent="flex-end">
         <Box maxW="full">
           <Switch
@@ -127,14 +127,14 @@ const SwapNetworkFee = () => {
       alignItems="center"
       mb="4"
     >
-      <Typography.Caption color="text-disabled" mr="2">
+      <Typography.Body2 color="text-disabled" mr="2">
         {intl.formatMessage({ id: 'form__network_fee' })}
-      </Typography.Caption>
+      </Typography.Body2>
       <Box flexDirection="row" justifyContent="flex-end" alignItems="center">
         <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
-          <Typography.Caption mr="1" color="text-subdued">
+          <Typography.Body2 mr="1" color="text-subdued">
             {text}
-          </Typography.Caption>
+          </Typography.Body2>
           <Icon size={16} name="ChevronRightOutline" />
         </Pressable>
       </Box>
@@ -185,16 +185,16 @@ const SwapQuote = () => {
         alignItems="center"
         mb="4"
       >
-        <Typography.Caption color="text-disabled" mr="2">
+        <Typography.Body2 color="text-disabled" mr="2">
           {intl.formatMessage({ id: 'Rate' })}
-        </Typography.Caption>
+        </Typography.Body2>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
           <Box maxW="full">
             <TransactionRate
               tokenA={inputToken}
               tokenB={outputToken}
               rate={quote?.instantRate}
-              typography="Caption"
+              typography="Body2"
               color="text-subdued"
             />
           </Box>
@@ -209,9 +209,9 @@ const SwapQuote = () => {
           alignItems="center"
           mb="4"
         >
-          <Typography.Caption color="text-disabled" mr="2">
+          <Typography.Body2 color="text-disabled" mr="2">
             {intl.formatMessage({ id: 'form__more_details' })}
-          </Typography.Caption>
+          </Typography.Body2>
           <IconButton
             type="plain"
             name="ChevronDownOutline"
@@ -232,9 +232,9 @@ const SwapQuote = () => {
             alignItems="center"
             mb="4"
           >
-            <Typography.Caption color="text-disabled" mr="2">
+            <Typography.Body2 color="text-disabled" mr="2">
               {intl.formatMessage({ id: 'title__slippage' })}
-            </Typography.Caption>
+            </Typography.Body2>
 
             <Box
               flexDirection="row"
@@ -242,9 +242,9 @@ const SwapQuote = () => {
               alignItems="center"
             >
               <Pressable flexDirection="row" onPress={onSettting}>
-                <Typography.Caption mr="1" color="text-subdued">
+                <Typography.Body2 mr="1" color="text-subdued">
                   Auto({swapSlippagePercent}%)
-                </Typography.Caption>
+                </Typography.Body2>
                 <Icon size={16} name="PencilAltOutline" />
               </Pressable>
             </Box>
@@ -257,9 +257,9 @@ const SwapQuote = () => {
             alignItems="center"
             mb="4"
           >
-            <Typography.Caption color="text-disabled" mr="2">
+            <Typography.Body2 color="text-disabled" mr="2">
               {intl.formatMessage({ id: 'form__swapping_via' })}
-            </Typography.Caption>
+            </Typography.Body2>
             <Box
               flex="1"
               flexDirection="row"
@@ -267,7 +267,7 @@ const SwapQuote = () => {
               alignItems="center"
             >
               <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
-                <SwappingVia providers={quote.providers} />
+                <SwappingVia providers={quote.providers} typography="Body2" />
               </Pressable>
               {quoteLimited ? null : (
                 <Icon size={16} name="ChevronRightOutline" />
@@ -281,13 +281,13 @@ const SwapQuote = () => {
             alignItems="center"
             mb="4"
           >
-            <Typography.Caption color="text-disabled" mr="2">
+            <Typography.Body2 color="text-disabled" mr="2">
               {intl.formatMessage({ id: 'title__price_impact' })}
-            </Typography.Caption>
+            </Typography.Body2>
             <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <Typography.Caption color="text-subdued">
+              <Typography.Body2 color="text-subdued">
                 &lt;0.01%
-              </Typography.Caption>
+              </Typography.Body2>
             </Box>
           </Box>
           <Box
@@ -297,13 +297,14 @@ const SwapQuote = () => {
             alignItems="center"
             mb="4"
           >
-            <Typography.Caption color="text-disabled" mr="2">
+            <Typography.Body2 color="text-disabled" mr="2">
               {intl.formatMessage({ id: 'form__included_onekey_fee' })}
-            </Typography.Caption>
+            </Typography.Body2>
             <Box flex="1" flexDirection="row" justifyContent="flex-end">
               <TransactionFee
                 type={quote.type}
                 percentageFee={quote.percentageFee}
+                typography="Body2"
               />
             </Box>
           </Box>
@@ -314,9 +315,9 @@ const SwapQuote = () => {
             alignItems="center"
             mb="4"
           >
-            <Typography.Caption color="text-disabled" mr="2">
+            <Typography.Body2 color="text-disabled" mr="2">
               {intl.formatMessage({ id: 'title__arrival_time' })}
-            </Typography.Caption>
+            </Typography.Body2>
             <Box flex="1" flexDirection="row" justifyContent="flex-end">
               <SwapArrivalTime />
             </Box>

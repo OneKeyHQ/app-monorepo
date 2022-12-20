@@ -128,6 +128,8 @@ export const Desktop = () => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
+  const mode = swapChartMode || 'chart';
+
   return (
     <Box>
       <DesktopHeader />
@@ -137,7 +139,7 @@ export const Desktop = () => {
           alignItems="flex-start"
           justifyContent="center"
         >
-          {swapChartMode === 'chart' ? (
+          {mode === 'chart' ? (
             <Box>
               <Box h="52px" />
               <DesktopChart />

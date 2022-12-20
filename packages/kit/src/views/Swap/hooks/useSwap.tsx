@@ -109,7 +109,6 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
     sendingAccount,
     receivingAddress,
   ]);
-
   return useDebounce(params, 500);
 }
 
@@ -118,7 +117,6 @@ export const useSwapQuoteCallback = function (
 ) {
   const { showLoading } = options;
   const params = useSwapQuoteRequestParams();
-  const quote = useAppSelector((s) => s.swap.quote);
   const refs = useRef({ params, count: 0 });
 
   useEffect(() => {
@@ -128,6 +126,7 @@ export const useSwapQuoteCallback = function (
   const swapQuote = useCallback(async () => {
     if (!params) {
       backgroundApiProxy.serviceSwap.setQuote(undefined);
+      backgroundApiProxy.dispatch(setResponses(undefined));
       return;
     }
     if (showLoading) {
@@ -139,25 +138,28 @@ export const useSwapQuoteCallback = function (
       responses: FetchQuoteResponse[],
     ): Promise<FetchQuoteResponse | undefined> => {
       const items = responses.filter((item) => !item.limited && item.data);
-      const quoter =
-        await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
-      if (quoter) {
-        const searched = items.find((item) => item.data?.type === quoter);
-        if (searched) {
-          return searched;
+      if (items.length > 0) {
+        const quoter =
+          await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
+        if (quoter) {
+          const searched = items.find((item) => item.data?.type === quoter);
+          if (searched) {
+            return searched;
+          }
         }
-      }
-      const values = items.map((item) =>
-        item.data?.buyAmount ? Number(item.data?.buyAmount) : 0,
-      );
-      const maxValue = Math.max(...values);
-      if (!Number.isNaN(maxValue)) {
-        return items.find(
-          (item) =>
-            item.data?.buyAmount && Number(item.data.buyAmount) === maxValue,
+        const values = items.map((item) =>
+          item.data?.buyAmount ? Number(item.data?.buyAmount) : 0,
         );
+        const maxValue = Math.max(...values);
+        if (!Number.isNaN(maxValue)) {
+          return items.find(
+            (item) =>
+              item.data?.buyAmount && Number(item.data.buyAmount) === maxValue,
+          );
+        }
+      } else {
+        return responses[0];
       }
-      return items[0];
     };
 
     const fetchQuote = async () => {
@@ -233,12 +235,14 @@ export const useSwapQuoteCallback = function (
         }
       }
     };
+
+    const quote = await backgroundApiProxy.serviceSwap.getQuote();
     if (!quote) {
       await fetchQuote();
     } else {
       await fetchQuotes();
     }
-  }, [params, showLoading, quote]);
+  }, [params, showLoading]);
   return swapQuote;
 };
 

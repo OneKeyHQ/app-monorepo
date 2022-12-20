@@ -19,7 +19,6 @@ import TokenInput from './components/TokenInput';
 import {
   useDerivedSwapState,
   useSwapQuoteCallback,
-  useSwapQuoteRequestParams,
   useSwapState,
 } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
@@ -41,7 +40,6 @@ const SwapContent = () => {
   const { wallet, network } = useActiveWalletAccount();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { formattedAmounts } = useDerivedSwapState();
-  const params = useSwapQuoteRequestParams();
   const isDisabled = !wallet || !network || swapMaintain;
 
   const onSelectInput = useCallback(() => {
@@ -83,7 +81,7 @@ const SwapContent = () => {
   useEffect(() => {
     onSwapQuoteCallback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params]);
+  }, [onSwapQuoteCallback]);
 
   return (
     <Box w="full">

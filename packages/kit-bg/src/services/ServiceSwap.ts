@@ -12,6 +12,7 @@ import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   clearState,
+  clearUserSelectedQuoter,
   resetState,
   resetTypedValue,
   setInputToken,
@@ -23,9 +24,8 @@ import {
   setSendingAccount,
   setShowMoreQuoteDetail,
   setTypedValue,
-  switchTokens,
   setUserSelectedQuoter,
-  clearUserSelectedQuoter
+  switchTokens,
 } from '@onekeyhq/kit/src/store/reducers/swap';
 import {
   clearTransactions,
@@ -39,9 +39,7 @@ import type {
   QuoteLimited,
   Recipient,
 } from '@onekeyhq/kit/src/views/Swap/typings';
-import {
- stringifyTokens
-} from '@onekeyhq/kit/src/views/Swap/utils';
+import { stringifyTokens } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -213,6 +211,11 @@ export default class ServiceSwap extends ServiceBase {
       actions.push(setQuoteTime(undefined));
     }
     dispatch(...actions);
+  }
+
+  @backgroundMethod()
+  async getQuote() {
+    return this.backgroundApi.appSelector((s) => s.swap.quote);
   }
 
   @backgroundMethod()
@@ -478,23 +481,27 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async setUserSelectedQuoter(hash: string, type: string) {
-    return this.backgroundApi.dispatch(setUserSelectedQuoter({ hash, type }))
+    return this.backgroundApi.dispatch(setUserSelectedQuoter({ hash, type }));
   }
 
   @backgroundMethod()
   async clearUserSelectedQuoter() {
-    return this.backgroundApi.dispatch(clearUserSelectedQuoter())
+    return this.backgroundApi.dispatch(clearUserSelectedQuoter());
   }
 
   @backgroundMethod()
   async getCurrentUserSelectedQuoter() {
-    const { appSelector } = this.backgroundApi
-    const userSelectedQuoter = appSelector(s => s.swap.userSelectedQuoter)
-    if (!userSelectedQuoter) { return undefined }
-    const inputToken = appSelector(s => s.swap.inputToken);
-    const outputToken = appSelector(s => s.swap.outputToken);
+    const { appSelector } = this.backgroundApi;
+    const userSelectedQuoter = appSelector((s) => s.swap.userSelectedQuoter);
+    if (!userSelectedQuoter) {
+      return undefined;
+    }
+    const inputToken = appSelector((s) => s.swap.inputToken);
+    const outputToken = appSelector((s) => s.swap.outputToken);
     const hash = stringifyTokens(inputToken, outputToken);
-    if (!hash) { return undefined }
-    return userSelectedQuoter[hash]
+    if (!hash) {
+      return undefined;
+    }
+    return userSelectedQuoter[hash];
   }
 }
