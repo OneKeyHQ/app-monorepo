@@ -1,15 +1,64 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../hooks';
+import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useNetworkSimple,
+} from '../../hooks';
 
 import { useInputLimitsError } from './hooks/useSwap';
 import { SwapError } from './typings';
+
+const RecipientBox = () => {
+  const intl = useIntl();
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const { wallet } = useActiveWalletAccount();
+  const network = useNetworkSimple(outputToken?.networkId);
+  const { createAccount } = useCreateAccountInWallet({
+    networkId: network?.id,
+    walletId: wallet?.id,
+  });
+  const accounts = useAppSelector((s) => s.runtime.accounts);
+
+  useEffect(() => {
+    if (network) {
+      backgroundApiProxy.serviceSwap.setRecipient(network);
+    }
+  }, [accounts, network]);
+
+  return (
+    <Box mt="6">
+      <Alert
+        title={intl.formatMessage(
+          {
+            id: 'content__you_don_t_have_a_str_account',
+          },
+          { '0': network?.symbol ?? '' },
+        )}
+        alertType="info"
+        actionType="right"
+        action={intl.formatMessage({ id: 'action__create' })}
+        onAction={createAccount}
+        dismiss={false}
+      />
+    </Box>
+  );
+};
+
+const RecipientAlert = () => {
+  const recipient = useAppSelector((s) => s.swap.recipient);
+  if (recipient) {
+    return null;
+  }
+  return <RecipientBox />;
+};
 
 const DepositLimitAlert = () => {
   const limitsError = useInputLimitsError();
@@ -58,6 +107,7 @@ const ErrorAlert = () => {
 const SwapWarning: FC = () => (
   <>
     <DepositLimitAlert />
+    <RecipientAlert />
     <ErrorAlert />
   </>
 );

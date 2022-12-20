@@ -18,7 +18,7 @@ import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { addTransaction } from '../../store/reducers/swapTransactions';
 import { wait } from '../../utils/helper';
-import { openAppReview, canShowAppReview } from '../../utils/openAppReview';
+import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
 import { SendRoutes } from '../Send/types';
 
 import {
@@ -237,7 +237,7 @@ const ExchangeButton = () => {
           outputAmount.token.tokenIdOnNetwork,
         );
       }
-      const show = await canShowAppReview()
+      const show = await canShowAppReview();
       if (show) {
         await wait(2000);
         openAppReview();
@@ -383,7 +383,9 @@ const ExchangeButton = () => {
           },
         },
       });
-      setTimeout(() => { addSwapTransaction(result.txid, decodedTx.nonce) }, 100)
+      setTimeout(() => {
+        addSwapTransaction(result.txid, decodedTx.nonce);
+      }, 100);
       return;
     }
 

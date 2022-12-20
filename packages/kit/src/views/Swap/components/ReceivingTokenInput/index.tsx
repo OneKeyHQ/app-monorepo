@@ -172,8 +172,7 @@ const TokenInputReceivingAddress: FC = () => {
         <Typography.Body2
           color={recipientUnknown ? 'text-warning' : 'text-subdued'}
         >
-          {intl.formatMessage({ id: 'form__unknown' })}
-          {' '}
+          {intl.formatMessage({ id: 'form__unknown' })}{' '}
           {utils.shortenAddress(address)}
         </Typography.Body2>
       </Box>

@@ -142,15 +142,22 @@ export const useSwapQuoteCallback = function (
       const quoter =
         await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
       if (quoter) {
-        return items.find((item) => item.data?.type === quoter);
+        const searched = items.find((item) => item.data?.type === quoter);
+        if (searched) {
+          return searched;
+        }
       }
       const values = items.map((item) =>
         item.data?.buyAmount ? Number(item.data?.buyAmount) : 0,
       );
       const maxValue = Math.max(...values);
       if (!Number.isNaN(maxValue)) {
-        return items.find((item) => item.data?.buyAmount === String(maxValue));
+        return items.find(
+          (item) =>
+            item.data?.buyAmount && Number(item.data.buyAmount) === maxValue,
+        );
       }
+      return items[0];
     };
 
     const fetchQuote = async () => {

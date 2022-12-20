@@ -44,7 +44,7 @@ type RouteOptionProps = {
 const SelectRoutesContext = createContext({
   selectedIndex: 0,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onSelect: (index: number) => { },
+  onSelect: (index: number) => {},
 });
 
 const ListEmptyComponent = () => (
@@ -67,7 +67,7 @@ const PlaceholderLine: FC<PlaceholderLineProps> = ({ ...rest }) => (
 );
 
 const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
-  const intl = useIntl()
+  const intl = useIntl();
   const { inputToken, outputToken } = useAppSelector((s) => s.swap);
   const { selectedIndex, onSelect } = useContext(SelectRoutesContext);
   const { data, limited } = response;
@@ -128,7 +128,10 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         <Box>
           <Divider my="3" />
           <Typography.Caption color="text-subdued">
-            {intl.formatMessage({ id: 'form__cap_str_day_rates_may_change_due_to_market' }, { '0': '200,000 USDT' })}
+            {intl.formatMessage(
+              { id: 'form__cap_str_day_rates_may_change_due_to_market' },
+              { '0': '200,000 USDT' },
+            )}
           </Typography.Caption>
         </Box>
       ) : null}
@@ -137,7 +140,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
 };
 
 const Routes: FC<RoutesProps> = ({ responses }) => {
-  const intl = useIntl()
+  const intl = useIntl();
   const data = responses.map((res, index) => ({ ...res, index }));
   const limited = data.filter((item) => item.limited);
   const notLimited = data.filter((item) => !item.limited);
@@ -156,7 +159,9 @@ const Routes: FC<RoutesProps> = ({ responses }) => {
         </Box>
         {limited.length ? (
           <Box>
-            <Typography.Subheading mb="3">{intl.formatMessage({ id: 'form__unavailable_uppercase' })}</Typography.Subheading>
+            <Typography.Subheading mb="3">
+              {intl.formatMessage({ id: 'form__unavailable_uppercase' })}
+            </Typography.Subheading>
             <Box>
               {limited.map((item) => (
                 <RouteOption
@@ -222,7 +227,11 @@ const SelectRoutes = () => {
         primaryActionTranslationId="action__confirm"
         onPrimaryActionPress={onPrimaryActionPress}
       >
-        {data.length === 0 ? <ListEmptyComponent /> : <Routes responses={data} />}
+        {data.length === 0 ? (
+          <ListEmptyComponent />
+        ) : (
+          <Routes responses={data} />
+        )}
       </Modal>
     </SelectRoutesContext.Provider>
   );

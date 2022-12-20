@@ -3,11 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
-import {
-  getTokenAmountString,
-  nativeTokenAddress,
-  stringifyTokens,
-} from '../utils';
+import { getTokenAmountString, nativeTokenAddress } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
