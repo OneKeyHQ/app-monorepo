@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Divider,
   Icon,
@@ -25,11 +26,15 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
-import { useManageTokens, useNavigation } from '../../../hooks';
+import { FormatCurrencyNumber } from '../../../components/Format';
+import {
+  useAccountAllValues,
+  useAccountValues,
+  useManageTokens,
+  useNavigation,
+} from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
-
-import { AssetsSummedValues } from './AssetsSummedValues';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -53,12 +58,12 @@ const ListHeader: FC<{
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network, networkId, accountId } = useActiveWalletAccount();
+  const { account, network, networkId } = useActiveWalletAccount();
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
 
-  const { accountTokens, balances } = useManageTokens();
+  const { accountTokens } = useManageTokens();
 
   const tokenCountOrAddToken = useMemo(
     () =>
@@ -91,6 +96,22 @@ const ListHeader: FC<{
     [accountTokens.length, navigation, showTokenCount, tokenEnabled],
   );
   const Container = showTokenCount ? Pressable.Item : Box;
+
+  const accountTokensValue = useAccountValues({
+    networkId,
+    accountAddress: account?.address ?? '',
+    assetTypes: ['tokens'],
+  }).value;
+
+  const accountAllValue = useAccountAllValues(
+    networkId,
+    account?.address ?? '',
+  ).value;
+
+  const rate = useMemo(
+    () => accountTokensValue.div(accountAllValue).multipliedBy(100),
+    [accountAllValue, accountTokensValue],
+  );
 
   return (
     <Container
@@ -148,12 +169,16 @@ const ListHeader: FC<{
               borderRadius="2px"
               bg="text-default"
             />
-            <AssetsSummedValues
-              accountId={accountId}
-              networkId={networkId}
-              balances={balances}
-              accountTokens={accountTokens}
-            />
+            <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
+              {accountTokensValue.isNaN() ? (
+                ' '
+              ) : (
+                <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+              )}
+            </Text>
+            {rate.isNaN() ? null : (
+              <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
+            )}
           </Box>
         )}
         <Box ml="auto" flexDirection="row" alignItems="center">
@@ -162,12 +187,13 @@ const ListHeader: FC<{
       </Box>
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
         {isVerticalLayout ? (
-          <AssetsSummedValues
-            accountId={accountId}
-            networkId={networkId}
-            balances={balances}
-            accountTokens={accountTokens}
-          />
+          <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
+            {Number.isNaN(accountTokens) ? (
+              ' '
+            ) : (
+              <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+            )}
+          </Text>
         ) : (
           <Box flexDirection="row" w="full">
             <Typography.Subheading color="text-subdued" flex={1}>

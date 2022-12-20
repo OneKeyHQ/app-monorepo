@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -35,11 +35,15 @@ import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../../hooks';
+import {
+  useAccountValues,
+  useNavigationActions,
+} from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
+import { setOverviewOnChainValue } from '../../../store/reducers/overview';
 import { getTimeDurationMs } from '../../../utils/helper';
 import {
   calculateGains,
@@ -66,7 +70,8 @@ const AccountAmountInfo: FC = () => {
 
   const { account, wallet, network, networkId, accountId } =
     useActiveWalletAccount();
-  const nftPrice = useNFTPrice({
+
+  const nftValue = useNFTPrice({
     accountId: account?.address,
     networkId: network?.id,
   });
@@ -85,49 +90,7 @@ const AccountAmountInfo: FC = () => {
 
   const { copyAddress } = useCopyAddress({ wallet });
 
-  const [summedValue, summedValueComp] = useMemo(() => {
-    const displayValue = getSummedValues({
-      tokens: accountTokens,
-      balances,
-      prices,
-      vsCurrency,
-      hideSmallBalance,
-    }).toNumber();
-
-    return [
-      displayValue,
-      Number.isNaN(displayValue) ? (
-        <Skeleton shape="DisplayXLarge" />
-      ) : (
-        <>
-          <Typography.Display2XLarge>
-            <FormatCurrencyNumber
-              decimals={2}
-              value={displayValue}
-              convertValue={includeNFTsInTotal ? nftPrice : null}
-            />
-          </Typography.Display2XLarge>
-          <IconButton
-            name="ChevronDownMini"
-            onPress={showAccountValueSettings}
-            type="plain"
-            circle
-            ml={1}
-          />
-        </>
-      ),
-    ];
-  }, [
-    accountTokens,
-    balances,
-    hideSmallBalance,
-    includeNFTsInTotal,
-    nftPrice,
-    prices,
-    vsCurrency,
-  ]);
-
-  const changedValueComp = useMemo(() => {
+  const pricesMap24h = useMemo(() => {
     const basePrices: Record<string, SimpleTokenPrices> = {};
     accountTokens.forEach((token) => {
       const tokenId = token?.tokenIdOnNetwork || 'main';
@@ -143,19 +106,90 @@ const AccountAmountInfo: FC = () => {
         });
       }
     });
-    const displayBaseValue = getSummedValues({
-      tokens: accountTokens,
-      balances,
-      prices: basePrices,
-      vsCurrency,
-      hideSmallBalance,
-    }).toNumber();
+    return basePrices;
+  }, [accountTokens, balances, prices, vsCurrency]);
+
+  const displayBaseValue = useMemo(
+    () =>
+      getSummedValues({
+        tokens: accountTokens,
+        balances,
+        prices: pricesMap24h,
+        vsCurrency,
+        hideSmallBalance,
+      }).toNumber(),
+    [pricesMap24h, accountTokens, balances, vsCurrency, hideSmallBalance],
+  );
+
+  const summedValue = useMemo(
+    () =>
+      getSummedValues({
+        tokens: accountTokens,
+        balances,
+        prices,
+        vsCurrency,
+        hideSmallBalance,
+      }),
+    [accountTokens, balances, hideSmallBalance, prices, vsCurrency],
+  );
+
+  const accountAllValues = useAccountValues({
+    networkId,
+    accountAddress: account?.address ?? '',
+    assetTypes: [
+      'tokens',
+      'defis',
+      includeNFTsInTotal ? 'nfts' : undefined,
+    ].filter((n) => !!n) as any[],
+  });
+
+  useEffect(() => {
+    backgroundApiProxy.dispatch(
+      setOverviewOnChainValue({
+        networkId,
+        address: account?.address ?? '',
+        assetType: 'tokens',
+        value: summedValue.toString(),
+        value24h: displayBaseValue.toString(),
+      }),
+      setOverviewOnChainValue({
+        networkId,
+        address: account?.address ?? '',
+        assetType: 'nfts',
+        value: nftValue.toString(),
+        value24h: nftValue.toString(),
+      }),
+    );
+  }, [networkId, summedValue, nftValue, displayBaseValue, account?.address]);
+
+  const summedValueComp = useMemo(
+    () =>
+      accountAllValues.value.isNaN() ? (
+        <Skeleton shape="DisplayXLarge" />
+      ) : (
+        <>
+          <Typography.Display2XLarge>
+            <FormatCurrencyNumber decimals={2} value={accountAllValues.value} />
+          </Typography.Display2XLarge>
+          <IconButton
+            name="ChevronDownMini"
+            onPress={showAccountValueSettings}
+            type="plain"
+            circle
+            ml={1}
+          />
+        </>
+      ),
+    [accountAllValues],
+  );
+
+  const changedValueComp = useMemo(() => {
     const { gain, percentageGain, gainTextColor } = calculateGains({
-      basePrice: displayBaseValue,
-      price: summedValue,
+      basePrice: accountAllValues.value24h.toNumber(),
+      price: accountAllValues.value.toNumber(),
     });
 
-    return Number.isNaN(summedValue) ? (
+    return accountAllValues.value.isNaN() ? (
       <Skeleton shape="Body1" />
     ) : (
       <>
@@ -168,15 +202,7 @@ const AccountAmountInfo: FC = () => {
         </Typography.Body1Strong>
       </>
     );
-  }, [
-    accountTokens,
-    balances,
-    hideSmallBalance,
-    intl,
-    prices,
-    summedValue,
-    vsCurrency,
-  ]);
+  }, [intl, accountAllValues]);
 
   return (
     <Box alignItems="flex-start">

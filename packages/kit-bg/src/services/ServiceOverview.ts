@@ -14,7 +14,8 @@ import {
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import ServiceBase from './ServiceBase';
-import { IServiceBaseProps } from './ServiceTransaction';
+
+import type { IServiceBaseProps } from './ServiceTransaction';
 
 @backgroundClass()
 class ServiceOverview extends ServiceBase {

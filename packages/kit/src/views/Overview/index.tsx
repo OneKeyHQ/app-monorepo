@@ -1,4 +1,5 @@
-import { FC, memo, useEffect } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect } from 'react';
 
 import { List } from '@onekeyhq/components';
 
@@ -36,11 +37,7 @@ const OverviewDefiListComponent: FC<OverviewDefiListProps> = (props) => {
       m="0"
       data={defis}
       renderItem={({ item }) => (
-        <OverviewDefiProtocol
-          networkId={networkId}
-          {...item}
-          key={item._id?.protocolId}
-        />
+        <OverviewDefiProtocol {...item} key={item._id?.protocolId} />
       )}
       keyExtractor={(item) => item._id.protocolId}
     />

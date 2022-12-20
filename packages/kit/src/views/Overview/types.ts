@@ -102,6 +102,9 @@ export interface IOverviewDeFiPoolTokenBalance extends ITokenInfo {
   invested?: string;
   fiat?: string;
   hodl?: string;
+
+  value?: string;
+  value24h: string;
 }
 
 export interface IAccountTokens extends IBaseOverviewQuery {
@@ -179,6 +182,8 @@ export interface IOverviewDeFiPortfolioItem
   lendingInfo?: {
     healthRate?: number | null;
   };
+
+  poolValue?: string;
 }
 export interface IOverviewDeFiPortfolio
   extends IBaseOverviewQuery,
@@ -223,5 +228,11 @@ export type OverviewDefiRes = {
     address: string;
     protocolId: string;
   };
-  pools: IOverviewDeFiPortfolioItem[];
+  pools: Record<OverviewDeFiPoolType, IOverviewDeFiPortfolioItem[]>;
+  poolSize: number;
+  protocolValue: string;
+  protocolValue24h: string;
+  claimableValue: string;
+  protocolName: string;
+  protocolIcon: string;
 };

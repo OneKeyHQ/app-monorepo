@@ -1,6 +1,19 @@
-import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
+import B from 'bignumber.js';
+import { set } from 'lodash';
 
-import { OverviewDefiRes } from '../../views/Overview/types';
+import type { OverviewDefiRes } from '../../views/Overview/types';
+import type { PayloadAction } from '@reduxjs/toolkit';
+
+type AssetType = 'tokens' | 'nfts' | 'defis';
+
+type TotalValues = Record<
+  AssetType,
+  {
+    value: string;
+    value24h: string;
+  }
+>;
 
 type InitialState = {
   // token: {
@@ -13,10 +26,15 @@ type InitialState = {
     // id = networkId + address
     [id: string]: OverviewDefiRes[];
   };
+  totalValues?: {
+    // id = networkId + address
+    [id: string]: TotalValues;
+  };
 };
 
 const initialState: InitialState = {
   defi: {},
+  totalValues: {},
 };
 
 type OverviewPayloadDefi = {
@@ -35,14 +53,57 @@ export const OverviewSlice = createSlice({
     ) {
       const { networkId, address, data } = action.payload;
       const id = `${networkId}--${address}`;
-      if (!state.defi) {
-        state.defi = {};
+      state.defi = set(
+        {
+          ...state.defi,
+        },
+        `${id}`,
+        data,
+      );
+      let totalValue = new B(0);
+      let totalValue24h = new B(0);
+      for (const d of data) {
+        totalValue = totalValue.plus(d.protocolValue);
+        totalValue24h = totalValue24h.plus(d.protocolValue24h);
       }
-      state.defi[id] = data;
+      state.totalValues = set(
+        {
+          ...state.totalValues,
+        },
+        `${id}.defis`,
+        {
+          value: totalValue,
+          value24h: totalValue24h,
+        },
+      );
+    },
+    setOverviewOnChainValue(
+      state,
+      action: PayloadAction<{
+        networkId: string;
+        address: string;
+        assetType: AssetType;
+        value: string;
+        value24h: string;
+      }>,
+    ) {
+      const { networkId, address, assetType, value, value24h } = action.payload;
+      const id = `${networkId}--${address}`;
+      state.totalValues = set(
+        {
+          ...state.totalValues,
+        },
+        `${id}.${assetType}`,
+        {
+          value,
+          value24h,
+        },
+      );
     },
   },
 });
 
-export const { setOverviewPortfolioDefi } = OverviewSlice.actions;
+export const { setOverviewPortfolioDefi, setOverviewOnChainValue } =
+  OverviewSlice.actions;
 
 export default OverviewSlice.reducer;

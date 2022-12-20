@@ -1,6 +1,7 @@
-import { FC, ReactElement } from 'react';
+import type { FC, ReactElement } from 'react';
 
 import {
+  Badge,
   Box,
   HStack,
   Icon,
@@ -11,14 +12,17 @@ import {
 } from '@onekeyhq/components';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
 
+import type B from 'bignumber.js';
+
 export const OverviewDefiBoxHeader: FC<{
+  rate: B;
   icon: string;
   name: string;
   desc: ReactElement;
   extra?: ReactElement;
   toggle?: () => void;
   collapsed?: boolean;
-}> = ({ icon, name, desc, extra, toggle, collapsed }) => {
+}> = ({ icon, name, rate, desc, extra, toggle, collapsed }) => {
   const isVertical = useIsVerticalLayout();
   return (
     <Box
@@ -38,6 +42,9 @@ export const OverviewDefiBoxHeader: FC<{
         <Text fontSize="18px" color="text-default" fontWeight="600" ml="3">
           {name}
         </Text>
+        {rate.isNaN() ? null : (
+          <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
+        )}
       </HStack>
       <HStack alignItems="center">
         <VStack>

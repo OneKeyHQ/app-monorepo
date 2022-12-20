@@ -1,8 +1,6 @@
-import { FC, useCallback, useMemo } from 'react';
+import type { FC } from 'react';
 
 import B from 'bignumber.js';
-import { groupBy, uniq } from 'lodash';
-import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,22 +11,14 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/engine/src/types/token';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAppSelector } from '../../../../hooks';
-import { getTokenValues } from '../../../../utils/priceUtils';
-import {
-  IOverviewDeFiPoolTokenBalance,
-  IOverviewDeFiPortfolioItem,
-  ITokenInfo,
-  OverviewDeFiPoolType,
-  OverviewDefiRes,
-} from '../../types';
+import { useAccountAllValues, useActiveWalletAccount } from '../../../../hooks';
 
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
+
+import type { OverviewDeFiPoolType, OverviewDefiRes } from '../../types';
 
 const PoolName: FC<{
   poolType: OverviewDeFiPoolType;
@@ -52,120 +42,19 @@ const PoolName: FC<{
   );
 };
 
-export const OverviewDefiProtocol: FC<
-  OverviewDefiRes & {
-    networkId: string;
-  }
-> = ({ pools, networkId }) => {
+export const OverviewDefiProtocol: FC<OverviewDefiRes> = ({
+  _id,
+  pools,
+  protocolValue,
+  protocolName,
+  protocolIcon,
+  claimableValue,
+}) => {
   const intl = useIntl();
-  const groupedPools = Object.entries(groupBy(pools, (p) => p.poolType));
 
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+  const { networkId, accountAddress } = useActiveWalletAccount();
 
-  const { result: allTokensMap, loading: tokensLoading } = useAsync(
-    async () =>
-      backgroundApiProxy.serviceToken.getAllTokensMapByNetworkId(networkId),
-    [networkId],
-  );
-
-  const { result: pricesMap, loading: pricesLoading } = useAsync(async () => {
-    const res = await backgroundApiProxy.servicePrice.getCgkTokenPrice({
-      platform: networkId,
-      vsCurrency,
-      contractAddresses: uniq(
-        pools
-          .map((p) =>
-            [...p.supplyTokens, ...p.rewardTokens, ...p.borrowTokens].map(
-              (t) => t.tokenAddress,
-            ),
-          )
-          .flat(),
-      ),
-    });
-
-    return Object.fromEntries(
-      Object.entries(res).map(([k, value]) => [k, value?.[vsCurrency]]),
-    );
-  }, [pools, vsCurrency]);
-
-  const getTokenInfo = useCallback(
-    (token: IOverviewDeFiPoolTokenBalance) =>
-      allTokensMap?.[token.tokenAddress] ??
-      ({
-        logoURI: '',
-        address: token.tokenAddress,
-        symbol: token.symbol,
-      } as Token),
-    [allTokensMap],
-  );
-
-  const getTokenPrice = useCallback(
-    (token: ITokenInfo) => {
-      const key = token.tokenAddress
-        ? `${networkId}-${token.tokenAddress}`
-        : networkId;
-      return pricesMap?.[key] ?? 0;
-    },
-    [pricesMap, networkId],
-  );
-
-  const getTokensValue = useCallback(
-    (tokens: IOverviewDeFiPoolTokenBalance[]) =>
-      getTokenValues({
-        tokens: tokens.map((t) => getTokenInfo(t)),
-        vsCurrency,
-        prices: pricesMap ?? {},
-        balances: tokens.reduce(
-          (sum, next) => ({
-            ...sum,
-            [next.tokenAddress]: next.balanceParsed,
-          }),
-          {},
-        ),
-      }).reduce((sum, next) => sum.plus(next), new B(0)),
-    [pricesMap, getTokenInfo, vsCurrency],
-  );
-
-  const getPoolValue = useCallback(
-    (pool: IOverviewDeFiPortfolioItem) => {
-      const totalTokens = [...pool.rewardTokens];
-      if (pool.poolType !== OverviewDeFiPoolType.Borrowed) {
-        totalTokens.push(...pool.supplyTokens);
-      }
-      const total = getTokensValue(totalTokens);
-      const borrowedTokens = [...pool.borrowTokens];
-      if (pool.poolType === OverviewDeFiPoolType.Borrowed) {
-        borrowedTokens.push(...pool.supplyTokens);
-      }
-      const borrowed = getTokensValue(borrowedTokens);
-      return total.minus(borrowed);
-    },
-    [getTokensValue],
-  );
-
-  const allProtocolValue = useMemo(
-    () => pools.reduce((sum, next) => sum.plus(getPoolValue(next)), new B(0)),
-    [getPoolValue, pools],
-  );
-
-  const allClaimableValue = useMemo(
-    () =>
-      pools.reduce(
-        (sum, next) => sum.plus(getTokensValue(next.rewardTokens)),
-        new B(0),
-      ),
-    [getTokensValue, pools],
-  );
-
-  if (tokensLoading || pricesLoading) {
-    return null;
-  }
-
-  const protocolInfo = pools[0];
-
-  if (!protocolInfo) {
-    return null;
-  }
+  const accountAllValues = useAccountAllValues(networkId, accountAddress);
 
   return (
     <Collapse
@@ -177,25 +66,28 @@ export const OverviewDefiProtocol: FC<
       defaultCollapsed={false}
       renderCustomTrigger={(toggle, collapsed) => (
         <OverviewDefiBoxHeader
-          name={protocolInfo.protocolName}
+          name={protocolName}
+          rate={new B(protocolValue)
+            .div(accountAllValues.value)
+            .multipliedBy(100)}
           desc={
             <Typography.Heading>
-              <FormatCurrencyNumber value={allProtocolValue} />
+              <FormatCurrencyNumber value={new B(protocolValue)} />
             </Typography.Heading>
           }
           extra={
-            allClaimableValue.isGreaterThan(0) ? (
+            +claimableValue > 0 ? (
               <Typography.Body2Strong color="text-subdued">
                 {intl.formatMessage(
                   { id: 'form__claimable_str' },
                   {
-                    0: <FormatCurrencyNumber value={allClaimableValue} />,
+                    0: <FormatCurrencyNumber value={new B(claimableValue)} />,
                   },
                 )}
               </Typography.Body2Strong>
             ) : undefined
           }
-          icon={protocolInfo.protocolIcon}
+          icon={protocolIcon}
           toggle={toggle}
           collapsed={collapsed}
         />
@@ -204,23 +96,17 @@ export const OverviewDefiProtocol: FC<
       <List
         m="0"
         w="100%"
-        data={groupedPools}
+        data={Object.entries(pools)}
         renderItem={({ item }) => (
           <VStack borderTopWidth="1px" borderTopColor="divider" pt="2" pb="4">
             <PoolName
-              poolType={item[0] as OverviewDeFiPoolType}
-              poolName={item[1][0].poolName}
+              poolType={item?.[0] as OverviewDeFiPoolType}
+              poolName={item?.[1]?.[0]?.poolName}
             />
             <OverviewDefiPool
-              networkId={networkId}
-              poolType={item[0]}
-              pools={item[1]}
-              tokensMap={allTokensMap ?? {}}
-              pricesMap={pricesMap ?? {}}
-              getTokenInfo={getTokenInfo}
-              getTokenPrice={getTokenPrice}
-              getTokensValue={getTokensValue}
-              getPoolValue={getPoolValue}
+              networkId={_id.networkId}
+              poolType={item?.[0]}
+              pools={item?.[1]}
             />
           </VStack>
         )}
