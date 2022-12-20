@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 export const useCollectionSearch = (keyword: string, networkId: string) => {
   const [loading, setLoading] = useState(false);

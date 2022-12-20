@@ -115,7 +115,7 @@ export const ListHeader = () => {
 };
 
 const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
-  const { formatDistance } = useFormatDate();
+  const { formatDistanceToNow } = useFormatDate();
 
   let name = `# ${item.asset?.tokenId ?? ''}`;
   if (item.asset?.name && item.asset?.name.length > 0) {
@@ -131,7 +131,9 @@ const MobileCell: FC<{ item: NFTTransaction }> = ({ item }) => {
         text={{
           label: name,
           labelProps: { typography: 'Body1Strong', numberOfLines: 1 },
-          description: item.timestamp ? formatDistance(item.timestamp) : '',
+          description: item.timestamp
+            ? formatDistanceToNow(item.timestamp)
+            : '',
           descriptionProps: {
             numberOfLines: 1,
             typography: 'Body2',
@@ -161,7 +163,7 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
   if (item.asset?.name && item.asset?.name.length > 0) {
     name = item.asset?.name;
   }
-  const { formatDistance } = useFormatDate();
+  const { formatDistanceToNow } = useFormatDate();
   const { openAddressDetails } = useOpenBlockBrowser(network);
 
   return (
@@ -175,7 +177,9 @@ const DesktopCell: FC<{ network?: Network; item: NFTTransaction }> = ({
           text={{
             label: name,
             labelProps: { typography: 'Body1Strong', numberOfLines: 1 },
-            description: item.timestamp ? formatDistance(item.timestamp) : '',
+            description: item.timestamp
+              ? formatDistanceToNow(item.timestamp)
+              : '',
             descriptionProps: {
               numberOfLines: 1,
               typography: 'Body2',

@@ -5,9 +5,11 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
 import type {
   Collection,
+  MarketPlace,
   NFTAsset,
   NFTMarketCapCollection,
   NFTMarketRanking,
+  NFTNPL,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
@@ -30,9 +32,7 @@ function getNFTListKey(accountId: string, networkId: string) {
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
-  get client() {
-    return axios.create({ timeout: 60 * 1000 });
-  }
+  private client = axios.create({ timeout: 60 * 1000 });
 
   get baseUrl() {
     return `${getFiatEndpoint()}/NFT`;
@@ -47,7 +47,7 @@ class ServiceNFT extends ServiceBase {
     networkId: string;
   }) {
     const apiUrl = `${this.baseUrl}/v2/list?address=${accountId}&chain=${networkId}`;
-    const { data, success } = await axios
+    const { data, success } = await this.client
       .get<NFTServiceResp<Collection[]>>(apiUrl)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: [] }));
@@ -146,7 +146,7 @@ class ServiceNFT extends ServiceBase {
     cursor?: string;
   }) {
     const apiUrl = `${this.baseUrl}/assets/attributes`;
-    const { data, success } = await axios
+    const { data, success } = await this.client
       .post<
         NFTServiceResp<{ total: number; next: string; content: NFTAsset[] }>
       >(apiUrl, params)
@@ -267,6 +267,54 @@ class ServiceNFT extends ServiceBase {
       .get<NFTServiceResp<NFTAsset[]>>(url)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: [] as NFTAsset[] }));
+    if (!success) {
+      return [];
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async batchAsset(params: {
+    chain: string;
+    items: { contract_address?: string; token_id?: any }[];
+  }) {
+    const apiUrl = `${this.baseUrl}/batchAsset`;
+    const { data, success } = await this.client
+      .post<NFTServiceResp<NFTAsset[]>>(apiUrl, params)
+      .then((resp) => resp.data)
+      .catch(() => ({
+        success: false,
+        data: [] as NFTAsset[],
+      }));
+
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getNPLData({ address }: { address: string }) {
+    const url = `${this.baseUrl}/account/pnl?&address=${address}`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<NFTNPL[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as NFTNPL[] }));
+
+    if (!success) {
+      return [];
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getMarketPlaces() {
+    const url = `${this.baseUrl}/marketPlace/list`;
+    const { data, success } = await this.client
+      .get<NFTServiceResp<MarketPlace[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] as MarketPlace[] }));
+
     if (!success) {
       return [];
     }
