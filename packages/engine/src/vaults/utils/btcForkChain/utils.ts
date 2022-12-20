@@ -2,6 +2,8 @@ import { NotImplemented } from '../../../errors';
 
 import { AddressEncodings } from './types';
 
+import type { DBUTXOAccount } from '../../../types/account';
+
 type IAccountDefault = {
   namePrefix: string;
   addressEncoding: AddressEncodings;
@@ -31,4 +33,15 @@ export function getAccountDefaultByPurpose(
     default:
       throw new NotImplemented(`Unsupported purpose ${purpose}.`);
   }
+}
+
+export function getBIP44Path(account: DBUTXOAccount, address: string) {
+  let realPath = '';
+  for (const [key, value] of Object.entries(account.addresses)) {
+    if (value === address) {
+      realPath = key;
+      break;
+    }
+  }
+  return `${account.path}/${realPath}`;
 }
