@@ -2,6 +2,54 @@ const fse = require('fs-extra');
 const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
+const url = require('url');
+
+function renameJsFileOfBackgroundHtml({ folder }) {
+  if (!fs.existsSync(folder)) {
+    return;
+  }
+  const files = fs.readdirSync(folder);
+  const htmlFileName = files.find(
+    (file) => file.endsWith('.html') && file.startsWith('background.html'),
+  );
+  if (!htmlFileName) {
+    return;
+  }
+  const htmlFile = path.resolve(folder, htmlFileName);
+  const htmlContent = fs.readFileSync(htmlFile, 'utf8');
+  const $ = cheerio.load(htmlContent);
+  const srcList = [];
+  $('body script').each((idx, ele) => {
+    const $ele = $(ele);
+    const src = $ele.attr('src');
+    const srcFile = path.join(folder, src);
+
+    const extname = path.extname(src);
+    const basename = path.basename(src, extname);
+
+    if (extname.startsWith('.js?')) {
+      const newExtname = extname.replace(/^\.js\?/gi, '.ojs?');
+      const newSrc = path.join(path.dirname(src), basename + newExtname);
+      if (newSrc !== src) {
+        $ele.attr('src', newSrc);
+        const newSrcFile = path.join(folder, newSrc);
+        srcList.push({ old: srcFile, new: newSrcFile });
+      }
+    }
+  });
+  if (srcList.length) {
+    console.log(srcList);
+    srcList.forEach((info) => {
+      const oldPath = url.parse(info.old).pathname;
+      const newPath = url.parse(info.new).pathname;
+      fs.renameSync(oldPath, newPath);
+    });
+
+    fs.writeFileSync(htmlFile, $.html(), {
+      encoding: 'utf-8',
+    });
+  }
+}
 
 function doTaskInFolder({ folder }) {
   if (!fs.existsSync(folder)) {
@@ -92,5 +140,11 @@ function doTask() {
   doTaskInFolder({
     folder: path.resolve(__dirname, '../build/firefox'),
   });
+  renameJsFileOfBackgroundHtml({
+    folder: path.resolve(__dirname, '../build/firefox'),
+  });
 }
-module.exports = doTask;
+module.exports = {
+  doTask,
+  renameJsFileOfBackgroundHtml,
+};

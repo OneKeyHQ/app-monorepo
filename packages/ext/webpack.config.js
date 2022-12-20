@@ -63,7 +63,7 @@ class HtmlLazyScriptPlugin {
   apply(compiler) {
     compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
       console.log('HtmlLazyScriptPlugin >>>>>>>> ');
-      const doTask = require('./development/htmlLazyScript');
+      const { doTask } = require('./development/htmlLazyScript');
       doTask();
     });
   }
@@ -154,7 +154,6 @@ function createConfig({ config }) {
       new webpack.ProvidePlugin({
         process: 'process/browser',
       }),
-      new HtmlLazyScriptPlugin(),
     ],
     infrastructureLogging: {
       level: 'info',
@@ -217,6 +216,9 @@ function createConfig({ config }) {
     configName: config.name,
     enableAnalyzerHtmlReport: true,
   });
+
+  // HtmlLazyScriptPlugin should be last
+  webpackConfig.plugins.push(new HtmlLazyScriptPlugin());
 
   return webpackConfig;
 }
