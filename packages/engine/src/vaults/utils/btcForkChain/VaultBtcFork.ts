@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
+import { AccountUtxo } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 // @ts-expect-error
@@ -36,7 +37,7 @@ import { VaultBase } from '../../VaultBase';
 
 import { Provider } from './provider';
 import { BlockBook } from './provider/blockbook';
-import { getAccountDefaultByPurpose } from './utils';
+import { getAccountDefaultByPurpose, getBIP44Path } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
@@ -412,6 +413,12 @@ export default class VaultBtcFork extends VaultBase {
       outputs: outputs.map(({ value, address }) => ({
         address: address || dbAccount.address, // change amount
         value: value.toString(),
+        payload: address
+          ? undefined
+          : {
+              isCharge: true,
+              bip44Path: getBIP44Path(dbAccount, dbAccount.address),
+            },
       })),
       totalFee,
       totalFeeInNative,
@@ -452,9 +459,10 @@ export default class VaultBtcFork extends VaultBase {
         utxo: { txid: input.txid, vout: input.vout, value },
       });
     }
-    const outputsInUnsignedTx = outputs.map(({ address, value }) => ({
+    const outputsInUnsignedTx = outputs.map(({ address, value, payload }) => ({
       address,
       value: new BigNumber(value),
+      payload,
     }));
 
     const ret = {

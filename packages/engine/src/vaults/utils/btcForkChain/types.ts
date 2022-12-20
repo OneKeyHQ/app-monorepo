@@ -50,7 +50,11 @@ export type IUTXOOutput = { address: string; value: number };
 
 export type IEncodedTxBtc = {
   inputs: IBtcUTXO[];
-  outputs: { address: string; value: string }[];
+  outputs: {
+    address: string;
+    value: string;
+    payload?: { isCharge?: boolean; bip44Path?: string };
+  }[];
   totalFee: string;
   totalFeeInNative: string;
   transferInfo: ITransferInfo;
