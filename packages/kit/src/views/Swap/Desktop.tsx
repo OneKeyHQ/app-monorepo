@@ -82,7 +82,7 @@ const DesktopMain = () => (
   <Box>
     <Center>
       <Box maxW={{ md: '480px' }} width="full">
-        <Box flexDirection="row" justifyContent="space-between" px="4" mb="4">
+        <Box flexDirection="row" justifyContent="space-between" px="4" mb="4" zIndex={1}>
           <Box />
           <SwapHeaderButtons />
         </Box>
