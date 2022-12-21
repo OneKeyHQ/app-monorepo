@@ -105,6 +105,17 @@ const EnterAddress = () => {
     [onNameServiceStatusChange],
   );
 
+  const helpText = useCallback(
+    (value: string) => (
+      <NameServiceResolver
+        name={value}
+        onChange={syncStateAndReTriggerValidate}
+        networkId={networkId}
+      />
+    ),
+    [networkId, syncStateAndReTriggerValidate],
+  );
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__enter_address' })}
@@ -132,13 +143,7 @@ const EnterAddress = () => {
             }),
           },
         }}
-        helpText={(value) => (
-          <NameServiceResolver
-            name={value}
-            onChange={syncStateAndReTriggerValidate}
-            networkId={networkId}
-          />
-        )}
+        helpText={helpText}
       >
         <AddressInput
           networkId={networkId}
