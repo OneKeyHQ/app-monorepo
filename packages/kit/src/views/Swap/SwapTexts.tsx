@@ -1,14 +1,14 @@
 import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated } from 'react-native';
+import { Animated, Easing } from 'react-native';
 
 import { Box, Divider, HStack, Icon, Typography } from '@onekeyhq/components';
 
 const SwapFeatureText = () => {
   const intl = useIntl();
   return (
-    <Box flexDirection="row">
+    <Box flexDirection="row" pr="2">
       <Box flexDirection="row">
         <Icon size={16} name="RectangleGroupMini" />
         <Box w="1" />
@@ -41,29 +41,30 @@ const SwapFeatureText = () => {
 };
 
 const SwapTexts = () => {
-  const ref = useRef({ outer: 0, inner: [] as number[] });
+  const ref = useRef({ container: 0, width: 0, inProcess: false });
   const animatedValue = useRef(new Animated.Value(0)).current;
 
-  const renderLayout = useCallback(() => {
-    let innersWidth = ref.current.inner.reduce((a, b) => a + b, 0);
-    innersWidth += (ref.current.inner.length - 1) * 16;
-    const outerWidth = ref.current.outer;
-    if (innersWidth && outerWidth && innersWidth - outerWidth) {
-      const toValue = outerWidth - innersWidth;
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(animatedValue, {
-            toValue,
-            duration: 30000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(animatedValue, {
-            toValue: 0,
-            duration: 30000,
-            useNativeDriver: true,
-          }),
-        ]),
-      ).start();
+  const startAnimation = useCallback(() => {
+    const itemsWidth = ref.current.width * 3;
+    const containerWidth = ref.current.container;
+    if (
+      !ref.current.inProcess &&
+      itemsWidth &&
+      containerWidth &&
+      itemsWidth - containerWidth > 0
+    ) {
+      ref.current.inProcess = true;
+      const toValue = -ref.current.width;
+      animatedValue.setValue(0);
+      Animated.timing(animatedValue, {
+        toValue,
+        duration: 10000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start(() => {
+        ref.current.inProcess = false;
+        startAnimation();
+      });
     } else {
       animatedValue.stopAnimation();
     }
@@ -83,27 +84,32 @@ const SwapTexts = () => {
               layout: { width },
             },
           }) => {
-            ref.current.outer = width;
-            renderLayout();
+            ref.current.container = width;
+            startAnimation();
           }}
         >
           <Animated.View
             style={[{ transform: [{ translateX: animatedValue }] }]}
           >
-            <HStack flexDirection="row" space="2">
-              {[1, 2, 3].map((item, i) => (
-                <Box
-                  onLayout={({
-                    nativeEvent: {
-                      layout: { width },
-                    },
-                  }) => {
-                    ref.current.inner[i] = width;
-                  }}
-                >
-                  <SwapFeatureText />
-                </Box>
-              ))}
+            <HStack flexDirection="row">
+              <Box
+                onLayout={({
+                  nativeEvent: {
+                    layout: { width },
+                  },
+                }) => {
+                  ref.current.width = width;
+                  startAnimation();
+                }}
+              >
+                <SwapFeatureText />
+              </Box>
+              <Box>
+                <SwapFeatureText />
+              </Box>
+              <Box>
+                <SwapFeatureText />
+              </Box>
             </HStack>
           </Animated.View>
         </Box>

@@ -1200,6 +1200,36 @@ export default class Vault extends VaultBase {
     return new BigNumber(rawAllowanceHex as string).shiftedBy(-token.decimals);
   }
 
+  override async batchTokensAllowance(
+    tokenAddress: string,
+    spenderAddresses: string[],
+  ): Promise<number[]> {
+    const calls: { to: string; data: string }[] = [];
+    for (let i = 0; i < spenderAddresses.length; i += 1) {
+      const spenderAddress = spenderAddresses[i];
+      const [dbAccount, token] = await Promise.all([
+        this.getDbAccount(),
+        this.engine.ensureTokenInDB(this.networkId, tokenAddress),
+      ]);
+
+      if (typeof token === 'undefined') {
+        // This will be catched by engine.
+        console.error(`Token not found: ${tokenAddress}`);
+        throw new Error();
+      }
+
+      const allowanceMethodID = '0xdd62ed3e';
+      const data = `${allowanceMethodID}${defaultAbiCoder
+        .encode(['address', 'address'], [dbAccount.address, spenderAddress])
+        .slice(2)}`;
+      calls.push({ to: token.tokenIdOnNetwork, data });
+    }
+    const client = await this.getJsonRPCClient();
+    const rawAllowanceHexCallResults = await client.batchEthCall(calls);
+
+    return rawAllowanceHexCallResults.map((value) => Number(value));
+  }
+
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = await this.getDbAccount({ noCache: true });
     return {

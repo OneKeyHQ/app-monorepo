@@ -15,13 +15,6 @@ import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { SwapRoutes } from './typings';
 import { stringifyTokens } from './utils';
 
-const NetworkObserver = () => {
-  useEffect(() => {
-    backgroundApiProxy.serviceSwap.setDefaultInputToken();
-  }, []);
-  return null;
-};
-
 const AccountsObserver = () => {
   useEffect(() => {
     const fn = (account: Account) => {
@@ -80,7 +73,6 @@ const WelcomeObserver = () => {
 
 const SwapListener = () => (
   <>
-    <NetworkObserver />
     <AccountsObserver />
     <UserSelectedQuoterObserver />
     <WelcomeObserver />

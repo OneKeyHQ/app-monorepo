@@ -53,6 +53,7 @@ const NetworkSelector: FC = () => {
           ? intl.formatMessage({ id: 'option__all' })
           : item.name,
       networkId: item.name.toLowerCase() === 'all' ? undefined : item.networkId,
+      // eslint-disable-next-line
       leftComponentRender: () => (
         <Box mr="1">
           <Image size={5} src={item.logoURI} />
