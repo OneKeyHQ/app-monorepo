@@ -32,7 +32,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type ModalNavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
-  HomeRoutes.NFTNPLScreen
+  HomeRoutes.NFTPNLScreen
 >;
 const PageHeader = () => {
   const intl = useIntl();
@@ -60,7 +60,7 @@ const PageHeader = () => {
 
   const nplAction = useCallback(() => {
     // const nplAddress = await serviceNFT.getNPLAddress();
-    navigation.navigate(HomeRoutes.NFTNPLScreen, {
+    navigation.navigate(HomeRoutes.NFTPNLScreen, {
       address: '',
     });
   }, [navigation]);

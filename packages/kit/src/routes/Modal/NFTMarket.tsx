@@ -4,7 +4,7 @@ import CalculatorModal from '../../views/NFTMarket/Modals/Calculator';
 import MarketPlaceList from '../../views/NFTMarket/Modals/Calculator/MarketPlaceList';
 import NFTAttributesModal from '../../views/NFTMarket/Modals/NFTAttributesModal';
 import NFTSearchModal from '../../views/NFTMarket/Modals/NFTSearchModal';
-import ShareNFTNPLModal from '../../views/NFTMarket/Modals/Share';
+import ShareNFTPNLModal from '../../views/NFTMarket/Modals/Share';
 import { NFTMarketRoutes } from '../../views/NFTMarket/Modals/type';
 
 import createStackNavigator from './createStackNavigator';
@@ -23,8 +23,8 @@ const modalRoutes = [
     component: NFTSearchModal,
   },
   {
-    name: NFTMarketRoutes.ShareNFTNPLModal,
-    component: ShareNFTNPLModal,
+    name: NFTMarketRoutes.ShareNFTPNLModal,
+    component: ShareNFTPNLModal,
   },
   {
     name: NFTMarketRoutes.CalculatorModal,

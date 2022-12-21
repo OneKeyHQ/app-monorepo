@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { NFTAsset, NFTNPL } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import NFTListImage from '../../../../Wallet/NFT/NFTList/NFTListImage';
@@ -26,7 +26,7 @@ import { PriceString } from '../../../PriceText';
 import type { ListRenderItem } from 'react-native';
 
 type ListProps = {
-  data: NFTNPL[];
+  data: NFTPNL[];
   ListHeaderComponent?: () => JSX.Element;
   loading?: boolean;
   network: Network;
@@ -84,7 +84,7 @@ const Footer: FC = () => (
 const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict, format } = useFormatDate();
   const intl = useIntl();
-  const renderItem: ListRenderItem<NFTNPL> = useCallback(
+  const renderItem: ListRenderItem<NFTPNL> = useCallback(
     ({ item }) => {
       const { asset, entry, exit, profit } = item;
 
