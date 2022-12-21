@@ -188,6 +188,7 @@ class ProviderApiCardano extends ProviderApiBase {
           payload: params,
         },
       });
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return JSON.parse(signature as string);
   }
