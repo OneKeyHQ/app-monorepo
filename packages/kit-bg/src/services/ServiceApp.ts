@@ -250,6 +250,7 @@ class ServiceApp extends ServiceBase {
       serviceOnboarding,
       serviceSetting,
       serviceCloudBackup,
+      serviceSwap,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -295,6 +296,7 @@ class ServiceApp extends ServiceBase {
     serviceBootstrap.switchDefaultRpcToOnekeyRpcNode();
     serviceOnboarding.checkOnboardingStatus();
     serviceSetting.updateRemoteSetting();
+    serviceSwap.setDefaultInputToken();
     serviceCloudBackup.initCloudBackup();
     this._appInited = true;
   }

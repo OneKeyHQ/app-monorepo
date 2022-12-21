@@ -29,6 +29,7 @@ import type ServicePromise from './services/ServicePromise';
 import type ServiceRevoke from './services/ServiceRevoke';
 import type ServiceSetting from './services/ServiceSetting';
 import type ServiceSocket from './services/ServiceSocket';
+import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
@@ -89,4 +90,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBatchTransfer: ServiceBatchTransfer;
   serviceTransaction: ServiceTransaction;
   servicePrice: ServicePrice;
+  serviceSwap: ServiceSwap;
 }
