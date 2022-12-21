@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import axios from 'axios';
-import * as ImagePicker from 'expo-image-picker';
+import { MediaTypeOptions, launchImageLibraryAsync } from 'expo-image-picker';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -102,8 +102,8 @@ export const ReplyTicket: FC = () => {
   );
 
   const pickImage = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const result = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
       allowsEditing: false,
       base64: true,
       aspect: [4, 3],
