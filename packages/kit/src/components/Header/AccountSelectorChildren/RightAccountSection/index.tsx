@@ -35,6 +35,8 @@ type AccountSectionProps = {
   refreshAccounts: (walletId: string, networkId: string) => void;
 };
 
+const RightAccountSectionSeparator = () => <Box h={2} />;
+const RightAccountItemSeparator = () => <Box h={2} />;
 const RightAccountSection: FC<AccountSectionProps> = ({
   activeAccounts,
   activeWallet,
@@ -64,12 +66,9 @@ const RightAccountSection: FC<AccountSectionProps> = ({
       testID="AccountSelectorChildren-AccountSection-SectionList"
       stickySectionHeadersEnabled
       sections={activeAccounts}
-      SectionSeparatorComponent={(section) => (
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        <Box h={section?.leadingItem ? 2 : 0} />
-      )}
+      SectionSeparatorComponent={RightAccountSectionSeparator}
       ListFooterComponent={preloadingSkeleton}
-      ItemSeparatorComponent={() => <Box h={2} />}
+      ItemSeparatorComponent={RightAccountItemSeparator}
       keyExtractor={(item, index) => `${item.id}-${index}`}
       renderItem={({ item, section }) =>
         preloadingCreateAccount &&
