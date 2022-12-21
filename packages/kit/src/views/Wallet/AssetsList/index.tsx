@@ -12,6 +12,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
@@ -35,7 +36,6 @@ import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { FlatListProps } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -43,10 +43,7 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-export type IAssetsListProps = Omit<
-  ComponentProps<typeof Tabs.FlatList>,
-  'data' | 'renderItem'
-> & {
+export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;

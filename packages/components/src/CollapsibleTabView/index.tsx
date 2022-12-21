@@ -1,6 +1,5 @@
 import type {
   CSSProperties,
-  ComponentProps,
   FC,
   ReactElement,
   ReactNode,
@@ -10,18 +9,15 @@ import { Children, createContext, useContext, useMemo, useState } from 'react';
 
 import MaterialTab from '@mui/material/Tab';
 import MaterialTabs from '@mui/material/Tabs';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 
 import Box from '../Box';
 import FlatList from '../FlatList';
-import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 
-import type { StyleProp, ViewStyle } from 'react-native';
-import type { Container as BaseContainer } from 'react-native-collapsible-tab-view';
+import type { CollapsibleContainerProps } from './types';
 
 type TabProps = {
   name: string;
@@ -70,11 +66,8 @@ export function useTabProps(
 
     return tabOptions;
   }, [children, tabType]);
-  const optionEntries = Array.from(options.entries());
   const optionKeys = Array.from(options.keys());
-  const memoizedOptions = useDeepCompareMemo(() => options, [optionEntries]);
-  const memoizedTabNames = useDeepCompareMemo(() => optionKeys, [optionKeys]);
-  return { options: memoizedOptions, names: memoizedTabNames };
+  return { options, names: optionKeys };
 }
 
 export const MaterialTabBar: FC<MaterialTabsProps> = ({
@@ -130,12 +123,7 @@ const Tab: FC<TabProps> = ({ children, name }) => {
   return <Box display={isHidden ? 'none' : 'block'}>{children}</Box>;
 };
 
-type ContainerProps = ComponentProps<typeof BaseContainer> & {
-  onTabChange?: (options: { tabName: string; index: number | string }) => void;
-  onIndexChange?: (index: number | string) => void;
-  initialTabName?: string;
-};
-const Container: FC<ContainerProps> = ({
+const Container: FC<CollapsibleContainerProps> = ({
   children,
   containerStyle,
   headerHeight,
@@ -145,7 +133,7 @@ const Container: FC<ContainerProps> = ({
   onIndexChange,
   initialTabName,
 }) => {
-  const { options, names } = useTabProps(children as any, Tab);
+  const { options, names } = useTabProps(children, Tab);
 
   const [value, setValue] = useState(initialTabName || names[0]);
   const handleChange = (event: SyntheticEvent, newValue: string) => {
@@ -173,16 +161,16 @@ const Container: FC<ContainerProps> = ({
       <Box
         h={headerHeight ? headerHeight + 48 : 'auto'}
         position="relative"
-        style={[headerContainerStyle as StyleProp<ViewStyle>]}
+        style={headerContainerStyle}
       >
-        {renderHeader?.({} as any)}
+        {renderHeader?.()}
         <Box position="absolute" bottom={0} left={0} right={0}>
           <MaterialTabBar
             value={value}
             activeColor={activeLabelColor}
             inactiveColor={labelColor}
             labelStyle={{
-              ...Body2StrongProps,
+              fontFamily: 'BlinkMacSystemFont',
             }}
             indicatorStyle={{ backgroundColor: indicatorColor }}
             handleChange={handleChange}

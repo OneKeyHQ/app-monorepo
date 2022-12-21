@@ -5782,7 +5782,6 @@ __metadata:
     react-native-canvas: ^0.1.38
     react-native-cloud-fs: "https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8"
     react-native-collapsible: ^1.6.0
-    react-native-collapsible-tab-view: 4.5.2
     react-native-config: ^1.4.11
     react-native-confirmation-code-field: ^7.2.0
     react-native-crypto: ^2.2.0
@@ -14856,13 +14855,6 @@ colour@latest:
     invariant: "*"
     prop-types: "*"
   checksum: d14f4be1dfe780a7fa9197a31b4a9a2b409c8cf1bf677713fd92d06733dee1043578662d1a8858541cf06164ae91d295db6e595f29bf13e808d9fb37bc58c90b
-  languageName: node
-  linkType: hard
-
-"dequal@npm:1.0.0":
-  version: 1.0.0
-  resolution: "dequal@npm:1.0.0"
-  checksum: c5b3e64bfaaf54a6d9fe059f38c9567c5a7dd56846d27aeef02f633790cfd1465608ccbb7151cf743ac32d810c255254e8b2e2b69db8012de9939a1633c011d1
   languageName: node
   linkType: hard
 
@@ -27424,19 +27416,6 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-collapsible-tab-view@npm:4.5.2":
-  version: 4.5.2
-  resolution: "react-native-collapsible-tab-view@npm:4.5.2"
-  dependencies:
-    use-deep-compare: ^1.1.0
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-reanimated: ">=2.1.0"
-  checksum: a43af3378ac42b1d90f215d5603285c2c6d4f1ba655862f1d5a131a475ad3397e8b23cc1a012e789674c04f02522e718a65dffbaa6ee33991a3e23b82f24a709
-  languageName: node
-  linkType: hard
-
 "react-native-collapsible@npm:^1.6.0":
   version: 1.6.0
   resolution: "react-native-collapsible@npm:1.6.0"
@@ -32330,17 +32309,6 @@ optjs@latest:
   peerDependencies:
     react: ">=16.13"
   checksum: 3724473628570ccf62706b6775b2bdbdad57e4e72aaa70965388b5a4ae322a8bd0f9647d13d85f3a892cdcb4bb6d0dbdf7eedded5f7040ac3888ff7c96b381a9
-  languageName: node
-  linkType: hard
-
-"use-deep-compare@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "use-deep-compare@npm:1.1.0"
-  dependencies:
-    dequal: 1.0.0
-  peerDependencies:
-    react: ">=16.8.0"
-  checksum: 4a8190dd588f7fad27e87dde5e595f8edcaa7becbb7be77b6c7933c345c32a6564f0da3bc78e4aa14aea3344accc814ad8427da28379b0bb9ea845766ef9719e
   languageName: node
   linkType: hard
 

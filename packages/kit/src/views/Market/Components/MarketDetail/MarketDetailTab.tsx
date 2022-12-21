@@ -113,7 +113,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
     'background-default',
     'border-subdued',
   ]);
-  const [detailTabName, setDetailTabName] = useState<string | number>(
+  const [detailTabName, setDetailTabName] = useState<string>(
     () => MarketDetailTabName.Info,
   );
   const intl = useIntl();
@@ -134,11 +134,10 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
       onTabChange={({ tabName }) => {
         setDetailTabName(tabName);
       }}
-      width={isVerticalLayout ? screenWidth : screenWidth - 224}
-      pagerProps={{ scrollEnabled: false }}
+      scrollEnabled={false}
       containerStyle={{
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        width: '100%',
+        width: isVerticalLayout ? screenWidth : screenWidth - 224,
         marginHorizontal: 'auto', // Center align vertically
         backgroundColor: tabbarBgColor,
         alignSelf: 'center',

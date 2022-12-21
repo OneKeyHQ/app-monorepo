@@ -36,6 +36,8 @@ import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { WalletHomeTabEnum } from './type';
 
+const AccountHeader = () => <AccountInfo />;
+
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
@@ -74,7 +76,6 @@ const WalletTabs: FC = () => {
     <>
       <Tabs.Container
         initialTabName={homeTabName}
-        // @ts-ignore fix type when remove react-native-collapsible-tab-view
         refreshing={refreshing}
         onRefresh={async () => {
           setRefreshing(true);
@@ -97,9 +98,7 @@ const WalletTabs: FC = () => {
         onTabChange={({ tabName }) => {
           backgroundApiProxy.dispatch(setHomeTabName(tabName));
         }}
-        renderHeader={() => <AccountInfo />}
-        width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
-        pagerProps={{ scrollEnabled: false }}
+        renderHeader={AccountHeader}
         headerHeight={
           isVerticalLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT
@@ -107,7 +106,8 @@ const WalletTabs: FC = () => {
         }
         containerStyle={{
           maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-          width: '100%',
+          // reduce the width on iPad, sidebar's width is 244
+          width: isVerticalLayout ? screenWidth : screenWidth - 224,
           marginHorizontal: 'auto', // Center align vertically
           backgroundColor: tabbarBgColor,
           alignSelf: 'center',

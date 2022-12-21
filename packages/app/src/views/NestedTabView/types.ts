@@ -40,6 +40,6 @@ export interface NativeNestedTabViewProps {
   spinnerColor?: string;
   onRefreshCallBack?: (e: NativeSyntheticEvent<{ refresh: boolean }>) => void;
   onChange?: (
-    e: NativeSyntheticEvent<{ tabName: string; index: number | string }>,
+    e: NativeSyntheticEvent<{ tabName: string; index: number }>,
   ) => void;
 }

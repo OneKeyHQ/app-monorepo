@@ -10,11 +10,11 @@ import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
-import type { ContainerProps } from './types';
+import type { CollapsibleContainerProps } from './types';
 
 const Context = createContext<string>('');
 
-const Container: FC<ContainerProps> = ({
+const Container: FC<CollapsibleContainerProps> = ({
   disableRefresh,
   children,
   headerHeight,

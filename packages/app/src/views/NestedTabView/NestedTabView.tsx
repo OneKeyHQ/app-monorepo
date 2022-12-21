@@ -16,7 +16,7 @@ const NestedTabView: FC<NestedTabViewProps> = ({
   children,
   ...rest
 }) => {
-  const pan = Gesture.Pan();
+  const pan = Gesture.Pan().cancelsTouchesInView(false);
   const native = Gesture.Native();
   return (
     <GestureDetector gesture={Gesture.Exclusive(native, pan)}>

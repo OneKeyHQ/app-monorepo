@@ -13,10 +13,10 @@ import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
-import type { ContainerProps } from './types';
+import type { CollapsibleContainerProps } from './types';
 
 // TODO: Compatible with the pad
-const Container: FC<ContainerProps> = ({
+const Container: FC<CollapsibleContainerProps> = ({
   disableRefresh,
   refreshing,
   renderHeader,

@@ -66,7 +66,6 @@
     "react-native-canvas": "^0.1.38",
     "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8",
     "react-native-collapsible": "^1.6.0",
-    "react-native-collapsible-tab-view": "4.5.2",
     "react-native-config": "^1.4.11",
     "react-native-confirmation-code-field": "^7.2.0",
     "react-native-crypto": "^2.2.0",

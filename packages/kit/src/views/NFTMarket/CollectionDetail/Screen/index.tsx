@@ -58,7 +58,7 @@ const Screen = () => {
           bgColor="background-default"
         />
       )}
-      pagerProps={{ scrollEnabled: false }}
+      scrollEnabled={false}
       onIndexChange={(index) => {
         if (setContext) {
           setContext((ctx) => ({ ...ctx, selectedIndex: index }));

@@ -1,24 +1,17 @@
-import { memo, useEffect, useState } from 'react';
+import { memo } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 
 import { useThemeValue } from '@onekeyhq/components';
 import { WalletSelectorMobile } from '@onekeyhq/kit/src/components/WalletSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Tab from '../Tab';
-import { RootRoutes, TabRoutes } from '../types';
+import { RootRoutes } from '../types';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 
 const DrawerStack = createDrawerNavigator();
-
-const tabsDisabledSwipe: string[] = [
-  TabRoutes.Discover,
-  TabRoutes.NFT,
-  TabRoutes.Market,
-];
 
 const DrawerStackNavigator = () => {
   const isWeb = !platformEnv.isNative;
