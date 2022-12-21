@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -30,14 +31,22 @@ import { ScanQrcodeRoutes, ScanSubResultCategory } from './types';
 import type { ScanQrcodeRoutesParams } from './types';
 import type { NavigationProp, RouteProp } from '@react-navigation/core';
 
+const WrapperProps = {
+  borderWidth: StyleSheet.hairlineWidth,
+  borderColor: 'border-subdued',
+  bgColor: 'surface-default',
+  mb: '16px',
+  borderRadius: '12px',
+  overflow: 'hidden',
+} as const;
+
 const pressableProps = {
   p: '4',
-  bg: 'surface-default',
-  borderRadius: '12px',
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
-  shadow: 'depth.2',
+  _hover: { bgColor: 'surface-hovered' },
+  _pressed: { bgColor: 'surface-pressed' },
 } as const;
 
 function CopyButton({ data }: { data: string }) {
@@ -49,13 +58,13 @@ function CopyButton({ data }: { data: string }) {
   }, [data, intl, toast]);
   return (
     <Pressable {...pressableProps} onPress={onPress}>
-      <HStack space="4">
+      <HStack space="3">
         <Icon name="Square2StackOutline" />
-        <Typography.Body1>
+        <Typography.Body1Strong>
           {intl.formatMessage({
             id: 'action__copy',
           })}
-        </Typography.Body1>
+        </Typography.Body1Strong>
       </HStack>
     </Pressable>
   );
@@ -85,113 +94,116 @@ const ScanQrcodeResult: FC = () => {
   }
   const actions = (
     <>
-      {type === ScanSubResultCategory.URL && (
-        <Pressable
-          {...pressableProps}
-          mb="16px"
-          onPress={() => {
-            backgroundApiProxy.dispatch(setIncomingUrl(data));
-            navigation.getParent()?.navigate(TabRoutes.Discover);
-          }}
-        >
-          <HStack space="4">
-            <Icon name="CompassOutline" />
-            <Typography.Body1>
-              {intl.formatMessage({
-                id: 'form__view_in_explore',
-              })}
-            </Typography.Body1>
-          </HStack>
-          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-        </Pressable>
-      )}
-      {(type === UserInputCategory.WATCHING ||
-        type === UserInputCategory.ADDRESS) && (
-        <>
+      <Box {...WrapperProps}>
+        {type === ScanSubResultCategory.URL && (
           <Pressable
             {...pressableProps}
-            borderBottomRadius={0}
             onPress={() => {
-              (navigation as any as PreviewSendNavProp).navigate(
-                ScanQrcodeRoutes.PreviewSend,
-                {
-                  address: data,
-                  possibleNetworks,
-                },
-              );
+              backgroundApiProxy.dispatch(setIncomingUrl(data));
+              navigation.getParent()?.navigate(TabRoutes.Discover);
             }}
           >
-            <HStack space="4">
-              <Icon name="PaperAirplaneOutline" />
-              <Typography.Body1>
+            <HStack space="3">
+              <Icon name="GlobeAltOutline" />
+              <Typography.Body1Strong>
                 {intl.formatMessage({
-                  id: 'form__send_tokens',
+                  id: 'form__view_in_explore',
                 })}
-              </Typography.Body1>
+              </Typography.Body1Strong>
             </HStack>
             <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Pressable>
-          <Divider />
-          <Pressable
-            {...pressableProps}
-            borderRadius={0}
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.AddressBook,
-                params: {
-                  screen: AddressBookRoutes.NewAddressRoute,
-                  params: {
+        )}
+        {(type === UserInputCategory.WATCHING ||
+          type === UserInputCategory.ADDRESS) && (
+          <>
+            <Pressable
+              {...pressableProps}
+              borderBottomRadius={0}
+              onPress={() => {
+                (navigation as any as PreviewSendNavProp).navigate(
+                  ScanQrcodeRoutes.PreviewSend,
+                  {
                     address: data,
                     possibleNetworks,
+                  },
+                );
+              }}
+            >
+              <HStack space="3">
+                <Icon name="PaperAirplaneOutline" />
+                <Typography.Body1Strong>
+                  {intl.formatMessage({
+                    id: 'form__send_tokens',
+                  })}
+                </Typography.Body1Strong>
+              </HStack>
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+            </Pressable>
+            <Box h={StyleSheet.hairlineWidth} bgColor="divider" />
+            <Pressable
+              {...pressableProps}
+              borderRadius={0}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.AddressBook,
+                  params: {
+                    screen: AddressBookRoutes.NewAddressRoute,
+                    params: {
+                      address: data,
+                      possibleNetworks,
+                    },
+                  },
+                });
+              }}
+            >
+              <HStack space="3">
+                <Icon name="BookOpenOutline" />
+                <Typography.Body1Strong>
+                  {intl.formatMessage({
+                    id: 'form__add_to_address_book',
+                  })}
+                </Typography.Body1Strong>
+              </HStack>
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+            </Pressable>
+            <Box h={StyleSheet.hairlineWidth} bgColor="divider" />
+          </>
+        )}
+        {(type === UserInputCategory.WATCHING ||
+          type === UserInputCategory.MNEMONIC ||
+          type === UserInputCategory.IMPORTED) && (
+          <Pressable
+            {...pressableProps}
+            borderTopRadius={0}
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.CreateWallet,
+                params: {
+                  screen: CreateWalletModalRoutes.AddExistingWalletModal,
+                  params: {
+                    mode: type,
+                    presetText: data,
                   },
                 },
               });
             }}
           >
-            <HStack space="4">
-              <Icon name="PlusMini" />
-              <Typography.Body1>
+            <HStack space="3">
+              <Icon name="EyeOutline" />
+              <Typography.Body1Strong textTransform="capitalize">
                 {intl.formatMessage({
-                  id: 'form__add_to_address_book',
+                  id: 'action__watch_lowercase',
                 })}
-              </Typography.Body1>
+              </Typography.Body1Strong>
             </HStack>
             <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Pressable>
-        </>
-      )}
-      {(type === UserInputCategory.WATCHING ||
-        type === UserInputCategory.MNEMONIC ||
-        type === UserInputCategory.IMPORTED) && (
-        <Pressable
-          {...pressableProps}
-          borderTopRadius={0}
-          mb="16px"
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.CreateWallet,
-              params: {
-                screen: CreateWalletModalRoutes.AddExistingWalletModal,
-                params: {
-                  mode: type,
-                  presetText: data,
-                },
-              },
-            });
-          }}
-        >
-          <HStack space="4">
-            <Icon name="ImportOutline" />
-            <Typography.Body1>
-              {intl.formatMessage({
-                id: 'form__imported_as_a_watch_account',
-              })}
-            </Typography.Body1>
-          </HStack>
-          <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-        </Pressable>
-      )}
-      <CopyButton data={data} />
+        )}
+      </Box>
+      <Box {...WrapperProps}>
+        <CopyButton data={data} />
+      </Box>
     </>
   );
   return (
@@ -206,18 +218,18 @@ const ScanQrcodeResult: FC = () => {
           <>
             <Box
               borderColor="border-subdued"
-              borderWidth="1px"
+              borderWidth={StyleSheet.hairlineWidth}
+              bgColor="surface-subdued"
               borderRadius="12px"
-              borderStyle="dashed"
               alignItems="center"
               justifyContent="center"
               // flexWrap="nowrap"
-              p="20px"
+              p="24px"
               mb="32px"
             >
-              <Typography.Body2 textAlign="center" wordBreak="break-all">
+              <Typography.Body1 textAlign="center" wordBreak="break-all">
                 {data}
-              </Typography.Body2>
+              </Typography.Body1>
             </Box>
             {actions}
           </>

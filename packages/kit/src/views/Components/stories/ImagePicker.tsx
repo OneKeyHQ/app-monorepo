@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import * as ImagePicker from 'expo-image-picker';
+import { MediaTypeOptions, launchImageLibraryAsync } from 'expo-image-picker';
 
 import { Button, Center, Image } from '@onekeyhq/components';
 
@@ -8,8 +8,8 @@ const ImagePickerGallery = () => {
   const [image, setImage] = useState('');
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const result = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,

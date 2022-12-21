@@ -130,7 +130,7 @@ export const SettingsWebViews: FC = () => {
         </Box>
       ),
     });
-  }, [currentUrl, intl, navigation, title, url]);
+  }, [currentUrl, intl, modalMode, navigation, title, url]);
 
   return <WebView src={currentUrl} />;
 };
