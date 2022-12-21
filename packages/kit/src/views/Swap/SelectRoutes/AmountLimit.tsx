@@ -1,39 +1,61 @@
-import type { FC } from 'react';
+import type { FC, ReactElement } from 'react';
 
-import { Typography } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Box, Divider, Typography } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useTokenAmount } from '../hooks/useSwap';
 
-import type { QuoteLimited } from '../typings';
+import type { FetchQuoteResponse } from '../typings';
 
 type AmountLimitProps = {
-  limited?: QuoteLimited;
+  response?: FetchQuoteResponse;
   token?: Token;
 };
 
-export const AmountLimit: FC<AmountLimitProps> = ({ limited, token }) => {
+export const AmountLimit: FC<AmountLimitProps> = ({ response, token }) => {
+  const limited = response?.limited;
   const maxAmount = useTokenAmount(token, limited?.max);
   const minAmount = useTokenAmount(token, limited?.min);
-
+  const intl = useIntl();
+  let elem: ReactElement | undefined;
   if (!limited || !token) {
     return null;
   }
   if (limited.max) {
-    return (
+    elem = (
       <Typography.Caption color="text-subdued">
         Max Amount: {maxAmount?.typedValue}
         {token?.symbol}
       </Typography.Caption>
     );
-  }
-  if (limited.min) {
-    return (
+  } else if (limited.min) {
+    elem = (
       <Typography.Caption color="text-subdued">
         Min Amount: {minAmount?.typedValue}
         {token?.symbol}
       </Typography.Caption>
     );
+  } else if (response.data?.type === 'swftc') {
+    elem = (
+      <Typography.Caption color="text-subdued">
+        {intl.formatMessage(
+          { id: 'form__cap_str_day_rates_may_change_due_to_market' },
+          { '0': '200,000 USDT' },
+        )}
+      </Typography.Caption>
+    );
   }
+
+  if (elem) {
+    return (
+      <Box>
+        <Divider my="3" />
+        {elem}
+      </Box>
+    );
+  }
+
   return null;
 };

@@ -12,29 +12,34 @@ import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   clearState,
+  clearUserSelectedQuoter,
   resetState,
   resetTypedValue,
   setInputToken,
   setOutputToken,
   setQuote,
   setQuoteLimited,
-  setQuoteTime,
   setRecipient,
   setSendingAccount,
   setShowMoreQuoteDetail,
   setTypedValue,
+  setUserSelectedQuoter,
   switchTokens,
 } from '@onekeyhq/kit/src/store/reducers/swap';
 import {
   clearTransactions,
+  setSwapChartMode,
+  setSwapFeePresetIndex,
   updateTokenList,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import type {
+  FetchQuoteParams,
   FieldType,
   QuoteData,
   QuoteLimited,
   Recipient,
 } from '@onekeyhq/kit/src/views/Swap/typings';
+import { stringifyTokens } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -46,6 +51,8 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   request = axios.create({ timeout: 60 * 1000 });
+
+  prevParams: FetchQuoteParams | undefined;
 
   getNetwork(networkId?: string): Network | undefined {
     if (!networkId) {
@@ -200,12 +207,20 @@ export default class ServiceSwap extends ServiceBase {
   async setQuote(data?: QuoteData) {
     const { dispatch } = this.backgroundApi;
     const actions: any[] = [setQuote(data)];
-    if (data) {
-      actions.push(setQuoteTime(Date.now()));
-    } else {
-      actions.push(setQuoteTime(undefined));
-    }
     dispatch(...actions);
+  }
+
+  @backgroundMethod()
+  async refreshParams(params: FetchQuoteParams | undefined) {
+    const quote = this.backgroundApi.appSelector((s) => s.swap.quote);
+    let result = false;
+    if (this.prevParams) {
+      const hash = JSON.stringify(params);
+      const prevHash = JSON.stringify(this.prevParams);
+      result = hash === prevHash && !!quote;
+    }
+    this.prevParams = params;
+    return result;
   }
 
   @backgroundMethod()
@@ -457,5 +472,41 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async setSwapReceivingIsNotSendingAccountShown(value: boolean) {
     return simpleDb.setting.setSwapReceivingIsNotSendingAccountShown(value);
+  }
+
+  @backgroundMethod()
+  async setSwapChartMode(mode: string) {
+    return this.backgroundApi.dispatch(setSwapChartMode(mode));
+  }
+
+  @backgroundMethod()
+  async setSwapFeePresetIndex(value: string) {
+    return this.backgroundApi.dispatch(setSwapFeePresetIndex(value));
+  }
+
+  @backgroundMethod()
+  async setUserSelectedQuoter(hash: string, type: string) {
+    return this.backgroundApi.dispatch(setUserSelectedQuoter({ hash, type }));
+  }
+
+  @backgroundMethod()
+  async clearUserSelectedQuoter() {
+    return this.backgroundApi.dispatch(clearUserSelectedQuoter());
+  }
+
+  @backgroundMethod()
+  async getCurrentUserSelectedQuoter() {
+    const { appSelector } = this.backgroundApi;
+    const userSelectedQuoter = appSelector((s) => s.swap.userSelectedQuoter);
+    if (!userSelectedQuoter) {
+      return undefined;
+    }
+    const inputToken = appSelector((s) => s.swap.inputToken);
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    const hash = stringifyTokens(inputToken, outputToken);
+    if (!hash) {
+      return undefined;
+    }
+    return userSelectedQuoter[hash];
   }
 }

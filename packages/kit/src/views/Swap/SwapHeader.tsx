@@ -1,7 +1,9 @@
-import type { FC } from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
-import { useNavigation } from '@react-navigation/native';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { Animated } from 'react-native';
 
@@ -12,9 +14,15 @@ import {
   HStack,
   Icon,
   IconButton,
+  LottieView,
   Typography,
+  useTheme,
   useThemeValue,
 } from '@onekeyhq/components';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -24,6 +32,7 @@ import { setSwapPopoverShown } from '../../store/reducers/status';
 
 import { useSwapQuoteCallback } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
+import { SwapError } from './typings';
 
 import type { HomeRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -117,25 +126,112 @@ const HistoryButton = () => {
 };
 
 const RefreshButton = () => {
+  const { themeVariant } = useTheme();
+  const lottieRef = useRef<any>();
+  const isFocused = useIsFocused();
+  const total = 15000;
+
+  const loadingAnim = useRef(new Animated.Value(0)).current;
+  const processAnim = useRef(new Animated.Value(0)).current;
+
+  const error = useAppSelector((s) => s.swap.error);
+  const quote = useAppSelector((s) => s.swap.quote);
+  const limited = useAppSelector((s) => s.swap.quoteLimited);
+  const loading = useAppSelector((s) => s.swap.loading);
+
+  const isOk = useMemo(() => {
+    if (error || limited || !quote) {
+      return false;
+    }
+    return true;
+  }, [error, limited, quote]);
+
   const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const lottie = useMemo(
+    () => ({
+      play: () => {
+        lottieRef.current?.play?.();
+        if (platformEnv.isNative) {
+          const used = Number((processAnim as any)._value);
+          Animated.timing(processAnim, {
+            toValue: total,
+            duration: total - used,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+      reset: () => {
+        lottieRef.current?.reset?.();
+        if (platformEnv.isNative) {
+          processAnim.stopAnimation();
+          processAnim.setValue(0);
+        }
+      },
+      pause: () => {
+        lottieRef.current?.pause();
+        if (platformEnv.isNative) {
+          processAnim.stopAnimation();
+        }
+      },
+    }),
+    [lottieRef, processAnim],
+  );
+
   const onRefresh = useCallback(() => {
-    onSwapQuote();
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
+    if (!isOk) return;
+    loadingAnim.setValue(0);
+    lottie.pause();
+    Animated.timing(loadingAnim, {
       toValue: -1,
       duration: 1000,
       useNativeDriver: true,
-    }).start();
-  }, [onSwapQuote, fadeAnim]);
+    }).start(async () => {
+      lottie.reset();
+      await onSwapQuote();
+      lottie.play();
+    });
+  }, [onSwapQuote, loadingAnim, isOk, lottie]);
+
+  useEffect(() => {
+    const fn = processAnim.addListener(({ value }) => {
+      if (value === total) {
+        onRefresh();
+      }
+    });
+    return () => processAnim.removeListener(fn);
+  }, [onRefresh, processAnim]);
+
+  useEffect(() => {
+    appUIEventBus.on(AppUIEventBusNames.SwapRefresh, onRefresh);
+    return () => {
+      appUIEventBus.off(AppUIEventBusNames.SwapRefresh, onRefresh);
+    };
+  }, [onRefresh]);
+
+  useEffect(() => {
+    if (isOk && isFocused) {
+      lottie.play();
+    } else if (!isFocused) {
+      lottie.pause();
+    } else if (!isOk) {
+      lottie.reset();
+    }
+  }, [isOk, isFocused, lottie]);
 
   return (
-    <Button type="plain" onPress={onRefresh} pl="2" pr="2">
+    <Button
+      type="plain"
+      onPress={onRefresh}
+      pl="2"
+      pr="2"
+      isDisabled={loading || !isOk}
+    >
       <Animated.View
         style={{
           transform: [
             {
-              rotate: fadeAnim.interpolate({
+              rotate: loadingAnim.interpolate({
                 inputRange: [0, 1],
                 outputRange: ['0deg', '360deg'],
               }),
@@ -143,22 +239,53 @@ const RefreshButton = () => {
           ],
         }}
       >
-        <Icon name="ArrowPathMini" size={20} />
+        <Box w="5" h="5">
+          <LottieView
+            onLoopComplete={onRefresh}
+            ref={lottieRef}
+            autoplay={false}
+            // autoPlay={false}
+            width={20}
+            source={
+              themeVariant === 'light'
+                ? require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_light.json')
+                : require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_dark.json')
+            }
+          />
+        </Box>
       </Animated.View>
     </Button>
   );
 };
 
-export const SwapHeaderButtons = () => (
-  <HStack>
-    {!platformEnv.isNative ? <RefreshButton /> : null}
-    <HistoryButton />
-  </HStack>
-);
+export const SwapHeaderButtons = () => {
+  const error = useAppSelector((s) => s.swap.error);
+  return (
+    <HStack>
+      <Box position="relative">
+        <RefreshButton />
+        {error === SwapError.QuoteFailed ? (
+          <Box
+            position="absolute"
+            bottom="1.5"
+            right="1.5"
+            pointerEvents="none"
+          >
+            <Icon
+              size={12}
+              name="ExclamationCircleSolid"
+              color="icon-critical"
+            />
+          </Box>
+        ) : null}
+      </Box>
+      <HistoryButton />
+    </HStack>
+  );
+};
 
 const SwapHeader = () => {
   const intl = useIntl();
-
   return (
     <Center w="full" mt={8} mb={6} px="4" zIndex={2}>
       <Box
