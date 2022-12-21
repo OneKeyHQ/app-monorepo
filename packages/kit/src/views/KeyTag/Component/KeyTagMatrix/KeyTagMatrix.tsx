@@ -47,35 +47,31 @@ export const KeyTagMatrixTopTitle: FC<KeyTagMatrixProps> = ({
 export const KeyTagMatrix: FC<KeyTagMatrixProps> = ({
   startIndex,
   keyTagData,
-}) => {
-  console.log('KeyTagMatrix--');
-  return (
-    <Box flex="1" justifyContent="center" alignItems="center">
-      <KeyTagMatrixTopTitle startIndex={startIndex} keyTagData={keyTagData} />
-      <Box
-        borderColor="surface-default"
-        borderWidth="8px"
-        borderRadius="16px"
-        bgColor="surface-subdued"
-        // justifyContent="center"
-        alignItems="center"
-        pt={4}
-        w="332px"
-        h="343px"
-      >
-        <Box>
-          {keyTagData
-            ? keyTagData.map((data, index) => (
-                <DotMnemonicWord
-                  showDigitCode={index === 0}
-                  showIcon={index === 0}
-                  mnemonicWordData={data}
-                  disabled
-                />
-              ))
-            : null}
-        </Box>
+}) => (
+  <Box flex="1" justifyContent="center" alignItems="center">
+    <KeyTagMatrixTopTitle startIndex={startIndex} keyTagData={keyTagData} />
+    <Box
+      borderColor="surface-default"
+      borderWidth="8px"
+      borderRadius="16px"
+      bgColor="surface-subdued"
+      alignItems="center"
+      pt={4}
+      w="332px"
+      h="343px"
+    >
+      <Box>
+        {keyTagData
+          ? keyTagData.map((data, index) => (
+              <DotMnemonicWord
+                showDigitCode={index === 0}
+                showIcon={index === 0}
+                mnemonicWordData={data}
+                disabled
+              />
+            ))
+          : null}
       </Box>
     </Box>
-  );
-};
+  </Box>
+);

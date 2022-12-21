@@ -86,7 +86,9 @@ const EnterPhrase = () => {
             }}
           >
             <Form.Textarea
-              placeholder="Enter Recovery Phrase"
+              placeholder={intl.formatMessage({
+                id: 'form__enter_my_recovery_phrase',
+              })}
               h="48"
               trimValue={false}
             />
@@ -102,7 +104,7 @@ const EnterPhrase = () => {
             })}
             type="primary"
           >
-            Next
+            {intl.formatMessage({ id: 'action__next' })}
           </Button>
         </Form>
       </Box>

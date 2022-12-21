@@ -32,8 +32,7 @@ const Started = () => {
   return (
     <LayoutContainer
       backButton
-      // title={intl.formatMessage({ id: 'action__get_started_with_keytag' })}
-      title="Get Started with KeyTag"
+      title={intl.formatMessage({ id: 'action__get_started_with_keytag' })}
     >
       <Box flex="1" flexDirection={isVerticalLayout ? 'column' : 'row'}>
         <Pressable
@@ -52,7 +51,9 @@ const Started = () => {
             />
           </Box>
           <Box m={7}>
-            <Typography.DisplayXLarge>Back Up Wallet</Typography.DisplayXLarge>
+            <Typography.DisplayXLarge>
+              {intl.formatMessage({ id: 'action__back_up_wallet' })}
+            </Typography.DisplayXLarge>
           </Box>
         </Pressable>
         <Pressable
@@ -73,7 +74,10 @@ const Started = () => {
             />
           </Box>
           <Box m={7}>
-            <Typography.DisplayXLarge>Import Wallet</Typography.DisplayXLarge>
+            <Typography.DisplayXLarge>
+              {' '}
+              {intl.formatMessage({ id: 'action__import_wallet' })}
+            </Typography.DisplayXLarge>
           </Box>
         </Pressable>
       </Box>

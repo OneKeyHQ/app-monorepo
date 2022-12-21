@@ -46,8 +46,7 @@ const KeyTagBackupWalletAttentions = () => {
   }, [walletId, password, navigation, wallet]);
   return (
     <Attentions
-      // pressTitle={intl.formatMessage({ id: 'action__show_dotmap_for_keytag' })}
-      pressTitle="Show Dotmap for KeyTag"
+      pressTitle={intl.formatMessage({ id: 'action__show_dotmap_for_keytag' })}
       onPress={onPress}
     />
   );

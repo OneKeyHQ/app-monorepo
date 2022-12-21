@@ -18,6 +18,7 @@ type DotMnemonicWordProps = {
   mnemonicWordData?: KeyTagMnemonic;
   showWordStatus?: boolean;
   showDigitCode?: boolean;
+  showResult?: boolean;
   showIcon?: boolean;
   disabled?: boolean;
   onChange?: (index: number, value: boolean) => void;
@@ -43,54 +44,51 @@ export const DotGroup: FC<DotGroupProps> = ({
   digitCodeLimit = 11,
   disabled = false,
   onChange,
-}) => {
-  console.log('DotGroup');
-  return (
-    <>
-      {lightsData.map((data, index) => {
-        const indexNumber = index + groupIndex * groupDotCount;
-        return (
-          <Box flexDirection="column">
-            {showDigitCode ? (
+}) => (
+  <>
+    {lightsData.map((data, index) => {
+      const indexNumber = index + groupIndex * groupDotCount;
+      return (
+        <Box flexDirection="column">
+          {showDigitCode ? (
+            <Box
+              style={{ width: size * 4, height: '35px' }}
+              flexDirection="column"
+              justifyContent="center"
+              alignItems="center"
+              mb={3}
+            >
               <Box
-                style={{ width: size * 4, height: '35px' }}
-                flexDirection="column"
-                justifyContent="center"
+                flexDirection="row"
+                justifyContent="flex-start"
                 alignItems="center"
-                mb={3}
+                style={{
+                  width: '35px',
+                  height: size * 4,
+                  transform: [{ rotate: '-90deg' }],
+                }}
               >
-                <Box
-                  flexDirection="row"
-                  justifyContent="flex-start"
-                  alignItems="center"
-                  style={{
-                    width: '35px',
-                    height: size * 4,
-                    transform: [{ rotate: '-90deg' }],
-                  }}
-                >
-                  <Typography.Body2Mono textAlign="center">
-                    {2 ** (digitCodeLimit - indexNumber)}
-                  </Typography.Body2Mono>
-                </Box>
+                <Typography.Body2Mono textAlign="center">
+                  {2 ** (digitCodeLimit - indexNumber)}
+                </Typography.Body2Mono>
               </Box>
-            ) : null}
-            <DotSpace
-              disabled={disabled}
-              size={size}
-              defaultLight={data}
-              onClickSpace={(open) => {
-                if (onChange) {
-                  onChange(indexNumber, open);
-                }
-              }}
-            />
-          </Box>
-        );
-      })}
-    </>
-  );
-};
+            </Box>
+          ) : null}
+          <DotSpace
+            disabled={disabled}
+            size={size}
+            defaultLight={data}
+            onClickSpace={(open) => {
+              if (onChange) {
+                onChange(indexNumber, open);
+              }
+            }}
+          />
+        </Box>
+      );
+    })}
+  </>
+);
 
 type MnemonicStatusProps = {
   status?: KeyTagMnemonicStatus;
@@ -98,7 +96,6 @@ type MnemonicStatusProps = {
 };
 
 export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
-  console.log('MnemonicStatus');
   const { statusTitle, titleColor } = useMemo(() => {
     const res: { statusTitle?: string; titleColor: ThemeToken } = {
       titleColor: 'text-default',
@@ -145,6 +142,7 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
   showDigitCode = false,
   showIcon = false,
   disabled = false,
+  showResult = true,
   onChange,
 }) => {
   console.log('DotMnemonicWord');
@@ -165,12 +163,16 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
   return (
     <Box flexDirection="column">
       {showWordStatus ? (
-        <Box flexDirection="row" justifyContent="space-between">
+        <Box flexDirection="row" justifyContent="space-between" my={1}>
           <Typography.Body1Mono>{mnemonicWordData?.index}</Typography.Body1Mono>
-          <MnemonicStatus
-            status={mnemonicWordData?.status}
-            word={mnemonicWordData?.mnemonicWord}
-          />
+          {showResult ? (
+            <MnemonicStatus
+              status={mnemonicWordData?.status}
+              word={mnemonicWordData?.mnemonicWord}
+            />
+          ) : (
+            <Box />
+          )}
         </Box>
       ) : null}
       <Box flexDirection="row">

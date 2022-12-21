@@ -25,11 +25,13 @@ import { KeyTagRoutes } from '../Routes/enums';
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { ListRenderItem } from 'react-native';
+import { useIntl } from 'react-intl';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
 const KeyTagBackUpWallet = () => {
   const isVertical = useIsVerticalLayout();
+  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const addNavigation = useAppNavigation();
   const walletsSection = useWalletSelectorSectionData();
@@ -111,8 +113,7 @@ const KeyTagBackUpWallet = () => {
             </Center>
           ) : null}
           <Typography.Body2>
-            You can also find the BIP39 dot map table in the following site.
-            https://onekey.so/bip39-dotmap
+            {intl.formatMessage({ id: 'content__bip39_dotmap' })}
           </Typography.Body2>
         </Box>
       }
@@ -125,7 +126,7 @@ const KeyTagBackUpWallet = () => {
             onPress={() => {
               navigation.navigate(KeyTagRoutes.EnterPhrase);
             }}
-            text="Enter my Recovery Phrase"
+            text={intl.formatMessage({ id: 'form__enter_my_recovery_phrase' })}
             leftView={
               <Center size={12} bgColor="surface-default" borderRadius="9999px">
                 <Icon

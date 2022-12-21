@@ -2,12 +2,12 @@ import type { FC } from 'react';
 import { useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
   Center,
-  ScrollView,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -28,9 +28,15 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 type RouteProps = RouteProp<IKeytagRoutesParams, KeyTagRoutes.ShowDotMap>;
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
-const RightDoneBtn = ({ onDone }: { onDone?: () => void }) => (
+const RightDoneBtn = ({
+  onDone,
+  message,
+}: {
+  onDone?: () => void;
+  message?: string;
+}) => (
   <Button mr={2} type="primary" size="sm" onPress={onDone}>
-    Done
+    {message ?? 'Done'}
   </Button>
 );
 
@@ -55,9 +61,7 @@ const TopMidCompoment = ({
         {wallet ? (
           <Typography.Body1Strong>{wallet.name}</Typography.Body1Strong>
         ) : null}
-        <Typography.Caption>
-          {`${mnemonicCounts} words`} words
-        </Typography.Caption>
+        <Typography.Caption>{`${mnemonicCounts} words`}</Typography.Caption>
       </Box>
     </Center>
   );
@@ -66,12 +70,14 @@ const TopMidCompoment = ({
 const ShowDotMap: FC = () => {
   const route = useRoute<RouteProps>();
   const { mnemonic, wallet } = route.params;
+  const intl = useIntl();
   const keyTagData = mnemonicWordsToKeyTagMnemonic(mnemonic);
   const navigation = useNavigation<NavigationProps>();
   const isVertical = useIsVerticalLayout();
   const rightDoneBtn = useMemo(
     () => (
       <RightDoneBtn
+        message={intl.formatMessage({ id: 'action__done' })}
         onDone={() => {
           navigation
             .getParent()
@@ -79,7 +85,7 @@ const ShowDotMap: FC = () => {
         }}
       />
     ),
-    [navigation],
+    [intl, navigation],
   );
   const titleHeader = useMemo(
     () => <TopMidCompoment mnemonic={mnemonic} wallet={wallet} />,

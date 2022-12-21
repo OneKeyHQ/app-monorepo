@@ -12,31 +12,31 @@ type KeyTagImportMatrixProps = {
   keyTagData?: KeyTagMnemonic[];
   startIndex?: number;
   onChange?: (wordIndex: number, index: number, value: boolean) => void;
+  showResult?: boolean;
 };
 
 export const KeyTagImportMatrix: FC<KeyTagImportMatrixProps> = ({
   keyTagData,
   onChange,
   startIndex,
-}) => {
-  console.log('KeyTagImportMatrix--');
-  return (
+  showResult = true,
+}) => (
+  <Box justifyContent="center" alignItems="center">
+    <KeyTagMatrixTopTitle keyTagData={keyTagData} startIndex={startIndex} />
     <Box justifyContent="center" alignItems="center">
-      <KeyTagMatrixTopTitle keyTagData={keyTagData} startIndex={startIndex} />
-      <Box justifyContent="center" alignItems="center">
-        {keyTagData?.map((data, i) => (
-          <DotMnemonicWord
-            key={`${i}`}
-            showWordStatus
-            mnemonicWordData={data}
-            onChange={(index, value) => {
-              if (onChange) {
-                onChange(data.index, index, value);
-              }
-            }}
-          />
-        ))}
-      </Box>
+      {keyTagData?.map((data, i) => (
+        <DotMnemonicWord
+          key={`${i}`}
+          showResult={showResult}
+          showWordStatus
+          mnemonicWordData={data}
+          onChange={(index, value) => {
+            if (onChange) {
+              onChange(data.index, index, value);
+            }
+          }}
+        />
+      ))}
     </Box>
-  );
-};
+  </Box>
+);

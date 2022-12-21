@@ -2,22 +2,25 @@ import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
-  ScrollView,
   Select,
   Switch,
+  ToastManager,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { RootRoutes } from '../../../routes/types';
 import LayoutContainer from '../../Onboarding/Layout';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 import { KeyTagImportMatrix } from '../Component/KeyTagMatrix/keyTagImportMatrix';
+import { KeyTagMnemonicStatus } from '../types';
 import { generalKeyTagMnemonic, keyTagWordDataToMnemonic } from '../utils';
 
 import type { KeyTagRoutes } from '../Routes/enums';
@@ -32,9 +35,10 @@ type NavigationProps = StackNavigationProp<
 const ImportKeyTag: FC = () => {
   const navigation = useNavigation<NavigationProps>();
   const appNavigation = useAppNavigation();
-  const [wordCount, setWordCount] = useState(12);
+  const intl = useIntl();
+  const [importCheck, setImportCheck] = useState(false);
   const [mnemonicWordDatas, setMnemonicWordDatas] = useState(() =>
-    generalKeyTagMnemonic(wordCount),
+    generalKeyTagMnemonic(12),
   );
 
   const onKeyTagChenge = useCallback(
@@ -56,22 +60,64 @@ const ImportKeyTag: FC = () => {
     [mnemonicWordDatas],
   );
 
-  const importValidation = useCallback(() => {
-    const mnemonic = mnemonicWordDatas
-      .map((item) => item.mnemonicWord)
-      .join(' ');
-    appNavigation.navigate(RootRoutes.Onboarding, {
-      screen: EOnboardingRoutes.SetPassword,
-      params: { mnemonic },
+  const importValidation = useCallback(async () => {
+    setImportCheck(true);
+    let checkMnemonicWordDatas = [...mnemonicWordDatas];
+    checkMnemonicWordDatas = checkMnemonicWordDatas.map((item) => {
+      const { mnemonicWord, mnemonicIndexNumber, status } =
+        keyTagWordDataToMnemonic(item.dotMapData ?? []);
+      return {
+        ...item,
+        mnemonicWord,
+        mnemonicIndexNumber,
+        status,
+      };
     });
-  }, [appNavigation, mnemonicWordDatas]);
+    setMnemonicWordDatas(checkMnemonicWordDatas);
+    if (
+      checkMnemonicWordDatas.every(
+        (item) => item.status === KeyTagMnemonicStatus.VERIF,
+      )
+    ) {
+      const mnemonic = checkMnemonicWordDatas
+        .map((item) => item.mnemonicWord)
+        .join(' ');
+      try {
+        await backgroundApiProxy.validator.validateMnemonic(mnemonic);
+        appNavigation.navigate(RootRoutes.Onboarding, {
+          screen: EOnboardingRoutes.SetPassword,
+          params: { mnemonic },
+        });
+      } catch (e) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: 'msg__engine__invalid_mnemonic' }),
+          },
+          { type: 'error' },
+        );
+        console.error('validate mnemonic', e);
+      }
+    } else {
+      ToastManager.show(
+        { title: intl.formatMessage({ id: 'msg__engine__invalid_mnemonic' }) },
+        { type: 'error' },
+      );
+    }
+    setImportCheck(false);
+  }, [appNavigation, mnemonicWordDatas, intl]);
   const rightButton = useMemo(
     () => (
-      <Button mr={6} type="primary" size="base" onPress={importValidation}>
-        Import
+      <Button
+        mr={6}
+        type="primary"
+        size="base"
+        isLoading={importCheck}
+        onPress={importValidation}
+      >
+        {intl.formatMessage({ id: 'action__import' })}
       </Button>
     ),
-    [importValidation],
+    [importCheck, importValidation, intl],
   );
   const title = useMemo(() => <Box />, []);
   navigation.setOptions({
@@ -112,12 +158,16 @@ const ImportKeyTag: FC = () => {
           </Box>
           <Box>
             <Select
-              defaultValue={wordCount}
-              onChange={(v, item) => {
-                setWordCount(item.value);
-                setMnemonicWordDatas(
-                  generalKeyTagMnemonic(item.value, mnemonicWordDatas),
-                );
+              activatable={!!isVertical}
+              defaultValue={12}
+              footer={null}
+              headerShown={false}
+              onChange={(v, item: { label: string; value: number }) => {
+                setTimeout(() => {
+                  setMnemonicWordDatas(
+                    generalKeyTagMnemonic(item.value, mnemonicWordDatas),
+                  );
+                }, 200);
               }}
               options={[
                 { label: '12 words', value: 12 },
@@ -129,14 +179,21 @@ const ImportKeyTag: FC = () => {
         </Box>
       </Box>
       <Box flex="1">
-        <Box mt={6} flexDirection={isVertical ? 'column' : 'row'}>
+        <Box
+          mt={6}
+          justifyContent="space-around"
+          alignItems={isVertical ? 'center' : 'flex-start'}
+          flexDirection={isVertical ? 'column' : 'row'}
+        >
           {mnemonicWordDatas.length > 12 ? (
             <>
               <KeyTagImportMatrix
+                showResult={showResult}
                 onChange={onKeyTagChenge}
                 keyTagData={mnemonicWordDatas.slice(0, 12)}
               />
               <KeyTagImportMatrix
+                showResult={showResult}
                 startIndex={13}
                 keyTagData={mnemonicWordDatas.slice(12)}
                 onChange={onKeyTagChenge}
@@ -144,6 +201,7 @@ const ImportKeyTag: FC = () => {
             </>
           ) : (
             <KeyTagImportMatrix
+              showResult={showResult}
               keyTagData={mnemonicWordDatas}
               onChange={onKeyTagChenge}
             />

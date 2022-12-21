@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Button,
@@ -23,7 +25,7 @@ type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 const Introduce = () => {
   const isVertical = useIsVerticalLayout();
   const { imageHeight, imageWidth, marginT } = useIntroductionBigImage();
-
+  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const components = useMemo(() => {
     const res: { image?: ReactElement; detail?: ReactElement } = {};
@@ -45,11 +47,14 @@ const Introduce = () => {
           fontWeight={700}
           numberOfLines={2}
         >
-          Let's Play the Dot-Punching Game
+          {intl.formatMessage({
+            id: 'title__record_your_recovery_phrase_like_playing_a_dot_punching_game',
+          })}
         </Typography.DisplayLarge>
         <Typography.Body1 mt={2}>
-          OneKey converts your KeyTag's recovery phrase to BIP39 dot map. Follow
-          the dot map and center punch the dots. Enjoy!
+          {intl.formatMessage({
+            id: 'title__record_your_recovery_phrase_like_playing_a_dot_punching_game_desc',
+          })}
         </Typography.Body1>
         <Button
           type="primary"
@@ -63,7 +68,7 @@ const Introduce = () => {
       </Box>
     );
     return res;
-  }, [imageHeight, imageWidth, marginT, navigation]);
+  }, [imageHeight, imageWidth, intl, marginT, navigation]);
   return (
     <LayoutContainer backButton>
       <Box flexDirection={isVertical ? 'column' : 'row'}>
