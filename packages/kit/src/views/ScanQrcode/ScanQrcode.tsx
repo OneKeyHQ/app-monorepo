@@ -3,19 +3,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused, useRoute } from '@react-navigation/core';
 import { Camera as ExpoCamera } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
+import { launchImageLibraryAsync } from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
-import { Button } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
+  Button,
   Center,
-  Icon,
+  HStack,
   Modal,
-  Typography,
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
@@ -24,13 +25,10 @@ import { handleScanResult } from '../../utils/gotoScanQrcode';
 
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
-import SvgScanArea from './SvgScanArea';
 import { ScanQrcodeRoutes } from './types';
 
 import type { ScanQrcodeRoutesParams } from './types';
 import type { NavigationProp, RouteProp } from '@react-navigation/core';
-
-const { isWeb, isNative: isApp } = platformEnv;
 
 type ScanQrcodeRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
@@ -78,8 +76,8 @@ const ScanQrcode: FC = () => {
   );
 
   const pickImage = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      base64: isWeb,
+    const result = await launchImageLibraryAsync({
+      base64: !platformEnv.isNative,
       allowsMultipleSelection: false,
     });
 
@@ -87,6 +85,10 @@ const ScanQrcode: FC = () => {
       const data = await scanFromURLAsync(result.uri);
       if (data) handleBarCodeScanned(data);
     }
+  }, [handleBarCodeScanned]);
+
+  const pasteData = useCallback(async () => {
+    handleBarCodeScanned(await getClipboard());
   }, [handleBarCodeScanned]);
 
   useEffect(() => {
@@ -103,31 +105,43 @@ const ScanQrcode: FC = () => {
     }
   }, [isFocused]);
 
-  const ChooseImageText = isApp ? Typography.Button1 : Typography.Button2;
   if (currentPermission === PermissionStatus.GRANTED) {
     return (
       <Modal
         hidePrimaryAction
         hideSecondaryAction
         header={intl.formatMessage({ id: 'title__scan_qr_code' })}
+        headerDescription={
+          platformEnv.isNativeIOSPhone ? <Box h="8px" /> : undefined
+        }
+        height="535px"
         footer={
-          <Button
-            style={{ marginBottom: bottom }}
-            onPress={pickImage}
-            h={isApp ? '55px' : '45px'}
-            variant="unstyled"
-            leftIcon={<Icon name="PhotoMini" size={isApp ? 19 : 15} />}
+          <HStack
+            mb={bottom}
+            py="16px"
+            px={isVerticalLayout ? '16px' : '24px'}
+            space="12px"
+            justifyContent="center"
           >
-            <ChooseImageText>
+            <Button
+              flexGrow={isVerticalLayout ? 1 : undefined}
+              size={isVerticalLayout ? 'xl' : 'base'}
+              onPress={pickImage}
+              leftIconName="PhotoMini"
+            >
               {intl.formatMessage({ id: 'action__choose_an_image' })}
-            </ChooseImageText>
-          </Button>
+            </Button>
+            <Button
+              flexGrow={isVerticalLayout ? 1 : undefined}
+              size={isVerticalLayout ? 'xl' : 'base'}
+              leftIconName="ClipboardMini"
+              onPress={pasteData}
+            >
+              {intl.formatMessage({ id: 'action__paste' })}
+            </Button>
+          </HStack>
         }
-        staticChildrenProps={
-          isVerticalLayout || platformEnv.isNativeIOS
-            ? { flex: 1 }
-            : { width: '100%', height: 418 }
-        }
+        staticChildrenProps={{ flex: 1 }}
       >
         <ScanCamera
           style={{
@@ -136,8 +150,26 @@ const ScanQrcode: FC = () => {
           isActive={isFocused}
           onQrcodeScanned={handleBarCodeScanned}
         >
-          <Center position="absolute" w="full" h="full">
-            <SvgScanArea width="256px" height="256px" />
+          <Center
+            position="absolute"
+            top={0}
+            right={0}
+            bottom={0}
+            left={0}
+            overflow="hidden"
+          >
+            <Box
+              borderWidth={400}
+              borderColor="rgba(0,0,0,.5)"
+              borderRadius="425px"
+            >
+              <Box
+                size="256px"
+                borderWidth={4}
+                borderColor="white"
+                borderRadius="24px"
+              />
+            </Box>
           </Center>
         </ScanCamera>
       </Modal>

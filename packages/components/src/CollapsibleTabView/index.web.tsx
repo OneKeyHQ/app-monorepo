@@ -12,8 +12,6 @@ import MaterialTab from '@mui/material/Tab';
 import MaterialTabs from '@mui/material/Tabs';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
-import { Body2StrongProps } from '@onekeyhq/components/src/Typography';
-
 import Box from '../Box';
 import FlatList from '../FlatList';
 import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
@@ -183,7 +181,7 @@ const Container: FC<ContainerProps> = ({
             activeColor={activeLabelColor}
             inactiveColor={labelColor}
             labelStyle={{
-              ...Body2StrongProps,
+              fontFamily: 'BlinkMacSystemFont',
             }}
             indicatorStyle={{ backgroundColor: indicatorColor }}
             handleChange={handleChange}
