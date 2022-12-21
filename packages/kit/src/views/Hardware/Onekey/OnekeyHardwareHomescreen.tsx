@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
+import { MediaTypeOptions, launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -37,6 +37,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
+import type { ImageInfo } from 'expo-image-picker';
 import type { MessageDescriptor } from 'react-intl';
 
 type RouteProps = RouteProp<
@@ -139,7 +140,7 @@ const OnekeyHardwareHomescreen: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadImages]);
 
-  const addImage = useCallback((imageInfo: ImagePicker.ImageInfo) => {
+  const addImage = useCallback((imageInfo: ImageInfo) => {
     const { uri, height, width } = imageInfo;
     const name = `upload-${Object.keys(imageCache).length}`;
     imageCache[name] = { name, staticPath: uri, height, width };
@@ -147,8 +148,8 @@ const OnekeyHardwareHomescreen: FC = () => {
   }, []);
 
   const pickImage = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const result = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
       allowsEditing: false,
       quality: 1,
     });

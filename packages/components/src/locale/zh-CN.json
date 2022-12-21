@@ -50,7 +50,7 @@
   "action__change_pin": "更改 PIN 码",
   "action__check_address": "核对地址",
   "action__checking": "核对中...",
-  "action__choose_an_image": "选择一张图片",
+  "action__choose_an_image": "相册",
   "action__choose_from_library": "从照片库中选择",
   "action__clear": "清除",
   "action__clear_all": "清空",
