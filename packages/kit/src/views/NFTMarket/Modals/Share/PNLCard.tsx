@@ -15,7 +15,7 @@ import {
   ZStack,
   useTheme,
 } from '@onekeyhq/components';
-import type { NFTNPL } from '@onekeyhq/engine/src/types/nft';
+import type { NFTPNL } from '@onekeyhq/engine/src/types/nft';
 import BlurBackground from '@onekeyhq/kit/assets/pnl_share_blur_bg.png';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
@@ -23,12 +23,12 @@ import NFTListImage from '../../../Wallet/NFT/NFTList/NFTListImage';
 import { PriceString } from '../../PriceText';
 
 type Props = {
-  data?: NFTNPL;
+  data?: NFTPNL;
   scale: number;
   opacity?: number;
 };
 
-export const NPLCard: FC<Props> = ({ data, scale, opacity }) => {
+export const PNLCard: FC<Props> = ({ data, scale, opacity }) => {
   const { formatDistanceStrict } = useFormatDate();
   const { themeVariant } = useTheme();
 
@@ -121,10 +121,10 @@ export const NPLCard: FC<Props> = ({ data, scale, opacity }) => {
 };
 
 type GroupProps = {
-  datas: NFTNPL[];
+  datas: NFTPNL[];
 } & ComponentProps<typeof ZStack>;
 
-export const NPLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
+export const PNLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
   const [pageWidth, setPageWidth] = useState<number>(0);
 
   return (
@@ -141,7 +141,7 @@ export const NPLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
       <Image zIndex={0} source={BlurBackground} width={300} height={300} />
       {pageWidth > 0 && (
         <Box zIndex={1} mt="-40px" style={{ transform: [{ translateY: -21 }] }}>
-          <NPLCard
+          <PNLCard
             data={datas[2]}
             scale={(pageWidth / 358) * 0.81}
             opacity={70}
@@ -150,7 +150,7 @@ export const NPLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
       )}
       {pageWidth > 0 && (
         <Box zIndex={2}>
-          <NPLCard
+          <PNLCard
             data={datas[1]}
             scale={(pageWidth / 358) * 0.9}
             opacity={80}
@@ -159,7 +159,7 @@ export const NPLCardGroup: FC<GroupProps> = ({ datas, ...props }) => {
       )}
       {pageWidth > 0 && (
         <Box zIndex={3} mt="48px" style={{ transform: [{ translateY: 26 }] }}>
-          <NPLCard data={datas[0]} scale={pageWidth / 358} opacity={90} />
+          <PNLCard data={datas[0]} scale={pageWidth / 358} opacity={90} />
         </Box>
       )}
     </ZStack>

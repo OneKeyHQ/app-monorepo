@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { ListItem, Modal, NetImage } from '@onekeyhq/components';
 import type { MarketPlace } from '@onekeyhq/engine/src/types/nft';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
@@ -28,7 +29,9 @@ const MarketPlaceList: FC = () => {
 
   useEffect(() => {
     (async () => {
-      const data = await serviceNFT.getMarketPlaces();
+      const data = await serviceNFT.getMarketPlaces({
+        chain: OnekeyNetwork.eth,
+      });
       if (data) {
         updateListData(data);
       }
@@ -74,7 +77,6 @@ const MarketPlaceList: FC = () => {
         // @ts-ignore
         renderItem,
         keyExtractor: (item) => (item as MarketPlace).name,
-        m: -2,
       }}
     />
   );

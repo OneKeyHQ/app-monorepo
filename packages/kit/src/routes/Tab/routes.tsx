@@ -38,7 +38,7 @@ import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
-import NPLDetailScreen from '../../views/NFTMarket/NPL/NPLDetail';
+import NPLDetailScreen from '../../views/NFTMarket/PNL/PNLDetail';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
@@ -136,7 +136,7 @@ export const tabRoutes: TabRouteConfig[] = [
         component: NFTMarketCollectionScreen,
       },
       {
-        name: HomeRoutes.NFTNPLScreen,
+        name: HomeRoutes.NFTPNLScreen,
         component: NPLDetailScreen,
       },
     ],
