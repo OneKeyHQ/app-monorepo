@@ -1,15 +1,19 @@
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Typography } from '@onekeyhq/components';
+import { Text } from '@onekeyhq/components';
 
 type ArrivalTimeProps = {
   value?: number;
+  typography?: ComponentProps<typeof Text>['typography'];
 };
 
-export const ArrivalTime: FC<ArrivalTimeProps> = ({ value }) => {
+export const ArrivalTime: FC<ArrivalTimeProps> = ({
+  value,
+  typography = 'Caption',
+}) => {
   const intl = useIntl();
   const text = useMemo(() => {
     if (!value) {
@@ -31,6 +35,8 @@ export const ArrivalTime: FC<ArrivalTimeProps> = ({ value }) => {
     );
   }, [value, intl]);
   return (
-    <Typography.Caption color="text-subdued">&lt;{text}</Typography.Caption>
+    <Text typography={typography} color="text-subdued">
+      &lt;{text}
+    </Text>
   );
 };

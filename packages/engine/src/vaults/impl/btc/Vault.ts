@@ -22,6 +22,7 @@ import {
   IDecodedTxDirection,
   IDecodedTxStatus,
 } from '../../types';
+import { getBIP44Path } from '../../utils/btcForkChain/utils';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
@@ -298,6 +299,12 @@ export default class Vault extends VaultBase {
       outputs: outputs.map(({ value, address }) => ({
         address: address || dbAccount.address, // change amount
         value: value.toString(),
+        payload: address
+          ? undefined
+          : {
+              isCharge: true,
+              bip44Path: getBIP44Path(dbAccount, dbAccount.address),
+            },
       })),
       totalFee,
       totalFeeInNative,
@@ -338,9 +345,10 @@ export default class Vault extends VaultBase {
         utxo: { txid: input.txid, vout: input.vout, value },
       });
     }
-    const outputsInUnsignedTx = outputs.map(({ address, value }) => ({
+    const outputsInUnsignedTx = outputs.map(({ address, value, payload }) => ({
       address,
       value: new BigNumber(value),
+      payload,
     }));
 
     const ret = {

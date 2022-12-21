@@ -75,7 +75,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
 }) => {
   if (!providers) {
     return (
-      <Text typography={typography} color={color}>
+      <Text typography={typography} color={color} isTruncated>
         OneKey Swap
       </Text>
     );
@@ -91,6 +91,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
           typography={typography}
           color={color}
           fontWeight={fontWeight}
+          isTruncated
         >
           {providers[0].name}
         </Text>
@@ -107,6 +108,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
           typography={typography}
           color={color}
           fontWeight={fontWeight}
+          isTruncated
         >
           {providers.length} Exchanges
         </Text>

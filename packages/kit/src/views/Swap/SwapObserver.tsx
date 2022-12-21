@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+
+import { useIsFocused } from '@react-navigation/native';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
@@ -7,10 +9,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation } from '../../hooks';
+import { useAppSelector, useNavigation, usePrevious } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { SwapRoutes } from './typings';
+import { stringifyTokens } from './utils';
 
 const NetworkObserver = () => {
   useEffect(() => {
@@ -36,20 +39,30 @@ const AccountsObserver = () => {
   return null;
 };
 
-const TokenUpdater = () => {
+const UserSelectedQuoterObserver = () => {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const tokensHash = useMemo(
+    () => stringifyTokens(inputToken, outputToken),
+    [inputToken, outputToken],
+  );
+  const prevTokensHash = usePrevious(tokensHash);
   useEffect(() => {
-    backgroundApiProxy.serviceSwap.getSwapTokens();
-  }, []);
+    if (tokensHash !== prevTokensHash) {
+      backgroundApiProxy.serviceSwap.clearUserSelectedQuoter();
+    }
+  }, [tokensHash, prevTokensHash]);
   return null;
 };
 
 const WelcomeObserver = () => {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   useEffect(() => {
     async function main() {
       const swapWelcomeShown =
         await backgroundApiProxy.serviceSwap.getSwapWelcomeShown();
-      if (swapWelcomeShown) {
+      if (swapWelcomeShown || !isFocused) {
         return;
       }
       navigation.navigate(RootRoutes.Modal, {
@@ -59,9 +72,9 @@ const WelcomeObserver = () => {
         },
       });
     }
-    const timer = setTimeout(main, 2000);
+    const timer = setTimeout(main, 1000);
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [navigation, isFocused]);
   return null;
 };
 
@@ -69,7 +82,7 @@ const SwapListener = () => (
   <>
     <NetworkObserver />
     <AccountsObserver />
-    <TokenUpdater />
+    <UserSelectedQuoterObserver />
     <WelcomeObserver />
   </>
 );

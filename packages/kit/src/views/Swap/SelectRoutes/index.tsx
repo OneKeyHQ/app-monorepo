@@ -13,23 +13,24 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   CustomSkeleton,
-  FlatList,
   Modal,
   Pressable,
+  ScrollView,
+  Typography,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ArrivalTime } from '../components/ArrivalTime';
-import { useSwapQuoteRequestParams, useSwapRecipient } from '../hooks/useSwap';
-import { SwapQuoter } from '../quoter';
+import { useSwapQuoteRequestParams } from '../hooks/useSwap';
+import { multiply, stringifyTokens } from '../utils';
 
 import { AmountLimit } from './AmountLimit';
 import { LiquiditySources } from './LiquiditySources';
 import { TokenInput } from './TokenInput';
+import { useTokenOutput } from './utils';
 
 import type { FetchQuoteResponse } from '../typings';
-import type { ListRenderItem } from 'react-native';
 
 type RoutesProps = {
   responses: FetchQuoteResponse[];
@@ -45,8 +46,6 @@ const SelectRoutesContext = createContext({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSelect: (index: number) => {},
 });
-
-const ItemSeparatorComponent = () => <Box h="3" />;
 
 const ListEmptyComponent = () => (
   <Box>
@@ -68,9 +67,21 @@ const PlaceholderLine: FC<PlaceholderLineProps> = ({ ...rest }) => (
 );
 
 const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
+  const intl = useIntl();
   const { inputToken, outputToken } = useAppSelector((s) => s.swap);
   const { selectedIndex, onSelect } = useContext(SelectRoutesContext);
   const { data, limited } = response;
+  const buyAmount = data?.buyAmount ?? '0';
+  const isDisabled = !!limited;
+  let percentageFee = data?.percentageFee ? Number(data?.percentageFee) : 0;
+  if (data?.type === 'swftc') {
+    percentageFee += 0.002;
+  }
+  const noFeeAmount = multiply(buyAmount, 1 - percentageFee);
+  const nofeePrice = useTokenOutput({
+    token: outputToken,
+    amount: noFeeAmount,
+  });
 
   return (
     <Pressable
@@ -81,88 +92,136 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
       p="4"
       borderRadius={12}
       onPress={() => onSelect(index)}
+      isDisabled={isDisabled}
+      mb="3"
     >
       <Box
         flexDirection="row"
         justifyContent="space-between"
         alignItems="center"
+        w="full"
       >
         <Box flex="1" flexDirection="row">
-          <TokenInput token={inputToken} amount={data?.sellAmount} />
+          <TokenInput
+            token={inputToken}
+            amount={data?.sellAmount}
+            isDisabled={isDisabled}
+          />
           <PlaceholderLine ml={2} />
         </Box>
         <Box flex="1" justifyContent="center" flexDirection="row">
           <PlaceholderLine mr={2} />
-          <LiquiditySources providers={data?.providers} />
+          <LiquiditySources
+            providers={data?.providers}
+            isDisabled={isDisabled}
+          />
           <PlaceholderLine ml={2} />
         </Box>
         <Box flex="1" flexDirection="row">
           <PlaceholderLine mr={2} />
-          <TokenInput token={outputToken} amount={data?.buyAmount} rightAlign />
+          <TokenInput
+            token={outputToken}
+            amount={buyAmount}
+            rightAlign
+            isDisabled={isDisabled}
+          />
         </Box>
       </Box>
       <Box mt="3" flexDirection="row" justifyContent="space-between">
         <Box>
-          <AmountLimit limited={limited} token={inputToken} />
+          <ArrivalTime value={data?.arrivalTime} />
         </Box>
-        <ArrivalTime value={data?.arrivalTime} />
+        <Box>
+          <Typography.Caption color="text-subdued">
+            {intl.formatMessage({ id: 'form__no_fee_price' })}
+            {nofeePrice}
+          </Typography.Caption>
+        </Box>
       </Box>
+      <AmountLimit response={response} token={inputToken} />
     </Pressable>
   );
 };
 
 const Routes: FC<RoutesProps> = ({ responses }) => {
-  const renderItem: ListRenderItem<FetchQuoteResponse> = ({ item, index }) => (
-    <RouteOption response={item} index={index} />
-  );
+  const intl = useIntl();
+  const data = responses.map((res, index) => ({ ...res, index }));
+  const limited = data.filter((item) => item.limited);
+  const notLimited = data.filter((item) => !item.limited);
+
   return (
-    <FlatList
-      data={responses}
-      renderItem={renderItem}
-      keyExtractor={(item, index) => item.data?.type ?? String(index)}
-      ItemSeparatorComponent={ItemSeparatorComponent}
-      ListEmptyComponent={ListEmptyComponent}
-    />
+    <ScrollView>
+      <Box>
+        <Box>
+          {notLimited.map((item) => (
+            <RouteOption
+              key={item.data?.type ?? ''}
+              response={item}
+              index={item.index}
+            />
+          ))}
+        </Box>
+        {limited.length ? (
+          <Box>
+            <Typography.Subheading mb="3" color="text-subdued">
+              {intl.formatMessage({ id: 'form__unavailable_uppercase' })}
+            </Typography.Subheading>
+            <Box>
+              {limited.map((item) => (
+                <RouteOption
+                  key={item.data?.type ?? ''}
+                  response={item}
+                  index={item.index}
+                />
+              ))}
+            </Box>
+          </Box>
+        ) : null}
+      </Box>
+    </ScrollView>
   );
 };
 
 const SelectRoutes = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const [selectedIndex, onSelect] = useState(0);
+  const [selectedIndex, onSelectIndex] = useState(-1);
   const params = useSwapQuoteRequestParams();
-  const recipient = useSwapRecipient();
-  const [responses, setResponses] = useState<FetchQuoteResponse[]>([]);
+  const quote = useAppSelector((s) => s.swap.quote);
+  const responses = useAppSelector((s) => s.swap.responses);
+  const data = useMemo(() => responses ?? [], [responses]);
 
   useEffect(() => {
-    async function main() {
-      if (params) {
-        const data = await SwapQuoter.client.fetchQuotes({
-          ...params,
-          receivingAddress: recipient?.address,
-        });
-        if (data) {
-          setResponses(data);
-        }
+    function main() {
+      const index = data.findIndex((item) => item.data?.type === quote?.type);
+      if (index !== -1) {
+        onSelectIndex(index);
       }
     }
     main();
-  }, [params, recipient?.address]);
+  }, [data, quote]);
 
   const onPrimaryActionPress = useCallback(() => {
-    const response = responses[selectedIndex];
+    const response = data[selectedIndex];
     if (response) {
       if (response.data) {
         backgroundApiProxy.serviceSwap.setQuote(response.data);
+        const hash = stringifyTokens(params?.tokenIn, params?.tokenOut);
+        backgroundApiProxy.serviceSwap.setUserSelectedQuoter(
+          hash,
+          response.data.type,
+        );
       }
       backgroundApiProxy.serviceSwap.setQuoteLimited(response.limited);
     }
     navigation.goBack();
-  }, [selectedIndex, responses, navigation]);
+  }, [selectedIndex, data, navigation, params]);
+
   const contextValue = useMemo(
-    () => ({ selectedIndex, onSelect }),
+    () => ({ selectedIndex, onSelect: onSelectIndex }),
     [selectedIndex],
   );
+
   return (
     <SelectRoutesContext.Provider value={contextValue}>
       <Modal
@@ -172,7 +231,11 @@ const SelectRoutes = () => {
         primaryActionTranslationId="action__confirm"
         onPrimaryActionPress={onPrimaryActionPress}
       >
-        <Routes responses={responses} />
+        {data.length === 0 ? (
+          <ListEmptyComponent />
+        ) : (
+          <Routes responses={data} />
+        )}
       </Modal>
     </SelectRoutesContext.Provider>
   );

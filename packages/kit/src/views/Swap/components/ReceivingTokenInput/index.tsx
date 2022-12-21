@@ -1,6 +1,7 @@
 import type { ComponentProps, FC, ReactElement } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 
@@ -20,7 +21,6 @@ import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setRecipient } from '../../../../store/reducers/swap';
-import { useSwapQuoteCallback, useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
@@ -43,17 +43,16 @@ type TokenInputProps = {
 
 const TokenInputReceivingAddress: FC = () => {
   const intl = useIntl();
+  const isFocused = useIsFocused();
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
-  const recipient = useSwapRecipient();
-  const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
-
-  const [label, setLabel] = useState<string | undefined>();
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const recipient = useAppSelector((s) => s.swap.recipient);
+  const [tooltip, setTooltip] = useState<string | undefined>();
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
 
   const onPress = useCallback(() => {
-    setLabel(undefined);
+    setTooltip(undefined);
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
       params: {
@@ -74,17 +73,11 @@ const TokenInputReceivingAddress: FC = () => {
                 accountId,
               }),
             );
-            onSwapQuote();
           },
         },
       },
     });
-  }, [
-    navigation,
-    outputTokenNetwork?.id,
-    outputTokenNetwork?.impl,
-    onSwapQuote,
-  ]);
+  }, [navigation, outputTokenNetwork?.id, outputTokenNetwork?.impl]);
 
   useEffect(() => {
     async function main() {
@@ -102,7 +95,7 @@ const TokenInputReceivingAddress: FC = () => {
           await backgroundApiProxy.serviceSwap.setSwapReceivingUnknownShown(
             true,
           );
-          setLabel(
+          setTooltip(
             intl.formatMessage({
               id: 'msg__you_are_swapping_asset_to_an_address_that_may_not_be_yours_please_verify',
             }),
@@ -125,7 +118,7 @@ const TokenInputReceivingAddress: FC = () => {
           await backgroundApiProxy.serviceSwap.setSwapReceivingIsNotSendingAccountShown(
             true,
           );
-          setLabel(
+          setTooltip(
             intl.formatMessage({
               id: 'msg__you_have_selected_another_account_to_receive_tokens',
             }),
@@ -141,15 +134,21 @@ const TokenInputReceivingAddress: FC = () => {
   }, [sendingAccount, recipient, intl]);
 
   useEffect(() => {
-    if (label) {
-      const timer = setTimeout(() => setLabel(undefined), 8000);
+    if (tooltip) {
+      const timer = setTimeout(() => setTooltip(undefined), 8000);
       return () => {
         clearTimeout(timer);
       };
     }
-  }, [label]);
+  }, [tooltip]);
 
   let text: ReactElement | undefined;
+  useEffect(() => {
+    if (!isFocused) {
+      setTooltip(undefined);
+    }
+  }, [isFocused]);
+
   const { address, name } = recipient ?? {};
   if (address && name) {
     text = (
@@ -173,6 +172,7 @@ const TokenInputReceivingAddress: FC = () => {
         <Typography.Body2
           color={recipientUnknown ? 'text-warning' : 'text-subdued'}
         >
+          {intl.formatMessage({ id: 'form__unknown' })}{' '}
           {utils.shortenAddress(address)}
         </Typography.Body2>
       </Box>
@@ -200,9 +200,9 @@ const TokenInputReceivingAddress: FC = () => {
         </Box>
         <Box position="relative">
           <Tooltip
-            isOpen={!!label}
+            isOpen={Boolean(tooltip)}
             hasArrow
-            label={label ?? ''}
+            label={tooltip ?? ''}
             bg="surface-neutral-default"
             _text={{ color: 'text-default', fontSize: '14px' }}
             px="16px"
@@ -243,7 +243,7 @@ const TokenInput: FC<TokenInputProps> = ({
 }) => {
   const intl = useIntl();
   const price = useTokenPrice(token);
-  const recipient = useSwapRecipient();
+  const recipient = useAppSelector((s) => s.swap.recipient);
   const balance = useTokenBalance(token, recipient?.accountId);
   const value = balance ?? '0';
   let text = formatAmount(value, 6);
@@ -277,7 +277,7 @@ const TokenInput: FC<TokenInputProps> = ({
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
-          alignItems="center"
+          alignItems="flex-start"
           mt="1"
         >
           <Pressable
@@ -328,6 +328,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 borderRadius={0}
                 onChangeText={onChange}
                 // pt="1.5"
+                pr="2"
                 pb="12"
                 textAlign="right"
                 isDisabled={isDisabled}
