@@ -28,6 +28,7 @@ const NavHeaderGallery = () => (
             size="lg"
             type="plain"
             circle
+            mr={-1.5}
           />
         )}
       />

@@ -10,29 +10,33 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useNetwork } from '../../../hooks';
-import { formatAmount, getTokenAmountValue } from '../utils';
+
+import { useTokenOutput } from './utils';
 
 type TokenInputProps = {
   token?: Token;
   amount?: string;
   rightAlign?: boolean;
+  isDisabled?: boolean;
 };
 
 export const TokenInput: FC<TokenInputProps> = ({
   token,
   amount,
   rightAlign,
+  isDisabled,
 }) => {
   const isSmall = useIsVerticalLayout();
   const { network } = useNetwork({ networkId: token?.networkId });
+  const text = useTokenOutput({ token, amount });
 
-  let text = '';
-  if (token && amount) {
-    text = formatAmount(getTokenAmountValue(token, amount), 4);
-  }
   if (!token) return null;
   return (
-    <Box flexDirection={rightAlign ? 'row-reverse' : 'row'} alignItems="center">
+    <Box
+      flexDirection={rightAlign ? 'row-reverse' : 'row'}
+      alignItems="center"
+      maxW="full"
+    >
       <Box position="relative">
         <Image w="6" h="6" src={token?.logoURI} borderRadius="full" />
         {network ? (
@@ -45,15 +49,32 @@ export const TokenInput: FC<TokenInputProps> = ({
       </Box>
       <Box w="2" />
       {isSmall ? (
-        <Typography.Body2 color="text-default">{text}</Typography.Body2>
-      ) : (
         <Box>
-          <Typography.Body2Strong>
+          <Typography.Body2
+            isTruncated
+            color={isDisabled ? 'text-disabled' : 'text-default'}
+          >
             {text}
-            {token.symbol.toUpperCase()}
-          </Typography.Body2Strong>
+          </Typography.Body2>
+        </Box>
+      ) : (
+        <Box flex="1">
+          <Box flex="1" flexDirection="row">
+            <Typography.Body2Strong
+              isTruncated
+              color={isDisabled ? 'text-disabled' : 'text-default'}
+            >
+              {text}
+            </Typography.Body2Strong>
+            <Typography.Body2Strong
+              color={isDisabled ? 'text-disabled' : 'text-default'}
+            >
+              {token.symbol.toUpperCase()}
+            </Typography.Body2Strong>
+          </Box>
           <Typography.Caption
-            color="text-subdued"
+            isTruncated
+            color={isDisabled ? 'text-disabled' : 'text-subdued'}
             textAlign={rightAlign ? 'right' : 'left'}
           >
             {network?.name}

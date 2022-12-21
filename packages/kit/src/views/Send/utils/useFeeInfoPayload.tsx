@@ -40,6 +40,7 @@ export function useFeeInfoPayload({
   accountId,
   signOnly,
   forBatchSend,
+  payload,
 }: {
   encodedTx: IEncodedTx | null;
   useFeeInTx?: boolean;
@@ -49,6 +50,7 @@ export function useFeeInfoPayload({
   networkId: string;
   signOnly?: boolean;
   forBatchSend?: boolean;
+  payload?: any;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -60,7 +62,15 @@ export function useFeeInfoPayload({
   const [loading, setLoading] = useState(true);
   const route = useRoute();
   const toast = useToast();
-  const defaultFeePresetIndex = useFeePresetIndex(networkId);
+  let defaultFeePresetIndex = useFeePresetIndex(networkId);
+  const swapFeePresetIndex = useAppSelector(
+    (s) => s.swapTransactions.swapFeePresetIndex,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (payload && payload?.type === 'InternalSwap' && swapFeePresetIndex) {
+    defaultFeePresetIndex = swapFeePresetIndex;
+  }
+
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
   )?.feeInfoSelected;

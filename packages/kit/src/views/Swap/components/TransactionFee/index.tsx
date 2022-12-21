@@ -1,9 +1,9 @@
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Box, Typography } from '@onekeyhq/components';
+import { Box, Text } from '@onekeyhq/components';
 
 import { QuoterType } from '../../typings';
 
@@ -20,28 +20,33 @@ function isNoCharge(type?: QuoterType): boolean {
   return list.includes(type);
 }
 
-const TransactionFee: FC<{ type?: QuoterType; percentageFee?: string }> = ({
+type TransactionFeeProps = {
+  type?: QuoterType;
+  percentageFee?: string;
+  typography?: ComponentProps<typeof Text>['typography'];
+};
+
+const TransactionFee: FC<TransactionFeeProps> = ({
   type,
   percentageFee,
+  typography = 'Caption',
 }) => {
   const intl = useIntl();
   return (
     <Box>
       {isNoCharge(type) || (percentageFee && Number(percentageFee) === 0) ? (
         <Box flexDirection="column" alignItems="flex-end">
-          <Typography.Caption color="text-subdued" strikeThrough>
-            0.2 - 0.875%
-          </Typography.Caption>
-          <Typography.Caption color="text-success">
+          <Text typography={typography} color="text-subdued" strikeThrough>
+            0.3%
+          </Text>
+          <Text typography={typography} color="text-success">
             {intl.formatMessage({ id: 'form__free_limited_time' })}
-          </Typography.Caption>
+          </Text>
         </Box>
       ) : (
-        <Typography.Caption color="text-subdued">
-          {!percentageFee
-            ? ' 0.2 - 0.875%'
-            : `${formatPercentageFee(percentageFee)}%`}
-        </Typography.Caption>
+        <Text typography={typography} color="text-subdued">
+          {!percentageFee ? ' 0.3%' : `${formatPercentageFee(percentageFee)}%`}
+        </Text>
       )}
     </Box>
   );

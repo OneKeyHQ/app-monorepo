@@ -8,16 +8,20 @@ import type { Provider } from '../typings';
 
 type LiquiditySourcesProps = {
   providers?: Provider[];
+  isDisabled?: boolean;
 };
 
-export const LiquiditySources: FC<LiquiditySourcesProps> = ({ providers }) => {
+export const LiquiditySources: FC<LiquiditySourcesProps> = ({
+  providers,
+  isDisabled,
+}) => {
   const isSmall = useIsVerticalLayout();
 
   const sources = providers?.map((item) => item.logoUrl).filter(Boolean) ?? [];
   let text = 'OneKey Swap';
   if (providers?.length === 1) {
     text = providers[0].name;
-  } else if (providers?.length === 2) {
+  } else if (providers?.length && providers?.length >= 2) {
     text = `${providers.length} Exchanges`;
   }
   if (isSmall) {
@@ -33,7 +37,12 @@ export const LiquiditySources: FC<LiquiditySourcesProps> = ({ providers }) => {
       px="2"
     >
       <SwappingViaLogos sources={sources} />
-      <Typography.Caption ml="1">{text}</Typography.Caption>
+      <Typography.Caption
+        ml="1"
+        color={isDisabled ? 'text-disabled' : 'text-default'}
+      >
+        {text}
+      </Typography.Caption>
     </Box>
   );
 };
