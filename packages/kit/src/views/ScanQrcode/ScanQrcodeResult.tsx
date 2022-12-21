@@ -181,7 +181,7 @@ const ScanQrcodeResult: FC = () => {
           }}
         >
           <HStack space="4">
-            <Icon name="ImportOutline" />
+            <Icon name="EyeOutline" />
             <Typography.Body1>
               {intl.formatMessage({
                 id: 'form__imported_as_a_watch_account',
