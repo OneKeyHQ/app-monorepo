@@ -85,9 +85,11 @@ export const minimizeFloatingWindow = ({
   after = () => {},
 }: ExpandAnimationEvents) => {
   before?.();
-  expandAnim.value = withTiming(MIN_OR_HIDE, { duration: 300 }, () =>
-    runOnJS(after)(),
-  );
+  setTimeout(() => {
+    expandAnim.value = withTiming(MIN_OR_HIDE, { duration: 300 }, () =>
+      runOnJS(after)(),
+    );
+  });
 };
 
 const noop = () => {};
