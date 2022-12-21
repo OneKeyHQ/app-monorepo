@@ -85,6 +85,10 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
   );
 };
 
+function AccountListItemSeparator() {
+  return <Box h={2} />;
+}
+
 function AccountList({
   accountSelectorInfo,
 }: {
@@ -250,7 +254,7 @@ function AccountList({
           />
         );
       }}
-      ItemSeparatorComponent={() => <Box h={2} />}
+      ItemSeparatorComponent={AccountListItemSeparator}
       renderSectionFooter={({
         section,
       }: {
