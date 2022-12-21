@@ -15,13 +15,13 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { Account, DBAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
 } from '../../types';
+import { Provider as BTCForkChainProvider } from '../../utils/btcForkChain/provider';
 import { getBIP44Path } from '../../utils/btcForkChain/utils';
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
@@ -48,8 +48,9 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import type { IBlockBookTransaction } from '../../utils/btcForkChain/types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
-import type { IBlockBookTransaction, IBtcUTXO, IEncodedTxBtc } from './types';
+import type { IBtcUTXO, IEncodedTxBtc } from './types';
 import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 import type {
   PartialTokenInfo,
@@ -61,6 +62,19 @@ const DEFAULT_BLOCK_TIME = 600; // Average block time is 10 minutes.
 const DEFAULT_PRESET_FEE_INDEX = 1; // Use medium fee rate by default.
 
 export default class Vault extends VaultBase {
+  private provider?: BTCForkChainProvider;
+
+  async getBTCForkChainProvider() {
+    if (!this.provider) {
+      const chainInfo =
+        await this.engine.providerManager.getChainInfoByNetworkId(
+          this.networkId,
+        );
+      this.provider = new BTCForkChainProvider(chainInfo);
+    }
+    return this.provider;
+  }
+
   private getFeeRate = memoizee(
     async () => {
       const client = await (this.engineProvider as Provider).blockbook;
@@ -457,17 +471,26 @@ export default class Vault extends VaultBase {
   }): Promise<IHistoryTx[]> {
     const { localHistory = [] } = options;
 
+    const provider = await this.getBTCForkChainProvider();
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
+    const { decimals, symbol, impl } = await this.engine.getNetwork(
+      this.networkId,
+    );
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     let txs: Array<IBlockBookTransaction> = [];
     try {
       txs =
         (
-          (await (this.engineProvider as Provider).getAccount({
-            type: 'history',
-            xpub: dbAccount.xpub,
-          })) as { transactions: Array<IBlockBookTransaction> }
+          (await provider.getHistory(
+            {
+              type: 'history',
+              xpub: dbAccount.xpub,
+            },
+            impl,
+            dbAccount.address,
+            symbol,
+            decimals,
+          )) as { transactions: Array<IBlockBookTransaction> }
         ).transactions ?? [];
     } catch (e) {
       console.error(e);
@@ -482,47 +505,8 @@ export default class Vault extends VaultBase {
           // No need to update.
           return null;
         }
-        const utxoFrom = tx.vin.map((input) => ({
-          address: input.isAddress ?? false ? input.addresses[0] : '',
-          balance: new BigNumber(input.value).shiftedBy(-decimals).toFixed(),
-          balanceValue: input.value,
-          symbol,
-          isMine: input.isOwn ?? false,
-        }));
-        const utxoTo = tx.vout.map((output) => ({
-          address: output.isAddress ?? false ? output.addresses[0] : '',
-          balance: new BigNumber(output.value).shiftedBy(-decimals).toFixed(),
-          balanceValue: output.value,
-          symbol,
-          isMine: output.isOwn ?? false,
-        }));
-
-        const totalOut = BigNumber.sum(
-          ...utxoFrom.map(({ balanceValue, isMine }) =>
-            isMine ? balanceValue : '0',
-          ),
-        );
-        const totalIn = BigNumber.sum(
-          ...utxoTo.map(({ balanceValue, isMine }) =>
-            isMine ? balanceValue : '0',
-          ),
-        );
-        let direction = IDecodedTxDirection.IN;
-        if (totalOut.gt(totalIn)) {
-          direction = utxoTo.every(({ isMine }) => isMine)
-            ? IDecodedTxDirection.SELF
-            : IDecodedTxDirection.OUT;
-        }
-        let amountValue = totalOut.minus(totalIn).abs();
-        if (
-          direction === IDecodedTxDirection.OUT &&
-          utxoFrom.every(({ isMine }) => isMine)
-        ) {
-          // IF the transaction's direction is out and all inputs are from
-          // current account, substract the fees from the net output amount
-          // to give an exact sending amount value.
-          amountValue = amountValue.minus(tx.fees);
-        }
+        const { direction, utxoFrom, utxoTo, from, to, amount, amountValue } =
+          tx;
 
         const decodedTx: IDecodedTx = {
           txid: tx.txid,
@@ -537,17 +521,12 @@ export default class Vault extends VaultBase {
                 tokenInfo: token,
                 utxoFrom,
                 utxoTo,
-                from: utxoFrom.find((utxo) => !!utxo.address)?.address ?? '',
+                from,
                 // For out and self transaction, use first address as to.
                 // For in transaction, use first owned address as to.
-                to:
-                  utxoTo.find((utxo) =>
-                    direction === IDecodedTxDirection.IN
-                      ? utxo.isMine
-                      : !!utxo.address,
-                  )?.address ?? '',
-                amount: amountValue.shiftedBy(-decimals).toFixed(),
-                amountValue: amountValue.toFixed(),
+                to,
+                amount,
+                amountValue,
                 extraInfo: null,
               },
             },
