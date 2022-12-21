@@ -1,13 +1,13 @@
-import * as Clipboard from 'expo-clipboard';
+import { getStringAsync, setStringAsync } from 'expo-clipboard';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const copyToClipboard = Clipboard.setStringAsync;
+export const copyToClipboard = setStringAsync;
 
 export const getClipboard = async () => {
   if (!platformEnv.canGetClipboard) {
     throw new Error('getClipboard is not allowed in Web and Extension');
   }
-  const str = await Clipboard.getStringAsync();
+  const str = await getStringAsync();
   return str.trim();
 };

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused, useRoute } from '@react-navigation/core';
 import { Camera as ExpoCamera } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
+import { launchImageLibraryAsync } from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
@@ -28,8 +29,6 @@ import { ScanQrcodeRoutes } from './types';
 
 import type { ScanQrcodeRoutesParams } from './types';
 import type { NavigationProp, RouteProp } from '@react-navigation/core';
-
-const { isWeb, isNative: isApp } = platformEnv;
 
 type ScanQrcodeRouteProp = RouteProp<
   ScanQrcodeRoutesParams,
@@ -77,8 +76,8 @@ const ScanQrcode: FC = () => {
   );
 
   const pickImage = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      base64: isWeb,
+    const result = await launchImageLibraryAsync({
+      base64: !platformEnv.isNative,
       allowsMultipleSelection: false,
     });
 
@@ -86,6 +85,10 @@ const ScanQrcode: FC = () => {
       const data = await scanFromURLAsync(result.uri);
       if (data) handleBarCodeScanned(data);
     }
+  }, [handleBarCodeScanned]);
+
+  const pasteData = useCallback(async () => {
+    handleBarCodeScanned(await getClipboard());
   }, [handleBarCodeScanned]);
 
   useEffect(() => {
@@ -132,6 +135,7 @@ const ScanQrcode: FC = () => {
               flexGrow={isVerticalLayout ? 1 : undefined}
               size={isVerticalLayout ? 'xl' : 'base'}
               leftIconName="ClipboardMini"
+              onPress={pasteData}
             >
               {intl.formatMessage({ id: 'action__paste' })}
             </Button>
