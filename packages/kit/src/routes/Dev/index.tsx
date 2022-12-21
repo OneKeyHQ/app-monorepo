@@ -7,7 +7,6 @@ import AccountSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/A
 import AddressGallery from '@onekeyhq/kit/src/views/Components/stories/Address';
 import AlertGallery from '@onekeyhq/kit/src/views/Components/stories/Alert';
 import AppUpdateGallery from '@onekeyhq/kit/src/views/Components/stories/AppUpdate';
-import AvatarGallery from '@onekeyhq/kit/src/views/Components/stories/Avatar';
 import BadgeGallery from '@onekeyhq/kit/src/views/Components/stories/Badge';
 import BottomSheetModalGallery from '@onekeyhq/kit/src/views/Components/stories/BottomSheetModal';
 import ButtonsGallery from '@onekeyhq/kit/src/views/Components/stories/Buttons';
@@ -68,7 +67,6 @@ export enum StackRoutes {
   ComponentAddress = 'component/address',
   ComponentInput = 'component/input',
   ComponentCard = 'component/card',
-  ComponentAvatar = 'component/avatar',
   ComponentTypography = 'component/typography',
   ComponentNFTImage = 'component/nftimage',
   ComponentToken = 'component/token',
@@ -133,7 +131,6 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentInput]: undefined;
   [StackRoutes.ComponentCard]: undefined;
   [StackRoutes.ComponentDappModals]: undefined;
-  [StackRoutes.ComponentAvatar]: undefined;
   [StackRoutes.ComponentTypography]: undefined;
   [StackRoutes.ComponentToken]: undefined;
   [StackRoutes.ComponentTheme]: undefined;
@@ -195,7 +192,6 @@ export const stackScreenList = [
   { name: StackRoutes.ComponentAddress, component: AddressGallery },
   { name: StackRoutes.ComponentInput, component: InputGallery },
   { name: StackRoutes.ComponentCard, component: NftCardGallery },
-  { name: StackRoutes.ComponentAvatar, component: AvatarGallery },
   { name: StackRoutes.ComponentTypography, component: TypographyGallery },
   { name: StackRoutes.ComponentNFTImage, component: NFTImageGallery },
   { name: StackRoutes.ComponentTheme, component: ThemeGallery },
