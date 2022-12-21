@@ -41,13 +41,19 @@ const SwapFeatureText = () => {
 };
 
 const SwapTexts = () => {
-  const ref = useRef({ container: 0, width: 0 });
+  const ref = useRef({ container: 0, width: 0, inProcess: false });
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   const startAnimation = useCallback(() => {
     const itemsWidth = ref.current.width * 3;
     const containerWidth = ref.current.container;
-    if (itemsWidth && containerWidth && itemsWidth - containerWidth > 0) {
+    if (
+      !ref.current.inProcess &&
+      itemsWidth &&
+      containerWidth &&
+      itemsWidth - containerWidth > 0
+    ) {
+      ref.current.inProcess = true;
       const toValue = -ref.current.width;
       animatedValue.setValue(0);
       Animated.timing(animatedValue, {
@@ -56,6 +62,7 @@ const SwapTexts = () => {
         easing: Easing.linear,
         useNativeDriver: true,
       }).start(() => {
+        ref.current.inProcess = false;
         startAnimation();
       });
     } else {
@@ -92,6 +99,7 @@ const SwapTexts = () => {
                   },
                 }) => {
                   ref.current.width = width;
+                  startAnimation();
                 }}
               >
                 <SwapFeatureText />

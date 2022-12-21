@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -275,24 +276,30 @@ const ExchangeButton = () => {
         })) as IEncodedTxEvm;
 
       const password = await backgroundApiProxy.servicePassword.getPassword();
+
       if (password) {
-        const { result: resultApprove, decodedTx: decodedTxApprove } =
-          await backgroundApiProxy.serviceTransaction.sendTransaction({
-            accountId: sendingAccount.id,
-            networkId: targetNetworkId,
-            encodedTx: encodedApproveTx,
-          });
-        addSwapTransaction(resultApprove.txid, decodedTxApprove.nonce);
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Send,
-          params: {
-            screen: SendRoutes.HardwareSwapContinue,
-            params: {
-              networkId: targetNetworkId,
-              accountId: sendingAccount.id,
-            },
-          },
+        await backgroundApiProxy.serviceTransaction.sendTransaction({
+          accountId: sendingAccount.id,
+          networkId: targetNetworkId,
+          encodedTx: encodedApproveTx,
         });
+
+        const walletId = getWalletIdFromAccountId(sendingAccount.id);
+        const wallet = await backgroundApiProxy.engine.getWallet(walletId);
+
+        if (wallet.type === 'hw') {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendRoutes.HardwareSwapContinue,
+              params: {
+                networkId: targetNetworkId,
+                accountId: sendingAccount.id,
+              },
+            },
+          });
+        }
+
         const encodedEvmTx = encodedTx as IEncodedTxEvm;
         try {
           const { result, decodedTx } =
@@ -306,6 +313,20 @@ const ExchangeButton = () => {
               },
             });
           addSwapTransaction(result.txid, decodedTx.nonce);
+          if (wallet.type !== 'hw') {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Send,
+              params: {
+                screen: SendRoutes.SendFeedbackReceipt,
+                params: {
+                  networkId: targetNetworkId,
+                  accountId: sendingAccount.id,
+                  txid: result.txid,
+                  type: 'Send',
+                },
+              },
+            });
+          }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
         } catch {
           appUIEventBus.emit(AppUIEventBusNames.SwapError);

@@ -23,6 +23,7 @@ const TransactionsUpdater = () => {
 const TokenUpdater = () => {
   useEffect(() => {
     backgroundApiProxy.serviceSwap.getSwapTokens();
+    backgroundApiProxy.serviceSwap.setDefaultInputToken();
   }, []);
   return null;
 };
