@@ -1694,6 +1694,49 @@ class Engine {
   }
 
   @backgroundMethod()
+  async batchTokensAllowance({
+    networkId,
+    accountId,
+    tokenIdOnNetwork,
+    spenders,
+  }: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork: string;
+    spenders: string[];
+  }): Promise<number[] | undefined> {
+    // TODO: move this into vaults to support multichain
+    try {
+      if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+        // Bad request, shouldn't happen.
+        return;
+      }
+      const spenderAddresses: string[] = [];
+      const tokenAddress = await this.validator.validateTokenAddress(
+        networkId,
+        tokenIdOnNetwork,
+      );
+      for (let i = 0; i < spenders.length; i += 1) {
+        const spender = spenders[i];
+        const address = await this.validator.validateAddress(
+          networkId,
+          spender,
+        );
+        spenderAddresses.push(address);
+      }
+
+      const vault = await this.getVault({ accountId, networkId });
+      const result = await vault.batchTokensAllowance(
+        tokenAddress,
+        spenderAddresses,
+      );
+      return result;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  @backgroundMethod()
   async signMessage({
     unsignedMessage,
     password,
