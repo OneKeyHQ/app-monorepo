@@ -243,7 +243,8 @@ function AssetsList({
       ListEmptyComponent={
         loading
           ? AssetsListSkeleton
-          : () => <EmptyListOfAccount network={network} />
+          : // eslint-disable-next-line react/no-unstable-nested-components
+            () => <EmptyListOfAccount network={network} />
       }
       ListFooterComponent={ListFooterComponent}
       keyExtractor={(_item: TokenType) => _item.id}
