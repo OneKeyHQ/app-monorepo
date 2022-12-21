@@ -31,7 +31,6 @@ export const Mobile = () => {
       }
     >
       <Box h="6" />
-      <SwapObserver />
       <Center>
         <Box maxW={{ md: '480px' }} width="full">
           <Box>
@@ -47,6 +46,7 @@ export const Mobile = () => {
           <SwapTexts />
         </Box>
       </Center>
+      <SwapObserver />
       <SwapUpdater />
     </ScrollView>
   );

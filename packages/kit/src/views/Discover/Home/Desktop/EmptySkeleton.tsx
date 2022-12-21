@@ -22,6 +22,8 @@ type ListEmptyComponentRenderItemProps = {
   offset?: number;
 };
 
+const ItemSeparatorComponent3 = () => <Box h="3" />;
+
 const ListEmptyComponentRenderItem: FC<ListEmptyComponentRenderItemProps> = ({
   offset,
 }) => {
@@ -88,13 +90,15 @@ const ListEmptyComponentRenderItem: FC<ListEmptyComponentRenderItemProps> = ({
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => `${item}`}
         key={`key${numColumns}`}
-        ItemSeparatorComponent={() => <Box h="3" />}
+        ItemSeparatorComponent={ItemSeparatorComponent3}
       />
     ),
     [data, numColumns, renderItem],
   );
   return <Box width="100%">{flatList}</Box>;
 };
+
+const ItemSeparatorComponent8 = () => <Box h="8" />;
 
 export const EmptySkeletonContent: FC<EmptySkeletonContentProps> = ({
   ListHeaderComponent,
@@ -109,7 +113,7 @@ export const EmptySkeletonContent: FC<EmptySkeletonContentProps> = ({
     ListHeaderComponent={ListHeaderComponent}
     renderItem={() => <ListEmptyComponentRenderItem offset={offset} />}
     keyExtractor={(item) => String(item)}
-    ItemSeparatorComponent={() => <Box h="8" />}
+    ItemSeparatorComponent={ItemSeparatorComponent8}
   />
 );
 
