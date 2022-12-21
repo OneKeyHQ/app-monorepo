@@ -1,5 +1,5 @@
 import type { DependencyList } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useToast } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -12,6 +12,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { appSelector } from '../store';
+import { fetchCurrencies } from '../views/FiatPay/Service';
 import { useTransactionSendContext } from '../views/Send/utils/TransactionSendContext';
 
 import { useAppSelector } from './useAppSelector';
@@ -189,12 +190,29 @@ export const useGetWalletDetail = (walletId: string | null) => {
 };
 
 export const useFiatPay = (networkId: string) => {
-  const currencies = useAppSelector((s) => s.data.onekeySupportList);
-  return currencies.filter((item) => item.networkId === networkId);
+  const onekeySupportList = useAppSelector((s) => s.data.onekeySupportList);
+  const fetchData = useCallback(async () => {
+    await fetchCurrencies();
+  }, []);
+  useEffect(() => {
+    if (onekeySupportList.length === 0) {
+      fetchData();
+    }
+  }, [onekeySupportList.length, fetchData]);
+
+  return useMemo(
+    () => onekeySupportList.filter((item) => item.networkId === networkId),
+    [onekeySupportList, networkId],
+  );
 };
 
-export const useMoonpayPayCurrency = (code?: string) =>
-  useAppSelector((s) => s.data.currencyList).find((item) => item.code === code);
+export const useMoonpayPayCurrency = (code?: string) => {
+  const currencyList = useAppSelector((s) => s.data.currencyList);
+  return useMemo(
+    () => currencyList.find((item) => item.code === code),
+    [currencyList, code],
+  );
+};
 
 export const useTools = (networkId?: string) =>
   useAppSelector((s) => s.data.tools).filter(
