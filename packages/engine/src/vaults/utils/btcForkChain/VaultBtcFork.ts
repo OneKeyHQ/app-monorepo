@@ -59,7 +59,6 @@ import type {
   IVaultSettings,
 } from '../../types';
 import type { IKeyringMapKey } from '../../VaultBase';
-import type { ArrayElement } from './types';
 import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
