@@ -316,13 +316,13 @@ export const ERC20TokenList: FC<{
     },
     [networkId, prices, intl, address],
   );
+
+  const header = useCallback(() => <Header assetType={AssetType.tokens} />, []);
   return (
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={
-        isVertical ? undefined : () => <Header assetType={AssetType.tokens} />
-      }
+      ListHeaderComponent={isVertical ? undefined : header}
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id ?? token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}

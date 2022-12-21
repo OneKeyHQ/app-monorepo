@@ -147,6 +147,26 @@ export const ManageNetworkRPCNode: FC = () => {
     ],
   );
 
+  const header = useCallback(
+    () => (
+      <Collapse
+        trigger={
+          <Typography.Body2Strong>
+            {intl.formatMessage({ id: 'content__what_is_node_height' })}
+          </Typography.Body2Strong>
+        }
+        pb="16px"
+      >
+        <Typography.Body2 px="8px" color="text-subdued">
+          {intl.formatMessage({
+            id: 'content__what_is_node_height_desc',
+          })}
+        </Typography.Body2>
+      </Collapse>
+    ),
+    [intl],
+  );
+
   useEffect(() => {
     preset.concat(custom).forEach((rpc) => {
       measureRpc(networkId, rpc).then((res) => {
@@ -170,22 +190,7 @@ export const ManageNetworkRPCNode: FC = () => {
       hidePrimaryAction
     >
       <GroupingList
-        ListHeaderComponent={() => (
-          <Collapse
-            trigger={
-              <Typography.Body2Strong>
-                {intl.formatMessage({ id: 'content__what_is_node_height' })}
-              </Typography.Body2Strong>
-            }
-            pb="16px"
-          >
-            <Typography.Body2 px="8px" color="text-subdued">
-              {intl.formatMessage({
-                id: 'content__what_is_node_height_desc',
-              })}
-            </Typography.Body2>
-          </Collapse>
-        )}
+        ListHeaderComponent={header}
         stickySectionHeadersEnabled={false}
         sections={GroupingListData}
         renderItem={({ item }) => {

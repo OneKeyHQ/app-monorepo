@@ -150,13 +150,13 @@ export const ERC721TokenList: FC<{
     [intl, address, networkId],
   );
 
+  const header = useCallback(() => <Header assetType={AssetType.nfts} />, []);
+
   return (
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={
-        isVertical ? undefined : () => <Header assetType={AssetType.nfts} />
-      }
+      ListHeaderComponent={isVertical ? undefined : header}
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id || token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}
