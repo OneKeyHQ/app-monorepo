@@ -60,14 +60,14 @@ export function useThemeProviderVariant() {
 const ThemeApp: FC = ({ children }) => {
   const { themeVariant, localeVariant, enableHaptics } =
     useThemeProviderVariant();
-  const isReduxReady = useReduxReady();
+  const isReady = useReduxReady();
   useEffect(() => {
-    if (isReduxReady) {
+    if (isReady) {
       setThemePreloadToLocalStorage(themeVariant);
     }
-  }, [isReduxReady, themeVariant]);
+  }, [isReady, themeVariant]);
 
-  if (!isReduxReady) {
+  if (!isReady) {
     return null;
   }
 
