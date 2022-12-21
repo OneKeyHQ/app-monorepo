@@ -1,7 +1,7 @@
 import type { ComponentProps, FC, ReactElement } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 
@@ -43,7 +43,6 @@ type TokenInputProps = {
 
 const TokenInputReceivingAddress: FC = () => {
   const intl = useIntl();
-  const isFocused = useIsFocused();
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
@@ -143,11 +142,8 @@ const TokenInputReceivingAddress: FC = () => {
   }, [tooltip]);
 
   let text: ReactElement | undefined;
-  useEffect(() => {
-    if (!isFocused) {
-      setTooltip(undefined);
-    }
-  }, [isFocused]);
+
+  useFocusEffect(useCallback(() => () => setTooltip(undefined), []));
 
   const { address, name } = recipient ?? {};
   if (address && name) {
