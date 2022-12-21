@@ -78,7 +78,6 @@ const CenteredLabel = ({
     >
       <Text
         style={{
-          fontFamily: 'PlusJakartaSans-Bold',
           color,
           fontSize: 14,
           fontWeight: 'bold',

@@ -74,8 +74,7 @@ const TabView: FC<Props> = ({
         right: paddingX,
       },
       label: {
-        fontFamily: 'PlusJakartaSans-Medium',
-        fontWeight: '600',
+        fontWeight: '500',
         fontSize: 14,
         lineHeight: 20,
       },
