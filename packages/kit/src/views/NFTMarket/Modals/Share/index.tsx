@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
@@ -6,7 +6,14 @@ import { useIntl } from 'react-intl';
 import { Platform, StyleSheet } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
-import { Box, Modal, QRCode, Text, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  Modal,
+  QRCode,
+  SegmentedControl,
+  Text,
+  useTheme,
+} from '@onekeyhq/components';
 import LogoBlack from '@onekeyhq/components/src/Icon/react/illus/LogoBlack';
 import LogoWhite from '@onekeyhq/components/src/Icon/react/illus/LogoWhite';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -98,6 +105,8 @@ const Share = () => {
     setTimeout(onCapture, 1000);
   }, [onCapture]);
 
+  const [selectRange, setSelectedRange] = useState(0);
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__share' })}
@@ -107,6 +116,19 @@ const Share = () => {
       onPrimaryActionPress={shareAction}
     >
       <Box w="full" h="full" position="relative">
+        {win === 0 || lose === 0 ? null : (
+          <Box mb="24px">
+            <SegmentedControl
+              selectedIndex={selectRange}
+              onChange={setSelectedRange}
+              values={[
+                'All',
+                intl.formatMessage({ id: 'content__winning_flips' }),
+                intl.formatMessage({ id: 'content__losing_flips' }),
+              ]}
+            />
+          </Box>
+        )}
         <Box alignItems="center" shadow="depth.5">
           <ViewShot
             ref={ref}
