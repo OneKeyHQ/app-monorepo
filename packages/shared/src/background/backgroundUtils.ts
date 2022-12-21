@@ -254,20 +254,20 @@ export async function waitForDataLoaded({
       while (true) {
         let isAllLoaded = true;
 
-        // eslint-disable-next-line no-undef
         if (logName && __DEV__) {
           console.log(`waitForDataLoaded: ${logName}`);
         }
-
         await Promise.all(
           getDataArrFunc.map(async (getData) => {
             const d = await getData();
             if (d === false) {
               isAllLoaded = false;
+              return;
             }
 
             if (isNil(d)) {
               isAllLoaded = false;
+              return;
             }
 
             if (isEmpty(d)) {
