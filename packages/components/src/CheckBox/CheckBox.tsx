@@ -103,9 +103,8 @@ const CheckBox: FC<CheckBoxProps> = ({
           }}
           _text={{
             color: 'text-default',
-            fontWeight: 'bold',
+            fontWeight: '500',
             selectable: false,
-            fontFamily: 'PlusJakartaSans-Medium',
             fontSize: 16,
             lineHeight: 24,
           }}

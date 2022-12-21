@@ -109,7 +109,6 @@ export const TypeWriter: FC<TypeWriterProps> = ({
             fontSize: isVerticalLayout ? 42 : 48,
             lineHeight: isVerticalLayout ? 48 : 56,
             fontWeight: 'bold',
-            fontFamily: 'PlusJakartaSans-Bold',
           }}
           initialDelay={0}
           minDelay={12}
