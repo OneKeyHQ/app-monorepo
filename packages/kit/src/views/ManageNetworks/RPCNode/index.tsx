@@ -167,16 +167,50 @@ export const ManageNetworkRPCNode: FC = () => {
     [intl],
   );
 
+  const measureRpcQueue = useCallback(
+    (rpcs: string[]) => {
+      let index = 0;
+      let queueCount = 0;
+
+      const startMeasure = (rpc: string) => {
+        queueCount += 1;
+        measureRpc(networkId, rpc)
+          .then((res) => {
+            setMeasureMap((prev) => ({
+              ...prev,
+              [rpc]: res,
+            }));
+          })
+          .finally(() => {
+            queueCount -= 1;
+          });
+      };
+
+      const interval = setInterval(() => {
+        while (queueCount < 3) {
+          startMeasure(rpcs[index]);
+          index += 1;
+        }
+        if (index >= rpcs.length) {
+          clearInterval(interval);
+          index = 0;
+        }
+      }, 600);
+    },
+    [networkId],
+  );
+
   useEffect(() => {
-    preset.concat(custom).forEach((rpc) => {
-      measureRpc(networkId, rpc).then((res) => {
-        setMeasureMap((prev) => ({
-          ...prev,
-          [rpc]: res,
-        }));
-      });
-    });
-  }, [custom, preset, networkId]);
+    const timeout = setTimeout(() => {
+      const rpcs = [...preset, ...custom];
+      if (!rpcs.length) {
+        return;
+      }
+      measureRpcQueue(rpcs);
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [custom, preset, measureRpcQueue]);
 
   return (
     <Modal
