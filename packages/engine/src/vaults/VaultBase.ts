@@ -343,6 +343,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     throw new NotImplemented();
   }
 
+  async batchTokensAllowance(
+    tokenAddress: string,
+    spenderAddress: string[],
+  ): Promise<number[]> {
+    throw new NotImplemented();
+  }
+
   async getOutputAccount(): Promise<Account> {
     // The simplest case as default implementation.
     const dbAccount = await this.getDbAccount({ noCache: true });
