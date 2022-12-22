@@ -1,6 +1,5 @@
-import { PROTO } from '@onekeyfe/hd-core';
-
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -46,6 +45,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
 
     const showOnOneKey = false;
+    const { PROTO } = await CoreSDKLoader();
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -132,6 +132,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async getAddress(params: IHardwareGetAddressParams): Promise<string> {
+    const { PROTO } = await CoreSDKLoader();
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -158,6 +159,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+    const { PROTO } = await CoreSDKLoader();
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -210,6 +212,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     debugLogger.common.info('signMessage', messages);
     const dbAccount = await this.getDbAccount();
 
+    const { PROTO } = await CoreSDKLoader();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const HardwareSDK = await this.getHardwareSDKInstance();
