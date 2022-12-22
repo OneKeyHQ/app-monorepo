@@ -94,6 +94,10 @@ export default class ServiceTransaction extends ServiceBase {
       signOnly: false,
     });
 
+    if (!signedTx.encodedTx) {
+      throw new Error('signedTx.encodedTx is missing, please check code');
+    }
+
     const { decodedTx } = await engine.decodeTx({
       networkId,
       accountId,

@@ -16,6 +16,8 @@ import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
 } from '../../types';
 import type { IAdaUTXO, IEncodedTxADA } from './types';
 import type Vault from './Vault';
@@ -117,9 +119,9 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
+  ): Promise<ISignedTxPro> {
     debugLogger.sendTx.info('signTransaction result', unsignedTx);
     const encodedTx = unsignedTx.payload.encodedTx as unknown as IEncodedTxADA;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -146,6 +148,7 @@ export class KeyringHd extends KeyringHdBase {
     return {
       rawTx: signedTx,
       txid,
+      encodedTx: unsignedTx.encodedTx,
     };
   }
 

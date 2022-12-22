@@ -15,7 +15,7 @@ import {
   NotImplemented,
   PendingQueueTooLong,
 } from '../errors';
-import { IMPL_MAPPINGS } from '../proxy';
+import { IMPL_MAPPINGS } from '../proxyUtils';
 
 import { IDecodedTxActionType, IDecodedTxDirection } from './types';
 import { VaultContext } from './VaultContext';
@@ -37,7 +37,7 @@ import type {
   IHistoryTx,
   ISetApprovalForAll,
   ISignCredentialOptions,
-  ISignedTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
   IVaultSettings,
@@ -264,7 +264,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   // DO NOT override this method
   async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ) {
     return this.keyring.signTransaction(unsignedTx, options);
@@ -275,7 +275,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
     signOnly: boolean,
-  ): Promise<ISignedTx> {
+  ): Promise<ISignedTxPro> {
     const signedTx = await this.signTransaction(unsignedTx, options);
     if (signOnly) {
       return { ...signedTx, encodedTx: unsignedTx.encodedTx };
@@ -287,9 +287,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async broadcastTransaction(
-    signedTx: ISignedTx,
+    signedTx: ISignedTxPro,
     options?: any,
-  ): Promise<ISignedTx> {
+  ): Promise<ISignedTxPro> {
     debugLogger.engine.info('broadcastTransaction START:', {
       rawTx: signedTx.rawTx,
     });
@@ -470,7 +470,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     historyTxToMerge?: IHistoryTx;
     encodedTx?: IEncodedTx | null;
     decodedTx: IDecodedTx;
-    signedTx?: ISignedTx;
+    signedTx?: ISignedTxPro;
     isSigner?: boolean;
     isLocalCreated?: boolean;
   }): Promise<IHistoryTx> {

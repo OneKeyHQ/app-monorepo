@@ -18,7 +18,15 @@ export type IDistributionChannel =
   | 'native-ios-pad'
   | 'native-ios-pad-store';
 
+const { NODE_ENV } = process.env;
+const { JEST_WORKER_ID } = process.env;
+
 export type IPlatformEnv = {
+  NODE_ENV?: string;
+  JEST_WORKER_ID?: string;
+
+  isJest: boolean;
+
   isMultipleHistoryTxActionsSim?: boolean;
 
   /** development mode */
@@ -79,7 +87,7 @@ export type IPlatformEnv = {
   canGetClipboard?: boolean;
 };
 
-export const isJest = (): boolean => process.env.JEST_WORKER_ID !== undefined;
+const isJest = JEST_WORKER_ID !== undefined || NODE_ENV === 'test';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -152,12 +160,12 @@ const checkIsRuntimeChrome = (): boolean => {
   // and if not iOS Chrome check
   // so use the below updated condition
   const isChromium = window.chrome;
-  const winNav = window.navigator;
-  const vendorName = winNav.vendor;
+  const winNav = window.navigator as typeof window.navigator | undefined;
+  const vendorName = winNav ? winNav.vendor : '';
   // @ts-ignore
   const isOpera = typeof window.opr !== 'undefined';
-  const isIEedge = winNav.userAgent.indexOf('Edg') > -1;
-  const isIOSChrome = /CriOS/.exec(winNav.userAgent);
+  const isIEedge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
+  const isIOSChrome = /CriOS/.exec(winNav ? winNav.userAgent : '');
 
   if (isIOSChrome) {
     // is Google Chrome on IOS
@@ -219,6 +227,11 @@ export const isManifestV3: boolean =
 export const canGetClipboard: boolean = !isWeb && !isExtension;
 
 const platformEnv: IPlatformEnv = {
+  NODE_ENV,
+  JEST_WORKER_ID,
+
+  isJest,
+
   isMultipleHistoryTxActionsSim: false,
 
   isDev,
