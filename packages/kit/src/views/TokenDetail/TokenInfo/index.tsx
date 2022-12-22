@@ -24,10 +24,16 @@ import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import type { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
 import { PriceCurrencyNumber } from './PriceCurrencyNumber';
@@ -207,6 +213,38 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
             {intl.formatMessage({ id: 'action__receive' })}
           </Typography.CaptionStrong>
         </Box>
+        <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+          <IconButton
+            circle
+            size={isVertical ? 'xl' : 'lg'}
+            name="ArrowsRightLeftOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching'}
+            onPress={() => {
+              if (token) {
+                backgroundApiProxy.serviceSwap.setInputToken(token);
+              }
+              if (isVertical) {
+                backgroundApiProxy.serviceMarket.switchMarketTopTab(
+                  SWAP_TAB_NAME,
+                );
+                navigation.getParent()?.navigate(TabRoutes.Market);
+              } else {
+                navigation.getParent()?.navigate(TabRoutes.Swap);
+              }
+            }}
+          />
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
+            }
+          >
+            {intl.formatMessage({ id: 'title__swap' })}
+          </Typography.CaptionStrong>
+        </Box>
+
         {cryptoCurrency && (
           <Box flex={1} mx={3} minW="56px" alignItems="center">
             <IconButton
