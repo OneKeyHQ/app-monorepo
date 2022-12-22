@@ -18,9 +18,9 @@ import {
   setInputToken,
   setOutputToken,
   setQuote,
-  setResponses,
   setQuoteLimited,
   setRecipient,
+  setResponses,
   setSendingAccount,
   setShowMoreQuoteDetail,
   setTypedValue,
@@ -167,7 +167,7 @@ export default class ServiceSwap extends ServiceBase {
   async switchTokens() {
     const { dispatch, appSelector, engine } = this.backgroundApi;
     const outputToken = appSelector((s) => s.swap.outputToken);
-    const inputToken = appSelector(s => s.swap.inputToken)
+    const inputToken = appSelector((s) => s.swap.inputToken);
     dispatch(setQuote(undefined), setResponses(undefined), switchTokens());
     if (outputToken) {
       const network = await engine.getNetwork(outputToken.networkId);
