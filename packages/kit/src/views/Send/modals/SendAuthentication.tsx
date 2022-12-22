@@ -7,7 +7,10 @@ import { useIntl } from 'react-intl';
 import { Box, Center, Spinner, useToast } from '@onekeyhq/components';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import type { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
 import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -90,7 +93,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     signOnly,
   });
 
-  const sendTx = useCallback(async (): Promise<ISignedTx | undefined> => {
+  const sendTx = useCallback(async (): Promise<ISignedTxPro | undefined> => {
     if (isExternal) {
       return sendTxForExternalAccount();
     }
@@ -153,7 +156,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       // throw new Error('test error');
 
       let result: any;
-      let signedTx: ISignedTx | undefined;
+      let signedTx: ISignedTxPro | undefined;
       let signedMsg: string | undefined;
 
       if (submitEncodedTx) {

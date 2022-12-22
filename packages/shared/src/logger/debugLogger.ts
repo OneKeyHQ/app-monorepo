@@ -36,6 +36,9 @@ function stringifyLog(...args: any[]) {
 }
 
 function logToConsole(props: IConsoleFuncProps) {
+  if (platformEnv.isJest) {
+    return;
+  }
   if (platformEnv.isDev) {
     const prefix = `${[
       fnsFormat(new Date(), 'HH:mm:ss.SSS'),
@@ -199,7 +202,8 @@ if (platformEnv.isNative) {
 
 const DEBUG_LOGGER_STORAGE_KEY = '$$ONEKEY_DEBUG_LOGGER';
 
-const shouldUseLocalStorage = platformEnv.isDesktop || platformEnv.isWeb;
+const shouldUseLocalStorage =
+  platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isJest;
 
 async function getDebugLoggerSettings(): Promise<string | undefined | null> {
   if (shouldUseLocalStorage) {
@@ -209,6 +213,9 @@ async function getDebugLoggerSettings(): Promise<string | undefined | null> {
 }
 
 async function loadDebugLoggerSettings() {
+  if (platformEnv.isJest) {
+    return;
+  }
   const enabledKeysStr = await getDebugLoggerSettings();
   let enabledKeys: string[] = [];
   if (isNil(enabledKeysStr)) {
@@ -230,6 +237,9 @@ async function loadDebugLoggerSettings() {
 }
 
 async function saveDebugLoggerSettings() {
+  if (platformEnv.isJest) {
+    return;
+  }
   const enabledKeys: string[] = (logger._enabledExtensions as any) || [];
   const enabledKeysStr = enabledKeys.join(',');
   if (shouldUseLocalStorage) {
@@ -239,7 +249,7 @@ async function saveDebugLoggerSettings() {
   }
 }
 
-if (platformEnv.isDev) {
+if (platformEnv.isDev && !platformEnv.isJest) {
   loadDebugLoggerSettings().then(() => saveDebugLoggerSettings());
 }
 

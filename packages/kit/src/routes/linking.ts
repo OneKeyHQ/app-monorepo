@@ -15,6 +15,7 @@ import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 import { SendRoutes } from '../views/Send/types';
 
 import { WalletConnectUniversalLinkPathSchema } from './deepLink';
+import { SubmitRequestRoutes } from './Modal/SubmitRequest';
 import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
@@ -78,6 +79,10 @@ const normalRouteWhiteList: WhiteListItemList = [
   {
     screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
     path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.SubmitRequest}/${SubmitRequestRoutes.SubmitRequestModal}`,
+    path: `/${RootRoutes.Modal}/${ModalRoutes.SubmitRequest}/${SubmitRequestRoutes.SubmitRequestModal}`,
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,

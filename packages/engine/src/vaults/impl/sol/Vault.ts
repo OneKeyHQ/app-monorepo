@@ -66,7 +66,7 @@ import type {
   IFeeInfoUnit,
   IHistoryTx,
   INFTInfo,
-  ISignedTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -572,7 +572,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  override async broadcastTransaction(signedTx: ISignedTx) {
+  override async broadcastTransaction(signedTx: ISignedTxPro) {
     let isNodeBehind = false;
     const maxRetryTimes = 8;
     let retryTime = 0;

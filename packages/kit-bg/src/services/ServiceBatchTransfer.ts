@@ -10,7 +10,7 @@ import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   ISetApprovalForAll,
-  ISignedTx,
+  ISignedTxPro,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -157,7 +157,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
         batchTransferContractAddress[network.id]
     ) {
       // Make sure to call the batch sending contract after approves take effect
-      let signedTx: ISignedTx | null = null;
+      let signedTx: ISignedTxPro | null = null;
       const refreshPendingTxs = async () => {
         const txs = await engine.providerManager.refreshPendingTxs(
           networkId,

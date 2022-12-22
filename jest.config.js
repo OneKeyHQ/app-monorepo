@@ -7,13 +7,17 @@ module.exports = async () => {
   const { stdout } = await exec('yarn config get cacheFolder');
   const cacheDirectory = stdout.trim().replace('\n', '');
   return {
-    preset: 'react-native',
+    // ts-jest, react-native, jest-expo
+    preset: 'jest-expo',
+    coverageProvider: 'v8',
     cacheDirectory: `${cacheDirectory}/.app-mono-jest-cache`,
     setupFilesAfterEnv: [
       './jest-setup.js',
       './node_modules/react-native-gesture-handler/jestSetup.js',
     ],
-    testEnvironment: 'jsdom',
+    // buffer type incorrect if use [jsdom] https://github.com/facebook/jest/issues/4422
+    // jest-environment-node, node, jsdom
+    testEnvironment: 'jest-environment-node',
     verbose: true,
     moduleFileExtensions: [
       ...defaults.moduleFileExtensions,
@@ -28,5 +32,14 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: ['nodo_modules/react-native-reanimated'],
+    reporters: [
+      'default',
+      [
+        './node_modules/jest-html-reporter',
+        {
+          'pageTitle': 'Test Report',
+        },
+      ],
+    ],
   };
 };

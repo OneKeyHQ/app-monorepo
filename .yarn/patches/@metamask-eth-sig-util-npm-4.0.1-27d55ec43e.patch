@@ -1,0 +1,21 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 48ddf59be50e021b2c2187ef80dd4d5ca10c5a56..9c80688480bc3398637d9d758ecec1250e7e1e9f 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -1,4 +1,4 @@
+ export * from './personal-sign';
+ export * from './sign-typed-data';
+ export * from './encryption';
+-export { concatSig, normalize } from './utils';
++export { concatSig, normalize, legacyToBuffer } from './utils';
+diff --git a/dist/index.js b/dist/index.js
+index 1576ea2a79aab533462cc785016c757edf5e677b..554f5154382f9db38f1449e69002a1c54d7844b3 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -17,4 +17,5 @@ __exportStar(require("./encryption"), exports);
+ var utils_1 = require("./utils");
+ Object.defineProperty(exports, "concatSig", { enumerable: true, get: function () { return utils_1.concatSig; } });
+ Object.defineProperty(exports, "normalize", { enumerable: true, get: function () { return utils_1.normalize; } });
++Object.defineProperty(exports, "legacyToBuffer", { enumerable: true, get: function () { return utils_1.legacyToBuffer; } });
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
