@@ -32,6 +32,26 @@ type RouteProps = RouteProp<
   ManageNetworkRoutes.RPCNode
 >;
 
+const HeaderCollapse = () => {
+  const intl = useIntl();
+  return (
+    <Collapse
+      trigger={
+        <Typography.Body2Strong>
+          {intl.formatMessage({ id: 'content__what_is_node_height' })}
+        </Typography.Body2Strong>
+      }
+      pb="16px"
+    >
+      <Typography.Body2 px="8px" color="text-subdued">
+        {intl.formatMessage({
+          id: 'content__what_is_node_height_desc',
+        })}
+      </Typography.Body2>
+    </Collapse>
+  );
+};
+
 export const ManageNetworkRPCNode: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -147,26 +167,6 @@ export const ManageNetworkRPCNode: FC = () => {
     ],
   );
 
-  const header = useCallback(
-    () => (
-      <Collapse
-        trigger={
-          <Typography.Body2Strong>
-            {intl.formatMessage({ id: 'content__what_is_node_height' })}
-          </Typography.Body2Strong>
-        }
-        pb="16px"
-      >
-        <Typography.Body2 px="8px" color="text-subdued">
-          {intl.formatMessage({
-            id: 'content__what_is_node_height_desc',
-          })}
-        </Typography.Body2>
-      </Collapse>
-    ),
-    [intl],
-  );
-
   const measureRpcQueue = useCallback(
     (rpcs: string[]) => {
       let index = 0;
@@ -224,7 +224,7 @@ export const ManageNetworkRPCNode: FC = () => {
       hidePrimaryAction
     >
       <GroupingList
-        ListHeaderComponent={header}
+        ListHeaderComponent={HeaderCollapse}
         stickySectionHeadersEnabled={false}
         sections={GroupingListData}
         renderItem={({ item }) => {

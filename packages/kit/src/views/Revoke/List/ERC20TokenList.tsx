@@ -75,6 +75,10 @@ export const Header = ({ assetType }: { assetType: AssetType }) => {
   );
 };
 
+export const TokensHeader = () => <Header assetType={AssetType.tokens} />;
+
+export const NftsHeader = () => <Header assetType={AssetType.nfts} />;
+
 export const ListLoading = () => {
   const isVertical = useIsVerticalOrMiddleLayout();
   if (isVertical) {
@@ -317,12 +321,11 @@ export const ERC20TokenList: FC<{
     [networkId, prices, intl, address],
   );
 
-  const header = useCallback(() => <Header assetType={AssetType.tokens} />, []);
   return (
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={isVertical ? undefined : header}
+      ListHeaderComponent={isVertical ? undefined : TokensHeader}
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id ?? token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}

@@ -14,9 +14,8 @@ import {
 import type { ERC721TokenAllowance } from '@onekeyhq/engine/src/managers/revoke';
 
 import { useIsVerticalOrMiddleLayout } from '../hooks';
-import { AssetType } from '../types';
 
-import { EmptyRecord, Header, ListLoading } from './ERC20TokenList';
+import { EmptyRecord, ListLoading, NftsHeader } from './ERC20TokenList';
 import { ERC721Allowance } from './ERC721Allowance';
 
 export const ERC721TokenList: FC<{
@@ -150,13 +149,11 @@ export const ERC721TokenList: FC<{
     [intl, address, networkId],
   );
 
-  const header = useCallback(() => <Header assetType={AssetType.nfts} />, []);
-
   return (
     <List
       data={loading ? [] : data}
       showDivider
-      ListHeaderComponent={isVertical ? undefined : header}
+      ListHeaderComponent={isVertical ? undefined : NftsHeader}
       renderItem={isVertical ? renderListItemMobile : renderListItemDesktop}
       keyExtractor={({ token }) => token.id || token.tokenIdOnNetwork}
       ListEmptyComponent={loading ? <ListLoading /> : <EmptyRecord />}
