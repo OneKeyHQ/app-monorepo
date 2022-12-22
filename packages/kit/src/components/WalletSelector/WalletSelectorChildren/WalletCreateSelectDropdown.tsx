@@ -73,7 +73,8 @@ export function WalletCreateSelectDropdown({
   const isVerticalLayout = useIsVerticalLayout();
   const { closeWalletSelector } = useNavigationActions();
 
-  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
+  // external account create
+  const externalAccountCreator = useCreateAccountInWallet({
     networkId: '',
     walletId: WALLET_TYPE_EXTERNAL,
   });
@@ -143,8 +144,8 @@ export function WalletCreateSelectDropdown({
           });
         }
         if (v === 'connect') {
-          if (isCreateAccountSupported) {
-            createAccount();
+          if (externalAccountCreator.isCreateAccountSupported) {
+            externalAccountCreator.createAccount();
           }
         }
       }}
