@@ -193,7 +193,7 @@ export type NFTMarketRanking = {
   openseaVerified?: boolean;
 };
 
-export type NFTNPL = {
+export type NFTPNL = {
   contractAddress?: string;
   asset?: NFTAsset;
   contractName?: string;
