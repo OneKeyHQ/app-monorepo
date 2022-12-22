@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -19,6 +20,8 @@ import {
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
+import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import NFTListImage from '../../../../Wallet/NFT/NFTList/NFTListImage';
@@ -85,6 +88,25 @@ const Footer: FC = () => (
 const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict, format } = useFormatDate();
   const intl = useIntl();
+  const navigation = useNavigation();
+
+  const handleSelectAsset = useCallback(
+    (asset: NFTAsset) => {
+      if (!network) return;
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
+        params: {
+          screen: CollectiblesModalRoutes.NFTDetailModal,
+          params: {
+            asset,
+            network,
+            isOwner: false,
+          },
+        },
+      });
+    },
+    [navigation, network],
+  );
   const renderItem: ListRenderItem<NFTPNL> = useCallback(
     ({ item }) => {
       const { asset, entry, exit, profit } = item;
@@ -112,7 +134,16 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         .toString();
       return (
         <ListItem>
-          <Pressable flex={1} flexDirection="row" alignItems="center">
+          <Pressable
+            flex={1}
+            flexDirection="row"
+            alignItems="center"
+            onPress={() => {
+              if (asset) {
+                handleSelectAsset(asset);
+              }
+            }}
+          >
             {({ isHovered }) => (
               <>
                 <ListItem.Column>
@@ -248,8 +279,15 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         </ListItem>
       );
     },
-    [format, formatDistanceStrict, intl, network.id],
+    [format, formatDistanceStrict, handleSelectAsset, intl, network.id],
   );
+
+  const ListFooterComponent = useCallback(() => {
+    if (loading) {
+      return <Footer />;
+    }
+    return null;
+  }, [loading]);
 
   return (
     <List
@@ -257,12 +295,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
       showDivider
       keyExtractor={(item) => (item.contractAddress as string) + item.tokenId}
       showsVerticalScrollIndicator={false}
-      ListFooterComponent={() => {
-        if (loading) {
-          return <Footer />;
-        }
-        return null;
-      }}
+      ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{
         width: '100%',
         maxWidth: 992 + 16 + 64, // 16 is padding of the content
