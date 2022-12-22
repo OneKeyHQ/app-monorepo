@@ -24,7 +24,6 @@ import {
   InitIframeLoadFail,
   InitIframeTimeout,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
-import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
 import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
@@ -34,6 +33,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getHardwareSDKInstance } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
