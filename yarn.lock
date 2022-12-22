@@ -5520,7 +5520,6 @@ __metadata:
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
     "@react-native-async-storage/async-storage": 1.17.3
-    "@react-native-community/netinfo": ^8.1.0
     "@react-native-firebase/analytics": ^14
     "@react-native-firebase/app": ^14
     "@react-native-firebase/crashlytics": ^14
@@ -6754,15 +6753,6 @@ __metadata:
   bin:
     react-native: build/bin.js
   checksum: 5f2907e4e77f1013f41b1f0e2ca6e2fce5e0fcefb8ba3c4163f04e8c3af022a451d5b54b7f41303f966273da88b3b16f3ec718a37179515e72d7ac1ec387e073
-  languageName: node
-  linkType: hard
-
-"@react-native-community/netinfo@npm:^8.1.0":
-  version: 8.2.0
-  resolution: "@react-native-community/netinfo@npm:8.2.0"
-  peerDependencies:
-    react-native: ">=0.59"
-  checksum: ff5085d900de6d143759ee8936ceb7bcbb7d28a14bd66d54076b172fda47f0896ed26ea1168cf01f6bac493d49ba5d514d24eeff78292d65a781e2926307ef46
   languageName: node
   linkType: hard
 
