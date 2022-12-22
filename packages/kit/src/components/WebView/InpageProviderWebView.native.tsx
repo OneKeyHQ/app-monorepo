@@ -110,7 +110,6 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       <Box flex={1}>
         {progressLoading}
         <NativeWebView
-          style={{ flex: 1 }}
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}
