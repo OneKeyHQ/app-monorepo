@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
@@ -6,13 +6,19 @@ import { useIntl } from 'react-intl';
 import { Platform, StyleSheet } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
-import { Box, Modal, QRCode, Text, useTheme } from '@onekeyhq/components';
+import {
+  Box,
+  Modal,
+  QRCode,
+  SegmentedControl,
+  Text,
+  useTheme,
+} from '@onekeyhq/components';
 import LogoBlack from '@onekeyhq/components/src/Icon/react/illus/LogoBlack';
 import LogoWhite from '@onekeyhq/components/src/Icon/react/illus/LogoWhite';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
-import { setLoading } from '../../../../store/reducers/swap';
 import { PriceString } from '../../PriceText';
 
 import { PNLCardGroup } from './PNLCard';
@@ -36,16 +42,11 @@ const logo =
 const Share = () => {
   const ref = useRef<ViewShot | null>(null);
   const route = useRoute<RouteProps>();
-  const {
-    assets,
-    totalProfit,
-    win,
-    lose,
-    network,
-    nameOrAddress,
-    startTime,
-    endTime,
-  } = route.params;
+  const { data, network, nameOrAddress } = route.params;
+  const { content, win, lose, totalProfit, totalWinProfit, totalLoseProfit } =
+    data;
+  const startTime = content[0].exit.timestamp;
+  const endTime = content[content.length - 1].exit.timestamp;
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const onCapture = useCallback(async () => {
@@ -82,19 +83,49 @@ const Share = () => {
     }
   }, []);
 
+  const [selectRange, setSelectedRange] = useState(0);
+
   const { format } = useFormatDate();
   const date = `${format(new Date(startTime), 'yyyy/MM/dd')} - ${format(
     new Date(endTime),
     'yyyy/MM/dd',
   )}`;
 
-  let totalValue = '0';
-  if (totalProfit) {
-    totalValue = new BigNumber(totalProfit).decimalPlaces(3).toString();
-    totalValue = `${totalProfit.toNumber() >= 0 ? '+' : ''}${totalValue}`;
-  }
-  totalValue = PriceString({ price: totalValue, networkId: network.id });
+  const profit = useMemo(() => {
+    if (selectRange === 0) {
+      return totalProfit;
+    }
+    if (selectRange === 1) {
+      return totalWinProfit;
+    }
+    if (selectRange === 2) {
+      return totalLoseProfit;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectRange]);
 
+  const totalValue = useMemo(() => {
+    let value = '0';
+    if (profit) {
+      value = new BigNumber(profit).decimalPlaces(3).toString();
+      value = `${profit.toNumber() >= 0 ? '+' : ''}${value}`;
+    }
+    value = PriceString({ price: value, networkId: network.id });
+    return value;
+  }, [network.id, profit]);
+
+  const cards = useMemo(() => {
+    if (selectRange === 0) {
+      return content.slice(0, 3);
+    }
+    if (selectRange === 1) {
+      return content.filter((item) => item.profit > 0).slice(0, 3);
+    }
+    if (selectRange === 2) {
+      return content.filter((item) => item.profit < 0).slice(0, 3);
+    }
+    return [];
+  }, [content, selectRange]);
   const shareAction = useCallback(() => {
     setTimeout(onCapture, 100);
   }, [onCapture]);
@@ -108,11 +139,23 @@ const Share = () => {
       onPrimaryActionPress={shareAction}
     >
       <Box w="full" h="full" position="relative">
+        {win === 0 || lose === 0 ? null : (
+          <Box mb="24px">
+            <SegmentedControl
+              selectedIndex={selectRange}
+              onChange={setSelectedRange}
+              values={[
+                'All',
+                intl.formatMessage({ id: 'content__winning_flips' }),
+                intl.formatMessage({ id: 'content__losing_flips' }),
+              ]}
+            />
+          </Box>
+        )}
         <Box alignItems="center" shadow="depth.5">
           <ViewShot
             ref={ref}
             style={{
-              // prevent too wise width on Tablet
               width: '100%',
               maxWidth: 400,
             }}
@@ -142,21 +185,15 @@ const Share = () => {
                     {date}
                   </Text>
                 </Box>
-                <PNLCardGroup
-                  datas={assets.slice(0, 3).reverse()}
-                  width="full"
-                  height="102px"
-                />
+                <PNLCardGroup datas={cards} width="full" height="102px" />
                 <Text mt="40px" typography="Body1" color="text-subdued">
                   {intl.formatMessage({ id: 'content__profit' })}
                 </Text>
-                {totalProfit && (
+                {profit && (
                   <Text
                     typography="Display2XLarge"
                     color={
-                      totalProfit.toNumber() > 0
-                        ? 'text-success'
-                        : 'text-critical'
+                      profit.toNumber() > 0 ? 'text-success' : 'text-critical'
                     }
                     numberOfLines={1}
                   >
@@ -165,31 +202,35 @@ const Share = () => {
                 )}
 
                 <Box flexDirection="row" mt="8px">
-                  <Box flexDirection="row" mr="24px" alignItems="center">
-                    <Text
-                      mr="6px"
-                      typography="Body1Strong"
-                      color="text-success"
-                    >
-                      {win}
-                    </Text>
-                    <Text typography="Body1" color="text-subdued">
-                      {intl.formatMessage({ id: 'content__winning_flips' })}
-                    </Text>
-                  </Box>
+                  {selectRange !== 2 ? (
+                    <Box flexDirection="row" mr="24px" alignItems="center">
+                      <Text
+                        mr="6px"
+                        typography="Body1Strong"
+                        color="text-success"
+                      >
+                        {win}
+                      </Text>
+                      <Text typography="Body1" color="text-subdued">
+                        {intl.formatMessage({ id: 'content__winning_flips' })}
+                      </Text>
+                    </Box>
+                  ) : null}
 
-                  <Box flexDirection="row" alignItems="center">
-                    <Text
-                      mr="6px"
-                      typography="Body1Strong"
-                      color="text-critical"
-                    >
-                      {lose}
-                    </Text>
-                    <Text typography="Body1" color="text-subdued">
-                      {intl.formatMessage({ id: 'content__losing_flips' })}
-                    </Text>
-                  </Box>
+                  {selectRange !== 1 ? (
+                    <Box flexDirection="row" alignItems="center">
+                      <Text
+                        mr="6px"
+                        typography="Body1Strong"
+                        color="text-critical"
+                      >
+                        {lose}
+                      </Text>
+                      <Text typography="Body1" color="text-subdued">
+                        {intl.formatMessage({ id: 'content__losing_flips' })}
+                      </Text>
+                    </Box>
+                  ) : null}
                 </Box>
               </Box>
 

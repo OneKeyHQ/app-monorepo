@@ -118,7 +118,7 @@ const AddressBook = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/AddressBook/Listing'),
 );
 
-const NPLDetailScreen = createLazyComponent(
+const PNLDetailScreen = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail'),
 );
 
@@ -224,7 +224,7 @@ export const stackScreenList = [
   },
   {
     name: HomeRoutes.NFTPNLScreen,
-    component: NPLDetailScreen,
+    component: PNLDetailScreen,
   },
 ];
 

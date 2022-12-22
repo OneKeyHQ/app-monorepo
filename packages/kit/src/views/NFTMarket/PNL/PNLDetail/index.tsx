@@ -63,8 +63,10 @@ import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
-type PNLData = {
+export type PNLData = {
   totalProfit?: BigNumber;
+  totalWinProfit?: BigNumber;
+  totalLoseProfit?: BigNumber;
   win?: number;
   lose?: number;
   spend?: BigNumber;
@@ -73,6 +75,8 @@ type PNLData = {
 
 function parsePNLData(items: NFTPNL[]): PNLData {
   let totalProfit: BigNumber = new BigNumber(0);
+  let totalWinProfit: BigNumber = new BigNumber(0);
+  let totalLoseProfit: BigNumber = new BigNumber(0);
   let totalSpend: BigNumber = new BigNumber(0);
   let win = 0;
   let lose = 0;
@@ -89,8 +93,10 @@ function parsePNLData(items: NFTPNL[]): PNLData {
 
     if (profit.toNumber() > 0) {
       win += 1;
+      totalWinProfit = totalWinProfit.plus(profit);
     } else if (profit.toNumber() < 0) {
       lose += 1;
+      totalLoseProfit = totalLoseProfit.plus(profit);
     }
     item.profit = profit.toNumber();
     totalProfit = totalProfit.plus(profit);
@@ -98,6 +104,8 @@ function parsePNLData(items: NFTPNL[]): PNLData {
   });
   return {
     totalProfit,
+    totalWinProfit,
+    totalLoseProfit,
     win,
     lose,
     spend: totalSpend,
@@ -195,16 +203,13 @@ type HeaderProps = {
 } & PNLData;
 
 const Header: FC<HeaderProps> = ({
+  loading,
   network,
-  totalProfit,
-  win,
-  lose,
-  spend,
   accountAddress,
   onAddressSearch,
-  content,
-  loading,
+  ...pnlData
 }) => {
+  const { totalProfit, win, lose, spend } = pnlData;
   let totalValue = '0';
   if (totalProfit) {
     totalValue = new BigNumber(totalProfit).decimalPlaces(3).toString();
@@ -242,23 +247,19 @@ const Header: FC<HeaderProps> = ({
     } else {
       displayName = shortenAddress(nameOrAddress);
     }
+
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.NFTMarket,
       params: {
         screen: NFTMarketRoutes.ShareNFTPNLModal,
         params: {
-          totalProfit,
-          win,
-          lose,
-          assets: content,
           network,
           nameOrAddress: displayName,
-          endTime: content[0].exit.timestamp,
-          startTime: content[content.length - 1].exit.timestamp,
+          data: pnlData,
         },
       },
     });
-  }, [content, lose, nameOrAddress, navigation, network, totalProfit, win]);
+  }, [nameOrAddress, navigation, network, pnlData]);
 
   const { account: activeAccount } = useActiveWalletAccount();
 
@@ -267,6 +268,13 @@ const Header: FC<HeaderProps> = ({
       setNameOrAddress(activeAccount?.address);
     }
   }, [activeAccount?.address]);
+
+  useEffect(() => {
+    // Input on clear
+    if (nameOrAddress.length === 0 && activeAccount?.address) {
+      onAddressSearch(activeAccount?.address);
+    }
+  }, [activeAccount?.address, nameOrAddress, onAddressSearch]);
 
   const showClearBtn = useMemo(() => {
     if (nameOrAddress.length === 0) {
@@ -392,7 +400,7 @@ const Header: FC<HeaderProps> = ({
     </Box>
   );
 };
-
+const pnlDataMap: Record<string, PNLData> = {};
 const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   accountAddress,
 }) => {
@@ -440,39 +448,40 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     intl,
     isVerticalLayout,
   ]);
+
+  const headerRight = useCallback(
+    () => (
+      <Row
+        space={2}
+        alignItems="center"
+        mr={{ base: 2.5, md: 8 }}
+        justifyContent="flex-end"
+      >
+        {connectAccountBtn}
+        <IconButton
+          // isDisabled
+          type="plain"
+          size="lg"
+          name="CalculatorOutline"
+          circle
+          onPress={calculatorAction}
+        />
+      </Row>
+    ),
+    [calculatorAction, connectAccountBtn],
+  );
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => (
-        <Row
-          space={2}
-          alignItems="center"
-          mr={{ base: 2.5, md: 8 }}
-          justifyContent="flex-end"
-        >
-          {/* <ChainSelector
-            // tiggerProps={{ display: 'none' }}
-            triggerSize="lg"
-            selectedNetwork={selectNetwork}
-            onChange={setSelectNetwork}
-          /> */}
-          {connectAccountBtn}
-          <IconButton
-            // isDisabled
-            type="plain"
-            size="lg"
-            name="CalculatorOutline"
-            circle
-            onPress={calculatorAction}
-          />
-        </Row>
-      ),
+      headerRight,
     });
-  }, [calculatorAction, connectAccountBtn, navigation, selectNetwork]);
+  }, [headerRight, navigation]);
 
   const [listData, updateListData] = useState<NFTPNL[]>([]);
   const allData = useRef<PNLData>({
     totalProfit: new BigNumber(0),
+    totalWinProfit: new BigNumber(0),
+    totalLoseProfit: new BigNumber(0),
     lose: 0,
     win: 0,
     spend: new BigNumber(0),
@@ -536,19 +545,22 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 
   const searchAction = useCallback(
     async (text: string) => {
-      const data = await serviceNFT.getPNLData({
-        address: text,
-      });
-      // serviceNFT.setNPLAddress(text);
-      const parseData = parsePNLData(data);
-      allData.current = parseData;
-      updateTotalPNLData({
-        totalProfit: parseData.totalProfit,
-        win: parseData.win,
-        lose: parseData.lose,
-        spend: parseData.spend,
-      });
-      if (data) {
+      const cache = pnlDataMap[text];
+      if (!cache) {
+        const data = await serviceNFT.getPNLData({
+          address: text,
+        });
+        const parseData = parsePNLData(data);
+        allData.current = parseData;
+        pnlDataMap[text] = parseData;
+        updateTotalPNLData(parseData);
+
+        if (data) {
+          getAssets(0);
+        }
+      } else {
+        allData.current = cache;
+        updateTotalPNLData(cache);
         getAssets(0);
       }
     },
@@ -569,47 +581,46 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
+  const ListHeaderComponent = useCallback(
+    () => (
+      <Header
+        accountAddress={accountAddress}
+        network={selectNetwork}
+        onAddressSearch={setAddress}
+        content={allData.current.content}
+        loading={listData.length === 0}
+        {...totalPNLData}
+      />
+    ),
+    [accountAddress, listData.length, selectNetwork, totalPNLData],
+  );
+
+  const ListEmptyComponent = useCallback(() => {
+    if (!loading) {
+      return (
+        <Empty
+          emoji="💰"
+          title={intl.formatMessage({ id: 'empty__no_sales_record' })}
+          subTitle={intl.formatMessage({
+            id: 'empty__no_sales_record_desc',
+          })}
+        />
+      );
+    }
+    return null;
+  }, [intl, loading]);
+
   const listProps = useMemo(
     () => ({
       data: listData,
-      ListHeaderComponent: () => (
-        <Header
-          accountAddress={accountAddress}
-          network={selectNetwork}
-          onAddressSearch={setAddress}
-          content={allData.current.content}
-          loading={listData.length === 0}
-          {...totalPNLData}
-        />
-      ),
-      ListEmptyComponent: () => {
-        if (!loading) {
-          return (
-            <Empty
-              emoji="💰"
-              title={intl.formatMessage({ id: 'empty__no_sales_record' })}
-              subTitle={intl.formatMessage({
-                id: 'empty__no_sales_record_desc',
-              })}
-            />
-          );
-        }
-        return null;
-      },
+      ListHeaderComponent,
+      ListEmptyComponent,
       onEndReached: () => {
         currentPage.current += 1;
         getAssets(currentPage.current);
       },
     }),
-    [
-      accountAddress,
-      getAssets,
-      intl,
-      listData,
-      loading,
-      selectNetwork,
-      totalPNLData,
-    ],
+    [ListEmptyComponent, ListHeaderComponent, getAssets, listData],
   );
 
   return (

@@ -72,12 +72,32 @@ function isImage(contentType?: string | null) {
   return false;
 }
 
+const Desktop: FC<Props> = ({ imageContent, content }) => (
+  <Box flexDirection="row">
+    {imageContent}
+    <ScrollView h="640px" p="24px">
+      {content}
+    </ScrollView>
+  </Box>
+);
+const Mobile: FC<Props> = ({ imageContent, content }) => {
+  const { bottom } = useSafeAreaInsets();
+
+  return (
+    <ScrollView p="16px">
+      {imageContent}
+      <Box mt="24px" mb={bottom}>
+        {content}
+      </Box>
+    </ScrollView>
+  );
+};
+
 const NFTDetailModal: FC = () => {
   const intl = useIntl();
   const toast = useToast();
   const modalClose = useModalClose();
   const { themeVariant } = useTheme();
-  const { bottom } = useSafeAreaInsets();
 
   const { wallet } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -470,7 +490,7 @@ const NFTDetailModal: FC = () => {
                 <Pressable
                   flexDirection="row"
                   onPress={() => {
-                    copyToClipboard(asset.tokenId ?? '');
+                    copyToClipboard(asset.tokenAddress ?? '');
                     toast.show({
                       title: intl.formatMessage({ id: 'msg__copied' }),
                     });
@@ -528,23 +548,6 @@ const NFTDetailModal: FC = () => {
       </VStack>
     ),
   };
-
-  const Desktop: FC<Props> = ({ imageContent, content }) => (
-    <Box flexDirection="row">
-      {imageContent}
-      <ScrollView h="640px" p="24px">
-        {content}
-      </ScrollView>
-    </Box>
-  );
-  const Mobile: FC<Props> = ({ imageContent, content }) => (
-    <ScrollView p="16px">
-      {imageContent}
-      <Box mt="24px" mb={bottom}>
-        {content}
-      </Box>
-    </ScrollView>
-  );
 
   const modalContent = () =>
     isSmallScreen || platformEnv.isNativeIOSPad ? (
