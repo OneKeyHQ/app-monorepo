@@ -78,19 +78,21 @@ export function useConnectAndCreateExternalAccount({
         screen: EOnboardingRoutes.ConnectWallet,
         params: {
           disableAnimation: true,
+          disableOnboardingDone: true,
         },
       }),
     [navigation],
   );
 
   const connectAndCreateExternalAccount = useCallback(async () => {
-    // web can connect to injected and wallet-connect
+    // Web can connect to injected and wallet-connect
+    // so go to onboarding for selecting wallet
     if (platformEnv.isWeb) {
       goToOnboardingConnectWallet();
       return;
     }
 
-    // desktop and app can only connect wallet-connect
+    // Desktop and App can ONLY connect wallet-connect
     await connectToWcWalletDirectly();
   }, [connectToWcWalletDirectly, goToOnboardingConnectWallet]);
 

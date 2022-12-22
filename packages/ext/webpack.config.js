@@ -217,6 +217,7 @@ function createConfig({ config }) {
     config: webpackConfig,
     configName: config.name,
     enableAnalyzerHtmlReport: true,
+    buildTargetBrowser,
   });
 
   return webpackConfig;
