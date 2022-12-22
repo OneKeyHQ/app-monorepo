@@ -3,7 +3,6 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { getTimeStamp } from '@onekeyfe/hd-core';
 import BigNumber from 'bignumber.js';
 import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 import { get } from 'lodash';
@@ -22,6 +21,7 @@ import type {
 } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -724,6 +724,7 @@ export default class Vault extends VaultBase {
       return Promise.resolve([]);
     }
 
+    const { getTimeStamp } = await CoreSDKLoader();
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const chainInfo = await this.getChainInfo();
     let token: Token | undefined = await this.engine.getNativeTokenInfo(

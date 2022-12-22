@@ -1,12 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import {
-  getHDPath,
-  getOutputScriptType,
-  getScriptType,
-} from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import {
@@ -71,8 +67,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     const response = await HardwareSDK.btcSignTransaction(connectId, deviceId, {
       // useEmptyPassphrase: true,
       coin: 'btc',
-      inputs: inputs.map((i) => this.buildHardwareInput(i, signers[i.address])),
-      outputs: outputs.map((o) => this.buildHardwareOutput(o)),
+      inputs: await Promise.all(
+        inputs.map(async (i) => this.buildHardwareInput(i, signers[i.address])),
+      ),
+      outputs: await Promise.all(
+        outputs.map(async (o) => this.buildHardwareOutput(o)),
+      ),
       refTxs: Object.values(prevTxs).map((i) => this.buildPrevTx(i)),
       ...passphraseState,
     });
@@ -176,7 +176,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     return ret;
   }
 
-  buildHardwareInput = (input: TxInput, path: string): Messages.TxInputType => {
+  buildHardwareInput = async (
+    input: TxInput,
+    path: string,
+  ): Promise<Messages.TxInputType> => {
+    const { getHDPath, getScriptType } = await CoreSDKLoader();
     const addressN = getHDPath(path);
     const scriptType = getScriptType(addressN);
     const utxo = input.utxo as UTXO;
@@ -191,10 +195,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   };
 
-  buildHardwareOutput = (output: TxOutput): Messages.TxOutputType => {
+  buildHardwareOutput = async (
+    output: TxOutput,
+  ): Promise<Messages.TxOutputType> => {
     const { isCharge, bip44Path } = output.payload || {};
 
     if (isCharge && bip44Path) {
+      const { getHDPath, getOutputScriptType } = await CoreSDKLoader();
       const addressN = getHDPath(bip44Path);
       const scriptType = getOutputScriptType(addressN);
       return {
