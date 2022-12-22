@@ -37,7 +37,7 @@ export function useReduxReady() {
                   $isDispatchFromBackground: true,
                 });
               });
-            } else if (!isReady) {
+            } else {
               // other platforms just check result.bootstrapped
               setIsReady(true);
             }
@@ -46,14 +46,12 @@ export function useReduxReady() {
           return false;
         },
       });
-    }
-    if (!platformEnv.isExtension) {
-      appEventBus.once(AppEventBusNames.StoreInitedFromPersistor, () => {
-        if (!isReady) {
+      if (!platformEnv.isExtension) {
+        appEventBus.once(AppEventBusNames.StoreInitedFromPersistor, () => {
           // platforms other than ext just check persistor init event
           setIsReady(true);
-        }
-      });
+        });
+      }
     }
   }, [isReady]);
   return {
