@@ -1,7 +1,6 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -15,10 +14,12 @@ import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Hardwa
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../utils/hardware';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
@@ -44,7 +45,18 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const [deviceId, setDeviceId] = useState<string>();
   const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
   const [showHomescreenSetting, setShowHomescreenSetting] = useState(false);
-  const deviceType = getDeviceType(deviceFeatures);
+  const [deviceType, setDeviceType] = useState<IDeviceType | undefined>();
+  const [deviceUUID, setDeviceUUID] = useState<string>('-');
+
+  useEffect(() => {
+    if (!deviceFeatures) return;
+    const setDeviceInfo = async () => {
+      const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
+      setDeviceType(getDeviceType(deviceFeatures));
+      setDeviceUUID(getDeviceUUID(deviceFeatures));
+    };
+    setDeviceInfo();
+  }, [deviceFeatures]);
 
   const canOnDeviceInputPin = useMemo(() => {
     if (deviceType === 'classic' || deviceType === 'mini') return true;
@@ -58,7 +70,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 
   const getModifyHomescreenConfig = useCallback(
     async (connectId?: string) => {
-      if (!connectId) return;
+      if (!connectId || !deviceType) return;
       const hasHomescreen = getHomescreenKeys(deviceType).length > 0;
       if (deviceType === 'mini' || deviceType === 'classic') {
         setShowHomescreenSetting(hasHomescreen);
@@ -142,7 +154,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           titleColor="text-default"
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'content__serial_number' })}
-          describe={deviceFeatures ? getDeviceUUID(deviceFeatures) : '-'}
+          describe={deviceUUID}
         />
 
         <Container.Item
@@ -184,7 +196,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
                     OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
                   params: {
                     walletId,
-                    deviceType: getDeviceType(deviceFeatures),
+                    deviceType: deviceType ?? 'classic',
                   },
                 },
               });

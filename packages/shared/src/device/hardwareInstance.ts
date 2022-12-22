@@ -1,11 +1,10 @@
 import memoizee from 'memoizee';
 
-// import store from '@onekeyhq/kit/src/store';
 import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { importHardwareSDK } from './importHardwareSDK';
+import { importHardwareSDK } from './sdk-loader';
 
 import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
 
@@ -45,5 +44,7 @@ export const getHardwareSDKInstance = memoizee(
     max: 1,
   },
 );
+
+export const CoreSDKLoader = async () => import('@onekeyfe/hd-core');
 
 export { HardwareSDK };
