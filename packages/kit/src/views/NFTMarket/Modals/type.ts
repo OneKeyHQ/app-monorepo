@@ -2,7 +2,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import type {
   Collection,
   MarketPlace,
-  NFTNPL,
+  NFTPNL,
 } from '@onekeyhq/engine/src/types/nft';
 
 import type { BigNumber } from 'bignumber.js';
@@ -10,7 +10,7 @@ import type { BigNumber } from 'bignumber.js';
 export enum NFTMarketRoutes {
   SearchModal = 'SearchModal',
   FilterModal = 'FilterModal',
-  ShareNFTNPLModal = 'ShareNFTNPLModal',
+  ShareNFTPNLModal = 'ShareNFTPNLModal',
   CalculatorModal = 'CalculatorModal',
   MarketPlaceScreen = 'MarketPlaceScreen',
 }
@@ -40,8 +40,8 @@ export type NFTMarketRoutesParams = {
       attributes: { attribute_name: string; attribute_values: string[] }[],
     ) => void;
   };
-  [NFTMarketRoutes.ShareNFTNPLModal]: {
-    assets: NFTNPL[];
+  [NFTMarketRoutes.ShareNFTPNLModal]: {
+    assets: NFTPNL[];
     win?: number;
     lose?: number;
     totalProfit?: BigNumber;

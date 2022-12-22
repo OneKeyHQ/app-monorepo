@@ -9,7 +9,7 @@ import type {
   NFTAsset,
   NFTMarketCapCollection,
   NFTMarketRanking,
-  NFTNPL,
+  NFTPNL,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
@@ -294,12 +294,12 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getNPLData({ address }: { address: string }) {
+  async getPNLData({ address }: { address: string }) {
     const url = `${this.baseUrl}/account/pnl?&address=${address}`;
     const { data, success } = await this.client
-      .get<NFTServiceResp<NFTNPL[]>>(url)
+      .get<NFTServiceResp<NFTPNL[]>>(url)
       .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: [] as NFTNPL[] }));
+      .catch(() => ({ success: false, data: [] as NFTPNL[] }));
 
     if (!success) {
       return [];
@@ -308,8 +308,12 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getMarketPlaces() {
-    const url = `${this.baseUrl}/marketPlace/list`;
+  async getMarketPlaces(params: { chain?: string }) {
+    const { chain } = params;
+    let url = `${this.baseUrl}/marketPlace/list`;
+    if (chain) {
+      url += `?chain=${chain}`;
+    }
     const { data, success } = await this.client
       .get<NFTServiceResp<MarketPlace[]>>(url)
       .then((resp) => resp.data)

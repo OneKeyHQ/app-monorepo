@@ -83,7 +83,9 @@ const ConnectedSitesHeader: FC<ConnectedSitesHeaderProps> = ({
                 />
               </Box>
               <Box ml="3" flex={1}>
-                <Typography.Body2Strong>{dappName}</Typography.Body2Strong>
+                <Typography.Body2Strong noOfLines={2}>
+                  {dappName}
+                </Typography.Body2Strong>
                 <Typography.Body2 color="text-subdued">
                   {`${shortenAddress(item.accounts[0] ?? '')}· EVM`}
                 </Typography.Body2>
