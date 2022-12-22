@@ -137,14 +137,14 @@ function normalizeConfig({
     }
 
     resolveExtensions = [
-      ...(configName
-        ? ['.ts', '.tsx', '.js', '.jsx'].map(
-            (ext) => `.${platform}-${configName}${ext}`,
-          )
-        : []),
       ...(buildTargetBrowser
         ? ['.ts', '.tsx', '.js', '.jsx'].map(
             (ext) => `.${buildTargetBrowser}-${platform}${ext}`,
+          )
+        : []),
+      ...(configName
+        ? ['.ts', '.tsx', '.js', '.jsx'].map(
+            (ext) => `.${platform}-${configName}${ext}`,
           )
         : []),
       ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
