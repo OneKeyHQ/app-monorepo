@@ -1,4 +1,3 @@
-export { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 export type { SearchDevice, Features } from '@onekeyfe/hd-core';
 
 export { default as deviceUtils } from './deviceUtils';

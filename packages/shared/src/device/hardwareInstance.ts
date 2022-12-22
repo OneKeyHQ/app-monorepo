@@ -45,6 +45,6 @@ export const getHardwareSDKInstance = memoizee(
   },
 );
 
-export const LoaderCoreSDK = async () => import('@onekeyfe/hd-core');
+export const CoreSDKLoader = async () => import('@onekeyfe/hd-core');
 
 export { HardwareSDK };
