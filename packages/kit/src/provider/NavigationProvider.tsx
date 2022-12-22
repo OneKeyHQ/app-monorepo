@@ -1,7 +1,5 @@
 import { createRef, memo, useEffect, useMemo, useRef } from 'react';
 
-import type { NavigationContainerRef } from '@react-navigation/native';
-
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -18,6 +16,8 @@ import '../routes/deepLink';
 import buildLinking from '../routes/linking';
 
 import RedirectProvider from './RedirectProvider';
+
+import type { NavigationContainerRef } from '@react-navigation/native';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = createRef<RootNavContainerRef>();
