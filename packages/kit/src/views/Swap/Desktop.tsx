@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,7 +12,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
-import PriceChart from '../PriceChart/PriceChart';
+import SwapChart from '../PriceChart/SwapChart';
 
 import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
@@ -112,17 +112,24 @@ const DesktopMain = () => (
 
 const DesktopChart = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
-  if (!inputToken) {
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+
+  useEffect(() => {
+    if (inputToken) {
+      backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+        networkId: inputToken.networkId,
+        tokenId: inputToken.tokenIdOnNetwork,
+      });
+    }
+  }, [inputToken]);
+
+  if (!inputToken || !outputToken) {
     return null;
   }
-  const key = `${inputToken.networkId}${inputToken.tokenIdOnNetwork}`;
+
   return (
     <Box w="550px">
-      <PriceChart
-        key={key}
-        networkId={inputToken.networkId}
-        contract={inputToken.tokenIdOnNetwork}
-      />
+      <SwapChart fromToken={inputToken} toToken={outputToken} />
     </Box>
   );
 };
@@ -150,7 +157,7 @@ export const Desktop = () => {
               <Box h="52px" />
               <DesktopChart />
             </Box>
-          ) : null}{' '}
+          ) : null}
           <Box w="480px">
             <DesktopMain />
           </Box>
