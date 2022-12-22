@@ -62,7 +62,13 @@ const ListEmptyComponent = () => (
 type PlaceholderLineProps = ComponentProps<typeof Box>;
 const PlaceholderLine: FC<PlaceholderLineProps> = ({ ...rest }) => (
   <Box flex="1" flexDirection="row" alignItems="center" {...rest}>
-    <Box h="1px" w="full" bg="border-default" />
+    <Box
+      borderTopColor="border-default"
+      h="1px"
+      w="full"
+      borderStyle="dashed"
+      borderTopWidth="1px"
+    />
   </Box>
 );
 
@@ -84,7 +90,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
       borderColor={selectedIndex !== index ? 'border-default' : 'text-success'}
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: 'surface-pressed' }}
-      borderWidth="1"
+      borderWidth={1.5}
       p="4"
       borderRadius={12}
       onPress={() => onSelect(index)}

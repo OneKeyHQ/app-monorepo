@@ -93,7 +93,7 @@ const ExchangeButton = () => {
   const quote = useAppSelector((s) => s.swap.quote);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const recipient = useAppSelector((s) => s.swap.recipient);
-  const validationSetting = useAppSelector(s => s.settings.validationSetting)
+  const validationSetting = useAppSelector((s) => s.settings.validationSetting);
   const { inputAmount, outputAmount } = useDerivedSwapState();
   const params = useSwapQuoteRequestParams();
   const disableSwapExactApproveAmount = useAppSelector(
@@ -452,7 +452,7 @@ const ExchangeButton = () => {
     addTransaction,
     disableSwapExactApproveAmount,
     recipient?.address,
-    validationSetting
+    validationSetting,
   ]);
 
   return (
