@@ -14,6 +14,7 @@ import useNavigation from './useNavigation';
 import { useNavigationActions } from './useNavigationActions';
 
 import type { ModalScreenProps, RootRoutesParams } from '../routes/types';
+import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
@@ -32,10 +33,13 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
   useEffect(() => {
     if (!boardingCompleted) {
       if (!isHomeCheck || (isHomeCheck && !homePageCheckBoarding)) {
-        navigation.replace(RootRoutes.Onboarding);
         if (isHomeCheck) {
           backgroundApiProxy.dispatch(setHomePageCheckBoarding());
         }
+        navigation.navigate(RootRoutes.Onboarding, {
+          screen: EOnboardingRoutes.Welcome,
+          params: { disableAnimation: !!isHomeCheck },
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
