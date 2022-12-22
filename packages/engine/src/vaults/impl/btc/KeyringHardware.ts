@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { getHDPath, getScriptType } from '@onekeyfe/hd-core';
+import {
+  getHDPath,
+  getOutputScriptType,
+  getScriptType,
+} from '@onekeyfe/hd-core';
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
@@ -192,9 +196,8 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (isCharge && bip44Path) {
       const addressN = getHDPath(bip44Path);
-      const scriptType = getScriptType(addressN);
+      const scriptType = getOutputScriptType(addressN);
       return {
-        // @ts-expect-error
         script_type: scriptType,
         address_n: addressN,
         amount: output.value.integerValue().toString(),

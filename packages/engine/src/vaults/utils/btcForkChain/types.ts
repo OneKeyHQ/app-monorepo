@@ -1,4 +1,9 @@
-import type { ITransferInfo } from '../../types';
+import type { Token } from '../../../types/token';
+import type {
+  IDecodedTxDirection,
+  ITransferInfo,
+  IUtxoAddressInfo,
+} from '../../types';
 import type BigNumber from 'bignumber.js';
 import type {
   NonWitnessUtxo,
@@ -50,7 +55,11 @@ export type IUTXOOutput = { address: string; value: number };
 
 export type IEncodedTxBtc = {
   inputs: IBtcUTXO[];
-  outputs: { address: string; value: string }[];
+  outputs: {
+    address: string;
+    value: string;
+    payload?: { isCharge?: boolean; bip44Path?: string };
+  }[];
   totalFee: string;
   totalFeeInNative: string;
   transferInfo: ITransferInfo;
@@ -111,18 +120,14 @@ export type SignedTx = {
 
 export type IBlockBookTransaction = {
   txid: string;
-  vin: Array<{
-    isAddress?: boolean;
-    addresses: Array<string>;
-    value: string;
-    isOwn?: boolean;
-  }>;
-  vout: Array<{
-    isAddress?: boolean;
-    addresses: Array<string>;
-    value: string;
-    isOwn?: boolean;
-  }>;
+  direction?: IDecodedTxDirection; // TODO move direction to UI side generate
+  tokenInfo: Token;
+  utxoFrom?: IUtxoAddressInfo[];
+  utxoTo?: IUtxoAddressInfo[];
+  from: string;
+  to: string;
+  amount: string;
+  amountValue: string;
   confirmations: number;
   fees: string;
   blockTime?: number;

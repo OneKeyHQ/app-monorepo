@@ -318,10 +318,12 @@ const Connection = () => {
           isDeepLink,
         })
         .then(() => {
-          if (!isClosedDone.current && lastWalletConnectUri) {
-            closeModal();
-            isClosedDone.current = true;
-          }
+          //  Comment the following code to fix OK-15122 when networkNomatch then function will be called advance，When networkNomatch model first opened it
+          //  look ServiceDapp 378-398 line code resolve() to be called manually for some special reason
+          // if (!isClosedDone.current && lastWalletConnectUri) {
+          //   closeModal();
+          //   isClosedDone.current = true;
+          // }
           dispatch(refreshConnectedSites());
         })
         .catch((error) => {

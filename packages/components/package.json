@@ -16,7 +16,6 @@
     "react-content-loader": "^6.2.0",
     "react-hook-form": "^7.22.1",
     "react-native-draggable-flatlist": "4.0.0",
-    "react-native-jazzicon": "^0.1.2",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "^7.0.0-alpha.2",
     "react-native-modal": "^13.0.1",
@@ -33,12 +32,12 @@
     "@types/qrcode": "^1.4.2",
     "@types/styled-components": "^5.1.15",
     "@types/styled-components-react-native": "^5.1.3",
-    "lodash": "^4.17.21",
     "rimraf": "^3.0.2"
   },
   "scripts": {
     "build:icons": "rm -rf src/Icon/react && npx @svgr/cli@6.3.1 --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch",
     "clean": "rimraf node_modules"
   }

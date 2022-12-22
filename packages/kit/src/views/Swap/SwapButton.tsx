@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, useToast } from '@onekeyhq/components';
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -18,15 +19,14 @@ import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { addTransaction } from '../../store/reducers/swapTransactions';
 import { wait } from '../../utils/helper';
-import { openAppReview } from '../../utils/openAppReview';
+import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
 import { SendRoutes } from '../Send/types';
 
 import {
   useDerivedSwapState,
   useInputLimitsError,
-  useSwapQuoteCallback,
+  useSwapError,
   useSwapQuoteRequestParams,
-  useSwapRecipient,
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
 import { SwapError, SwapRoutes } from './typings';
@@ -85,16 +85,6 @@ function convertToSwapInfo(options: {
   return swapInfo;
 }
 
-const RetryQuoteButton = () => {
-  const intl = useIntl();
-  const onQuote = useSwapQuoteCallback({ showLoading: true });
-  return (
-    <Button size="xl" type="primary" key="network_error" onPress={onQuote}>
-      {intl.formatMessage({ id: 'action__retry' })}
-    </Button>
-  );
-};
-
 const ExchangeButton = () => {
   const intl = useIntl();
   const toast = useToast();
@@ -102,8 +92,8 @@ const ExchangeButton = () => {
   const networks = useAppSelector((s) => s.runtime.networks);
   const quote = useAppSelector((s) => s.swap.quote);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const recipient = useAppSelector((s) => s.swap.recipient);
   const { inputAmount, outputAmount } = useDerivedSwapState();
-  const recipient = useSwapRecipient();
   const params = useSwapQuoteRequestParams();
   const disableSwapExactApproveAmount = useAppSelector(
     (s) => s.settings.disableSwapExactApproveAmount,
@@ -248,8 +238,11 @@ const ExchangeButton = () => {
           outputAmount.token.tokenIdOnNetwork,
         );
       }
-      await wait(2000);
-      openAppReview();
+      const show = await canShowAppReview();
+      if (show) {
+        await wait(2000);
+        openAppReview();
+      }
     };
 
     let needApproved = false;
@@ -281,6 +274,65 @@ const ExchangeButton = () => {
                 .multipliedBy(1.5)
                 .toFixed(),
         })) as IEncodedTxEvm;
+
+      const password = await backgroundApiProxy.servicePassword.getPassword();
+
+      if (password) {
+        await backgroundApiProxy.serviceTransaction.sendTransaction({
+          accountId: sendingAccount.id,
+          networkId: targetNetworkId,
+          encodedTx: encodedApproveTx,
+        });
+
+        const walletId = getWalletIdFromAccountId(sendingAccount.id);
+        const wallet = await backgroundApiProxy.engine.getWallet(walletId);
+
+        if (wallet.type === 'hw') {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendRoutes.HardwareSwapContinue,
+              params: {
+                networkId: targetNetworkId,
+                accountId: sendingAccount.id,
+              },
+            },
+          });
+        }
+
+        const encodedEvmTx = encodedTx as IEncodedTxEvm;
+        try {
+          const { result, decodedTx } =
+            await backgroundApiProxy.serviceTransaction.sendTransaction({
+              accountId: sendingAccount.id,
+              networkId: targetNetworkId,
+              encodedTx: { ...encodedEvmTx },
+              payload: {
+                type: 'InternalSwap',
+                swapInfo,
+              },
+            });
+          addSwapTransaction(result.txid, decodedTx.nonce);
+          if (wallet.type !== 'hw') {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Send,
+              params: {
+                screen: SendRoutes.SendFeedbackReceipt,
+                params: {
+                  networkId: targetNetworkId,
+                  accountId: sendingAccount.id,
+                  txid: result.txid,
+                  type: 'Send',
+                },
+              },
+            });
+          }
+          appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+        } catch {
+          appUIEventBus.emit(AppUIEventBusNames.SwapError);
+        }
+        return;
+      }
 
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
@@ -325,6 +377,36 @@ const ExchangeButton = () => {
           },
         },
       });
+      return;
+    }
+
+    const password = await backgroundApiProxy.servicePassword.getPassword();
+    if (password) {
+      const { result, decodedTx } =
+        await backgroundApiProxy.serviceTransaction.sendTransaction({
+          accountId: sendingAccount.id,
+          networkId: targetNetworkId,
+          encodedTx,
+          payload: {
+            type: 'InternalSwap',
+            swapInfo,
+          },
+        });
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.SendFeedbackReceipt,
+          params: {
+            networkId: targetNetworkId,
+            accountId: sendingAccount.id,
+            txid: result.txid,
+            type: 'Send',
+          },
+        },
+      });
+      setTimeout(() => {
+        addSwapTransaction(result.txid, decodedTx.nonce);
+      }, 100);
       return;
     }
 
@@ -388,7 +470,7 @@ const SwapStateButton = () => {
   const intl = useIntl();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const loading = useAppSelector((s) => s.swap.loading);
-  const { error } = useDerivedSwapState();
+  const error = useSwapError();
   const limitsError = useInputLimitsError();
 
   if (error) {
@@ -407,9 +489,9 @@ const SwapStateButton = () => {
         </Button>
       );
     }
-    if (error === SwapError.QuoteFailed) {
-      return <RetryQuoteButton />;
-    }
+    // if (error === SwapError.QuoteFailed) {
+    //   return <RetryQuoteButton />;
+    // }
     return (
       <Button size="xl" type="primary" isDisabled key="baseError">
         {intl.formatMessage({ id: 'title__swap' })}

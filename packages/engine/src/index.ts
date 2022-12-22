@@ -89,7 +89,10 @@ import {
   WALLET_TYPE_WATCHING,
 } from './types/wallet';
 import { Validators } from './validators';
-import { createVaultHelperInstance } from './vaults/factory';
+import {
+  createVaultHelperInstance,
+  createVaultSettings,
+} from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1694,6 +1697,49 @@ class Engine {
   }
 
   @backgroundMethod()
+  async batchTokensAllowance({
+    networkId,
+    accountId,
+    tokenIdOnNetwork,
+    spenders,
+  }: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork: string;
+    spenders: string[];
+  }): Promise<number[] | undefined> {
+    // TODO: move this into vaults to support multichain
+    try {
+      if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
+        // Bad request, shouldn't happen.
+        return;
+      }
+      const spenderAddresses: string[] = [];
+      const tokenAddress = await this.validator.validateTokenAddress(
+        networkId,
+        tokenIdOnNetwork,
+      );
+      for (let i = 0; i < spenders.length; i += 1) {
+        const spender = spenders[i];
+        const address = await this.validator.validateAddress(
+          networkId,
+          spender,
+        );
+        spenderAddresses.push(address);
+      }
+
+      const vault = await this.getVault({ accountId, networkId });
+      const result = await vault.batchTokensAllowance(
+        tokenAddress,
+        spenderAddresses,
+      );
+      return result;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  @backgroundMethod()
   async signMessage({
     unsignedMessage,
     password,
@@ -1998,10 +2044,8 @@ class Engine {
   }
 
   _getVaultSettings = memoizee(
-    async (networkId: string) => {
-      const vault = await this.getChainOnlyVault(networkId);
-      return vault.settings;
-    },
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async (networkId: string) => createVaultSettings({ networkId }),
     {
       promise: true,
       primitive: true,
@@ -2044,7 +2088,7 @@ class Engine {
       let rawTxPreDecoded: string | undefined;
 
       try {
-        const vaultHelper = createVaultHelperInstance({
+        const vaultHelper = await createVaultHelperInstance({
           networkId,
           accountId,
         });
@@ -2449,7 +2493,7 @@ class Engine {
   @backgroundMethod()
   async listFiats(): Promise<Record<string, string>> {
     const ret: Record<string, string> = {};
-    const fiatSymbolList = new Set(['usd', 'cny', 'jpy', 'hkd']);
+    const fiatSymbolList = ['usd', 'cny', 'jpy', 'hkd', 'btc'];
     try {
       const fiats = await this.priceManager.getFiats(fiatSymbolList);
       Object.keys(fiats).forEach((f) => {
@@ -2458,7 +2502,7 @@ class Engine {
       return ret;
     } catch (e) {
       // 获取出错，返回空的列表
-      return Array.from(fiatSymbolList).reduce(
+      return fiatSymbolList.reduce(
         (memo, current) => ({ ...memo, [current]: undefined }),
         {},
       );

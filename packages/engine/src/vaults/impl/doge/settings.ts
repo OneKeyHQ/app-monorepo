@@ -1,6 +1,6 @@
 import type { IVaultSettings } from '../../types';
 
-const settings: IVaultSettings = {
+const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: true,
   privateKeyExportEnabled: true,
   tokenEnabled: false,
@@ -14,6 +14,6 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.0099999',
 
   isUTXOModel: true,
-};
+});
 
 export default settings;

@@ -184,9 +184,11 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
           flex="1"
         >
           <HistoryItemStatus status={tx.status} />
-          <Typography.Body2 color="text-subdued" ml="3">
-            {dateFormat(tx.addedTime, 'HH:mm')}
-          </Typography.Body2>
+          <Box flex={1} flexDirection="row" justifyContent="flex-end">
+            <Typography.Body2 color="text-subdued" ml="3" isTruncated>
+              {dateFormat(tx.addedTime, 'HH:mm')}
+            </Typography.Body2>
+          </Box>
         </Box>
       </Pressable>
     </Box>

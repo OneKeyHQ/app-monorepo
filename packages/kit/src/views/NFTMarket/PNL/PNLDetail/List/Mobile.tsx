@@ -11,7 +11,7 @@ import {
   Skeleton,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { NFTAsset, NFTNPL } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import NFTListImage from '../../../../Wallet/NFT/NFTList/NFTListImage';
@@ -20,7 +20,7 @@ import { PriceString } from '../../../PriceText';
 import type { ListRenderItem } from 'react-native';
 
 type ListProps = {
-  data: NFTNPL[];
+  data: NFTPNL[];
   ListHeaderComponent?: () => JSX.Element;
   loading?: boolean;
   network: Network;
@@ -54,7 +54,7 @@ const Footer: FC = () => (
 );
 const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict } = useFormatDate();
-  const renderItem: ListRenderItem<NFTNPL> = useCallback(
+  const renderItem: ListRenderItem<NFTPNL> = useCallback(
     ({ item }) => {
       const { asset, entry, exit, profit } = item;
 
@@ -102,18 +102,23 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
     [formatDistanceStrict],
   );
 
+  console.log('loading = ', loading);
+
+  const ListFooterComponent = useCallback(() => {
+    if (loading) {
+      return <Footer />;
+    }
+    return <Box h="24px" />;
+  }, [loading]);
   return (
     <Box flex={1}>
       <List
         renderItem={renderItem}
-        keyExtractor={(item) => (item.contractAddress as string) + item.tokenId}
+        keyExtractor={(item) =>
+          `${item.contractAddress as string} ${item.tokenId}`
+        }
         showsVerticalScrollIndicator={false}
-        ListFooterComponent={() => {
-          if (loading) {
-            return <Footer />;
-          }
-          return null;
-        }}
+        ListFooterComponent={ListFooterComponent}
         {...props}
         p={4}
       />

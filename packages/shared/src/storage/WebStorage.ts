@@ -46,9 +46,9 @@ class WebStorage implements AsyncStorageStatic {
           localforage.LOCALSTORAGE,
         );
         /*
-        localforage.INDEXEDDB
-        localforage.WEBSQL
-        localforage.LOCALSTORAGE
+        localforage.INDEXEDDB="asyncStorage"
+        localforage.WEBSQL="webSQLStorage"
+        localforage.LOCALSTORAGE="localStorageWrapper"
          */
         if (localforage.driver() === localforage.LOCALSTORAGE) {
           this.isMigrated = true;

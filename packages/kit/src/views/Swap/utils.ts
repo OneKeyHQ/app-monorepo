@@ -171,3 +171,12 @@ export function calculateRange(
       minValues.length > 0 ? BigNumber.min(...minValues).toFixed() : undefined,
   };
 }
+
+export function stringifyTokens(a?: Token, b?: Token) {
+  if (!a || !b) {
+    return '';
+  }
+  const input = `input:${a.networkId}-${b.tokenIdOnNetwork}`;
+  const output = `output:${a.networkId}-${b.tokenIdOnNetwork}`;
+  return `${input}|${output} `;
+}

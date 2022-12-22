@@ -1,9 +1,12 @@
 import type { FC } from 'react';
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
+import KeyboardManager from 'react-native-keyboard-manager';
 
 import {
   Box,
@@ -39,7 +42,7 @@ const SearchAddress: FC<{
   }) => void;
 }> = ({ onAddressSearch }) => {
   const navigation = useNavigation();
-  const { network } = useActiveWalletAccount();
+  const { network, account } = useActiveWalletAccount();
   const intl = useIntl();
   const { themeVariant } = useTheme();
 
@@ -58,23 +61,33 @@ const SearchAddress: FC<{
     });
   }, [navigation]);
 
+  useEffect(() => {
+    if (account?.address) {
+      onAddressSearch({ address: account?.address });
+    }
+  }, [account?.address, onAddressSearch]);
+  const headerRight = useCallback(
+    () => (
+      <HStack>
+        <IconButton
+          mr={{ base: 2.5, md: 8 }}
+          type="plain"
+          size="lg"
+          name="CalculatorOutline"
+          circle
+          onPress={calculatorAction}
+        />
+      </HStack>
+    ),
+    [calculatorAction],
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => (
-        <HStack>
-          <IconButton
-            mr={{ base: 2.5, md: 8 }}
-            type="plain"
-            size="lg"
-            name="CalculatorOutline"
-            circle
-            onPress={calculatorAction}
-          />
-        </HStack>
-      ),
+      headerRight,
     });
-  }, [calculatorAction, navigation]);
+  }, [headerRight, navigation]);
   const [keyword, setKeyword] = useState<string>('');
   const defaultNetWork = useDefaultNetWork();
 
@@ -84,6 +97,19 @@ const SearchAddress: FC<{
     onAddressSearch,
   });
   const isVerticalLayout = useIsVerticalLayout();
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      KeyboardManager.setEnable(!isFocused);
+    }
+    return () => {
+      if (Platform.OS === 'ios') {
+        KeyboardManager.setEnable(true);
+      }
+    };
+  }, [isFocused]);
+
   return (
     <Box
       flex={1}

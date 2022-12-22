@@ -196,6 +196,8 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   openExtensionExpandTab(routeInfo: OpenUrlRouteInfo) {
+    // add whitelist to
+    //    packages/kit/src/routes/linking.ts
     extUtils.openExpandTab(routeInfo);
   }
 

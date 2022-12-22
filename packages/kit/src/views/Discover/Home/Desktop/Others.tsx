@@ -114,6 +114,8 @@ type DappsContainerProps = {
   dapps: DAppItemType[];
 };
 
+const ListEmptyComponent = () => <EmptySkeletonContent offset={-120} />;
+
 const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
   const { selectedNetworkId } = useContext(SelectedNetworkContext);
 
@@ -197,7 +199,7 @@ const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
       numColumns={numColumns}
       key={`key${numColumns}`}
       keyExtractor={(item) => item._id}
-      ListEmptyComponent={() => <EmptySkeletonContent offset={-120} />}
+      ListEmptyComponent={ListEmptyComponent}
     />
   );
 };

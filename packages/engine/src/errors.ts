@@ -258,6 +258,15 @@ export class InvalidTransferValue extends OneKeyError {
   }
 }
 
+export class TransferValueTooSmall extends OneKeyError {
+  override key = 'msg__amount_too_small';
+
+  constructor(key?: string, info?: IOneKeyErrorInfo) {
+    super('Transfer Value too small', info);
+    this.key = key ?? 'msg__amount_too_small';
+  }
+}
+
 export class InsufficientBalance extends OneKeyError {
   // For situations that utxo selection failed.
   override key = 'form__amount_invalid';

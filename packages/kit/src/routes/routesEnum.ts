@@ -92,7 +92,7 @@ export enum HomeRoutes {
   NFTMarketStatsList = 'NFTMarketStatsList',
   NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
-  NFTNPLScreen = 'NFTNPLScreen',
+  NFTPNLScreen = 'NFTPNLScreen',
 }
 export enum TabRoutes {
   // Overview = 'overview',

@@ -168,14 +168,15 @@ export type IUnsignedTxPro = UnsignedTx & {
   encodedTx: IEncodedTx;
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
-export type ISignedTx = {
-  encodedTx: IEncodedTx;
+export type ISignedTxPro = {
+  encodedTx?: IEncodedTx;
 } & SignedTxResult;
 
 export type SignedTxResult = {
   signatureScheme?: CurveName;
-  signature?: string;
-  publicKey?: string;
+  signature?: string; // hex string
+  publicKey?: string; // hex string
+  digest?: string; // hex string
 } & SignedTx;
 
 // EncodedTx Update ----------------------------------------------
