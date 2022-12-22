@@ -165,9 +165,12 @@ export function useWalletConnectQrcodeModal() {
   // TODO disconnect client and ws transport when Modal close
   const close = useCallback(
     ({
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       walletServiceForConnectDirectly,
+      shouldCloseCurrentModal,
     }: {
       walletServiceForConnectDirectly?: WalletService;
+      shouldCloseCurrentModal?: boolean;
     } = {}) => {
       if (isClosedRef.current) {
         return;
@@ -176,7 +179,7 @@ export function useWalletConnectQrcodeModal() {
         'useWalletConnectQrcodeModal onDismiss closed',
       );
       isClosedRef.current = true;
-      if (!walletServiceForConnectDirectly) {
+      if (shouldCloseCurrentModal) {
         closeModal();
       }
       setState((currentState) => {
@@ -199,8 +202,12 @@ export function useWalletConnectQrcodeModal() {
     [closeModal],
   );
 
+  // CreateWalletModalRoutes.WalletConnectQrcodeModal destroy callback
   const onDismiss = useCallback(() => {
-    close();
+    // WalletConnectQrcodeModal is closed by destroy, do NOT close twice
+    close({
+      shouldCloseCurrentModal: false,
+    });
     (async () => {
       // setConnector(await createConnector(intermediateValue));
     })();
@@ -283,7 +290,10 @@ export function useWalletConnectQrcodeModal() {
           return undefined;
         },
         close() {
-          close({ walletServiceForConnectDirectly });
+          close({
+            walletServiceForConnectDirectly,
+            shouldCloseCurrentModal: !walletServiceForConnectDirectly,
+          });
         },
       };
     },

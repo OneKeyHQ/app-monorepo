@@ -21,6 +21,8 @@ export type IOnboardingSetPasswordParams = {
 };
 export type IOnboardingConnectWalletParams = {
   disableAnimation?: boolean;
+  disableOnboardingDone?: boolean;
+  onSuccess?: () => void;
 };
 export type IOnboardingImportWalletParams = {
   disableAnimation?: boolean;
