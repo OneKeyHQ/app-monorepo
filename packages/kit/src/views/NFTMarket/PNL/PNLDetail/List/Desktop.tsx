@@ -12,6 +12,7 @@ import {
   Icon,
   List,
   ListItem,
+  Pressable,
   Skeleton,
   Text,
   Tooltip,
@@ -111,24 +112,35 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         .toString();
       return (
         <ListItem>
-          <ListItem.Column>
-            {item.asset && (
-              <NFTListImage
-                asset={asset as NFTAsset}
-                borderRadius="12px"
-                size={40}
-              />
+          <Pressable flex={1} flexDirection="row" alignItems="center">
+            {({ isHovered }) => (
+              <>
+                <ListItem.Column>
+                  {item.asset && (
+                    <NFTListImage
+                      asset={asset as NFTAsset}
+                      borderRadius="12px"
+                      size={40}
+                      opacity={isHovered ? 80 : undefined}
+                    />
+                  )}
+                </ListItem.Column>
+                <ListItem.Column
+                  flex={1}
+                  ml="12px"
+                  text={{
+                    label: item.contractName,
+                    labelProps: {
+                      typography: 'Body1Strong',
+                      isTruncated: true,
+                    },
+                    description: item.tokenId ? `#${item.tokenId}` : '–',
+                    descriptionProps: { isTruncated: true },
+                  }}
+                />
+              </>
             )}
-          </ListItem.Column>
-          <ListItem.Column
-            flex={1}
-            text={{
-              label: item.contractName,
-              labelProps: { typography: 'Body1Strong', isTruncated: true },
-              description: item.tokenId ? `#${item.tokenId}` : '–',
-              descriptionProps: { isTruncated: true },
-            }}
-          />
+          </Pressable>
           <Hidden till="md">
             <Tooltip
               label={format(new Date(entry.timestamp), 'yyyy-MM-dd HH:mm')}
