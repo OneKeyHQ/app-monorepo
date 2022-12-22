@@ -2,7 +2,12 @@ import { useCallback, useState } from 'react';
 
 import { RefreshControl } from 'react-native';
 
-import { Box, Center, ScrollView } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  ScrollView,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -11,6 +16,7 @@ import {
 import SwapAlert from './SwapAlert';
 import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
+import { SwapHeaderButtons } from './SwapHeader';
 import SwapObserver from './SwapObserver';
 import SwapQuote from './SwapQuote';
 import SwapTexts from './SwapTexts';
@@ -18,6 +24,7 @@ import SwapUpdater from './SwapUpdater';
 
 export const Mobile = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const isSmall = useIsVerticalLayout();
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -33,6 +40,18 @@ export const Mobile = () => {
       <Box h="6" />
       <Center>
         <Box maxW={{ md: '480px' }} width="full">
+          {isSmall ? null : (
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              px="4"
+              mb="4"
+              zIndex={1}
+            >
+              <Box />
+              <SwapHeaderButtons />
+            </Box>
+          )}
           <Box>
             <SwapContent />
           </Box>

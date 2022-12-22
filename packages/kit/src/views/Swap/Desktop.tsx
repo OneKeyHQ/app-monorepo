@@ -1,12 +1,14 @@
-import { useEffect, useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { ScrollView } from 'react-native-gesture-handler';
 
 import {
   Box,
   Center,
   IconButton,
   Select,
+  Token,
   Typography,
 } from '@onekeyhq/components';
 
@@ -134,6 +136,37 @@ const DesktopChart = () => {
   );
 };
 
+const DesktopChartLabel = () => {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  return (
+    <Box flexDirection="row">
+      <Box flexDirection="row">
+        <Center
+          w="9"
+          bg="background-default"
+          borderRadius="full"
+          overflow="hidden"
+        >
+          <Token token={inputToken} size={8} />
+        </Center>
+        <Center
+          w="9"
+          ml="-4"
+          bg="background-default"
+          borderRadius="full"
+          overflow="hidden"
+        >
+          <Token token={outputToken} size={8} />
+        </Center>
+      </Box>
+      <Typography.Heading ml="2" color="text-default" fontSize={18}>
+        {inputToken?.symbol.toUpperCase()} / {outputToken?.symbol.toUpperCase()}
+      </Typography.Heading>
+    </Box>
+  );
+};
+
 export const Desktop = () => {
   const navigation = useNavigation();
   const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
@@ -144,7 +177,7 @@ export const Desktop = () => {
   const mode = swapChartMode || 'chart';
 
   return (
-    <Box>
+    <ScrollView>
       <DesktopHeader />
       <Box mt="12">
         <Box
@@ -154,7 +187,9 @@ export const Desktop = () => {
         >
           {mode === 'chart' ? (
             <Box>
-              <Box h="52px" />
+              <Box minH="52px">
+                <DesktopChartLabel />
+              </Box>
               <DesktopChart />
             </Box>
           ) : null}
@@ -163,6 +198,6 @@ export const Desktop = () => {
           </Box>
         </Box>
       </Box>
-    </Box>
+    </ScrollView>
   );
 };

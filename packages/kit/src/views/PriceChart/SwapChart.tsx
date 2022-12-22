@@ -4,6 +4,8 @@ import type { FC } from 'react';
 import { Box } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import { useInterval } from '../../hooks';
+
 import { fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
@@ -25,9 +27,17 @@ type IFetchDataParams = {
 
 const getHours = () => String(Math.ceil(Date.now() / (1000 * 60 * 60)));
 
+function useHours() {
+  const [state, setState] = useState(getHours());
+  const cb = useCallback(() => setState(getHours()), []);
+  useInterval(cb, 1000 * 60 * 30);
+  return state;
+}
+
 const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
   const [count, setCount] = useState(0);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
+  const hours = useHours();
 
   const dataMap = useRef<
     Record<string, Record<string, Record<string, MarketApiData[][]>>>
@@ -39,7 +49,6 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
     async (params: IFetchDataParams) => {
       const { contractAdress, newTimeValue, networkId } = params;
       const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
-      const hours = getHours();
       const cacheData =
         dataMap.current?.[networkId]?.[contractAdress]?.[hours]?.[newTimeIndex];
       if (!cacheData) {
@@ -72,7 +81,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
         }
       }
     },
-    [dataMap],
+    [dataMap, hours],
   );
 
   useEffect(() => {
@@ -111,7 +120,6 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
   );
 
   const data = useMemo(() => {
-    const hours = getHours();
     const fromData =
       dataMap.current[fromToken.networkId]?.[fromToken.tokenIdOnNetwork]?.[
         hours
@@ -134,7 +142,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
     }
     return [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toToken, fromToken, selectedTimeIndex, count]);
+  }, [toToken, fromToken, selectedTimeIndex, count, hours]);
 
   return (
     <Box style={style}>
