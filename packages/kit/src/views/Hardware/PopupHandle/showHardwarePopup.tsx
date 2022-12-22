@@ -1,6 +1,5 @@
 import type { ReactElement } from 'react';
 
-import { UI_RESPONSE } from '@onekeyfe/hd-core';
 import { Modal as NBModal } from 'native-base';
 import { PermissionsAndroid } from 'react-native';
 import Modal from 'react-native-modal';
@@ -12,6 +11,7 @@ import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { HardwareUiEventPayload } from '@onekeyhq/kit/src/store/reducers/hardware';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import EnterPassphraseView from './EnterPassphrase';
@@ -98,6 +98,7 @@ export default async function showHardwarePopup({
     }
   };
 
+  const { UI_RESPONSE } = await CoreSDKLoader();
   if (uiRequest === UI_REQUEST.REQUEST_PIN) {
     const deviceType = payload?.deviceType ?? 'classic';
 

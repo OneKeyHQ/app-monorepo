@@ -10,7 +10,6 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
@@ -25,6 +24,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   COINTYPE_BTC,
@@ -89,7 +89,10 @@ import {
   WALLET_TYPE_WATCHING,
 } from './types/wallet';
 import { Validators } from './validators';
-import { createVaultHelperInstance } from './vaults/factory';
+import {
+  createVaultHelperInstance,
+  createVaultSettings,
+} from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -500,6 +503,7 @@ class Engine {
     if (id.length === 0) {
       throw new OneKeyInternalError('Bad device identity.');
     }
+    const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
     const deviceId = features.device_id ?? '';
     const deviceType = getDeviceType(features);
     const deviceUUID = getDeviceUUID(features);
@@ -2041,10 +2045,8 @@ class Engine {
   }
 
   _getVaultSettings = memoizee(
-    async (networkId: string) => {
-      const vault = await this.getChainOnlyVault(networkId);
-      return vault.settings;
-    },
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async (networkId: string) => createVaultSettings({ networkId }),
     {
       promise: true,
       primitive: true,
@@ -2087,7 +2089,7 @@ class Engine {
       let rawTxPreDecoded: string | undefined;
 
       try {
-        const vaultHelper = createVaultHelperInstance({
+        const vaultHelper = await createVaultHelperInstance({
           networkId,
           accountId,
         });

@@ -12,7 +12,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
-import { DBAccount } from '../../../types/account';
 import { TxStatus } from '../../../types/covalent';
 import {
   IDecodedTxActionType,
@@ -121,8 +120,7 @@ export default class Vault extends VaultBase {
 
   // TODO rename to prop get client();
   async _getNearCli(): Promise<NearCli> {
-    const nearCli2 = await (this.engineProvider as NearProvider).nearCli;
-
+    // const nearCli2 = await (this.engineProvider as NearProvider).nearCli;
     const { rpcURL } = await this.getNetwork();
     const nearCli = await this._createNearCli(rpcURL, this.networkId);
     return nearCli;
@@ -137,13 +135,14 @@ export default class Vault extends VaultBase {
   } = {}): Promise<string> {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
 
-    const verifier = this.engine.providerManager.getVerifier(
-      this.networkId,
-      // Before commit a7430c1038763d8d7f51e7ddfe1284e3e0bcc87c, pubkey was stored
+    const pub = // Before commit a7430c1038763d8d7f51e7ddfe1284e3e0bcc87c, pubkey was stored
       // in hexstring, afterwards it is stored using encoded format.
       dbAccount.pub.startsWith('ed25519:')
         ? baseDecode(dbAccount.pub.split(':')[1]).toString('hex')
-        : dbAccount.pub,
+        : dbAccount.pub;
+    const verifier = this.engine.providerManager.getVerifier(
+      this.networkId,
+      pub,
     );
     const pubKeyBuffer = await verifier.getPubkey(true);
 
@@ -361,7 +360,7 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
   ): Promise<string> {
     // TODO check dbAccount address match transferInfo.from
-    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    // const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
 
     const actions = [];
 

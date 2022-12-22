@@ -49,4 +49,10 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           npm i -g expo-cli && yarn
+
+      - name: Run Tests
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: "--max_old_space_size=4096"
+        run: |
           yarn test

@@ -1,10 +1,3 @@
-import {
-  DEVICE,
-  FIRMWARE,
-  FIRMWARE_EVENT,
-  LOG_EVENT,
-  getDeviceType,
-} from '@onekeyfe/hd-core';
 import { get } from 'lodash';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -24,7 +17,6 @@ import {
   InitIframeLoadFail,
   InitIframeTimeout,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
-import { getHardwareSDKInstance } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
 import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
@@ -34,6 +26,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  CoreSDKLoader,
+  getHardwareSDKInstance,
+} from '@onekeyhq/shared/src/device/hardwareInstance';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -69,10 +65,12 @@ class ServiceHardware extends ServiceBase {
   featuresCache: Record<string, IOneKeyDeviceFeatures> = {};
 
   async getSDKInstance() {
-    return getHardwareSDKInstance().then((instance) => {
+    return getHardwareSDKInstance().then(async (instance) => {
       if (!this.registeredEvents) {
         this.registeredEvents = true;
 
+        const { LOG_EVENT, DEVICE, FIRMWARE, FIRMWARE_EVENT } =
+          await CoreSDKLoader();
         instance.on('UI_EVENT', (e) => {
           const { type, payload } = e;
 
@@ -236,6 +234,7 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async getFeatures(connectId: string) {
     const hardwareSDK = await this.getSDKInstance();
+    const { getDeviceType } = await CoreSDKLoader();
     const response = await hardwareSDK?.getFeatures(connectId);
 
     if (response.success) {

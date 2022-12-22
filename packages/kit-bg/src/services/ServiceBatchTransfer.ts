@@ -1,5 +1,4 @@
 import { providers as multicall } from '@0xsequence/multicall';
-import { wait } from '@onekeyfe/hd-core';
 import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import { Contract } from 'ethers';
@@ -11,13 +10,14 @@ import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   ISetApprovalForAll,
-  ISignedTx,
+  ISignedTxPro,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
@@ -146,6 +146,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const { engine } = this.backgroundApi;
     const { networkId, pendingTxs, encodedTx } = params;
     const network = await engine.getNetwork(networkId);
+    const { wait } = await CoreSDKLoader();
     let sendTxRetry = 0;
     let refreshPendingTxsRetry = 0;
     if (
@@ -156,7 +157,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
         batchTransferContractAddress[network.id]
     ) {
       // Make sure to call the batch sending contract after approves take effect
-      let signedTx: ISignedTx | null = null;
+      let signedTx: ISignedTxPro | null = null;
       const refreshPendingTxs = async () => {
         const txs = await engine.providerManager.refreshPendingTxs(
           networkId,

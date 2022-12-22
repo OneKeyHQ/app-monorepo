@@ -4,7 +4,10 @@ import { isEmpty, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { GroupingList, ListItem } from '@onekeyhq/components';
-import type { IDecodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IDecodedTx,
+  ISignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
@@ -132,7 +135,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       };
 
       const onSuccess: BatchSendProgressParams['onSuccess'] = async (
-        txs: ISignedTx[],
+        txs: ISignedTxPro[],
         data,
       ) => {
         serviceToken.fetchAccountTokens({
