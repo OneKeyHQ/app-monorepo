@@ -1,31 +1,29 @@
 import type { FC } from 'react';
 import { useEffect, useState } from 'react';
 
-import NetInfo, { NetInfoStateType } from '@react-native-community/netinfo';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Box, Icon, Typography } from '@onekeyhq/components';
-import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 
-setTimeout(() => {
-  NetInfo.configure({
-    reachabilityUrl: `${getFiatEndpoint()}/health`,
-  });
-}, 300);
+import { useActiveWalletAccount } from '../../hooks';
+import { useRpcMeasureStatus } from '../ManageNetworks/hooks';
 
 const OfflineView: FC = () => {
   const intl = useIntl();
   const [offline, setOffline] = useState(false);
 
+  const { networkId } = useActiveWalletAccount();
+
+  const { status } = useRpcMeasureStatus(networkId);
+
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setOffline(state.type === NetInfoStateType.none);
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+    if (status && typeof status?.responseTime === 'undefined') {
+      setOffline(true);
+    } else {
+      setOffline(false);
+    }
+  }, [status]);
 
   if (!offline) {
     return null;
