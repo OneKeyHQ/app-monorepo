@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -32,12 +33,15 @@ import PressableListItem from './PressableListItem';
 import TermsOfService from './TermsOfService';
 
 import type { IOnboardingRoutesParams } from '../../routes/types';
+import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
   IOnboardingRoutesParams,
   EOnboardingRoutes.Welcome
 >;
+
+type RouteProps = RouteProp<IOnboardingRoutesParams, EOnboardingRoutes.Welcome>;
 
 const Welcome = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -47,6 +51,9 @@ const Welcome = () => {
   if (process.env.NODE_ENV !== 'production') {
     global.$$navigationActions = navigationActions;
   }
+
+  const route = useRoute<RouteProps>();
+  const disableAnimation = !!route?.params?.disableAnimation;
 
   useEffect(() => {
     (async function () {
@@ -111,6 +118,7 @@ const Welcome = () => {
         backButton={false}
         pt={{ base: isSmallHeight ? 8 : 20, sm: 0 }}
         scaleFade
+        disableAnimation={disableAnimation}
       >
         <Icon name="BrandLogoIllus" size={48} />
         <Text typography={{ sm: 'DisplayXLarge', md: 'Display2XLarge' }} mt={6}>
