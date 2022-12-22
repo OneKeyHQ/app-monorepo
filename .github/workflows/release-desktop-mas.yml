@@ -89,21 +89,19 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=8192"
         run: |
           npm i -g expo-cli && yarn
-      
+
       - name: Install electron-builder v23
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd ./packages/desktop && yarn add electron-builder@23.6.0
-      
+
       - name: Inject Environment Variables
         env:
-          CLOUNDINARY_NAME: ${{ secrets.CLOUNDINARY_NAME }}
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           MOONPAY_KEY: ${{ secrets.MOONPAY_KEY }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
-          echo "CLOUNDINARY_NAME=${{ env.CLOUNDINARY_NAME }}" >> .env
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
