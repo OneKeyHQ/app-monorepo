@@ -1,7 +1,6 @@
 import type { ComponentProps, FC } from 'react';
 
 import Address from '../Address';
-import Avatar from '../Avatar';
 import Box from '../Box';
 import Typography from '../Typography';
 
@@ -56,26 +55,14 @@ const getIconSize = (size: AvatarSizeVariant | null | undefined): number => {
 };
 
 const Account: FC<AccountProps> = ({
-  hiddenAvatar,
   name,
   address,
   amount,
-  avatarSize,
   priorityAmount,
   notShowAddress,
   containerProps = {},
   color,
 }) => {
-  let avatarSizeNumber = getIconSize(avatarSize);
-  let avatarMarginRight = 3;
-  let avatarAlign = 'center';
-
-  if (avatarSize === 'sm') {
-    avatarSizeNumber = 5;
-    avatarMarginRight = 2;
-    avatarAlign = 'flex-start';
-  }
-
   let primaryContent: string | null = null;
   let hasPrimaryAddress = false;
   let hasSecondAddress = false;
@@ -100,16 +87,6 @@ const Account: FC<AccountProps> = ({
       justifyContent="flex-start"
       {...containerProps}
     >
-      {!hiddenAvatar && (
-        <Box justifyContent={avatarAlign} mr={avatarMarginRight}>
-          <Avatar
-            address={address ?? ''}
-            // @ts-expect-error
-            seed={address}
-            size={avatarSizeNumber * 4}
-          />
-        </Box>
-      )}
       {!!(
         primaryContent ||
         secondContent ||
