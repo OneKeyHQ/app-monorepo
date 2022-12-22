@@ -114,6 +114,9 @@ export const HistoryRequest: FC = () => {
       case 'empty':
         return (
           <>
+            <Box position="absolute" top={0} left={0} right={0}>
+              {HintView}
+            </Box>
             <Empty
               emoji="💬"
               title={intl.formatMessage({ id: 'title__no_request_history' })}
@@ -125,9 +128,6 @@ export const HistoryRequest: FC = () => {
               })}
               handleAction={SubmitRequestAction}
             />
-            <Box position="absolute" top={0} width={`${width - 32}px`}>
-              {HintView}
-            </Box>
           </>
         );
       case 'loading':
@@ -239,7 +239,12 @@ export const HistoryRequest: FC = () => {
       }
     >
       {pageStatus !== 'data' ? (
-        <Box flex={1} alignItems="center" justifyContent="center">
+        <Box
+          flex={1}
+          alignItems="center"
+          justifyContent="center"
+          position="relative"
+        >
           {noData()}
         </Box>
       ) : null}

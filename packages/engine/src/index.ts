@@ -89,7 +89,10 @@ import {
   WALLET_TYPE_WATCHING,
 } from './types/wallet';
 import { Validators } from './validators';
-import { createVaultHelperInstance } from './vaults/factory';
+import {
+  createVaultHelperInstance,
+  createVaultSettings,
+} from './vaults/factory';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -2041,10 +2044,8 @@ class Engine {
   }
 
   _getVaultSettings = memoizee(
-    async (networkId: string) => {
-      const vault = await this.getChainOnlyVault(networkId);
-      return vault.settings;
-    },
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async (networkId: string) => createVaultSettings({ networkId }),
     {
       promise: true,
       primitive: true,
@@ -2087,7 +2088,7 @@ class Engine {
       let rawTxPreDecoded: string | undefined;
 
       try {
-        const vaultHelper = createVaultHelperInstance({
+        const vaultHelper = await createVaultHelperInstance({
           networkId,
           accountId,
         });

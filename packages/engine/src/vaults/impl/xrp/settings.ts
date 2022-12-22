@@ -1,6 +1,6 @@
 import type { IVaultSettings } from '../../types';
 
-const settings: IVaultSettings = {
+const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: true,
   privateKeyExportEnabled: true,
   tokenEnabled: false,
@@ -16,6 +16,6 @@ const settings: IVaultSettings = {
   isUTXOModel: false,
 
   cannotSendToSelf: true,
-};
+});
 
 export default settings;

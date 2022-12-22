@@ -14,12 +14,10 @@ import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
 } from '../../types';
 import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // TODO move to abstract attribute
 // m/44'/397'/0', m/44'/397'/1', m/44'/397'/2'
@@ -98,16 +96,23 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  override async signTransaction(
-    unsignedTx: UnsignedTx,
+  async getSigner(
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const dbAccount = await this.getDbAccount();
+    { address }: { address: string },
+  ) {
+    const signers = await this.getSigners(options?.password || '', [address]);
+    const signer = signers[address];
+    return signer;
+  }
 
-    const signers = await this.getSigners(options.password || '', [
-      dbAccount.address,
-    ]);
-    const signer = signers[dbAccount.address];
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    const dbAccount = await this.getDbAccount();
+    const signer = await this.getSigner(options, {
+      address: dbAccount.address,
+    });
 
     return signTransaction(unsignedTx, signer);
   }

@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/components';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import type { IEncodedTx, ISignedTx } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -104,8 +107,8 @@ function SendProgress({
     return waitUntilInProgress();
   }, [progressState]);
 
-  const sendTxs = useCallback(async (): Promise<ISignedTx[]> => {
-    const result: ISignedTx[] = [];
+  const sendTxs = useCallback(async (): Promise<ISignedTxPro[]> => {
+    const result: ISignedTxPro[] = [];
     for (let i = 0; i < encodedTxs.length; i += 1) {
       await waitUntilInProgress();
       setCurrentProgress(i + 1);
@@ -121,7 +124,7 @@ function SendProgress({
             id: tx.txid,
           })),
         });
-      result.push(signedTx as ISignedTx);
+      result.push(signedTx as ISignedTxPro);
       await wait(3000);
       debugLogger.sendTx.info(
         'Authentication sendTx DONE:',
@@ -150,7 +153,7 @@ function SendProgress({
       submitted.current = true;
       let submitEncodedTxs: IEncodedTx[] = encodedTxs;
       let result: any;
-      let signedTxs: ISignedTx[] = [];
+      let signedTxs: ISignedTxPro[] = [];
 
       if (!isEmpty(submitEncodedTxs)) {
         signedTxs = await sendTxs();
@@ -161,7 +164,12 @@ function SendProgress({
         }
 
         // encodedTx will be edit by buildUnsignedTx, re-assign encodedTx
-        const encodedTxsTemp = map(signedTxs, 'encodedTx');
+        const encodedTxsTemp = map(signedTxs, 'encodedTx').filter(Boolean);
+        if (encodedTxsTemp.length !== signedTxs.length) {
+          throw new Error(
+            'signedTxs including null encodedTx, please check code',
+          );
+        }
         submitEncodedTxs = isEmpty(encodedTxsTemp)
           ? submitEncodedTxs
           : encodedTxsTemp;
