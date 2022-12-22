@@ -31,7 +31,7 @@ interface ColumnItem {
     isVertical: boolean;
     pools: IOverviewDeFiPortfolioItem[];
   }) => boolean;
-  boxProps?: ComponentProps<typeof Box>;
+  boxProps?: ComponentProps<typeof VStack>;
 }
 
 const GenernalTokens = ({
@@ -264,16 +264,19 @@ export const OverviewDefiPool: FC<{
     return () => (
       <ListItem borderBottomWidth="1px" borderBottomColor="divider">
         {columns.map((c, i) => (
-          <ListItem.Column
+          <Box
             key={c.header}
             flex="1"
-            text={{
-              label: intl.formatMessage({ id: c.header }),
-            }}
             pl={i === 0 ? '6' : 0}
             pr={i === len - 1 ? '6' : 0}
             {...(c.boxProps ?? {})}
-          />
+          >
+            <ListItem.Column
+              text={{
+                label: intl.formatMessage({ id: c.header }),
+              }}
+            />
+          </Box>
         ))}
       </ListItem>
     );
