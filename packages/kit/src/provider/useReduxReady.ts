@@ -9,52 +9,48 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../hooks/useAppSelector';
-import { setIsReduxReady } from '../store/reducers/data';
+import { setIsExtUiReduxReady } from '../store/reducers/data';
 
 export function useReduxReady() {
-  const isReduxReady = useAppSelector((s) => s.data.isReduxReady);
+  const isExtUiReduxReady = useAppSelector((s) =>
+    platformEnv.isExtensionUi ? s.data.isExtUiReduxReady : true,
+  );
   const [isReady, setIsReady] = useState(false);
   useEffect(() => {
-    if (!isReady) {
-      waitForDataLoaded({
-        logName: 'WaitBackgroundReady @ ThemeApp',
-        wait: 300,
-        data: async () => {
-          const result = await backgroundApiProxy.getState();
-          if (result && result.bootstrapped) {
-            if (platformEnv.isExtensionUi) {
-              // ext will sync the whole redux state between ext and ui
-              const store = (await import('../store')).default;
+    waitForDataLoaded({
+      logName: 'WaitBackgroundReady @ ThemeApp',
+      wait: 300,
+      data: async () => {
+        const result = await backgroundApiProxy.getState();
+        if (result && result.bootstrapped) {
+          const store = (await import('../store')).default;
+          if (platformEnv.isExtensionUi) {
+            // ext will sync the whole redux state between ext and ui
+            store.dispatch({
+              // TODO use consts
+              type: 'REPLACE_WHOLE_STATE',
+              payload: result.state,
+              $isDispatchFromBackground: true,
+            });
+            setTimeout(() => {
               store.dispatch({
-                // TODO use consts
-                type: 'REPLACE_WHOLE_STATE',
-                payload: result.state,
+                ...setIsExtUiReduxReady(),
                 $isDispatchFromBackground: true,
               });
-              setTimeout(() => {
-                store.dispatch({
-                  ...setIsReduxReady(),
-                  $isDispatchFromBackground: true,
-                });
-              });
-            } else {
-              // other platforms just check result.bootstrapped
-              setIsReady(true);
-            }
-            return true;
+            });
           }
-          return false;
-        },
+          return true;
+        }
+        return false;
+      },
+    });
+    if (!platformEnv.isExtension) {
+      appEventBus.once(AppEventBusNames.StoreInitedFromPersistor, () => {
+        setIsReady(true);
       });
-      if (!platformEnv.isExtension) {
-        appEventBus.once(AppEventBusNames.StoreInitedFromPersistor, () => {
-          // platforms other than ext just check persistor init event
-          setIsReady(true);
-        });
-      }
     }
-  }, [isReady]);
+  }, []);
   return {
-    isReady: platformEnv.isExtension ? isReduxReady : isReady,
+    isReady: platformEnv.isExtensionUi ? isExtUiReduxReady : isReady,
   };
 }
