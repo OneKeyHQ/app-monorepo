@@ -19,16 +19,17 @@ import LogoWhite from '@onekeyhq/components/src/Icon/react/illus/LogoWhite';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../../../hooks/useFormatDate';
+import { setLoading } from '../../../../store/reducers/swap';
 import { PriceString } from '../../PriceText';
 
-import { NPLCardGroup } from './NPLCard';
+import { PNLCardGroup } from './PNLCard';
 
 import type { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   NFTMarketRoutesParams,
-  NFTMarketRoutes.ShareNFTNPLModal
+  NFTMarketRoutes.ShareNFTPNLModal
 >;
 
 const getShareModule = async () => {
@@ -102,7 +103,7 @@ const Share = () => {
   totalValue = PriceString({ price: totalValue, networkId: network.id });
 
   const shareAction = useCallback(() => {
-    setTimeout(onCapture, 1000);
+    setTimeout(onCapture, 100);
   }, [onCapture]);
 
   const [selectRange, setSelectedRange] = useState(0);
@@ -163,7 +164,7 @@ const Share = () => {
                     {date}
                   </Text>
                 </Box>
-                <NPLCardGroup
+                <PNLCardGroup
                   datas={assets.slice(0, 3).reverse()}
                   width="full"
                   height="102px"

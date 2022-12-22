@@ -87,7 +87,7 @@ type FetchQuoteHttpLimit = {
 };
 
 type FetchQuoteHttpResponse = {
-  result?: FetchQuoteHttpResult;
+  result: FetchQuoteHttpResult;
   limit?: FetchQuoteHttpLimit;
 };
 
@@ -208,55 +208,69 @@ export class SwapQuoter {
   }
 
   async buildQuote({
+    responses,
     params,
-    data,
   }: {
-    data: FetchQuoteHttpResponse | undefined;
+    responses: FetchQuoteHttpResponse[] | undefined;
     params: FetchQuoteParams;
-  }): Promise<FetchQuoteResponse | undefined> {
-    if (!data || !data.result) {
+  }): Promise<FetchQuoteResponse[] | undefined> {
+    if (!responses || responses.length === 0) {
       return undefined;
     }
-    const fetchQuote = data.result;
 
-    const result = {
-      type: fetchQuote.quoter as QuoterType,
-      instantRate: fetchQuote.instantRate,
-      sellAmount: fetchQuote.sellAmount,
-      sellTokenAddress: fetchQuote.sellTokenAddress,
-      buyAmount: fetchQuote.buyAmount,
-      buyTokenAddress: fetchQuote.buyTokenAddress,
-      providers: fetchQuote.sources,
-      percentageFee: fetchQuote.percentageFee,
-      allowanceTarget: fetchQuote.allowanceTarget,
-      arrivalTime: fetchQuote.arrivalTime,
-      needApproved: false,
-    };
+    const spenders = responses
+      .filter((item) => item.result?.allowanceTarget)
+      .map((o) => o.result.allowanceTarget) as string[];
 
-    if (result.allowanceTarget) {
-      const allowance = await backgroundApiProxy.engine.getTokenAllowance({
-        networkId: params.tokenIn.networkId,
-        accountId: params.activeAccount.id,
-        tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
-        spender: result.allowanceTarget,
+    const allowances = await backgroundApiProxy.engine.batchTokensAllowance({
+      networkId: params.tokenIn.networkId,
+      accountId: params.activeAccount.id,
+      tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
+      spenders,
+    });
+
+    let spendersAllowance: Record<string, number> | undefined;
+
+    if (allowances && allowances.length === spenders.length) {
+      spenders.forEach((spender, index) => {
+        const allowance = allowances[index];
+        if (!spendersAllowance) {
+          spendersAllowance = {};
+        }
+        spendersAllowance[spender] = allowance;
       });
-      if (allowance) {
-        result.needApproved = new BigNumber(
-          getTokenAmountString(params.tokenIn, allowance),
-        ).lt(result.sellAmount);
+    }
+
+    return responses.map((response) => {
+      const fetchQuote = response.result;
+      const data = {
+        type: fetchQuote.quoter as QuoterType,
+        instantRate: fetchQuote.instantRate,
+        sellAmount: fetchQuote.sellAmount,
+        sellTokenAddress: fetchQuote.sellTokenAddress,
+        buyAmount: fetchQuote.buyAmount,
+        buyTokenAddress: fetchQuote.buyTokenAddress,
+        providers: fetchQuote.sources,
+        percentageFee: fetchQuote.percentageFee,
+        allowanceTarget: fetchQuote.allowanceTarget,
+        arrivalTime: fetchQuote.arrivalTime,
+        needApproved: false,
+      };
+
+      if (data.allowanceTarget && spendersAllowance) {
+        const allowanceValue = spendersAllowance[data.allowanceTarget];
+        if (allowanceValue !== undefined && fetchQuote.sellAmount) {
+          data.needApproved = Number(fetchQuote.sellAmount) > allowanceValue;
+        }
       }
-    }
 
-    let limited: QuoteLimited | undefined;
+      let limited: QuoteLimited | undefined;
 
-    if (data.limit) {
-      limited = { max: data.limit.max, min: data.limit.min };
-    }
-
-    return {
-      data: result,
-      limited,
-    };
+      if (response.limit) {
+        limited = { max: response.limit.max, min: response.limit.min };
+      }
+      return { data, limited };
+    });
   }
 
   async fetchQuote(
@@ -283,11 +297,12 @@ export class SwapQuoter {
 
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const data = res.data?.data as FetchQuoteHttpResponse | undefined;
-    if (!data) {
+    const response = res.data?.data as FetchQuoteHttpResponse | undefined;
+    if (!response) {
       return undefined;
     }
-    return this.buildQuote({ params, data });
+    const result = await this.buildQuote({ responses: [response], params });
+    return result?.[0];
   }
 
   async fetchQuotes(
@@ -307,19 +322,19 @@ export class SwapQuoter {
 
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const data = res.data?.data as FetchQuoteHttpResponse[] | undefined;
+    const responses = res.data?.data as FetchQuoteHttpResponse[] | undefined;
 
-    if (!data) {
+    if (!responses) {
       return;
     }
 
-    const promises = data.map((item) =>
-      this.buildQuote({ params, data: item }),
-    );
+    const result = await this.buildQuote({ responses, params });
 
-    const result = await Promise.all(promises);
+    if (!result) {
+      return;
+    }
 
-    return result.filter((o) => Boolean(o)) as FetchQuoteResponse[];
+    return result.filter((o) => Boolean(o));
   }
 
   async buildTransaction(

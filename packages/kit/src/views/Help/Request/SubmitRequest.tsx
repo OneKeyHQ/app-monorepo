@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
-import * as ImagePicker from 'expo-image-picker';
+import { MediaTypeOptions, launchImageLibraryAsync } from 'expo-image-picker';
 import { Row, ZStack } from 'native-base';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -163,8 +163,8 @@ export const SubmitRequest: FC = () => {
   const imageWidth = (modalWidth - padding * 2) / 4;
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
   const pickImage = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const result = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
       allowsEditing: false,
       base64: true,
       aspect: [4, 3],

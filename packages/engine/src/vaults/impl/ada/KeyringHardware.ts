@@ -4,11 +4,7 @@ import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import {
-  NotImplemented,
-  OneKeyHardwareError,
-  OneKeyInternalError,
-} from '../../../errors';
+import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -25,6 +21,7 @@ import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
+import type { IUnsignedMessageEvm } from '../evm/Vault';
 import type { IEncodedTxADA } from './types';
 import type AdaVault from './Vault';
 import type {
@@ -61,7 +58,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       },
       networkId: NetworkId.MAINNET,
       protocolMagic: 764824073,
-      derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
+      derivationType: PROTO.CardanoDerivationType.ICARUS,
       showOnOneKey,
     })) as CardanoGetAddressMethodParams[];
 
@@ -183,7 +180,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       ),
       fee,
       protocolMagic: ProtocolMagic,
-      derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
+      derivationType: PROTO.CardanoDerivationType.ICARUS,
       networkId: NetworkId.MAINNET,
       // TODO: certificates, withdrawals
     });
@@ -207,7 +204,41 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  signMessage(): Promise<string[]> {
-    throw new NotImplemented();
+  override async signMessage(
+    messages: IUnsignedMessageEvm[],
+  ): Promise<string[]> {
+    debugLogger.common.info('signMessage', messages);
+    const dbAccount = await this.getDbAccount();
+
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const HardwareSDK = await this.getHardwareSDKInstance();
+
+    const result = await Promise.all(
+      messages.map(
+        // @ts-expect-error
+        async ({ payload }: { payload: { addr: string; payload: string } }) => {
+          const response = await HardwareSDK.cardanoSignMessage(
+            connectId,
+            deviceId,
+            {
+              ...passphraseState,
+              path: dbAccount.path,
+              networkId: NetworkId.MAINNET,
+              derivationType: PROTO.CardanoDerivationType.ICARUS,
+              message: payload.payload,
+            },
+          );
+
+          if (!response.success) {
+            throw convertDeviceError(response.payload);
+          }
+
+          return response.payload;
+        },
+      ),
+    );
+
+    return result.map((ret) => JSON.stringify(ret));
   }
 }

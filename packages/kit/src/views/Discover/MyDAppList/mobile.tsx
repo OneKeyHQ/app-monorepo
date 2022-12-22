@@ -195,6 +195,7 @@ const Mobile = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      // eslint-disable-next-line
       headerRight: () => (selectedIndex === 0 ? null : <TrashButton />),
     });
   }, [navigation, selectedIndex]);

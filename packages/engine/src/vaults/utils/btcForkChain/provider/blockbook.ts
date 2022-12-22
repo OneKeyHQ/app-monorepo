@@ -4,6 +4,7 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { TransactionStatus } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import type {
   ChainInfo,
@@ -28,9 +29,16 @@ type ClientInfo = {
 class BlockBook {
   readonly request: AxiosInstance;
 
+  readonly backendRequest: AxiosInstance;
+
   constructor(url: string) {
     this.request = axios.create({
       baseURL: url,
+      timeout: 20000,
+    });
+
+    this.backendRequest = axios.create({
+      baseURL: `${getFiatEndpoint()}/book`,
       timeout: 20000,
     });
   }
@@ -185,6 +193,24 @@ class BlockBook {
 
       throw e;
     }
+  }
+
+  async getHistory(
+    network: string,
+    address: string,
+    xpub: string,
+    symbol: string,
+    decimals: number,
+  ): Promise<any> {
+    return this.backendRequest
+      .post('/history', {
+        network,
+        address,
+        xpub,
+        symbol,
+        decimals,
+      })
+      .then((i) => i.data);
   }
 }
 

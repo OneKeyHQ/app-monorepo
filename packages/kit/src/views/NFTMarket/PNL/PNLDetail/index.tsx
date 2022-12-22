@@ -34,7 +34,7 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { NFTAsset, NFTNPL } from '@onekeyhq/engine/src/types/nft';
+import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
 import type {
   HomeRoutes,
   HomeRoutesParams,
@@ -63,15 +63,15 @@ import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
-type NPLData = {
+type PNLData = {
   totalProfit?: BigNumber;
   win?: number;
   lose?: number;
   spend?: BigNumber;
-  content: NFTNPL[];
+  content: NFTPNL[];
 };
 
-function parseNPLData(items: NFTNPL[]): NPLData {
+function parsePNLData(items: NFTPNL[]): PNLData {
   let totalProfit: BigNumber = new BigNumber(0);
   let totalSpend: BigNumber = new BigNumber(0);
   let win = 0;
@@ -192,7 +192,7 @@ type HeaderProps = {
   network: Network;
   accountAddress: string;
   onAddressSearch: (address: string) => void;
-} & NPLData;
+} & PNLData;
 
 const Header: FC<HeaderProps> = ({
   network,
@@ -245,7 +245,7 @@ const Header: FC<HeaderProps> = ({
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.NFTMarket,
       params: {
-        screen: NFTMarketRoutes.ShareNFTNPLModal,
+        screen: NFTMarketRoutes.ShareNFTPNLModal,
         params: {
           totalProfit,
           win,
@@ -288,7 +288,7 @@ const Header: FC<HeaderProps> = ({
           onChangeText={setNameOrAddress}
           rightIconName={showClearBtn ? 'XCircleMini' : undefined}
           rightElement={
-            <Center height="36px" right="8px">
+            <Center height="full" right="8px">
               {inputLoading === true ? <Spinner size="sm" /> : null}
             </Center>
           }
@@ -470,8 +470,8 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
     });
   }, [calculatorAction, connectAccountBtn, navigation, selectNetwork]);
 
-  const [listData, updateListData] = useState<NFTNPL[]>([]);
-  const allData = useRef<NPLData>({
+  const [listData, updateListData] = useState<NFTPNL[]>([]);
+  const allData = useRef<PNLData>({
     totalProfit: new BigNumber(0),
     lose: 0,
     win: 0,
@@ -480,7 +480,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   });
   const pageSize = 50;
   const currentPage = useRef<number>(0);
-  const [totalNPLData, updateTotalNPLData] = useState<Omit<NPLData, 'content'>>(
+  const [totalPNLData, updateTotalPNLData] = useState<Omit<PNLData, 'content'>>(
     {},
   );
   const [address, setAddress] = useState<string>(accountAddress);
@@ -518,6 +518,12 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
             item.asset = asset;
           }
         });
+        if (
+          listData.length + pageDatas.length >=
+          allData.current.content.length
+        ) {
+          setLoading(false);
+        }
         if (page === 0) {
           updateListData(pageDatas);
         } else {
@@ -525,18 +531,18 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         }
       }
     },
-    [selectNetwork?.id, serviceNFT],
+    [listData.length, selectNetwork?.id, serviceNFT],
   );
 
   const searchAction = useCallback(
     async (text: string) => {
-      const data = await serviceNFT.getNPLData({
+      const data = await serviceNFT.getPNLData({
         address: text,
       });
       // serviceNFT.setNPLAddress(text);
-      const parseData = parseNPLData(data);
+      const parseData = parsePNLData(data);
       allData.current = parseData;
-      updateTotalNPLData({
+      updateTotalPNLData({
         totalProfit: parseData.totalProfit,
         win: parseData.win,
         lose: parseData.lose,
@@ -551,7 +557,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 
   useEffect(() => {
     setLoading(true);
-    updateTotalNPLData({
+    updateTotalPNLData({
       totalProfit: new BigNumber(0),
       spend: new BigNumber(0),
       win: 0,
@@ -573,7 +579,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
           onAddressSearch={setAddress}
           content={allData.current.content}
           loading={listData.length === 0}
-          {...totalNPLData}
+          {...totalPNLData}
         />
       ),
       ListEmptyComponent: () => {
@@ -602,7 +608,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
       listData,
       loading,
       selectNetwork,
-      totalNPLData,
+      totalPNLData,
     ],
   );
 
@@ -619,7 +625,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 
 const NPLScreen = () => {
   const route =
-    useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTNPLScreen>>();
+    useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTPNLScreen>>();
   const { address: lastAddress } = route.params;
   const { network, account } = useActiveWalletAccount();
   const isEvmAddress = network?.impl === IMPL_EVM;

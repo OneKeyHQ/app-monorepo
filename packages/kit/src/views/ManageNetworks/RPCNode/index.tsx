@@ -32,6 +32,26 @@ type RouteProps = RouteProp<
   ManageNetworkRoutes.RPCNode
 >;
 
+const HeaderCollapse = () => {
+  const intl = useIntl();
+  return (
+    <Collapse
+      trigger={
+        <Typography.Body2Strong>
+          {intl.formatMessage({ id: 'content__what_is_node_height' })}
+        </Typography.Body2Strong>
+      }
+      pb="16px"
+    >
+      <Typography.Body2 px="8px" color="text-subdued">
+        {intl.formatMessage({
+          id: 'content__what_is_node_height_desc',
+        })}
+      </Typography.Body2>
+    </Collapse>
+  );
+};
+
 export const ManageNetworkRPCNode: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -147,16 +167,50 @@ export const ManageNetworkRPCNode: FC = () => {
     ],
   );
 
+  const measureRpcQueue = useCallback(
+    (rpcs: string[]) => {
+      let index = 0;
+      let queueCount = 0;
+
+      const startMeasure = (rpc: string) => {
+        queueCount += 1;
+        measureRpc(networkId, rpc)
+          .then((res) => {
+            setMeasureMap((prev) => ({
+              ...prev,
+              [rpc]: res,
+            }));
+          })
+          .finally(() => {
+            queueCount -= 1;
+          });
+      };
+
+      const interval = setInterval(() => {
+        while (queueCount < 3) {
+          startMeasure(rpcs[index]);
+          index += 1;
+        }
+        if (index >= rpcs.length) {
+          clearInterval(interval);
+          index = 0;
+        }
+      }, 600);
+    },
+    [networkId],
+  );
+
   useEffect(() => {
-    preset.concat(custom).forEach((rpc) => {
-      measureRpc(networkId, rpc).then((res) => {
-        setMeasureMap((prev) => ({
-          ...prev,
-          [rpc]: res,
-        }));
-      });
-    });
-  }, [custom, preset, networkId]);
+    const timeout = setTimeout(() => {
+      const rpcs = [...preset, ...custom];
+      if (!rpcs.length) {
+        return;
+      }
+      measureRpcQueue(rpcs);
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [custom, preset, measureRpcQueue]);
 
   return (
     <Modal
@@ -170,22 +224,7 @@ export const ManageNetworkRPCNode: FC = () => {
       hidePrimaryAction
     >
       <GroupingList
-        ListHeaderComponent={() => (
-          <Collapse
-            trigger={
-              <Typography.Body2Strong>
-                {intl.formatMessage({ id: 'content__what_is_node_height' })}
-              </Typography.Body2Strong>
-            }
-            pb="16px"
-          >
-            <Typography.Body2 px="8px" color="text-subdued">
-              {intl.formatMessage({
-                id: 'content__what_is_node_height_desc',
-              })}
-            </Typography.Body2>
-          </Collapse>
-        )}
+        ListHeaderComponent={HeaderCollapse}
         stickySectionHeadersEnabled={false}
         sections={GroupingListData}
         renderItem={({ item }) => {

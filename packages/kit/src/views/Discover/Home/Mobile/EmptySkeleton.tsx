@@ -7,6 +7,9 @@ type EmptySkeletonContentProps = {
   ListHeaderComponent: ComponentType<any> | ReactElement | null | undefined;
 };
 
+const ItemSeparatorComponent3 = () => <Box h="3" />;
+const ItemSeparatorComponent4 = () => <Box h="4" />;
+
 export const EmptySkeletonContent: FC<EmptySkeletonContentProps> = ({
   ListHeaderComponent,
 }) => (
@@ -37,7 +40,7 @@ export const EmptySkeletonContent: FC<EmptySkeletonContentProps> = ({
     showsHorizontalScrollIndicator={false}
     showsVerticalScrollIndicator={false}
     keyExtractor={(item) => String(item)}
-    ItemSeparatorComponent={() => <Box h="4" />}
+    ItemSeparatorComponent={ItemSeparatorComponent4}
   />
 );
 
@@ -52,7 +55,7 @@ export const EmptySkeleton = () => (
           marginBottom: 16,
         }}
         data={[1, 2, 3, 4]}
-        ItemSeparatorComponent={() => <Box w="3" />}
+        ItemSeparatorComponent={ItemSeparatorComponent3}
         renderItem={() => (
           <Box h="7" w="12" borderRadius={12} overflow="hidden">
             <CustomSkeleton />
