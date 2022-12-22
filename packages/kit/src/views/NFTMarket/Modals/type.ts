@@ -1,11 +1,7 @@
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type {
-  Collection,
-  MarketPlace,
-  NFTPNL,
-} from '@onekeyhq/engine/src/types/nft';
+import type { Collection, MarketPlace } from '@onekeyhq/engine/src/types/nft';
 
-import type { BigNumber } from 'bignumber.js';
+import type { PNLData } from '../PNL/PNLDetail';
 
 export enum NFTMarketRoutes {
   SearchModal = 'SearchModal',
@@ -41,14 +37,9 @@ export type NFTMarketRoutesParams = {
     ) => void;
   };
   [NFTMarketRoutes.ShareNFTPNLModal]: {
-    assets: NFTPNL[];
-    win?: number;
-    lose?: number;
-    totalProfit?: BigNumber;
     network: Network;
     nameOrAddress?: string;
-    startTime: number;
-    endTime: number;
+    data: PNLData;
   };
   [NFTMarketRoutes.CalculatorModal]: undefined;
   [NFTMarketRoutes.MarketPlaceScreen]: {
