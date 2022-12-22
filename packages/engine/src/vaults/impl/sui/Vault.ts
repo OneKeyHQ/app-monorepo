@@ -86,7 +86,7 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
-  ISignedTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -758,7 +758,9 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+  ): Promise<ISignedTxPro> {
     const client = await this.getClient();
 
     debugLogger.engine.info('broadcastTransaction START:', {

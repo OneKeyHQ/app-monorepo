@@ -289,7 +289,7 @@ const multipleEntryConfigs = [
   (isManifestV3 || isManifestV2) && {
     config: {
       name: 'bg',
-      dependencies: IS_DEV ? [] : ['ui'],
+      dependencies: IS_DEV ? ['ui'] : ['ui'],
       entry: {
         'background': path.join(__dirname, 'src/entry/background.ts'),
       },

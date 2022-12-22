@@ -4,7 +4,6 @@ export { default as Account } from './Account';
 export { default as Address } from './Address';
 export { default as Alert } from './Alert';
 export { default as AlertDialog } from './AlertDialog';
-export { default as Avatar } from './Avatar';
 export { default as Badge } from './Badge';
 export { default as Box } from './Box';
 export { default as BottomSheetModal } from './BottomSheetModal/BottomSheetModal';

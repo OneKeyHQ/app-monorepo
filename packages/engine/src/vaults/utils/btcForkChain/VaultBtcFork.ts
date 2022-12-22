@@ -53,7 +53,7 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
-  ISignedTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
   IVaultSettings,
@@ -502,7 +502,9 @@ export default class VaultBtcFork extends VaultBase {
     };
   }
 
-  override async broadcastTransaction(signedTx: ISignedTx): Promise<ISignedTx> {
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+  ): Promise<ISignedTxPro> {
     debugLogger.engine.info('broadcastTransaction START:', {
       rawTx: signedTx.rawTx,
     });

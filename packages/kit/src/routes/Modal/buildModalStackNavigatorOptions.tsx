@@ -99,6 +99,14 @@ export function buildModalOpenAnimationOptions({
       ...extAnimConfig.openModalAnim,
     };
   }
+
+  if (platformEnv.isNativeAndroid) {
+    return {
+      animation: 'none',
+      animationEnabled: false,
+    };
+  }
+
   if (isVerticalLayout) {
     return {
       animationEnabled: true,
@@ -141,6 +149,10 @@ export function buildModalStackNavigatorOptions({
   };
   if (!isNil(isVerticalLayout)) {
     options.animationEnabled = Boolean(isVerticalLayout);
+  }
+  if (platformEnv.isNativeAndroid) {
+    // @ts-expect-error
+    options.animation = 'none';
   }
   // Disable modal first screen navigation.replace() animation
   // @ts-ignore

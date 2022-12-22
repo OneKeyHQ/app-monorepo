@@ -1,4 +1,4 @@
-/* eslint-disable new-cap, @typescript-eslint/require-await */
+/* eslint-disable new-cap, @typescript-eslint/require-await, @typescript-eslint/no-unsafe-member-access */
 import {
   IMPL_ADA,
   IMPL_ALGO,
@@ -28,51 +28,100 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 
-import VaultAda from './impl/ada/Vault';
 import VaultHelperAda from './impl/ada/VaultHelper';
-import VaultAlgo from './impl/algo/Vault';
 import VaultHelperAlgo from './impl/algo/VaultHelper';
-import VaultAptos from './impl/apt/Vault';
 import VaultHelperAptos from './impl/apt/VaultHelper';
-import VaultBch from './impl/bch/Vault';
 import VaultHelperBch from './impl/bch/VaultHelper';
-import VaultBtc from './impl/btc/Vault';
 import VaultHelperBtc from './impl/btc/VaultHelper';
-import VaultCfx from './impl/cfx/Vault';
 import VaultHelperCfx from './impl/cfx/VaultHelper';
-import VaultCosmos from './impl/cosmos/Vault';
 import VaultHelperCosmos from './impl/cosmos/VaultHelper';
-import VaultDoge from './impl/doge/Vault';
 import VaultHelperDoge from './impl/doge/VaultHelper';
-import VaultEvm from './impl/evm/Vault';
 import VaultHelperEvm from './impl/evm/VaultHelper';
-import VaultFil from './impl/fil/Vault';
 import VaultHelperFil from './impl/fil/VaultHelper';
-import VaultLtc from './impl/ltc/Vault';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
-import VaultNear from './impl/near/Vault';
 import VaultHelperNear from './impl/near/VaultHelper';
-import VaultSol from './impl/sol/Vault';
 import VauleHelperSol from './impl/sol/VaultHelper';
-import VaultStc from './impl/stc/Vault';
 import VaultHelperStc from './impl/stc/VaultHelper';
-import VaultSui from './impl/sui/Vault';
 import VaultHelperSui from './impl/sui/VaultHelper';
-import VaultTbtc from './impl/tbtc/Vault';
 import VaultHelperTbtc from './impl/tbtc/VaultHelper';
-import VaultTron from './impl/tron/Vault';
 import VaultHelperTron from './impl/tron/VaultHelper';
-import VaultXrp from './impl/xrp/Vault';
 import VaultHelperXrp from './impl/xrp/VaultHelper';
 
 import type { KeyringBase } from './keyring/KeyringBase';
-import type { IVaultFactoryOptions, IVaultOptions } from './types';
+import type {
+  IVaultFactoryOptions,
+  IVaultOptions,
+  IVaultSettings,
+} from './types';
 import type { VaultBase } from './VaultBase';
 import type { VaultHelperBase } from './VaultHelperBase';
 
-export function createVaultHelperInstance(
+export function createVaultSettings(options: {
+  networkId: string;
+}): IVaultSettings {
+  const impl = getNetworkImpl(options.networkId);
+  if (impl === IMPL_EVM) {
+    return require('./impl/evm/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_NEAR) {
+    return require('./impl/near/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_CFX) {
+    return require('./impl/cfx/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_BTC) {
+    return require('./impl/btc/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_TBTC) {
+    return require('./impl/tbtc/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_STC) {
+    return require('./impl/stc/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_SOL) {
+    return require('./impl/sol/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_TRON) {
+    return require('./impl/tron/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_APTOS) {
+    return require('./impl/apt/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_DOGE) {
+    return require('./impl/doge/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_LTC) {
+    return require('./impl/ltc/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_ALGO) {
+    return require('./impl/algo/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_BCH) {
+    return require('./impl/bch/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_XRP) {
+    return require('./impl/xrp/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_COSMOS) {
+    return require('./impl/cosmos/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_ADA) {
+    return require('./impl/ada/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_SUI) {
+    return require('./impl/sui/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_FIL) {
+    return require('./impl/fil/settings').default as IVaultSettings;
+  }
+  throw new OneKeyInternalError(
+    `VaultSettings not found for: networkId=${options.networkId}`,
+  );
+}
+
+export async function createVaultHelperInstance(
   options: IVaultFactoryOptions,
-): VaultHelperBase {
+): Promise<VaultHelperBase> {
   const impl = getNetworkImpl(options.networkId);
   if (impl === IMPL_EVM) {
     return new VaultHelperEvm(options);
@@ -170,59 +219,75 @@ export async function createVaultInstance(options: IVaultOptions) {
   let vault: VaultBase | null = null;
 
   if (network.impl === IMPL_EVM) {
-    // TODO remove ts ignore
-    // @ts-ignore
+    const VaultEvm = (await import('./impl/evm/Vault')).default;
     vault = new VaultEvm(options);
   }
   if (network.impl === IMPL_NEAR) {
+    const VaultNear = (await import('./impl/near/Vault')).default;
     vault = new VaultNear(options);
   }
   if (network.impl === IMPL_CFX) {
+    const VaultCfx = (await import('./impl/cfx/Vault')).default;
     vault = new VaultCfx(options);
   }
   if (network.impl === IMPL_BTC) {
+    const VaultBtc = (await import('./impl/btc/Vault')).default;
     vault = new VaultBtc(options);
   }
   if (network.impl === IMPL_TBTC) {
+    const VaultTbtc = (await import('./impl/tbtc/Vault')).default;
     vault = new VaultTbtc(options);
   }
   if (network.impl === IMPL_STC) {
+    const VaultStc = (await import('./impl/stc/Vault')).default;
     vault = new VaultStc(options);
   }
   if (network.impl === IMPL_SOL) {
+    const VaultSol = (await import('./impl/sol/Vault')).default;
     vault = new VaultSol(options);
   }
   if (network.impl === IMPL_TRON) {
+    const VaultTron = (await import('./impl/tron/Vault')).default;
     vault = new VaultTron(options);
   }
   if (network.impl === IMPL_APTOS) {
+    const VaultAptos = (await import('./impl/apt/Vault')).default;
     vault = new VaultAptos(options);
   }
   if (network.impl === IMPL_DOGE) {
+    const VaultDoge = (await import('./impl/doge/Vault')).default;
     vault = new VaultDoge(options);
   }
   if (network.impl === IMPL_LTC) {
+    const VaultLtc = (await import('./impl/ltc/Vault')).default;
     vault = new VaultLtc(options);
   }
   if (network.impl === IMPL_ALGO) {
+    const VaultAlgo = (await import('./impl/algo/Vault')).default;
     vault = new VaultAlgo(options);
   }
   if (network.impl === IMPL_BCH) {
+    const VaultBch = (await import('./impl/bch/Vault')).default;
     vault = new VaultBch(options);
   }
   if (network.impl === IMPL_XRP) {
+    const VaultXrp = (await import('./impl/xrp/Vault')).default;
     vault = new VaultXrp(options);
   }
   if (network.impl === IMPL_COSMOS) {
+    const VaultCosmos = (await import('./impl/cosmos/Vault')).default;
     vault = new VaultCosmos(options);
   }
   if (network.impl === IMPL_ADA) {
+    const VaultAda = (await import('./impl/ada/Vault')).default;
     vault = new VaultAda(options);
   }
   if (network.impl === IMPL_SUI) {
+    const VaultSui = (await import('./impl/sui/Vault')).default;
     vault = new VaultSui(options);
   }
   if (network.impl === IMPL_FIL) {
+    const VaultFil = (await import('./impl/fil/Vault')).default;
     vault = new VaultFil(options);
   }
   if (!vault) {
@@ -231,7 +296,14 @@ export async function createVaultInstance(options: IVaultOptions) {
     );
   }
 
-  vault.helper = createVaultHelperInstance(options);
+  vault.helper = await createVaultHelperInstance(options);
+  const settings = createVaultSettings(options);
+  if (!Object.isFrozen(settings)) {
+    throw new Error(
+      `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${options.networkId}, accountId=${options.accountId}`,
+    );
+  }
+  vault.settings = settings;
 
   await vault.init({
     keyringCreator: createKeyringInstance,

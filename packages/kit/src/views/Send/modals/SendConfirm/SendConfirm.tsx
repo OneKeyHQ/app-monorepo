@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import type {
   IFeeInfoUnit,
-  ISignedTx,
+  ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -141,7 +141,7 @@ function SendConfirm({
         });
       };
       const onSuccess: SendAuthenticationParams['onSuccess'] = async (
-        tx: ISignedTx,
+        tx: ISignedTxPro,
         data,
       ) => {
         // refresh balance

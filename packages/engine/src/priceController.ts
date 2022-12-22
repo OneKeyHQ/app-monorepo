@@ -55,7 +55,6 @@ export class PriceController {
         params,
       );
     } catch (e) {
-      console.error(e);
       return Promise.reject(new Error('Failed to get fiat rates.'));
     }
 
