@@ -81,6 +81,7 @@ function normalizeConfig({
   env,
   configName,
   enableAnalyzerHtmlReport,
+  buildTargetBrowser, // firefox or chrome, for extension build
 }) {
   let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
@@ -136,6 +137,11 @@ function normalizeConfig({
     }
 
     resolveExtensions = [
+      ...(buildTargetBrowser
+        ? ['.ts', '.tsx', '.js', '.jsx'].map(
+            (ext) => `.${buildTargetBrowser}-${platform}${ext}`,
+          )
+        : []),
       ...(configName
         ? ['.ts', '.tsx', '.js', '.jsx'].map(
             (ext) => `.${platform}-${configName}${ext}`,
