@@ -16,7 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigationBack } from '../../../hooks/useAppNavigation';
 
-type DataItem = { name: string; staticPath: any; hex: string };
+type DataItem = { name: string; staticPath: any };
 
 const GenerateHomescreen: FC = () => {
   const [data, setData] = useState<DataItem[]>([]);

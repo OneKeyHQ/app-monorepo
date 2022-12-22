@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { HardwareSDK } from '@onekeyhq/kit/src/utils/hardware/hardwareInstance';
+import { HardwareSDK } from '@onekeyhq/shared/src/device/hardwareInstance';
 
 import { KeyringBase } from './KeyringBase';
 

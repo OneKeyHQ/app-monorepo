@@ -83,7 +83,6 @@ export const getHomescreenKeys = (type: IOneKeyDeviceType) => {
 export type HomescreenItem = {
   name: string;
   staticPath: any;
-  hex: string;
   height?: number;
   width?: number;
 };

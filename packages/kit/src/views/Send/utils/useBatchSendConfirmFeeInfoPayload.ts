@@ -141,6 +141,7 @@ export function useBatchSendConfirmFeeInfoPayload({
           ) {
             isUnapprovedBatchTx = true;
             let standardLimit = 0;
+            let maxLimit = 0;
             const gasPrice = await backgroundApiProxy.engine.getGasPrice(
               networkId,
             );
@@ -157,10 +158,11 @@ export function useBatchSendConfirmFeeInfoPayload({
               gasLimit: string;
             };
 
-            const maxLimit = +blockReceipt.gasLimit / 10;
+            maxLimit = +blockReceipt.gasLimit / 10;
 
             if (feeInfoStandard?.info?.limit) {
               standardLimit = +feeInfoStandard.info.limit * transferCount;
+              maxLimit = BigNumber.min(standardLimit * 2, maxLimit).toNumber();
             }
 
             currentInfoUnit = {

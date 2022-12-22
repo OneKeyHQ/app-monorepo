@@ -33,6 +33,7 @@ import {
   generateUploadResParams,
   imageCache,
 } from '@onekeyhq/kit/src/utils/hardware/homescreens';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
@@ -195,8 +196,10 @@ const OnekeyHardwareHomescreen: FC = () => {
         return;
       }
 
+      const { getHomeScreenHex } = await CoreSDKLoader();
+      const hex = getHomeScreenHex(deviceType, selectedItem.name);
       await serviceHardware.applySettings(connectId, {
-        homescreen: selectedItem.hex,
+        homescreen: hex,
       });
       toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
       navigation.getParent()?.goBack();
@@ -223,6 +226,7 @@ const OnekeyHardwareHomescreen: FC = () => {
     toast,
     navigation,
     isTouch,
+    deviceType,
   ]);
 
   const { width } = useWindowDimensions();
