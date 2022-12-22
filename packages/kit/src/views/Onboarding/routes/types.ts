@@ -25,8 +25,13 @@ export type IOnboardingConnectWalletParams = {
 export type IOnboardingImportWalletParams = {
   disableAnimation?: boolean;
 };
+
+export type IOnboardingWelcomeParams = {
+  disableAnimation?: boolean;
+};
+
 export type IOnboardingRoutesParams = {
-  [EOnboardingRoutes.Welcome]: undefined;
+  [EOnboardingRoutes.Welcome]: IOnboardingWelcomeParams | undefined;
 
   [EOnboardingRoutes.ConnectWallet]: IOnboardingConnectWalletParams | undefined;
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;
