@@ -131,14 +131,16 @@ const ScanQrcode: FC = () => {
             >
               {intl.formatMessage({ id: 'action__choose_an_image' })}
             </Button>
-            <Button
-              flexGrow={isVerticalLayout ? 1 : undefined}
-              size={isVerticalLayout ? 'xl' : 'base'}
-              leftIconName="ClipboardMini"
-              onPress={pasteData}
-            >
-              {intl.formatMessage({ id: 'action__paste' })}
-            </Button>
+            {platformEnv.canGetClipboard ? (
+              <Button
+                flexGrow={isVerticalLayout ? 1 : undefined}
+                size={isVerticalLayout ? 'xl' : 'base'}
+                leftIconName="ClipboardMini"
+                onPress={pasteData}
+              >
+                {intl.formatMessage({ id: 'action__paste' })}
+              </Button>
+            ) : null}
           </HStack>
         }
         staticChildrenProps={{ flex: 1 }}
