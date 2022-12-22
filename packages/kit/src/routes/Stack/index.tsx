@@ -119,7 +119,7 @@ const AddressBook = createLazyComponent(
 );
 
 const NPLDetailScreen = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/NFTMarket/NPL/NPLDetail'),
+  () => import('@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail'),
 );
 
 export const stackScreenList = [
@@ -223,7 +223,7 @@ export const stackScreenList = [
     component: RevokeRedirectPage,
   },
   {
-    name: HomeRoutes.NFTNPLScreen,
+    name: HomeRoutes.NFTPNLScreen,
     component: NPLDetailScreen,
   },
 ];

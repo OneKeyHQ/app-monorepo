@@ -129,7 +129,9 @@ const CalculatorModal: FC = () => {
 
   useEffect(() => {
     (async () => {
-      const data = await serviceNFT.getMarketPlaces();
+      const data = await serviceNFT.getMarketPlaces({
+        chain: OnekeyNetwork.eth,
+      });
       if (data) {
         allMarketPlace.current = data;
         setSelectedMarketPlace(data[0]);
@@ -238,7 +240,9 @@ const CalculatorModal: FC = () => {
                       borderRadius="20px"
                       src={selectedProject.logoUrl}
                     />
-                    <Text typography="Body1Strong">{selectedProject.name}</Text>
+                    <Text typography="Body1Strong" flex={1} numberOfLines={1}>
+                      {selectedProject.name}
+                    </Text>
                   </>
                 ) : (
                   <>
@@ -279,7 +283,12 @@ const CalculatorModal: FC = () => {
               size="xl"
               placeholder={intl.formatMessage({ id: 'action__buy' })}
               value={buyInput}
-              onChangeText={setBuyInput}
+              onChangeText={(text) => {
+                const number = new BigNumber(text);
+                if (number.comparedTo(1000) !== 1 || text === '') {
+                  setBuyInput(text);
+                }
+              }}
               type="number"
               keyboardType="decimal-pad"
             />
@@ -288,7 +297,12 @@ const CalculatorModal: FC = () => {
               size="xl"
               placeholder={intl.formatMessage({ id: 'action__sell' })}
               value={sellInput}
-              onChangeText={setSellInput}
+              onChangeText={(text) => {
+                const number = new BigNumber(text);
+                if (number.comparedTo(1000) !== 1 || text === '') {
+                  setSellInput(text);
+                }
+              }}
               type="number"
               keyboardType="number-pad"
             />
