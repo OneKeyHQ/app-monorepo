@@ -374,6 +374,19 @@ const AssetsList = ({
     networkId,
     numColumns,
   ]);
+
+  const ListFooterComponent = useCallback(() => {
+    if (context) {
+      if (
+        (cursor.current !== null && context?.attributes.length === 0) ||
+        (cursorOfFilter.current !== null && context?.attributes.length > 0)
+      ) {
+        return FooterView;
+      }
+    }
+    return <Box />;
+  }, [FooterView, context]);
+
   return (
     <Tabs.FlatList
       key={numColumns}
@@ -391,17 +404,7 @@ const AssetsList = ({
         marginHorizontal: isSmallScreen ? -4 : -12,
         paddingBottom: isSmallScreen ? 16 : 24,
       }}
-      ListFooterComponent={() => {
-        if (context) {
-          if (
-            (cursor.current !== null && context?.attributes.length === 0) ||
-            (cursorOfFilter.current !== null && context?.attributes.length > 0)
-          ) {
-            return FooterView;
-          }
-        }
-        return <Box />;
-      }}
+      ListFooterComponent={ListFooterComponent}
       data={assetList}
       renderItem={renderItem}
       keyExtractor={(item: NFTAsset) => `${item.tokenId as string}`}
