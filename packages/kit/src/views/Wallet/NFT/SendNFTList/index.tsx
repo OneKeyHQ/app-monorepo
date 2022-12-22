@@ -14,7 +14,6 @@ import {
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -196,11 +195,8 @@ function SendNFTList({
   const intl = useIntl();
   const { account } = useActiveSideAccount({ accountId, networkId });
   const { network } = useNetwork({ networkId });
-  const { devMode } = useSettings();
-  const enableMultiSelect = devMode?.enable;
   const multiSelect = Boolean(
-    enableMultiSelect &&
-      network &&
+    network &&
       (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
   );
 
