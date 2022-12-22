@@ -135,10 +135,12 @@ const ImportKeyTag: FC = () => {
       >
         <Box>
           <Typography.DisplayLarge>
-            Import Wallet with KeyTag
+            {intl.formatMessage({ id: 'title__import_wallet_with_keytag' })}
           </Typography.DisplayLarge>
           <Typography.Body1>
-            Fill the blank according to your KeyTag backup.
+            {intl.formatMessage({
+              id: 'title__import_wallet_with_keytag_desc',
+            })}
           </Typography.Body1>
         </Box>
         <Box
@@ -154,7 +156,9 @@ const ImportKeyTag: FC = () => {
               mr={2}
               onToggle={() => setShowResult(!showResult)}
             />
-            <Typography.Body2Strong>Show Result</Typography.Body2Strong>
+            <Typography.Body2Strong>
+              {intl.formatMessage({ id: 'action__show_result' })}
+            </Typography.Body2Strong>
           </Box>
           <Box>
             <Select
@@ -170,9 +174,33 @@ const ImportKeyTag: FC = () => {
                 }, 200);
               }}
               options={[
-                { label: '12 words', value: 12 },
-                { label: '18 words', value: 18 },
-                { label: '24 words', value: 24 },
+                {
+                  label: `${intl.formatMessage(
+                    {
+                      id: 'form__str_words',
+                    },
+                    { 0: 12 },
+                  )}`,
+                  value: 12,
+                },
+                {
+                  label: `18 ${intl.formatMessage(
+                    {
+                      id: 'form__str_words',
+                    },
+                    { 0: 18 },
+                  )}`,
+                  value: 18,
+                },
+                {
+                  label: `24 ${intl.formatMessage(
+                    {
+                      id: 'form__str_words',
+                    },
+                    { 0: 24 },
+                  )}`,
+                  value: 24,
+                },
               ]}
             />
           </Box>

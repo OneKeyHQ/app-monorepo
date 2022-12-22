@@ -63,7 +63,7 @@ const Introduce = () => {
           }}
           mt={6}
         >
-          Get started
+          {intl.formatMessage({ id: 'action__get_started' })}
         </Button>
       </Box>
     );

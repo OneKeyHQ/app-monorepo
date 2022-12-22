@@ -37,7 +37,9 @@ const EnterPhrase = () => {
   const { control, handleSubmit } = useFormReturn;
   return (
     <LayoutContainer
-      title="Convert Recovery Phrase to  Dotmap for KeyTag"
+      title={intl.formatMessage({
+        id: 'title__convert_recovery_phrase_to_dotmap_for_keytag',
+      })}
       secondaryContent={
         !isVertical ? (
           <Box>
@@ -54,11 +56,12 @@ const EnterPhrase = () => {
               />
             </Center>
             <Typography.Body2Strong>
-              What is a recovery phrase?
+              {intl.formatMessage({ id: 'content__what_is_recovery_phrase' })}
             </Typography.Body2Strong>
             <Typography.Body2 mt={2} color="text-subdued">
-              It is a 12-, 18 or 24-word phrase that can be used to restore your
-              wallet.
+              {intl.formatMessage({
+                id: 'content__what_is_recovery_phrase_desc',
+              })}
             </Typography.Body2>
           </Box>
         ) : undefined
@@ -87,7 +90,7 @@ const EnterPhrase = () => {
           >
             <Form.Textarea
               placeholder={intl.formatMessage({
-                id: 'form__enter_my_recovery_phrase',
+                id: 'form__enter_recovery_phrase',
               })}
               h="48"
               trimValue={false}

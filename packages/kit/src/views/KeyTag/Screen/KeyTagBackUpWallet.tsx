@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Center,
@@ -25,7 +27,6 @@ import { KeyTagRoutes } from '../Routes/enums';
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { ListRenderItem } from 'react-native';
-import { useIntl } from 'react-intl';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
@@ -93,8 +94,10 @@ const KeyTagBackUpWallet = () => {
   );
   return (
     <LayoutContainer
-      title="Choose a Wallet to Back Up"
-      subTitle="Convert wallet recovery phrase into dot map for OneKey KeyTag."
+      title={intl.formatMessage({ id: 'title__choose_a_wallet_to_back_up' })}
+      subTitle={intl.formatMessage({
+        id: 'title__choose_a_wallet_to_back_up_desc',
+      })}
       fullHeight
       secondaryContent={
         <Box>

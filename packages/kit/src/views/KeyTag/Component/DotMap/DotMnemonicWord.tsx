@@ -9,6 +9,7 @@ import { KeyTagMnemonicStatus } from '../../types';
 import DotSpace from './DotSpace';
 
 import type { KeyTagMnemonic } from '../../types';
+import { useIntl } from 'react-intl';
 
 type DotMnemonicWordProps = {
   size?: number;
@@ -96,6 +97,7 @@ type MnemonicStatusProps = {
 };
 
 export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
+  const intl = useIntl();
   const { statusTitle, titleColor } = useMemo(() => {
     const res: { statusTitle?: string; titleColor: ThemeToken } = {
       titleColor: 'text-default',
@@ -105,11 +107,11 @@ export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
         res.statusTitle = word;
         break;
       case KeyTagMnemonicStatus.INCORRECT:
-        res.statusTitle = 'INCORRECT DOTMAP';
+        res.statusTitle = intl.formatMessage({ id: 'form__incorrect_dotmap' });
         res.titleColor = 'text-critical';
         break;
       case KeyTagMnemonicStatus.EMPTY:
-        res.statusTitle = 'EMPTY';
+        res.statusTitle = intl.formatMessage({ id: 'form__empty' });
         res.titleColor = 'text-warning';
         break;
       case KeyTagMnemonicStatus.UNVERIF:
@@ -119,7 +121,7 @@ export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
         break;
     }
     return res;
-  }, [status, word]);
+  }, [intl, status, word]);
   return (
     <Box flexDirection="row">
       {status === KeyTagMnemonicStatus.INCORRECT ? (
@@ -145,7 +147,6 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
   showResult = true,
   onChange,
 }) => {
-  console.log('DotMnemonicWord');
   const groupArr = useMemo(() => {
     const groupRes = [];
     let i = 0;

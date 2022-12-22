@@ -1,6 +1,8 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Box, Typography } from '@onekeyhq/components';
 
 import DotMnemonicWord from '../DotMap/DotMnemonicWord';
@@ -16,12 +18,13 @@ export const KeyTagMatrixTopTitle: FC<KeyTagMatrixProps> = ({
   keyTagData,
   startIndex,
 }) => {
+  const intl = useIntl();
   const title = useMemo(() => {
     if (startIndex && startIndex > 1) {
-      return 'Back';
+      return intl.formatMessage({ id: 'content__back' });
     }
-    return 'Front';
-  }, [startIndex]);
+    return intl.formatMessage({ id: 'content__front' });
+  }, [intl, startIndex]);
   const sequenceRange = useMemo(
     () =>
       `#${startIndex ?? 1}-#${
