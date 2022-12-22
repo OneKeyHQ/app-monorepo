@@ -9,6 +9,8 @@ import type {
   IGetAddressParams,
   IPrepareAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
 } from '../types';
 import type { VaultBase } from '../VaultBase';
 import type {
@@ -26,9 +28,9 @@ export abstract class KeyringBase extends VaultContext {
 
   // TODO: check history is added
   abstract signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx>;
+  ): Promise<ISignedTxPro>;
 
   // TODO: check history is added
   abstract signMessage(

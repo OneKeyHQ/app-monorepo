@@ -14,7 +14,7 @@ import type {
   IFeeInfoPayload,
   IFeeInfoSelected,
   INFTInfo,
-  ISignedTx,
+  ISignedTxPro,
   IStakeInfo,
   ISwapInfo,
   ITransferInfo,
@@ -97,7 +97,7 @@ export type SendConfirmPayload =
   | TransferSendParamsPayload // ITransferInfo
   | SwapQuoteTx;
 export type SendConfirmOnSuccessData = {
-  signedTx?: ISignedTx;
+  signedTx?: ISignedTxPro;
   encodedTx?: IEncodedTx | null;
   decodedTx?: IDecodedTx | null;
 };
@@ -121,7 +121,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   payloadType?: string; // TODO remove
   payload?: SendConfirmPayload; // use payload.payloadType // TODO remove
   payloadInfo?: SendConfirmPayloadInfo;
-  onSuccess?: (tx: ISignedTx, data?: SendConfirmOnSuccessData) => void;
+  onSuccess?: (tx: ISignedTxPro, data?: SendConfirmOnSuccessData) => void;
   onFail?: (error: Error) => void;
   sourceInfo?: IDappSourceInfo;
   // TODO remove, use resendActionInfo instead
@@ -287,7 +287,10 @@ export type BatchSendConfirmShared = {
 export type BatchSendConfirmParams = BatchSendConfirmShared & {
   payload?: SendConfirmPayload;
   payloadInfo?: BatchSendConfirmPayloadInfo;
-  onSuccess?: (txs: ISignedTx[], data?: BatchSendConfirmOnSuccessData) => void;
+  onSuccess?: (
+    txs: ISignedTxPro[],
+    data?: BatchSendConfirmOnSuccessData,
+  ) => void;
   onFail?: (error: Error) => void;
   sourceInfo?: IDappSourceInfo;
   backRouteName?: keyof SendRoutesParams;
@@ -349,7 +352,7 @@ export type BatchSendProgressParams = Omit<
 };
 
 export type BatchSendConfirmOnSuccessData = {
-  signedTxs?: ISignedTx[];
+  signedTxs?: ISignedTxPro[];
   encodedTxs?: IEncodedTx[];
   decodedTxs?: IDecodedTx[];
 };

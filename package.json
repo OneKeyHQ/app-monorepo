@@ -40,9 +40,9 @@
     "build:desktop": "yarn copy:inject && yarn workspace @onekeyhq/desktop build",
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
-    "test": "yarn test:unit && yarn test:snapshot",
-    "test:unit": "yarn jest ./test/unit/",
-    "test:snapshot": "yarn jest ./test/snapshot/",
+    "test": "yarn test:snapshot && yarn test:unit ",
+    "test:unit": "yarn jest ./test/unit/ ./packages  --runInBand --detectOpenHandles --forceExit",
+    "test:snapshot": "yarn jest ./test/snapshot/     --runInBand --detectOpenHandles --forceExit",
     "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
     "prepare": "husky install",
     "stats:web": "yarn workspace @onekeyhq/web stats",
@@ -55,6 +55,7 @@
     ]
   },
   "dependencies": {
+    "@onekeyfe/blockchain-libs": "0.0.48",
     "@onekeyfe/cross-inpage-provider-core": "1.1.13",
     "@onekeyfe/cross-inpage-provider-errors": "1.1.13",
     "@onekeyfe/cross-inpage-provider-injected": "1.1.13",
@@ -66,6 +67,8 @@
     "@onekeyfe/hd-transport": "0.2.12",
     "@onekeyfe/hd-web-sdk": "0.2.12",
     "@onekeyfe/inpage-providers-hub": "1.1.13",
+    "@onekeyfe/js-sdk": "1.1.5",
+    "@onekeyfe/network-list": "1.6.35",
     "@onekeyfe/onekey-aptos-provider": "1.1.13",
     "@onekeyfe/onekey-cross-webview": "1.1.13",
     "@web3-react/core": "8.0.35-beta.0",
@@ -73,7 +76,7 @@
     "@web3-react/metamask": "8.0.28-beta.0",
     "@web3-react/types": "8.0.20-beta.0",
     "@web3-react/url": "8.0.25-beta.0",
-    "axios": "^0.26.0",
+    "axios": "^0.27.2",
     "expo-device": "^4.3.0",
     "memoizee": "^0.4.15"
   },
@@ -125,6 +128,8 @@
     "husky": "^7.0.4",
     "jest": "^29.3.1",
     "jest-environment-jsdom": "^29.3.1",
+    "jest-expo": "^47.0.1",
+    "jest-html-reporter": "^3.7.0",
     "metro-minify-terser": "^0.72.3",
     "node-notifier": "^10.0.0",
     "patch-package": "^6.5.0",
@@ -135,6 +140,7 @@
     "rimraf": "^3.0.2",
     "style-loader": "^2.0.0",
     "terser-webpack-plugin": "^4.2.3",
+    "ts-jest": "^27.0.5",
     "typescript": "4.8.4",
     "ultra-runner": "^3.10.5",
     "webpack": "4.46.0",
@@ -172,7 +178,8 @@
     "webpack": "4.46.0",
     "js-conflux-sdk": "^2.1.6",
     "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
-    "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch"
+    "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch",
+    "@metamask/eth-sig-util@^4.0.1": "patch:@metamask/eth-sig-util@npm%3A4.0.1#./.yarn/patches/@metamask-eth-sig-util-npm-4.0.1-27d55ec43e.patch"
   },
   "packageManager": "yarn@3.3.0"
 }
