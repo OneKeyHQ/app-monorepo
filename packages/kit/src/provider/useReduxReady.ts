@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
@@ -15,6 +15,8 @@ export function useReduxReady() {
   const isExtUiReduxReady = useAppSelector((s) =>
     platformEnv.isExtensionUi ? s.data.isExtUiReduxReady : true,
   );
+  // avoid repeat setIsReady
+  const isReadyRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   useEffect(() => {
     waitForDataLoaded({
@@ -23,8 +25,8 @@ export function useReduxReady() {
       data: async () => {
         const result = await backgroundApiProxy.getState();
         if (result && result.bootstrapped) {
-          const store = (await import('../store')).default;
           if (platformEnv.isExtensionUi) {
+            const store = (await import('../store')).default;
             // ext will sync the whole redux state between ext and ui
             store.dispatch({
               // TODO use consts
@@ -38,6 +40,10 @@ export function useReduxReady() {
                 $isDispatchFromBackground: true,
               });
             });
+          } else if (!isReadyRef.current) {
+            // other platforms just check if the persistor is ready
+            isReadyRef.current = true;
+            setIsReady(true);
           }
           return true;
         }
@@ -46,7 +52,11 @@ export function useReduxReady() {
     });
     if (!platformEnv.isExtension) {
       appEventBus.once(AppEventBusNames.StoreInitedFromPersistor, () => {
-        setIsReady(true);
+        if (!isReadyRef.current) {
+          // other platforms just check if the persistor is ready
+          isReadyRef.current = true;
+          setIsReady(true);
+        }
       });
     }
   }, []);
