@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  CustomSkeleton,
   Icon,
   NumberInput,
   Pressable,
@@ -18,6 +19,7 @@ import { FormatCurrency } from '../../../../components/Format';
 import { useCreateAccountInWallet } from '../../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import {
   useActiveWalletAccount,
+  useAppSelector,
   useNavigation,
   useNetworkSimple,
 } from '../../../../hooks';
@@ -147,6 +149,8 @@ const TokenInput: FC<TokenInputProps> = ({
   const tokenNetwork = useNetworkSimple(token?.networkId);
 
   const balance = useTokenBalance(token, account?.id);
+  const loading = useAppSelector((s) => s.swap.loading);
+  const independentField = useAppSelector((s) => s.swap.independentField);
   const price = useTokenPrice(token);
   const value = balance ?? '0';
   const onMax = useCallback(() => {
@@ -248,30 +252,43 @@ const TokenInput: FC<TokenInputProps> = ({
             )}
           </Pressable>
           <Box flex="1" h="full" position="relative">
-            <Box position="absolute" w="full" top="0" right="0">
-              <NumberInput
-                w="full"
-                h="auto"
-                borderWidth={0}
-                placeholder="0.00"
-                fontSize={24}
-                fontWeight="600"
-                bg="transparent"
-                _disabled={{ bg: 'transparent' }}
-                _hover={{ bg: 'transparent' }}
-                _focus={{ bg: 'transparent' }}
-                value={inputValue}
-                borderRadius={0}
-                onChangeText={onChange}
-                pb="12"
-                focusOutlineColor="transparent"
-                // py="1"
-                pr="2"
-                textAlign="right"
-                isDisabled={isDisabled}
-                rightCustomElement={null}
-              />
-            </Box>
+            {independentField === 'OUTPUT' && loading ? (
+              <Box
+                h="full"
+                flexDirection="row"
+                justifyContent="flex-end"
+                alignItems="center"
+              >
+                <Box h="4" width="24" borderRadius="2px" overflow="hidden">
+                  <CustomSkeleton />
+                </Box>
+              </Box>
+            ) : (
+              <Box position="absolute" w="full" top="0" right="0">
+                <NumberInput
+                  w="full"
+                  h="auto"
+                  borderWidth={0}
+                  placeholder="0.00"
+                  fontSize={24}
+                  fontWeight="600"
+                  bg="transparent"
+                  _disabled={{ bg: 'transparent' }}
+                  _hover={{ bg: 'transparent' }}
+                  _focus={{ bg: 'transparent' }}
+                  value={inputValue}
+                  borderRadius={0}
+                  onChangeText={onChange}
+                  pb="12"
+                  focusOutlineColor="transparent"
+                  // py="1"
+                  pr="2"
+                  textAlign="right"
+                  isDisabled={isDisabled}
+                  rightCustomElement={null}
+                />
+              </Box>
+            )}
           </Box>
         </Box>
         <Box

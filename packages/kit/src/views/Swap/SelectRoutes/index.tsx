@@ -18,6 +18,7 @@ import {
   ScrollView,
   Typography,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
@@ -64,10 +65,10 @@ const PlaceholderLine: FC<PlaceholderLineProps> = ({ ...rest }) => (
   <Box flex="1" flexDirection="row" alignItems="center" {...rest}>
     <Box
       borderTopColor="border-default"
-      h="1px"
       w="full"
-      borderStyle="dashed"
-      borderTopWidth="1px"
+      h="1"
+      borderStyle={platformEnv.isNative ? 'solid' : 'dashed'}
+      borderTopWidth={platformEnv.isNative ? 0.5 : 1}
     />
   </Box>
 );
@@ -103,13 +104,15 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         alignItems="center"
         w="full"
       >
-        <Box flex="1" flexDirection="row">
+        <Box flex="2" flexDirection="row">
           <TokenInput
             token={inputToken}
             amount={data?.sellAmount}
             isDisabled={isDisabled}
           />
-          <PlaceholderLine ml={2} />
+          <Box flex="1">
+            <PlaceholderLine ml={2} />
+          </Box>
         </Box>
         <Box flex="1" justifyContent="center" flexDirection="row">
           <PlaceholderLine mr={2} />
@@ -119,7 +122,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
           />
           <PlaceholderLine ml={2} />
         </Box>
-        <Box flex="1" flexDirection="row">
+        <Box flex="2" flexDirection="row">
           <PlaceholderLine mr={2} />
           <TokenInput
             token={outputToken}

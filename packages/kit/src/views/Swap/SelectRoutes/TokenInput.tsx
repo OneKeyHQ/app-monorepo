@@ -51,7 +51,7 @@ export const TokenInput: FC<TokenInputProps> = ({
       {isSmall ? (
         <Box>
           <Typography.Body2
-            isTruncated
+            numberOfLines={2}
             color={isDisabled ? 'text-disabled' : 'text-default'}
           >
             {text}
