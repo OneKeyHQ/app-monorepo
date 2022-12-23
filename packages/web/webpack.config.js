@@ -1,6 +1,7 @@
 /* eslint-disable global-require */
 const webpack = require('webpack');
 const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
+const devUtils = require('@onekeyhq/ext/development/devUtils');
 const webpackTools = require('../../development/webpackTools');
 const { webModuleTranspile } = require('../../development/webpackTranspiles');
 
@@ -25,10 +26,13 @@ module.exports = async function (env, argv) {
     platform,
     config,
     env,
+    enableAnalyzerHtmlReport: Boolean(process.env.ENABLE_ANALYZER_HTML_REPORT),
   });
 
   if (process.env.NODE_ENV === 'production' && !process.env.ANALYSE_MODULE) {
     config.devtool = false;
   }
+
+  devUtils.writePreviewWebpackConfigJson(config, 'webpack.config.preview.json');
   return config;
 };

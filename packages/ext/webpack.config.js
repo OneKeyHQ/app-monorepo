@@ -223,6 +223,7 @@ function createConfig({ config }) {
   return webpackConfig;
 }
 
+let chunkIndex = 800;
 function enableCodeSplitChunks({ config, name }) {
   let maxSizeMb = 4;
   const isFirefox = buildTargetBrowser === 'firefox';
@@ -234,8 +235,14 @@ function enableCodeSplitChunks({ config, name }) {
     chunks: isFirefox ? 'all' : 'all', // all, async, and initial
     minSize: 0, // 2000000
     maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
+
     // auto-gen chunk file name by module name or just increasing number
-    name: name ? `vendors-${name}` : true,
+    name: (module, chunks, cacheGroupKey, p1, p2, p3) => {
+      chunkIndex += 1;
+      return name ? `vendors-${name}-${chunkIndex}` : false;
+    },
+    // name: false,
+
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
     automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
