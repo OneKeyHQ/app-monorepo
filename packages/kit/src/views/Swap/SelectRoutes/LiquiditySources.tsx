@@ -25,7 +25,7 @@ export const LiquiditySources: FC<LiquiditySourcesProps> = ({
     text = `${providers.length} Exchanges`;
   }
   if (isSmall) {
-    return <SwappingViaLogos sources={sources} />;
+    return <SwappingViaLogos size={6} sources={sources} />;
   }
   return (
     <Box

@@ -8,6 +8,7 @@ import {
   Icon,
   IconButton,
   Pressable,
+  Stack,
   Switch,
   Typography,
 } from '@onekeyhq/components';
@@ -85,7 +86,7 @@ const SwapNetworkFee = () => {
         title={intl.formatMessage({ id: 'form__gas_fee_settings' })}
         closeOverlay={close}
       >
-        <Box>
+        <Stack direction="column" space="2">
           {fees.map((item) => (
             <Pressable
               _hover={{ bg: 'surface-hovered' }}
@@ -105,7 +106,7 @@ const SwapNetworkFee = () => {
               <Typography.DisplayMedium>{item.text}</Typography.DisplayMedium>
             </Pressable>
           ))}
-        </Box>
+        </Stack>
       </BottomSheetModal>
     ));
   }, [fees, intl]);
