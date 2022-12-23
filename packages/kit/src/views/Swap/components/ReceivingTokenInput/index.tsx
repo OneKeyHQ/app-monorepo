@@ -7,6 +7,7 @@ import { StyleSheet, View } from 'react-native';
 
 import {
   Box,
+  CustomSkeleton,
   Icon,
   NumberInput,
   Pressable,
@@ -241,6 +242,8 @@ const TokenInput: FC<TokenInputProps> = ({
   const price = useTokenPrice(token);
   const recipient = useAppSelector((s) => s.swap.recipient);
   const balance = useTokenBalance(token, recipient?.accountId);
+  const loading = useAppSelector((s) => s.swap.loading);
+  const independentField = useAppSelector((s) => s.swap.independentField);
   const value = balance ?? '0';
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
@@ -307,30 +310,43 @@ const TokenInput: FC<TokenInputProps> = ({
             justifyContent="flex-end"
             position="relative"
           >
-            <Box position="absolute" w="full" top="0" right="0">
-              <NumberInput
-                w="full"
-                h="auto"
-                borderWidth={0}
-                placeholder="0.00"
-                fontSize={24}
-                fontWeight="600"
-                bg="transparent"
-                _disabled={{ bg: 'transparent' }}
-                _hover={{ bg: 'transparent' }}
-                _focus={{ bg: 'transparent' }}
-                value={inputValue}
-                borderRadius={0}
-                onChangeText={onChange}
-                // pt="1.5"
-                pr="2"
-                pb="12"
-                textAlign="right"
-                isDisabled={isDisabled}
-                rightCustomElement={null}
-                focusOutlineColor="transparent"
-              />
-            </Box>
+            {independentField === 'INPUT' && loading ? (
+              <Box
+                h="full"
+                flexDirection="row"
+                justifyContent="flex-end"
+                alignItems="center"
+              >
+                <Box h="4" width="24" borderRadius="2px" overflow="hidden">
+                  <CustomSkeleton />
+                </Box>
+              </Box>
+            ) : (
+              <Box position="absolute" w="full" top="0" right="0">
+                <NumberInput
+                  w="full"
+                  h="auto"
+                  borderWidth={0}
+                  placeholder="0.00"
+                  fontSize={24}
+                  fontWeight="600"
+                  bg="transparent"
+                  _disabled={{ bg: 'transparent' }}
+                  _hover={{ bg: 'transparent' }}
+                  _focus={{ bg: 'transparent' }}
+                  value={inputValue}
+                  borderRadius={0}
+                  onChangeText={onChange}
+                  // pt="1.5"
+                  pr="2"
+                  pb="12"
+                  textAlign="right"
+                  isDisabled={isDisabled}
+                  rightCustomElement={null}
+                  focusOutlineColor="transparent"
+                />
+              </Box>
+            )}
           </Box>
         </Box>
         <Box

@@ -20,17 +20,18 @@ export const AmountLimit: FC<AmountLimitProps> = ({ response, token }) => {
   const minAmount = useTokenAmount(token, limited?.min);
   const intl = useIntl();
   let elem: ReactElement | undefined;
-  if (!limited || !token) {
+
+  if (!token) {
     return null;
   }
-  if (limited.max) {
+  if (limited && limited.max) {
     elem = (
       <Typography.Caption color="text-subdued">
         {intl.formatMessage({ id: 'form__max_amount' })} {maxAmount?.typedValue}
         {token?.symbol}
       </Typography.Caption>
     );
-  } else if (limited.min) {
+  } else if (limited && limited.min) {
     elem = (
       <Typography.Caption color="text-subdued">
         {intl.formatMessage({ id: 'form__min_amount' })}
@@ -38,7 +39,7 @@ export const AmountLimit: FC<AmountLimitProps> = ({ response, token }) => {
         {token?.symbol}
       </Typography.Caption>
     );
-  } else if (response.data?.type === 'swftc') {
+  } else if (response?.data?.type === 'swftc') {
     elem = (
       <Typography.Caption color="text-subdued">
         {intl.formatMessage(
