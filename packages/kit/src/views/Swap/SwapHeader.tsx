@@ -265,14 +265,9 @@ export const SwapHeaderButtons = () => {
       <Box position="relative">
         <RefreshButton />
         {error === SwapError.QuoteFailed ? (
-          <Box
-            position="absolute"
-            bottom="1.5"
-            right="1.5"
-            pointerEvents="none"
-          >
+          <Box position="absolute" bottom="1" right="1" pointerEvents="none">
             <Icon
-              size={12}
+              size={14}
               name="ExclamationCircleSolid"
               color="icon-critical"
             />
