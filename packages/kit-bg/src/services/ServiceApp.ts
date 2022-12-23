@@ -211,7 +211,7 @@ class ServiceApp extends ServiceBase {
         // setTimeout to avoid RESET trigger install
         setTimeout(() => {
           extUtils.openExpandTab({
-            routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
+            routes: [RootRoutes.Root],
             params: {},
           });
         }, 1000);

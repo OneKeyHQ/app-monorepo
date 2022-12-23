@@ -36,7 +36,7 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
         if (isHomeCheck) {
           backgroundApiProxy.dispatch(setHomePageCheckBoarding());
         }
-        navigation.navigate(RootRoutes.Onboarding, {
+        navigation.replace(RootRoutes.Onboarding, {
           screen: EOnboardingRoutes.Welcome,
           params: { disableAnimation: !!isHomeCheck },
         });
