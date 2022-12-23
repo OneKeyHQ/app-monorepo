@@ -1,6 +1,6 @@
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
 import { get } from 'lodash';
 
