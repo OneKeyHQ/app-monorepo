@@ -72,8 +72,8 @@ export const OverviewSlice = createSlice({
         },
         `${id}.defis`,
         {
-          value: totalValue,
-          value24h: totalValue24h,
+          value: totalValue.toString(),
+          value24h: totalValue24h.toString(),
         },
       );
     },

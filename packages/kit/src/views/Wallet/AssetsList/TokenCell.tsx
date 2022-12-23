@@ -11,6 +11,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import {
@@ -71,7 +72,8 @@ const TokenCell: FC<TokenCellProps> = ({
     networkId,
   });
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
-  const balance = balances[tokenId] || 0;
+  const balance =
+    balances[getBalanceKey(token.tokenIdOnNetwork, token.sendAddress)] || 0;
   const basePrice = getPreBaseValue({ priceInfo, vsCurrency });
 
   const { percentageGain, gainTextBg, gainTextColor } = calculateGains({

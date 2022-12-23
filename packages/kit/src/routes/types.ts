@@ -85,6 +85,7 @@ export type HomeRoutesParams = {
     accountId: string;
     networkId: string;
     tokenId: string; // tokenIdOnNetwork
+    sendAddress?: string;
     historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.FullTokenListScreen]: {

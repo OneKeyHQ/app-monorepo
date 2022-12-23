@@ -86,6 +86,8 @@ export type ITransferInfo = {
   to: string;
   amount: string;
   token?: string; // tokenIdOnNetwork
+  // for sol
+  sendAddress?: string;
   isNFT?: boolean;
   tokenId?: string; // NFT token id
   type?: string; // NFT standard: erc721/erc1155

@@ -38,6 +38,7 @@ export type Token = HasName & {
   security?: boolean;
   addToIndex?: boolean;
   autoDetected?: boolean;
+  sendAddress?: string;
 };
 
 export type Tool = {

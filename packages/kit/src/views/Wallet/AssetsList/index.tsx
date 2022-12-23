@@ -199,6 +199,7 @@ function AssetsList({
           accountId: account?.id ?? '',
           networkId: item.networkId ?? '',
           tokenId: item.tokenIdOnNetwork,
+          sendAddress: item.sendAddress,
           historyFilter: filter,
         });
       }}
@@ -247,7 +248,9 @@ function AssetsList({
             () => <EmptyListOfAccount network={network} />
       }
       ListFooterComponent={ListFooterComponent}
-      keyExtractor={(_item: TokenType) => _item.id}
+      keyExtractor={(_item: TokenType) =>
+        `${_item.id}--${_item.sendAddress ?? ''}`
+      }
       extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}
     />

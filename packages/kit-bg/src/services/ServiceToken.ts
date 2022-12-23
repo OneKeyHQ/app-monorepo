@@ -17,8 +17,6 @@ import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
 import {
-  addAccountTokens,
-  addNetworkTokens,
   setAccountTokens,
   setAccountTokensBalances,
   setNativeToken,
@@ -30,6 +28,7 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppEventBusNames,
   appEventBus,
@@ -123,6 +122,10 @@ export default class ServiceToken extends ServiceBase {
     wait,
     forceReloadTokens,
   }: IFetchAccountTokensParams) {
+    const options = {
+      withBalance,
+      wait,
+    };
     const { engine, dispatch } = this.backgroundApi;
     const tokens = await engine.getTokens(
       activeNetworkId,
@@ -131,10 +134,20 @@ export default class ServiceToken extends ServiceBase {
       true,
       forceReloadTokens,
     );
-    const actions: any[] = [
-      setAccountTokens({ activeAccountId, activeNetworkId, tokens }),
-    ];
-    const nativeToken = tokens.filter((item) => !item.tokenIdOnNetwork)[0];
+    const actions: any[] = [];
+    if (activeNetworkId === OnekeyNetwork.sol) {
+      Object.assign(options, {
+        withBalance: true,
+        wait: true,
+      });
+    } else {
+      actions.push(
+        setAccountTokens({ activeAccountId, activeNetworkId, tokens }),
+      );
+    }
+    const nativeToken = tokens.find(
+      (item) => item.isNative || !item.tokenIdOnNetwork,
+    );
     if (nativeToken) {
       actions.push(
         setNativeToken({
@@ -195,25 +208,19 @@ export default class ServiceToken extends ServiceBase {
     if (!activeAccountId) {
       return {};
     }
-    const [tokensBalance, newTokens] = await engine.getAccountBalance(
+    const [tokensBalance, newAccountTokens] = await engine.getAccountBalance(
       activeAccountId,
       activeNetworkId,
       Array.from(new Set(tokenIdsOnNetwork)),
       true,
     );
     const actions = [];
-    if (newTokens?.length) {
+    if (newAccountTokens?.length) {
       actions.push(
-        addAccountTokens({
+        setAccountTokens({
           activeAccountId,
           activeNetworkId,
-          tokens: newTokens,
-        }),
-      );
-      actions.push(
-        addNetworkTokens({
-          activeNetworkId,
-          tokens: newTokens,
+          tokens: newAccountTokens,
         }),
       );
     }

@@ -164,4 +164,14 @@ export const fetchTools = async (): Promise<Tool[]> => {
   return res.data ?? [];
 };
 
+export const getBalanceKey = (tokenAddress?: string, sendAddress?: string) => {
+  if (!tokenAddress) {
+    return 'main';
+  }
+  if (sendAddress) {
+    return `${tokenAddress}--${sendAddress}`;
+  }
+  return tokenAddress;
+};
+
 export { getNetworkIdFromTokenId };

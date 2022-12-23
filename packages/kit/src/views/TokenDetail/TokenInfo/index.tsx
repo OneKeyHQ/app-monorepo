@@ -12,6 +12,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
@@ -43,9 +44,10 @@ type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 export type TokenInfoProps = {
   token: TokenDO | null | undefined;
   priceReady?: boolean;
+  sendAddress?: string;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
+const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const { wallet, network, networkId, accountId } = useActiveWalletAccount();
@@ -61,7 +63,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
 
   const { balances } = useManageTokens();
 
-  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
+  const amount =
+    balances[getBalanceKey({...token, sendAddress})] ?? '0';
 
   if (cryptoCurrency) {
     cryptoCurrency = { ...cryptoCurrency, balance: amount };
@@ -171,6 +174,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
                     to: '',
                     amount: '',
                     token: token?.tokenIdOnNetwork ?? '',
+                    sendAddress,
                   },
                 },
               });

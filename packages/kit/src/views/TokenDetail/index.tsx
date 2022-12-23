@@ -44,7 +44,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const route = useRoute<RouteProps>();
   const isVertical = useIsVerticalLayout();
   // const { charts } = useManageTokens();
-  const { accountId, networkId, tokenId } = route.params;
+  const { accountId, networkId, tokenId, sendAddress } = route.params;
   const price = useSimpleTokenPriceValue({
     networkId,
     contractAdress: tokenId,
@@ -130,7 +130,11 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
 
   const headerView = (
     <>
-      <TokenInfo token={token} priceReady={priceReady} />
+      <TokenInfo
+        token={token}
+        sendAddress={sendAddress}
+        priceReady={priceReady}
+      />
       <StakedAssets
         networkId={token?.networkId}
         tokenIdOnNetwork={token?.tokenIdOnNetwork}

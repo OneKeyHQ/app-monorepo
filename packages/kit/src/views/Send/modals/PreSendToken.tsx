@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { merge } from 'lodash';
@@ -45,6 +45,60 @@ function PreSendTokenScreen() {
     ),
     [intl],
   );
+
+  const sendTokenTabViewComponent = useCallback(() => {
+    if (accountId) {
+      return (
+        <AssetsList
+          hideSmallBalance={false}
+          accountId={accountId}
+          networkId={networkId}
+          showRoundTop
+          singleton
+          hidePriceInfo
+          ListHeaderComponent={<Box h="24px" />}
+          ListFooterComponent={<Box h="24px" />}
+          contentContainerStyle={{
+            paddingHorizontal: 0,
+            marginTop: 0,
+          }}
+          onTokenPress={({ token }) => {
+            navigation.navigate(
+              SendRoutes.PreSendAddress,
+              merge(
+                {
+                  from: '',
+                  to: '',
+                  amount: '',
+                },
+                transferInfo,
+                {
+                  token: token.tokenIdOnNetwork,
+                  sendAddress: token.sendAddress,
+                  to: undefined,
+                  accountId,
+                  networkId,
+                },
+              ),
+            );
+            notifyIfRiskToken(token);
+          }}
+        />
+      );
+    }
+    return emptyView;
+  }, [accountId, emptyView, navigation, networkId, transferInfo]);
+
+  const sendNftsTabViewComponent = useCallback(
+    () =>
+      accountId ? (
+        <SendNFTList networkId={networkId} accountId={accountId} />
+      ) : (
+        emptyView
+      ),
+    [accountId, emptyView, networkId],
+  );
+
   return (
     <BaseSendModal
       accountId={accountId}
@@ -61,57 +115,12 @@ function PreSendTokenScreen() {
           {
             label: 'token',
             title: 'Tokens',
-            view: () => {
-              if (accountId) {
-                return (
-                  <AssetsList
-                    hideSmallBalance={false}
-                    accountId={accountId}
-                    networkId={networkId}
-                    showRoundTop
-                    singleton
-                    hidePriceInfo
-                    ListHeaderComponent={<Box h="24px" />}
-                    ListFooterComponent={<Box h="24px" />}
-                    contentContainerStyle={{
-                      paddingHorizontal: 0,
-                      marginTop: 0,
-                    }}
-                    onTokenPress={({ token }) => {
-                      navigation.navigate(
-                        SendRoutes.PreSendAddress,
-                        merge(
-                          {
-                            from: '',
-                            to: '',
-                            amount: '',
-                          },
-                          transferInfo,
-                          {
-                            token: token.tokenIdOnNetwork,
-                            to: undefined,
-                            accountId,
-                            networkId,
-                          },
-                        ),
-                      );
-                      notifyIfRiskToken(token);
-                    }}
-                  />
-                );
-              }
-              return emptyView;
-            },
+            view: sendTokenTabViewComponent,
           },
           {
             label: 'nft',
             title: 'NFTs',
-            view: () =>
-              accountId ? (
-                <SendNFTList networkId={networkId} accountId={accountId} />
-              ) : (
-                emptyView
-              ),
+            view: sendNftsTabViewComponent,
           },
         ]}
       />

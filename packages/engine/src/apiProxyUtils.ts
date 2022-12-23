@@ -45,6 +45,8 @@ export type TokenBalancesResponse = {
   address: string;
   balance: string;
   name?: string;
+  // for sol
+  sendAddress: string;
 }[];
 
 const getBalances = async (
