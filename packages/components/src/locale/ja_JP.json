@@ -1190,7 +1190,7 @@
   "form__unknown_tokens_desc": "以下のトークンは未検証第三者からのもので、リスクにご注意ください!",
   "form__unlimited": "制限無し",
   "form__unlimited_allowance": "無制限の許可",
-  "form__unlock_time_uppercase": "時間のロックを解除",
+  "form__unlock_time_uppercase": "ロック解除時間",
   "form__update_downloading": "ダウンロード中... {0}",
   "form__updated": "更新時間",
   "form__updating_resource": "リソース更新中...",
