@@ -1,7 +1,10 @@
 const fse = require('fs-extra');
+const fs = require('fs');
 const lodash = require('lodash');
 const childProcess = require('child_process');
 const path = require('path');
+const util = require('util');
+const replicator = require('console-feed/lib/Transform');
 
 function execSync(cmd) {
   childProcess.execSync(cmd);
@@ -42,7 +45,22 @@ function writePreviewWebpackConfigJson(webpackConfig, filename) {
     // return `[ Function ${this.name}() ] ${this.toString()} `;
     return `[ Function ${this.name}() ]`;
   };
-  fse.writeJsonSync(filename, webpackConfig, { spaces: 2 });
+  try {
+    fse.writeJsonSync(filename, webpackConfig, { spaces: 2 });
+  } catch (error) {
+    console.error(error);
+    console.log(
+      '>>>>>>>> Fallback to console-feed replicator.Encode() <<<<<<<<<',
+    );
+    fse.writeJsonSync(filename, replicator.Encode(webpackConfig), {
+      spaces: 2,
+    });
+  } finally {
+    // noop
+  }
+  // fs.writeFileSync(filename, util.inspect(webpackConfig), {
+  //   encoding: 'utf-8',
+  // });
 }
 
 function createMultipleEntryConfigs(createConfig, multipleEntryConfigs) {

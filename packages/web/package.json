@@ -7,7 +7,7 @@
     "postinstall": "expo-yarn-workspaces postinstall",
     "dev": "expo start",
     "start": "WEB_PORT=3000 expo start --web",
-    "build": "rm -rf ./web-build && expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
+    "build": "rm -rf ./web-build && ENABLE_ANALYZER=1 ENABLE_ANALYZER_HTML_REPORT=1 expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "stats": "NODE_ENV=production ENABLE_ANALYZER=1 webpack build"
   },
