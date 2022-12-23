@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
-import { getTokenAmountString, nativeTokenAddress } from '../utils';
+import { getTokenAmountString, multiply, nativeTokenAddress } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
@@ -243,6 +243,12 @@ export class SwapQuoter {
 
     return responses.map((response) => {
       const fetchQuote = response.result;
+      let extraPercentageFee = 0;
+      if (fetchQuote.quoter === 'swft') {
+        extraPercentageFee = 0.002;
+      }
+      const estimatedPercentageFee =
+        extraPercentageFee + Number(fetchQuote.percentageFee ?? 0);
       const data = {
         type: fetchQuote.quoter as QuoterType,
         instantRate: fetchQuote.instantRate,
@@ -255,6 +261,10 @@ export class SwapQuoter {
         allowanceTarget: fetchQuote.allowanceTarget,
         arrivalTime: fetchQuote.arrivalTime,
         needApproved: false,
+        estimatedBuyAmount: multiply(
+          fetchQuote.buyAmount,
+          1 - estimatedPercentageFee,
+        ),
       };
 
       if (data.allowanceTarget && spendersAllowance) {

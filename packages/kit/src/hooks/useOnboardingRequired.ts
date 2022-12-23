@@ -7,6 +7,7 @@ import { HomeRoutes, RootRoutes } from '../routes/types';
 import { setHomePageCheckBoarding } from '../store/reducers/data';
 import { setOnBoardingLoadingBehindModal } from '../store/reducers/runtime';
 import { wait } from '../utils/helper';
+import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
 import { useAppSelector } from './redux';
 import useAppNavigation from './useAppNavigation';
@@ -14,7 +15,6 @@ import useNavigation from './useNavigation';
 import { useNavigationActions } from './useNavigationActions';
 
 import type { ModalScreenProps, RootRoutesParams } from '../routes/types';
-import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 

@@ -26,14 +26,15 @@ export const AmountLimit: FC<AmountLimitProps> = ({ response, token }) => {
   if (limited.max) {
     elem = (
       <Typography.Caption color="text-subdued">
-        Max Amount: {maxAmount?.typedValue}
+        {intl.formatMessage({ id: 'form__max_amount' })} {maxAmount?.typedValue}
         {token?.symbol}
       </Typography.Caption>
     );
   } else if (limited.min) {
     elem = (
       <Typography.Caption color="text-subdued">
-        Min Amount: {minAmount?.typedValue}
+        {intl.formatMessage({ id: 'form__min_amount' })}
+        {minAmount?.typedValue}
         {token?.symbol}
       </Typography.Caption>
     );
