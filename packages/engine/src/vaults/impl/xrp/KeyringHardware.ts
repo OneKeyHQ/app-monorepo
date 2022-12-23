@@ -100,6 +100,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         payment: {
           amount: +encodedTx.Amount,
           destination: encodedTx.Destination,
+          destinationTag: encodedTx.DestinationTag ?? undefined,
         },
       },
     };
