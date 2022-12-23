@@ -1,6 +1,6 @@
 /* eslint-disable camelcase */
 import type { ComponentProps, FC } from 'react';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Box, Center, Icon, NetImage } from '@onekeyhq/components';
 
@@ -27,6 +27,7 @@ const CollectionLogo: FC<Props> = ({ verified, ...imageProps }) => {
     return (
       <Box width={width} height={height}>
         <NetImage
+          preview={false}
           skeleton
           borderRadius="12px"
           fallbackElement={fallbackElement}
@@ -48,4 +49,4 @@ const CollectionLogo: FC<Props> = ({ verified, ...imageProps }) => {
   }
   return fallbackElement;
 };
-export default CollectionLogo;
+export default memo(CollectionLogo);
