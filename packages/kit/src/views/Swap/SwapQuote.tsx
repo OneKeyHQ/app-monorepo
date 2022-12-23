@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   BottomSheetModal,
   Box,
+  CustomSkeleton,
   Icon,
   IconButton,
   Pressable,
@@ -24,6 +25,7 @@ import SwappingVia from './components/SwappingVia';
 import TransactionFee from './components/TransactionFee';
 import TransactionRate from './components/TransactionRate';
 import { SwapRoutes } from './typings';
+import { getTokenAmountValue } from './utils';
 
 const SwapArrivalTime = () => {
   const arrivalTime = useAppSelector((s) => s.swap.quote?.arrivalTime);
@@ -143,6 +145,22 @@ const SwapNetworkFee = () => {
   );
 };
 
+const SwapMinimumReceived = () => {
+  const buyAmount = useAppSelector(
+    (s) => s.swap.quote?.estimatedBuyAmount || s.swap.quote?.buyAmount,
+  );
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  if (outputToken && buyAmount) {
+    return (
+      <Typography.Body2 color="text-subdued">
+        {getTokenAmountValue(outputToken, buyAmount).toFixed(4)}{' '}
+        {outputToken.symbol.toUpperCase()}
+      </Typography.Body2>
+    );
+  }
+  return null;
+};
+
 const SwapQuote = () => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -150,6 +168,7 @@ const SwapQuote = () => {
   const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const loading = useAppSelector((s) => s.swap.loading);
   const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
   const swapSlippagePercent = useAppSelector(
     (s) => s.settings.swapSlippagePercent,
@@ -190,15 +209,21 @@ const SwapQuote = () => {
           {intl.formatMessage({ id: 'Rate' })}
         </Typography.Body2>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <Box maxW="full">
-            <TransactionRate
-              tokenA={inputToken}
-              tokenB={outputToken}
-              rate={quote?.instantRate}
-              typography="Body2"
-              color="text-subdued"
-            />
-          </Box>
+          {loading ? (
+            <Box h="4" width="24" borderRadius="2px" overflow="hidden">
+              <CustomSkeleton />
+            </Box>
+          ) : (
+            <Box maxW="full">
+              <TransactionRate
+                tokenA={inputToken}
+                tokenB={outputToken}
+                rate={quote?.instantRate}
+                typography="Body2"
+                color="text-subdued"
+              />
+            </Box>
+          )}
         </Box>
       </Box>
       <SwapNetworkFee />
@@ -307,6 +332,20 @@ const SwapQuote = () => {
                 percentageFee={quote.percentageFee}
                 typography="Body2"
               />
+            </Box>
+          </Box>
+          <Box
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb="4"
+          >
+            <Typography.Body2 color="text-disabled" mr="2">
+              {intl.formatMessage({ id: 'form__minimum_received' })}
+            </Typography.Body2>
+            <Box flex="1" flexDirection="row" justifyContent="flex-end">
+              <SwapMinimumReceived />
             </Box>
           </Box>
           <Box
