@@ -11,6 +11,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import {
   InvalidAddress,
   InvalidTransferValue,
+  NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
 import {
@@ -45,6 +46,7 @@ import type { IEncodedTxXrp, IXrpTransaction } from './types';
 import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 let clientInstance: XRPL.Client | null = null;
+
 // @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -116,6 +118,10 @@ export default class Vault extends VaultBase {
       return Promise.resolve(address);
     }
     return Promise.reject(new InvalidAddress());
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    throw new NotImplemented();
   }
 
   override async validateWatchingCredential(input: string): Promise<boolean> {
@@ -207,13 +213,28 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxXrp> {
     const { to, amount } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+
+    let destination = to;
+    let destinationTag: number | undefined;
+    // Slice destination tag from swap address
+    if (!XRPL.isValidAddress(to) && to.indexOf('#') > -1) {
+      const [address, tag] = to.split('#');
+      destination = address;
+      destinationTag = tag ? Number(tag) : undefined;
+
+      if (!XRPL.isValidAddress(address)) {
+        throw new InvalidAddress();
+      }
+    }
+
     const client = await this.getClient();
     const currentLedgerIndex = await client.getLedgerIndex();
     const prepared = await client.autofill({
       TransactionType: 'Payment',
       Account: dbAccount.address,
       Amount: XRPL.xrpToDrops(amount),
-      Destination: to,
+      Destination: destination,
+      DestinationTag: destinationTag,
       LastLedgerSequence: currentLedgerIndex + 50,
     });
     return {
