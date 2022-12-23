@@ -7,7 +7,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   Box,
-  Divider,
   HStack,
   Icon,
   Modal,
