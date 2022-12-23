@@ -132,6 +132,7 @@ export type QuoteData = {
   additionalParams?: BuildTransactionAdditionalParameters;
   needApproved?: boolean;
   percentageFee?: string;
+  estimatedBuyAmount?: string;
 };
 
 export interface BuildTransactionAdditionalParameters {

@@ -93,6 +93,7 @@ const ExchangeButton = () => {
   const quote = useAppSelector((s) => s.swap.quote);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const recipient = useAppSelector((s) => s.swap.recipient);
+  const validationSetting = useAppSelector((s) => s.settings.validationSetting);
   const { inputAmount, outputAmount } = useDerivedSwapState();
   const params = useSwapQuoteRequestParams();
   const disableSwapExactApproveAmount = useAppSelector(
@@ -277,7 +278,7 @@ const ExchangeButton = () => {
 
       const password = await backgroundApiProxy.servicePassword.getPassword();
 
-      if (password) {
+      if (password && !validationSetting?.Payment) {
         await backgroundApiProxy.serviceTransaction.sendTransaction({
           accountId: sendingAccount.id,
           networkId: targetNetworkId,
@@ -381,7 +382,7 @@ const ExchangeButton = () => {
     }
 
     const password = await backgroundApiProxy.servicePassword.getPassword();
-    if (password) {
+    if (password && !validationSetting?.Payment) {
       const { result, decodedTx } =
         await backgroundApiProxy.serviceTransaction.sendTransaction({
           accountId: sendingAccount.id,
@@ -451,6 +452,7 @@ const ExchangeButton = () => {
     addTransaction,
     disableSwapExactApproveAmount,
     recipient?.address,
+    validationSetting,
   ]);
 
   return (
