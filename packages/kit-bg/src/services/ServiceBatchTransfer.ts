@@ -12,7 +12,7 @@ import type {
   ISignedTxPro,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
-import multicallBy0x from '@onekeyhq/shared/src/asyncModules/multicallBy0x';
+import lib0xSequenceMulticall from '@onekeyhq/shared/src/asyncModules/lib0xSequenceMulticall';
 import {
   backgroundClass,
   backgroundMethod,
@@ -39,7 +39,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
 
   @backgroundMethod()
   async getReadProvider(networkId: string) {
-    const multicall = await multicallBy0x.getModule();
+    const multicall = await lib0xSequenceMulticall.getModule();
     const provider = await this.getProvider(networkId);
     if (!provider) {
       return;

@@ -17,7 +17,6 @@ import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
-import { isString } from 'lodash';
 
 import bufferUitls from '@onekeyhq/shared/src/bufferUitls';
 import {
