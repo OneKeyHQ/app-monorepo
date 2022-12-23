@@ -834,7 +834,7 @@
   "form__default_currency": "Валюта по умолчанию",
   "form__designated_recipient": "Назначенный получатель",
   "form__designated_recipient_desc": "Вы можете выбрать другую учетную запись для получения свопа.",
-  "form__destination_tag_placeholder": "Тег назначения (необязательно)",
+  "form__destination_tag_placeholder": "Тег (необязательно)",
   "form__dev_mode": "Режим разработчика",
   "form__dev_platform_channel": "Платформы и каналы",
   "form__dev_pre_update": "Обновить предварительную версию",

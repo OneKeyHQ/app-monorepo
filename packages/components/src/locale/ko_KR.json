@@ -834,7 +834,7 @@
   "form__default_currency": "기본 통화",
   "form__designated_recipient": "지정 수신자",
   "form__designated_recipient_desc": "스왑을 받을 다른 계정을 선택할 수 있습니다.",
-  "form__destination_tag_placeholder": "대상 태그(선택 사항)",
+  "form__destination_tag_placeholder": "태그(선택사항)",
   "form__dev_mode": "개발자 모드",
   "form__dev_platform_channel": "플랫폼 및 채널",
   "form__dev_pre_update": "미리보기 버전 업그레이드",

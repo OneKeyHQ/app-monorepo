@@ -834,7 +834,7 @@
   "form__default_currency": "mặc định ngoại tệ",
   "form__designated_recipient": "Người nhận được chỉ định",
   "form__designated_recipient_desc": "Bạn có thể chọn một tài khoản khác để nhận hoán đổi.",
-  "form__destination_tag_placeholder": "Thẻ đích (tùy chọn)",
+  "form__destination_tag_placeholder": "Thẻ (tùy chọn)",
   "form__dev_mode": "Chế độ Nhà phát triển",
   "form__dev_platform_channel": "Nền tảng và kênh",
   "form__dev_pre_update": "Nâng cấp phiên bản xem trước",

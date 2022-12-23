@@ -834,7 +834,7 @@
   "form__default_currency": "Өгөгдмөл валют",
   "form__designated_recipient": "Томилогдсон хүлээн авагч",
   "form__designated_recipient_desc": "Та своп авахын тулд өөр данс сонгох боломжтой.",
-  "form__destination_tag_placeholder": "Очих газрын шошго (заавал биш)",
+  "form__destination_tag_placeholder": "Шошго (заавал биш)",
   "form__dev_mode": "Хөгжүүлэгч Мод",
   "form__dev_platform_channel": "Платформ ба сувгууд",
   "form__dev_pre_update": "Урьдчилан үзэх хувилбарыг шинэчлэх",

@@ -834,7 +834,7 @@
   "form__default_currency": "Valuta predefinita",
   "form__designated_recipient": "Destinatario designato",
   "form__designated_recipient_desc": "Puoi scegliere un altro account per ricevere lo swap.",
-  "form__destination_tag_placeholder": "Tag di destinazione (facoltativo)",
+  "form__destination_tag_placeholder": "Etichetta (opzionale)",
   "form__dev_mode": "Modalità sviluppatore",
   "form__dev_platform_channel": "Piattaforme e canali",
   "form__dev_pre_update": "Aggiorna versione di anteprima",

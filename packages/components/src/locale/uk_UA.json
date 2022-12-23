@@ -834,7 +834,7 @@
   "form__default_currency": "Валюта за умовчанням",
   "form__designated_recipient": "Призначений одержувач",
   "form__designated_recipient_desc": "Ви можете вибрати інший обліковий запис для отримання обміну.",
-  "form__destination_tag_placeholder": "Тег призначення (необов’язково)",
+  "form__destination_tag_placeholder": "Тег (необов'язково)",
   "form__dev_mode": "Режим розробника",
   "form__dev_platform_channel": "Платформи та канали",
   "form__dev_pre_update": "Оновити версію попереднього перегляду",

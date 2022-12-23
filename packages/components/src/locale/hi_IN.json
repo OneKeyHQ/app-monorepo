@@ -834,7 +834,7 @@
   "form__default_currency": "डिफ़ॉल्ट मुद्रा",
   "form__designated_recipient": "मनोनीत प्राप्तकर्ता",
   "form__designated_recipient_desc": "आप स्वैप प्राप्त करने के लिए दूसरा खाता चुन सकते हैं।",
-  "form__destination_tag_placeholder": "गंतव्य टैग (वैकल्पिक)",
+  "form__destination_tag_placeholder": "टैग (वैकल्पिक)",
   "form__dev_mode": "डेवलपर मोड",
   "form__dev_platform_channel": "प्लेटफार्म और चैनल",
   "form__dev_pre_update": "पूर्वावलोकन संस्करण अपग्रेड करें",

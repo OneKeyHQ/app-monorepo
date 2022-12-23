@@ -834,7 +834,7 @@
   "form__default_currency": "Moneda predeterminada",
   "form__designated_recipient": "Destinatario designado",
   "form__designated_recipient_desc": "Puede elegir otra cuenta para recibir el intercambio.",
-  "form__destination_tag_placeholder": "Etiqueta de destino (opcional)",
+  "form__destination_tag_placeholder": "Etiqueta (opcional)",
   "form__dev_mode": "Modo desarrollador",
   "form__dev_platform_channel": "Plataformas y canales",
   "form__dev_pre_update": "Actualizar versión de vista previa",

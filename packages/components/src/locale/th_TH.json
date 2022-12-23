@@ -834,7 +834,7 @@
   "form__default_currency": "สกุลเงินเริ่มต้น",
   "form__designated_recipient": "ผู้รับที่กำหนด",
   "form__designated_recipient_desc": "คุณสามารถเลือกบัญชีอื่นเพื่อรับการแลกเปลี่ยน",
-  "form__destination_tag_placeholder": "แท็กปลายทาง (ไม่บังคับ)",
+  "form__destination_tag_placeholder": "แท็ก (ไม่บังคับ)",
   "form__dev_mode": "โหมดนักพัฒนา",
   "form__dev_platform_channel": "แพลตฟอร์มและช่องทาง",
   "form__dev_pre_update": "อัปเกรดเวอร์ชันตัวอย่าง",
