@@ -21,10 +21,6 @@ import type {
 } from '../../types';
 import type { IAdaUTXO, IEncodedTxADA } from './types';
 import type Vault from './Vault';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(
