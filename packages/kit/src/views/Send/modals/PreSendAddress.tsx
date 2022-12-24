@@ -414,6 +414,7 @@ function PreSendAddress() {
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
+                  // @ts-expect-error
                   validate: async (value: string) => {
                     const toAddress = resolvedAddress || value || '';
                     setSuccessMessage('');
