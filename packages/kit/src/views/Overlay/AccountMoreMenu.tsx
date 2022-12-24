@@ -1,17 +1,10 @@
-import type { FC, ReactElement } from 'react';
-import {
-  Children,
-  cloneElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { Menu, useIsVerticalLayout, useToast } from '@onekeyhq/components';
+import { useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
@@ -33,15 +26,14 @@ import {
   useEnabledAccountDynamicAccounts,
 } from '../PushNotification/hooks';
 
-import type { IMenuProps } from 'native-base';
+import BaseMenu from './BaseMenu';
+
+import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
 const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
-const AccountMoreMenu: FC<Omit<IMenuProps, 'trigger'>> = ({
-  children,
-  ...rest
-}) => {
+const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
@@ -227,23 +219,7 @@ const AccountMoreMenu: FC<Omit<IMenuProps, 'trigger'>> = ({
       copyAddress,
     ],
   );
-  return (
-    <Menu
-      {...rest}
-      w={190}
-      trigger={(triggerProps) =>
-        cloneElement(Children.only(children as ReactElement), triggerProps)
-      }
-    >
-      {options.filter(Boolean).map(({ onPress, icon, id }) => (
-        <Menu.CustomItem icon={icon} onPress={onPress}>
-          {intl.formatMessage({
-            id,
-          })}
-        </Menu.CustomItem>
-      ))}
-    </Menu>
-  );
+  return <BaseMenu options={options} {...props} />;
 };
 
 export default AccountMoreMenu;

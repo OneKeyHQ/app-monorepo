@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -45,9 +45,7 @@ import {
   getPreBaseValue,
   getSummedValues,
 } from '../../../utils/priceUtils';
-import AccountMoreMenu, {
-  showAccountMoreMenu,
-} from '../../Overlay/AccountMoreMenu';
+import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
 import type { SimpleTokenPrices } from '../../../store/reducers/tokens';
@@ -220,7 +218,6 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
-  const moreButtonRef = useRef();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
 
