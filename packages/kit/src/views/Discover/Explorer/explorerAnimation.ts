@@ -3,11 +3,13 @@ import { createRef } from 'react';
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../store';
-import { setWebTabData } from '../../../store/reducers/webTabs';
 
 import type { View } from 'react-native';
 import type ViewShot from 'react-native-view-shot';
@@ -49,22 +51,21 @@ export const showTabGrid = () => {
       height: thumbnailWidth * thumbnailRatio,
       quality: 0.6,
     }).then((uri) => {
-      backgroundApiProxy.dispatch(
-        setWebTabData({
-          id: currentTabId,
-          thumbnail: uri,
-        }),
+      appEventBus.emit(
+        AppEventBusNames.WebTabThumbnailUpdated,
+        currentTabId,
+        uri,
       );
     });
   }
   getTabCellLayout(currentTabId);
-  setTimeout(() => (showTabGridAnim.value = withTiming(MAX_OR_SHOW)), 30);
+  setTimeout(() => (showTabGridAnim.value = withTiming(MAX_OR_SHOW)), 50);
 };
 
 export const hideTabGrid = (id?: string) => {
   const curId = id || appSelector((s) => s.webTabs.currentTabId);
   getTabCellLayout(curId);
-  setTimeout(() => (showTabGridAnim.value = withTiming(MIN_OR_HIDE)), 30);
+  setTimeout(() => (showTabGridAnim.value = withTiming(MIN_OR_HIDE)), 50);
 };
 
 interface ExpandAnimationEvents {
