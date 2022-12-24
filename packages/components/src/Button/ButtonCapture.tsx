@@ -6,7 +6,7 @@ import { autoHideSelectFunc } from '../utils/SelectAutoHide';
 
 import type { IButtonProps } from 'native-base';
 
-const ButtonCapture = forwardRef<typeof Button, IButtonProps>(
+const ButtonCapture = forwardRef<any, IButtonProps>(
   ({ onPress, ...props }, ref) => {
     const onPressOverride = useCallback(
       (e) => {
@@ -17,7 +17,7 @@ const ButtonCapture = forwardRef<typeof Button, IButtonProps>(
     );
     return (
       <Button
-        // @ts-expect-error
+        // @ts-ignore
         ref={ref}
         {...props}
         onPress={onPressOverride}
