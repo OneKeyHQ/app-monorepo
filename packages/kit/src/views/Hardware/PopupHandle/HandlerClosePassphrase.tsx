@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,6 +22,27 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
   const intl = useIntl();
   const { serviceHardware } = backgroundApiProxy;
 
+  const showLoadingDialog = useCallback(() => {
+    setTimeout(
+      () =>
+        showOverlay((onCloseOverlay) => (
+          <HardwareLoadingDialog
+            onClose={onCloseOverlay}
+            onHandler={() =>
+              serviceHardware
+                .applySettings(deviceConnectId, {
+                  usePassphrase: false,
+                })
+                .catch((e) => {
+                  deviceUtils.showErrorToast(e);
+                })
+            }
+          />
+        )),
+      100,
+    );
+  }, [deviceConnectId, serviceHardware]);
+
   return (
     <Dialog
       visible
@@ -40,24 +62,7 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
         onSecondaryActionPress: () => onClose?.(),
         onPrimaryActionPress: () => {
           onClose?.();
-          setTimeout(
-            () =>
-              showOverlay((onCloseOverlay) => (
-                <HardwareLoadingDialog
-                  onClose={onCloseOverlay}
-                  onHandler={() =>
-                    serviceHardware
-                      .applySettings(deviceConnectId, {
-                        usePassphrase: false,
-                      })
-                      .catch((e) => {
-                        deviceUtils.showErrorToast(e);
-                      })
-                  }
-                />
-              )),
-            100,
-          );
+          showLoadingDialog();
         },
       }}
     />

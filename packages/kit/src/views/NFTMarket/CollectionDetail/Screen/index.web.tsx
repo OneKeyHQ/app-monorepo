@@ -16,7 +16,7 @@ import AssetsList from '../AssetsList';
 import CollectionInfo from '../CollectionInfo';
 import { useCollectionDetailContext } from '../context';
 import TransactionList, {
-  ListHeader as TransactionListHeader,
+  ListHeader as BaseTransactionListHeader,
 } from '../TransactionList';
 import { TabEnum } from '../type';
 
@@ -93,7 +93,7 @@ const AssetHeader = () => {
   const setContext = useCollectionDetailContext()?.setContext;
   return (
     <Box flexDirection="column" alignItems="flex-start">
-      <MemoCollectionInfo />
+      <MemoCollectionInfo key="MemoCollectionInfo" />
       <TabBar
         mb={isSmallScreen ? '24px' : '32px'}
         selectedIndex={context?.selectedIndex}
@@ -123,7 +123,7 @@ const TransactionHeader = () => {
   const setContext = useCollectionDetailContext()?.setContext;
   return (
     <Box flexDirection="column" alignItems="flex-start">
-      <MemoCollectionInfo />
+      <MemoCollectionInfo key="MemoCollectionInfo" />
       <TabBar
         mb={{ md: '8px' }}
         selectedIndex={context?.selectedIndex}
@@ -143,10 +143,13 @@ const TransactionHeader = () => {
           },
         ]}
       />
-      <TransactionListHeader />
+      <BaseTransactionListHeader />
     </Box>
   );
 };
+
+const AssetsListHeader = () => <AssetHeader />;
+const TransactionListHeader = () => <TransactionHeader />;
 
 const Screen = () => {
   const route =
@@ -162,13 +165,13 @@ const Screen = () => {
         <AssetsList
           contractAddress={contractAddress}
           networkId={networkId}
-          ListHeaderComponent={() => <AssetHeader />}
+          ListHeaderComponent={AssetsListHeader}
         />
       ) : (
         <TransactionList
           contractAddress={contractAddress}
           networkId={networkId}
-          ListHeaderComponent={() => <TransactionHeader />}
+          ListHeaderComponent={TransactionListHeader}
         />
       )}
     </>

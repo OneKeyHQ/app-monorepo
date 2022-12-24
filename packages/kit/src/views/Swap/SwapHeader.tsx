@@ -179,7 +179,15 @@ const RefreshButton = () => {
   );
 
   const onRefresh = useCallback(() => {
-    if (!isOk) return;
+    if (!isOk) {
+      loadingAnim.setValue(0);
+      Animated.timing(loadingAnim, {
+        toValue: -1,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
     loadingAnim.setValue(0);
     lottie.pause();
     Animated.timing(loadingAnim, {
@@ -220,13 +228,7 @@ const RefreshButton = () => {
   }, [isOk, isFocused, lottie]);
 
   return (
-    <Button
-      type="plain"
-      onPress={onRefresh}
-      pl="2"
-      pr="2"
-      isDisabled={loading || !isOk}
-    >
+    <Button type="plain" onPress={onRefresh} pl="2" pr="2" isDisabled={loading}>
       <Animated.View
         style={{
           transform: [
@@ -239,7 +241,7 @@ const RefreshButton = () => {
           ],
         }}
       >
-        <Box w="5" h="5">
+        <Center w="5" h="5">
           <LottieView
             onLoopComplete={onRefresh}
             ref={lottieRef}
@@ -252,7 +254,7 @@ const RefreshButton = () => {
                 : require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_dark.json')
             }
           />
-        </Box>
+        </Center>
       </Animated.View>
     </Button>
   );

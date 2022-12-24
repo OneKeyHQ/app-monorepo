@@ -1,6 +1,6 @@
 import type { ComponentProps, FC } from 'react';
 
-import { Box, Image, Text } from '@onekeyhq/components';
+import { Box, Center, Image, Text } from '@onekeyhq/components';
 
 import type { Provider } from '../../typings';
 
@@ -46,13 +46,13 @@ export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
     if (index <= 0) {
       return 0;
     }
-    return -(index * base) / 2;
+    return -base / 2;
   };
   return (
     <Box flexDirection="row" alignItems="center">
       {sources.map((source, index) => (
-        <Box
-          ml={calcMargin(index, imageSize / 4)}
+        <Center
+          ml={calcMargin(index, imageSize)}
           borderRadius="full"
           h={imageSize}
           w={imageSize}
@@ -61,7 +61,7 @@ export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
           bgColor="surface-neutral-default"
         >
           <Image size={imageSize} src={proxyimg(source)} />
-        </Box>
+        </Center>
       ))}
     </Box>
   );
@@ -104,7 +104,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
       <Box alignItems="center" flexDirection="row" alignContent="center">
         {sources.length > 0 ? <SwappingViaLogos sources={sources} /> : null}
         <Text
-          ml={2}
+          ml="2"
           typography={typography}
           color={color}
           fontWeight={fontWeight}
