@@ -466,7 +466,7 @@ const components: Record<
   'primary': PrimaryButton,
 };
 const Button = forwardRef<
-  typeof NativeBaseButton,
+  any,
   Omit<ComponentProps<typeof NativeBaseButton>, 'size'> & ButtonProps
 >(
   (

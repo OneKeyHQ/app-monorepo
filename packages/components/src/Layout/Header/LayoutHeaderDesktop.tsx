@@ -23,7 +23,7 @@ export function LayoutHeaderDesktop() {
       <HStack space={2} alignItems="center">
         <NetworkAccountSelectorTriggerDesktop />
         <Box>
-          <HomeMoreMenu offset={30} placement="bottom right">
+          <HomeMoreMenu placement="bottom right">
             <IconButton
               name="EllipsisVerticalOutline"
               size="lg"
