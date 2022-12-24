@@ -59,13 +59,13 @@ export const showTabGrid = () => {
     });
   }
   getTabCellLayout(currentTabId);
-  setTimeout(() => (showTabGridAnim.value = withTiming(MAX_OR_SHOW)), 50);
+  setTimeout(() => (showTabGridAnim.value = withTiming(MAX_OR_SHOW)), 30);
 };
 
 export const hideTabGrid = (id?: string) => {
   const curId = id || appSelector((s) => s.webTabs.currentTabId);
   getTabCellLayout(curId);
-  setTimeout(() => (showTabGridAnim.value = withTiming(MIN_OR_HIDE)), 50);
+  setTimeout(() => (showTabGridAnim.value = withTiming(MIN_OR_HIDE)), 30);
 };
 
 interface ExpandAnimationEvents {
