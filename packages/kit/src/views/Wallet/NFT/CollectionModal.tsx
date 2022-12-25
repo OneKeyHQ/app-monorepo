@@ -4,17 +4,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 
+import { Box, Modal, NetImage, Typography } from '@onekeyhq/components';
 import {
-  Box,
-  DataProvider,
-  LayoutProvider,
-  Modal,
-  NetImage,
-  RecyclerListView,
-  Typography,
   useIsVerticalLayout,
   useUserDevice,
-} from '@onekeyhq/components';
+} from '@onekeyhq/components/src/Provider/hooks';
+import RecyclerListView, {
+  DataProvider,
+  LayoutProvider,
+} from '@onekeyhq/components/src/RecyclerListView';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';

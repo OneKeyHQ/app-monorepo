@@ -20,9 +20,9 @@ import {
   Spinner,
   Text,
   Typography,
-  useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+import { useToast } from '@onekeyhq/components/src/Toast/useToast';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

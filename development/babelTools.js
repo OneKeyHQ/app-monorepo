@@ -99,7 +99,34 @@ function normalizeConfig({ platform, config }) {
        Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.
     and background code will never be executed.
      */
-    ['babel-plugin-lodash'],
+    // ['babel-plugin-lodash'],
+    [
+      'babel-plugin-import',
+      {
+        'libraryName': 'lodash',
+        'libraryDirectory': '',
+        'camel2DashComponentName': false, // default: true
+      },
+      'lodash',
+    ],
+    [
+      'babel-plugin-import',
+      {
+        'libraryName': '@onekeyhq/components',
+        'libraryDirectory': 'src',
+        'camel2DashComponentName': false,
+      },
+      '@onekeyhq/components',
+    ],
+    [
+      'babel-plugin-import',
+      {
+        'libraryName': '@onekeyhq/components/src',
+        'libraryDirectory': '',
+        'camel2DashComponentName': false,
+      },
+      '@onekeyhq/components/src',
+    ],
     [
       'babel-plugin-inline-import',
       {
