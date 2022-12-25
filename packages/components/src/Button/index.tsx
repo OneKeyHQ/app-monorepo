@@ -1,5 +1,9 @@
-import type { ComponentProps, FC } from 'react';
-import { memo, useCallback, useEffect, useState } from 'react';
+import type {
+  ComponentProps,
+  ForwardRefExoticComponent,
+  RefAttributes,
+} from 'react';
+import { forwardRef, useCallback, useEffect, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -38,6 +42,7 @@ type ButtonPropsWithoutType = {
   rightIconName?: ICON_NAMES;
   textProps?: FontProps;
   onPress?: () => void;
+  children?: React.ReactNode;
 };
 
 export type ButtonProps = ButtonPropsWithoutType & { type?: ButtonType };
@@ -88,338 +93,386 @@ const getTextProps = (size: ButtonSize = 'base'): FontProps => {
   return getTypographyStyleProps(styleMap[size]);
 };
 
-const BasicButton: FC<ButtonPropsWithoutType> = ({
-  size,
-  isDisabled,
-  isLoading,
-  leftIconName,
-  rightIconName,
-  iconSize,
-  textProps,
-  children,
-  ...props
-}) => {
-  const { iconColor } = props;
-  const leftIcon = leftIconName ? (
-    <Icon
-      size={iconSize}
-      name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-    />
-  ) : undefined;
-  const rightIcon = rightIconName ? (
-    <Icon
-      size={iconSize}
-      name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-    />
-  ) : undefined;
-  const nbTextProps = { ...getTextProps(size), ...textProps };
-  return (
-    <NativeBaseButton
-      isDisabled={isDisabled || isLoading}
-      isLoading={isLoading}
-      leftIcon={leftIcon}
-      rightIcon={rightIcon}
-      borderRadius="12"
-      variant="outline"
-      bg="action-secondary-default"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="border-default"
-      _text={{ color: 'text-default', ...nbTextProps }}
-      _hover={{
-        bg: 'action-secondary-hovered',
-        borderColor: 'border-default',
-      }}
-      _pressed={{
-        background: 'action-secondary-pressed',
-        borderColor: 'border-default',
-      }}
-      _disabled={{
-        bg: 'action-secondary-disabled',
-        borderColor: 'border-disabled',
-        // @ts-ignore
-        cursor: 'not-allowed',
-        opacity: 1,
-        _text: { color: 'text-disabled' },
-      }}
-      spinner={<Spinner size="sm" />}
-      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
-      {...props}
-    >
-      {children}
-    </NativeBaseButton>
-  );
-};
+const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
+  (
+    {
+      size,
+      isDisabled,
+      isLoading,
+      leftIconName,
+      rightIconName,
+      iconSize,
+      textProps,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const { iconColor } = props;
+    const leftIcon = leftIconName ? (
+      <Icon
+        size={iconSize}
+        name={leftIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      />
+    ) : undefined;
+    const rightIcon = rightIconName ? (
+      <Icon
+        size={iconSize}
+        name={rightIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      />
+    ) : undefined;
+    const nbTextProps = { ...getTextProps(size), ...textProps };
+    return (
+      <NativeBaseButton
+        ref={ref}
+        isDisabled={isDisabled || isLoading}
+        isLoading={isLoading}
+        leftIcon={leftIcon}
+        rightIcon={rightIcon}
+        borderRadius="12"
+        variant="outline"
+        bg="action-secondary-default"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="border-default"
+        _text={{ color: 'text-default', ...nbTextProps }}
+        _hover={{
+          bg: 'action-secondary-hovered',
+          borderColor: 'border-default',
+        }}
+        _pressed={{
+          background: 'action-secondary-pressed',
+          borderColor: 'border-default',
+        }}
+        _disabled={{
+          bg: 'action-secondary-disabled',
+          borderColor: 'border-disabled',
+          // @ts-ignore
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        }}
+        spinner={<Spinner size="sm" />}
+        shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...props}
+      >
+        {children}
+      </NativeBaseButton>
+    );
+  },
+);
+BasicButton.displayName = 'BasicButton';
 
-const PrimaryButton: FC<ButtonPropsWithoutType> = ({
-  size,
-  isDisabled,
-  isLoading,
-  leftIconName,
-  rightIconName,
-  iconSize,
-  textProps,
-  children,
-  ...props
-}) => {
-  const nbTextProps = { ...getTextProps(size), ...textProps };
-  const { iconColor } = props;
-  const leftIcon = leftIconName ? (
-    <Icon
-      size={iconSize}
-      name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
-    />
-  ) : undefined;
-  const rightIcon = rightIconName ? (
-    <Icon
-      size={iconSize}
-      name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
-    />
-  ) : undefined;
-  return (
-    <NativeBaseButton
-      isDisabled={isDisabled || isLoading}
-      isLoading={isLoading}
-      leftIcon={leftIcon}
-      rightIcon={rightIcon}
-      borderRadius="12"
-      variant="solid"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="transparent"
-      _text={{ color: 'text-on-primary', ...nbTextProps }}
-      bg="action-primary-default"
-      _hover={{ bg: 'action-primary-hovered' }}
-      _focus={{ bg: 'action-primary-default' }}
-      _pressed={{ bg: 'action-primary-pressed' }}
-      _loading={{
-        bg: 'action-primary-disabled',
-        borderColor: 'action-primary-disabled',
-      }}
-      _disabled={{
-        bg: 'action-primary-disabled',
-        borderColor: 'action-primary-disabled',
-        color: 'text-disabled',
-        // @ts-ignore
-        cursor: 'not-allowed',
-        opacity: 1,
-        _text: { color: 'text-disabled' },
-      }}
-      spinner={<Spinner size="sm" />}
-      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
-      {...props}
-    >
-      {children}
-    </NativeBaseButton>
-  );
-};
+const PrimaryButton = forwardRef<
+  typeof NativeBaseButton,
+  ButtonPropsWithoutType
+>(
+  (
+    {
+      size,
+      isDisabled,
+      isLoading,
+      leftIconName,
+      rightIconName,
+      iconSize,
+      textProps,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const { iconColor } = props;
+    const leftIcon = leftIconName ? (
+      <Icon
+        size={iconSize}
+        name={leftIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
+      />
+    ) : undefined;
+    const rightIcon = rightIconName ? (
+      <Icon
+        size={iconSize}
+        name={rightIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
+      />
+    ) : undefined;
+    return (
+      <NativeBaseButton
+        ref={ref}
+        isDisabled={isDisabled || isLoading}
+        isLoading={isLoading}
+        leftIcon={leftIcon}
+        rightIcon={rightIcon}
+        borderRadius="12"
+        variant="solid"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="transparent"
+        _text={{ color: 'text-on-primary', ...nbTextProps }}
+        bg="action-primary-default"
+        _hover={{ bg: 'action-primary-hovered' }}
+        _focus={{ bg: 'action-primary-default' }}
+        _pressed={{ bg: 'action-primary-pressed' }}
+        _loading={{
+          bg: 'action-primary-disabled',
+          borderColor: 'action-primary-disabled',
+        }}
+        _disabled={{
+          bg: 'action-primary-disabled',
+          borderColor: 'action-primary-disabled',
+          color: 'text-disabled',
+          // @ts-ignore
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        }}
+        spinner={<Spinner size="sm" />}
+        shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...props}
+      >
+        {children}
+      </NativeBaseButton>
+    );
+  },
+);
+PrimaryButton.displayName = 'PrimaryButton';
 
-const PlainButton: FC<ButtonPropsWithoutType> = ({
-  size,
-  isDisabled,
-  isLoading,
-  leftIconName,
-  rightIconName,
-  iconSize,
-  textProps,
-  children,
-  ...props
-}) => {
-  const nbTextProps = { ...getTextProps(size), ...textProps };
-  const { iconColor } = props;
-  const leftIcon = leftIconName ? (
-    <Icon
-      size={iconSize}
-      name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-    />
-  ) : undefined;
-  const rightIcon = rightIconName ? (
-    <Icon
-      size={iconSize}
-      name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-    />
-  ) : undefined;
-  return (
-    <NativeBaseButton
-      isDisabled={isDisabled}
-      isLoading={isLoading}
-      leftIcon={leftIcon}
-      rightIcon={rightIcon}
-      borderRadius="12"
-      variant="ghost"
-      _text={{ color: 'text-default', ...nbTextProps }}
-      _hover={{ bg: 'surface-hovered' }}
-      _pressed={{ bg: 'surface-pressed' }}
-      _focus={{ bg: undefined }}
-      _disabled={{
-        color: 'text-disabled',
-        // @ts-ignore
-        cursor: 'not-allowed',
-        opacity: 1,
-      }}
-      spinner={<Spinner size="sm" />}
-      {...props}
-    >
-      {children}
-    </NativeBaseButton>
-  );
-};
+const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
+  (
+    {
+      size,
+      isDisabled,
+      isLoading,
+      leftIconName,
+      rightIconName,
+      iconSize,
+      textProps,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const { iconColor } = props;
+    const leftIcon = leftIconName ? (
+      <Icon
+        size={iconSize}
+        name={leftIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      />
+    ) : undefined;
+    const rightIcon = rightIconName ? (
+      <Icon
+        size={iconSize}
+        name={rightIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
+      />
+    ) : undefined;
+    return (
+      <NativeBaseButton
+        ref={ref}
+        isDisabled={isDisabled}
+        isLoading={isLoading}
+        leftIcon={leftIcon}
+        rightIcon={rightIcon}
+        borderRadius="12"
+        variant="ghost"
+        _text={{ color: 'text-default', ...nbTextProps }}
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+        _focus={{ bg: undefined }}
+        _disabled={{
+          color: 'text-disabled',
+          // @ts-ignore
+          cursor: 'not-allowed',
+          opacity: 1,
+        }}
+        spinner={<Spinner size="sm" />}
+        {...props}
+      >
+        {children}
+      </NativeBaseButton>
+    );
+  },
+);
+PlainButton.displayName = 'PlainButton';
 
-const DestructiveButton: FC<ButtonPropsWithoutType> = ({
-  size,
-  isDisabled,
-  isLoading,
-  leftIconName,
-  rightIconName,
-  iconSize,
-  textProps,
-  children,
-  ...props
-}) => {
-  const nbTextProps = { ...getTextProps(size), ...textProps };
-  const { iconColor } = props;
-  const leftIcon = leftIconName ? (
-    <Icon
-      size={iconSize}
-      name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
-    />
-  ) : undefined;
-  const rightIcon = rightIconName ? (
-    <Icon
-      size={iconSize}
-      name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
-    />
-  ) : undefined;
-  return (
-    <NativeBaseButton
-      isDisabled={isDisabled || isLoading}
-      isLoading={isLoading}
-      leftIcon={leftIcon}
-      rightIcon={rightIcon}
-      borderRadius="12"
-      variant="solid"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="action-critical-default"
-      bg="action-critical-default"
-      _hover={{ bg: 'action-critical-hovered' }}
-      _loading={{
-        bg: 'action-critical-disabled',
-        borderColor: 'action-critical-disabled',
-      }}
-      _disabled={{
-        bg: 'action-critical-disabled',
-        borderColor: 'action-critical-disabled',
-        // @ts-ignore
-        cursor: 'not-allowed',
-        opacity: 1,
-        _text: { color: 'text-disabled' },
-      }}
-      _text={{
-        color: 'text-on-critical',
-        ...nbTextProps,
-      }}
-      _focus={{
-        bg: 'action-critical-hovered',
-      }}
-      _pressed={{
-        bg: 'action-critical-hovered',
-      }}
-      _spinner={{ size: iconSize }}
-      spinner={<Spinner size="sm" />}
-      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
-      {...props}
-    >
-      {children}
-    </NativeBaseButton>
-  );
-};
+const DestructiveButton = forwardRef<
+  typeof NativeBaseButton,
+  ButtonPropsWithoutType
+>(
+  (
+    {
+      size,
+      isDisabled,
+      isLoading,
+      leftIconName,
+      rightIconName,
+      iconSize,
+      textProps,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const { iconColor } = props;
+    const leftIcon = leftIconName ? (
+      <Icon
+        size={iconSize}
+        name={leftIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
+      />
+    ) : undefined;
+    const rightIcon = rightIconName ? (
+      <Icon
+        size={iconSize}
+        name={rightIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
+      />
+    ) : undefined;
+    return (
+      <NativeBaseButton
+        ref={ref}
+        isDisabled={isDisabled || isLoading}
+        isLoading={isLoading}
+        leftIcon={leftIcon}
+        rightIcon={rightIcon}
+        borderRadius="12"
+        variant="solid"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="action-critical-default"
+        bg="action-critical-default"
+        _hover={{ bg: 'action-critical-hovered' }}
+        _loading={{
+          bg: 'action-critical-disabled',
+          borderColor: 'action-critical-disabled',
+        }}
+        _disabled={{
+          bg: 'action-critical-disabled',
+          borderColor: 'action-critical-disabled',
+          // @ts-ignore
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        }}
+        _text={{
+          color: 'text-on-critical',
+          ...nbTextProps,
+        }}
+        _focus={{
+          bg: 'action-critical-hovered',
+        }}
+        _pressed={{
+          bg: 'action-critical-hovered',
+        }}
+        _spinner={{ size: iconSize }}
+        spinner={<Spinner size="sm" />}
+        shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...props}
+      >
+        {children}
+      </NativeBaseButton>
+    );
+  },
+);
+DestructiveButton.displayName = 'DestructiveButton';
 
-const OutlineButton: FC<ButtonPropsWithoutType> = ({
-  size,
-  isDisabled,
-  isLoading,
-  leftIconName,
-  rightIconName,
-  iconSize,
-  textProps,
-  children,
-  ...props
-}) => {
-  const nbTextProps = { ...getTextProps(size), ...textProps };
-  const { iconColor } = props;
-  const leftIcon = leftIconName ? (
-    <Icon
-      size={iconSize}
-      name={leftIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
-    />
-  ) : undefined;
-  const rightIcon = rightIconName ? (
-    <Icon
-      size={iconSize}
-      name={rightIconName}
-      color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
-    />
-  ) : undefined;
-  return (
-    <NativeBaseButton
-      isDisabled={isDisabled}
-      isLoading={isLoading}
-      leftIcon={leftIcon}
-      rightIcon={rightIcon}
-      borderRadius="12"
-      variant="outline"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="border-critical-default"
-      _text={{ color: 'text-critical', ...nbTextProps }}
-      _focus={{ bg: undefined, borderColor: 'border-critical-default' }}
-      _pressed={{ bg: undefined, borderColor: 'border-critical-default' }}
-      _hover={{
-        bg: 'surface-critical-subdued-hovered',
-        borderColor: 'border-critical-default',
-      }}
-      _disabled={{
-        borderColor: 'border-disabled',
-        _text: { color: 'text-disabled' },
-        // @ts-ignore
-        cursor: 'not-allowed',
-        opacity: 1,
-      }}
-      _loading={{
-        borderColor: 'border-disabled',
-        _text: { color: 'text-disabled' },
-      }}
-      spinner={<Spinner size="sm" />}
-      shadow={isDisabled || isLoading ? undefined : 'depth.1'}
-      {...props}
-    >
-      {children}
-    </NativeBaseButton>
-  );
-};
+const OutlineButton = forwardRef<
+  typeof NativeBaseButton,
+  ButtonPropsWithoutType
+>(
+  (
+    {
+      size,
+      isDisabled,
+      isLoading,
+      leftIconName,
+      rightIconName,
+      iconSize,
+      textProps,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const { iconColor } = props;
+    const leftIcon = leftIconName ? (
+      <Icon
+        size={iconSize}
+        name={leftIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
+      />
+    ) : undefined;
+    const rightIcon = rightIconName ? (
+      <Icon
+        size={iconSize}
+        name={rightIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
+      />
+    ) : undefined;
+    return (
+      <NativeBaseButton
+        ref={ref}
+        isDisabled={isDisabled}
+        isLoading={isLoading}
+        leftIcon={leftIcon}
+        rightIcon={rightIcon}
+        borderRadius="12"
+        variant="outline"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="border-critical-default"
+        _text={{ color: 'text-critical', ...nbTextProps }}
+        _focus={{ bg: undefined, borderColor: 'border-critical-default' }}
+        _pressed={{ bg: undefined, borderColor: 'border-critical-default' }}
+        _hover={{
+          bg: 'surface-critical-subdued-hovered',
+          borderColor: 'border-critical-default',
+        }}
+        _disabled={{
+          borderColor: 'border-disabled',
+          _text: { color: 'text-disabled' },
+          // @ts-ignore
+          cursor: 'not-allowed',
+          opacity: 1,
+        }}
+        _loading={{
+          borderColor: 'border-disabled',
+          _text: { color: 'text-disabled' },
+        }}
+        spinner={<Spinner size="sm" />}
+        shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...props}
+      >
+        {children}
+      </NativeBaseButton>
+    );
+  },
+);
+OutlineButton.displayName = 'OutlineButton';
 
-const components: Record<ButtonType, FC<ButtonPropsWithoutType>> = {
+const components: Record<
+  ButtonType,
+  ForwardRefExoticComponent<
+    ButtonPropsWithoutType & RefAttributes<typeof NativeBaseButton>
+  >
+> = {
   'basic': BasicButton,
   'destructive': DestructiveButton,
   'outline': OutlineButton,
   'plain': PlainButton,
   'primary': PrimaryButton,
 };
-const Button = memo(
-  ({
-    type = 'basic',
-    size,
-    iconSize,
-    leftIconName,
-    rightIconName,
-    ...props
-  }: Omit<ComponentProps<typeof NativeBaseButton>, 'size'> & ButtonProps) => {
+const Button = forwardRef<
+  any,
+  Omit<ComponentProps<typeof NativeBaseButton>, 'size'> & ButtonProps
+>(
+  (
+    { type = 'basic', size, iconSize, leftIconName, rightIconName, ...props },
+    ref,
+  ) => {
     let [pt, pr, pb, pl] = getPadding(size);
     const buttonIconSize = iconSize ?? getIconSize(size);
     const Component = components[type];
@@ -438,6 +491,7 @@ const Button = memo(
     }
     return (
       <Component
+        ref={ref}
         pt={pt}
         pr={pr}
         pb={pb}
@@ -458,12 +512,10 @@ type OkButtonProps = {
   onPromise?: () => Promise<any>;
 };
 
-const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
-  onPress,
-  onPromise,
-  isLoading,
-  ...props
-}) => {
+const OkButton = forwardRef<
+  typeof Button,
+  ComponentProps<typeof Button> & OkButtonProps
+>(({ onPress, onPromise, isLoading, ...props }, ref) => {
   const [loading, setLoading] = useState(isLoading);
   // Handling when isLoading and onPromise are present at the same time
   const prevLoadingState = usePrevious<boolean | undefined>(loading);
@@ -494,7 +546,10 @@ const OkButton: FC<ComponentProps<typeof Button> & OkButtonProps> = ({
       setLoading(!!isLoading);
     }
   }, [isLoading, prevLoadingState]);
-  return <Button {...props} onPress={handlePress} isLoading={loading} />;
-};
+  return (
+    <Button ref={ref} {...props} onPress={handlePress} isLoading={loading} />
+  );
+});
+OkButton.displayName = 'OkButton';
 
-export default memo(OkButton);
+export default OkButton;

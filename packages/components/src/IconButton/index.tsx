@@ -1,4 +1,5 @@
 import type { ComponentProps, FC } from 'react';
+import { forwardRef } from 'react';
 
 import Button from '../Button';
 
@@ -36,34 +37,44 @@ function getIconSize(size: ButtonSize = 'base') {
   return sizeMap[size];
 }
 
-const IconButton: FC<IconButtonProps & ComponentProps<typeof Button>> = ({
-  type = 'basic',
-  name,
-  size,
-  circle,
-  isLoading,
-  isDisabled,
-  borderRadius,
-  disabled,
-  ...props
-}) => {
-  const rect = getRect(size);
-  const iconSize = getIconSize(size);
-  return (
-    <Button
-      isLoading={isLoading}
-      isDisabled={disabled ?? isDisabled}
-      type={type}
-      pt={rect}
-      pr={rect}
-      pb={rect}
-      pl={rect}
-      borderRadius={circle ? 'full' : borderRadius ?? 12}
-      leftIconName={name}
-      iconSize={iconSize}
-      {...props}
-    />
-  );
-};
+const IconButton = forwardRef<
+  typeof Button,
+  IconButtonProps & ComponentProps<typeof Button>
+>(
+  (
+    {
+      type = 'basic',
+      name,
+      size,
+      circle,
+      isLoading,
+      isDisabled,
+      borderRadius,
+      disabled,
+      ...props
+    },
+    ref,
+  ) => {
+    const rect = getRect(size);
+    const iconSize = getIconSize(size);
+    return (
+      <Button
+        ref={ref}
+        isLoading={isLoading}
+        isDisabled={disabled ?? isDisabled}
+        type={type}
+        pt={rect}
+        pr={rect}
+        pb={rect}
+        pl={rect}
+        borderRadius={circle ? 'full' : borderRadius ?? 12}
+        leftIconName={name}
+        iconSize={iconSize}
+        {...props}
+      />
+    );
+  },
+);
+IconButton.displayName = 'IconButton';
 
 export default IconButton;
