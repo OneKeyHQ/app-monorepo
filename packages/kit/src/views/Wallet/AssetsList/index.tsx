@@ -2,8 +2,6 @@ import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
-import natsort from 'natsort';
 
 import {
   Divider,
@@ -25,9 +23,7 @@ import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useAppSelector } from '../../../hooks';
-import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
-import { getTokenValues } from '../../../utils/priceUtils';
+import { useActiveSideAccount } from '../../../hooks';
 
 import AssetsListHeader from './AssetsListHeader';
 import { EmptyListOfAccount } from './EmptyList';
@@ -69,11 +65,9 @@ function AssetsList({
   flatStyle,
   accountId,
   networkId,
-  hideSmallBalance,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
-  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
-  const { accountTokens, balances, loading } = useManageTokensOfAccount({
+  const { accountTokens, loading } = useManageTokensOfAccount({
     accountId,
     networkId,
   });
@@ -82,71 +76,12 @@ function AssetsList({
     accountId,
     networkId,
   });
-  const { prices } = useManageTokenprices({ networkId, accountId });
 
   const navigation = useNavigation<NavigationProps>();
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
-  const valueSortedTokens = useMemo(() => {
-    const tokenValues = new Map<TokenType, BigNumber>();
-    const sortedTokens = accountTokens
-      .filter((t) => {
-        const priceId = `${networkId}${
-          t.tokenIdOnNetwork ? `-${t.tokenIdOnNetwork}` : ''
-        }`;
-        if (t.tokenIdOnNetwork && !prices?.[priceId]) {
-          if (hideSmallBalance) {
-            return false;
-          }
-          // lower the priority of tokens without price info.
-          tokenValues.set(t, new BigNumber(-1));
-        }
-        const [v] = getTokenValues({
-          tokens: [t],
-          prices,
-          balances,
-          vsCurrency,
-        });
-        if (hideSmallBalance && v.isLessThan(1)) {
-          return false;
-        }
-        tokenValues.set(t, v);
-        return true;
-      })
-      .filter((t) => !hideRiskTokens || !t.security)
-      .sort((a, b) => {
-        const priceIda = `${networkId}${
-          a.tokenIdOnNetwork ? `-${a.tokenIdOnNetwork}` : ''
-        }`;
-        const priceIdb = `${networkId}${
-          b.tokenIdOnNetwork ? `-${b.tokenIdOnNetwork}` : ''
-        }`;
-        // By value
-        return (
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          tokenValues.get(b)!.comparedTo(tokenValues.get(a)!) ||
-          // By price
-          new BigNumber(prices?.[priceIdb]?.[vsCurrency] || 0).comparedTo(
-            new BigNumber(prices?.[priceIda]?.[vsCurrency] || 0),
-          ) ||
-          // By native token
-          (b.isNative ? 1 : 0) ||
-          (a.isNative ? -1 : 0) ||
-          // By name
-          natsort({ insensitive: true })(a.name, b.name)
-        );
-      });
-
-    return limitSize ? sortedTokens.slice(0, limitSize) : sortedTokens;
-  }, [
-    accountTokens,
-    limitSize,
-    networkId,
-    prices,
-    balances,
-    vsCurrency,
-    hideSmallBalance,
-    hideRiskTokens,
-  ]);
+  const valueSortedTokens = useMemo(
+    () => (limitSize ? accountTokens.slice(0, limitSize) : accountTokens),
+    [accountTokens, limitSize],
+  );
 
   const { size } = useUserDevice();
   const responsivePadding = () => {

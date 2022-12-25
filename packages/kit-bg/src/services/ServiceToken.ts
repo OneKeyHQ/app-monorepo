@@ -184,12 +184,6 @@ export default class ServiceToken extends ServiceBase {
       }),
     );
     dispatch(...actions);
-    console.log({
-      options,
-      tokens,
-      autodetectedTokens,
-      accountTokens,
-    });
     return accountTokens;
   }
 

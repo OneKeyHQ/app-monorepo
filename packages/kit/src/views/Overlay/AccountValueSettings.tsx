@@ -20,6 +20,7 @@ import {
   setHideRiskTokens,
   setHideSmallBalance,
   setIncludeNFTsInTotal,
+  setPutMainTokenOnTop,
 } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
 
@@ -113,8 +114,8 @@ const SettingRow: FC<{
 
 const HomeBalanceSettings: FC = () => {
   const intl = useIntl();
-  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
-  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
+  const { hideSmallBalance, hideRiskTokens, putMainTokenOnTop } =
+    useAppSelector((s) => s.settings);
   return (
     <>
       <SettingRow>
@@ -138,6 +139,20 @@ const HomeBalanceSettings: FC = () => {
           isChecked={hideRiskTokens}
           onToggle={() =>
             backgroundApiProxy.dispatch(setHideRiskTokens(!hideRiskTokens))
+          }
+        />
+      </SettingRow>
+      <SettingRow mt="4">
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'form__put_coins_at_the_top' })}
+        </Typography.Body1Strong>
+        <Switch
+          labelType="false"
+          isChecked={putMainTokenOnTop}
+          onToggle={() =>
+            backgroundApiProxy.dispatch(
+              setPutMainTokenOnTop(!putMainTokenOnTop),
+            )
           }
         />
       </SettingRow>

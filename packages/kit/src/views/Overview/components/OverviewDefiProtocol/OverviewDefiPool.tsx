@@ -72,6 +72,12 @@ const getRewardsColumn = (): ColumnItem => ({
   render: (params) => <GenernalTokens {...params} tokenKey="rewardTokens" />,
 });
 
+const getBorrowedColumn = (): ColumnItem => ({
+  header: 'form__borrowed_uppercase',
+  visibleOn: ({ pools }) => pools.some((p) => p.borrowTokens?.length > 0),
+  render: (params) => <GenernalTokens {...params} tokenKey="borrowTokens" />,
+});
+
 const getValueColumn = (): ColumnItem => ({
   header: 'form__value_uppercase',
   render: ({ pool }) => (
@@ -152,8 +158,8 @@ export const OverviewDefiPool: FC<{
       case OverviewDeFiPoolType.Lending:
         cols = [
           getPoolColumn('supplyTokens'),
-          getPoolColumn('borrowTokens'),
-          getPoolColumn('rewardTokens'),
+          getBorrowedColumn(),
+          getRewardsColumn(),
           getValueColumn(),
         ];
         break;

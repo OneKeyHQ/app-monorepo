@@ -30,14 +30,12 @@ export const useManageTokensOfAccount = ({
   networkId: string;
 }) => {
   const isFocused = useIsFocused();
+
   const allTokens: Token[] = useNetworkTokens(networkId);
   const accountTokens: Token[] = useAccountTokens(networkId, accountId);
   const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
   const balances = useAccountTokensBalance(networkId, accountId);
-  // const prices = useNetworkTokensPrice(networkId);
-  // const charts = useNetworkTokensChart(networkId);
   const nativeToken = useNativeToken(networkId, accountId);
-  // const fiatMap = useAppSelector((s) => s.fiatMoney.map);
   const [frozenBalance, setFrozenBalance] = useState<
     number | Record<string, number>
   >(0);
@@ -132,34 +130,6 @@ export const useManageTokensOfAccount = ({
     },
     [balances, frozenBalance],
   );
-
-  // const getTokenPrice = useCallback(
-  //   (options: {
-  //     token?: Token | null;
-  //     defaultValue?: string;
-  //     tokenIdOnNetwork?: string;
-  //     fiatSymbol?: string;
-  //   }) => {
-  //     const { token, defaultValue, tokenIdOnNetwork } = merge(
-  //       {
-  //         token: null,
-  //         defaultValue: '',
-  //         tokenIdOnNetwork: '',
-  //         fiatSymbol: 'usd',
-  //       },
-  //       options ?? {},
-  //     );
-  //     const tokenInfo = token as Token | null;
-  //     const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
-  //     // Because token prices are pulled with fiat parameters, the local fiat conversion is removed
-  //     // const fiatPrice = fiatMap[fiatSymbol] ?? '1';
-  //     let priceValue = prices?.[key] ?? defaultValue;
-  //     // priceValue = new BigNumber(fiatPrice).times(priceValue).toFixed();
-  //     priceValue = new BigNumber(priceValue).toFixed();
-  //     return priceValue;
-  //   },
-  //   [prices],
-  // );
 
   return {
     loading: accountTokensLoading,

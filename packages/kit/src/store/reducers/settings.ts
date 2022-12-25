@@ -75,6 +75,7 @@ export type SettingsState = {
   };
   hideSmallBalance?: boolean;
   hideRiskTokens?: boolean;
+  putMainTokenOnTop?: boolean;
   includeNFTsInTotal?: boolean;
   hideBalance?: boolean;
   updateSetting?: {
@@ -133,6 +134,7 @@ const initialState: SettingsState = {
   },
   hideSmallBalance: false,
   hideRiskTokens: true,
+  putMainTokenOnTop: false,
   includeNFTsInTotal: true,
   hideBalance: false,
   updateSetting: {
@@ -332,6 +334,9 @@ export const settingsSlice = createSlice({
     setHideRiskTokens(state, action: PayloadAction<boolean>) {
       state.hideRiskTokens = action.payload;
     },
+    setPutMainTokenOnTop(state, action: PayloadAction<boolean>) {
+      state.putMainTokenOnTop = action.payload;
+    },
     setHideBalance(state, action: PayloadAction<boolean>) {
       state.hideBalance = action.payload;
     },
@@ -439,6 +444,7 @@ export const {
   setEnableWebAuthn,
   toggleDisableExt,
   disableExtSwitchTips,
+  setPutMainTokenOnTop,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
