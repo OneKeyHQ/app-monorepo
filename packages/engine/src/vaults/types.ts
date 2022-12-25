@@ -21,6 +21,7 @@ import type {
 } from './impl/btc/types';
 import type { IEncodedTxCfx } from './impl/cfx/types';
 import type { IEncodedTxCosmos } from './impl/cosmos/type';
+import type { IEncodedTxDot } from './impl/dot/types';
 import type { EVMDecodedItem } from './impl/evm/decoder/types';
 import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -158,7 +159,8 @@ export type IEncodedTx =
   | IEncodedTxCosmos
   | IEncodedTxADA
   | IEncodedTxSUI
-  | IEncodedTxFil;
+  | IEncodedTxFil
+  | IEncodedTxDot;
 
 export type INativeTx =
   | INativeTxEvm

@@ -27,6 +27,11 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   COINTYPE_BTC,
+<<<<<<< HEAD
+=======
+  IMPL_BTC,
+  IMPL_DOT,
+>>>>>>> 6ab6a7972 (feat: Support Dot)
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -826,6 +831,7 @@ class Engine {
       '1815': OnekeyNetwork.ada,
       '461': OnekeyNetwork.fil,
       '784': OnekeyNetwork.sui,
+      '354': OnekeyNetwork.dot,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -903,7 +909,12 @@ class Engine {
         if (a.type === AccountType.VARIANT) {
           let address = (a as DBVariantAccount).addresses[networkId];
           if (!address) {
-            address = await vault.addressFromBase(a.address);
+            const { impl } = parseNetworkId(networkId);
+            if ('pub' in a && impl === IMPL_DOT) {
+              address = await vault.addressFromBase(a.pub);
+            } else {
+              address = await vault.addressFromBase(a.address);
+            }
           }
           return address;
         }
@@ -920,7 +931,12 @@ class Engine {
         if (a.type === AccountType.VARIANT) {
           let address = (a as DBVariantAccount).addresses[networkId];
           if (!address) {
-            address = await vault.addressFromBase(a.address);
+            const { impl } = parseNetworkId(networkId);
+            if ('pub' in a && impl === IMPL_DOT) {
+              address = await vault.addressFromBase(a.pub);
+            } else {
+              address = await vault.addressFromBase(a.address);
+            }
           }
           return { address };
         }
