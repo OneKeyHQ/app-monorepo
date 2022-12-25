@@ -89,6 +89,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
   const decodedTx = decodedTxs[0];
 
   const {
+    feeInfoError,
     feeInfoPayloads,
     feeInfoLoading,
     totalFeeInNative,
@@ -245,6 +246,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       batchSendConfirmParams={routeParams}
       editable={feeInfoEditable}
       isSingleTransformMode={isSingleTransformMode}
+      feeInfoError={feeInfoError}
     />
   );
 
