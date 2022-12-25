@@ -380,7 +380,7 @@ function BatchSendProgress() {
     <BaseSendModal
       closeable={false}
       hideBackButton
-      height="auto"
+      height="489px"
       closeOnOverlayClick={false}
       accountId={accountId}
       networkId={networkId}

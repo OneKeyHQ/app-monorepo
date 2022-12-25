@@ -79,7 +79,9 @@ function BatchTxsItemView(props: ITxActionListViewProps) {
             <TxActionsListView {...props} transformType="T1" space={6} />
           )}
           {!isSingleTransformMode && (
-            <Container.Box p="0">{renderBatchTxsItem()}</Container.Box>
+            <Container.Box p="0" borderWidth={1} borderColor="border-subdued">
+              {renderBatchTxsItem()}
+            </Container.Box>
           )}
         </>
       </TxDetailContextProvider>

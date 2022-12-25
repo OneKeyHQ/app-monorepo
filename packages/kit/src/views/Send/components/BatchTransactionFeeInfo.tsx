@@ -236,7 +236,7 @@ function BatchTransactionFeeInfo(props: Props) {
         canPress={!!errorHint}
         onPress={() => setHasTooltipOpen(!hasTooltipOpen)}
       >
-        <Container.Box>
+        <Container.Box borderWidth={1} borderColor="border-subdued">
           <Container.Item
             onPress={disabled ? null : handleNativeToEdit}
             wrap={
@@ -296,7 +296,7 @@ function BatchTransactionFeeInfo(props: Props) {
 
   return (
     <>
-      <Container.Box>
+      <Container.Box borderWidth={1} borderColor="border-subdued">
         <Container.Item
           onPress={disabled ? null : handleNativeToEdit}
           wrap={
