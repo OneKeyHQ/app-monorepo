@@ -1,5 +1,6 @@
 const webpack = require('webpack');
 const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
+const devUtils = require('@onekeyhq/ext/development/devUtils');
 const webpackTools = require('../../development/webpackTools');
 const { webModuleTranspile } = require('../../development/webpackTranspiles');
 
@@ -27,5 +28,6 @@ module.exports = async function (env, argv) {
   if (process.env.NODE_ENV === 'production') {
     config.devtool = false;
   }
+  devUtils.writePreviewWebpackConfigJson(config, 'webpack.config.preview.json');
   return config;
 };
