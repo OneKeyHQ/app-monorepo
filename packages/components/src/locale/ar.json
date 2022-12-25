@@ -372,6 +372,7 @@
   "content__description": "وصف",
   "content__details": "تفاصيل",
   "content__disconnect_and_try_again": "الرجاء النقر فوق \"قطع الاتصال\" وإرسال طلب المعاملة مرة أخرى إذا لم يستجب {0} .",
+  "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "لا تنقل إلى أي حساب صرف لتجنب فقدان الأصول. معظم حسابات الصرف لا تقبل تحويلات العقود.",
   "content__dont_ask_me_again_when_visit_this_dapp": "لا تسألني مرة أخرى عند زيارة هذا dApp.",
   "content__downloading": "جارى التحميل",
   "content__downloading_str": "تحميل {0}",
@@ -526,7 +527,7 @@
   "content__receive_notifications_of_account_dynamics_and_asset_changes": "تلقي إخطارات ديناميكيات الحساب وتغييرات الأصول.",
   "content__recovery_phrase_restore": "إذا نسيت كلمة المرور الخاصة بك ، فيمكنك استخدام عبارة الاسترداد للعودة إلى محفظتك.",
   "content__rocket_fast": "🚀 سريع",
-  "content__royalty_fees_are_excluded": "لا تشمل رسوم الامتياز",
+  "content__royalty_fees_are_excluded": "بعد رسوم الملكية",
   "content__running_official_firmware": "جهازك يقوم بتشغيل البرامج الثابتة الرسمية.",
   "content__safe_to_enter_into_onekey": "هل من الآمن إدخاله في OneKey؟",
   "content__safe_to_enter_into_onekey_desc": "نعم. سيتم تخزينه محليًا ولن يترك جهازك أبدًا دون إذن صريح منك.",
@@ -833,13 +834,14 @@
   "form__default_currency": "العملة الافتراضية",
   "form__designated_recipient": "المستلم المعين",
   "form__designated_recipient_desc": "يمكنك اختيار حساب آخر لاستلام المبادلة.",
+  "form__destination_tag_placeholder": "علامة (اختياري)",
   "form__dev_mode": "وضع المطور",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
   "form__download_when_available": "قم بتنزيل التحديثات الجديدة عند توفرها",
   "form__drag_file_here": "إفلات الملف هنا",
   "form__drag_or_drop_file_to_import": "قم بسحب وإسقاط الملف للاستيراد",
-  "form__each_line_should_include_the_address_and_the_amount_seperated_by_commas": "يجب أن يتضمن كل سطر العنوان والمبلغ مفصولاً بفاصلات. على سبيل المثال: 0xB0DC3d68E9cfd839423e42C5c479C4195B7D5559, 0.1",
+  "form__each_line_should_include_the_address_and_the_amount_seperated_by_commas": "يجب أن يتضمن كل سطر العنوان والمبلغ مفصولاً بفاصلات. على سبيل المثال: 0xB0DC3d68E9cfd839423e42C5c479C4195B7D5559 ، 0.1\n لا تملأ أي حسابات صرف لتجنب فقدان الأصول.",
   "form__empty": "فارغة",
   "form__enable_onekey": "تمكين OneKey",
   "form__english": "إنجليزي",
