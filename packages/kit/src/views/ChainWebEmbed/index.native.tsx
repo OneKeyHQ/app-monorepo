@@ -31,7 +31,9 @@ function ChainWebEmbed() {
         setIsWebViewActive(true);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       } else if ((cardanoRef.current as unknown as any).checkWebViewReady()) {
-        debugLogger.common.debug('webview exist, just call, 3');
+        debugLogger.common.debug(
+          'webview exist, just call resolve function, 3',
+        );
         resolve();
       }
     };
