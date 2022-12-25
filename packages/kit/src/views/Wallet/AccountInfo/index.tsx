@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -45,7 +45,7 @@ import {
   getPreBaseValue,
   getSummedValues,
 } from '../../../utils/priceUtils';
-import { showAccountMoreMenu } from '../../Overlay/AccountMoreMenu';
+import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
 import type { SimpleTokenPrices } from '../../../store/reducers/tokens';
@@ -218,7 +218,6 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { wallet, account } = useActiveWalletAccount();
-  const moreButtonRef = useRef();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
 
@@ -308,20 +307,15 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      <Box
-        ref={moreButtonRef}
-        flex={{ base: 1, sm: 0 }}
-        mx={3}
-        minW="56px"
-        alignItems="center"
-      >
-        <IconButton
-          circle
-          size={isSmallView ? 'xl' : 'lg'}
-          name="EllipsisVerticalOutline"
-          type="basic"
-          onPress={() => showAccountMoreMenu(moreButtonRef.current)}
-        />
+      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+        <AccountMoreMenu offset={30} placement="bottom right">
+          <IconButton
+            circle
+            size={isSmallView ? 'xl' : 'lg'}
+            name="EllipsisVerticalOutline"
+            type="basic"
+          />
+        </AccountMoreMenu>
         <Typography.CaptionStrong
           textAlign="center"
           mt="8px"
