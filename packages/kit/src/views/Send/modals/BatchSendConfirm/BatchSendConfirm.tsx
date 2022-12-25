@@ -151,20 +151,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           await dappApprove.resolve({
             result: map(txs, 'txid'),
           });
-          await Promise.all(
-            txs.map((_, index) =>
-              serviceHistory.saveSendConfirmHistory({
-                networkId,
-                accountId,
-                data: {
-                  signedTx: data?.signedTxs && data?.signedTxs[index],
-                  encodedTx: data?.encodedTxs && data?.encodedTxs[index],
-                  decodedTx: data?.decodedTxs && data?.decodedTxs[index],
-                },
-                feeInfo: feeInfoPayloads[index]?.current.value,
-              }),
-            ),
-          );
         }
 
         const type = routeParams.signOnly ? 'Sign' : 'Send';
@@ -201,6 +187,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       const nextRouteParams: BatchSendProgressParams = {
         ...routeParams,
         encodedTxs: encodedTxsWithFee,
+        feeInfoPayloads,
         accountId,
         networkId,
         walletId,
