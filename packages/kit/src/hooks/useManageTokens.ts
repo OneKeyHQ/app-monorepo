@@ -4,6 +4,7 @@ import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { isNumber, merge } from 'lodash';
 
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -116,7 +117,7 @@ export const useManageTokensOfAccount = ({
       );
 
       const tokenInfo = token as Token | null;
-      const key = tokenIdOnNetwork || tokenInfo?.tokenIdOnNetwork || 'main';
+      const key = getBalanceKey(tokenIdOnNetwork, tokenInfo?.sendAddress);
       const balance = balances?.[key] ?? defaultValue;
       const frozen = isNumber(frozenBalance)
         ? frozenBalance

@@ -25,6 +25,7 @@ export type ManageTokenRoutesParams = {
         verified?: boolean;
         security?: boolean;
         source: string[];
+        sendAddress?: string;
       }
     | { query: string };
   [ManageTokenRoutes.ActivateToken]: {
@@ -44,12 +45,13 @@ export type ManageTokenRoutesParams = {
     verified?: boolean;
     source: string[];
     security?: boolean;
+    sendAddress?: string;
   };
   [ManageTokenRoutes.VerifiedToken]: {
     token: Partial<Token>;
   };
   [ManageTokenRoutes.CustomToken]:
-    | { address?: string; networkId?: string }
+    | { address?: string; networkId?: string; sendAddress?: string }
     | undefined;
   [ManageTokenRoutes.PriceAlertList]: {
     token: Token;

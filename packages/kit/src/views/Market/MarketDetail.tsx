@@ -14,6 +14,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useManageTokens } from '../../hooks';
@@ -241,7 +242,8 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     );
   });
   const { balances } = useManageTokens();
-  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
+  const amount =
+    balances[getBalanceKey(token?.tokenIdOnNetwork, token?.sendAddress)] ?? '0';
   if (crypotoCurrency) {
     crypotoCurrency = { ...crypotoCurrency, balance: amount };
   }

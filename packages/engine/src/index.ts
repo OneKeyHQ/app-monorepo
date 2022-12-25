@@ -810,29 +810,32 @@ class Engine {
           accountId,
           networkId,
         );
-
         const allAccountTokens: Token[] = [];
-
-        for (const { address, balance, sendAddress } of balancesFromApi) {
+        for (const { address, balance, sendAddress } of balancesFromApi.filter(
+          (b) => +b.balance > 0 && !removedTokens.includes(b.address),
+        )) {
           try {
-            const token = await this.quickAddToken(
-              accountId,
+            let token = await this.findToken({
               networkId,
-              address,
-              undefined,
-              {
-                autoDetected: true,
-              },
-            );
-            if (
-              token &&
-              address &&
-              +balance > 0 &&
-              !removedTokens.includes(address)
-            ) {
+              tokenIdOnNetwork: address,
+            });
+            if (!token) {
+              token = await this.quickAddToken(
+                accountId,
+                networkId,
+                address,
+                undefined,
+                {
+                  autoDetected: true,
+                },
+              );
+            }
+            if (token) {
               // only record new token balances
               // other token balances still get from RPC for accuracy
+              const tokenId = address || 'main';
               ret[getBalanceKey(address, sendAddress)] = balance;
+              ret[tokenId] = balance;
               allAccountTokens.push({
                 ...token,
                 sendAddress,

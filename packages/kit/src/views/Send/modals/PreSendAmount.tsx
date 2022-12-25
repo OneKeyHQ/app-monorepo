@@ -24,6 +24,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -199,7 +200,7 @@ function PreSendAmount() {
       };
     }
     try {
-      const key = tokenInfo?.tokenIdOnNetwork || 'main';
+      const key = getBalanceKey(tokenIdOnNetwork, tokenInfo?.sendAddress);
       const balance = balances?.[key] as string;
       await engine.validateSendAmount({
         accountId,

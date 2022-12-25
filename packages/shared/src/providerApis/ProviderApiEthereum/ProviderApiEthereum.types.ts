@@ -35,6 +35,7 @@ export type WatchAssetParameters = {
     symbol?: string; // A ticker symbol or shorthand, up to 5 alphanumerical characters
     decimals?: number; // The number of asset decimals
     image?: string; // A string url of the token logo
+    sendAddress?: string;
   };
 };
 

@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {
   getActiveWalletAccount,
@@ -93,11 +94,11 @@ const AccountAmountInfo: FC = () => {
   const pricesMap24h = useMemo(() => {
     const basePrices: Record<string, SimpleTokenPrices> = {};
     accountTokens.forEach((token) => {
-      const tokenId = token?.tokenIdOnNetwork || 'main';
       const priceId = token?.tokenIdOnNetwork
         ? `${token?.networkId}-${token.tokenIdOnNetwork}`
         : token?.networkId ?? '';
-      const balance = balances[tokenId];
+      const balance =
+        balances[getBalanceKey(token.tokenIdOnNetwork, token.sendAddress)];
       const priceInfo = prices?.[priceId];
       if (typeof balance !== 'undefined') {
         basePrices[priceId] = getPreBaseValue({

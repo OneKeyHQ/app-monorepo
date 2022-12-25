@@ -19,6 +19,7 @@ import {
   Token as TokenImage,
   Typography,
 } from '@onekeyhq/components';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -80,6 +81,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
         verified: token.verified,
         security: token?.security,
         source: token.source || [],
+        sendAddress: token.sendAddress,
       });
     },
     [navigation],
@@ -116,7 +118,11 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   showExtra={false}
                   description={
                     <FormatBalance
-                      balance={balances[item.tokenIdOnNetwork] ?? '0'}
+                      balance={
+                        balances[
+                          getBalanceKey(item.tokenIdOnNetwork, item.sendAddress)
+                        ] ?? '0'
+                      }
                       suffix={item.symbol}
                       formatOptions={{ fixed: 6 }}
                     />
@@ -292,11 +298,12 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       activeNetworkId: networkId,
     });
     if (hideSmallBalance) {
-      const balances = await backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        tokenIds: [item.tokenIdOnNetwork],
-      });
+      const [balances] =
+        await backgroundApiProxy.serviceToken.fetchTokenBalance({
+          activeAccountId: accountId,
+          activeNetworkId: networkId,
+          tokenIds: [item.tokenIdOnNetwork],
+        });
       const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
         networkId,
         tokenId: item.tokenIdOnNetwork,
@@ -360,6 +367,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       verified: item.verified,
       security: item?.security,
       source: item.source || [],
+      sendAddress: item.sendAddress,
     });
   }, [navigation, item, isOwned]);
 
@@ -484,7 +492,10 @@ export const ListingModal: FC<ListingModalProps> = ({
         data: listItems,
         // @ts-ignore
         renderItem,
-        keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
+        keyExtractor: (item) => {
+          const token = item as Token;
+          return `${getBalanceKey(token.tokenIdOnNetwork, token.sendAddress)}`;
+        },
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (
           <ListEmptyComponent isLoading={loading} terms={terms} />

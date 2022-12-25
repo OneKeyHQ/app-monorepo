@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -85,7 +86,7 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
     if (!token) {
       return undefined;
     }
-    return balances[token?.tokenIdOnNetwork || 'main'];
+    return balances[getBalanceKey(token.tokenIdOnNetwork, token.sendAddress)];
   }, [balances, token]);
 };
 

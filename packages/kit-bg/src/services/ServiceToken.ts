@@ -1,7 +1,8 @@
 import BigNumber from 'bignumber.js';
-import { debounce } from 'lodash';
+import { debounce, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 
+import { balanceSupprtedNetwork } from '@onekeyhq/engine/src/apiProxyUtils';
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
   checkSite,
@@ -11,6 +12,7 @@ import {
 import {
   fetchTokenSource,
   fetchTools,
+  getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -127,24 +129,15 @@ export default class ServiceToken extends ServiceBase {
       wait,
     };
     const { engine, dispatch } = this.backgroundApi;
-    const tokens = await engine.getTokens(
+    let tokens = await engine.getTokens(
       activeNetworkId,
       activeAccountId,
       true,
       true,
       forceReloadTokens,
     );
+    let autodetectedTokens: Token[] = [];
     const actions: any[] = [];
-    if (activeNetworkId === OnekeyNetwork.sol) {
-      Object.assign(options, {
-        withBalance: true,
-        wait: true,
-      });
-    } else {
-      actions.push(
-        setAccountTokens({ activeAccountId, activeNetworkId, tokens }),
-      );
-    }
     const nativeToken = tokens.find(
       (item) => item.isNative || !item.tokenIdOnNetwork,
     );
@@ -156,21 +149,48 @@ export default class ServiceToken extends ServiceBase {
         }),
       );
     }
-    dispatch(...actions);
+    if (activeNetworkId === OnekeyNetwork.sol) {
+      tokens = [];
+    }
+    if (balanceSupprtedNetwork.includes(activeNetworkId)) {
+      Object.assign(options, {
+        withBalance: true,
+        wait: true,
+      });
+    }
     const waitPromises: Promise<any>[] = [];
-    if (withBalance) {
+    if (options.withBalance) {
       waitPromises.push(
         this.fetchTokenBalance({
           activeAccountId,
           activeNetworkId,
           tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+        }).then((res) => {
+          autodetectedTokens = res[1] ?? [];
         }),
       );
     }
-    if (wait) {
+    if (options.wait) {
       await Promise.all(waitPromises);
     }
-    return tokens;
+    const accountTokens = uniqBy([...tokens, ...autodetectedTokens], (t) =>
+      getBalanceKey(t.address, t.sendAddress),
+    );
+    actions.push(
+      setAccountTokens({
+        activeAccountId,
+        activeNetworkId,
+        tokens: accountTokens,
+      }),
+    );
+    dispatch(...actions);
+    console.log({
+      options,
+      tokens,
+      autodetectedTokens,
+      accountTokens,
+    });
+    return accountTokens;
   }
 
   @backgroundMethod()
@@ -194,7 +214,7 @@ export default class ServiceToken extends ServiceBase {
     activeNetworkId: string;
     activeAccountId: string;
     tokenIds?: string[];
-  }): Promise<Record<string, string | undefined>> {
+  }): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
     const { engine, appSelector, dispatch } = this.backgroundApi;
     const { tokens, accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
@@ -206,33 +226,22 @@ export default class ServiceToken extends ServiceBase {
       tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
     }
     if (!activeAccountId) {
-      return {};
+      return [{}, undefined];
     }
-    const [tokensBalance, newAccountTokens] = await engine.getAccountBalance(
+    const [tokensBalance, autodetectedTokens] = await engine.getAccountBalance(
       activeAccountId,
       activeNetworkId,
       Array.from(new Set(tokenIdsOnNetwork)),
       true,
     );
-    const actions = [];
-    if (newAccountTokens?.length) {
-      actions.push(
-        setAccountTokens({
-          activeAccountId,
-          activeNetworkId,
-          tokens: newAccountTokens,
-        }),
-      );
-    }
     dispatch(
-      ...actions,
       setAccountTokensBalances({
         activeAccountId,
         activeNetworkId,
         tokensBalance,
       }),
     );
-    return tokensBalance;
+    return [tokensBalance, autodetectedTokens];
   }
 
   async _batchFetchAccountBalances({
