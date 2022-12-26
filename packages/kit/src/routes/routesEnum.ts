@@ -43,8 +43,6 @@ export enum ModalRoutes {
   PushNotification = 'PushNotification',
   Webview = 'Webview',
   Revoke = 'Revoke',
-  SearchNFT = 'SearchNFT',
-  NFTAttributeFilter = 'NFTAttributeFilter',
   KeyTagVerifyWallet = 'KeyTagVerifyWallet',
   NFTMarket = 'NFTMarket',
 }
