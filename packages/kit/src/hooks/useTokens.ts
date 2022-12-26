@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import natsort from 'natsort';
 
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
@@ -55,7 +56,7 @@ export function useAccountTokens(networkId?: string, accountId?: string) {
     const tokenValues = new Map<Token, BigNumber>();
     const sortedTokens = accountTokensOnChain
       .filter((t) => {
-        if (hideRiskTokens && t.security) {
+        if (hideRiskTokens && !!t.riskLevel) {
           return false;
         }
         if (putMainTokenOnTop && !t.tokenIdOnNetwork) {
@@ -246,3 +247,18 @@ export const useTokenSupportStakedAssets = (
 
     [networkId, tokenIdOnNetwork],
   );
+
+export const useTokenBalance = ({
+  networkId,
+  accountId,
+  token,
+  fallback = '0',
+}: {
+  networkId: string;
+  accountId: string;
+  token?: Partial<Token> | null;
+  fallback?: string;
+}) => {
+  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
+  return balances?.[networkId]?.[accountId]?.[getBalanceKey(token)] ?? fallback;
+};

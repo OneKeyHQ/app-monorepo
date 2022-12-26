@@ -98,7 +98,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   const intl = useIntl();
   const { sourceInfo } = useDappParams();
   const token = useRouteParams();
-  const { name, symbol, decimal, address, sendAddress } = token;
+  const { name, symbol, decimal, address } = token;
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -142,7 +142,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       });
     }
     return data;
-  }, [name, symbol, address, decimal, balances, intl, sendAddress]);
+  }, [name, symbol, address, decimal, balances, intl]);
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {

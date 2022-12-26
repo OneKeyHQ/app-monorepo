@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, uniqBy } from 'lodash';
+import { debounce } from 'lodash';
 import memoizee from 'memoizee';
 
 import { balanceSupprtedNetwork } from '@onekeyhq/engine/src/apiProxyUtils';
@@ -12,7 +12,6 @@ import {
 import {
   fetchTokenSource,
   fetchTools,
-  getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -30,7 +29,6 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppEventBusNames,
   appEventBus,
@@ -149,9 +147,6 @@ export default class ServiceToken extends ServiceBase {
         }),
       );
     }
-    if (activeNetworkId === OnekeyNetwork.sol) {
-      tokens = [];
-    }
     if (balanceSupprtedNetwork.includes(activeNetworkId)) {
       Object.assign(options, {
         withBalance: true,
@@ -167,15 +162,16 @@ export default class ServiceToken extends ServiceBase {
           tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
         }).then((res) => {
           autodetectedTokens = res[1] ?? [];
+          tokens = tokens.filter(
+            (t) => !autodetectedTokens.some((a) => a.address === t.address),
+          );
         }),
       );
     }
     if (options.wait) {
       await Promise.all(waitPromises);
     }
-    const accountTokens = uniqBy([...tokens, ...autodetectedTokens], (t) =>
-      getBalanceKey(t.address, t.sendAddress),
-    );
+    const accountTokens = tokens.concat(autodetectedTokens);
     actions.push(
       setAccountTokens({
         activeAccountId,

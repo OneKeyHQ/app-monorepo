@@ -200,7 +200,10 @@ function PreSendAmount() {
       };
     }
     try {
-      const key = getBalanceKey(tokenIdOnNetwork, tokenInfo?.sendAddress);
+      const key = getBalanceKey({
+        ...tokenInfo,
+        sendAddress: transferInfo.sendAddress,
+      });
       const balance = balances?.[key] as string;
       await engine.validateSendAmount({
         accountId,
@@ -327,6 +330,7 @@ function PreSendAmount() {
               network,
               token: {
                 ...tokenInfo,
+                sendAddress: transferInfo.sendAddress,
                 idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
               },
               to: transferInfo.to,
@@ -400,7 +404,12 @@ function PreSendAmount() {
                 <FormatBalanceTokenOfAccount
                   accountId={accountId}
                   networkId={networkId}
-                  token={tokenInfo}
+                  token={{
+                    id: tokenInfo?.id ?? '',
+                    name: tokenInfo?.name ?? '',
+                    ...(tokenInfo || {}),
+                    sendAddress: transferInfo.sendAddress,
+                  }}
                   render={(ele) => (
                     <Typography.Body1Strong
                       color={

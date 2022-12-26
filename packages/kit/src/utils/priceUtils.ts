@@ -77,8 +77,7 @@ export function getTokenValue({
   price: number | undefined | null;
   balances: Record<string, TokenBalanceValue>;
 }) {
-  const balance =
-    balances[getBalanceKey(token?.tokenIdOnNetwork, token?.sendAddress)] || 0;
+  const balance = balances[getBalanceKey(token)] || 0;
   if (balance !== undefined) {
     const priceValue = new BigNumber(price || 0);
     return new BigNumber(balance).times(priceValue);
@@ -100,8 +99,7 @@ export function getTokenValues({
     const priceId = token?.tokenIdOnNetwork
       ? `${token?.networkId}-${token.tokenIdOnNetwork}`
       : token?.networkId ?? '';
-    const balance =
-      balances[getBalanceKey(token?.tokenIdOnNetwork, token?.sendAddress)] || 0;
+    const balance = balances[getBalanceKey(token)] || 0;
     if (balance !== undefined) {
       let price = new BigNumber(0);
       if (prices?.[priceId]) {

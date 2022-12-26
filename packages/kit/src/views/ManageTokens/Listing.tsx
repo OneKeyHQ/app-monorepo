@@ -118,11 +118,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
                   showExtra={false}
                   description={
                     <FormatBalance
-                      balance={
-                        balances[
-                          getBalanceKey(item.tokenIdOnNetwork, item.sendAddress)
-                        ] ?? '0'
-                      }
+                      balance={balances[getBalanceKey(item)] ?? '0'}
                       suffix={item.symbol}
                       formatOptions={{ fixed: 6 }}
                     />
@@ -494,7 +490,7 @@ export const ListingModal: FC<ListingModalProps> = ({
         renderItem,
         keyExtractor: (item) => {
           const token = item as Token;
-          return `${getBalanceKey(token.tokenIdOnNetwork, token.sendAddress)}`;
+          return `${getBalanceKey(token)}`;
         },
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (

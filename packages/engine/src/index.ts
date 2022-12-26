@@ -812,7 +812,9 @@ class Engine {
         );
         const allAccountTokens: Token[] = [];
         for (const { address, balance, sendAddress } of balancesFromApi.filter(
-          (b) => +b.balance > 0 && !removedTokens.includes(b.address),
+          (b) =>
+            (+b.balance > 0 || !b.address) &&
+            !removedTokens.includes(b.address),
         )) {
           try {
             let token = await this.findToken({
@@ -834,7 +836,12 @@ class Engine {
               // only record new token balances
               // other token balances still get from RPC for accuracy
               const tokenId = address || 'main';
-              ret[getBalanceKey(address, sendAddress)] = balance;
+              ret[
+                getBalanceKey({
+                  address,
+                  sendAddress,
+                })
+              ] = balance;
               ret[tokenId] = balance;
               allAccountTokens.push({
                 ...token,
@@ -880,7 +887,13 @@ class Engine {
         typeof decimals !== 'undefined' &&
         typeof balance !== 'undefined'
       ) {
-        ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals)).toFixed();
+        const bal = balance.div(new BigNumber(10).pow(decimals)).toFixed();
+        ret[
+          getBalanceKey({
+            address: tokenId1,
+          })
+        ] = bal;
+        ret[tokenId1] = bal;
       }
     });
     return [ret, undefined];

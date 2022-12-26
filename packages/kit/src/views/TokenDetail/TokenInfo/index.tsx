@@ -63,8 +63,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
 
   const { balances } = useManageTokens();
 
-  const amount =
-    balances[getBalanceKey({...token, sendAddress})] ?? '0';
+  const amount = balances[getBalanceKey({ ...token, sendAddress })] ?? '0';
 
   if (cryptoCurrency) {
     cryptoCurrency = { ...cryptoCurrency, balance: amount };
@@ -351,6 +350,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       </Box>
     ),
     [
+      sendAddress,
       isVertical,
       wallet?.type,
       intl,

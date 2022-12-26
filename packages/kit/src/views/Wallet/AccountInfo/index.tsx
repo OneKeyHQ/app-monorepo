@@ -36,10 +36,7 @@ import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useAccountValues,
-  useNavigationActions,
-} from '../../../hooks';
+import { useAccountValues, useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import { useNFTPrice } from '../../../hooks/useTokens';
@@ -97,8 +94,7 @@ const AccountAmountInfo: FC = () => {
       const priceId = token?.tokenIdOnNetwork
         ? `${token?.networkId}-${token.tokenIdOnNetwork}`
         : token?.networkId ?? '';
-      const balance =
-        balances[getBalanceKey(token.tokenIdOnNetwork, token.sendAddress)];
+      const balance = balances[getBalanceKey(token)];
       const priceInfo = prices?.[priceId];
       if (typeof balance !== 'undefined') {
         basePrices[priceId] = getPreBaseValue({

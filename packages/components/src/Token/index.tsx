@@ -6,9 +6,9 @@ import { useIntl } from 'react-intl';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { useTokenSecurityInfo } from '@onekeyhq/kit/src/views/ManageTokens/hooks';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -65,20 +65,16 @@ export const SecurityIcon: FC<{ token: Partial<IToken>; size: number }> = ({
   token,
   size,
 }) => {
-  const { security, networkId, tokenIdOnNetwork, address } = token;
-  const { data } = useTokenSecurityInfo(
-    networkId ?? '',
-    tokenIdOnNetwork ?? address ?? '',
-  );
-  if (!security || !data?.hasSecurity) {
+  const { riskLevel } = token;
+  if (!riskLevel) {
     return null;
   }
-  if (data?.danger?.length) {
+  if (riskLevel === TokenRiskLevel.DANGER) {
     return (
       <Icon size={size} name="ShieldExclamationMini" color="icon-critical" />
     );
   }
-  if (data?.warn?.length) {
+  if (riskLevel === TokenRiskLevel.WARN) {
     return (
       <Icon size={size} name="ExclamationTriangleMini" color="icon-warning" />
     );
@@ -95,7 +91,7 @@ export const TokenVerifiedIcon: FC<{
   const navigation = useNavigation();
 
   const icon = useMemo(() => {
-    if (token && String(token?.security) === 'true') {
+    if (token && !!token?.riskLevel) {
       return <SecurityIcon token={token} size={size} />;
     }
     if (String(token?.verified) === 'true' || token?.isNative) {
@@ -121,7 +117,7 @@ export const TokenVerifiedIcon: FC<{
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageToken,
       params: {
-        screen: token?.security
+        screen: token?.riskLevel
           ? ManageTokenRoutes.TokenRiskDetail
           : ManageTokenRoutes.VerifiedToken,
         params: {
@@ -134,7 +130,7 @@ export const TokenVerifiedIcon: FC<{
     });
   }, [navigation, token, intl]);
 
-  if (!token || (!token.verified && !token.security && !token?.isNative)) {
+  if (!token || (!token.verified && !token.riskLevel && !token?.isNative)) {
     return null;
   }
 
@@ -310,7 +306,7 @@ const Token: FC<TokenProps> = ({
     });
     if (
       !showTokenVerifiedIcon ||
-      (!token?.verified && !token?.security && !token?.isNative)
+      (!token?.verified && !token?.riskLevel && !token?.isNative)
     ) {
       return dom;
     }

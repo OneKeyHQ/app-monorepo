@@ -11,22 +11,18 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import {
-  useActiveSideAccount,
-  useAppSelector,
-  useManageTokensOfAccount,
-} from '../../../hooks';
+import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import {
   useSimpleTokenPriceInfo,
   useSimpleTokenPriceValue,
 } from '../../../hooks/useManegeTokenPrice';
+import { useTokenBalance } from '../../../hooks/useTokens';
 import { calculateGains, getPreBaseValue } from '../../../utils/priceUtils';
 
 interface TokenCellProps {
@@ -56,9 +52,11 @@ const TokenCell: FC<TokenCellProps> = ({
   bg = 'surface-default',
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { balances } = useManageTokensOfAccount({
+  const balance = useTokenBalance({
     accountId,
     networkId,
+    token,
+    fallback: '0',
   });
   const { network } = useActiveSideAccount({ accountId, networkId });
 
@@ -72,8 +70,6 @@ const TokenCell: FC<TokenCellProps> = ({
     networkId,
   });
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
-  const balance =
-    balances[getBalanceKey(token.tokenIdOnNetwork, token.sendAddress)] || 0;
   const basePrice = getPreBaseValue({ priceInfo, vsCurrency });
 
   const { percentageGain, gainTextBg, gainTextColor } = calculateGains({

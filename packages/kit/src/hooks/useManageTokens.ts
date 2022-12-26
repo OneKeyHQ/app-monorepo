@@ -105,7 +105,7 @@ export const useManageTokensOfAccount = ({
         tokenIdOnNetwork?: string;
       } = {},
     ): string => {
-      const { token, defaultValue, tokenIdOnNetwork } = merge(
+      const { token, defaultValue } = merge(
         {
           token: null,
           defaultValue: '',
@@ -115,7 +115,7 @@ export const useManageTokensOfAccount = ({
       );
 
       const tokenInfo = token as Token | null;
-      const key = getBalanceKey(tokenIdOnNetwork, tokenInfo?.sendAddress);
+      const key = getBalanceKey(tokenInfo);
       const balance = balances?.[key] ?? defaultValue;
       const frozen = isNumber(frozenBalance)
         ? frozenBalance

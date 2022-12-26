@@ -2,6 +2,11 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
 import type { HasName } from './base';
 
+export enum TokenRiskLevel {
+  DANGER = 'DANGER',
+  WARN = 'WARN',
+}
+
 export type ServerToken = {
   name: string;
   symbol: string;
@@ -39,6 +44,7 @@ export type Token = HasName & {
   addToIndex?: boolean;
   autoDetected?: boolean;
   sendAddress?: string;
+  riskLevel?: TokenRiskLevel;
 };
 
 export type Tool = {

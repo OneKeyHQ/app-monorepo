@@ -242,8 +242,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     );
   });
   const { balances } = useManageTokens();
-  const amount =
-    balances[getBalanceKey(token?.tokenIdOnNetwork, token?.sendAddress)] ?? '0';
+  const amount = balances[getBalanceKey(token)] ?? '0';
   if (crypotoCurrency) {
     crypotoCurrency = { ...crypotoCurrency, balance: amount };
   }

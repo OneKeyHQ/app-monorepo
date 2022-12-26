@@ -164,7 +164,12 @@ export const fetchTools = async (): Promise<Tool[]> => {
   return res.data ?? [];
 };
 
-export const getBalanceKey = (tokenAddress?: string, sendAddress?: string) => {
+export const getBalanceKey = (token?: Partial<Token> | null) => {
+  if (!token) {
+    return '';
+  }
+  const { sendAddress } = token;
+  const tokenAddress = token.tokenIdOnNetwork ?? token.address;
   if (!tokenAddress) {
     return 'main';
   }
