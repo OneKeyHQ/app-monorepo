@@ -1,7 +1,9 @@
-import { useCallback } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { TouchableOpacity } from 'react-native';
 
 import {
   BottomSheetModal,
@@ -11,8 +13,10 @@ import {
   Icon,
   Spinner,
   Text,
+  Tooltip,
   VStack,
 } from '@onekeyhq/components';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import type {
   IEncodedTx,
   IFeeInfoPayload,
@@ -43,12 +47,32 @@ interface Props {
   encodedTxs: IEncodedTx[];
   batchSendConfirmParams: BatchSendConfirmParams;
   isSingleTransformMode?: boolean;
+  feeInfoError?: Error | null;
 }
 
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
   SendRoutes.BatchSendConfirm
 >;
+
+function PressableWrapper({
+  children,
+  canPress,
+  onPress,
+}: {
+  children: ReactNode;
+  canPress: boolean;
+  onPress: () => void;
+}) {
+  if (canPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
+        {children}
+      </TouchableOpacity>
+    );
+  }
+  return <>{children}</>;
+}
 
 function BatchTransactionFeeInfo(props: Props) {
   const {
@@ -61,7 +85,10 @@ function BatchTransactionFeeInfo(props: Props) {
     encodedTxs,
     batchSendConfirmParams,
     isSingleTransformMode,
+    feeInfoError,
   } = props;
+
+  const [hasTooltipOpen, setHasTooltipOpen] = useState(false);
 
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
@@ -90,6 +117,55 @@ function BatchTransactionFeeInfo(props: Props) {
     !encodedTx ||
     !feeInfoPayload ||
     batchSendConfirmParams.signOnly;
+
+  const errorHint = useMemo(() => {
+    if (!feeInfoError) {
+      return null;
+    }
+
+    let message: string | null = null;
+    if (feeInfoError instanceof OneKeyError) {
+      if (feeInfoError.key !== 'onekey_error') {
+        message = intl.formatMessage({
+          // @ts-expect-error
+          id: feeInfoError.key,
+        });
+      } else {
+        message = feeInfoError.message;
+      }
+    } else {
+      message = feeInfoError.message;
+    }
+    if (message && message.length > 350) {
+      message = `${message.slice(0, 350)}...`;
+    }
+
+    return (
+      !!message &&
+      !feeInfoLoading && (
+        <Tooltip
+          maxW="360px"
+          isOpen={hasTooltipOpen}
+          hasArrow
+          label={message}
+          bg="surface-neutral-default"
+          _text={{ color: 'text-default', fontSize: '14px' }}
+          px="16px"
+          py="8px"
+          placement="top"
+          borderRadius="12px"
+        >
+          <Box>
+            <Icon
+              name="ExclamationTriangleOutline"
+              size={20}
+              color="icon-warning"
+            />
+          </Box>
+        </Tooltip>
+      )
+    );
+  }, [feeInfoError, hasTooltipOpen, intl, feeInfoLoading]);
 
   const showEditFeeLite = useCallback(() => {
     showOverlay((close) => (
@@ -156,65 +232,71 @@ function BatchTransactionFeeInfo(props: Props) {
 
   if (isSingleTransformMode) {
     return (
-      <Container.Box>
-        <Container.Item
-          onPress={disabled ? null : handleNativeToEdit}
-          wrap={
-            <HStack p={4} alignItems="center" pr={2}>
-              <VStack flex={1} space={1}>
-                <Text typography="Body2Strong" color="text-subdued">
-                  {intl.formatMessage({ id: 'form__gas_fee_settings' })}
-                </Text>
-                <Text typography="Body1Strong">
-                  <FeeSpeedLabel index={feePresetIndex} />
-                  <FormatCurrencyNativeOfAccount
-                    networkId={networkId}
-                    accountId={accountId}
-                    value={totalFeeInNative}
-                    render={(ele) => <>(~ {ele})</>}
-                  />
-                </Text>
-                <Box
-                  w="100%"
-                  flexDirection="row"
-                  alignItems="center"
-                  justifyContent="flex-start"
-                >
-                  {feeInfoPayload ? (
-                    <Text typography="Body2" color="text-subdued">
-                      {`${totalFeeInNative} ${
-                        feeInfoPayload?.info?.nativeSymbol || ''
-                      }`}
-                    </Text>
-                  ) : (
-                    <Text color="text-subdued" flex={1}>
-                      {intl.formatMessage({ id: 'content__calculate_fee' })}
-                    </Text>
-                  )}
-                  <Box w={2} />
-                  {feeInfoLoading ? <Spinner size="sm" /> : null}
-                  <Box flex={1} />
-                </Box>
-              </VStack>
-              {!disabled && (
-                <Box>
-                  <Icon
-                    name="ChevronRightMini"
-                    color="icon-subdued"
-                    size={20}
-                  />
-                </Box>
-              )}
-            </HStack>
-          }
-        />
-      </Container.Box>
+      <PressableWrapper
+        canPress={!!errorHint}
+        onPress={() => setHasTooltipOpen(!hasTooltipOpen)}
+      >
+        <Container.Box borderWidth={1} borderColor="border-subdued">
+          <Container.Item
+            onPress={disabled ? null : handleNativeToEdit}
+            wrap={
+              <HStack p={4} alignItems="center" pr={2}>
+                <VStack flex={1} space={1}>
+                  <Text typography="Body2Strong" color="text-subdued">
+                    {intl.formatMessage({ id: 'form__gas_fee_settings' })}
+                  </Text>
+                  <Text typography="Body1Strong">
+                    <FeeSpeedLabel index={feePresetIndex} />
+                    <FormatCurrencyNativeOfAccount
+                      networkId={networkId}
+                      accountId={accountId}
+                      value={totalFeeInNative}
+                      render={(ele) => <>(~ {ele})</>}
+                    />
+                  </Text>
+                  <Box
+                    w="100%"
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="flex-start"
+                  >
+                    {feeInfoPayload ? (
+                      <Text typography="Body2" color="text-subdued">
+                        {`${totalFeeInNative} ${
+                          feeInfoPayload?.info?.nativeSymbol || ''
+                        }`}
+                      </Text>
+                    ) : (
+                      <Text color="text-subdued" flex={1}>
+                        {intl.formatMessage({ id: 'content__calculate_fee' })}
+                      </Text>
+                    )}
+                    <Box w={2} />
+                    {errorHint}
+                    {feeInfoLoading ? <Spinner size="sm" /> : null}
+                    <Box flex={1} />
+                  </Box>
+                </VStack>
+                {!disabled && (
+                  <Box>
+                    <Icon
+                      name="ChevronRightMini"
+                      color="icon-subdued"
+                      size={20}
+                    />
+                  </Box>
+                )}
+              </HStack>
+            }
+          />
+        </Container.Box>
+      </PressableWrapper>
     );
   }
 
   return (
     <>
-      <Container.Box>
+      <Container.Box borderWidth={1} borderColor="border-subdued">
         <Container.Item
           onPress={disabled ? null : handleNativeToEdit}
           wrap={
@@ -242,45 +324,49 @@ function BatchTransactionFeeInfo(props: Props) {
         <Container.Item
           hidePadding
           wrap={
-            <Box flexDirection="column" w="100%" p={4}>
-              <VStack space={1}>
-                <Text typography="Body2Strong" color="text-subdued">
-                  {intl.formatMessage({ id: 'form__estimate_total_gas_fee' })}
-                </Text>
-                <Box
-                  w="100%"
-                  flexDirection="row"
-                  alignItems="center"
-                  justifyContent="flex-start"
-                >
-                  {feeInfoPayload ? (
-                    <Text typography="Body1Strong">
-                      {minTotalFeeInNative === totalFeeInNative &&
-                        `${totalFeeInNative} ${nativeSymbol}`}
-                      {minTotalFeeInNative !== totalFeeInNative &&
-                        `${minTotalFeeInNative} ~ ${totalFeeInNative} ${nativeSymbol}`}
-                    </Text>
-                  ) : (
-                    <Text color="text-subdued" flex={1}>
-                      {intl.formatMessage({ id: 'content__calculate_fee' })}
-                    </Text>
-                  )}
-                  <Box w={2} />
-                  {feeInfoLoading ? <Spinner size="sm" /> : null}
-                  <Box flex={1} />
-                </Box>
-              </VStack>
-            </Box>
+            <PressableWrapper
+              canPress={!!errorHint}
+              onPress={() => setHasTooltipOpen(!hasTooltipOpen)}
+            >
+              <Box flexDirection="column" w="100%" p={4}>
+                <VStack space={1}>
+                  <Text typography="Body2Strong" color="text-subdued">
+                    {intl.formatMessage({ id: 'form__estimate_total_gas_fee' })}
+                  </Text>
+                  <Box
+                    w="100%"
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="flex-start"
+                  >
+                    {feeInfoPayload ? (
+                      <Text typography="Body1Strong">
+                        {minTotalFeeInNative === totalFeeInNative &&
+                          `${totalFeeInNative} ${nativeSymbol}`}
+                        {minTotalFeeInNative !== totalFeeInNative &&
+                          `${minTotalFeeInNative} ~ ${totalFeeInNative} ${nativeSymbol}`}
+                      </Text>
+                    ) : (
+                      <Text color="text-subdued" flex={1}>
+                        {intl.formatMessage({ id: 'content__calculate_fee' })}
+                      </Text>
+                    )}
+                    <Box w={2} />
+                    {errorHint}
+                    {feeInfoLoading ? <Spinner size="sm" /> : null}
+                    <Box flex={1} />
+                  </Box>
+                </VStack>
+              </Box>
+            </PressableWrapper>
           }
         />
       </Container.Box>
-      {!isSingleTransformMode && (
-        <Text typography="Caption" color="text-subdued" mt="12px">
-          {intl.formatMessage({
-            id: 'content__to_ensure_that_the_transaction_will_be_successfully_sent',
-          })}
-        </Text>
-      )}
+      <Text typography="Caption" color="text-subdued" mt="12px">
+        {intl.formatMessage({
+          id: 'content__to_ensure_that_the_transaction_will_be_successfully_sent',
+        })}
+      </Text>
     </>
   );
 }
