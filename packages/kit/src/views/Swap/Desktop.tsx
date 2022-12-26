@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native-gesture-handler';
