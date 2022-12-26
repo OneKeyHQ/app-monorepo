@@ -44,16 +44,6 @@ const defaultProps = {
   hiddenAvatar: false,
 } as const;
 
-const getIconSize = (size: AvatarSizeVariant | null | undefined): number => {
-  const sizeMap: Record<AvatarSizeVariant, number> = {
-    'sm': 5,
-    'md': 6,
-    'lg': 8,
-    'xl': 10,
-  };
-  return sizeMap[size ?? 'md'];
-};
-
 const Account: FC<AccountProps> = ({
   name,
   address,
