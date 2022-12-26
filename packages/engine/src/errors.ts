@@ -287,11 +287,6 @@ export class AccountNameLengthError extends StringLengthRequirement {
 
 export class WatchedAccountTradeError extends OneKeyError {
   override key = 'form__error_trade_with_watched_acocunt';
-
-  constructor(key?: string) {
-    super('Watch-only Account is not available for trade.');
-    this.key = key ?? 'form__error_trade_with_watched_acocunt';
-  }
 }
 
 // Limitations.
