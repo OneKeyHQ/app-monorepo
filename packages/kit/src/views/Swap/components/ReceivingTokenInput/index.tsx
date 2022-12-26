@@ -312,6 +312,7 @@ const TokenInput: FC<TokenInputProps> = ({
           >
             {independentField === 'INPUT' && loading ? (
               <Box
+                minH="12"
                 h="full"
                 flexDirection="row"
                 justifyContent="flex-end"

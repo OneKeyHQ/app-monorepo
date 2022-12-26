@@ -339,4 +339,9 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => {
   };
 };
 
+/*
+packages/kit/src/components/AppLock/AppLock.tsx
+  unlockWhiteListUrl
+ */
+
 export default buildLinking;
