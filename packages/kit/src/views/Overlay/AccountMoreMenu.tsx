@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { useIsVerticalLayout, useToast } from '@onekeyhq/components';
+import { useToast } from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
@@ -40,7 +40,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
-  const isVerticalLayout = useIsVerticalLayout();
   const { enabledAccounts, loading } = useEnabledAccountDynamicAccounts();
   const [needActivateAccount, setNeedActivateAccount] =
     useState<boolean>(false);
@@ -82,12 +81,10 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
 
-  const accountSubscriptionIcon = useMemo(() => {
-    if (isVerticalLayout) {
-      return enabledNotification ? 'BellSlashOutline' : 'BellOutline';
-    }
-    return enabledNotification ? 'BellSlashMini' : 'BellMini';
-  }, [isVerticalLayout, enabledNotification]);
+  const accountSubscriptionIcon = useMemo(
+    () => (enabledNotification ? 'BellSlashMini' : 'BellMini'),
+    [enabledNotification],
+  );
 
   const onChangeAccountSubscribe = useCallback(async () => {
     if (!account) {
@@ -153,7 +150,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
             .activateAccount(account.id, network.id)
             .catch(() => {});
         },
-        icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbMini',
+        icon: 'LightBulbMini',
       },
       // TODO Connected Sites
       walletType !== 'watching' && {
@@ -170,7 +167,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
             },
           });
         },
-        icon: isVerticalLayout ? 'PlusOutline' : 'PlusMini',
+        icon: 'PlusMini',
       },
       walletType !== 'watching' && {
         id: 'action__sell_crypto',
@@ -187,7 +184,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
             },
           });
         },
-        icon: isVerticalLayout ? 'BanknotesOutline' : 'BanknotesMini',
+        icon: 'BanknotesMini',
       },
       {
         id: 'action__copy_address',
@@ -196,7 +193,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
             copyAddress(account?.address);
           });
         },
-        icon: isVerticalLayout ? 'Square2StackOutline' : 'Square2StackMini',
+        icon: 'Square2StackMini',
       },
       showSubscriptionIcon && {
         id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
@@ -207,7 +204,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     ],
     [
       needActivateAccount,
-      isVerticalLayout,
       walletType,
       showSubscriptionIcon,
       enabledNotification,
