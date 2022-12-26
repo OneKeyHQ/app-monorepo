@@ -20,9 +20,9 @@ import {
   Spinner,
   Text,
   Typography,
+  useIsVerticalLayout,
+  useToast,
 } from '@onekeyhq/components';
-import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
-import { useToast } from '@onekeyhq/components/src/Toast/useToast';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -336,16 +336,11 @@ function PreSendAmount() {
         } catch (e: any) {
           console.error(e);
           const { key: errorKey = '' } = e;
-          if (
-            [
-              'form__amount_invalid',
-              'form__error_trade_with_watched_acocunt',
-            ].includes(errorKey)
-          ) {
+          if (errorKey === 'form__amount_invalid') {
             toast.show(
               {
                 title: intl.formatMessage(
-                  { id: errorKey },
+                  { id: 'form__amount_invalid' },
                   { 0: tokenInfo?.symbol ?? '' },
                 ),
               },

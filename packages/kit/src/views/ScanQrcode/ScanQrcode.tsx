@@ -7,11 +7,15 @@ import { launchImageLibraryAsync } from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Center, HStack, Modal } from '@onekeyhq/components';
 import {
+  Box,
+  Button,
+  Center,
+  HStack,
+  Modal,
   useIsVerticalLayout,
   useSafeAreaInsets,
-} from '@onekeyhq/components/src/Provider/hooks';
+} from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

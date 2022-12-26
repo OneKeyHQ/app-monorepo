@@ -4,11 +4,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 
-import { Box, Modal, NetImage, Typography } from '@onekeyhq/components';
 import {
+  Box,
+  Modal,
+  NetImage,
+  Typography,
   useIsVerticalLayout,
   useUserDevice,
-} from '@onekeyhq/components/src/Provider/hooks';
+} from '@onekeyhq/components';
 import RecyclerListView, {
   DataProvider,
   LayoutProvider,

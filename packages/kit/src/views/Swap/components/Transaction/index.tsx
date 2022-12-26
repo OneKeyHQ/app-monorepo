@@ -17,9 +17,9 @@ import {
   Typography,
   VStack,
   useToast,
-  utils,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/components/src/Icon/react/illus/Logo';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -51,7 +51,7 @@ type NavigationProps = NavigationProp<SwapRoutesParams, SwapRoutes.Transaction>;
 
 const formatAddressName = (address: string, name?: string) => {
   if (!name) {
-    return `${utils.shortenAddress(address)}`;
+    return `${shortenAddress(address)}`;
   }
   return `${name}(${address.slice(-4)})`;
 };
@@ -560,7 +560,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
         <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>
           <Pressable flexDirection="row" alignItems="center" onPress={onOpenTx}>
             <Typography.Caption color="text-subdued" mr="1">
-              {utils.shortenAddress(tx.hash)}
+              {shortenAddress(tx.hash)}
             </Typography.Caption>
             <Icon
               name="ArrowTopRightOnSquareOutline"
@@ -579,7 +579,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               onPress={() => onCopy(swftcOrderId ?? '')}
             >
               <Typography.Caption color="text-subdued">
-                {utils.shortenAddress(swftcOrderId)}
+                {shortenAddress(swftcOrderId)}
               </Typography.Caption>
               <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
             </Pressable>

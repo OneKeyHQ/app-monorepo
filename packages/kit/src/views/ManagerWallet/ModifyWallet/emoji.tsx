@@ -8,14 +8,15 @@ import { chunk } from 'lodash';
 import {
   Box,
   Center,
-  DataProvider,
-  LayoutProvider,
   Modal,
   Pressable,
-  RecyclerListView,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import RecyclerListView, {
+  DataProvider,
+  LayoutProvider,
+} from '@onekeyhq/components/src/RecyclerListView';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import type {
   ManagerWalletModalRoutes,

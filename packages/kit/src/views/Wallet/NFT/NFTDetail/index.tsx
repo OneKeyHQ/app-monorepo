@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { BlurView } from 'expo-blur';
-import { Skeleton } from 'moti/skeleton';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -11,24 +10,23 @@ import {
   Box,
   Button,
   Center,
+  CustomSkeleton,
   HStack,
   Icon,
   Modal,
   Pressable,
   ScrollView,
+  Skeleton,
   Text,
   Typography,
   VStack,
-} from '@onekeyhq/components';
-import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import {
   useIsVerticalLayout,
   useSafeAreaInsets,
   useTheme,
-} from '@onekeyhq/components/src/Provider/hooks';
-import { CustomSkeleton } from '@onekeyhq/components/src/Skeleton';
-import { useToast } from '@onekeyhq/components/src/Toast/useToast';
+  useToast,
+} from '@onekeyhq/components';
+import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';

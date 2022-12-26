@@ -33,7 +33,7 @@ const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   }, 50);
 };
 
-export const Toast = { show: toastShow, hide: ToastBase.hide };
+export const ToastManager = { show: toastShow, hide: ToastBase.hide };
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
@@ -41,5 +41,5 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export function useToast() {
-  return Toast;
+  return ToastManager;
 }

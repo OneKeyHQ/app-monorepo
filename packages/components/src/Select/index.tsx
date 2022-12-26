@@ -19,7 +19,7 @@ import {
 import Box from '../Box';
 import Icon from '../Icon';
 import { ChevronDown } from '../Icon/react/mini';
-import { OverlayContainer } from '../OverlayContainer';
+import OverlayContainer from '../OverlayContainer';
 import Pressable from '../Pressable';
 import { useUserDevice } from '../Provider/hooks';
 import Token from '../Token';

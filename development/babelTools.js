@@ -79,6 +79,13 @@ function normalizeConfig({ platform, config }) {
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnviromentVariables.push('JPUSH_KEY');
   }
+  const customAliasForComponents = (name, file) => {
+    const filename = file.opts.filename;
+    if (filename.startsWith('use')) {
+      return '@onekeyhq/components/src/Provider/hooks';
+    }
+    return `@onekeyhq/components/${name}`;
+  };
 
   config.plugins = [
     ...(config.plugins || []),
@@ -113,8 +120,7 @@ function normalizeConfig({ platform, config }) {
       'babel-plugin-import',
       {
         'libraryName': '@onekeyhq/components',
-        'libraryDirectory': 'src',
-        'camel2DashComponentName': false,
+        'customName': customAliasForComponents,
       },
       '@onekeyhq/components',
     ],
@@ -122,8 +128,7 @@ function normalizeConfig({ platform, config }) {
       'babel-plugin-import',
       {
         'libraryName': '@onekeyhq/components/src',
-        'libraryDirectory': '',
-        'camel2DashComponentName': false,
+        'customName': customAliasForComponents,
       },
       '@onekeyhq/components/src',
     ],
