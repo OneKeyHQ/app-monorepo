@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import {
@@ -63,7 +62,7 @@ const HelpSelector: FC = () => {
 
   const openUrl = useCallback(
     (url: string, title?: string) => {
-      if (['android', 'ios'].includes(Platform.OS)) {
+      if (platformEnv.isNative) {
         stackNavigation.navigate(HomeRoutes.SettingsWebviewScreen, {
           url,
           title,

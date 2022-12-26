@@ -240,9 +240,15 @@ const CalculatorModal: FC = () => {
                       borderRadius="20px"
                       src={selectedProject.logoUrl}
                     />
-                    <Text typography="Body1Strong" flex={1} numberOfLines={1}>
-                      {selectedProject.name}
-                    </Text>
+                    <Box flex={1}>
+                      <Text typography="Body1Strong">
+                        {selectedProject.name}
+                      </Text>
+                      <Text typography="Body2" mt="4px" color="text-subdued">
+                        {intl.formatMessage({ id: 'content__floor' })}{' '}
+                        {selectedProject.floorPrice} ETH
+                      </Text>
+                    </Box>
                   </>
                 ) : (
                   <>

@@ -69,7 +69,7 @@ type RouteProps = RouteProp<
   DappConnectionModalRoutes.ConnectionModal
 >;
 
-let lastWalletConnectUri: string | undefined = '';
+// let lastWalletConnectUri: string | undefined = '';
 
 function ConnectionContent({
   isWalletConnectPreloading,
@@ -256,7 +256,7 @@ const Connection = () => {
   const walletConnectUri = route?.params?.walletConnectUri;
   const isDeepLink = route?.params?.isDeepLink;
   const refreshKey = route?.params?.refreshKey;
-  lastWalletConnectUri = walletConnectUri;
+  // lastWalletConnectUri = walletConnectUri;
   const isWalletConnectPreloading = Boolean(walletConnectUri);
   const [walletConnectError, setWalletConnectError] = useState<string>('');
   const closeModal = useModalClose();
