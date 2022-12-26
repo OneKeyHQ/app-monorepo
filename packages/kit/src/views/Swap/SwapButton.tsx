@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -248,6 +249,9 @@ const ExchangeButton = () => {
 
     let needApproved = false;
 
+    const walletId = getWalletIdFromAccountId(sendingAccount.id);
+    const wallet = await backgroundApiProxy.engine.getWallet(walletId);
+
     if (newQuote.allowanceTarget && params.tokenIn.tokenIdOnNetwork) {
       const allowance = await backgroundApiProxy.engine.getTokenAllowance({
         networkId: params.tokenIn.networkId,
@@ -278,15 +282,20 @@ const ExchangeButton = () => {
 
       const password = await backgroundApiProxy.servicePassword.getPassword();
 
-      if (password && !validationSetting?.Payment) {
-        await backgroundApiProxy.serviceTransaction.sendTransaction({
-          accountId: sendingAccount.id,
-          networkId: targetNetworkId,
-          encodedTx: encodedApproveTx,
-        });
-
-        const walletId = getWalletIdFromAccountId(sendingAccount.id);
-        const wallet = await backgroundApiProxy.engine.getWallet(walletId);
+      if ((password && !validationSetting?.Payment) || wallet.type === 'hw') {
+        try {
+          await backgroundApiProxy.serviceTransaction.sendTransaction({
+            accountId: sendingAccount.id,
+            networkId: targetNetworkId,
+            encodedTx: encodedApproveTx,
+          });
+        } catch (e: any) {
+          toast.show(
+            { title: e?.message ?? 'Internal Error' },
+            { type: 'error' },
+          );
+          return;
+        }
 
         if (wallet.type === 'hw') {
           navigation.navigate(RootRoutes.Modal, {
@@ -329,7 +338,11 @@ const ExchangeButton = () => {
             });
           }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-        } catch {
+        } catch (e: any) {
+          toast.show(
+            { title: e?.message ?? 'Internal Error' },
+            { type: 'error' },
+          );
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         }
         return;
@@ -382,32 +395,40 @@ const ExchangeButton = () => {
     }
 
     const password = await backgroundApiProxy.servicePassword.getPassword();
-    if (password && !validationSetting?.Payment) {
-      const { result, decodedTx } =
-        await backgroundApiProxy.serviceTransaction.sendTransaction({
-          accountId: sendingAccount.id,
-          networkId: targetNetworkId,
-          encodedTx,
-          payload: {
-            type: 'InternalSwap',
-            swapInfo,
+
+    if ((password && !validationSetting?.Payment) || wallet.type === 'hw') {
+      try {
+        const { result, decodedTx } =
+          await backgroundApiProxy.serviceTransaction.sendTransaction({
+            accountId: sendingAccount.id,
+            networkId: targetNetworkId,
+            encodedTx,
+            payload: {
+              type: 'InternalSwap',
+              swapInfo,
+            },
+          });
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendFeedbackReceipt,
+            params: {
+              networkId: targetNetworkId,
+              accountId: sendingAccount.id,
+              txid: result.txid,
+              type: 'Send',
+            },
           },
         });
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendRoutes.SendFeedbackReceipt,
-          params: {
-            networkId: targetNetworkId,
-            accountId: sendingAccount.id,
-            txid: result.txid,
-            type: 'Send',
-          },
-        },
-      });
-      setTimeout(() => {
-        addSwapTransaction(result.txid, decodedTx.nonce);
-      }, 100);
+        setTimeout(() => {
+          addSwapTransaction(result.txid, decodedTx.nonce);
+        }, 100);
+      } catch (e: any) {
+        toast.show(
+          { title: e?.message ?? 'Internal Error' },
+          { type: 'error' },
+        );
+      }
       return;
     }
 

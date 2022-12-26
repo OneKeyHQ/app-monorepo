@@ -15,10 +15,11 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation } from '../../hooks';
+import { useAppSelector, useNavigation, useNetwork } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
+import { useNetworkFeeInfoEditable } from '../Send/utils/useNetworkFeeInfoEditable';
 
 import { ArrivalTime } from './components/ArrivalTime';
 import SwappingVia from './components/SwappingVia';
@@ -67,7 +68,7 @@ const SwapExactAmoutAllowance = () => {
   );
 };
 
-const SwapNetworkFee = () => {
+const SwapNetworkFeeEditable = () => {
   const intl = useIntl();
   const fees = useMemo(
     () => [
@@ -143,6 +144,12 @@ const SwapNetworkFee = () => {
       </Box>
     </Box>
   );
+};
+
+const SwapNetworkFeeInfo = () => {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const { network } = useNetwork({ networkId: inputToken?.networkId });
+  return network?.settings?.feeInfoEditable ? <SwapNetworkFeeEditable /> : null;
 };
 
 const SwapMinimumReceived = () => {
@@ -226,7 +233,7 @@ const SwapQuote = () => {
           )}
         </Box>
       </Box>
-      <SwapNetworkFee />
+      <SwapNetworkFeeInfo />
       {!showMoreQuoteDetail ? (
         <Box
           display="flex"
