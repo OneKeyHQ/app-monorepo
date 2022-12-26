@@ -56,8 +56,6 @@ export type ModalRoutesParams = {
   [ModalRoutes.PushNotification]: NavigatorScreenParams<SubModalRoutesParams.PushNotificationRoutesParams>;
   [ModalRoutes.Webview]: NavigatorScreenParams<SubModalRoutesParams.WebviewRoutesParams>;
   [ModalRoutes.Revoke]: NavigatorScreenParams<SubModalRoutesParams.RevokeRoutesParams>;
-  [ModalRoutes.SearchNFT]: NavigatorScreenParams<SubModalRoutesParams.SearchNFTCollectionRoutesParams>;
-  [ModalRoutes.NFTAttributeFilter]: NavigatorScreenParams<SubModalRoutesParams.NFTAttributeFilterRoutesParams>;
   [ModalRoutes.KeyTagVerifyWallet]: NavigatorScreenParams<SubModalRoutesParams.KeyTagVerifyWalletRoutesParams>;
   [ModalRoutes.NFTMarket]: NavigatorScreenParams<SubModalRoutesParams.NFTMarketRoutesParams>;
 };
