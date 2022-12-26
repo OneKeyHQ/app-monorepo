@@ -336,11 +336,16 @@ function PreSendAmount() {
         } catch (e: any) {
           console.error(e);
           const { key: errorKey = '' } = e;
-          if (errorKey === 'form__amount_invalid') {
+          if (
+            [
+              'form__amount_invalid',
+              'form__error_trade_with_watched_acocunt',
+            ].includes(errorKey)
+          ) {
             toast.show(
               {
                 title: intl.formatMessage(
-                  { id: 'form__amount_invalid' },
+                  { id: errorKey },
                   { 0: tokenInfo?.symbol ?? '' },
                 ),
               },
