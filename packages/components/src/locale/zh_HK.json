@@ -196,7 +196,7 @@
   "action__sell": "出售",
   "action__sell_crypto": "出售加密貨幣",
   "action__send": "發送",
-  "action__send_count_nfts": "發送{count} 個NFT",
+  "action__send_count_nfts": "發送 {count} 個NFT",
   "action__send_nft": "發送 NFT",
   "action__send_with_str": "使用 {0} 發送",
   "action__set_to_mkt": "設爲市價",
