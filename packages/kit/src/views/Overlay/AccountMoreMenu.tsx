@@ -40,7 +40,8 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
-  const { enabledAccounts, loading } = useEnabledAccountDynamicAccounts();
+  const { enabledAccounts, loading, refresh } =
+    useEnabledAccountDynamicAccounts();
   const [needActivateAccount, setNeedActivateAccount] =
     useState<boolean>(false);
 
@@ -215,7 +216,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       copyAddress,
     ],
   );
-  return <BaseMenu options={options} {...props} />;
+  return <BaseMenu options={options} {...props} onOpen={refresh} />;
 };
 
 export default AccountMoreMenu;
