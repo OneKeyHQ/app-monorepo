@@ -91,17 +91,10 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   );
 };
 
-const SwapButton = ({
-  tokenItem,
-  onPress,
-}: {
-  tokenItem?: MarketTokenItem;
-  onPress: () => void;
-}) => (
+const SwapButton = ({ onPress }: { onPress: () => void }) => (
   <Box>
     <IconButton
       ml={4}
-      isDisabled={!tokenItem?.tokens?.length}
       type="basic"
       name="ArrowsRightLeftMini"
       size="base"
@@ -112,12 +105,7 @@ const SwapButton = ({
   </Box>
 );
 
-const StakeButton = ({
-  onPress,
-}: {
-  onPress: () => void;
-  isDisabled?: boolean;
-}) => (
+const StakeButton = ({ onPress }: { onPress: () => void }) => (
   <Box>
     <IconButton
       ml={4}
@@ -245,9 +233,12 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   const currencies = useFiatPay(network?.id ?? '');
   let crypotoCurrency = currencies.find((item) => {
     if (!token?.tokenIdOnNetwork) {
-      return item.contract === '';
+      return item.contract === '' && item.networkId === token?.networkId;
     }
-    return item.contract === token?.tokenIdOnNetwork;
+    return (
+      item.networkId === token?.networkId &&
+      item.contract === token?.tokenIdOnNetwork
+    );
   });
   const { balances } = useManageTokens();
   const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
@@ -277,15 +268,16 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
               alignItems="center"
               justifyContent="space-around"
             >
-              <SwapButton
-                tokenItem={marketTokenItem}
-                onPress={() => {
-                  if (token) {
-                    backgroundApiProxy.serviceSwap.setOutputToken(token);
-                    navigation.navigate(TabRoutes.Swap);
-                  }
-                }}
-              />
+              {token ? (
+                <SwapButton
+                  onPress={() => {
+                    if (token) {
+                      backgroundApiProxy.serviceSwap.setOutputToken(token);
+                      navigation.navigate(TabRoutes.Swap);
+                    }
+                  }}
+                />
+              ) : null}
               {stakedSupport ? (
                 <StakeButton
                   onPress={() => {
