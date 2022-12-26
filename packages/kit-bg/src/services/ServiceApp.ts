@@ -25,7 +25,6 @@ import {
   getPassword,
   hasHardwareSupported,
 } from '@onekeyhq/kit/src/utils/localAuthentication';
-import { EOnboardingRoutes } from '@onekeyhq/kit/src/views/Onboarding/routes/enums';
 import {
   backgroundClass,
   backgroundMethod,
