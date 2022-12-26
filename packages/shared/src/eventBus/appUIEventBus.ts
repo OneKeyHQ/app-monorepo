@@ -14,6 +14,7 @@ enum AppUIEventBusNames {
   AccountChanged = 'AccountChanged',
   SwapRefresh = 'SwapRefresh',
   EnsureChainWebEmbed = 'EnsureChainWebEmbed',
+  ChainWebEmbedDisabled = 'ChainWebEmbedDisabled',
 }
 
 if (isExtensionBackground) {
