@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -80,6 +81,7 @@ const ScanQrcodeResult: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { bottom } = useSafeAreaInsets();
+  const { wallet } = useActiveWalletAccount();
   const route = useRoute<ScanQrcodeResultRouteProp>();
   const { type, data, possibleNetworks } = route.params;
   let header = intl.formatMessage({ id: 'title__qr_code_info' });
@@ -128,6 +130,7 @@ const ScanQrcodeResult: FC = () => {
                   },
                 );
               }}
+              disabled={wallet?.type === 'watching'}
             >
               <HStack space="3">
                 <Icon name="PaperAirplaneOutline" />
