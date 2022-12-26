@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import LayoutHeader from './index';
 
 import { Box, HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTriggerDesktop } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
-import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
+import HomeMoreMenu from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 export function LayoutHeaderDesktop() {
-  const moreBtnRef = useRef();
   const { showUpdateBadge } = useCheckUpdate();
 
   useEffect(() => {
@@ -23,15 +22,16 @@ export function LayoutHeaderDesktop() {
     () => (
       <HStack space={2} alignItems="center">
         <NetworkAccountSelectorTriggerDesktop />
-        <Box ref={moreBtnRef}>
-          <IconButton
-            name="EllipsisVerticalOutline"
-            size="lg"
-            onPress={() => showHomeMoreMenu(moreBtnRef.current)}
-            type="plain"
-            circle
-            m={-2}
-          />
+        <Box>
+          <HomeMoreMenu placement="bottom right">
+            <IconButton
+              name="EllipsisVerticalOutline"
+              size="lg"
+              type="plain"
+              circle
+              m={-2}
+            />
+          </HomeMoreMenu>
           {showUpdateBadge && (
             <Box
               position="absolute"

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import '../background/instance/backgroundApiProxy';
 
-export function createLazyKitProvider({
+export function createLazyKitProviderLegacy({
   displayName,
 }: {
   displayName: string;
@@ -31,4 +31,15 @@ export function createLazyKitProvider({
   };
   LazyKitProvider.displayName = displayName;
   return LazyKitProvider;
+}
+
+export function createLazyKitProvider({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  displayName,
+}: {
+  displayName?: string;
+} = {}) {
+  const KitProvider = require('./index');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-member-access
+  return KitProvider.default;
 }
