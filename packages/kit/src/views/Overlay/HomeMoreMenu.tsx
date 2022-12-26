@@ -1,30 +1,20 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { Box, Icon, Text, useIsVerticalLayout } from '@onekeyhq/components';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import type { SelectProps } from '@onekeyhq/components/src/Select';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
-import { showOverlay } from '../../utils/overlayUtils';
 
-import { OverlayPanel } from './OverlayPanel';
-import UpdateItem from './UpdateItem';
+import BaseMenu from './BaseMenu';
 
+import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
-const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
-  closeOverlay,
-}) => {
-  const intl = useIntl();
+const HomeMoreMenu: FC<IMenu> = (props) => {
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const isVerticalLayout = useIsVerticalLayout();
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -38,9 +28,7 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
       {
         id: 'action__scan',
         onPress: () => gotoScanQrcode(),
-        icon: isVerticalLayout
-          ? 'ViewfinderCircleOutline'
-          : 'ViewfinderCircleMini',
+        icon: 'ViewfinderCircleMini',
       },
       platformEnv.isExtensionUiPopup && {
         id: 'form__expand_view',
@@ -54,47 +42,13 @@ const HomeMoreSettings: FC<{ closeOverlay: () => void }> = ({
       isPasswordSet && {
         id: 'action__lock_now',
         onPress: () => backgroundApiProxy.serviceApp.lock(true),
-        icon: isVerticalLayout ? 'LockClosedOutline' : 'LockClosedMini',
+        icon: 'LockClosedMini',
       },
     ],
-    [isVerticalLayout, isPasswordSet],
+    [isPasswordSet],
   );
 
-  return (
-    <Box flexDirection="column">
-      {options.filter(Boolean).map(({ onPress, icon, id }) => (
-        <PressableItem
-          key={id}
-          flexDirection="row"
-          alignItems="center"
-          py={{ base: '12px', sm: '8px' }}
-          px={{ base: '16px', sm: '8px' }}
-          bg="transparent"
-          borderRadius="12px"
-          onPress={() => {
-            closeOverlay();
-            onPress();
-          }}
-        >
-          <Icon size={isVerticalLayout ? 24 : 20} name={icon} />
-          <Text
-            typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
-            ml="12px"
-          >
-            {intl.formatMessage({
-              id,
-            })}
-          </Text>
-        </PressableItem>
-      ))}
-      <UpdateItem />
-    </Box>
-  );
+  return <BaseMenu options={options} {...props} />;
 };
 
-export const showHomeMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
-  showOverlay((closeOverlay) => (
-    <OverlayPanel triggerEle={triggerEle} closeOverlay={closeOverlay}>
-      <HomeMoreSettings closeOverlay={closeOverlay} />
-    </OverlayPanel>
-  ));
+export default HomeMoreMenu;

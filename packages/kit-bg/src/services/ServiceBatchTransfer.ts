@@ -22,8 +22,8 @@ import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
-const BATCH_SEND_TX_RETRY_MAX = 20;
-const REFRESH_PENDING_TXS_RETRY_MAX = 20;
+const BATCH_SEND_TX_RETRY_MAX = 10;
+const REFRESH_PENDING_TXS_RETRY_MAX = 10;
 
 const ERC721 = ERC721MetadataArtifact.abi;
 const ERC1155 = ERC1155MetadataArtifact.abi;

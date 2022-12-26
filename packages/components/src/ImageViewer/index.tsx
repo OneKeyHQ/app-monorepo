@@ -114,50 +114,6 @@ const ImageViewer: FC<ImageViewerProps> = ({
     [handleClose, imageSize.height, imageSize.width, rest],
   );
 
-  const DownloadButton = () => (
-    <Select
-      title="Image Options"
-      activatable={false}
-      onChange={onChange}
-      renderTrigger={() => (
-        <Box
-          position="absolute"
-          width="34px"
-          height="34px"
-          bottom="42px"
-          right="20px"
-          borderRadius="12"
-          borderWidth={1}
-          justifyContent="center"
-          alignItems="center"
-          borderColor="border-default"
-          bg="action-secondary-default"
-        >
-          <Icon name="ArrowDownTrayMini" size={20} />
-        </Box>
-      )}
-      containerProps={{
-        w: 'full',
-      }}
-      options={[
-        {
-          label: intl.formatMessage({ id: 'action__save' }),
-          value: 'save',
-          iconProps: {
-            name: 'InboxArrowDownOutline',
-          },
-        },
-        {
-          label: intl.formatMessage({ id: 'action__share' }),
-          value: 'share',
-          iconProps: {
-            name: 'ShareOutline',
-          },
-        },
-      ]}
-      footer={null}
-    />
-  );
   useEffect(() => {
     if (imageUri) {
       RNImage.getSize(imageUri, (width, height) => {
@@ -187,7 +143,48 @@ const ImageViewer: FC<ImageViewerProps> = ({
         <Box bgColor="black" width={screenWidth} height={screenHeight}>
           <Center flex="1">{ImageView}</Center>
         </Box>
-        {DownloadButton()}
+        <Select
+          title="Image Options"
+          activatable={false}
+          onChange={onChange}
+          renderTrigger={() => (
+            <Box
+              position="absolute"
+              width="34px"
+              height="34px"
+              bottom="42px"
+              right="20px"
+              borderRadius="12"
+              borderWidth={1}
+              justifyContent="center"
+              alignItems="center"
+              borderColor="border-default"
+              bg="action-secondary-default"
+            >
+              <Icon name="ArrowDownTrayMini" size={20} />
+            </Box>
+          )}
+          containerProps={{
+            w: 'full',
+          }}
+          options={[
+            {
+              label: intl.formatMessage({ id: 'action__save' }),
+              value: 'save',
+              iconProps: {
+                name: 'InboxArrowDownOutline',
+              },
+            },
+            {
+              label: intl.formatMessage({ id: 'action__share' }),
+              value: 'share',
+              iconProps: {
+                name: 'ShareOutline',
+              },
+            },
+          ]}
+          footer={null}
+        />
       </Pressable>
     </RNModal>
   );

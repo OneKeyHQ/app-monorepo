@@ -4,16 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import {
-  Box,
-  Icon,
-  Text,
-  useIsVerticalLayout,
-  useToast,
-} from '@onekeyhq/components';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { formatMessage } from '@onekeyhq/components/src/Provider';
-import type { SelectProps } from '@onekeyhq/components/src/Select';
+import { useToast } from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
@@ -30,29 +21,27 @@ import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
-import { showOverlay } from '../../utils/overlayUtils';
 import {
   useAddressCanSubscribe,
   useEnabledAccountDynamicAccounts,
 } from '../PushNotification/hooks';
 
-import { OverlayPanel } from './OverlayPanel';
+import BaseMenu from './BaseMenu';
 
+import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
 const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
-const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
-  closeOverlay,
-}) => {
+const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
-  const isVerticalLayout = useIsVerticalLayout();
-  const { enabledAccounts, loading } = useEnabledAccountDynamicAccounts();
+  const { enabledAccounts, loading, refresh } =
+    useEnabledAccountDynamicAccounts();
   const [needActivateAccount, setNeedActivateAccount] =
     useState<boolean>(false);
 
@@ -93,12 +82,10 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
 
-  const accountSubscriptionIcon = useMemo(() => {
-    if (isVerticalLayout) {
-      return enabledNotification ? 'BellSlashOutline' : 'BellOutline';
-    }
-    return enabledNotification ? 'BellSlashMini' : 'BellMini';
-  }, [isVerticalLayout, enabledNotification]);
+  const accountSubscriptionIcon = useMemo(
+    () => (enabledNotification ? 'BellSlashMini' : 'BellMini'),
+    [enabledNotification],
+  );
 
   const onChangeAccountSubscribe = useCallback(async () => {
     if (!account) {
@@ -164,7 +151,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             .activateAccount(account.id, network.id)
             .catch(() => {});
         },
-        icon: isVerticalLayout ? 'LightBulbOutline' : 'LightBulbMini',
+        icon: 'LightBulbMini',
       },
       // TODO Connected Sites
       walletType !== 'watching' && {
@@ -181,7 +168,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             },
           });
         },
-        icon: isVerticalLayout ? 'PlusOutline' : 'PlusMini',
+        icon: 'PlusMini',
       },
       walletType !== 'watching' && {
         id: 'action__sell_crypto',
@@ -198,7 +185,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             },
           });
         },
-        icon: isVerticalLayout ? 'BanknotesOutline' : 'BanknotesMini',
+        icon: 'BanknotesMini',
       },
       {
         id: 'action__copy_address',
@@ -207,7 +194,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
             copyAddress(account?.address);
           });
         },
-        icon: isVerticalLayout ? 'Square2StackOutline' : 'Square2StackMini',
+        icon: 'Square2StackMini',
       },
       showSubscriptionIcon && {
         id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
@@ -218,7 +205,6 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
     ],
     [
       needActivateAccount,
-      isVerticalLayout,
       walletType,
       showSubscriptionIcon,
       enabledNotification,
@@ -230,46 +216,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
       copyAddress,
     ],
   );
-  return (
-    <Box flexDirection="column">
-      {options.filter(Boolean).map(({ onPress, icon, id }) => (
-        <PressableItem
-          key={id}
-          flexDirection="row"
-          alignItems="center"
-          py={{ base: '12px', sm: '8px' }}
-          px={{ base: '16px', sm: '8px' }}
-          bg="transparent"
-          borderRadius="12px"
-          onPress={() => {
-            closeOverlay();
-            onPress();
-          }}
-        >
-          <Icon size={isVerticalLayout ? 24 : 20} name={icon} />
-          <Text
-            typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
-            ml="12px"
-          >
-            {intl.formatMessage({
-              id,
-            })}
-          </Text>
-        </PressableItem>
-      ))}
-    </Box>
-  );
+  return <BaseMenu options={options} {...props} onOpen={refresh} />;
 };
 
-export const showAccountMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
-  showOverlay((closeOverlay) => (
-    <OverlayPanel
-      triggerEle={triggerEle}
-      closeOverlay={closeOverlay}
-      modalProps={{
-        header: formatMessage({ id: 'action__more' }),
-      }}
-    >
-      <AccountMoreSettings closeOverlay={closeOverlay} />
-    </OverlayPanel>
-  ));
+export default AccountMoreMenu;

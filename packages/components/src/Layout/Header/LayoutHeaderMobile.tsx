@@ -3,28 +3,31 @@ import LayoutHeader from './index';
 import { HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTriggerMobile } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
-import { showHomeMoreMenu } from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
+import HomeMoreMenu from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 
+const headerLeft = () => <WalletSelectorTrigger />;
+const headerRight = () => (
+  <HStack space={3} alignItems="center">
+    <NetworkAccountSelectorTriggerMobile />
+    <HomeMoreMenu placement="bottom right">
+      <IconButton
+        name="EllipsisVerticalOutline"
+        type="plain"
+        size="lg"
+        circle
+        m={-2}
+      />
+    </HomeMoreMenu>
+  </HStack>
+);
 export function LayoutHeaderMobile() {
   return (
     <LayoutHeader
       showOnDesktop={false}
       // headerLeft={() => <AccountSelector />}
-      headerLeft={() => <WalletSelectorTrigger />}
+      headerLeft={headerLeft}
       // headerRight={() => <ChainSelector />}
-      headerRight={() => (
-        <HStack space={3} alignItems="center">
-          <NetworkAccountSelectorTriggerMobile />
-          <IconButton
-            name="EllipsisVerticalOutline"
-            type="plain"
-            size="lg"
-            onPress={() => showHomeMoreMenu()}
-            circle
-            m={-2}
-          />
-        </HStack>
-      )}
+      headerRight={headerRight}
     />
   );
 }

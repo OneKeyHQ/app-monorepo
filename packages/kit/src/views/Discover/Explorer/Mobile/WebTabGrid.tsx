@@ -1,8 +1,12 @@
 import type { FC } from 'react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { Image as NBImage } from 'native-base';
-import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
+import {
+  BackHandler,
+  Image,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
@@ -13,6 +17,10 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
@@ -31,6 +39,9 @@ import type { WebTab } from '../../../../store/reducers/webTabs';
 
 const CELL_GAP = 16;
 const styles = StyleSheet.create({
+  image: {
+    flex: 1,
+  },
   contentContainer: {
     flexGrow: 1,
     flexDirection: 'row',
@@ -45,71 +56,92 @@ const WebTabCard: FC<
   WebTab & {
     width: number;
   }
-> = ({ width, isCurrent, title, favicon, id, thumbnail }) => (
-  <Pressable
-    w={width}
-    h={width}
-    borderRadius="12px"
-    borderWidth="1px"
-    borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
-    overflow="hidden"
-    ml={`${CELL_GAP}px`}
-    mt={`${CELL_GAP}px`}
-    onPress={() => {
-      if (!isCurrent) {
-        backgroundApiProxy.dispatch(setCurrentWebTab(id));
+> = ({ width, isCurrent, title, favicon, id }) => {
+  const [thumbnail, setThumbnail] = useState('');
+  useEffect(() => {
+    const updateThumbnail = (tabId: string, url: string) => {
+      if (tabId === id) {
+        setThumbnail(url);
       }
-      hideTabGrid(id);
-    }}
-  >
-    <Box
-      flex={1}
-      collapsable={false}
-      ref={(ref) => {
-        // @ts-ignore
-        tabGridRefs[id] = ref;
+    };
+    appEventBus.on(AppEventBusNames.WebTabThumbnailUpdated, updateThumbnail);
+    return () => {
+      appEventBus.removeListener(
+        AppEventBusNames.WebTabThumbnailUpdated,
+        updateThumbnail,
+      );
+    };
+  }, [id]);
+  return (
+    <Pressable
+      w={width}
+      h={width}
+      borderRadius="12px"
+      borderWidth="1px"
+      borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
+      overflow="hidden"
+      ml={`${CELL_GAP}px`}
+      mt={`${CELL_GAP}px`}
+      onPress={() => {
+        if (!isCurrent) {
+          backgroundApiProxy.dispatch(setCurrentWebTab(id));
+        }
+        hideTabGrid(id);
       }}
     >
       <Box
-        bg="surface-default"
-        px="9px"
-        h="32px"
-        w="full"
-        borderTopLeftRadius="12px"
-        borderTopRightRadius="12px"
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
+        flex={1}
+        collapsable={false}
+        ref={(ref) => {
+          // @ts-ignore
+          tabGridRefs[id] = ref;
+        }}
       >
-        <NetImage
-          key={favicon}
-          width="18px"
-          height="18px"
-          borderRadius="4px"
-          src={favicon}
-        />
-        <Typography.CaptionStrong
-          color="text-default"
-          flex={1}
-          textAlign="left"
-          numberOfLines={1}
-          mx="4px"
+        <Box
+          bg="surface-default"
+          px="9px"
+          h="32px"
+          w="full"
+          borderTopLeftRadius="12px"
+          borderTopRightRadius="12px"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
         >
-          {title}
-        </Typography.CaptionStrong>
-        <IconButton
-          size="sm"
-          type="plain"
-          name="XMarkMini"
-          onPress={() => {
-            backgroundApiProxy.dispatch(closeWebTab(id));
-          }}
+          <NetImage
+            key={favicon}
+            width="18px"
+            height="18px"
+            borderRadius="4px"
+            src={favicon}
+          />
+          <Typography.CaptionStrong
+            color="text-default"
+            flex={1}
+            textAlign="left"
+            numberOfLines={1}
+            mx="4px"
+          >
+            {title}
+          </Typography.CaptionStrong>
+          <IconButton
+            size="sm"
+            type="plain"
+            name="XMarkMini"
+            onPress={() => {
+              backgroundApiProxy.dispatch(closeWebTab(id));
+            }}
+          />
+        </Box>
+        <Image
+          style={styles.image}
+          resizeMode="cover"
+          source={{ uri: thumbnail }}
         />
       </Box>
-      <NBImage flex={1} resizeMode="cover" src={thumbnail} />
-    </Box>
-  </Pressable>
-);
+    </Pressable>
+  );
+};
 const WebTabGrid = () => {
   const { tabs } = useWebTabs();
   const { width } = useWindowDimensions();

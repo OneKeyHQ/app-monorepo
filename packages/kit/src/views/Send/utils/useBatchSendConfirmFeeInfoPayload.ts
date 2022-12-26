@@ -162,7 +162,7 @@ export function useBatchSendConfirmFeeInfoPayload({
 
             if (feeInfoStandard?.info?.limit) {
               standardLimit = +feeInfoStandard.info.limit * transferCount;
-              maxLimit = BigNumber.min(standardLimit * 2, maxLimit).toNumber();
+              maxLimit = BigNumber.min(standardLimit * 3, maxLimit).toNumber();
             }
 
             currentInfoUnit = {

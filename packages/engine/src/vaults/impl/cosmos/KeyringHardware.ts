@@ -11,7 +11,7 @@ import { OneKeyHardwareError } from '../../../errors';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { stripHexPrefix } from '../../utils/hexUtils';
 
-import { pubkeyToBaseAddress } from './sdk/address';
+import { baseAddressToAddress, pubkeyToBaseAddress } from './sdk/address';
 import { generateSignBytes, generateSignedTx } from './utils';
 
 import type {
@@ -179,5 +179,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     throw convertDeviceError(response.payload);
+  }
+
+  override async addressFromBase(baseAddress: string) {
+    const chainInfo = await this.getChainInfo();
+    return baseAddressToAddress(
+      chainInfo.implOptions?.addressPrefix ?? 'cosmos',
+      baseAddress,
+    );
   }
 }

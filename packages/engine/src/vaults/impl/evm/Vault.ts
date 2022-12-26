@@ -316,6 +316,40 @@ export default class Vault extends VaultBase {
         return null;
     }
 
+    const { gasInfo } = decodedTxLegacy;
+    let feeInfo: IFeeInfoUnit;
+    const limit = new BigNumber(gasInfo.gasLimit).toFixed();
+    if (gasInfo.maxFeePerGas) {
+      feeInfo = {
+        eip1559: true,
+        limit,
+        price: {
+          baseFee: '0',
+          maxPriorityFeePerGas: new BigNumber(gasInfo.maxPriorityFeePerGas)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          maxPriorityFeePerGasValue: gasInfo.maxPriorityFeePerGas,
+
+          maxFeePerGas: new BigNumber(gasInfo.maxFeePerGas)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          maxFeePerGasValue: gasInfo.maxFeePerGas,
+          gasPrice: new BigNumber(gasInfo.gasPrice || gasInfo.maxFeePerGas)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          gasPriceValue: gasInfo.gasPrice || gasInfo.maxFeePerGas,
+        },
+      };
+    } else {
+      feeInfo = {
+        limit,
+        price: new BigNumber(gasInfo.gasPrice)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed(),
+        priceValue: gasInfo.gasPrice,
+      };
+    }
+
     const decodedTx: IDecodedTx = {
       txid: decodedTxLegacy.txHash,
       owner: address,
@@ -326,14 +360,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       encodedTx,
-      feeInfo: {
-        limit: encodedTx.gasLimit,
-        price: convertFeeValueToGwei({
-          value: encodedTx.gasPrice ?? '1',
-          network,
-        }),
-        priceValue: encodedTx.gasPrice,
-      },
+      feeInfo,
       payload,
       extraInfo: null,
     };

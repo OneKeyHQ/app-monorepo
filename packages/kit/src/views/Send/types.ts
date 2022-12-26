@@ -219,6 +219,7 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
   feeInput?: JSX.Element;
+  feeInfoError?: Error | null;
 
   confirmDisabled?: boolean;
   autoConfirm?: boolean;
@@ -349,6 +350,7 @@ export type BatchSendProgressParams = Omit<
   walletId: string;
   networkId: string;
   unsignedMessages?: IUnsignedMessageEvm[];
+  feeInfoPayloads: IFeeInfoPayload[];
 };
 
 export type BatchSendConfirmOnSuccessData = {

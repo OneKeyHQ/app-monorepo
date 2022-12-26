@@ -76,6 +76,7 @@ function SendProgress({
     onFail,
     walletId,
     payloadInfo,
+    feeInfoPayloads,
     backRouteName,
     sourceInfo,
     signOnly = false,
@@ -125,7 +126,27 @@ function SendProgress({
           })),
         });
       result.push(signedTx as ISignedTxPro);
-      await wait(3000);
+      if (signedTx) {
+        await backgroundApiProxy.serviceHistory.saveSendConfirmHistory({
+          networkId,
+          accountId,
+          data: {
+            signedTx,
+            encodedTx: encodedTxs[i],
+            decodedTx: (
+              await backgroundApiProxy.engine.decodeTx({
+                networkId,
+                accountId,
+                encodedTx: encodedTxs[i],
+                payload,
+                interactInfo,
+              })
+            ).decodedTx,
+          },
+          feeInfo: feeInfoPayloads[i]?.current.value,
+        });
+      }
+
       debugLogger.sendTx.info(
         'Authentication sendTx DONE:',
         route.params,
@@ -138,8 +159,11 @@ function SendProgress({
   }, [
     accountId,
     encodedTxs,
+    feeInfoPayloads,
+    interactInfo,
     networkId,
     password,
+    payload,
     route.params,
     signOnly,
     waitUntilInProgress,
@@ -380,7 +404,7 @@ function BatchSendProgress() {
     <BaseSendModal
       closeable={false}
       hideBackButton
-      height="auto"
+      height="489px"
       closeOnOverlayClick={false}
       accountId={accountId}
       networkId={networkId}
