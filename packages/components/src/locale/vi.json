@@ -373,6 +373,8 @@
   "content__description": "Sự miêu tả",
   "content__details": "Thông tin chi tiết",
   "content__disconnect_and_try_again": "Vui lòng nhấp vào \"Ngắt kết nối\" và gửi lại yêu cầu giao dịch nếu {0} không phản hồi.",
+  "content__do_not_swap_directly_to_the_exchange": "Không trao đổi trực tiếp để trao đổi.",
+  "content__do_not_swap_directly_to_the_exchange_desc": "Hầu hết các sàn giao dịch không chấp nhận chuyển khoản từ hợp đồng.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "Không chuyển vào bất kỳ tài khoản trao đổi nào để tránh mất mát tài sản. Hầu hết các tài khoản trao đổi không chấp nhận chuyển nhượng hợp đồng.",
   "content__dont_ask_me_again_when_visit_this_dapp": "Đừng hỏi lại tôi khi truy cập dApp này.",
   "content__downloading": "Đang tải xuống",
