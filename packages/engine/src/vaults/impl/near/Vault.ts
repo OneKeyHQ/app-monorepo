@@ -10,7 +10,11 @@ import memoizee from 'memoizee';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+  WatchedAccountTradeError,
+} from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import { TxStatus } from '../../../types/covalent';
 import {
@@ -360,7 +364,11 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
   ): Promise<string> {
     // TODO check dbAccount address match transferInfo.from
-    // const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+
+    if (!dbAccount.pub && dbAccount.id.startsWith('watching--')) {
+      throw new WatchedAccountTradeError();
+    }
 
     const actions = [];
 
