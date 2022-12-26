@@ -284,7 +284,7 @@ const ExchangeButton = () => {
 
       if ((password && !validationSetting?.Payment) || wallet.type === 'hw') {
         try {
-          await backgroundApiProxy.serviceTransaction.sendTransaction({
+          await backgroundApiProxy.serviceSwap.sendTransaction({
             accountId: sendingAccount.id,
             networkId: targetNetworkId,
             encodedTx: encodedApproveTx,
@@ -313,7 +313,7 @@ const ExchangeButton = () => {
         const encodedEvmTx = encodedTx as IEncodedTxEvm;
         try {
           const { result, decodedTx } =
-            await backgroundApiProxy.serviceTransaction.sendTransaction({
+            await backgroundApiProxy.serviceSwap.sendTransaction({
               accountId: sendingAccount.id,
               networkId: targetNetworkId,
               encodedTx: { ...encodedEvmTx },
@@ -373,7 +373,7 @@ const ExchangeButton = () => {
               const encodedEvmTx = encodedTx as IEncodedTxEvm;
               try {
                 const { result, decodedTx } =
-                  await backgroundApiProxy.serviceTransaction.sendTransaction({
+                  await backgroundApiProxy.serviceSwap.sendTransaction({
                     accountId: sendingAccount.id,
                     networkId: targetNetworkId,
                     encodedTx: { ...encodedEvmTx },
@@ -399,7 +399,7 @@ const ExchangeButton = () => {
     if ((password && !validationSetting?.Payment) || wallet.type === 'hw') {
       try {
         const { result, decodedTx } =
-          await backgroundApiProxy.serviceTransaction.sendTransaction({
+          await backgroundApiProxy.serviceSwap.sendTransaction({
             accountId: sendingAccount.id,
             networkId: targetNetworkId,
             encodedTx,

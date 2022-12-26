@@ -22,8 +22,9 @@ export default class ServiceTransaction extends ServiceBase {
     networkId: string;
     encodedTx: IEncodedTx;
     payload?: SendConfirmParams['payloadInfo'];
+    feePresetIndex?: string;
   }) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, feePresetIndex } = params;
     const { engine, servicePassword, serviceHistory } = this.backgroundApi;
 
     const wallets = await engine.getWallets();
@@ -55,7 +56,14 @@ export default class ServiceTransaction extends ServiceBase {
         throw Error('bad limit');
       }
 
-      const price = feeInfo.prices[feeInfo.prices.length - 1];
+      let price = feeInfo.prices[feeInfo.prices.length - 1];
+
+      if (feePresetIndex) {
+        const index = Number(feePresetIndex);
+        if (!Number.isNaN(index) && feeInfo.prices[index]) {
+          price = feeInfo.prices[index];
+        }
+      }
 
       feeInfoUnit = {
         eip1559: feeInfo.eip1559,
