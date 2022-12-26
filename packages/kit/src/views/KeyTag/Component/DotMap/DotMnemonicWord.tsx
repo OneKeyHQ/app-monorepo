@@ -1,6 +1,8 @@
 import type { FC } from 'react';
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Box, HStack, Icon, Typography } from '@onekeyhq/components';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
@@ -9,7 +11,6 @@ import { KeyTagMnemonicStatus } from '../../types';
 import DotSpace from './DotSpace';
 
 import type { KeyTagMnemonic } from '../../types';
-import { useIntl } from 'react-intl';
 
 type DotMnemonicWordProps = {
   size?: number;
@@ -104,14 +105,18 @@ export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
     };
     switch (status) {
       case KeyTagMnemonicStatus.VERIF:
-        res.statusTitle = word;
+        res.statusTitle = word?.toUpperCase();
         break;
       case KeyTagMnemonicStatus.INCORRECT:
-        res.statusTitle = intl.formatMessage({ id: 'form__incorrect_dotmap' });
+        res.statusTitle = intl
+          .formatMessage({ id: 'form__incorrect_dotmap' })
+          .toUpperCase();
         res.titleColor = 'text-critical';
         break;
       case KeyTagMnemonicStatus.EMPTY:
-        res.statusTitle = intl.formatMessage({ id: 'form__empty' });
+        res.statusTitle = intl
+          .formatMessage({ id: 'form__empty' })
+          .toUpperCase();
         res.titleColor = 'text-warning';
         break;
       case KeyTagMnemonicStatus.UNVERIF:
@@ -183,7 +188,7 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
               <Box mb={3}>
                 <Icon
                   size={32}
-                  name="OnekeyLogoOutline"
+                  name="LogoCircularIllus"
                   color="icon-disabled"
                 />
               </Box>

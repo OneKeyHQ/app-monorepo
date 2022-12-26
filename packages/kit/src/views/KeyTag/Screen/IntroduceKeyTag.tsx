@@ -41,19 +41,19 @@ const Introduce = () => {
       </Box>
     );
     res.detail = (
-      <Box h="250px">
+      <Box h="270px">
         <Typography.DisplayLarge
           fontSize="24px"
           fontWeight={700}
           numberOfLines={2}
         >
           {intl.formatMessage({
-            id: 'title__record_your_recovery_phrase_like_playing_a_dot_punching_game',
+            id: 'title__lets_play_the_dot_punching_game',
           })}
         </Typography.DisplayLarge>
         <Typography.Body1 mt={2}>
           {intl.formatMessage({
-            id: 'title__record_your_recovery_phrase_like_playing_a_dot_punching_game_desc',
+            id: 'title__lets_play_the_dot_punching_game_desc',
           })}
         </Typography.Body1>
         <Button

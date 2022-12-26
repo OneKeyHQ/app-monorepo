@@ -21,9 +21,9 @@ export const KeyTagMatrixTopTitle: FC<KeyTagMatrixProps> = ({
   const intl = useIntl();
   const title = useMemo(() => {
     if (startIndex && startIndex > 1) {
-      return intl.formatMessage({ id: 'content__back' });
+      return intl.formatMessage({ id: 'form__back' });
     }
-    return intl.formatMessage({ id: 'content__front' });
+    return intl.formatMessage({ id: 'form__front' });
   }, [intl, startIndex]);
   const sequenceRange = useMemo(
     () =>

@@ -43,12 +43,11 @@ const RightDoneBtn = ({
 const TopMidCompoment = ({
   mnemonic,
   wallet,
-  message,
 }: {
   mnemonic: string;
   wallet?: IWallet;
-  message?: string;
 }) => {
+  const intl = useIntl();
   const mnemonicCounts = useMemo(() => mnemonic.split(' ').length, [mnemonic]);
   return (
     <Center flexDirection="row" alignItems="center">
@@ -63,9 +62,10 @@ const TopMidCompoment = ({
         {wallet ? (
           <Typography.Body1Strong>{wallet.name}</Typography.Body1Strong>
         ) : null}
-        <Typography.Caption>{`${mnemonicCounts} ${
-          message ?? 'words'
-        }`}</Typography.Caption>
+        <Typography.Caption>{`${intl.formatMessage(
+          { id: 'form__str_words' },
+          { 0: mnemonicCounts },
+        )}`}</Typography.Caption>
       </Box>
     </Center>
   );
@@ -92,14 +92,8 @@ const ShowDotMap: FC = () => {
     [intl, navigation],
   );
   const titleHeader = useMemo(
-    () => (
-      <TopMidCompoment
-        mnemonic={mnemonic}
-        wallet={wallet}
-        message={intl.formatMessage({ id: 'content__str_words' })}
-      />
-    ),
-    [intl, mnemonic, wallet],
+    () => <TopMidCompoment mnemonic={mnemonic} wallet={wallet} />,
+    [mnemonic, wallet],
   );
   navigation.setOptions({
     headerShown: true,

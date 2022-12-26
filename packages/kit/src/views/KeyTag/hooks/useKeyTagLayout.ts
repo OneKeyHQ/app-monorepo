@@ -15,7 +15,7 @@ export const useIntroductionBigImage = () => {
   const imageHeight = useMemo(() => imageWidth * ratio, [imageWidth, ratio]);
   const marginT = useMemo(() => {
     if (isVertical) {
-      return screenHeight - 64 - 32 - 250 - imageHeight;
+      return screenHeight - 64 - 32 - 270 - imageHeight;
     }
     return screenHeight - 64 - 32 - 80 - imageHeight > 0
       ? 0

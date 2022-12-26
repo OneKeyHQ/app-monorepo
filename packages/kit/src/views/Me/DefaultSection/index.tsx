@@ -74,7 +74,7 @@ export const DefaultSection = () => {
             });
           }}
         >
-          <Icon name="onekeyTagOutline" />
+          <Icon name="KeytagOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex="1"

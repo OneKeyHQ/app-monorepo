@@ -32,7 +32,7 @@ const Started = () => {
   return (
     <LayoutContainer
       backButton
-      title={intl.formatMessage({ id: 'action__get_started_with_keytag' })}
+      title={intl.formatMessage({ id: 'title__get_started_with_keytag' })}
     >
       <Box flex="1" flexDirection={isVerticalLayout ? 'column' : 'row'}>
         <Pressable

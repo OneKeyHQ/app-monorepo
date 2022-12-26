@@ -24,7 +24,6 @@ type RouteProps = RouteProp<
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
 const KeyTagBackupWalletAttentions = () => {
-  console.log('KeyTagBackupWalletAttentions');
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
   const { walletId, password, wallet } = route.params;

@@ -116,7 +116,9 @@ const KeyTagBackUpWallet = () => {
             </Center>
           ) : null}
           <Typography.Body2>
-            {intl.formatMessage({ id: 'content__bip39_dotmap' })}
+            {intl.formatMessage({
+              id: 'content__you_can_also_find_the_bip39_dotmap_in_the_following_site',
+            })}
           </Typography.Body2>
         </Box>
       }
@@ -129,7 +131,7 @@ const KeyTagBackUpWallet = () => {
             onPress={() => {
               navigation.navigate(KeyTagRoutes.EnterPhrase);
             }}
-            text={intl.formatMessage({ id: 'form__enter_my_recovery_phrase' })}
+            text={intl.formatMessage({ id: 'form__enter_recovery_phrase' })}
             leftView={
               <Center size={12} bgColor="surface-default" borderRadius="9999px">
                 <Icon

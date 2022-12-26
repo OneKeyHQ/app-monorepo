@@ -175,30 +175,30 @@ const ImportKeyTag: FC = () => {
               }}
               options={[
                 {
-                  label: `${intl.formatMessage(
+                  label: intl.formatMessage(
                     {
                       id: 'form__str_words',
                     },
                     { 0: 12 },
-                  )}`,
+                  ),
                   value: 12,
                 },
                 {
-                  label: `18 ${intl.formatMessage(
+                  label: intl.formatMessage(
                     {
                       id: 'form__str_words',
                     },
                     { 0: 18 },
-                  )}`,
+                  ),
                   value: 18,
                 },
                 {
-                  label: `24 ${intl.formatMessage(
+                  label: intl.formatMessage(
                     {
                       id: 'form__str_words',
                     },
                     { 0: 24 },
-                  )}`,
+                  ),
                   value: 24,
                 },
               ]}

@@ -23,7 +23,6 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
 const EnterPhrase = () => {
-  console.log('EnterPhrase');
   const isVertical = useIsVerticalLayout();
   const useFormReturn = useForm();
   const navigation = useNavigation<NavigationProps>();
