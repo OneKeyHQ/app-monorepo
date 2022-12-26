@@ -215,7 +215,9 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
 
     let destination = to;
-    let destinationTag: number | undefined;
+    let destinationTag: number | undefined = transferInfo.destinationTag
+      ? Number(transferInfo.destinationTag)
+      : undefined;
     // Slice destination tag from swap address
     if (!XRPL.isValidAddress(to) && to.indexOf('#') > -1) {
       const [address, tag] = to.split('#');
