@@ -2,7 +2,6 @@ import type { FC } from 'react';
 import { useMemo } from 'react';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -16,7 +15,6 @@ import type { MessageDescriptor } from 'react-intl';
 
 const HomeMoreMenu: FC<IMenu> = (props) => {
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const isVerticalLayout = useIsVerticalLayout();
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -30,9 +28,7 @@ const HomeMoreMenu: FC<IMenu> = (props) => {
       {
         id: 'action__scan',
         onPress: () => gotoScanQrcode(),
-        icon: isVerticalLayout
-          ? 'ViewfinderCircleOutline'
-          : 'ViewfinderCircleMini',
+        icon: 'ViewfinderCircleMini',
       },
       platformEnv.isExtensionUiPopup && {
         id: 'form__expand_view',
@@ -46,10 +42,10 @@ const HomeMoreMenu: FC<IMenu> = (props) => {
       isPasswordSet && {
         id: 'action__lock_now',
         onPress: () => backgroundApiProxy.serviceApp.lock(true),
-        icon: isVerticalLayout ? 'LockClosedOutline' : 'LockClosedMini',
+        icon: 'LockClosedMini',
       },
     ],
-    [isVerticalLayout, isPasswordSet],
+    [isPasswordSet],
   );
 
   return <BaseMenu options={options} {...props} />;

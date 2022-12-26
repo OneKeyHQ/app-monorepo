@@ -183,10 +183,11 @@ const Provider: FC<UIProviderProps> = ({
             baseStyle: {
               px: 0,
               py: 1,
-              bg: COLORS[themeVariant]['background-default'],
+              bg: COLORS[themeVariant]['surface-default'],
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: COLORS[themeVariant]['border-subdued'],
               borderRadius: 12,
+              shadow: 'depth.3',
               _presenceTransition: {
                 animate: {
                   transition: {
@@ -217,6 +218,7 @@ const Provider: FC<UIProviderProps> = ({
             baseStyle: {
               px: 0,
               mx: 1,
+              py: platformEnv.isNative ? 2.5 : 2,
               borderRadius: 8,
               _text: {
                 ...(platformEnv.isNative ? Body1Props : Body2Props),
