@@ -219,6 +219,7 @@ export type ITxConfirmViewProps = ModalProps & {
   feeInfoLoading: boolean;
   feeInfoEditable?: boolean;
   feeInput?: JSX.Element;
+  feeInfoError?: Error | null;
 
   confirmDisabled?: boolean;
   autoConfirm?: boolean;

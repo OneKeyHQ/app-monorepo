@@ -90,6 +90,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.NFTPNLScreen,
         component: PNLDetailScreen,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -142,6 +143,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.NFTPNLScreen,
         component: PNLDetailScreen,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -261,6 +263,17 @@ export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
       'text-default',
       'border-subdued',
     ]);
+
+    const headerLeft = useCallback(
+      ({ tintColor }) => (
+        <NavigationHeaderBackButton
+          tintColor={tintColor}
+          onPress={goBack}
+          canGoBack
+        />
+      ),
+      [],
+    );
     const renderHeader = useCallback(() => <LayoutHeaderDesktop />, []);
     return (
       <Stack.Navigator
@@ -295,14 +308,7 @@ export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
                 header: customRenderHeader,
                 headerLeft:
                   s.alwaysShowBackButton && platformEnv.isRuntimeBrowser
-                    ? ({ tintColor }) => (
-                        <NavigationHeaderBackButton
-                          tintColor={tintColor}
-                          // eslint-disable-next-line @typescript-eslint/unbound-method
-                          onPress={goBack}
-                          canGoBack
-                        />
-                      )
+                    ? headerLeft
                     : undefined,
                 // lazy: true,
                 headerShown: index > 0 || Boolean(customRenderHeader),

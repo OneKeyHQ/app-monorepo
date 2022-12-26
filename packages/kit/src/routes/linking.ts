@@ -150,6 +150,15 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/pnl`,
     exact: true,
   },
+  /**
+   * refresh page will flash the last item of normalRouteWhiteList
+   * ** please add exact routes above here
+   * */
+  {
+    screen: `${RootRoutes.Root}`,
+    path: `/`,
+    exact: true,
+  },
 ];
 
 const getScreen = (
@@ -329,5 +338,10 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => {
     },
   };
 };
+
+/*
+packages/kit/src/components/AppLock/AppLock.tsx
+  unlockWhiteListUrl
+ */
 
 export default buildLinking;

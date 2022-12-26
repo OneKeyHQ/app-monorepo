@@ -268,6 +268,7 @@ function SendConfirm({
 
     feeInfoPayload,
     feeInfoLoading,
+    feeInfoError,
     feeInfoEditable,
     feeInput,
 

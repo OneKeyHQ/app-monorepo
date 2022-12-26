@@ -3,7 +3,11 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -206,42 +210,36 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override async signMessage(
-    messages: IUnsignedMessageEvm[],
-  ): Promise<string[]> {
-    debugLogger.common.info('signMessage', messages);
-    const dbAccount = await this.getDbAccount();
-
-    const { PROTO } = await CoreSDKLoader();
-    const { connectId, deviceId } = await this.getHardwareInfo();
-    const passphraseState = await this.getWalletPassphraseState();
-    const HardwareSDK = await this.getHardwareSDKInstance();
-
-    const result = await Promise.all(
-      messages.map(
-        // @ts-expect-error
-        async ({ payload }: { payload: { addr: string; payload: string } }) => {
-          const response = await HardwareSDK.cardanoSignMessage(
-            connectId,
-            deviceId,
-            {
-              ...passphraseState,
-              path: dbAccount.path,
-              networkId: NetworkId.MAINNET,
-              derivationType: PROTO.CardanoDerivationType.ICARUS,
-              message: payload.payload,
-            },
-          );
-
-          if (!response.success) {
-            throw convertDeviceError(response.payload);
-          }
-
-          return response.payload;
-        },
-      ),
-    );
-
-    return result.map((ret) => JSON.stringify(ret));
+  override signMessage(messages: IUnsignedMessageEvm[]): Promise<string[]> {
+    throw new NotImplemented();
+    // debugLogger.common.info('signMessage', messages);
+    // const dbAccount = await this.getDbAccount();
+    // const { PROTO } = await CoreSDKLoader();
+    // const { connectId, deviceId } = await this.getHardwareInfo();
+    // const passphraseState = await this.getWalletPassphraseState();
+    // const HardwareSDK = await this.getHardwareSDKInstance();
+    // const result = await Promise.all(
+    //   messages.map(
+    //     // @ts-expect-error
+    //     async ({ payload }: { payload: { addr: string; payload: string } }) => {
+    //       const response = await HardwareSDK.cardanoSignMessage(
+    //         connectId,
+    //         deviceId,
+    //         {
+    //           ...passphraseState,
+    //           path: dbAccount.path,
+    //           networkId: NetworkId.MAINNET,
+    //           derivationType: PROTO.CardanoDerivationType.ICARUS,
+    //           message: payload.payload,
+    //         },
+    //       );
+    //       if (!response.success) {
+    //         throw convertDeviceError(response.payload);
+    //       }
+    //       return response.payload;
+    //     },
+    //   ),
+    // );
+    // return result.map((ret) => JSON.stringify(ret));
   }
 }
