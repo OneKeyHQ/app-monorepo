@@ -142,6 +142,14 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/marketDetail`,
     exact: true,
   },
+  {
+    screen: {
+      vertical: `${RootRoutes.Root}/${HomeRoutes.NFTPNLScreen}`,
+      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.NFT}/${HomeRoutes.NFTPNLScreen}`,
+    },
+    path: `/pnl`,
+    exact: true,
+  },
 ];
 
 const getScreen = (

@@ -1,4 +1,3 @@
-import type { FC } from 'react';
 import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -13,15 +12,22 @@ import {
   ConnectWalletListItem,
   ConnectWalletListView,
 } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
 import { wait } from '../../../../utils/helper';
 import { useAddExternalAccount } from '../../../ExternalAccount/useAddExternalAccount';
 
-const SecondaryContent: FC = () => {
+import type { IOnboardingConnectWalletParams } from '../../routes/types';
+
+function SecondaryContent({
+  disableOnboardingDone,
+  onSuccess,
+}: IOnboardingConnectWalletParams = {}) {
   const { addExternalAccount } = useAddExternalAccount();
   const onboardingDone = useOnboardingDone();
   const toast = useToast();
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   const thirdPartyHardwareOptions = useMemo(
     () => [
@@ -60,11 +66,18 @@ const SecondaryContent: FC = () => {
         <ConnectWalletListView
           onConnectResult={async (result) => {
             await addExternalAccount(result);
-            await onboardingDone();
-            await wait(600);
-            toast.show({
-              title: intl.formatMessage({ id: 'msg__account_imported' }),
-            });
+            if (!disableOnboardingDone) {
+              await onboardingDone();
+              await wait(600);
+              toast.show({
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              });
+            } else {
+              navigation?.goBack?.();
+            }
+            if (onSuccess) {
+              onSuccess();
+            }
           }}
         />
         {thirdPartyHardwareOptions.map((option) => (
@@ -79,6 +92,6 @@ const SecondaryContent: FC = () => {
       </Box>
     </Center>
   );
-};
+}
 
 export default memo(SecondaryContent);

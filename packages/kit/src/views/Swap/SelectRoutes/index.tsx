@@ -18,12 +18,13 @@ import {
   ScrollView,
   Typography,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ArrivalTime } from '../components/ArrivalTime';
 import { useSwapQuoteRequestParams } from '../hooks/useSwap';
-import { multiply, stringifyTokens } from '../utils';
+import { stringifyTokens } from '../utils';
 
 import { AmountLimit } from './AmountLimit';
 import { LiquiditySources } from './LiquiditySources';
@@ -62,7 +63,13 @@ const ListEmptyComponent = () => (
 type PlaceholderLineProps = ComponentProps<typeof Box>;
 const PlaceholderLine: FC<PlaceholderLineProps> = ({ ...rest }) => (
   <Box flex="1" flexDirection="row" alignItems="center" {...rest}>
-    <Box h="1px" w="full" bg="border-default" />
+    <Box
+      borderTopColor="border-default"
+      w="full"
+      h="1"
+      borderStyle={platformEnv.isNative ? 'solid' : 'dashed'}
+      borderTopWidth={platformEnv.isNative ? 0.5 : 1}
+    />
   </Box>
 );
 
@@ -71,16 +78,12 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
   const { inputToken, outputToken } = useAppSelector((s) => s.swap);
   const { selectedIndex, onSelect } = useContext(SelectRoutesContext);
   const { data, limited } = response;
-  const buyAmount = data?.buyAmount ?? '0';
+  const buyAmount = data?.estimatedBuyAmount ?? data?.buyAmount;
   const isDisabled = !!limited;
-  let percentageFee = data?.percentageFee ? Number(data?.percentageFee) : 0;
-  if (data?.type === 'swftc') {
-    percentageFee += 0.002;
-  }
-  const noFeeAmount = multiply(buyAmount, 1 - percentageFee);
+
   const nofeePrice = useTokenOutput({
     token: outputToken,
-    amount: noFeeAmount,
+    amount: data?.buyAmount,
   });
 
   return (
@@ -88,7 +91,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
       borderColor={selectedIndex !== index ? 'border-default' : 'text-success'}
       _hover={{ bg: 'surface-hovered' }}
       _pressed={{ bg: 'surface-pressed' }}
-      borderWidth="1"
+      borderWidth={1.5}
       p="4"
       borderRadius={12}
       onPress={() => onSelect(index)}
@@ -101,13 +104,15 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         alignItems="center"
         w="full"
       >
-        <Box flex="1" flexDirection="row">
+        <Box flex="2" flexDirection="row">
           <TokenInput
             token={inputToken}
             amount={data?.sellAmount}
             isDisabled={isDisabled}
           />
-          <PlaceholderLine ml={2} />
+          <Box flex="1">
+            <PlaceholderLine ml={2} />
+          </Box>
         </Box>
         <Box flex="1" justifyContent="center" flexDirection="row">
           <PlaceholderLine mr={2} />
@@ -117,7 +122,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
           />
           <PlaceholderLine ml={2} />
         </Box>
-        <Box flex="1" flexDirection="row">
+        <Box flex="2" flexDirection="row">
           <PlaceholderLine mr={2} />
           <TokenInput
             token={outputToken}

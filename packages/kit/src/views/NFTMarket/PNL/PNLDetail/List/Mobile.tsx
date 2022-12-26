@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 
 import {
@@ -8,10 +9,13 @@ import {
   CustomSkeleton,
   List,
   ListItem,
+  Pressable,
   Skeleton,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
+import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import NFTListImage from '../../../../Wallet/NFT/NFTList/NFTListImage';
@@ -53,6 +57,26 @@ const Footer: FC = () => (
   </>
 );
 const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
+  const navigation = useNavigation();
+
+  const handleSelectAsset = useCallback(
+    (asset: NFTAsset) => {
+      if (!network) return;
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
+        params: {
+          screen: CollectiblesModalRoutes.NFTDetailModal,
+          params: {
+            asset,
+            network,
+            isOwner: false,
+          },
+        },
+      });
+    },
+    [navigation, network],
+  );
+
   const { formatDistanceStrict } = useFormatDate();
   const renderItem: ListRenderItem<NFTPNL> = useCallback(
     ({ item }) => {
@@ -66,22 +90,37 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
 
       return (
         <ListItem>
-          <ListItem.Column>
-            <NFTListImage
-              asset={asset as NFTAsset}
-              borderRadius="12px"
-              size={40}
-            />
-          </ListItem.Column>
-          <ListItem.Column
+          <Pressable
             flex={1}
-            text={{
-              label: item.contractName,
-              labelProps: { typography: 'Body1Strong', isTruncated: true },
-              description: item.tokenId ? `#${item.tokenId}` : '–',
-              descriptionProps: { isTruncated: true },
+            flexDirection="row"
+            alignItems="center"
+            onPress={() => {
+              if (asset) {
+                handleSelectAsset(asset);
+              }
             }}
-          />
+          >
+            <ListItem.Column>
+              <NFTListImage
+                asset={asset as NFTAsset}
+                borderRadius="12px"
+                size={40}
+              />
+            </ListItem.Column>
+            <ListItem.Column
+              flex={1}
+              ml="12px"
+              text={{
+                label: item.contractName,
+                labelProps: {
+                  typography: 'Body1Strong',
+                  isTruncated: true,
+                },
+                description: item.tokenId ? `#${item.tokenId}` : '–',
+                descriptionProps: { isTruncated: true },
+              }}
+            />
+          </Pressable>
           <ListItem.Column
             text={{
               label: profitLab,
@@ -99,10 +138,8 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
         </ListItem>
       );
     },
-    [formatDistanceStrict],
+    [formatDistanceStrict, handleSelectAsset],
   );
-
-  console.log('loading = ', loading);
 
   const ListFooterComponent = useCallback(() => {
     if (loading) {
@@ -110,6 +147,7 @@ const Mobile: FC<ListProps> = ({ network, loading, ...props }) => {
     }
     return <Box h="24px" />;
   }, [loading]);
+
   return (
     <Box flex={1}>
       <List

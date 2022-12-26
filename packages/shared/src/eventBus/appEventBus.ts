@@ -1,4 +1,4 @@
-import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
+import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter';
 
 import { isExtensionUi } from '../platformEnv';
 
@@ -13,6 +13,7 @@ enum AppEventBusNames {
   NotificationStatusChanged = 'NotificationStatusChanged',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   Unlocked = 'Unlocked',
+  WebTabThumbnailUpdated = 'WebTabThumbnailUpdated',
 }
 
 if (isExtensionUi) {

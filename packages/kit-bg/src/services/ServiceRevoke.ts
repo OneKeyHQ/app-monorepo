@@ -1,6 +1,5 @@
 import { ok } from 'assert';
 
-import { providers as multicall } from '@0xsequence/multicall';
 import { defaultAbiCoder } from '@ethersproject/abi';
 import ERC20Artifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
@@ -62,6 +61,7 @@ import type {
 } from '@onekeyhq/engine/src/vaults/types';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import { AssetType } from '@onekeyhq/kit/src/views/Revoke/types';
+import lib0xSequenceMulticall from '@onekeyhq/shared/src/asyncModules/lib0xSequenceMulticall';
 import {
   backgroundClass,
   backgroundMethod,
@@ -88,6 +88,7 @@ export default class ServiceRevoke extends ServiceBase {
 
   @backgroundMethod()
   async getReadProvider(networkId: string) {
+    const multicall = await lib0xSequenceMulticall.getModule();
     const provider = await this.getProvider(networkId);
     if (!provider) {
       return;

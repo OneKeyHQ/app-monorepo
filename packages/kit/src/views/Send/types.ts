@@ -349,6 +349,7 @@ export type BatchSendProgressParams = Omit<
   walletId: string;
   networkId: string;
   unsignedMessages?: IUnsignedMessageEvm[];
+  feeInfoPayloads: IFeeInfoPayload[];
 };
 
 export type BatchSendConfirmOnSuccessData = {

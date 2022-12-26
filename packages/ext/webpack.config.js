@@ -217,11 +217,13 @@ function createConfig({ config }) {
     config: webpackConfig,
     configName: config.name,
     enableAnalyzerHtmlReport: true,
+    buildTargetBrowser,
   });
 
   return webpackConfig;
 }
 
+let chunkIndex = 800;
 function enableCodeSplitChunks({ config, name }) {
   let maxSizeMb = 4;
   const isFirefox = buildTargetBrowser === 'firefox';
@@ -230,11 +232,22 @@ function enableCodeSplitChunks({ config, name }) {
     maxSizeMb = 1;
   }
   config.optimization.splitChunks = {
+    // merge webpackTools.normalizeConfig() splitChunks config
+    ...config.optimization.splitChunks,
     chunks: isFirefox ? 'all' : 'all', // all, async, and initial
-    minSize: 0, // 2000000
+    minSize: 100 * 1024, // 100k
     maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
+
     // auto-gen chunk file name by module name or just increasing number
-    name: name ? `vendors-${name}` : true,
+    name: (module, chunks, cacheGroupKey, p1, p2, p3) => {
+      chunkIndex += 1;
+      const returnName = name ? `vendors-${name}-${chunkIndex}` : false;
+      // return returnName;
+
+      // **** reduce module duplication across chunks
+      return false;
+    },
+
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
     automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
@@ -257,6 +270,9 @@ function enableCodeSplitChunks({ config, name }) {
     // memory leak issue
     // config.optimization.splitChunks = undefined;
   }
+}
+function disableCodeSplitChunks({ config, name }) {
+  config.optimization.splitChunks = undefined;
 }
 
 // https://webpack.js.org/configuration/configuration-types/#exporting-multiple-configurations
@@ -297,7 +313,11 @@ const multipleEntryConfigs = [
     configUpdater(config) {
       if (isManifestV2) {
         enableCodeSplitChunks({ config, name: 'bg' });
+      } else {
+        // manifest v3 background can NOT split code
+        disableCodeSplitChunks({ config, name: 'bg' });
       }
+
       config.plugins = [...config.plugins, ...pluginsHtml.backgroundHtml];
       return config;
     },
@@ -312,6 +332,9 @@ const multipleEntryConfigs = [
       },
     },
     configUpdater(config) {
+      // content-script can NOT split code
+      disableCodeSplitChunks({ config, name: 'cs' });
+
       config.plugins = [...config.plugins, ...pluginsCopy];
       return config;
     },

@@ -10,10 +10,6 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export abstract class KeyringSoftwareBase extends KeyringBase {
   // Implemented by HD & imported base.

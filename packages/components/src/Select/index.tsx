@@ -10,7 +10,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { flatten } from 'lodash';
 import { Icon as NBIcon } from 'native-base';
 import {
-  InteractionManager,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
@@ -232,8 +231,7 @@ function Select<T = any>({
 
   const handleChange = useCallback(
     (v: SelectItem<T>['value'], option: SelectItem<T>) => {
-      toggleVisible();
-      InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => {
         if (typeof v === 'function') {
           v();
         } else {
@@ -242,7 +240,8 @@ function Select<T = any>({
           }
           onChange?.(v, option);
         }
-      });
+      }, 500);
+      toggleVisible();
     },
     [onChange, toggleVisible, value],
   );

@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Alert,
@@ -43,7 +42,6 @@ export const HistoryRequest: FC = () => {
   const intl = useIntl();
   const { instanceId } = useSettings();
   const { formatDate } = useFormatDate();
-  const { width } = useWindowDimensions();
 
   const navigation = useNavigation<NavigationProps>();
   const [historyList, updateHistoryList] = useState<TicketType[]>([]);

@@ -17,8 +17,8 @@ ipfs://0c42f631543ed0b0dfde4783e36b5900bffae1728a7dc8de3d44f7d1fd388e33
 export const batchTransferContractAddress: {
   [k: string]: string;
 } = {
-  // https://etherscan.io/address/0x94214d492f1c94c977378e0884e1dc3f32ee6b99
-  [OnekeyNetwork.eth]: '0x94214d492f1c94c977378e0884e1dc3f32ee6b99',
+  // https://etherscan.io/address/0xe9e4dfabbde4d16b890dfc068d9f27a4a623d338
+  [OnekeyNetwork.eth]: '0xe9e4dfabbde4d16b890dfc068d9f27a4a623d338',
   // https://polygonscan.com/address/0xbb4b1ce29767346cf5d51b4b7557774b1ebf7db0
   [OnekeyNetwork.polygon]: '0xbb4b1ce29767346cf5d51b4b7557774b1ebf7db0',
   // https://bscscan.com/address/0x4fa8257d636b4b017cf06c164e35e981c23925d5

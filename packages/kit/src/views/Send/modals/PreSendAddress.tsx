@@ -39,6 +39,7 @@ type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendAddress>;
 
 type FormValues = {
   to: string;
+  destinationTag?: string;
 };
 
 function NFTView({ asset, total }: { asset?: NFTAsset; total: number }) {
@@ -323,6 +324,7 @@ function PreSendAddress() {
               networkId,
               accountId,
               to: toVal,
+              destinationTag: values.destinationTag,
             },
           },
         });
@@ -333,6 +335,40 @@ function PreSendAddress() {
     [resolvedAddress, isLoading, nftSendConfirm, navigation, transferInfo],
   );
   const doSubmit = handleSubmit(onSubmit);
+
+  const DestinationTagForm = useMemo(() => {
+    if (networkId !== 'xrp--0') return null;
+    return (
+      <Form.Item
+        control={control}
+        name="destinationTag"
+        rules={{
+          maxLength: {
+            value: 10,
+            message: intl.formatMessage({
+              id: 'msg__exceeding_the_maximum_word_limit',
+            }),
+          },
+          validate: (value) => {
+            if (!value) return undefined;
+            const result = !/^[0-9]+$/.test(value);
+            return result
+              ? intl.formatMessage({
+                  id: 'form__enter_a_number_greater_than_or_equal_to_0',
+                })
+              : undefined;
+          },
+        }}
+      >
+        <Form.Input
+          type="number"
+          placeholder={intl.formatMessage({
+            id: 'form__destination_tag_placeholder',
+          })}
+        />
+      </Form.Item>
+    );
+  }, [control, intl, networkId]);
 
   return (
     <BaseSendModal
@@ -378,6 +414,7 @@ function PreSendAddress() {
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
+                  // @ts-expect-error
                   validate: async (value: string) => {
                     const toAddress = resolvedAddress || value || '';
                     setSuccessMessage('');
@@ -449,6 +486,7 @@ function PreSendAddress() {
                   plugins={['contact', 'paste', 'scan']}
                 />
               </Form.Item>
+              {DestinationTagForm}
             </Form>
             <Box
               height={

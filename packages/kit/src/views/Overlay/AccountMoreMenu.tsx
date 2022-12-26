@@ -4,16 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import {
-  Box,
-  Icon,
-  Text,
-  useIsVerticalLayout,
-  useToast,
-} from '@onekeyhq/components';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { formatMessage } from '@onekeyhq/components/src/Provider';
-import type { SelectProps } from '@onekeyhq/components/src/Select';
+import { useIsVerticalLayout, useToast } from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
@@ -30,21 +21,19 @@ import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
-import { showOverlay } from '../../utils/overlayUtils';
 import {
   useAddressCanSubscribe,
   useEnabledAccountDynamicAccounts,
 } from '../PushNotification/hooks';
 
-import { OverlayPanel } from './OverlayPanel';
+import BaseMenu from './BaseMenu';
 
+import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
 const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
-const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
-  closeOverlay,
-}) => {
+const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
@@ -230,46 +219,7 @@ const AccountMoreSettings: FC<{ closeOverlay: () => void }> = ({
       copyAddress,
     ],
   );
-  return (
-    <Box flexDirection="column">
-      {options.filter(Boolean).map(({ onPress, icon, id }) => (
-        <PressableItem
-          key={id}
-          flexDirection="row"
-          alignItems="center"
-          py={{ base: '12px', sm: '8px' }}
-          px={{ base: '16px', sm: '8px' }}
-          bg="transparent"
-          borderRadius="12px"
-          onPress={() => {
-            closeOverlay();
-            onPress();
-          }}
-        >
-          <Icon size={isVerticalLayout ? 24 : 20} name={icon} />
-          <Text
-            typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
-            ml="12px"
-          >
-            {intl.formatMessage({
-              id,
-            })}
-          </Text>
-        </PressableItem>
-      ))}
-    </Box>
-  );
+  return <BaseMenu options={options} {...props} />;
 };
 
-export const showAccountMoreMenu = (triggerEle?: SelectProps['triggerEle']) =>
-  showOverlay((closeOverlay) => (
-    <OverlayPanel
-      triggerEle={triggerEle}
-      closeOverlay={closeOverlay}
-      modalProps={{
-        header: formatMessage({ id: 'action__more' }),
-      }}
-    >
-      <AccountMoreSettings closeOverlay={closeOverlay} />
-    </OverlayPanel>
-  ));
+export default AccountMoreMenu;

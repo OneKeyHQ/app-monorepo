@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -78,7 +78,7 @@ const OnekeyLiteDetail: FC = () => {
     main();
   }, [wallet]);
 
-  useEffect(() => {
+  const menuOptionsMemo = useMemo(() => {
     const menuOptions: SelectItem<OptionType>[] = [];
     menuOptions.push({
       label: intl.formatMessage({
@@ -95,6 +95,7 @@ const OnekeyLiteDetail: FC = () => {
       value: 'change_pin',
       iconProps: { name: 'PencilAltOutline' },
     });
+
     menuOptions.push({
       label: intl.formatMessage({
         id: 'action__reset_onekey_lite',
@@ -104,34 +105,43 @@ const OnekeyLiteDetail: FC = () => {
       color: 'icon-critical',
     });
 
+    return menuOptions;
+  }, [intl]);
+
+  const headerRightSelect = useCallback(
+    () => (
+      <Select
+        dropdownPosition="right"
+        title={intl.formatMessage({ id: 'app__hardware_name_onekey_lite' })}
+        onChange={(v) => {
+          if (currentOptionType !== v) setCurrentOptionType(v);
+        }}
+        footer={null}
+        activatable={false}
+        triggerProps={{
+          width: '40px',
+        }}
+        dropdownProps={{
+          width: 248,
+        }}
+        options={menuOptionsMemo}
+        renderTrigger={() => (
+          <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
+            <Icon name="DotsHorizontalOutline" />
+          </Box>
+        )}
+      />
+    ),
+    [intl, menuOptionsMemo, currentOptionType],
+  );
+
+  useEffect(() => {
     navigation.setOptions({
       title: intl.formatMessage({ id: 'app__hardware_name_onekey_lite' }),
-      headerRight: () => (
-        <Select
-          dropdownPosition="right"
-          title={intl.formatMessage({ id: 'app__hardware_name_onekey_lite' })}
-          onChange={(v) => {
-            if (currentOptionType !== v) setCurrentOptionType(v);
-          }}
-          footer={null}
-          activatable={false}
-          triggerProps={{
-            width: '40px',
-          }}
-          dropdownProps={{
-            width: 248,
-          }}
-          options={menuOptions}
-          renderTrigger={() => (
-            <Box mr={Platform.OS !== 'android' ? 4 : 0} alignItems="flex-end">
-              <Icon name="DotsHorizontalOutline" />
-            </Box>
-          )}
-        />
-      ),
+      headerRight: () => headerRightSelect(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intl, navigation]);
+  }, [intl, menuOptionsMemo, navigation]);
 
   const startRestorePinVerifyModal = () => {
     navigation.navigate(RootRoutes.Modal, {

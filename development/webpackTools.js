@@ -81,6 +81,7 @@ function normalizeConfig({
   env,
   configName,
   enableAnalyzerHtmlReport,
+  buildTargetBrowser, // firefox or chrome, for extension build
 }) {
   let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
@@ -136,6 +137,11 @@ function normalizeConfig({
     }
 
     resolveExtensions = [
+      ...(buildTargetBrowser
+        ? ['.ts', '.tsx', '.js', '.jsx'].map(
+            (ext) => `.${buildTargetBrowser}-${platform}${ext}`,
+          )
+        : []),
       ...(configName
         ? ['.ts', '.tsx', '.js', '.jsx'].map(
             (ext) => `.${platform}-${configName}${ext}`,
@@ -183,18 +189,27 @@ function normalizeConfig({
   config.optimization ??= {};
   config.optimization.splitChunks ??= {};
   config.optimization.splitChunks = {
+    chunks: 'all',
+    minSize: 100 * 1024,
+    maxSize: 4 * 1024 * 1024,
+    hidePathInfo: true,
+    automaticNameDelimiter: '.',
+    automaticNameMaxLength: 15,
+    name: false, // reduce module duplication across chunks
+    maxInitialRequests: 50000, // reduce module duplication across chunks
+    maxAsyncRequests: 50000, // reduce module duplication across chunks
     ...config.optimization.splitChunks,
     cacheGroups: {
-      kit_assets: {
-        test: /\/kit\/assets/,
-        name: 'kit_assets',
-        chunks: 'all',
-      },
-      kit_routes: {
-        test: /\/kit\/src\/routes/,
-        name: 'kit_routes',
-        chunks: 'all',
-      },
+      // kit_assets: {
+      //   test: /\/kit\/assets/,
+      //   name: 'kit_assets',
+      //   chunks: 'all',
+      // },
+      // kit_routes: {
+      //   test: /\/kit\/src\/routes/,
+      //   name: 'kit_routes',
+      //   chunks: 'all',
+      // },
       // lodash: {
       //   test: /\/node_modules\/lodash/,
       //   name: 'lodash',

@@ -7,6 +7,7 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { Toast as ToastManager } from '@onekeyhq/components/src/Toast/useToast';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { getHardwareSDKInstance } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
@@ -17,7 +18,6 @@ import showHardwarePopup, {
 } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 import * as Error from './errors';
-import { getHardwareSDKInstance } from './hardwareInstance';
 
 import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 import type {

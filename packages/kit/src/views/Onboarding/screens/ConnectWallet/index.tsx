@@ -182,7 +182,7 @@ const ConnectWallet = () => {
         <Layout
           disableAnimation={disableAnimation}
           title={intl.formatMessage({ id: 'title__connect_with' })}
-          secondaryContent={<SecondaryContent />}
+          secondaryContent={<SecondaryContent {...route?.params} />}
         >
           <ConnectHardwareButton />
           {supportedNFC || platformEnv.isDev ? (

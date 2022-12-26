@@ -20,10 +20,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IAdaUTXO, IEncodedTxADA } from './types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getPrivateKeys(

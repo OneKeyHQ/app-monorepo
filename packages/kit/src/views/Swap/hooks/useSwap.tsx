@@ -140,29 +140,29 @@ export const useSwapQuoteCallback = function (
     const findBestResponse = async (
       responses: FetchQuoteResponse[],
     ): Promise<FetchQuoteResponse | undefined> => {
-      const items = responses.filter((item) => !item.limited && item.data);
+      const items = responses.filter(
+        (item) => !item.limited && item.data !== undefined,
+      ) as Required<Pick<FetchQuoteResponse, 'data'>>[];
       if (items.length > 0) {
         const quoter =
           await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
         if (quoter) {
-          const searched = items.find((item) => item.data?.type === quoter);
+          const searched = items.find((item) => item.data.type === quoter);
           if (searched) {
             return searched;
           }
         }
-        const values = items.map((item) =>
-          item.data?.buyAmount ? Number(item.data?.buyAmount) : 0,
-        );
-        const maxValue = Math.max(...values);
-        if (!Number.isNaN(maxValue)) {
-          return items.find(
-            (item) =>
-              item.data?.buyAmount && Number(item.data.buyAmount) === maxValue,
-          );
+        if (items.length === 1) {
+          return items[0];
         }
-      } else {
-        return responses[0];
+        items.sort((a, b) => {
+          const amountA = a.data.estimatedBuyAmount ?? a.data.buyAmount;
+          const amountB = b.data.estimatedBuyAmount ?? b.data.buyAmount;
+          return Number(amountB) - Number(amountA);
+        });
+        return items[0];
       }
+      return responses[0];
     };
 
     const fetchASAPQuote = async () => {

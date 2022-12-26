@@ -21,12 +21,19 @@ export type IOnboardingSetPasswordParams = {
 };
 export type IOnboardingConnectWalletParams = {
   disableAnimation?: boolean;
+  disableOnboardingDone?: boolean;
+  onSuccess?: () => void;
 };
 export type IOnboardingImportWalletParams = {
   disableAnimation?: boolean;
 };
+
+export type IOnboardingWelcomeParams = {
+  disableAnimation?: boolean;
+};
+
 export type IOnboardingRoutesParams = {
-  [EOnboardingRoutes.Welcome]: undefined;
+  [EOnboardingRoutes.Welcome]: IOnboardingWelcomeParams | undefined;
 
   [EOnboardingRoutes.ConnectWallet]: IOnboardingConnectWalletParams | undefined;
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;

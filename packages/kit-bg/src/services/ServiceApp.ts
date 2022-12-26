@@ -25,7 +25,6 @@ import {
   getPassword,
   hasHardwareSupported,
 } from '@onekeyhq/kit/src/utils/localAuthentication';
-import { EOnboardingRoutes } from '@onekeyhq/kit/src/views/Onboarding/routes/enums';
 import {
   backgroundClass,
   backgroundMethod,
@@ -211,7 +210,7 @@ class ServiceApp extends ServiceBase {
         // setTimeout to avoid RESET trigger install
         setTimeout(() => {
           extUtils.openExpandTab({
-            routes: [RootRoutes.Onboarding, EOnboardingRoutes.Welcome],
+            routes: [RootRoutes.Root],
             params: {},
           });
         }, 1000);
