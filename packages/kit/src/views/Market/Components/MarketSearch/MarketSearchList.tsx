@@ -8,7 +8,7 @@ import {
   FlatList,
   Icon,
   useIsVerticalLayout,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 

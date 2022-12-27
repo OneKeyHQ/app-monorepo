@@ -11,7 +11,7 @@ import {
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
-import { IconButton, useToast } from '@onekeyhq/components';
+import { IconButton, ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../hooks';
@@ -32,7 +32,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const intl = useIntl();
   const [isLoading, setLoading] = useState(false);
   const loading = useRef(false);
-  const toast = useToast();
+
   const appState = useRef(AppState.currentState);
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const handOperatedLock = useAppSelector((s) => s.data.handOperatedLock);
@@ -61,7 +61,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
       } else {
         const { error } = localAuthenticateResult;
         if (!error.includes('cancelled')) {
-          toast.show(
+          ToastManager.show(
             {
               title: intl.formatMessage({ id: 'msg__verification_failure' }),
             },
@@ -76,7 +76,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
       loading.current = false;
       setLoading(false);
     }
-  }, [onOk, onNg, localAuthenticate, getPassword, toast, intl]);
+  }, [onOk, onNg, localAuthenticate, getPassword, intl]);
 
   const onChange = useCallback(
     (nextState: AppStateStatus) => {

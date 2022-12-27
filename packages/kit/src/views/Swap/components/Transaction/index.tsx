@@ -13,10 +13,10 @@ import {
   Icon,
   Pressable,
   Select,
+  ToastManager,
   Token as TokenIcon,
   Typography,
   VStack,
-  useToast,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/components/src/Icon/react/illus/Logo';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -404,7 +404,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   showViewInBrowser,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
   const account = useTransactionsAccount(tx.accountId);
@@ -423,9 +423,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
         return;
       }
       copyToClipboard(text);
-      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+      ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
     },
-    [toast, intl],
+    [intl],
   );
 
   const openLinkUrl = useCallback((url: string) => {

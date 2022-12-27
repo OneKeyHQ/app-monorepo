@@ -2,10 +2,11 @@ import { isValidElement } from 'react';
 
 import Modal from 'react-native-modal';
 
+import { useSafeAreaInsets } from '@onekeyhq/components';
+
 import Box from '../../Box';
 import Button from '../../Button';
 import IconButton from '../../IconButton';
-import { useSafeAreaInsets } from '../../Provider/hooks';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 

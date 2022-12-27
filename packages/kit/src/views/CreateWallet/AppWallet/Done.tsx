@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
+import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -42,7 +42,7 @@ const Done: FC<DoneProps> = ({
   onSuccess,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { closeWalletSelector, openRootHome } = useNavigationActions();
   useEffect(() => {
     async function main() {
@@ -63,7 +63,7 @@ const Done: FC<DoneProps> = ({
         }
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
-        toast.show({ title: intl.formatMessage({ id: errorKey }) });
+        ToastManager.show({ title: intl.formatMessage({ id: errorKey }) });
       }
       closeWalletSelector();
       openRootHome();

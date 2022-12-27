@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useRuntime } from '../../../hooks/redux';
@@ -23,7 +23,7 @@ type NewAddressRouteProp = RouteProp<
 >;
 const NewAddress = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const route = useRoute<NewAddressRouteProp>();
   const { address = '' } = route.params || {};
@@ -38,7 +38,7 @@ const NewAddress = () => {
             values.address,
           );
         } catch {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({ id: 'form__address_invalid' }),
           });
           return;
@@ -54,7 +54,7 @@ const NewAddress = () => {
           }),
         );
         backgroundApiProxy.serviceCloudBackup.requestBackup();
-        toast.show(
+        ToastManager.show(
           {
             title: intl.formatMessage({ id: 'msg__address_added' }),
           },
@@ -63,7 +63,7 @@ const NewAddress = () => {
         navigation.goBack();
       }
     },
-    [networks, navigation, intl, toast],
+    [networks, navigation, intl],
   );
   return (
     <AddressBookModalView

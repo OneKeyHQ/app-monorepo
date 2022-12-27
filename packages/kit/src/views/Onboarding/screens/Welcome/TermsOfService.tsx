@@ -3,8 +3,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Center, Text } from '@onekeyhq/components';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
+import { Center, Text, useSafeAreaInsets } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 

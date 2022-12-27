@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import Box from '../../Box';
 import Center from '../../Center';
 import Icon from '../../Icon';
-import { Text } from '../../Typography';
+import Text from '../../Text';
 
 import type { ICON_NAMES } from '../../Icon';
 

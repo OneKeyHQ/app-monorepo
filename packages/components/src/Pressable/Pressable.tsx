@@ -5,7 +5,7 @@ import { Pressable as NBPressable } from 'native-base';
 
 import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
-import { useProviderValue } from '../Provider/hooks';
+import useProviderValue from '../Provider/hooks/useProviderValue';
 import { autoHideSelectFunc } from '../utils/SelectAutoHide';
 
 export type PressableItemProps = ComponentProps<typeof NBPressable>;

@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Spinner, useToast } from '@onekeyhq/components';
+import { Box, Center, Spinner, ToastManager } from '@onekeyhq/components';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type {
@@ -49,7 +49,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
   setTitleInfo,
 }) => {
   const navigation = useNavigation<NavigationProps>();
-  const toast = useToast();
+
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const submitted = useRef(false);
@@ -238,7 +238,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       //  already known
       // TODO: better error displaying
       if (error?.code === -32603 && typeof error?.data?.message === 'string') {
-        toast.show(
+        ToastManager.show(
           {
             title:
               error.data.message ||
@@ -256,7 +256,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
           OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
         ) {
           if (!deviceUtils.showErrorToast(error)) {
-            toast.show(
+            ToastManager.show(
               {
                 title: msg || intl.formatMessage({ id: 'transaction__failed' }),
                 description: msg,
@@ -268,7 +268,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       }
 
       await wait(100);
-      // onFail() should be called after show toast, otherwise toast won't display
+      // onFail() should be called after show otherwise toast won't display
       onFail?.(error);
     }
   }, [
@@ -284,7 +284,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     payload,
     sendTx,
     signMsg,
-    toast,
+
     unsignedMessage,
   ]);
 

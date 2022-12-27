@@ -3,17 +3,18 @@ import { useEffect, useRef } from 'react';
 
 import { Modalize } from 'react-native-modalize';
 
-import { Box, Center } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  useIsVerticalLayout,
+  useSafeAreaInsets,
+  useThemeValue,
+} from '@onekeyhq/components';
 import { CloseBackDrop } from '@onekeyhq/components/src/Select';
 import { useCloseOnEsc } from '@onekeyhq/kit/src/hooks/useOnKeydown';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Header from '../Modal/Container/Header/Header';
-import {
-  useIsVerticalLayout,
-  useSafeAreaInsets,
-  useThemeValue,
-} from '../Provider/hooks';
 
 import type { ModalizeProps } from 'react-native-modalize';
 

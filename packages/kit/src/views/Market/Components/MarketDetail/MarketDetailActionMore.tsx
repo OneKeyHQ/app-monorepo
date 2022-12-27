@@ -3,8 +3,8 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ICON_NAMES } from '@onekeyhq/components/src';
-import { Box, Icon, Text, useIsVerticalLayout } from '@onekeyhq/components/src';
+import type { ICON_NAMES } from '@onekeyhq/components';
+import { Box, Icon, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
@@ -31,7 +31,7 @@ const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
   // token,
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  // const toast = useToast();
+  //
   // const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
   //   coingeckoId: token.coingeckoId,
   // });
@@ -51,14 +51,14 @@ const MarketDetailActionMoreMenu: FC<MarketDetailActionMenuProps> = ({
   //       );
   //   }
   //   if (!res) return;
-  //   toast.show({
+  //   ToastManager.show({
   //     title: intl.formatMessage({
   //       id: priceSubscribeEnable
   //         ? 'msg__unsubscription_succeeded'
   //         : 'msg__subscription_succeeded',
   //     }),
   //   });
-  // }, [intl, priceSubscribeEnable, toast, token.coingeckoId, token.symbol]);
+  // }, [intl, priceSubscribeEnable, token.coingeckoId, token.symbol]);
   const options: MarketDetailActionMoreMenuOption[] = useMemo(
     () => [
       {

@@ -80,11 +80,11 @@ function normalizeConfig({ platform, config }) {
     transformInlineEnviromentVariables.push('JPUSH_KEY');
   }
   const customAliasForComponents = (name, file) => {
-    const filename = file.opts.filename;
-    if (filename.startsWith('use')) {
-      return '@onekeyhq/components/src/Provider/hooks';
+    // const filename = file.opts.filename;
+    if (name.startsWith('use')) {
+      return `@onekeyhq/components/src/Provider/hooks/${name}`;
     }
-    return `@onekeyhq/components/${name}`;
+    return `@onekeyhq/components/src/${name}`;
   };
 
   config.plugins = [
@@ -120,17 +120,19 @@ function normalizeConfig({ platform, config }) {
       'babel-plugin-import',
       {
         'libraryName': '@onekeyhq/components',
+        'camel2DashComponentName': false, // default: true
         'customName': customAliasForComponents,
       },
-      '@onekeyhq/components',
+      '@onekeyhq_components',
     ],
     [
       'babel-plugin-import',
       {
         'libraryName': '@onekeyhq/components/src',
+        'camel2DashComponentName': false, // default: true
         'customName': customAliasForComponents,
       },
-      '@onekeyhq/components/src',
+      '@onekeyhq_components_src',
     ],
     [
       'babel-plugin-inline-import',

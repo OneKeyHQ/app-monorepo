@@ -5,12 +5,12 @@ import { useMemo } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import { Platform, StyleSheet } from 'react-native';
 
+import { useSafeAreaInsets, useUserDevice } from '@onekeyhq/components';
 import { PortalExit } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
-import { useSafeAreaInsets, useUserDevice } from '../../Provider/hooks';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
 import type { DeviceState } from '../../Provider/device';

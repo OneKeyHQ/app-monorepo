@@ -4,10 +4,11 @@ import { forwardRef, useEffect, useRef } from 'react';
 
 import { Modalize } from 'react-native-modalize';
 
+import { useThemeValue } from '@onekeyhq/components';
+
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
-import { useThemeValue } from '../../Provider/hooks';
 import Typography from '../../Typography';
 
 import type { ICON_NAMES } from '../../Icon/Icons';

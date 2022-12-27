@@ -3,10 +3,10 @@ import type { ComponentProps, FC } from 'react';
 import ContentLoader from 'react-content-loader/native';
 import { Rect } from 'react-native-svg';
 
+import { useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
-import { useThemeValue } from '../Provider/hooks';
 
 const CustomSkeleton: FC<ComponentProps<typeof Box>> = ({ ...rest }) => {
   const backgroundColor = useThemeValue('surface-neutral-default');
