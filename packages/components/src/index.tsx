@@ -1,10 +1,20 @@
+// this file only used for typescript type checking
+// will NOT be bundled into the final package
+
+// babel-plugin-import will transform the following code
+// import { Box } from '@onekeyhq/components';
+//    into
+// import Box from '@onekeyhq/components/src/Box';
+
+// only export default components or pure types here
+// the component name should be the same as the file name
 export { default as Account } from './Account';
 export { default as Address } from './Address';
 export { default as Alert } from './Alert';
 export { default as AlertDialog } from './AlertDialog';
 export { default as Badge } from './Badge';
 export { default as Box } from './Box';
-export { default as BottomSheetModal } from './BottomSheetModal/BottomSheetModal';
+export { default as BottomSheetModal } from './BottomSheetModal';
 export { default as Button } from './Button';
 export { default as NftCard } from './NftCard';
 export { default as Center } from './Center';
@@ -69,7 +79,7 @@ export { default as Progress } from './Progress';
 export { default as TypeWriter } from './TypeWriter';
 export { default as Hidden } from './Hidden';
 export { default as Collapse } from './Collapse';
-export { default as ToggleButtonGroup } from './ToggleButtonGroup/ToggleButtonGroup';
+export { default as ToggleButtonGroup } from './ToggleButtonGroup';
 export { default as LottieView } from './LottieView';
 export { default as NumberInput } from './NumberInput';
 export { default as Skeleton } from './Skeleton';
@@ -90,6 +100,8 @@ export { default as useSafeAreaInsets } from './Provider/hooks/useSafeAreaInsets
 export { default as useTheme } from './Provider/hooks/useTheme';
 export { default as useThemeValue } from './Provider/hooks/useThemeValue';
 export { default as useUserDevice } from './Provider/hooks/useUserDevice';
+// only export default components or pure types here
+// the component name should be the same as the file name
 
 export type { Control } from 'react-hook-form';
 export type { ICON_NAMES } from './Icon/Icons';
