@@ -26,7 +26,7 @@ import {
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isArray } from 'lodash';
+import { isArray, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
@@ -749,8 +749,11 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
-    let transfers: Array<{ signature?: string[] | string; txHash?: string }> =
-      [];
+    let transfers: Array<{
+      signature?: string[] | string;
+      txHash?: string;
+      decimals: number;
+    }> = [];
 
     if (network.isTestnet) {
       transfers = await client.rpc.call('getSignaturesForAddress', [
@@ -761,7 +764,7 @@ export default class Vault extends VaultBase {
       // Get full on chain history (including NFT) by using solscan api
       // Does not support devnet
       const splTransfersRequest = ApiExplorer.get<{
-        data: { signature?: string[]; txHash?: string }[];
+        data: { signature?: string[]; txHash?: string; decimals: number }[];
       }>('/account/splTransfers', {
         params: {
           account: dbAccount.address,
@@ -771,7 +774,7 @@ export default class Vault extends VaultBase {
       });
 
       const solTransferRequest = ApiExplorer.get<{
-        data: { signature?: string[]; txHash?: string }[];
+        data: { signature?: string[]; txHash?: string; decimals: number }[];
       }>('/account/solTransfers', {
         params: {
           account: dbAccount.address,
@@ -831,12 +834,17 @@ export default class Vault extends VaultBase {
       const historyTxToMerge = localHistory.find(
         (item) => item.decodedTx.txid === txid,
       );
+      let isFinal = true;
       if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
         // No need to update.
         return Promise.resolve(null);
       }
 
       const nftTxs = nftMap.get(txid);
+
+      if (transferItem && transferItem.decimals === 0 && isEmpty(nftTxs)) {
+        isFinal = false;
+      }
 
       try {
         const {
@@ -856,7 +864,7 @@ export default class Vault extends VaultBase {
           status: err ? IDecodedTxStatus.Failed : IDecodedTxStatus.Confirmed,
           updatedAt,
           createdAt: historyTxToMerge?.decodedTx.createdAt ?? updatedAt,
-          isFinal: true,
+          isFinal,
         };
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
