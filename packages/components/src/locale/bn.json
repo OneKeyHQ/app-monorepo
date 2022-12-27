@@ -373,6 +373,8 @@
   "content__description": "বর্ণনা",
   "content__details": "বিস্তারিত",
   "content__disconnect_and_try_again": "অনুগ্রহ করে \"সংযোগ বিচ্ছিন্ন করুন\" এ ক্লিক করুন এবং {0} সাড়া না দিলে আবার লেনদেনের অনুরোধ জমা দিন।",
+  "content__do_not_swap_directly_to_the_exchange": "এক্সচেঞ্জে সরাসরি অদলবদল করবেন না।",
+  "content__do_not_swap_directly_to_the_exchange_desc": "বেশিরভাগ এক্সচেঞ্জ চুক্তি থেকে স্থানান্তর গ্রহণ করে না।",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "সম্পদের ক্ষতি এড়াতে কোনো বিনিময় অ্যাকাউন্টে স্থানান্তর করবেন না। বেশিরভাগ বিনিময় অ্যাকাউন্ট চুক্তি স্থানান্তর গ্রহণ করে না।",
   "content__dont_ask_me_again_when_visit_this_dapp": "এই dApp দেখার সময় আমাকে আর জিজ্ঞাসা করবেন না।",
   "content__downloading": "ডাউনলোড হচ্ছে",

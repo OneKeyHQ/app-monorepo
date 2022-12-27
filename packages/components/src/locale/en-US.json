@@ -373,6 +373,8 @@
   "content__description": "Description",
   "content__details": "Details",
   "content__disconnect_and_try_again": "Please click \"Disconnect\" and submit the transaction request again if {0} doesn't respond.",
+  "content__do_not_swap_directly_to_the_exchange": "Do not swap directly to the exchange.",
+  "content__do_not_swap_directly_to_the_exchange_desc": "Most exchanges don’t accept transfers from contracts.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "Do not transfer to any exchange accounts to avoid loss of assets. Most exchange accounts do not accept transfers from contracts.",
   "content__dont_ask_me_again_when_visit_this_dapp": "Don't ask me again when visit this dApp.",
   "content__downloading": "Downloading",
