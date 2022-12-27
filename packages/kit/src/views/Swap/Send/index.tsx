@@ -6,6 +6,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { deviceUtils } from '../../../utils/hardware';
 
 import type { SwapRoutes, SwapRoutesParams } from '../typings';
 import type { RouteProp } from '@react-navigation/native';
@@ -29,10 +30,7 @@ const Send = () => {
         navigation.goBack();
         onSuccess?.(result.result, result.decodedTx);
       } catch (e: any) {
-        toast.show(
-          { title: e?.message ?? 'Internal Error' },
-          { type: 'error' },
-        );
+        deviceUtils.showErrorToast(e, 'msg__unknown_error');
         navigation.goBack();
       }
     }
