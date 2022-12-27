@@ -85,9 +85,6 @@ const Welcome = () => {
     if (platformEnv.isNative) {
       appUIEventBus.emit(AppUIEventBusNames.ChainWebEmbedDisabled);
     }
-    return () => {
-      appUIEventBus.emit(AppUIEventBusNames.ChainWebEmbedDisabled);
-    };
   }, []);
 
   const intl = useIntl();
