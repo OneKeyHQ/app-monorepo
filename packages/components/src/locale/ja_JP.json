@@ -373,6 +373,8 @@
   "content__description": "説明",
   "content__details": "詳細",
   "content__disconnect_and_try_again": "{0}が応答しない場合は、[切断] をクリックして、トランザクション リクエストを再度送信してください。",
+  "content__do_not_swap_directly_to_the_exchange": "取引所に直接スワップしないでください。",
+  "content__do_not_swap_directly_to_the_exchange_desc": "ほとんどの取引所は契約からの送金を受け付けていません。",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "資産の損失を避けるために、如何なる取引所口座にも送金しないでください。 ほとんどの取引所口座は、コントラクト送金を受け付けていない。",
   "content__dont_ask_me_again_when_visit_this_dapp": "この dApp にアクセスしたときに、今後確認しないでください。",
   "content__downloading": "ダウンロード中",

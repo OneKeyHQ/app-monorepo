@@ -373,6 +373,8 @@
   "content__description": "描述",
   "content__details": "詳情",
   "content__disconnect_and_try_again": "如果 {0} 長時間未響應，請點擊「斷開連接」並再次提交交易請求。",
+  "content__do_not_swap_directly_to_the_exchange": "不要直接兌換到交易所地址",
+  "content__do_not_swap_directly_to_the_exchange_desc": "大多數交易所不接受合約轉賬",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "請勿轉入任何交易所賬戶，以免造成資產損失。大多數交易所賬戶不接受合約轉賬。",
   "content__dont_ask_me_again_when_visit_this_dapp": "訪問此 dApp 時不再問我",
   "content__downloading": "正在下載",

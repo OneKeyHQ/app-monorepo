@@ -373,6 +373,8 @@
   "content__description": "Beschreibung",
   "content__details": "Einzelheiten",
   "content__disconnect_and_try_again": "Bitte klicken Sie auf \"Trennen\" und senden Sie die Transaktionsanfrage erneut, wenn {0} nicht antwortet.",
+  "content__do_not_swap_directly_to_the_exchange": "Wechseln Sie nicht direkt zur Börse.",
+  "content__do_not_swap_directly_to_the_exchange_desc": "Die meisten Börsen akzeptieren keine Überweisungen aus Verträgen.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "Überweisen Sie nicht auf ein Wechselkonto, um Vermögensverluste zu vermeiden. Die meisten Börsenkonten akzeptieren keine Vertragsüberweisungen.",
   "content__dont_ask_me_again_when_visit_this_dapp": "Frag mich nicht mehr, wenn du diese dApp besuchst.",
   "content__downloading": "wird heruntergeladen",

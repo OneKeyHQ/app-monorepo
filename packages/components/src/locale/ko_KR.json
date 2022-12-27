@@ -373,6 +373,8 @@
   "content__description": "설명",
   "content__details": "세부",
   "content__disconnect_and_try_again": "{0} 이(가) 응답하지 않으면 \"연결 끊기\"를 클릭하고 트랜잭션 요청을 다시 제출하십시오.",
+  "content__do_not_swap_directly_to_the_exchange": "거래소로 직접 스왑하지 마세요.",
+  "content__do_not_swap_directly_to_the_exchange_desc": "대부분의 거래소는 계약에서 전송을 허용하지 않습니다.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "자산 손실을 방지하기 위해 거래소 계좌로 이체하지 마십시오. 대부분의 거래소 계정은 계약 양도를 허용하지 않습니다.",
   "content__dont_ask_me_again_when_visit_this_dapp": "이 dApp을 방문할 때 다시 묻지 마세요.",
   "content__downloading": "다운로드 중",

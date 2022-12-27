@@ -185,7 +185,12 @@ const Share = () => {
                     {date}
                   </Text>
                 </Box>
-                <PNLCardGroup datas={cards} width="full" height="102px" />
+                <PNLCardGroup
+                  key={selectRange}
+                  datas={cards}
+                  width="full"
+                  height="102px"
+                />
                 <Text mt="40px" typography="Body1" color="text-subdued">
                   {intl.formatMessage({ id: 'content__profit' })}
                 </Text>

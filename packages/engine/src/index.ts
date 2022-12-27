@@ -1710,6 +1710,9 @@ class Engine {
     spenders: string[];
   }): Promise<number[] | undefined> {
     // TODO: move this into vaults to support multichain
+    if (spenders.length === 0) {
+      return;
+    }
     try {
       if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
         // Bad request, shouldn't happen.
