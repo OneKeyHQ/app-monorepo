@@ -136,7 +136,7 @@ const HeaderSmall: FC = () => {
             size="base"
             name="MagnifyingGlassMini"
             type="plain"
-            iconSize={16}
+            // iconSize={16}
             onPress={() => {
               showMarketSearch({
                 modalProps: {
