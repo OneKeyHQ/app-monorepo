@@ -11,7 +11,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { addHexPrefix, hexlify } from '../../utils/hexUtils';
 
-import { toTransaction } from './utils';
+import { handleSignDataWithRpcVersion, toTransaction } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type { AptosMessage } from '../../../types/message';
@@ -146,6 +146,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const { encodedTx } = unsignedTx.payload;
     const txnBytes = await toTransaction(client, sender, encodedTx);
+    const signData = await handleSignDataWithRpcVersion(client, txnBytes);
 
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -154,7 +155,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const response = await HardwareSDK.suiSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
-      rawTx: hexlify(Buffer.from(txnBytes, 'base64')),
+      rawTx: hexlify(Buffer.from(signData.getData())),
       ...passphraseState,
     });
 

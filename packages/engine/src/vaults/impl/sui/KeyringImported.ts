@@ -11,7 +11,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 import { addHexPrefix } from '../../utils/hexUtils';
 
-import { toTransaction } from './utils';
+import { handleSignDataWithRpcVersion, toTransaction } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
@@ -92,8 +92,8 @@ export class KeyringImported extends KeyringImportedBase {
     }
     const { encodedTx } = unsignedTx.payload;
     const txnBytes = await toTransaction(client, sender, encodedTx);
-    const dataBuffer = new Base64DataBuffer(txnBytes);
-    const [signature] = await signer.sign(Buffer.from(dataBuffer.getData()));
+    const signData = await handleSignDataWithRpcVersion(client, txnBytes);
+    const [signature] = await signer.sign(Buffer.from(signData.getData()));
 
     return {
       txid: '',
