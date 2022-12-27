@@ -7,6 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -22,10 +23,11 @@ export default class ServiceTransaction extends ServiceBase {
     networkId: string;
     encodedTx: IEncodedTx;
     payload?: SendConfirmParams['payloadInfo'];
+    feePresetIndex?: string;
   }) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, feePresetIndex } = params;
     const { engine, servicePassword, serviceHistory } = this.backgroundApi;
-
+    const network = await engine.getNetwork(params.networkId);
     const wallets = await engine.getWallets();
     const activeWallet = wallets.find((wallet) =>
       wallet.accounts.includes(accountId),
@@ -51,11 +53,22 @@ export default class ServiceTransaction extends ServiceBase {
         encodedTx,
       });
 
-      if (Number.isNaN(Number(feeInfo.limit)) || Number(feeInfo.limit) <= 0) {
+      if (Number.isNaN(Number(feeInfo.limit))) {
         throw Error('bad limit');
       }
 
-      const price = feeInfo.prices[feeInfo.prices.length - 1];
+      if (network.impl === IMPL_EVM && Number(feeInfo.limit) <= 0) {
+        throw Error('gas limit <= 0');
+      }
+
+      let price = feeInfo.prices[feeInfo.prices.length - 1];
+
+      if (feePresetIndex) {
+        const index = Number(feePresetIndex);
+        if (!Number.isNaN(index) && feeInfo.prices[index]) {
+          price = feeInfo.prices[index];
+        }
+      }
 
       feeInfoUnit = {
         eip1559: feeInfo.eip1559,
@@ -63,20 +76,26 @@ export default class ServiceTransaction extends ServiceBase {
         price,
       };
     } catch {
-      const gasPrice = await engine.getGasPrice(params.networkId);
+      if (network.impl === IMPL_EVM) {
+        const gasPrice = await engine.getGasPrice(params.networkId);
 
-      const blockData = await engine.proxyJsonRPCCall(params.networkId, {
-        method: 'eth_getBlockByNumber',
-        params: ['latest', false],
-      });
+        const blockData = await engine.proxyJsonRPCCall(params.networkId, {
+          method: 'eth_getBlockByNumber',
+          params: ['latest', false],
+        });
 
-      const blockReceipt = blockData as { gasLimit: string };
+        const blockReceipt = blockData as { gasLimit: string };
 
-      feeInfoUnit = {
-        eip1559: typeof gasPrice[0] === 'object',
-        limit: String(+blockReceipt.gasLimit / 10),
-        price: gasPrice[gasPrice.length - 1],
-      };
+        feeInfoUnit = {
+          eip1559: typeof gasPrice[0] === 'object',
+          limit: String(+blockReceipt.gasLimit / 10),
+          price: gasPrice[gasPrice.length - 1],
+        };
+      }
+    }
+
+    if (!feeInfoUnit) {
+      throw new Error('failed to estimate gas');
     }
 
     const encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({

@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { useCallback, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -88,6 +89,8 @@ function convertToSwapInfo(options: {
 const ExchangeButton = () => {
   const intl = useIntl();
   const toast = useToast();
+  const ref = useRef(false);
+  const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
   const networks = useAppSelector((s) => s.runtime.networks);
   const quote = useAppSelector((s) => s.swap.quote);
@@ -248,6 +251,9 @@ const ExchangeButton = () => {
 
     let needApproved = false;
 
+    const walletId = getWalletIdFromAccountId(sendingAccount.id);
+    const wallet = await backgroundApiProxy.engine.getWallet(walletId);
+
     if (newQuote.allowanceTarget && params.tokenIn.tokenIdOnNetwork) {
       const allowance = await backgroundApiProxy.engine.getTokenAllowance({
         networkId: params.tokenIn.networkId,
@@ -278,15 +284,20 @@ const ExchangeButton = () => {
 
       const password = await backgroundApiProxy.servicePassword.getPassword();
 
-      if (password && !validationSetting?.Payment) {
-        await backgroundApiProxy.serviceTransaction.sendTransaction({
-          accountId: sendingAccount.id,
-          networkId: targetNetworkId,
-          encodedTx: encodedApproveTx,
-        });
-
-        const walletId = getWalletIdFromAccountId(sendingAccount.id);
-        const wallet = await backgroundApiProxy.engine.getWallet(walletId);
+      if ((password && !validationSetting?.Payment) || wallet.type === 'hw') {
+        try {
+          await backgroundApiProxy.serviceSwap.sendTransaction({
+            accountId: sendingAccount.id,
+            networkId: targetNetworkId,
+            encodedTx: encodedApproveTx,
+          });
+        } catch (e: any) {
+          toast.show(
+            { title: e?.message ?? 'Internal Error' },
+            { type: 'error' },
+          );
+          return;
+        }
 
         if (wallet.type === 'hw') {
           navigation.navigate(RootRoutes.Modal, {
@@ -304,7 +315,7 @@ const ExchangeButton = () => {
         const encodedEvmTx = encodedTx as IEncodedTxEvm;
         try {
           const { result, decodedTx } =
-            await backgroundApiProxy.serviceTransaction.sendTransaction({
+            await backgroundApiProxy.serviceSwap.sendTransaction({
               accountId: sendingAccount.id,
               networkId: targetNetworkId,
               encodedTx: { ...encodedEvmTx },
@@ -329,7 +340,11 @@ const ExchangeButton = () => {
             });
           }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-        } catch {
+        } catch (e: any) {
+          toast.show(
+            { title: e?.message ?? 'Internal Error' },
+            { type: 'error' },
+          );
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         }
         return;
@@ -360,7 +375,7 @@ const ExchangeButton = () => {
               const encodedEvmTx = encodedTx as IEncodedTxEvm;
               try {
                 const { result, decodedTx } =
-                  await backgroundApiProxy.serviceTransaction.sendTransaction({
+                  await backgroundApiProxy.serviceSwap.sendTransaction({
                     accountId: sendingAccount.id,
                     networkId: targetNetworkId,
                     encodedTx: { ...encodedEvmTx },
@@ -381,67 +396,107 @@ const ExchangeButton = () => {
       return;
     }
 
-    const password = await backgroundApiProxy.servicePassword.getPassword();
-    if (password && !validationSetting?.Payment) {
-      const { result, decodedTx } =
-        await backgroundApiProxy.serviceTransaction.sendTransaction({
-          accountId: sendingAccount.id,
-          networkId: targetNetworkId,
-          encodedTx,
-          payload: {
-            type: 'InternalSwap',
-            swapInfo,
-          },
-        });
+    if (wallet.type === 'hw') {
       navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
+        screen: ModalRoutes.Swap,
         params: {
-          screen: SendRoutes.SendFeedbackReceipt,
+          screen: SwapRoutes.Send,
           params: {
             networkId: targetNetworkId,
             accountId: sendingAccount.id,
-            txid: result.txid,
-            type: 'Send',
+            encodedTx,
+            payload: {
+              type: 'InternalSwap',
+              swapInfo,
+            },
+            onSuccess: (result, decodedTx) => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Send,
+                params: {
+                  screen: SendRoutes.SendFeedbackReceipt,
+                  params: {
+                    networkId: targetNetworkId,
+                    accountId: sendingAccount.id,
+                    txid: result.txid,
+                    type: 'Send',
+                  },
+                },
+              });
+              addSwapTransaction(result.txid, decodedTx.nonce);
+            },
           },
         },
       });
-      setTimeout(() => {
-        addSwapTransaction(result.txid, decodedTx.nonce);
-      }, 100);
-      return;
-    }
-
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Send,
-      params: {
-        screen: SendRoutes.SendConfirm,
-        params: {
-          accountId: sendingAccount.id,
-          networkId: targetNetworkId,
-          payloadInfo: {
-            type: 'InternalSwap',
-            swapInfo,
-          },
-          feeInfoEditable: true,
-          feeInfoUseFeeInTx: false,
-          encodedTx,
-          onDetail(txid) {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Swap,
-              params: {
-                screen: SwapRoutes.Transaction,
-                params: {
-                  txid,
-                },
+    } else {
+      const password = await backgroundApiProxy.servicePassword.getPassword();
+      if (password && !validationSetting?.Payment) {
+        try {
+          const { result, decodedTx } =
+            await backgroundApiProxy.serviceSwap.sendTransaction({
+              accountId: sendingAccount.id,
+              networkId: targetNetworkId,
+              encodedTx,
+              payload: {
+                type: 'InternalSwap',
+                swapInfo,
               },
             });
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendRoutes.SendFeedbackReceipt,
+              params: {
+                networkId: targetNetworkId,
+                accountId: sendingAccount.id,
+                txid: result.txid,
+                type: 'Send',
+              },
+            },
+          });
+          setTimeout(() => {
+            addSwapTransaction(result.txid, decodedTx.nonce);
+          }, 100);
+        } catch (e: any) {
+          toast.show(
+            { title: e?.message ?? 'Internal Error' },
+            { type: 'error' },
+          );
+        }
+      } else {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendConfirm,
+            params: {
+              accountId: sendingAccount.id,
+              networkId: targetNetworkId,
+              payloadInfo: {
+                type: 'InternalSwap',
+                swapInfo,
+              },
+              feeInfoEditable: true,
+              feeInfoUseFeeInTx: false,
+              encodedTx,
+              onDetail(txid) {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.Swap,
+                  params: {
+                    screen: SwapRoutes.Transaction,
+                    params: {
+                      txid,
+                    },
+                  },
+                });
+              },
+              onSuccess: (tx, data) => {
+                addSwapTransaction(tx.txid, data?.decodedTx?.nonce);
+              },
+            },
           },
-          onSuccess: (tx, data) => {
-            addSwapTransaction(tx.txid, data?.decodedTx?.nonce);
-          },
-        },
-      },
-    });
+        });
+      }
+    }
+    await wait(1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     params,
@@ -455,13 +510,28 @@ const ExchangeButton = () => {
     validationSetting,
   ]);
 
+  const onPress = useCallback(async () => {
+    if (ref.current) {
+      return;
+    }
+    setLoading(true);
+    ref.current = true;
+    try {
+      await onSubmit();
+    } finally {
+      ref.current = false;
+      setLoading(false);
+    }
+  }, []);
+
   return (
     <Button
       key="submit"
       size="xl"
       type="primary"
+      isLoading={loading}
       isDisabled={!quote || !recipient}
-      onPromise={onSubmit}
+      onPress={onPress}
     >
       {intl.formatMessage({ id: 'title__swap' })}
     </Button>

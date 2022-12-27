@@ -58,7 +58,7 @@ const SwapTexts = () => {
       animatedValue.setValue(0);
       Animated.timing(animatedValue, {
         toValue,
-        duration: 10000,
+        duration: 15000,
         easing: Easing.linear,
         useNativeDriver: true,
       }).start(() => {

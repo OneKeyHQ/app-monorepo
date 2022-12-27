@@ -255,6 +255,7 @@ const TokenInput: FC<TokenInputProps> = ({
             {independentField === 'OUTPUT' && loading ? (
               <Box
                 h="full"
+                minH="12"
                 flexDirection="row"
                 justifyContent="flex-end"
                 alignItems="center"
