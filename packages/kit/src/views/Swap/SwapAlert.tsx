@@ -1,9 +1,9 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box } from '@onekeyhq/components';
+import { Alert, Box, Icon, Typography } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -121,8 +121,53 @@ const ErrorAlert = () => {
   return null;
 };
 
+const ExchangeAddressAlertContent = () => {
+  const intl = useIntl();
+
+  return (
+    <Box flexDirection="row" mt="6">
+      <Box mr="3">
+        <Icon
+          width={20}
+          height={20}
+          color="text-warning"
+          name="ExclamationCircleOutline"
+        />
+      </Box>
+      <Box flex="1">
+        <Typography.Body2 color="text-warning">
+          {intl.formatMessage({
+            id: 'content__do_not_swap_directly_to_the_exchange',
+          })}
+        </Typography.Body2>
+        <Typography.Body2 color="text-subdued">
+          {intl.formatMessage({
+            id: 'content__do_not_swap_directly_to_the_exchange_desc',
+          })}
+        </Typography.Body2>
+      </Box>
+    </Box>
+  );
+};
+
+const ExchangeAddressAlert = () => {
+  const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
+  const recipient = useAppSelector((s) => s.swap.recipient);
+  useEffect(() => {
+    async function main() {
+      const isUnknown = await backgroundApiProxy.serviceSwap.recipientIsUnknown(
+        recipient,
+      );
+      setRecipientUnknown(isUnknown);
+    }
+    main();
+  }, [recipient]);
+  return recipientUnknown ? <ExchangeAddressAlertContent /> : null;
+};
+
 const SwapWarning: FC = () => (
   <>
+    <ExchangeAddressAlert />
     <DepositLimitAlert />
     <RecipientAlert />
     <ErrorAlert />

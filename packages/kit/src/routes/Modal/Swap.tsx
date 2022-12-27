@@ -10,6 +10,7 @@ import EnterAddress from '../../views/Swap/EnterAddress';
 import PickAccount from '../../views/Swap/PickAccount';
 import PickRecipient from '../../views/Swap/PickRecipient';
 import SelectRoutes from '../../views/Swap/SelectRoutes';
+import Send from '../../views/Swap/Send';
 import Share from '../../views/Swap/Share';
 import SwftcHelp from '../../views/Swap/SwftcHelp';
 import Transaction from '../../views/Swap/Transaction';
@@ -72,6 +73,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.SelectRoutes,
     component: SelectRoutes,
+  },
+  {
+    name: SwapRoutes.Send,
+    component: Send,
   },
 ];
 
