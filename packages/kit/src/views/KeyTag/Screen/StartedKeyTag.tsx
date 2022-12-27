@@ -8,10 +8,10 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import keytagDark1 from '@onekeyhq/kit/assets/keytag/keytag_1_dark@2x.png';
-import keytagLight1 from '@onekeyhq/kit/assets/keytag/keytag_1_light@2x.png';
-import keytagDark2 from '@onekeyhq/kit/assets/keytag/keytag_2_dark@2x.png';
-import keytagLight2 from '@onekeyhq/kit/assets/keytag/keytag_2_light@2x.png';
+import keytagDark1 from '@onekeyhq/kit/assets/keytag/keytag_1_dark.png';
+import keytagLight1 from '@onekeyhq/kit/assets/keytag/keytag_1_light.png';
+import keytagDark2 from '@onekeyhq/kit/assets/keytag/keytag_2_dark.png';
+import keytagLight2 from '@onekeyhq/kit/assets/keytag/keytag_2_light.png';
 
 import { useNavigation } from '../../../hooks';
 import LayoutContainer from '../../Onboarding/Layout';

@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/components';
 import type { BadgeType } from '@onekeyhq/components/src/Badge';
 import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
-import BackupKeyTag from '@onekeyhq/kit/assets/keytag/OneKeyTag@2x.png';
+import BackupKeyTag from '@onekeyhq/kit/assets/keytag/OneKeyTag.png';
 import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
 import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
