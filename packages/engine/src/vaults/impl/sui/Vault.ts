@@ -92,7 +92,9 @@ import type {
 } from '../../types';
 import type { IEncodedTxSUI } from './types';
 import type {
+  ExportedKeypair,
   GetObjectDataResponse,
+  Keypair,
   SignatureScheme,
   SuiMoveObject,
   SuiObject,

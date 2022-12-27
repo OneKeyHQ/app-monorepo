@@ -15,7 +15,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import { addHexPrefix } from '../../utils/hexUtils';
 
-import { toTransaction } from './utils';
+import { handleSignDataWithRpcVersion, toTransaction } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBSimpleAccount } from '../../../types/account';
@@ -118,8 +118,8 @@ export class KeyringHd extends KeyringHdBase {
 
     const { encodedTx } = unsignedTx.payload;
     const txnBytes = await toTransaction(client, sender, encodedTx);
-    const dataBuffer = new Base64DataBuffer(txnBytes);
-    const [signature] = await signer.sign(Buffer.from(dataBuffer.getData()));
+    const signData = await handleSignDataWithRpcVersion(client, txnBytes);
+    const [signature] = await signer.sign(Buffer.from(signData.getData()));
 
     return {
       txid: '',
