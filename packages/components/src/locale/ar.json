@@ -373,6 +373,8 @@
   "content__description": "وصف",
   "content__details": "تفاصيل",
   "content__disconnect_and_try_again": "الرجاء النقر فوق \"قطع الاتصال\" وإرسال طلب المعاملة مرة أخرى إذا لم يستجب {0} .",
+  "content__do_not_swap_directly_to_the_exchange": "لا تبدل مباشرة إلى البورصة.",
+  "content__do_not_swap_directly_to_the_exchange_desc": "لا تقبل معظم البورصات التحويلات من العقود.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "لا تنقل إلى أي حساب صرف لتجنب فقدان الأصول. معظم حسابات الصرف لا تقبل تحويلات العقود.",
   "content__dont_ask_me_again_when_visit_this_dapp": "لا تسألني مرة أخرى عند زيارة هذا dApp.",
   "content__downloading": "جارى التحميل",

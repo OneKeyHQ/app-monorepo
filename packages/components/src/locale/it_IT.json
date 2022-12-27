@@ -373,6 +373,8 @@
   "content__description": "Descrizione",
   "content__details": "Dettagli",
   "content__disconnect_and_try_again": "Fai clic su \"Disconnetti\" e invia nuovamente la richiesta di transazione se {0} non risponde.",
+  "content__do_not_swap_directly_to_the_exchange": "Non scambiare direttamente allo scambio.",
+  "content__do_not_swap_directly_to_the_exchange_desc": "La maggior parte degli scambi non accetta trasferimenti da contratti.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "Non trasferire su nessun conto di scambio per evitare la perdita di beni. La maggior parte dei conti di scambio non accetta trasferimenti di contratti.",
   "content__dont_ask_me_again_when_visit_this_dapp": "Non chiedermelo più quando visiti questa dApp.",
   "content__downloading": "Download",

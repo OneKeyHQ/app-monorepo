@@ -373,6 +373,8 @@
   "content__description": "विवरण",
   "content__details": "विवरण",
   "content__disconnect_and_try_again": "कृपया \"डिस्कनेक्ट\" पर क्लिक करें और यदि {0} जवाब नहीं देता है तो लेनदेन अनुरोध फिर से सबमिट करें।",
+  "content__do_not_swap_directly_to_the_exchange": "सीधे एक्सचेंज में स्वैप न करें।",
+  "content__do_not_swap_directly_to_the_exchange_desc": "अधिकांश एक्सचेंज अनुबंधों से स्थानान्तरण स्वीकार नहीं करते हैं।",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "परिसंपत्ति हानि से बचने के लिए किसी भी विनिमय खाते में स्थानांतरण न करें। अधिकांश एक्सचेंज खाते अनुबंध स्थानान्तरण स्वीकार नहीं करते हैं।",
   "content__dont_ask_me_again_when_visit_this_dapp": "इस डीएपी पर आने पर मुझसे दोबारा न पूछें।",
   "content__downloading": "डाउनलोड",
