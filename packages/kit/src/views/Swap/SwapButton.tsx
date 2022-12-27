@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -19,6 +18,7 @@ import { useNavigation } from '../../hooks';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { addTransaction } from '../../store/reducers/swapTransactions';
+import { deviceUtils } from '../../utils/hardware';
 import { wait } from '../../utils/helper';
 import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
 import { SendRoutes } from '../Send/types';
@@ -292,10 +292,7 @@ const ExchangeButton = () => {
             encodedTx: encodedApproveTx,
           });
         } catch (e: any) {
-          toast.show(
-            { title: e?.message ?? 'Internal Error' },
-            { type: 'error' },
-          );
+          deviceUtils.showErrorToast(e, 'msg__unknown_error');
           return;
         }
 
@@ -341,10 +338,7 @@ const ExchangeButton = () => {
           }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
         } catch (e: any) {
-          toast.show(
-            { title: e?.message ?? 'Internal Error' },
-            { type: 'error' },
-          );
+          deviceUtils.showErrorToast(e, 'msg__unknown_error');
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         }
         return;
@@ -397,36 +391,33 @@ const ExchangeButton = () => {
     }
 
     if (wallet.type === 'hw') {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Swap,
-        params: {
-          screen: SwapRoutes.Send,
-          params: {
-            networkId: targetNetworkId,
+      try {
+        const { result, decodedTx } =
+          await backgroundApiProxy.serviceSwap.sendTransaction({
             accountId: sendingAccount.id,
+            networkId: targetNetworkId,
             encodedTx,
             payload: {
               type: 'InternalSwap',
               swapInfo,
             },
-            onSuccess: (result, decodedTx) => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.Send,
-                params: {
-                  screen: SendRoutes.SendFeedbackReceipt,
-                  params: {
-                    networkId: targetNetworkId,
-                    accountId: sendingAccount.id,
-                    txid: result.txid,
-                    type: 'Send',
-                  },
-                },
-              });
-              addSwapTransaction(result.txid, decodedTx.nonce);
+          });
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendRoutes.SendFeedbackReceipt,
+            params: {
+              networkId: targetNetworkId,
+              accountId: sendingAccount.id,
+              txid: result.txid,
+              type: 'Send',
             },
           },
-        },
-      });
+        });
+        addSwapTransaction(result.txid, decodedTx.nonce);
+      } catch (e: any) {
+        deviceUtils.showErrorToast(e, 'msg__unknown_error');
+      }
     } else {
       const password = await backgroundApiProxy.servicePassword.getPassword();
       if (password && !validationSetting?.Payment) {
@@ -457,10 +448,7 @@ const ExchangeButton = () => {
             addSwapTransaction(result.txid, decodedTx.nonce);
           }, 100);
         } catch (e: any) {
-          toast.show(
-            { title: e?.message ?? 'Internal Error' },
-            { type: 'error' },
-          );
+          deviceUtils.showErrorToast(e, 'msg__unknown_error');
         }
       } else {
         navigation.navigate(RootRoutes.Modal, {
