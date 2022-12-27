@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -23,12 +23,14 @@ import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import { deviceUtils, getDeviceType } from '@onekeyhq/kit/src/utils/hardware';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type {
   IOneKeyDeviceFeatures,
   IOneKeyDeviceType,
 } from '@onekeyhq/shared/types';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
 type FieldValues = { name: string };
@@ -50,9 +52,6 @@ const defaultName: Record<IOneKeyDeviceType, string> = {
   'pro': 'OneKey Pro',
 };
 
-const getDeviceDefaultLabel = (features?: IOneKeyDeviceFeatures) =>
-  defaultName[getDeviceType(features)];
-
 const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
   walletId,
   deviceFeatures,
@@ -60,13 +59,33 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
   const intl = useIntl();
   const toast = useToast();
   const navigation = useNavigation();
-  const { control, handleSubmit, setError } = useForm<FieldValues>({
+  const { control, handleSubmit, setError, setValue } = useForm<FieldValues>({
     defaultValues: {
-      name: deviceFeatures?.label || getDeviceDefaultLabel(deviceFeatures),
+      name: '',
     },
   });
   const [connectId, setConnectId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deviceType, setDeviceType] = useState<IDeviceType | undefined>();
+
+  const getDeviceDefaultLabel = useCallback(
+    async (features?: IOneKeyDeviceFeatures) => {
+      const { getDeviceType } = await CoreSDKLoader();
+      return defaultName[getDeviceType(features)];
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const setDeviceInfo = async () => {
+      const name =
+        deviceFeatures?.label || (await getDeviceDefaultLabel(deviceFeatures));
+      setValue('name', name);
+      const { getDeviceType } = await CoreSDKLoader();
+      setDeviceType(getDeviceType(deviceFeatures));
+    };
+    setDeviceInfo();
+  }, [deviceFeatures, setValue, getDeviceDefaultLabel]);
 
   const { engine, serviceHardware, serviceAccount } = backgroundApiProxy;
   useEffect(() => {
@@ -82,7 +101,7 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
       const label =
         values.name && values.name.length > 0
           ? values.name
-          : getDeviceDefaultLabel(deviceFeatures);
+          : await getDeviceDefaultLabel(deviceFeatures);
       await serviceHardware.applySettings(connectId, {
         label,
       });
@@ -108,15 +127,11 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
     () => (
       <Center>
         <Box width="56px" height="56px">
-          <WalletAvatar
-            walletImage="hw"
-            hwWalletType={getDeviceType(deviceFeatures)}
-            size="xl"
-          />
+          <WalletAvatar walletImage="hw" hwWalletType={deviceType} size="xl" />
         </Box>
       </Center>
     ),
-    [deviceFeatures],
+    [deviceType],
   );
 
   return (

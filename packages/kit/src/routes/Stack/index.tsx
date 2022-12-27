@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -118,7 +118,7 @@ const AddressBook = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/AddressBook/Listing'),
 );
 
-const NPLDetailScreen = createLazyComponent(
+const PNLDetailScreen = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail'),
 );
 
@@ -224,7 +224,7 @@ export const stackScreenList = [
   },
   {
     name: HomeRoutes.NFTPNLScreen,
-    component: NPLDetailScreen,
+    component: PNLDetailScreen,
   },
 ];
 
@@ -239,6 +239,17 @@ const Dashboard = () => {
     'border-subdued',
   ]);
 
+  const headerLeft = useCallback(
+    ({ tintColor }) => (
+      <NavigationHeaderBackButton
+        tintColor={tintColor}
+        onPress={goBack}
+        canGoBack
+      />
+    ),
+    [goBack],
+  );
+
   const stackScreens = useMemo(() => {
     if (!isVerticalLayout) {
       return null;
@@ -250,20 +261,15 @@ const Dashboard = () => {
         name={stack.name}
         component={stack.component}
         options={{
+          animation: platformEnv.isNativeAndroid ? 'none' : 'default',
           headerLeft:
             platformEnv.isRuntimeBrowser && stack.alwaysShowBackButton
-              ? ({ tintColor }) => (
-                  <NavigationHeaderBackButton
-                    tintColor={tintColor}
-                    onPress={goBack}
-                    canGoBack
-                  />
-                )
+              ? headerLeft
               : undefined,
         }}
       />
     ));
-  }, [isVerticalLayout, goBack]);
+  }, [isVerticalLayout, headerLeft]);
 
   return (
     <StackNavigator.Navigator>

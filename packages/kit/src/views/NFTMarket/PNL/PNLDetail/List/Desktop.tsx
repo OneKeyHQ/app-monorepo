@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -12,12 +13,15 @@ import {
   Icon,
   List,
   ListItem,
+  Pressable,
   Skeleton,
   Text,
   Tooltip,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
+import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
 import NFTListImage from '../../../../Wallet/NFT/NFTList/NFTListImage';
@@ -84,6 +88,25 @@ const Footer: FC = () => (
 const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
   const { formatDistanceStrict, format } = useFormatDate();
   const intl = useIntl();
+  const navigation = useNavigation();
+
+  const handleSelectAsset = useCallback(
+    (asset: NFTAsset) => {
+      if (!network) return;
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Collectibles,
+        params: {
+          screen: CollectiblesModalRoutes.NFTDetailModal,
+          params: {
+            asset,
+            network,
+            isOwner: false,
+          },
+        },
+      });
+    },
+    [navigation, network],
+  );
   const renderItem: ListRenderItem<NFTPNL> = useCallback(
     ({ item }) => {
       const { asset, entry, exit, profit } = item;
@@ -111,24 +134,44 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         .toString();
       return (
         <ListItem>
-          <ListItem.Column>
-            {item.asset && (
-              <NFTListImage
-                asset={asset as NFTAsset}
-                borderRadius="12px"
-                size={40}
-              />
-            )}
-          </ListItem.Column>
-          <ListItem.Column
+          <Pressable
             flex={1}
-            text={{
-              label: item.contractName,
-              labelProps: { typography: 'Body1Strong', isTruncated: true },
-              description: item.tokenId ? `#${item.tokenId}` : '–',
-              descriptionProps: { isTruncated: true },
+            flexDirection="row"
+            alignItems="center"
+            onPress={() => {
+              if (asset) {
+                handleSelectAsset(asset);
+              }
             }}
-          />
+          >
+            {({ isHovered }) => (
+              <>
+                <ListItem.Column>
+                  {item.asset && (
+                    <NFTListImage
+                      asset={asset as NFTAsset}
+                      borderRadius="12px"
+                      size={40}
+                      opacity={isHovered ? 80 : undefined}
+                    />
+                  )}
+                </ListItem.Column>
+                <ListItem.Column
+                  flex={1}
+                  ml="12px"
+                  text={{
+                    label: item.contractName,
+                    labelProps: {
+                      typography: 'Body1Strong',
+                      isTruncated: true,
+                    },
+                    description: item.tokenId ? `#${item.tokenId}` : '–',
+                    descriptionProps: { isTruncated: true },
+                  }}
+                />
+              </>
+            )}
+          </Pressable>
           <Hidden till="md">
             <Tooltip
               label={format(new Date(entry.timestamp), 'yyyy-MM-dd HH:mm')}
@@ -236,8 +279,15 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
         </ListItem>
       );
     },
-    [format, formatDistanceStrict, intl, network.id],
+    [format, formatDistanceStrict, handleSelectAsset, intl, network.id],
   );
+
+  const ListFooterComponent = useCallback(() => {
+    if (loading) {
+      return <Footer />;
+    }
+    return null;
+  }, [loading]);
 
   return (
     <List
@@ -245,12 +295,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
       showDivider
       keyExtractor={(item) => (item.contractAddress as string) + item.tokenId}
       showsVerticalScrollIndicator={false}
-      ListFooterComponent={() => {
-        if (loading) {
-          return <Footer />;
-        }
-        return null;
-      }}
+      ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{
         width: '100%',
         maxWidth: 992 + 16 + 64, // 16 is padding of the content

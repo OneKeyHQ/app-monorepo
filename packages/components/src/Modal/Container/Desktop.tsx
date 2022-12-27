@@ -102,40 +102,39 @@ const DesktopModal = ({
       alignItems="center"
     >
       {/* TODO render backdrop by Portal? */}
-      {closeOnOverlayClick && (
-        <Pressable
-          testID="DesktopModalBackdrop"
-          _web={{
-            // @ts-ignore
-            cursor: 'default',
+      <Pressable
+        isDisabled={!closeOnOverlayClick}
+        testID="DesktopModalBackdrop"
+        _web={{
+          // @ts-ignore
+          cursor: 'default',
+        }}
+        position="absolute"
+        top="0"
+        left="0"
+        right="0"
+        bottom="0"
+        onPress={close}
+      >
+        <PresenceTransition
+          as={Box}
+          visible
+          initial={{
+            opacity: 0,
           }}
-          position="absolute"
-          top="0"
-          left="0"
-          right="0"
-          bottom="0"
-          onPress={close}
-        >
-          <PresenceTransition
-            as={Box}
-            visible
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-              transition: {
-                duration:
-                  enableModalAnimation && !openedModalStack?.length ? 80 : 0,
-              },
-            }}
-            // @ts-expect-error
-            w="full"
-            h="full"
-            bg="rgba(0, 0, 0, 0.6)"
-          />
-        </Pressable>
-      )}
+          animate={{
+            opacity: 1,
+            transition: {
+              duration:
+                enableModalAnimation && !openedModalStack?.length ? 80 : 0,
+            },
+          }}
+          // @ts-expect-error
+          w="full"
+          h="full"
+          bg="rgba(0, 0, 0, 0.6)"
+        />
+      </Pressable>
 
       <PresenceTransition
         as={Box}

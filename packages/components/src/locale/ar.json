@@ -90,6 +90,7 @@
   "action__danger_zone": "منطقة الخطر",
   "action__decrypt": "فك تشفير",
   "action__default_chain": "السلسلة الافتراضية",
+  "action__deflationary": "انكماشي",
   "action__delete": "حذف",
   "action__delete_wallet": "حذف المحفظة",
   "action__deny": "ينكر",
@@ -103,7 +104,9 @@
   "action__dont_have_device": "جهازي ليس معي",
   "action__dont_show_again": "لا تظهر مرة أخرى",
   "action__download": "تحميل",
+  "action__download_example": "تحميل المثال",
   "action__edit": "تعديل",
+  "action__edit_amount": "تحرير المبلغ",
   "action__edit_fee": "تحرير الرسوم",
   "action__edit_name": "تعديل الاسم",
   "action__enable": "ممكن",
@@ -153,6 +156,7 @@
   "action__pause": "يوقف",
   "action__permanently_delete": "حذف بشكل دائم",
   "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
+  "action__preview": "معاينة",
   "action__profit_and_loss": "الربح والخسارة",
   "action__protection": "حماية",
   "action__quick_add": "إضافة سريعة",
@@ -198,8 +202,10 @@
   "action__set_to_mkt": "اضبط على MKT",
   "action__set_to_mkt_desc": "إعادة تعيين أمر الحد إلى سعر السوق الحالي",
   "action__share": "شارك",
+  "action__show_dotmap_for_keytag": "إظهار Dotmap لـ KeyTag",
   "action__show_more": "أظهر المزيد",
   "action__show_recovery_phrase": "إظهار عبارة الاسترداد",
+  "action__show_result": "نتيجة العرض",
   "action__sign": "وقع",
   "action__skip": "يتخطى",
   "action__speed_up": "اسرع",
@@ -367,6 +373,7 @@
   "content__description": "وصف",
   "content__details": "تفاصيل",
   "content__disconnect_and_try_again": "الرجاء النقر فوق \"قطع الاتصال\" وإرسال طلب المعاملة مرة أخرى إذا لم يستجب {0} .",
+  "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "لا تنقل إلى أي حساب صرف لتجنب فقدان الأصول. معظم حسابات الصرف لا تقبل تحويلات العقود.",
   "content__dont_ask_me_again_when_visit_this_dapp": "لا تسألني مرة أخرى عند زيارة هذا dApp.",
   "content__downloading": "جارى التحميل",
   "content__downloading_str": "تحميل {0}",
@@ -521,7 +528,7 @@
   "content__receive_notifications_of_account_dynamics_and_asset_changes": "تلقي إخطارات ديناميكيات الحساب وتغييرات الأصول.",
   "content__recovery_phrase_restore": "إذا نسيت كلمة المرور الخاصة بك ، فيمكنك استخدام عبارة الاسترداد للعودة إلى محفظتك.",
   "content__rocket_fast": "🚀 سريع",
-  "content__royalty_fees_are_excluded": "لا تشمل رسوم الامتياز",
+  "content__royalty_fees_are_excluded": "بعد رسوم الملكية",
   "content__running_official_firmware": "جهازك يقوم بتشغيل البرامج الثابتة الرسمية.",
   "content__safe_to_enter_into_onekey": "هل من الآمن إدخاله في OneKey؟",
   "content__safe_to_enter_into_onekey_desc": "نعم. سيتم تخزينه محليًا ولن يترك جهازك أبدًا دون إذن صريح منك.",
@@ -572,6 +579,7 @@
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, zero {} one {معاملة # قيد التقدم ...} two {} few {} many {} other {# المعاملات قيد التقدم ...}}",
   "content__str_transactions_succeeded": "{content__str_transactions_succeeded, plural, zero {} one {نجحت معاملة # !} two {} few {} many {} other {نجحت معاملات # !}}",
   "content__submitted": "مُقَدَّم",
+  "content__support_csv_txt_or_excel": "دعم csv أو txt أو Excel",
   "content__support_malicious_contract_detection_on_8_chains": "دعم الكشف عن العقود الضارة في 8 سلاسل.",
   "content__supported_wallets": "دعم OneKey و Ledger و Trezor والمحافظ الأخرى.",
   "content__switch_price_mark_to_str": "تبديل علامة السعر إلى {0}",
@@ -622,6 +630,7 @@
   "content__wont_backup": "لن يتم نسخ محفظة الأجهزة احتياطيًا إلى iCloud. يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
   "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
+  "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "يمكنك أيضًا العثور على جدول BIP39 dotmap في الموقع التالي. \n\n https://onekey.so/bip39-dotmap",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
   "content__you_don_t_have_a_str_account": "ليس لديك حساب {0} .",
@@ -769,6 +778,7 @@
   "form__assinged_address_slippage_is_modifiable": "تعديل انزلاق العنوان",
   "form__assinged_address_slippage_is_modifiable_desc": "يجوز لصاحب العقد وضع معدل ضريبي مرتفع على العنوان المخصص لمنع التجارة.",
   "form__auto": "نظام",
+  "form__back": "الجانب الخلفي",
   "form__balance": "الرصيد",
   "form__base_str": "القاعدة: {0}",
   "form__beginner_guide": "دليل المبتدئين",
@@ -778,6 +788,7 @@
   "form__ble_version": "إصدار BLE",
   "form__blockchain_explorer_url": "URL مستكشف Blockchain",
   "form__blockchain_explorer_url_invalid": "يتطلب URL البادئة http أو https.",
+  "form__borrowed_uppercase": "اقترضت، استعارت",
   "form__btc_and_eth_movement": "حركة BTC و ETH",
   "form__btc_and_eth_movement_desc": "تقلبات كبيرة في الأسعار في أسعار البيتكوين والإيثريوم",
   "form__buy_int_max_purchase": "{0} الحد الأقصى للشراء",
@@ -808,6 +819,7 @@
   "form__claimable_str": "قابل للمطالبة به: {0}",
   "form__coingecko_desc": "أخبار التشفير من Coingecko",
   "form__compressing_failed_try_again": "فشل الضغط ، حاول مرة أخرى.",
+  "form__connect_wallet_before_uploading": "قم بتوصيل المحفظة قبل التحميل",
   "form__contact_name": "اسم جهة الاتصال",
   "form__contract": "اتفافية",
   "form__contract_data": "بيانات العقد",
@@ -822,12 +834,18 @@
   "form__data": "البيانات",
   "form__data_tab": "البيانات",
   "form__decimal": "عدد عشري",
+  "form__default_currency": "العملة الافتراضية",
   "form__designated_recipient": "المستلم المعين",
   "form__designated_recipient_desc": "يمكنك اختيار حساب آخر لاستلام المبادلة.",
+  "form__destination_tag_placeholder": "علامة (اختياري)",
   "form__dev_mode": "وضع المطور",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
   "form__download_when_available": "قم بتنزيل التحديثات الجديدة عند توفرها",
+  "form__drag_file_here": "إفلات الملف هنا",
+  "form__drag_or_drop_file_to_import": "قم بسحب وإسقاط الملف للاستيراد",
+  "form__each_line_should_include_the_address_and_the_amount_seperated_by_commas": "يجب أن يتضمن كل سطر العنوان والمبلغ مفصولاً بفاصلات. على سبيل المثال: 0xB0DC3d68E9cfd839423e42C5c479C4195B7D5559 ، 0.1\n لا تملأ أي حسابات صرف لتجنب فقدان الأصول.",
+  "form__empty": "فارغة",
   "form__enable_onekey": "تمكين OneKey",
   "form__english": "إنجليزي",
   "form__ens_name": "اسم ENS",
@@ -838,6 +856,7 @@
   "form__enter_or_paste_contract_address": "أدخل أو الصق عنوان العقد",
   "form__enter_recipient_address": "أدخل عنوان المستلم",
   "form__enter_recipient_address_valid": "عنوان صالح",
+  "form__enter_recovery_phrase": "أدخل عبارة الاسترداد",
   "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
   "form__estimate_str": "تقدير {0}",
   "form__estimate_total_gas_fee": "تقدير إجمالي رسوم الغاز",
@@ -853,6 +872,7 @@
   "form__external_call_risk": "مخاطر المكالمات الخارجية",
   "form__external_call_risk_desc": "تعتبر المكالمات الخارجية خطيرة بالنسبة لعقد الرمز المميز هذا.",
   "form__face_id": "معرف الوجه / معرف اللمس",
+  "form__failed": "فشل",
   "form__fake_token": "رمز مزيف",
   "form__fake_token_desc": "هذا هو رمز مزيف.",
   "form__favorite_desc": "تقلبات كبيرة في أسعار الأصول المفضلة لديك",
@@ -867,6 +887,7 @@
   "form__free_limited_time": "مجانا! (وقت محدود)",
   "form__from": "من",
   "form__from_str": "من {0}",
+  "form__front": "الجانب الامامي",
   "form__fully_diluted_value": "القيمة المخففة بالكامل",
   "form__gas_fee_settings": "إعدادات رسوم الغاز",
   "form__gas_limit_invalid_min": "يجب ألا يقل حد الغاز عن {0}",
@@ -906,6 +927,8 @@
   "form__include_zero_balances": "قم بتضمين الرموز المميزة للأرصدة الصفرية",
   "form__included_onekey_fee": "رسوم OneKey",
   "form__included_onekey_fee_desc": "رسوم OneKey (0.2 - 0.875٪) مشمولة بالفعل في السعر الخاص بك ، ولا توجد رسوم خفية.",
+  "form__incorrect_address_format": "تنسيق عنوان غير صحيح",
+  "form__incorrect_dotmap": "Dotmap غير صحيح",
   "form__instant_transfer": "نقل فوري",
   "form__keystore": "كيستور",
   "form__keystore_helperText": "عدة أسطر من النص تبدأ بـ \" {...} \".",
@@ -917,6 +940,7 @@
   "form__last_update_utc": "آخر تحديث (التوقيت العالمي المنسق)",
   "form__lending": "الإقراض",
   "form__light": "خفيفة",
+  "form__line_str": "خط {0}",
   "form__manage": "يدير",
   "form__manage_threshold": "إدارة العتبة",
   "form__market_cap": "القيمة السوقية",
@@ -925,6 +949,7 @@
   "form__market_cap_uppercase": "غطاء السوق",
   "form__market_uppercase": "سوق",
   "form__massage_uppercase": "رسالة",
+  "form__max_amount": "المبلغ الأقصى:",
   "form__max_fee_invalid_min": "لا يمكن أن يكون الحد الأقصى للرسوم أقل من رسوم الأولوية القصوى.",
   "form__max_fee_invalid_too_low": "يجب أن يكون الحد الأقصى للرسوم أكبر من {0}",
   "form__max_fee_invalid_too_much": "الحد الأقصى للرسوم أعلى من اللازم.",
@@ -937,9 +962,11 @@
   "form__max_str": "الحد الأقصى: {0}",
   "form__message_tab": "رسالة",
   "form__message_uppercase": "رسالة",
+  "form__min_amount": "المبلغ الأدنى:",
   "form__minimum_received": "تلقى الحد الأدنى",
   "form__modifiable_tax": "ضريبة قابلة للتعديل",
   "form__modifiable_tax_desc": "إذا تم زيادة ضريبة المعاملات إلى أكثر من 49٪ ، فلن تكون التوكنات قادرة على التداول (مخاطرة موضع الجذب).",
+  "form__modify_the_line_with_the_correct_format": "قم بتعديل الخط بالتنسيق الصحيح",
   "form__more_details": "المزيد من التفاصيل",
   "form__multiple_transactions": "معاملات متعددة",
   "form__my_cryptos_uppercase": "التشفير الخاص بي",
@@ -986,7 +1013,9 @@
   "form__notification": "تنبيه",
   "form__one_year_high": "1 سنة عالية",
   "form__one_year_low": "1 سنة منخفضة",
+  "form__onekey_keytag": "OneKey KeyTag",
   "form__order_no": "رقم الطلب",
+  "form__outbox": "صندوق الصادر",
   "form__overwrite_metamask": "الكتابة فوق MetaMask",
   "form__owner_can_change_balance": "يمكن للمالك تغيير الرصيد",
   "form__owner_can_change_balance_desc": "يمكن لمالك العقد تغيير أرصدة الرمز المميز في عناوين أخرى.",
@@ -1026,12 +1055,14 @@
   "form__project": "مشروع",
   "form__proxy_contract_found": "تم العثور على عقد الوكيل",
   "form__proxy_contract_found_desc": "يسمح عقد الوكيل للمالك بتغيير وظيفة الرمز المميز وسعره.",
+  "form__put_coins_at_the_top": "ضع العملة على رأس القائمة",
   "form__quests": "أسئلة",
   "form__rate": "معدل",
   "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
   "form__receiving_address": "عنوان الاستلام",
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
+  "form__record_your_recovery_phrase_like_a_dot_punching_game": "سجل عبارة الاسترداد الخاصة بك مثل لعبة التثقيب.",
   "form__recovery_phrase": "عبارة الاسترداد",
   "form__recovery_seed_invalid": "عبارة الاسترداد الخاصة بك غير صالحة.",
   "form__recovery_seed_placeholder": "اكتب كلمات عبارة الاسترداد الخاصة بك هنا",
@@ -1053,6 +1084,7 @@
   "form__rule_at_least_int_digits": "على الأقل {0} من الأحرف",
   "form__s_request_history": "طلب التاريخ",
   "form__se_version": "إصدار SE",
+  "form__search": "بحث",
   "form__search_results_uppercase": "نتائج البحث",
   "form__search_tokens": "بحث عن الرموز",
   "form__searching_token": "جاري البحث في الرمز المميز ...",
@@ -1061,6 +1093,7 @@
   "form__sell_max_transaction_amount": "{0} {1} الحد الأقصى للبيع.",
   "form__sell_min_transaction_amount": "{0} {1} الحد الأدنى للبيع",
   "form__send_tokens": "إرسال الرموز",
+  "form__sent": "لقد ارسلت",
   "form__service_fee": "رسوم الخدمة",
   "form__show_all": "عرض الكل",
   "form__show_path_and_link": "إظهار المسار والارتباط",
@@ -1080,7 +1113,6 @@
   "form__stake_of_str_failed": "فشل حصة {0}",
   "form__staking_reward": "مكافأة الرهان",
   "form__start_with_wc_or_https_placeholder": "ابدأ بـ \"wc:\" أو \"https: //\"",
-  "form__stick_the_coin_to_top": "ضع العملة على رأس القائمة",
   "form__str_accounts": "{count} حسابات",
   "form__str_attention_item_uppercase": "{0} عنصر تنبيه",
   "form__str_chain_uppercase": "سلسلة {0}",
@@ -1103,6 +1135,7 @@
   "form__str_risky_item_uppercase": "{0} عنصر خطر",
   "form__str_transactions": "{0} المعاملات",
   "form__str_used": "{0} مستخدمة",
+  "form__str_words": "{0} كلمة",
   "form__str_y": "{0} ص",
   "form__submit_a_request": "تقديم طلب",
   "form__support_png_and_jpg_480_800_pixels": "يدعم PNG و JPG ، 480x800 بكسل",
@@ -1567,6 +1600,8 @@
   "title__buy_str": "شراء {0}",
   "title__channel": "قناة",
   "title__chart_mode": "وضع الرسم البياني",
+  "title__choose_a_wallet_to_back_up": "اختر المحفظة التي تريد نسخها احتياطيًا",
+  "title__choose_a_wallet_to_back_up_desc": "تحويل عبارة استرداد المحفظة إلى خريطة نقطية لـ OneKey KeyTag.",
   "title__choose_an_account": "اختيار حساب",
   "title__client_download": "تحميل العميل",
   "title__connect_sites": "المواقع المتصلة",
@@ -1575,6 +1610,7 @@
   "title__connect_with": "متصل مع",
   "title__continuing_to_oneKey": "جارٍ المتابعة إلى OneKey ...",
   "title__contract_approvals": "موافقات العقد",
+  "title__convert_recovery_phrase_to_dotmap_for_keytag": "تحويل عبارة الاسترداد إلى Dotmap لـ KeyTag",
   "title__cryptos": "التشفير",
   "title__dapp_connection": "اتصال dApp",
   "title__decrypt_message": "فك تشفير الرسالة",
@@ -1605,9 +1641,13 @@
   "title__help_center": "مركز المساعدة",
   "title__home": "مسكن",
   "title__import_wallet": "استيراد المحفظة",
+  "title__import_wallet_with_keytag": "استيراد Wallet باستخدام KeyTag",
+  "title__import_wallet_with_keytag_desc": "املأ الفراغ وفقًا لنسخة KeyTag الاحتياطية.",
   "title__invest": "استثمار",
   "title__launch_onekey": "قم بتشغيل OneKey",
   "title__leaderboard": "ليدربورد",
+  "title__lets_play_the_dot_punching_game": "هيا نلعب\n لعبة نقطة اللكم",
+  "title__lets_play_the_dot_punching_game_desc": "سيقوم OneKey بتحويل عبارة الاسترداد إلى BIP39 dotmap. كل ما عليك القيام به هو اتباع dotmap لكمة النقاط على KeyTag باستخدام ثقب مركزي تلقائي ، ثم ستنتهي من النسخ الاحتياطي لمحفظتك. استمتع!",
   "title__manage_account_dynamic": "إدارة الحساب الديناميكي",
   "title__manage_cryptos": "إدارة التشفير",
   "title__manage_news_sources": "إدارة مصادر الأخبار",

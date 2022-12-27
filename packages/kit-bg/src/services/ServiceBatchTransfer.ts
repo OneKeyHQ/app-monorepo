@@ -1,5 +1,3 @@
-import { providers as multicall } from '@0xsequence/multicall';
-import { wait } from '@onekeyfe/hd-core';
 import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import { Contract } from 'ethers';
@@ -11,19 +9,21 @@ import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   ISetApprovalForAll,
-  ISignedTx,
+  ISignedTxPro,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import lib0xSequenceMulticall from '@onekeyhq/shared/src/asyncModules/lib0xSequenceMulticall';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
-const BATCH_SEND_TX_RETRY_MAX = 20;
-const REFRESH_PENDING_TXS_RETRY_MAX = 20;
+const BATCH_SEND_TX_RETRY_MAX = 10;
+const REFRESH_PENDING_TXS_RETRY_MAX = 10;
 
 const ERC721 = ERC721MetadataArtifact.abi;
 const ERC1155 = ERC1155MetadataArtifact.abi;
@@ -39,6 +39,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
 
   @backgroundMethod()
   async getReadProvider(networkId: string) {
+    const multicall = await lib0xSequenceMulticall.getModule();
     const provider = await this.getProvider(networkId);
     if (!provider) {
       return;
@@ -146,6 +147,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const { engine } = this.backgroundApi;
     const { networkId, pendingTxs, encodedTx } = params;
     const network = await engine.getNetwork(networkId);
+    const { wait } = await CoreSDKLoader();
     let sendTxRetry = 0;
     let refreshPendingTxsRetry = 0;
     if (
@@ -156,7 +158,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
         batchTransferContractAddress[network.id]
     ) {
       // Make sure to call the batch sending contract after approves take effect
-      let signedTx: ISignedTx | null = null;
+      let signedTx: ISignedTxPro | null = null;
       const refreshPendingTxs = async () => {
         const txs = await engine.providerManager.refreshPendingTxs(
           networkId,

@@ -6,10 +6,11 @@ import {
   useRef,
 } from 'react';
 
-import { appDebugLogger } from '@onekeyfe/cross-inpage-provider-core';
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ErrorView from './ErrorView';
 
@@ -22,6 +23,7 @@ export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'transparent',
+    flex: 1,
   },
 });
 const NativeWebView = forwardRef(
@@ -55,7 +57,7 @@ const NativeWebView = forwardRef(
         try {
           const uri = new URL(event.nativeEvent.url);
           const origin = uri?.origin || '';
-          appDebugLogger.webview('onMessage', origin, data);
+          debugLogger.webview.info('onMessage', origin, data);
           // - receive
           jsBridge.receive(data, { origin });
           // eslint-disable-next-line no-empty

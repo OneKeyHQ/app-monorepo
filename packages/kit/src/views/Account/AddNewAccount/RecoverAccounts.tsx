@@ -599,6 +599,17 @@ const RecoverAccounts: FC = () => {
     [depDataInit, isLoading, pendRefreshData],
   );
 
+  const itemSeparatorComponent = useCallback(
+    () => (
+      <>
+        {!config.showPathAndLink && platformEnv.isNative ? (
+          <Box h="8px" />
+        ) : undefined}
+      </>
+    ),
+    [config.showPathAndLink],
+  );
+
   return (
     <Modal
       height="640px"
@@ -687,13 +698,7 @@ const RecoverAccounts: FC = () => {
               keyExtractor={(item: RecoverAccountType) => `${item.index}`}
               extraData={isAllSelected}
               showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => (
-                <>
-                  {!config.showPathAndLink && platformEnv.isNative ? (
-                    <Box h="8px" />
-                  ) : undefined}
-                </>
-              )}
+              ItemSeparatorComponent={itemSeparatorComponent}
             />
           )}
           <ListTableFooter

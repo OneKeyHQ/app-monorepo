@@ -248,6 +248,7 @@ export function WalletConnectQrcodeModal() {
 
   useEffect(
     () => () => {
+      // call onDismiss when Modal destroy
       onDismiss();
     },
     [onDismiss],

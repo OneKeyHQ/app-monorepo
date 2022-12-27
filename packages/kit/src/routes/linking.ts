@@ -15,6 +15,7 @@ import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 import { SendRoutes } from '../views/Send/types';
 
 import { WalletConnectUniversalLinkPathSchema } from './deepLink';
+import { SubmitRequestRoutes } from './Modal/SubmitRequest';
 import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
@@ -80,6 +81,10 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },
   {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.SubmitRequest}/${SubmitRequestRoutes.SubmitRequestModal}`,
+    path: `/${RootRoutes.Modal}/${ModalRoutes.SubmitRequest}/${SubmitRequestRoutes.SubmitRequestModal}`,
+  },
+  {
     screen: `${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
     path: `/${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
   },
@@ -135,6 +140,23 @@ const normalRouteWhiteList: WhiteListItemList = [
       desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
     },
     path: `/marketDetail`,
+    exact: true,
+  },
+  {
+    screen: {
+      vertical: `${RootRoutes.Root}/${HomeRoutes.NFTPNLScreen}`,
+      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.NFT}/${HomeRoutes.NFTPNLScreen}`,
+    },
+    path: `/pnl`,
+    exact: true,
+  },
+  /**
+   * refresh page will flash the last item of normalRouteWhiteList
+   * ** please add exact routes above here
+   * */
+  {
+    screen: `${RootRoutes.Root}`,
+    path: `/`,
     exact: true,
   },
 ];
@@ -316,5 +338,10 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => {
     },
   };
 };
+
+/*
+packages/kit/src/components/AppLock/AppLock.tsx
+  unlockWhiteListUrl
+ */
 
 export default buildLinking;

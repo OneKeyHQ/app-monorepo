@@ -38,7 +38,7 @@ import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
-import NPLDetailScreen from '../../views/NFTMarket/PNL/PNLDetail';
+import PNLDetailScreen from '../../views/NFTMarket/PNL/PNLDetail';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
@@ -86,6 +86,11 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.NFTMarketCollectionScreen,
         component: NFTMarketCollectionScreen,
+      },
+      {
+        name: HomeRoutes.NFTPNLScreen,
+        component: PNLDetailScreen,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -137,7 +142,8 @@ export const tabRoutes: TabRouteConfig[] = [
       },
       {
         name: HomeRoutes.NFTPNLScreen,
-        component: NPLDetailScreen,
+        component: PNLDetailScreen,
+        alwaysShowBackButton: true,
       },
     ],
   },
@@ -257,6 +263,17 @@ export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
       'text-default',
       'border-subdued',
     ]);
+
+    const headerLeft = useCallback(
+      ({ tintColor }) => (
+        <NavigationHeaderBackButton
+          tintColor={tintColor}
+          onPress={goBack}
+          canGoBack
+        />
+      ),
+      [],
+    );
     const renderHeader = useCallback(() => <LayoutHeaderDesktop />, []);
     return (
       <Stack.Navigator
@@ -291,14 +308,7 @@ export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
                 header: customRenderHeader,
                 headerLeft:
                   s.alwaysShowBackButton && platformEnv.isRuntimeBrowser
-                    ? ({ tintColor }) => (
-                        <NavigationHeaderBackButton
-                          tintColor={tintColor}
-                          // eslint-disable-next-line @typescript-eslint/unbound-method
-                          onPress={goBack}
-                          canGoBack
-                        />
-                      )
+                    ? headerLeft
                     : undefined,
                 // lazy: true,
                 headerShown: index > 0 || Boolean(customRenderHeader),

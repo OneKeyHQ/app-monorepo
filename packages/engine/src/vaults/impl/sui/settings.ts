@@ -1,6 +1,6 @@
 import type { IVaultSettings } from '../../types';
 
-const settings: IVaultSettings = {
+const settings: IVaultSettings = Object.freeze({
   privateKeyExportEnabled: true,
   tokenEnabled: true,
   txCanBeReplaced: false,
@@ -16,6 +16,6 @@ const settings: IVaultSettings = {
 
   feeInfoEditable: true,
   minGasLimit: 50,
-};
+});
 
 export default settings;

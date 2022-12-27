@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { toLower } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Box, Text } from '@onekeyhq/components';
+import { Alert, Box, Text } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
@@ -136,6 +136,15 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
                 isAccountNotMatched={isAccountNotMatched}
               />
             )}
+            <Box mb={3}>
+              <Alert
+                dismiss={false}
+                title={intl.formatMessage({
+                  id: 'content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets',
+                })}
+                alertType="warn"
+              />
+            </Box>
             <Box mb={6}>{feeInput}</Box>
             <SendConfirmErrorBoundary>{children}</SendConfirmErrorBoundary>
 

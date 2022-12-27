@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import QRCodeModalWeb from '@walletconnect/qrcode-modal';
 import { Linking } from 'react-native';
 
+import { useToast } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
@@ -54,7 +55,7 @@ function getOrCreateClient() {
 
 export function useWalletConnectQrcodeModal() {
   const { serviceWalletConnect } = backgroundApiProxy;
-
+  const toast = useToast();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [state, setState] =
     useState<IWalletConnectQrcodeModalState>(defaultState);
@@ -165,9 +166,12 @@ export function useWalletConnectQrcodeModal() {
   // TODO disconnect client and ws transport when Modal close
   const close = useCallback(
     ({
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       walletServiceForConnectDirectly,
+      shouldCloseCurrentModal,
     }: {
       walletServiceForConnectDirectly?: WalletService;
+      shouldCloseCurrentModal?: boolean;
     } = {}) => {
       if (isClosedRef.current) {
         return;
@@ -176,7 +180,7 @@ export function useWalletConnectQrcodeModal() {
         'useWalletConnectQrcodeModal onDismiss closed',
       );
       isClosedRef.current = true;
-      if (!walletServiceForConnectDirectly) {
+      if (shouldCloseCurrentModal) {
         closeModal();
       }
       setState((currentState) => {
@@ -199,8 +203,12 @@ export function useWalletConnectQrcodeModal() {
     [closeModal],
   );
 
+  // CreateWalletModalRoutes.WalletConnectQrcodeModal destroy callback
   const onDismiss = useCallback(() => {
-    close();
+    // WalletConnectQrcodeModal is closed by destroy, do NOT close twice
+    close({
+      shouldCloseCurrentModal: false,
+    });
     (async () => {
       // setConnector(await createConnector(intermediateValue));
     })();
@@ -246,6 +254,13 @@ export function useWalletConnectQrcodeModal() {
             if (canOpenURL) {
               await Linking.openURL(uri);
             } else {
+              toast.show(
+                {
+                  title:
+                    'WalletConnect compatible wallets App not found in your device.',
+                },
+                { type: 'error' },
+              );
               // url 404 now
               await Linking.openURL(WALLET_CONNECT_WALLETS_LIST);
               throw new Error('No wallets found.');
@@ -283,7 +298,10 @@ export function useWalletConnectQrcodeModal() {
           return undefined;
         },
         close() {
-          close({ walletServiceForConnectDirectly });
+          close({
+            walletServiceForConnectDirectly,
+            shouldCloseCurrentModal: !walletServiceForConnectDirectly,
+          });
         },
       };
     },

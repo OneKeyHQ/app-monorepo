@@ -4,12 +4,12 @@ import { OneKeyInternalError } from '../../errors';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { ISignCredentialOptions } from '../types';
+import type { Signer } from '../../proxy';
 import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
-import type { Signer } from '@onekeyfe/blockchain-libs/dist/types/secret';
+  ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '../types';
 
 export abstract class KeyringSoftwareBase extends KeyringBase {
   // Implemented by HD & imported base.
@@ -26,9 +26,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
   // TODO: check history is added
   async signTransaction(
-    unsignedTx: UnsignedTx,
+    unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
+  ): Promise<ISignedTxPro> {
     const { password } = options;
     if (typeof password === 'undefined') {
       throw new OneKeyInternalError('Software signing requires a password.');
@@ -38,11 +38,15 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       unsignedTx.inputs.map((input) => input.address),
     );
     debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);
-    return this.engine.providerManager.signTransaction(
+    const signedTx = await this.engine.providerManager.signTransaction(
       this.networkId,
       unsignedTx,
       signers,
     );
+    return {
+      ...signedTx,
+      encodedTx: unsignedTx.encodedTx,
+    };
   }
 
   // TODO: check history is added

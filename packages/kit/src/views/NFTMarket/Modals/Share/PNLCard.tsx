@@ -57,7 +57,7 @@ export const PNLCard: FC<Props> = ({ data, scale, opacity }) => {
               left={0}
               bgColor="background-default"
             >
-              <NFTListImage asset={data?.asset} size={358} opacity={50} />
+              <NFTListImage asset={data?.asset} size={378} opacity={50} />
             </Center>
           )}
           <BlurView

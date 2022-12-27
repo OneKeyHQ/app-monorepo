@@ -1,5 +1,6 @@
 /* eslint-disable no-promise-executor-return */
 import { HardwareErrorCode, createDeferred } from '@onekeyfe/hd-shared';
+import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
@@ -7,6 +8,7 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { Toast as ToastManager } from '@onekeyhq/components/src/Toast/useToast';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { getHardwareSDKInstance } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
@@ -17,7 +19,6 @@ import showHardwarePopup, {
 } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 import * as Error from './errors';
-import { getHardwareSDKInstance } from './hardwareInstance';
 
 import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 import type {
@@ -47,22 +48,19 @@ class DeviceUtils {
 
   checkBonded = false;
 
-  bleManager?: typeof import('react-native-ble-manager');
+  bleManager?: typeof BleManager;
 
   async getSDKInstance() {
     return getHardwareSDKInstance();
   }
 
-  getBleManager() {
+  async getBleManager() {
     if (!platformEnv.isNative) return null;
-    if (!this.bleManager) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const BleManager = require('react-native-ble-manager')
-        .default as typeof import('react-native-ble-manager');
-      BleManager.start({ showAlert: false });
-      this.bleManager = BleManager;
+    if (this.bleManager) {
+      return Promise.resolve(this.bleManager);
     }
-    return this.bleManager;
+    BleManager.start({ showAlert: false });
+    this.bleManager = BleManager;
   }
 
   startDeviceScan(
@@ -192,7 +190,7 @@ class DeviceUtils {
   }
 
   async getBondedDevices() {
-    const bleManager = this.getBleManager();
+    const bleManager = await this.getBleManager();
     if (!bleManager) {
       return [];
     }

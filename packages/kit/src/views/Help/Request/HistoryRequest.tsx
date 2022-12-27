@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
 import { Column, Row } from 'native-base';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Alert,
@@ -43,7 +42,6 @@ export const HistoryRequest: FC = () => {
   const intl = useIntl();
   const { instanceId } = useSettings();
   const { formatDate } = useFormatDate();
-  const { width } = useWindowDimensions();
 
   const navigation = useNavigation<NavigationProps>();
   const [historyList, updateHistoryList] = useState<TicketType[]>([]);
@@ -114,6 +112,9 @@ export const HistoryRequest: FC = () => {
       case 'empty':
         return (
           <>
+            <Box position="absolute" top={0} left={0} right={0}>
+              {HintView}
+            </Box>
             <Empty
               emoji="💬"
               title={intl.formatMessage({ id: 'title__no_request_history' })}
@@ -125,9 +126,6 @@ export const HistoryRequest: FC = () => {
               })}
               handleAction={SubmitRequestAction}
             />
-            <Box position="absolute" top={0} width={`${width - 32}px`}>
-              {HintView}
-            </Box>
           </>
         );
       case 'loading':
@@ -239,7 +237,12 @@ export const HistoryRequest: FC = () => {
       }
     >
       {pageStatus !== 'data' ? (
-        <Box flex={1} alignItems="center" justifyContent="center">
+        <Box
+          flex={1}
+          alignItems="center"
+          justifyContent="center"
+          position="relative"
+        >
           {noData()}
         </Box>
       ) : null}
