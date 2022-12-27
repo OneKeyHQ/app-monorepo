@@ -131,7 +131,7 @@ const WalletTabs: FC = () => {
               hideSmallBalance={hideSmallBalance}
               accountId={accountId}
               networkId={networkId}
-              ListFooterComponent={<Box h={16} />}
+              ListFooterComponent={<Box h={6} />}
               limitSize={20}
             />
             <DefiList />

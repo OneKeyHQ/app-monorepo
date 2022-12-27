@@ -845,6 +845,7 @@ class Engine {
               ret[tokenId] = balance;
               allAccountTokens.push({
                 ...token,
+                autoDetected: true,
                 sendAddress,
               });
             }

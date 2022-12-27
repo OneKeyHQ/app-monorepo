@@ -2,6 +2,7 @@ import type { ComponentProps, FC, ReactElement } from 'react';
 import { useMemo } from 'react';
 
 import B from 'bignumber.js';
+import dayjs from 'dayjs';
 import { useIntl } from 'react-intl';
 
 import {
@@ -26,7 +27,7 @@ type TokenKey = 'supplyTokens' | 'rewardTokens' | 'borrowTokens';
 
 interface ColumnItem {
   header: LocaleIds;
-  render: (params: { pool: IOverviewDeFiPortfolioItem }) => ReactElement;
+  render: (params: { pool: IOverviewDeFiPortfolioItem }) => ReactElement | null;
   visibleOn?: (params: {
     isVertical: boolean;
     pools: IOverviewDeFiPortfolioItem[];
@@ -123,11 +124,20 @@ const getAprColumn = (): ColumnItem => ({
 const getUnlockTimeColumn = (): ColumnItem => ({
   header: 'form__unlock_time_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => !!p?.lockedInfo?.unlockTime),
-  render: ({ pool }) => (
-    <Typography.Body2Strong>
-      {pool.lockedInfo.unlockTime}
-    </Typography.Body2Strong>
-  ),
+  render: ({ pool }) => {
+    const unlockTime = pool?.lockedInfo?.unlockTime;
+    if (!unlockTime) {
+      return null;
+    }
+    if (typeof unlockTime !== 'number') {
+      return unlockTime;
+    }
+    return (
+      <Typography.Body2Strong>
+        {dayjs(unlockTime * 1000).format('YYYY/MM/DD HH:mm')}
+      </Typography.Body2Strong>
+    );
+  },
 });
 
 export const OverviewDefiPool: FC<{
