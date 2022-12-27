@@ -1,9 +1,13 @@
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import {
+  NativeEventEmitter,
+  NativeModules,
+  useWindowDimensions,
+} from 'react-native';
 
 import {
   Box,
@@ -51,6 +55,9 @@ type NavigationProps = CompositeNavigationProp<
 
 const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
 const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
+
+const { HTTPServerManager } = NativeModules;
+
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
@@ -194,6 +201,28 @@ export const Debug = () => {
       });
     },
     [engine, handleApproveToken, navigation],
+  );
+
+  const HttpServerManagerEmitter = useMemo(
+    () => new NativeEventEmitter(HTTPServerManager),
+    [],
+  );
+
+  const subscription = HttpServerManagerEmitter.addListener(
+    'httpServerResponseReceived',
+    (request: { requestId: string; type: string; url: string }) => {
+      console.log('requestId = ', request.requestId);
+      console.log('type = ', request.url);
+      console.log('url = ', request.type);
+      if (request.type === 'GET') {
+        HTTPServerManager.respond(
+          request.requestId,
+          200,
+          'application/json',
+          '{"message": "OK"}',
+        );
+      }
+    },
   );
 
   return (
@@ -378,6 +407,23 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>Log current wallet</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                subscription.remove();
+                HTTPServerManager.stop();
+              }}
+            >
+              <Typography.Body1>Stop HttpServer</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                HTTPServerManager.start(5561, 'http_service');
+              }}
+            >
+              <Typography.Body1>Start HttpServer</Typography.Body1>
             </Pressable>
             <Pressable
               {...pressableProps}

@@ -34,6 +34,13 @@ export interface SplashScreenManagerInterface extends NativeModule {
   show: () => void;
 }
 
+export interface RCTHTTPServerManagerInterface extends NativeModule {
+  start: (port: number, name: string) => void;
+  stop: () => void;
+  respond: (id: string, code: number, type: string, body: string) => void;
+  getConstants: () => any;
+}
+
 export interface JPushManagerInterface extends NativeModule {
   registerNotification: () => void;
 }
@@ -45,6 +52,7 @@ export interface MinimizerInterface extends NativeModule {
 
 declare module 'react-native' {
   interface NativeModulesStatic {
+    HTTPServerManager: RCTHTTPServerManagerInterface;
     OKLiteManager: OKLiteManagerInterface;
     OKPermissionManager: PermissionManagerInterface;
     SplashScreenManager: SplashScreenManagerInterface;

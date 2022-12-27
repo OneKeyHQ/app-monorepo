@@ -129,6 +129,9 @@ PODS:
     - GoogleUtilities/Environment (~> 7.7)
     - "GoogleUtilities/NSData+zlib (~> 7.7)"
   - fmt (6.2.1)
+  - GCDWebServer (3.5.4):
+    - GCDWebServer/Core (= 3.5.4)
+  - GCDWebServer/Core (3.5.4)
   - glog (0.3.5)
   - GoogleAppMeasurement/WithoutAdIdSupport (8.15.0):
     - GoogleUtilities/AppDelegateSwizzler (~> 7.7)
@@ -227,7 +230,7 @@ PODS:
   - nanopb/decode (2.30908.0)
   - nanopb/encode (2.30908.0)
   - PromisesObjC (2.1.1)
-  - Protobuf (3.21.9)
+  - Protobuf (3.21.12)
   - RCT-Folly (2021.06.28.00-v2):
     - boost
     - DoubleConversion
@@ -678,6 +681,7 @@ DEPENDENCIES:
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
+  - GCDWebServer (~> 3.5.3)
   - glog (from `../../../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - JCore (from `../../../node_modules/jcore-react-native`)
   - JPush (from `../../../node_modules/jpush-react-native`)
@@ -755,6 +759,7 @@ SPEC REPOS:
     - FirebasePerformance
     - FirebaseRemoteConfig
     - fmt
+    - GCDWebServer
     - GoogleAppMeasurement
     - GoogleDataTransport
     - GoogleMLKit
@@ -998,6 +1003,7 @@ SPEC CHECKSUMS:
   FirebasePerformance: 66eb58c3e3568a0501a9be271c8ff424dea0ff34
   FirebaseRemoteConfig: 2d6e2cfdb49af79535c8af8a80a4a5009038ec2b
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
+  GCDWebServer: 2c156a56c8226e2d5c0c3f208a3621ccffbe3ce4
   glog: 476ee3e89abb49e07f822b48323c51c57124b572
   GoogleAppMeasurement: 4c19f031220c72464d460c9daa1fb5d1acce958e
   GoogleDataTransport: 1c8145da7117bd68bbbed00cf304edb6a24de00f
@@ -1021,7 +1027,7 @@ SPEC CHECKSUMS:
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   nanopb: a0ba3315591a9ae0a16a309ee504766e90db0c96
   PromisesObjC: ab77feca74fa2823e7af4249b8326368e61014cb
-  Protobuf: 02524ec14183fe08fb259741659e79683788158b
+  Protobuf: 120350fc38646e2dedc26f49ecba778184ea1de2
   RCT-Folly: 4d8508a426467c48885f1151029bc15fa5d7b3b8
   RCTRequired: b8caca023d386d43740dfb94c2cf68f695fa5e77
   RCTTypeSafety: ec44ea1d6ad1e5cd6447b22159ff40c2ebbd23b1
@@ -1081,6 +1087,6 @@ SPEC CHECKSUMS:
   Yoga: 2f6a78c58dcc2963bd8e34d96a4246d9dff2e3a7
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb
 
-PODFILE CHECKSUM: a79a461153bb4b5bdd518aaa5502448829e75b77
+PODFILE CHECKSUM: 75474874608e3bd0842d5d38d237d0aabe8ce41e
 
 COCOAPODS: 1.11.3
