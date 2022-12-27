@@ -132,7 +132,6 @@ export function useBatchSendConfirmFeeInfoPayload({
             encodedTx,
             signOnly,
           });
-          setFeeInfoError(null);
         } catch (error: any) {
           if (
             network?.impl === IMPL_EVM &&
@@ -322,6 +321,9 @@ export function useBatchSendConfirmFeeInfoPayload({
           : (mergedInfos as IFeeInfoPayload[]);
 
         setFeeInfoPayloads(filterdInfos);
+        if (filterdInfos.length > 0) {
+          setFeeInfoError(null);
+        }
       } catch (error: any) {
         // TODO: only an example implementation about showing rpc error
         const { code: errCode } = error as { code?: number };
@@ -372,13 +374,23 @@ export function useBatchSendConfirmFeeInfoPayload({
               : (mergedInfos as IFeeInfoPayload[]);
 
             setFeeInfoPayloads(filterdInfos);
-          } else if (feeInfoPayloadCacheRef.current) {
+            feeInfoPayloadCacheRef.current = filterdInfos;
+            if (filterdInfos.length > 0) {
+              setFeeInfoError(null);
+            }
+          } else if (
+            feeInfoPayloadCacheRef.current &&
+            feeInfoPayloadCacheRef.current.length > 0
+          ) {
             // ** use last cache if error
             setFeeInfoPayloads(feeInfoPayloadCacheRef.current);
             setFeeInfoError(null);
           }
         } catch (error: any) {
-          if (feeInfoPayloadCacheRef.current) {
+          if (
+            feeInfoPayloadCacheRef.current &&
+            feeInfoPayloadCacheRef.current.length > 0
+          ) {
             // ** use last cache if error
             setFeeInfoPayloads(feeInfoPayloadCacheRef.current);
             setFeeInfoError(null);
