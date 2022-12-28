@@ -148,7 +148,7 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.RevokeRedirect]: undefined;
   [HomeRoutes.KeyTag]: undefined;
-  [HomeRoutes.NFTPNLScreen]: { address?: string };
+  [HomeRoutes.NFTPNLScreen]: undefined;
 };
 /** HomeStack */
 

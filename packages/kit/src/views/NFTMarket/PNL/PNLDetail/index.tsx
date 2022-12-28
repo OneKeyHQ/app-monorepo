@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -35,11 +35,7 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
-import type {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalScreenProps,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -59,7 +55,6 @@ import Mobile from './List/Mobile';
 import SearchAddress from './SearchAddress';
 
 import type { NFTMarketRoutesParams } from '../../Modals/type';
-import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
@@ -224,7 +219,6 @@ const Header: FC<HeaderProps> = ({
   const name = useRef<string>();
   const { loading: inputLoading } = useSearchAddress({
     keyword: nameOrAddress,
-    network,
     onAddressSearch: ({ ens: ensName, address: vaildAddress }) => {
       name.current = ensName;
       if (vaildAddress) {
@@ -409,8 +403,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   const { account: activeAccount } = useActiveWalletAccount();
 
   const navigation = useNavigation();
-  const defaultNetwork = useDefaultNetWork();
-  const [selectNetwork] = useState<Network>(defaultNetwork);
+  const selectNetwork = useDefaultNetWork();
 
   const { serviceNFT } = backgroundApiProxy;
 
@@ -635,21 +628,13 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 };
 
 const NPLScreen = () => {
-  const route =
-    useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTPNLScreen>>();
-  const { address: lastAddress } = route.params;
   const { network, account } = useActiveWalletAccount();
   const isEvmAddress = network?.impl === IMPL_EVM;
 
   const [addressInfo, setAddressInfo] = useState<{
     address?: string;
     ens?: string;
-  }>(() => {
-    if (lastAddress && lastAddress.length > 0) {
-      return { address: lastAddress };
-    }
-    return { address: isEvmAddress ? account?.address : undefined };
-  });
+  }>(() => ({ address: isEvmAddress ? account?.address : undefined }));
   if (addressInfo?.address) {
     return (
       <NPLDetail accountAddress={addressInfo?.address} ens={addressInfo.ens} />
