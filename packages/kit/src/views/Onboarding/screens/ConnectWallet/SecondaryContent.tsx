@@ -3,7 +3,7 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Box, Center, Hidden, useToast } from '@onekeyhq/components';
+import { Box, Center, Hidden, ToastManager } from '@onekeyhq/components';
 import LogoLedger from '@onekeyhq/kit/assets/onboarding/logo_ledger.png';
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,7 +25,7 @@ function SecondaryContent({
 }: IOnboardingConnectWalletParams = {}) {
   const { addExternalAccount } = useAddExternalAccount();
   const onboardingDone = useOnboardingDone();
-  const toast = useToast();
+
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -69,7 +69,7 @@ function SecondaryContent({
             if (!disableOnboardingDone) {
               await onboardingDone();
               await wait(600);
-              toast.show({
+              ToastManager.show({
                 title: intl.formatMessage({ id: 'msg__account_imported' }),
               });
             } else {

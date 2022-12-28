@@ -8,8 +8,8 @@ import {
   Box,
   Icon,
   Text,
+  ToastManager,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
@@ -32,7 +32,7 @@ const DiscoverHistoryMenu: FC<{
 }> = ({ closeOverlay, item }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const options: (
     | {
@@ -71,7 +71,9 @@ const DiscoverHistoryMenu: FC<{
         id: 'action__copy_url',
         onPress: () => {
           copyToClipboard(item?.dapp?.url ?? item?.webSite?.url ?? '');
-          toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'msg__copied' }),
+          });
         },
         icon: 'LinkMini',
       },
@@ -79,7 +81,7 @@ const DiscoverHistoryMenu: FC<{
         id: 'action__remove',
         onPress: () => {
           backgroundApiProxy.serviceDiscover.removeMatchItem(item);
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({ id: 'transaction__success' }),
           });
         },
@@ -87,7 +89,7 @@ const DiscoverHistoryMenu: FC<{
         isDanger: true,
       },
     ],
-    [item, toast, intl, isVerticalLayout, navigation],
+    [item, intl, isVerticalLayout, navigation],
   );
   return (
     <Box bg="surface-subdued" flexDirection="column">

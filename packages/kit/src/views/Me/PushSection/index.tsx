@@ -1,8 +1,14 @@
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, useTheme } from '@onekeyhq/components';
-import Typography, { Text } from '@onekeyhq/components/src/Typography';
+import {
+  Box,
+  Icon,
+  Pressable,
+  Text,
+  Typography,
+  useTheme,
+} from '@onekeyhq/components';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 

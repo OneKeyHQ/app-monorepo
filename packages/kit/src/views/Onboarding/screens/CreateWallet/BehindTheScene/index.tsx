@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, ToastManager, useToast } from '@onekeyhq/components';
+import { Box, Center, ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
@@ -62,7 +62,6 @@ function BehindTheSceneCreatingWallet({
   onPressOnboardingFinished?: () => Promise<void>;
   setIsNavBackDisabled?: (b: boolean) => void;
 }) {
-  const toast = useToast();
   const intl = useIntl();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
@@ -168,7 +167,7 @@ function BehindTheSceneCreatingWallet({
         await savePassword(password);
       }
       if (platformEnv.isDev) {
-        toast.show({
+        ToastManager.show({
           title: intl.formatMessage({ id: 'msg__account_created' }),
         });
       }
@@ -176,13 +175,13 @@ function BehindTheSceneCreatingWallet({
     } catch (e) {
       debugLogger.common.error(e);
       const errorKey = (e as { key: LocaleIds }).key;
-      toast.show(
+      ToastManager.show(
         { title: intl.formatMessage({ id: errorKey }) },
         { type: 'error' },
       );
     }
     return false;
-  }, [intl, mnemonic, password, toast, withEnableAuthentication]);
+  }, [intl, mnemonic, password, withEnableAuthentication]);
 
   useEffect(() => {
     (async function () {

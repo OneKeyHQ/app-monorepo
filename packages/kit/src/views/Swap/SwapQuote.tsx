@@ -19,7 +19,6 @@ import { useAppSelector, useNavigation, useNetwork } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
-import { useNetworkFeeInfoEditable } from '../Send/utils/useNetworkFeeInfoEditable';
 
 import { ArrivalTime } from './components/ArrivalTime';
 import SwappingVia from './components/SwappingVia';

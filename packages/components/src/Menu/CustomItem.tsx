@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HStack from '../HStack';
 import Icon from '../Icon';
-import { Text } from '../Typography';
+import Text from '../Text';
 
 import type { ICON_NAMES } from '../Icon';
 import type { IMenuItemProps } from 'native-base';

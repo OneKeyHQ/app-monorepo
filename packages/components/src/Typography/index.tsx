@@ -2,8 +2,6 @@ import type { ComponentProps, FC } from 'react';
 
 import { Text as NBText } from 'native-base';
 
-import { useIsVerticalLayout } from '../Provider/hooks';
-
 import type { TextStyle } from 'react-native';
 
 export type TypographyStyle =
@@ -306,32 +304,6 @@ export const CaptionMono: FC<FontProps> = ({ children, ...rest }) => (
   </NBText>
 );
 
-type TextProps = {
-  typography?:
-    | TypographyStyle
-    | { 'sm': TypographyStyle; 'md': TypographyStyle };
-} & FontProps;
-
-export const Text: FC<TextProps> = ({ typography, children, ...rest }) => {
-  const isSmallScreen = useIsVerticalLayout();
-  let props;
-  if (typography) {
-    if (typeof typography === 'string') {
-      props = getTypographyStyleProps(typography);
-    } else {
-      props = getTypographyStyleProps(
-        isSmallScreen ? typography.sm : typography.md,
-      );
-    }
-  }
-
-  return (
-    <NBText color="text-default" {...props} {...rest}>
-      {children}
-    </NBText>
-  );
-};
-
 const Typography = {
   Display2XLarge,
   DisplayXLarge,
@@ -355,7 +327,6 @@ const Typography = {
   CaptionStrong,
   CaptionUnderline,
   CaptionMono,
-  Text,
 };
 
 export default Typography;

@@ -1,4 +1,4 @@
-import type { ICON_NAMES } from '@onekeyhq/components/src';
+import type { ICON_NAMES } from '@onekeyhq/components';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import type { MarketCategory } from '../../store/reducers/market';

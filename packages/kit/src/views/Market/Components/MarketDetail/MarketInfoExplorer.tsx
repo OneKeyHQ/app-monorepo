@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 
-import { Box, Icon, Pressable, Typography } from '@onekeyhq/components/src';
+import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 

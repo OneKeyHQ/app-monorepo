@@ -8,10 +8,10 @@ import {
   HStack,
   IconButton,
   Pressable,
+  ToastManager,
   Typography,
   VStack,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
@@ -45,7 +45,7 @@ export const ERC721Allowance: FC<Props> = ({
   tokenId,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const isVertical = useIsVerticalLayout();
   const name = useSpenderAppName(networkId, spender);
   const { account } = useActiveWalletAccount();
@@ -133,7 +133,9 @@ export const ERC721Allowance: FC<Props> = ({
       switch (key) {
         case 'copy':
           copyToClipboard(spender);
-          toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'msg__copied' }),
+          });
           break;
         case 'revoke':
           onRevoke();
@@ -143,7 +145,7 @@ export const ERC721Allowance: FC<Props> = ({
         }
       }
     },
-    [spender, onRevoke, intl, toast],
+    [spender, onRevoke, intl],
   );
 
   const showRevokeDetail = useCallback(() => {
