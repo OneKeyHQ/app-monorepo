@@ -53,9 +53,9 @@ export const OverviewDefiBoxHeader: FC<{
         </VStack>
         <Pressable onPress={toggle}>
           {collapsed ? (
-            <Icon name="ChevronUpMini" size={20} />
-          ) : (
             <Icon name="ChevronDownMini" size={20} />
+          ) : (
+            <Icon name="ChevronUpMini" size={20} />
           )}
         </Pressable>
       </HStack>

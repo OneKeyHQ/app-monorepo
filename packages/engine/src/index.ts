@@ -822,15 +822,7 @@ class Engine {
               tokenIdOnNetwork: address,
             });
             if (!token) {
-              token = await this.quickAddToken(
-                accountId,
-                networkId,
-                address,
-                undefined,
-                {
-                  autoDetected: true,
-                },
-              );
+              token = await this.quickAddToken(accountId, networkId, address);
             }
             if (token) {
               // only record new token balances
@@ -845,8 +837,8 @@ class Engine {
               ret[tokenId] = balance;
               allAccountTokens.push({
                 ...token,
-                autoDetected: true,
                 sendAddress,
+                autoDetected: !accountTokens.some((t) => t.address === address),
               });
             }
           } catch (e) {
