@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components/src/Toast/useToast';
+import { ToastManager } from '@onekeyhq/components';
 import type {
   KeyTagVerifyWalletRoutes,
   KeyTagVerifyWalletRoutesParams,
@@ -34,7 +34,7 @@ const KeyTagBackupWalletAttentions = () => {
       password,
     );
     if (!mnemonic?.length) {
-      Toast.show({
+      ToastManager.show({
         title: 'mnemonic parse error',
       });
       return;

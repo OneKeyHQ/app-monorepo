@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
+import { Form, Modal, ToastManager, useForm } from '@onekeyhq/components';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
@@ -24,7 +24,7 @@ type EnterAddressValues = {
 
 const EnterAddress = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { onSelected, networkId } = route.params ?? {};
@@ -80,7 +80,7 @@ const EnterAddress = () => {
             values.address.trim(),
           );
         } catch {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({ id: 'form__address_invalid' }),
           });
           return;
@@ -94,7 +94,7 @@ const EnterAddress = () => {
         navigation.goBack();
       }
     },
-    [navigation, onSelected, networkId, toast, intl],
+    [navigation, onSelected, networkId, intl],
   );
 
   const syncStateAndReTriggerValidate = useCallback(

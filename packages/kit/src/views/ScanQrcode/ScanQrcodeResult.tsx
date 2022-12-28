@@ -11,9 +11,9 @@ import {
   Icon,
   Modal,
   Pressable,
+  ToastManager,
   Typography,
   useSafeAreaInsets,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
@@ -51,11 +51,11 @@ const pressableProps = {
 
 function CopyButton({ data }: { data: string }) {
   const intl = useIntl();
-  const toast = useToast();
+
   const onPress = useCallback(() => {
     copyToClipboard(data);
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [data, intl, toast]);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [data, intl]);
   return (
     <Pressable {...pressableProps} onPress={onPress}>
       <HStack space="3">

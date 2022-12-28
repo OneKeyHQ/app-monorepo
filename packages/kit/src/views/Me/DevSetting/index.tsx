@@ -10,9 +10,9 @@ import {
   Pressable,
   Switch,
   Text,
+  ToastManager,
   Typography,
   useTheme,
-  useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -72,7 +72,6 @@ function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
 }
 
 export const DevSettingSection = () => {
-  const toast = useToast();
   const { themeVariant } = useTheme();
   const { devMode, pushNotification, instanceId } = useSettings();
   const { registrationId } = pushNotification || {};
@@ -111,8 +110,8 @@ export const DevSettingSection = () => {
 
   const copyRegistrationId = useCallback(() => {
     copyToClipboard(pushId || '');
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [toast, intl, pushId]);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [intl, pushId]);
 
   const fiatEndpoint = useMemo(getFiatEndpoint, [enableTestFiatEndpoint]);
 
@@ -253,7 +252,7 @@ export const DevSettingSection = () => {
                     perfCheckResult,
                   }),
                 );
-                toast.show({
+                ToastManager.show({
                   title: intl.formatMessage({ id: 'msg__copied' }),
                 });
                 console.log('perfCheckResult', perfCheckResult);

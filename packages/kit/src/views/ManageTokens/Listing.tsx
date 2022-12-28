@@ -15,9 +15,9 @@ import {
   Pressable,
   Searchbar,
   Spinner,
+  ToastManager,
   Token as TokenImage,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -238,7 +238,7 @@ type ListRenderTokenProps = {
 
 const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { walletId, accountId, networkId } = useActiveWalletAccount();
@@ -303,7 +303,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       });
       const value = getTokenValue({ token: item, price, balances });
       if (value && value.isLessThan(1)) {
-        toast.show(
+        ToastManager.show(
           {
             title: intl.formatMessage({
               id: 'msg__token_has_been_added_but_is_hidden',
@@ -322,12 +322,14 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
         return;
       }
     }
-    toast.show({ title: intl.formatMessage({ id: 'msg__token_added' }) });
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__token_added' }),
+    });
   }, [
     accountId,
     networkId,
     hideSmallBalance,
-    toast,
+
     intl,
     checkIfShouldActiveToken,
     item,

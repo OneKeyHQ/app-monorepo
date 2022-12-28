@@ -8,11 +8,11 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   IconButton,
+  ToastManager,
   Token,
   Typography,
   useIsVerticalLayout,
-  useToast,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -46,7 +46,7 @@ type NavigationProps = NativeStackNavigationProp<TabRoutesParams> &
 
 const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
-  const toast = useToast();
+
   const intl = useIntl();
   const iconName = useMemo(() => {
     if (tokenItem?.favorited) {
@@ -70,7 +70,7 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
               backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
                 tokenItem.coingeckoId,
               );
-              toast.show({
+              ToastManager.show({
                 title: intl.formatMessage({ id: 'msg__removed' }),
               });
             } else {
@@ -80,7 +80,7 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
                   symbol: tokenItem.symbol,
                 },
               ]);
-              toast.show({
+              ToastManager.show({
                 title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
               });
             }
@@ -156,7 +156,7 @@ const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
     // }
     setIsFetching(false);
     // if (!res) return;
-    // toast.show({
+    // ToastManager.show({
     //   title: intl.formatMessage({
     //     id: priceSubscribeEnable
     //       ? 'msg__unsubscription_succeeded'

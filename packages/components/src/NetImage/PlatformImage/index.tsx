@@ -2,7 +2,7 @@ import type { FC } from 'react';
 
 import FastImage from 'react-native-fast-image';
 
-import { useThemeValue } from '../../Provider/hooks';
+import { useThemeValue } from '@onekeyhq/components';
 
 import type { InnerImageProps } from '../type';
 

@@ -9,7 +9,7 @@ import {
   useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 
-import { useTheme, useThemeValue } from '../Provider/hooks';
+import { useTheme, useThemeValue } from '@onekeyhq/components';
 
 import type { View } from 'react-native';
 import type { RenderCellOptions } from 'react-native-confirmation-code-field';

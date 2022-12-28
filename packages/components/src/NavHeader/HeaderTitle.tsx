@@ -3,11 +3,11 @@ import { useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import { useNavigation } from '@onekeyhq/kit/src/hooks';
 
 import Box from '../Box';
-import { useIsVerticalLayout } from '../Provider/hooks';
-import { Text } from '../Typography';
+import Text from '../Text';
 
 interface TitleProps {
   title: string;

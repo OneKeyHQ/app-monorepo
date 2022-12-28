@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
+import { Form, Modal, ToastManager, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
@@ -24,7 +24,7 @@ type EnterAddressValues = {
 
 const EnterAddress = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { onSelected, networkId, defaultAddress } = route.params ?? {};
@@ -69,7 +69,7 @@ const EnterAddress = () => {
             values.address.trim(),
           );
         } catch {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({ id: 'form__address_invalid' }),
           });
           return;
@@ -78,7 +78,7 @@ const EnterAddress = () => {
       onSelected?.({ address: values.address.trim(), name: values.name });
       navigation.goBack();
     },
-    [navigation, onSelected, toast, intl, networkId],
+    [navigation, onSelected, intl, networkId],
   );
 
   return (
