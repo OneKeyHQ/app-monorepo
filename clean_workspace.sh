@@ -44,6 +44,7 @@ rm -rf ./packages/desktop/build-electron
 rm -rf ./packages/desktop/public/static/js-sdk
 rm -rf ./packages/desktop/public/static/connect
 rm -rf ./packages/desktop/public/static/preload.js
+rm -rf ./packages/desktop/web/static/js-sdk/
 
 rm -rf ./packages/web/node_modules
 rm -rf ./packages/web/.expo

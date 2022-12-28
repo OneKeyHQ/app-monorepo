@@ -1,10 +1,10 @@
 import memoizee from 'memoizee';
 
-import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { importHardwareSDK } from './sdk-loader';
+import { getConnectSrc } from './sdk-loader/connect-src';
 
 import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
 
@@ -28,7 +28,7 @@ export const getHardwareSDKInstance = memoizee(
       HardwareSDK = await importHardwareSDK();
 
       if (!platformEnv.isNative) {
-        settings.connectSrc = HARDWARE_SDK_IFRAME_SRC;
+        settings.connectSrc = getConnectSrc();
       }
 
       try {
