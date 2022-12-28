@@ -179,7 +179,7 @@ const RefreshButton = () => {
   );
 
   const onRefresh = useCallback(() => {
-    if (!isOk) {
+    if (limited || !quote) {
       loadingAnim.setValue(0);
       Animated.timing(loadingAnim, {
         toValue: -1,
@@ -199,7 +199,7 @@ const RefreshButton = () => {
       await onSwapQuote();
       lottie.play();
     });
-  }, [onSwapQuote, loadingAnim, isOk, lottie]);
+  }, [onSwapQuote, loadingAnim, limited, quote, lottie]);
 
   useEffect(() => {
     const fn = processAnim.addListener(({ value }) => {
