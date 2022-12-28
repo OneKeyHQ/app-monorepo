@@ -1,25 +1,6 @@
-import { memo, useMemo } from 'react';
-
-import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { CardanoWebEmbedView } from './CardanoWebEmbedView';
+import { memo } from 'react';
 
 function ChainWebEmbed() {
-  const { activeNetworkId } = useGeneral();
-
-  const content = useMemo(() => {
-    if (!platformEnv.isNative) return null;
-
-    if (!activeNetworkId) return null;
-
-    if (activeNetworkId === 'ada--0') {
-      return <CardanoWebEmbedView />;
-    }
-    return null;
-  }, [activeNetworkId]);
-
-  return content;
+  return null;
 }
-
 export default memo(ChainWebEmbed);
