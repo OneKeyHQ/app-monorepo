@@ -45,8 +45,9 @@ const Share = () => {
   const { data, network, nameOrAddress } = route.params;
   const { content, win, lose, totalProfit, totalWinProfit, totalLoseProfit } =
     data;
-  const startTime = content[0].exit.timestamp;
-  const endTime = content[content.length - 1].exit.timestamp;
+
+  const endTime = content[0].exit.timestamp;
+  const startTime = content[content.length - 1].exit.timestamp;
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const onCapture = useCallback(async () => {
@@ -185,7 +186,12 @@ const Share = () => {
                     {date}
                   </Text>
                 </Box>
-                <PNLCardGroup datas={cards} width="full" height="102px" />
+                <PNLCardGroup
+                  key={selectRange}
+                  datas={cards}
+                  width="full"
+                  height="102px"
+                />
                 <Text mt="40px" typography="Body1" color="text-subdued">
                   {intl.formatMessage({ id: 'content__profit' })}
                 </Text>

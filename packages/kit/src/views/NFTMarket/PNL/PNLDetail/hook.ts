@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { Network } from '@onekeyhq/engine/src/types/network';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../../hooks';
 
 export function useSearchAddress({
   keyword,
-  network,
   onAddressSearch,
 }: {
   keyword: string;
-  network: Network;
   onAddressSearch: ({
     address,
     ens,
@@ -30,28 +28,25 @@ export function useSearchAddress({
     return result;
   }, []);
 
-  const valildAddress = useCallback(
-    async (address: string) => {
-      try {
-        await backgroundApiProxy.validator.validateAddress(network.id, address);
-        return true;
-      } catch (e) {
-        return false;
-      }
-    },
-    [network.id],
-  );
-
-  const getAddress = useCallback(
-    async (address: string) => {
-      const result = await backgroundApiProxy.serviceRevoke.getAddress(
+  const valildAddress = useCallback(async (address: string) => {
+    try {
+      await backgroundApiProxy.validator.validateAddress(
+        OnekeyNetwork.eth,
         address,
-        network.id,
       );
-      return result;
-    },
-    [network.id],
-  );
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }, []);
+
+  const getAddress = useCallback(async (address: string) => {
+    const result = await backgroundApiProxy.serviceRevoke.getAddress(
+      address,
+      OnekeyNetwork.eth,
+    );
+    return result;
+  }, []);
 
   useEffect(() => {
     if (terms?.length > 0) {

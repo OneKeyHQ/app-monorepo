@@ -9,6 +9,7 @@ import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   clearState,
@@ -33,6 +34,7 @@ import {
   setSwapFeePresetIndex,
   updateTokenList,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
+import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import type {
   FetchQuoteParams,
   FieldType,
@@ -491,6 +493,13 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSwapFeePresetIndex() {
+    return this.backgroundApi.appSelector(
+      (s) => s.swapTransactions.swapFeePresetIndex,
+    );
+  }
+
+  @backgroundMethod()
   async setUserSelectedQuoter(hash: string, type: string) {
     return this.backgroundApi.dispatch(setUserSelectedQuoter({ hash, type }));
   }
@@ -514,5 +523,26 @@ export default class ServiceSwap extends ServiceBase {
       return undefined;
     }
     return userSelectedQuoter[hash];
+  }
+
+  @backgroundMethod()
+  async sendTransaction(params: {
+    accountId: string;
+    networkId: string;
+    encodedTx: IEncodedTx;
+    payload?: SendConfirmParams['payloadInfo'];
+  }) {
+    const { accountId, networkId, encodedTx, payload } = params;
+    const { appSelector, serviceTransaction } = this.backgroundApi;
+    const swapFeePresetIndex = appSelector(
+      (s) => s.swapTransactions.swapFeePresetIndex,
+    );
+    return serviceTransaction.sendTransaction({
+      accountId,
+      networkId,
+      encodedTx,
+      payload,
+      feePresetIndex: swapFeePresetIndex,
+    });
   }
 }

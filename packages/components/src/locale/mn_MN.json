@@ -373,6 +373,8 @@
   "content__description": "Тодорхойлолт",
   "content__details": "Дэлгэрэнгүй мэдээлэл",
   "content__disconnect_and_try_again": "Хэрэв {0} хариу өгөхгүй бол \"Таслах\" дээр товшоод гүйлгээний хүсэлтийг дахин илгээнэ үү.",
+  "content__do_not_swap_directly_to_the_exchange": "Бирж рүү шууд сольж болохгүй.",
+  "content__do_not_swap_directly_to_the_exchange_desc": "Ихэнх биржүүд гэрээний шилжүүлгийг хүлээн авдаггүй.",
   "content__do_not_transfer_to_any_exchange_accounts_to_avoid_loss_of_assets": "Хөрөнгийн алдагдалд орохгүйн тулд ямар ч солилцооны данс руу шилжүүлж болохгүй. Ихэнх биржийн дансууд гэрээний шилжүүлгийг хүлээн авдаггүй.",
   "content__dont_ask_me_again_when_visit_this_dapp": "Энэ dApp-д зочлохдоо надаас дахин бүү асуу.",
   "content__downloading": "Татаж байна",

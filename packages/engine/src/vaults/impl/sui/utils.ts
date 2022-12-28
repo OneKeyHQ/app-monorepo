@@ -44,6 +44,10 @@ export const SUI_SYSTEM_STATE_OBJECT_ID =
 
 export const SUI_NATIVE_COIN = SUI_TYPE_ARG;
 
+// See: sui/crates/sui-types/src/intent.rs
+// This is currently hardcoded with [IntentScope::TransactionData = 0, Version::V0 = 0, AppId::Sui = 0]
+const INTENT_BYTES = [0, 0, 0];
+
 /* -------------------------------------------------------------------------- */
 /*                              Helper functions                              */
 /* -------------------------------------------------------------------------- */
@@ -82,6 +86,27 @@ export function decodeBytesTransaction(txn: any) {
   }
 
   return bcsTxn;
+}
+
+export async function handleSignDataWithRpcVersion(
+  client: Provider,
+  txBase64: string,
+) {
+  const txBytes = new Base64DataBuffer(txBase64);
+  const version = await client.getRpcApiVersion();
+  let dataToSign;
+  if (version?.major === 0 && version?.minor < 19) {
+    dataToSign = txBytes;
+  } else {
+    const intentMessage = new Uint8Array(
+      INTENT_BYTES.length + txBytes.getLength(),
+    );
+    intentMessage.set(INTENT_BYTES);
+    intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
+
+    dataToSign = new Base64DataBuffer(intentMessage);
+  }
+  return dataToSign;
 }
 
 export async function toTransaction(
