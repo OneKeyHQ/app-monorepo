@@ -43,6 +43,7 @@ export enum ModalRoutes {
   PushNotification = 'PushNotification',
   Webview = 'Webview',
   Revoke = 'Revoke',
+  KeyTagVerifyWallet = 'KeyTagVerifyWallet',
   NFTMarket = 'NFTMarket',
 }
 
@@ -60,6 +61,7 @@ export enum ReceiveTokenRoutes {
 }
 export enum HomeRoutes {
   // InitialTab = 'overview',
+  KeyTag = 'KeyTag',
   InitialTab = 'initial',
   Dev = 'dev',
   HomeOnboarding = 'HomeOnboarding',
