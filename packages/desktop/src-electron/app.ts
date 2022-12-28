@@ -151,7 +151,7 @@ const template = [
             { type: 'separator' },
             { role: 'window' },
             {
-              label: 'Onekey',
+              label: 'OneKey',
               click: showMainWindow,
               accelerator: 'CmdOrCtrl+O',
             },
