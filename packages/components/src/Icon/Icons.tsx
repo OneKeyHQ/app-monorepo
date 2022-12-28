@@ -10,6 +10,7 @@ import GasIllus from "./react/illus/Gas";
 import ImageBrokenIllus from "./react/illus/ImageBroken";
 import LogoIllus from "./react/illus/Logo";
 import LogoBlackIllus from "./react/illus/LogoBlack";
+import LogoCircularIllus from "./react/illus/LogoCircular";
 import LogoPrimaryIllus from "./react/illus/LogoPrimary";
 import LogoWhiteIllus from "./react/illus/LogoWhite";
 import MetamaskIllus from "./react/illus/Metamask";
@@ -675,13 +676,13 @@ import HeartOutline from "./react/outline/Heart";
 import HomeOutline from "./react/outline/Home";
 import HomeModernOutline from "./react/outline/HomeModern";
 import IdentificationOutline from "./react/outline/Identification";
-import ImportOutline from "./react/outline/Import";
 import InboxOutline from "./react/outline/Inbox";
 import InboxArrowDownOutline from "./react/outline/InboxArrowDown";
 import InboxInOutline from "./react/outline/InboxIn";
 import InboxStackOutline from "./react/outline/InboxStack";
 import InformationCircleOutline from "./react/outline/InformationCircle";
 import KeyOutline from "./react/outline/Key";
+import KeytagOutline from "./react/outline/Keytag";
 import LanguageOutline from "./react/outline/Language";
 import LibraryOutline from "./react/outline/Library";
 import LifebuoyOutline from "./react/outline/Lifebuoy";
@@ -1150,6 +1151,7 @@ const icons = {
   ImageBrokenIllus,
   LogoIllus,
   LogoBlackIllus,
+  LogoCircularIllus,
   LogoPrimaryIllus,
   LogoWhiteIllus,
   MetamaskIllus,
@@ -1815,13 +1817,13 @@ const icons = {
   HomeOutline,
   HomeModernOutline,
   IdentificationOutline,
-  ImportOutline,
   InboxOutline,
   InboxArrowDownOutline,
   InboxInOutline,
   InboxStackOutline,
   InformationCircleOutline,
   KeyOutline,
+  KeytagOutline,
   LanguageOutline,
   LibraryOutline,
   LifebuoyOutline,
