@@ -10,10 +10,10 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
+  ToastManager,
   Typography,
   useForm,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -61,7 +61,7 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const intl = useIntl();
   const { network } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps>();
-  const toast = useToast();
+
   const [rpcUrlStatus, setRpcUrlStatus] = useState<NetworkRpcURLStatus>({
     connected: false,
   });
@@ -88,11 +88,13 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
   const onRemove = useCallback(async () => {
     await serviceNetwork.deleteNetwork(id);
     setRemoveOpened(false);
-    toast.show({ title: intl.formatMessage({ id: 'msg__network_removed' }) });
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__network_removed' }),
+    });
     if (navigation?.canGoBack?.()) {
       navigation.goBack();
     }
-  }, [intl, toast, serviceNetwork, id, navigation]);
+  }, [intl, serviceNetwork, id, navigation]);
 
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
@@ -102,12 +104,14 @@ export const CustomNetwork: FC<NetworkCustomViewProps> = ({ route }) => {
         symbol: data.symbol,
         explorerURL: data.exploreUrl,
       });
-      toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__change_saved' }),
+      });
       if (navigation?.canGoBack?.()) {
         navigation.goBack();
       }
     },
-    [serviceNetwork, id, toast, intl, navigation],
+    [serviceNetwork, id, intl, navigation],
   );
 
   const hintText = useMemo(() => {

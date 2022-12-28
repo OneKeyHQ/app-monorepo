@@ -7,7 +7,8 @@ import Divider from '../Divider';
 import Icon from '../Icon';
 import IconButton from '../IconButton';
 import PressableItem from '../Pressable/PressableItem';
-import Typography, { Text } from '../Typography';
+import Text from '../Text';
+import Typography from '../Typography';
 
 import type { ICON_NAMES } from '../Icon';
 import type { ContentItemBaseProps } from './Container';

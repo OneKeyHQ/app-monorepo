@@ -4,10 +4,11 @@ import { forwardRef, useCallback } from 'react';
 
 import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 
+import { useThemeValue } from '@onekeyhq/components';
+
 import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
-import { useThemeValue } from '../../Provider/hooks';
 import Typography from '../../Typography';
 
 import type { ICON_NAMES } from '../../Icon/Icons';

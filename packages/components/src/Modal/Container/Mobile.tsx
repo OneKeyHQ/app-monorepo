@@ -9,12 +9,12 @@ import {
 } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
-import { useSafeAreaInsets } from '../../Provider/hooks';
 
 import Header from './Header/Header';
 import useModalClose from './useModalClose';

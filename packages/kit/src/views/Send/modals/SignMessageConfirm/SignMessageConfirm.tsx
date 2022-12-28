@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useActiveSideAccount } from '../../../../hooks';
@@ -33,7 +33,7 @@ const SignMessageConfirm = () => {
   useOnboardingRequired();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const toast = useToast();
+
   const route = useRoute<RouteProps>();
   // TODO useSendConfirmRouteParamsParsed
   const { sourceInfo, unsignedMessage } = route.params;
@@ -77,7 +77,7 @@ const SignMessageConfirm = () => {
             result,
           });
           const successMsg = intl.formatMessage({ id: 'transaction__success' });
-          toast.show({
+          ToastManager.show({
             title: successMsg,
           });
           // wait modal animation done
@@ -105,7 +105,6 @@ const SignMessageConfirm = () => {
       navigation,
       dappApprove,
       intl,
-      toast,
     ],
   );
 

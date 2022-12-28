@@ -9,9 +9,9 @@ import {
   IconButton,
   Modal,
   Text,
+  ToastManager,
   Typography,
   VStack,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -24,7 +24,7 @@ const getShareModule = async () => {
 
 export const ShareModal: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const ref = useRef<ViewShot | null>(null);
   const [index, setIndex] = useState(0);
 
@@ -42,10 +42,10 @@ export const ShareModal: FC = () => {
   const onCopy = useCallback(
     ({ close }: { close: () => void }) => {
       copyToClipboard(shareText);
-      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+      ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
       close?.();
     },
-    [shareText, toast, intl],
+    [shareText, intl],
   );
 
   const onShare = useCallback(

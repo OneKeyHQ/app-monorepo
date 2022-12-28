@@ -9,7 +9,7 @@ import {
   Center,
   Typography,
   useIsVerticalLayout,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { GRID_MAX_WIDTH } from '../../hooks/useMarketLayout';

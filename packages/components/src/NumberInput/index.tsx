@@ -61,7 +61,7 @@ function fixNumberValue(t: string, decimal?: number) {
   return result;
 }
 
-export const NumberInput: FC<NumberInputProps> = ({
+const NumberInput: FC<NumberInputProps> = ({
   decimal,
   onChange,
   onFocus,
@@ -192,3 +192,4 @@ export const NumberInput: FC<NumberInputProps> = ({
     />
   );
 };
+export default NumberInput;

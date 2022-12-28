@@ -16,8 +16,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
-import { useToast } from '../Toast/useToast';
-import { Body2, Text } from '../Typography';
+import Text from '../Text';
+import ToastManager from '../ToastManager';
+import { Body2 } from '../Typography';
 import { shortenAddress } from '../utils';
 
 import type { ResponsiveValue } from 'native-base/lib/typescript/components/types';
@@ -90,7 +91,7 @@ export const TokenVerifiedIcon: FC<{
   size?: number;
 }> = ({ token, size = 16 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
 
   const icon = useMemo(() => {
@@ -105,7 +106,7 @@ export const TokenVerifiedIcon: FC<{
 
   const toVerifiedTokenPage = useCallback(() => {
     if (token?.isNative) {
-      toast.show(
+      ToastManager.show(
         {
           title: intl.formatMessage({
             id: 'msg__this_is_the_native_token_of_the_mainnet',
@@ -131,7 +132,7 @@ export const TokenVerifiedIcon: FC<{
         },
       },
     });
-  }, [navigation, token, toast, intl]);
+  }, [navigation, token, intl]);
 
   if (!token || (!token.verified && !token.security && !token?.isNative)) {
     return null;

@@ -7,7 +7,7 @@ index 9c7455f..dfc2d3b 100644
  }
  
 +import { RootSiblingParent } from 'react-native-root-siblings';
-+import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
++import { useIsVerticalLayout } from '@onekeyhq/components';
 +
  export default function NativeStackView(props: Props) {
 +  const isVerticalLayout = useIsVerticalLayout();
