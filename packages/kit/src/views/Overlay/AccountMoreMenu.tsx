@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
@@ -35,7 +35,7 @@ const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
 const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const { network, account, wallet } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
@@ -113,7 +113,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     if (!res) {
       return;
     }
-    toast.show({
+    ToastManager.show({
       title: intl.formatMessage({
         id: enabledNotification
           ? 'msg__unsubscription_succeeded'
@@ -124,7 +124,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     wallet,
     account,
     intl,
-    toast,
     dispatch,
     enabledNotification,
     serviceNotification,

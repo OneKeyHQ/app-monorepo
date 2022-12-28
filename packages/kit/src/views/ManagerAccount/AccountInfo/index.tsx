@@ -8,8 +8,8 @@ import {
   Box,
   Container,
   Modal,
+  ToastManager,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
@@ -39,7 +39,7 @@ const ManagerAccountModal: FC = () => {
   const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
   const { walletId, accountId, networkId, refreshAccounts } =
     useRoute<RouteProps>().params;
-  const toast = useToast();
+
   const { engine, serviceNetwork } = backgroundApiProxy;
 
   const [wallet, setWallet] = useState<Wallet>();
@@ -132,7 +132,7 @@ const ManagerAccountModal: FC = () => {
                     titleColor="text-default"
                     onPress={() => {
                       if (!canExportPrivateKey) {
-                        toast.show({
+                        ToastManager.show({
                           title: intl.formatMessage({
                             id: 'badge__coming_soon',
                           }),

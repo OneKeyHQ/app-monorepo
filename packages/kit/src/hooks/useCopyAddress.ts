@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components/src/Toast/useToast';
+import { ToastManager } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -46,7 +46,7 @@ export function useCopyAddress({
       } else {
         if (!address) return;
         copyToClipboard(address);
-        Toast.show({
+        ToastManager.show({
           title: intl.formatMessage({ id: 'msg__address_copied' }),
         });
       }

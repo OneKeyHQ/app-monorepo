@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, useToast } from '@onekeyhq/components';
+import { Dialog, ToastManager } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -20,7 +20,7 @@ import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationMo
 
 export default function useRemoveAccountDialog() {
   const intl = useIntl();
-  const toast = useToast();
+
   const { serviceAccount } = backgroundApiProxy;
   const successCall = useRef<() => void>();
 
@@ -35,16 +35,20 @@ export default function useRemoveAccountDialog() {
     return serviceAccount
       .removeAccount(walletId, accountId, password ?? '')
       .then(() => {
-        toast.show({ title: intl.formatMessage({ id: 'msg__removed' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__removed' }),
+        });
         appUIEventBus.emit(AppUIEventBusNames.RemoveAccount, removed);
         setVisible(false);
         successCall?.current?.();
       })
       .catch((e) => {
-        toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        });
         console.log(e);
       });
-  }, [accountId, intl, password, serviceAccount, toast, walletId]);
+  }, [accountId, intl, password, serviceAccount, walletId]);
 
   const show = (
     $walletId: string,

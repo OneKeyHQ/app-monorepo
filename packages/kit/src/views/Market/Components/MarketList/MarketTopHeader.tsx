@@ -13,7 +13,7 @@ import {
   Typography,
   useIsVerticalLayout,
   useThemeValue,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   MARKET_TAB_NAME,

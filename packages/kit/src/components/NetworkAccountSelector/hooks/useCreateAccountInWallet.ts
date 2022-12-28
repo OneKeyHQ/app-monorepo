@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
@@ -33,7 +33,7 @@ export function useCreateAccountInWallet({
 }) {
   const { engine } = backgroundApiProxy;
   const navigation = useNavigation();
-  const toast = useToast();
+
   const intl = useIntl();
   const { connectAndCreateExternalAccount } =
     useConnectAndCreateExternalAccount({
@@ -111,7 +111,7 @@ export function useCreateAccountInWallet({
       isCreateAccountSupported,
     } = walletAndNetworkInfo ?? {};
     const showNotSupportToast = () => {
-      toast.show({
+      ToastManager.show({
         title: intl.formatMessage(
           {
             id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
@@ -174,7 +174,6 @@ export function useCreateAccountInWallet({
     intl,
     isFromAccountSelector,
     navigation,
-    toast,
     walletAndNetworkInfo,
     walletId,
   ]);

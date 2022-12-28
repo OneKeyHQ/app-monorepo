@@ -9,8 +9,8 @@ import {
   Icon,
   Modal,
   Typography,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 
 type AttentionsProps = { pressTitle?: string; onPress: () => void };
 

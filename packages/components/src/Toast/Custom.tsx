@@ -14,7 +14,7 @@ import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-
 
 import Box from '../Box';
 import LottieView from '../LottieView';
-import { Text } from '../Typography';
+import Text from '../Text';
 
 import ActionToast from './ActionToast';
 import BaseToast from './BaseToast';

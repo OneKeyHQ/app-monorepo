@@ -6,9 +6,9 @@ import { useIntl } from 'react-intl';
 import {
   Dialog,
   Form,
+  ToastManager,
   useForm,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import DialogCommon from '@onekeyhq/components/src/Dialog/components';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -31,7 +31,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
   onClose,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { serviceAccount } = backgroundApiProxy;
 
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +57,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
     );
 
     if (changedAccount) {
-      toast.show({ title: intl.formatMessage({ id: 'msg__renamed' }) });
+      ToastManager.show({ title: intl.formatMessage({ id: 'msg__renamed' }) });
       onClose?.();
       onDone(account);
     } else {

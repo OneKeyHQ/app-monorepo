@@ -11,7 +11,7 @@ import { usePrevious } from '@onekeyhq/kit/src/hooks';
 import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
 import Icon from '../Icon';
-import { useProviderValue } from '../Provider/hooks';
+import useProviderValue from '../Provider/hooks/useProviderValue';
 import { Spinner } from '../Spinner';
 import { getTypographyStyleProps } from '../Typography';
 

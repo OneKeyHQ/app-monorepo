@@ -1,4 +1,4 @@
-import { useIsVerticalLayout } from '../../Provider/hooks';
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import Desktop from './Desktop';
 import Mobile from './Mobile';

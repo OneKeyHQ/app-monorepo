@@ -4,13 +4,13 @@ import { cloneElement, useCallback } from 'react';
 import { Controller } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import { gotoScanQrcode } from '@onekeyhq/kit/src/utils/gotoScanQrcode';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import FormControl from '../FormControl';
 import IconButton from '../IconButton';
-import { useIsVerticalLayout } from '../Provider/hooks';
 import Stack from '../Stack';
 import Typography from '../Typography';
 import { getClipboard } from '../utils/ClipboardUtils';

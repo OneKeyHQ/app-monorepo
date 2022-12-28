@@ -5,7 +5,7 @@ import { Box } from 'native-base';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { TabView as RNTabView, TabBar } from 'react-native-tab-view';
 
-import { useThemeValue } from '../Provider/hooks';
+import { useThemeValue } from '@onekeyhq/components';
 
 import type {
   NavigationState,
@@ -116,5 +116,4 @@ const TabView: FC<Props> = ({
     />
   );
 };
-export { SceneMap } from 'react-native-tab-view';
 export default TabView;

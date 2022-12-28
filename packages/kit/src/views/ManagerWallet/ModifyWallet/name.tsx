@@ -14,9 +14,9 @@ import {
   KeyboardDismissView,
   Modal,
   Pressable,
+  ToastManager,
   ZStack,
   useForm,
-  useToast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
@@ -39,7 +39,7 @@ type RouteProps = RouteProp<
 
 const ModifyWalletNameViewModal: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const { walletId } = useRoute<RouteProps>().params;
   const { engine, dispatch, serviceCloudBackup, serviceAccount } =
@@ -78,7 +78,9 @@ const ModifyWalletNameViewModal: FC = () => {
       // dispatch(updateWallet(changedWallet)); // won't update wallets order
       await serviceAccount.initWallets();
       setTimeout(() => dispatch(setRefreshTS()));
-      toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__change_saved' }),
+      });
       navigation.getParent()?.goBack();
     } else {
       setError('name', {
