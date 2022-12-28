@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components/src';
+import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const GRID_MAX_WIDTH = 700;

@@ -3,12 +3,14 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import { Input as BaseInput, Stack } from 'native-base';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
+
 import Box from '../Box';
 import Divider from '../Divider';
 import Icon from '../Icon';
 import Pressable from '../Pressable';
-import { useIsVerticalLayout } from '../Provider/hooks';
-import { Text, getTypographyStyleProps } from '../Typography';
+import Text from '../Text';
+import { getTypographyStyleProps } from '../Typography';
 import { numberToString } from '../utils';
 
 import type { ICON_NAMES } from '../Icon';

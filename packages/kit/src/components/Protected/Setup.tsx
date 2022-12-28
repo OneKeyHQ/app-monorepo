@@ -8,9 +8,9 @@ import {
   Button,
   Form,
   KeyboardDismissView,
+  ToastManager,
   Typography,
   useForm,
-  useToast,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -40,7 +40,7 @@ const Setup: FC<SetupProps> = ({
   const { isOk } = useLocalAuthentication();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
-  const toast = useToast();
+
   const useFormReturn = useForm<FieldValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -62,7 +62,7 @@ const Setup: FC<SetupProps> = ({
   const onSubmit = useCallback(
     async (values: FieldValues) => {
       if (values.password !== values.confirmPassword) {
-        toast.show(
+        ToastManager.show(
           {
             title: intl.formatMessage({
               id: 'msg__password_needs_to_be_the_same',
@@ -77,7 +77,7 @@ const Setup: FC<SetupProps> = ({
       }
       onOk?.(values.password, values.withEnableAuthentication);
     },
-    [boardingCompleted, skipSavePassword, onOk, toast, intl],
+    [boardingCompleted, skipSavePassword, onOk, intl],
   );
   const text =
     authenticationType === 'FACIAL'

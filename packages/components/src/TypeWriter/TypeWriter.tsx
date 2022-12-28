@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Text } from 'react-native';
 import RNTypeWriter from 'react-native-typewriter';
 
-import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const [lineHeight, fontSize] = [56, 48];

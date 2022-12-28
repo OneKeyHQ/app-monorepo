@@ -2,7 +2,7 @@ import type { FC } from 'react';
 
 import { SvgProps } from 'react-native-svg';
 
-import { useThemeValue } from '../Provider/hooks';
+import { useThemeValue } from '@onekeyhq/components';
 import { ThemeToken } from '../Provider/theme';
 
 import ICON_CONFIG, { ICON_NAMES } from './Icons';

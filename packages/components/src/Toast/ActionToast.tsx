@@ -1,9 +1,10 @@
 import type { FC } from 'react';
 
+import { useThemeValue } from '@onekeyhq/components';
+
 import Box from '../Box';
 import Button from '../Button';
-import { useThemeValue } from '../Provider/hooks';
-import { Text } from '../Typography';
+import Text from '../Text';
 
 import type { ThemeToken } from '../Provider/theme';
 import type { BaseToastProps as RNBaseToastProps } from 'react-native-toast-message';

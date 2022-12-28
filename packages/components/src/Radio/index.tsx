@@ -4,7 +4,8 @@ import { Radio as BaseRadio } from 'native-base';
 
 import Box from '../Box';
 import Pressable from '../Pressable';
-import Typography, { Text } from '../Typography';
+import Text from '../Text';
+import Typography from '../Typography';
 
 import type { IBoxProps, IRadioProps } from 'native-base';
 

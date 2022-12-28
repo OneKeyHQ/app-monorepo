@@ -11,7 +11,7 @@ import type {
   CallbackError,
   CardInfo,
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import type { ButtonType } from '@onekeyhq/components/src/Button';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
@@ -35,7 +35,7 @@ type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 const Backup: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { dispatch } = backgroundApiProxy;
   const { walletId, pinCode, backupData, onSuccess } =
@@ -96,7 +96,9 @@ const Backup: FC = () => {
 
   const startNfcScan = (overwrite = false) => {
     if (backupData.trim() === '') {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__unknown_error' }),
+      });
       navigation.goBack();
       return;
     }

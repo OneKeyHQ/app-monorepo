@@ -14,13 +14,11 @@ import {
   Image,
   Modal,
   Pressable,
-  Typography,
-  useToast,
-} from '@onekeyhq/components';
-import {
+  Text,
+  ToastManager,
   useIsVerticalLayout,
   useSafeAreaInsets,
-} from '@onekeyhq/components/src/Provider/hooks';
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   OnekeyHardwareModalRoutes,
@@ -51,7 +49,7 @@ type RenderItemParams = { item: HomescreenItem; index: number };
 
 const OnekeyHardwareHomescreen: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const { walletId, deviceType } = useRoute<RouteProps>().params;
   const [connectId, setConnectId] = useState('');
@@ -178,7 +176,7 @@ const OnekeyHardwareHomescreen: FC = () => {
           debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
         } catch (e) {
           console.log('image operate error: ', e);
-          toast.show(
+          ToastManager.show(
             {
               title: '图片处理失败，请更换图片后重试',
             },
@@ -192,7 +190,9 @@ const OnekeyHardwareHomescreen: FC = () => {
           setButtonTextId('form__updating_resource');
           await serviceHardware.uploadResource(connectId, uploadResParams);
         }
-        toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__change_saved' }),
+        });
         return;
       }
 
@@ -201,11 +201,13 @@ const OnekeyHardwareHomescreen: FC = () => {
       await serviceHardware.applySettings(connectId, {
         homescreen: hex,
       });
-      toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__change_saved' }),
+      });
       navigation.getParent()?.goBack();
     } catch (e) {
       const error = deviceUtils.convertDeviceError(e);
-      toast.show(
+      ToastManager.show(
         {
           title: intl.formatMessage({
             id: error.key ?? 'msg__unknown_error',
@@ -223,7 +225,7 @@ const OnekeyHardwareHomescreen: FC = () => {
     activeIndex,
     serviceHardware,
     intl,
-    toast,
+
     navigation,
     isTouch,
     deviceType,
@@ -328,11 +330,11 @@ const OnekeyHardwareHomescreen: FC = () => {
       <>
         {deviceType === 'touch' && (
           <Box display="flex" alignItems="center" justifyContent="center">
-            <Typography.Text>
+            <Text>
               {intl.formatMessage({
                 id: 'form__support_png_and_jpg_480_800_pixels',
               })}
-            </Typography.Text>
+            </Text>
           </Box>
         )}
         <Box

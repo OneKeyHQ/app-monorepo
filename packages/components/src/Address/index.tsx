@@ -1,6 +1,6 @@
 import type { ComponentProps, FC } from 'react';
 
-import { Text } from '../Typography';
+import Text from '../Text';
 import { shortenAddress } from '../utils';
 
 export type AddressProps = {

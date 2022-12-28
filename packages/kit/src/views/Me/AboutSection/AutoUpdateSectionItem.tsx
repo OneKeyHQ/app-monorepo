@@ -10,7 +10,7 @@ import {
   Spinner,
   Switch,
   Text,
-  useToast,
+  ToastManager,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAutoUpdate, useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -26,7 +26,7 @@ import type { DesktopVersion } from '../../../utils/updates/type';
 
 const AutoUpdateSectionItem: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { dispatch } = backgroundApiProxy;
   const { state, progress, latest } = useAutoUpdate();
   const { autoDownload = true } = useSettings().updateSetting ?? {};
@@ -37,7 +37,7 @@ const AutoUpdateSectionItem: FC = () => {
       .checkUpdate(true)
       ?.then((version) => {
         if (!version) {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({
               id: 'msg__using_latest_release',
             }),
@@ -48,7 +48,7 @@ const AutoUpdateSectionItem: FC = () => {
       })
       .catch(() => {})
       .finally(() => {});
-  }, [dispatch, intl, toast]);
+  }, [dispatch, intl]);
 
   useEffect(() => {
     if (platformEnv.isDesktop && state === 'available') {

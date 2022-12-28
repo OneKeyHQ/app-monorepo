@@ -10,7 +10,7 @@ import {
   Skeleton,
   Token,
   Typography,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';

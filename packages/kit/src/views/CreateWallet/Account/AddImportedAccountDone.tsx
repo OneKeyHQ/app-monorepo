@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
+import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -47,7 +47,7 @@ const Done: FC<DoneProps> = ({
   onFailure,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   useEffect(() => {
     async function main() {
       try {
@@ -69,7 +69,7 @@ const Done: FC<DoneProps> = ({
         }
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
-        toast.show(
+        ToastManager.show(
           {
             title: intl.formatMessage({ id: errorKey }),
           },
