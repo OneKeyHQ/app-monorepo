@@ -12,9 +12,9 @@ import {
 } from '@onekeyhq/components';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 
-type AttentionsProps = { onPress: () => void };
+type AttentionsProps = { pressTitle?: string; onPress: () => void };
 
-export const Attentions: FC<AttentionsProps> = ({ onPress }) => {
+export const Attentions: FC<AttentionsProps> = ({ onPress, pressTitle }) => {
   const intl = useIntl();
   const insets = useSafeAreaInsets();
   const List = [
@@ -61,7 +61,8 @@ export const Attentions: FC<AttentionsProps> = ({ onPress }) => {
           type="primary"
           onPress={onPress}
         >
-          {intl.formatMessage({ id: 'action__reveal_recovery_phrase' })}
+          {pressTitle ??
+            intl.formatMessage({ id: 'action__reveal_recovery_phrase' })}
         </Button>
       </Box>
     </Modal>
