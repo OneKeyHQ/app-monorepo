@@ -6,6 +6,7 @@ import { format as formatUrl } from 'url';
 
 import {
   BrowserWindow,
+  Menu,
   app,
   ipcMain,
   screen,
@@ -72,6 +73,46 @@ function showMainWindow() {
   mainWindow.show();
   mainWindow.focus();
 }
+
+const template = [
+  { role: 'appMenu' },
+  { role: 'editMenu' },
+  { role: 'viewMenu' },
+  {
+    label: 'Window',
+    submenu: [
+      { role: 'minimize' },
+      { role: 'zoom' },
+      ...(isMac
+        ? [
+            { type: 'separator' },
+            { role: 'front' },
+            { type: 'separator' },
+            { role: 'window' },
+            {
+              label: 'OneKey',
+              click: showMainWindow,
+              accelerator: 'CmdOrCtrl+O',
+            },
+          ]
+        : [{ role: 'close' }]),
+    ],
+  },
+  {
+    role: 'help',
+    submenu: [
+      {
+        label: 'Learn More',
+        click: async () => {
+          await shell.openExternal('https://onekey.so');
+        },
+      },
+    ],
+  },
+];
+
+const menu = Menu.buildFromTemplate(template as any);
+Menu.setApplicationMenu(menu);
 
 const emitter = new EventEmitter();
 let isAppReady = false;
