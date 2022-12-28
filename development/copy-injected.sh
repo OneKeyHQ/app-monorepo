@@ -16,8 +16,8 @@ cp ./node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injecte
 cp ./packages/shared/src/web/index.html.ejs ./packages/shared/src/web/index.html
 
 # copy hardware js-sdk lib files to desktop
-mkdir -p ./packages/desktop/public/static/js-sdk/
-rsync ./node_modules/@onekeyfe/js-sdk/dist/js-sdk-desktop/ ./packages/desktop/public/static/js-sdk/ --checksum  --recursive --verbose
+# mkdir -p ./packages/desktop/public/static/js-sdk/
+# rsync ./node_modules/@onekeyfe/js-sdk/dist/js-sdk-desktop/ ./packages/desktop/public/static/js-sdk/ --checksum  --recursive --verbose
 
 # remove the invalid fs library dependence by starcoin, to fix fs polyfill issue in native
 rm -rf ./node_modules/fs/
