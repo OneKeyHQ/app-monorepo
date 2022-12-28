@@ -8,10 +8,10 @@ import {
   Box,
   IconButton,
   Token,
-  TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {

@@ -1,6 +1,6 @@
 import type { ComponentProps, FC } from 'react';
 
-import { NumberInput } from '../NumberInput';
+import NumberInput from '../NumberInput';
 
 type FormInputProps = ComponentProps<typeof NumberInput>;
 

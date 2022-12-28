@@ -5,8 +5,9 @@ import type { FC, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
+
 import Box from '../Box';
-import { useIsVerticalLayout } from '../Provider/hooks';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderTitle from './HeaderTitle';

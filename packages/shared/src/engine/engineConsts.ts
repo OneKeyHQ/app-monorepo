@@ -92,7 +92,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_ALGO,
   IMPL_XRP,
   IMPL_COSMOS,
-  // IMPL_ADA,
+  IMPL_ADA,
   IMPL_SUI,
   IMPL_FIL,
 ]);

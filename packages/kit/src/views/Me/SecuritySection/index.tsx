@@ -9,10 +9,10 @@ import {
   Pressable,
   Select,
   Switch,
+  Text,
   Typography,
   useTheme,
 } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setAppLockDuration,

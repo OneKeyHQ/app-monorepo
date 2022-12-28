@@ -7,7 +7,7 @@ import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
 import Box from '../Box';
 import Icon from '../Icon';
-import { useProviderValue } from '../Provider/hooks';
+import useProviderValue from '../Provider/hooks/useProviderValue';
 import Typography from '../Typography';
 
 type KeyType =

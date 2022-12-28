@@ -4,13 +4,14 @@ import { forwardRef, useCallback } from 'react';
 
 import { TextArea as NativeBaseTextArea } from 'native-base';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
+
 import Box from '../Box';
 import Button from '../Button';
-import { useIsVerticalLayout } from '../Provider/hooks';
 import { getTypographyStyleProps } from '../Typography';
 
 import type { ICON_NAMES } from '../Icon';
-import type { Text } from '../Typography';
+import type Text from '../Text';
 
 export type TextAreaAction = {
   icon?: ICON_NAMES;

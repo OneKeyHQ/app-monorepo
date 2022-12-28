@@ -9,7 +9,7 @@ import {
   Skeleton,
   Typography,
   VStack,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
 import type {
   MarketEXplorer,

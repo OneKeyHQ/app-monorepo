@@ -14,8 +14,8 @@ import {
   Icon,
   Spinner,
   Text,
+  ToastManager,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
@@ -243,7 +243,7 @@ const BackupActions = ({
 
 const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<BackupDetailsRouteProp>();
@@ -307,7 +307,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   }, [setDataReady, serviceCloudBackup, backupUUID]);
 
   const onImportDone = useCallback(async () => {
-    toast.show({
+    ToastManager.show({
       title: intl.formatMessage({ id: 'msg__backup_imported' }),
     });
     if (onboarding) {
@@ -315,14 +315,14 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     } else {
       navigation.navigate(HomeRoutes.InitialTab);
     }
-  }, [toast, intl, onboarding, onboardingDone, navigation]);
+  }, [intl, onboarding, onboardingDone, navigation]);
 
   const onImportError = useCallback(() => {
-    toast.show({
+    ToastManager.show({
       title: intl.formatMessage({ id: 'msg__unknown_error' }),
     });
     navigation.goBack();
-  }, [toast, intl, navigation]);
+  }, [intl, navigation]);
 
   const onImport = useCallback(() => {
     if (isPasswordSet) {

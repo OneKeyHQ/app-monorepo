@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -11,8 +12,9 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation, usePrevious } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
+import { useRpcMeasureStatus } from '../ManageNetworks/hooks';
 
-import { SwapRoutes } from './typings';
+import { SwapError, SwapRoutes } from './typings';
 import { stringifyTokens } from './utils';
 
 const AccountsObserver = () => {
@@ -71,11 +73,34 @@ const WelcomeObserver = () => {
   return null;
 };
 
+const NetworkStatusObserver = () => {
+  const networkStatus = useRpcMeasureStatus(OnekeyNetwork.eth);
+  const responseTime = networkStatus.status?.responseTime;
+  const prevResponseTime = usePrevious(responseTime);
+
+  useEffect(() => {
+    async function main() {
+      if (
+        prevResponseTime === undefined &&
+        networkStatus.status?.responseTime
+      ) {
+        const error = await backgroundApiProxy.serviceSwap.getSwapError();
+        if (error === SwapError.QuoteFailed) {
+          appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
+        }
+      }
+    }
+    main();
+  }, [prevResponseTime, responseTime]);
+  return null;
+};
+
 const SwapListener = () => (
   <>
     <AccountsObserver />
     <UserSelectedQuoterObserver />
     <WelcomeObserver />
+    <NetworkStatusObserver />
   </>
 );
 

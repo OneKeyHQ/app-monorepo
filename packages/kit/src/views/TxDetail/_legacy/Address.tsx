@@ -5,7 +5,7 @@ import _ from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
-import type { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
+import type { ContentItemProps } from '@onekeyhq/components/src/Container/ContentBasisItem';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 

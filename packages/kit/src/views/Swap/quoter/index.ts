@@ -338,20 +338,8 @@ export class SwapQuoter {
       return;
     }
 
-    let filtededResponses = responses;
-    // If the networkIn and networkOut are equal, then we filter out all responses that have a quoter of 'socket'.
-    if (params.networkIn.id === params.networkOut.id) {
-      const a = responses.find((item) => item.result.quoter === '0x');
-      const b = responses.find((item) => item.result.quoter === 'socket');
-      if (a && b) {
-        filtededResponses = responses.filter(
-          (item) => item.result.quoter !== 'socket',
-        );
-      }
-    }
-
     const result = await this.buildQuote({
-      responses: filtededResponses,
+      responses,
       params,
     });
 

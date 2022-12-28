@@ -1,8 +1,14 @@
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Divider, Icon, Pressable, useTheme } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
+import {
+  Box,
+  Divider,
+  Icon,
+  Pressable,
+  Text,
+  useTheme,
+} from '@onekeyhq/components';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';

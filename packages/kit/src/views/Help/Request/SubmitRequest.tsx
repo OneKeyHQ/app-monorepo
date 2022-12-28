@@ -20,10 +20,10 @@ import {
   Pressable,
   Select,
   Spinner,
+  ToastManager,
   Typography,
   useForm,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import type {
   SubmitRequestModalRoutesParams,
@@ -155,7 +155,7 @@ export const SubmitRequest: FC = () => {
   const [isHardware, setIsHardware] = useState(false);
   const { width } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
-  const toast = useToast();
+
   const navigation = useNavigation<NavigationProps>();
   const { instanceId } = useSettings();
   const modalWidth = isSmallScreen ? width : 400;
@@ -217,7 +217,7 @@ export const SubmitRequest: FC = () => {
                 ...prev.slice(imageIndex + 1),
               ];
             });
-            toast.show({
+            ToastManager.show({
               title: intl.formatMessage({ id: 'msg__upload_failed' }),
               type: 'error',
             });
@@ -225,7 +225,7 @@ export const SubmitRequest: FC = () => {
         },
       );
     }
-  }, [instanceId, intl, toast]);
+  }, [instanceId, intl]);
 
   const imagesList = () => (
     <Row>
@@ -356,7 +356,7 @@ export const SubmitRequest: FC = () => {
         .then((response) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (response.data.success) {
-            toast.show({
+            ToastManager.show({
               title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
             });
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -376,7 +376,7 @@ export const SubmitRequest: FC = () => {
           console.log(error);
         });
     },
-    [imageArr, instanceId, intl, isHardware, toast, goBack],
+    [imageArr, instanceId, intl, isHardware, goBack],
   );
   const optionLab = (
     <Typography.Body2Strong mb="4px" color="text-subdued">
