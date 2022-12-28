@@ -4,9 +4,17 @@ import BackupLite from '@onekeyhq/kit/src/views/BackupWallet/BackupLite';
 import BackupManual from '@onekeyhq/kit/src/views/BackupWallet/BackupManual';
 import BackupMnemonic from '@onekeyhq/kit/src/views/BackupWallet/BackupMnemonic';
 import BackupOptions from '@onekeyhq/kit/src/views/BackupWallet/BackupOptions';
+import ShowDotMap from '@onekeyhq/kit/src/views/KeyTag/Screen/ShowDotMap';
+
+import { KeyTagRoutes } from '../../views/KeyTag/Routes/enums';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
+
+import type {
+  IKeytagRoutesParams,
+  IkeyTagShowDotMapParams,
+} from '../../views/KeyTag/Routes/types';
 
 export enum BackupWalletModalRoutes {
   BackupWalletOptionsModal = 'BackupWalletOptionsModal',
@@ -34,9 +42,12 @@ export type BackupWalletRoutesParams = {
     mnemonic: string;
     walletId: string;
   };
+  [KeyTagRoutes.ShowDotMap]: IkeyTagShowDotMapParams;
 };
 
-const BackupWalletNavigator = createStackNavigator<BackupWalletRoutesParams>();
+const BackupWalletNavigator = createStackNavigator<
+  BackupWalletRoutesParams & IKeytagRoutesParams
+>();
 
 const modalRoutes = [
   {
@@ -58,6 +69,10 @@ const modalRoutes = [
   {
     name: BackupWalletModalRoutes.BackupWalletLiteModal,
     component: BackupLite,
+  },
+  {
+    name: KeyTagRoutes.ShowDotMap,
+    component: ShowDotMap,
   },
 ];
 
