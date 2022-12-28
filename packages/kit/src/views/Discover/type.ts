@@ -25,9 +25,29 @@ export type DAppItemType = {
   subtitle: string;
   description: string;
   networkIds: string[];
+  _subtitle?: string;
   // tags: { name: string; _id: string }[];
   // categories: { name: string; _id: string }[];
 };
+
+export type CatagoryType = {
+  name: string;
+  _id: string;
+  _name?: string;
+};
+
+export type TagType = {
+  name: string;
+  _id: string;
+  _name?: string;
+};
+
+export type TagDappsType = {
+  label: string;
+  _label: string;
+  id: string;
+  items: DAppItemType[]
+}
 
 export type ItemsType = {
   label: string;
@@ -35,6 +55,7 @@ export type ItemsType = {
 };
 export interface SectionDataType {
   title: string;
+  _title?: string;
   data: DAppItemType[];
   tagId: string;
   onItemSelect?: (item: DAppItemType) => void;

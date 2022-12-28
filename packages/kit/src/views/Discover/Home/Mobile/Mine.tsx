@@ -32,7 +32,7 @@ import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
-import type { DAppItemType, SectionDataType } from '../../type';
+import type { DAppItemType, SectionDataType, TagDappsType } from '../../type';
 import type { ListRenderItem } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -223,9 +223,7 @@ export const Mine = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const fullDapps = useTaggedDapps();
-  const [dapps, setDapps] = useState<
-    { label: string; id: string; items: DAppItemType[] }[]
-  >([]);
+  const [dapps, setDapps] = useState<TagDappsType[]>([]);
   const [total, setTotal] = useState<number>(10);
   const { onItemSelect } = useContext(DiscoverContext);
 
@@ -234,6 +232,7 @@ export const Mine = () => {
       title: item.label,
       data: item.items,
       tagId: item.id,
+      _title: item._label
     }));
     return total < items.length ? items.slice(0, total) : items;
   }, [dapps, total]);

@@ -2,6 +2,7 @@ import type { FC } from 'react';
 
 import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
+import { useTranslation } from '../../../../hooks';
 import DAppIcon from '../../DAppIcon';
 import { SectionTitle } from '../TitleView';
 
@@ -14,36 +15,39 @@ type SimpleCardViewProps = {
   onItemSelect: SectionDataType['onItemSelect'];
 };
 
-const SimpleCardView: FC<SimpleCardViewProps> = ({ item, onItemSelect }) => (
-  <Pressable
-    onPress={() => {
-      onItemSelect?.(item);
-    }}
-  >
-    <Box
-      width="260px"
-      ml="4"
-      borderRadius="12px"
-      alignItems="center"
-      flexDirection="row"
+const SimpleCardView: FC<SimpleCardViewProps> = ({ item, onItemSelect }) => {
+  const t = useTranslation();
+  return (
+    <Pressable
+      onPress={() => {
+        onItemSelect?.(item);
+      }}
     >
-      <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
-      <Box flex={1} ml="2">
-        <Typography.Body2Strong numberOfLines={1}>
-          {item.name}
-        </Typography.Body2Strong>
-        <Typography.Caption
-          numberOfLines={1}
-          mt="1"
-          color="text-subdued"
-          overflow="hidden"
-        >
-          {item.subtitle}
-        </Typography.Caption>
+      <Box
+        width="260px"
+        ml="4"
+        borderRadius="12px"
+        alignItems="center"
+        flexDirection="row"
+      >
+        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+        <Box flex={1} ml="2">
+          <Typography.Body2Strong numberOfLines={1}>
+            {item.name}
+          </Typography.Body2Strong>
+          <Typography.Caption
+            numberOfLines={1}
+            mt="1"
+            color="text-subdued"
+            overflow="hidden"
+          >
+            {t(item._subtitle) ?? item.subtitle}
+          </Typography.Caption>
+        </Box>
       </Box>
-    </Box>
-  </Pressable>
-);
+    </Pressable>
+  );
+};
 
 type PairCardViewProps = {
   items: DappTypeTuple;
@@ -81,12 +85,14 @@ export const Mobile: FC<SectionDataType> = ({
   title,
   data,
   tagId,
+  _title,
   onItemSelect,
 }) => {
   const sections = group(data);
+  const t = useTranslation()
   return (
     <Box width="100%" mt="8">
-      <SectionTitle tagId={tagId} title={title} onItemSelect={onItemSelect} />
+      <SectionTitle tagId={tagId} title={t(_title)?? title} onItemSelect={onItemSelect} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <Box flexDirection="row">
           {sections.map((section) => (

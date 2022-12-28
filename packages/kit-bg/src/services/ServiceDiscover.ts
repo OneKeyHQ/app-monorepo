@@ -19,7 +19,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import { setWebTabData } from '@onekeyhq/kit/src/store/reducers/webTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
-import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
+import type { DAppItemType, TagDappsType } from '@onekeyhq/kit/src/views/Discover/type';
 import {
   backgroundClass,
   backgroundMethod,
@@ -36,7 +36,8 @@ class ServicDiscover extends ServiceBase {
   }
 
   get baseUrl() {
-    const url = getFiatEndpoint();
+    // const url = getFiatEndpoint();
+    const url = 'http://localhost:9000';
     return `${url}/discover`;
   }
 
@@ -45,17 +46,10 @@ class ServicDiscover extends ServiceBase {
     const res = await this.client.get(url);
     const data = res.data as {
       listedCategories: { name: string; _id: string }[];
-      // listedTags: { name: string; _id: string }[];
-      // categoryDapps: { label: string; id: string; items: DAppItemType[] }[];
-      tagDapps: { label: string; id: string; items: DAppItemType[] }[];
+      tagDapps: TagDappsType[];
     };
 
     dispatch(
-      // setCategoryDapps(data.categoryDapps),
-      // setListedCategories(data.listedCategories),
-      // setTagDapps(data.tagDapps),
-      // setListedTags(data.listedTags),
-      // setDappItems(dapps),
       setHomeData({
         categories: data.listedCategories,
         tagDapps: data.tagDapps,
