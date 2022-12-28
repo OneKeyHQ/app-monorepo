@@ -8,6 +8,6 @@
 #import "GCDWebServerDataResponse.h"
 #import "GCDWebServerDataRequest.h"
 
-@interface RCTHTTPServerManager : RCTEventEmitter <RCTBridgeModule>
+@interface HTTPServerManager : RCTEventEmitter <RCTBridgeModule>
 
 @end

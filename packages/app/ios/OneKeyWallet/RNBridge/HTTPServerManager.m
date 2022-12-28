@@ -1,15 +1,15 @@
-#import "RCTHTTPServerManager.h"
+#import "HTTPServerManager.h"
 #include <stdlib.h>
 
 
-@interface RCTHTTPServerManager ()
+@interface HTTPServerManager ()
 
 @property(nonatomic,strong)GCDWebServer *webServer;
 @property(nonatomic,strong)NSMutableDictionary *completionBlocks;;
 
 
 @end
-@implementation RCTHTTPServerManager
+@implementation HTTPServerManager
 
 RCT_EXPORT_MODULE();
 
