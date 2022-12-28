@@ -2,7 +2,6 @@ import type { FC, ReactElement } from 'react';
 
 import {
   Badge,
-  Box,
   HStack,
   Icon,
   Pressable,
@@ -25,40 +24,41 @@ export const OverviewDefiBoxHeader: FC<{
 }> = ({ icon, name, rate, desc, extra, toggle, collapsed }) => {
   const isVertical = useIsVerticalLayout();
   return (
-    <Box
-      px={isVertical ? 4 : 6}
-      py={isVertical ? 4 : 5}
-      alignItems={isVertical ? 'flex-start' : 'center'}
-      flexDirection={isVertical ? 'column' : 'row'}
-    >
-      <HStack flex="1" alignItems="center">
-        <TokenIcon
-          size={8}
-          token={{
-            logoURI: icon,
-            name,
-          }}
-        />
-        <Text fontSize="18px" color="text-default" fontWeight="600" ml="3">
-          {name}
-        </Text>
-        {rate.isNaN() ? null : (
-          <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
-        )}
-      </HStack>
-      <HStack alignItems="center">
+    <HStack px={isVertical ? 4 : 6} py={isVertical ? 4 : 5} alignItems="center">
+      <HStack alignItems="center" flex="1" justifyContent="space-around">
+        <HStack flex="1">
+          <TokenIcon
+            size={isVertical ? 6 : 8}
+            token={{
+              logoURI: icon,
+              name,
+            }}
+          />
+          <Text
+            typography={{
+              md: 'Heading',
+              sm: 'Body1Strong',
+            }}
+            ml="2"
+          >
+            {name}
+          </Text>
+          {rate.isNaN() ? null : (
+            <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
+          )}
+        </HStack>
         <VStack>
           {desc}
           {extra}
         </VStack>
-        <Pressable onPress={toggle}>
-          {collapsed ? (
-            <Icon name="ChevronDownMini" size={20} />
-          ) : (
-            <Icon name="ChevronUpMini" size={20} />
-          )}
-        </Pressable>
       </HStack>
-    </Box>
+      <Pressable onPress={toggle}>
+        {collapsed ? (
+          <Icon name="ChevronDownMini" size={20} />
+        ) : (
+          <Icon name="ChevronUpMini" size={20} />
+        )}
+      </Pressable>
+    </HStack>
   );
 };

@@ -71,20 +71,23 @@ export const OverviewDefiProtocol: FC<OverviewDefiRes> = ({
             .div(accountAllValues.value)
             .multipliedBy(100)}
           desc={
-            <Typography.Heading>
+            <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
               <FormatCurrencyNumber value={new B(protocolValue)} />
-            </Typography.Heading>
+            </Text>
           }
           extra={
             +claimableValue > 0 ? (
-              <Typography.Body2Strong color="text-subdued">
+              <Text
+                color="text-subdued"
+                typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
+              >
                 {intl.formatMessage(
                   { id: 'form__claimable_str' },
                   {
                     0: <FormatCurrencyNumber value={new B(claimableValue)} />,
                   },
                 )}
-              </Typography.Body2Strong>
+              </Text>
             ) : undefined
           }
           icon={protocolIcon}
