@@ -19,6 +19,10 @@ import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
 import LogoTokenPocket from '@onekeyhq/kit/assets/onboarding/logo_tokenpocket.png';
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -74,6 +78,13 @@ const Welcome = () => {
         }, 200);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    // Fix cardano webembed crash when onboarding page is closed on Android platform.
+    if (platformEnv.isNative) {
+      appUIEventBus.emit(AppUIEventBusNames.ChainWebEmbedDisabled);
+    }
   }, []);
 
   const intl = useIntl();
