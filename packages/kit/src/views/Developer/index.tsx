@@ -420,7 +420,14 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                HTTPServerManager.start(5561, 'http_service');
+                HTTPServerManager.start(
+                  5561,
+                  'http_service',
+                  (data, success) => {
+                    console.log('data = ', data);
+                    console.log('success = ', success);
+                  },
+                );
               }}
             >
               <Typography.Body1>Start HttpServer</Typography.Body1>

@@ -56,8 +56,7 @@ RCT_EXPORT_MODULE();
 }
 
 RCT_EXPORT_METHOD(start:(NSInteger) port
-                  serviceName:(NSString *) serviceName) {
-  RCTLogInfo(@"Running HTTP bridge server: %ld", port);
+                  serviceName:(NSString *)serviceName callback:(RCTResponseSenderBlock)callback) {
   __weak typeof(self) weakSelf = self;
 
   dispatch_sync(dispatch_get_main_queue(), ^{
@@ -68,8 +67,8 @@ RCT_EXPORT_METHOD(start:(NSInteger) port
       [weakSelf initResponseReceivedFor:weakSelf.webServer forType:@"GET"];
       [weakSelf initResponseReceivedFor:weakSelf.webServer forType:@"DELETE"];
       [weakSelf.webServer startWithPort:port bonjourName:serviceName];
-      NSLog(@"Visit %@ in your web browser", weakSelf.webServer.serverURL);
     }
+    callback(@[weakSelf.webServer.serverURL.absoluteString,@(true)]);
   });
 }
 

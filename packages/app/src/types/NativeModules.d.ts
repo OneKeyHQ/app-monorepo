@@ -35,7 +35,11 @@ export interface SplashScreenManagerInterface extends NativeModule {
 }
 
 export interface HTTPServerManagerInterface extends NativeModule {
-  start: (port: number, name: string) => void;
+  start: (
+    port: number,
+    name: string,
+    call: (data: string, success: boolean) => void,
+  ) => void;
   stop: () => void;
   respond: (id: string, code: number, type: string, body: string) => void;
   getConstants: () => any;
