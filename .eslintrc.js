@@ -89,6 +89,7 @@ module.exports = {
   ignorePatterns: [
     'packages/components/src/Icon/*',
     'packages/desktop/web/static/js-sdk/*',
+    'packages/desktop/public/static/js-sdk/*',
   ],
   env: {
     browser: true,
