@@ -4,6 +4,8 @@ import { KeyTagMnemonicStatus } from './types';
 
 import type { KeyTagMnemonic } from './types';
 
+export const Bip39DotmapUrl = 'https://onekey.so/bip39-dotmap';
+
 const bitCount = 12;
 
 const mnemonicIndexNumberToDotMapData = (mnemonicIndexNumber: number) => {
