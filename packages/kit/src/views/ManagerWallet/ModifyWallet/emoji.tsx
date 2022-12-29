@@ -189,7 +189,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
           bgColor="surface-subdued"
         >
           {pageWidth > 0 && (
-            <Box pl={`${padding}px`} pr={`${padding}px`} flex={1}>
+            <Box flex={1}>
               <RecyclerListView
                 dataProvider={dataProvider}
                 layoutProvider={layoutProvider}
@@ -197,7 +197,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
                 renderAheadOffset={300}
                 renderAheadStep={100}
                 style={{
-                  paddingVertical: 24,
+                  padding,
                 }}
               />
             </Box>
