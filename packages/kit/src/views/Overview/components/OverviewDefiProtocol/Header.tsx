@@ -24,7 +24,13 @@ export const OverviewDefiBoxHeader: FC<{
 }> = ({ icon, name, rate, desc, extra, toggle, collapsed }) => {
   const isVertical = useIsVerticalLayout();
   return (
-    <HStack px={isVertical ? 4 : 6} py={isVertical ? 4 : 5} alignItems="center">
+    <HStack
+      px={6}
+      py={3}
+      alignItems="center"
+      bg="surface-subdued"
+      borderTopRadius="12px"
+    >
       <HStack alignItems="center" flex="1" justifyContent="space-around">
         <HStack flex="1">
           <TokenIcon
@@ -47,17 +53,19 @@ export const OverviewDefiBoxHeader: FC<{
             <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
           )}
         </HStack>
-        <VStack>
-          {desc}
-          {extra}
-        </VStack>
       </HStack>
       <Pressable onPress={toggle}>
-        {collapsed ? (
-          <Icon name="ChevronDownMini" size={20} />
-        ) : (
-          <Icon name="ChevronUpMini" size={20} />
-        )}
+        <HStack>
+          <VStack>
+            {desc}
+            {extra}
+          </VStack>
+          {collapsed ? (
+            <Icon name="ChevronDownMini" size={20} />
+          ) : (
+            <Icon name="ChevronUpMini" size={20} />
+          )}
+        </HStack>
       </Pressable>
     </HStack>
   );

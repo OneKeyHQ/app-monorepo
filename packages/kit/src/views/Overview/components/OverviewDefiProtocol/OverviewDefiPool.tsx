@@ -1,15 +1,14 @@
 import type { ComponentProps, FC, ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import dayjs from 'dayjs';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   HStack,
-  List,
-  ListItem,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -18,14 +17,13 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { OverviewDeFiPoolType } from '../../types';
 
 import type { IOverviewDeFiPortfolioItem } from '../../types';
-import type { ListRenderItem } from 'react-native';
 
 type TokenKey = 'supplyTokens' | 'rewardTokens' | 'borrowTokens';
 
 interface ColumnItem {
+  dataIndex?: keyof IOverviewDeFiPortfolioItem;
   header: LocaleIds;
   render: (params: { pool: IOverviewDeFiPortfolioItem }) => ReactElement | null;
   visibleOn?: (params: {
@@ -42,7 +40,7 @@ const GenernalTokens = ({
   pool: IOverviewDeFiPortfolioItem;
   tokenKey: 'supplyTokens' | 'rewardTokens' | 'borrowTokens';
 }) => (
-  <VStack flex="1">
+  <VStack flex="1" space="1">
     {pool?.[tokenKey]?.map((t, i) => (
       <HStack alignItems="center" mt={i > 0 ? '4px' : 0} key={t.tokenAddress}>
         <TokenIcon token={t} size={4} mr="1" />
@@ -61,28 +59,51 @@ const GenernalTokens = ({
   </VStack>
 );
 
-const getPoolColumn = (tokenKey: TokenKey): ColumnItem => ({
+const getPoolColumn = (): ColumnItem => ({
+  dataIndex: 'supplyTokens',
   header: 'form__pool_uppercase',
-  render: (params) => <GenernalTokens {...params} tokenKey={tokenKey} />,
+  render: (params) => (
+    <GenernalTokens
+      key={params.pool.poolCode}
+      {...params}
+      tokenKey="supplyTokens"
+    />
+  ),
+  visibleOn: ({ pools }) => pools.some((p) => p.supplyTokens?.length > 0),
   boxProps: { minW: '300px' },
 });
 
 const getRewardsColumn = (): ColumnItem => ({
+  dataIndex: 'rewardTokens',
   header: 'form__rewards_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => p.rewardTokens?.length > 0),
-  render: (params) => <GenernalTokens {...params} tokenKey="rewardTokens" />,
+  render: (params) => (
+    <GenernalTokens
+      key={params.pool.poolCode}
+      {...params}
+      tokenKey="rewardTokens"
+    />
+  ),
 });
 
 const getBorrowedColumn = (): ColumnItem => ({
+  dataIndex: 'borrowTokens',
   header: 'form__borrowed_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => p.borrowTokens?.length > 0),
-  render: (params) => <GenernalTokens {...params} tokenKey="borrowTokens" />,
+  render: (params) => (
+    <GenernalTokens
+      key={params.pool.poolCode}
+      {...params}
+      tokenKey="borrowTokens"
+    />
+  ),
 });
 
 const getValueColumn = (): ColumnItem => ({
+  dataIndex: 'poolValue',
   header: 'form__value_uppercase',
   render: ({ pool }) => (
-    <Typography.Body2Strong flex="1">
+    <Typography.Body2Strong flex="1" key={pool.poolCode}>
       <FormatCurrencyNumber value={new B(pool.poolValue ?? 0)} />
     </Typography.Body2Strong>
   ),
@@ -95,9 +116,9 @@ const getValueColumn = (): ColumnItem => ({
 const getPriceColumn = (tokenKey: TokenKey): ColumnItem => ({
   header: 'content__price',
   render: ({ pool }) => (
-    <VStack>
+    <VStack key={pool.poolCode}>
       {pool?.[tokenKey].map((t) => (
-        <Typography.Body2Strong>
+        <Typography.Body2Strong key={t.tokenAddress}>
           <FormatCurrencyNumber value={new B(t.price ?? 0)} />
         </Typography.Body2Strong>
       ))}
@@ -106,13 +127,15 @@ const getPriceColumn = (tokenKey: TokenKey): ColumnItem => ({
   boxProps: {
     maxW: '200px',
   },
+  dataIndex: tokenKey,
 });
 
 const getAprColumn = (): ColumnItem => ({
+  dataIndex: 'apr',
   header: 'form__apr_uppercase',
-  visibleOn: ({ pools }) => pools.some((p) => typeof p.apr !== 'undefined'),
+  visibleOn: ({ pools }) => pools.some((p) => !!p.apr),
   render: ({ pool }) => (
-    <Typography.Body2Strong>
+    <Typography.Body2Strong key={pool.poolCode}>
       <FormatCurrencyNumber onlyNumber value={new B(pool.apr ?? 0)} />%
     </Typography.Body2Strong>
   ),
@@ -122,18 +145,16 @@ const getAprColumn = (): ColumnItem => ({
 });
 
 const getUnlockTimeColumn = (): ColumnItem => ({
+  dataIndex: 'lockedInfo',
   header: 'form__unlock_time_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => !!p?.lockedInfo?.unlockTime),
   render: ({ pool }) => {
     const unlockTime = pool?.lockedInfo?.unlockTime;
-    if (!unlockTime) {
-      return null;
-    }
     if (typeof unlockTime !== 'number') {
       return unlockTime;
     }
     return (
-      <Typography.Body2Strong>
+      <Typography.Body2Strong key={pool.poolCode}>
         {dayjs(unlockTime * 1000).format('YYYY/MM/DD HH:mm')}
       </Typography.Body2Strong>
     );
@@ -144,171 +165,126 @@ export const OverviewDefiPool: FC<{
   networkId: string;
   poolType: string;
   pools: IOverviewDeFiPortfolioItem[];
-}> = ({ pools, poolType }) => {
+}> = ({ pools }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
+  const filterUnavailableColumn = useCallback(
+    (c: ColumnItem) =>
+      !c.visibleOn ||
+      c.visibleOn?.({
+        pools,
+        isVertical,
+      }),
+    [isVertical, pools],
+  );
+
   const columns = useMemo(() => {
-    let cols: ColumnItem[] = [];
-    switch (poolType) {
-      case OverviewDeFiPoolType.Liquidity:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getRewardsColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Rewards:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getPriceColumn('supplyTokens'),
-          getAprColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Lending:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getBorrowedColumn(),
-          getRewardsColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Borrowed:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getPriceColumn('supplyTokens'),
-          getAprColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Farming:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getRewardsColumn(),
-          getAprColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Locked:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getUnlockTimeColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Staked:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getRewardsColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Deposited:
-        cols = [
-          getPoolColumn('supplyTokens'),
-          getRewardsColumn(),
-          getPriceColumn('supplyTokens'),
-          getAprColumn(),
-          getValueColumn(),
-        ];
-        break;
-      case OverviewDeFiPoolType.Vesting:
-        cols = [getPoolColumn('supplyTokens'), getValueColumn()];
-        break;
-      default:
-        cols = [];
+    const defaultColumns = [
+      getPoolColumn(),
+      getBorrowedColumn(),
+      getRewardsColumn(),
+    ].filter(filterUnavailableColumn);
+
+    const extraColumns = [
+      getUnlockTimeColumn(),
+      getAprColumn(),
+      getValueColumn(),
+    ].filter(filterUnavailableColumn);
+
+    if (defaultColumns?.length === 1 && defaultColumns?.[0]?.dataIndex) {
+      defaultColumns.push(
+        getPriceColumn(defaultColumns[0].dataIndex as TokenKey),
+      );
     }
-    return cols.filter(
-      (c) =>
-        !c.visibleOn ||
-        c.visibleOn?.({
-          pools,
-          isVertical,
-        }),
-    );
-  }, [poolType, pools, isVertical]);
 
-  const len = columns.length;
+    return defaultColumns.concat(extraColumns);
+  }, [filterUnavailableColumn]);
 
-  const verticalRender: ListRenderItem<IOverviewDeFiPortfolioItem> = ({
-    item,
-  }) => (
-    <ListItem>
-      <ListItem.Column>
-        <VStack pl="4">
+  const len = useMemo(() => pools.length, [pools]);
+
+  const verticalRender = useCallback(
+    (item: IOverviewDeFiPortfolioItem, index: number) => {
+      const isLast = index === len - 1;
+      return (
+        <VStack
+          key={item.poolCode}
+          mb="4"
+          pb={isLast ? 0 : 4}
+          borderBottomWidth={isLast ? 0 : '1px'}
+          borderBottomColor="border-subdued"
+          mx="4"
+        >
           {columns.map((c, i) => (
-            <VStack mt={i === 0 ? 0 : '4'}>
+            <VStack mt={i === 0 ? 0 : '4'} key={c.header}>
               <Typography.Subheading mb="4">
                 {intl.formatMessage({ id: c.header })}
               </Typography.Subheading>
-              {c.render({
-                pool: item,
-              })}
+              {c.dataIndex && !isEmpty(item[c.dataIndex])
+                ? c.render({
+                    pool: item,
+                  })
+                : null}
             </VStack>
           ))}
         </VStack>
-      </ListItem.Column>
-    </ListItem>
+      );
+    },
+    [columns, intl, len],
   );
 
-  const desktopRender: ListRenderItem<IOverviewDeFiPortfolioItem> = ({
-    item,
-  }) => (
-    <ListItem alignItems="flex-start">
-      {columns.map((c, i) => (
-        <ListItem.Column key={c.header}>
-          <Box
-            flex="1"
-            pl={i === 0 ? '6' : 0}
-            pr={i === len - 1 ? '6' : 0}
-            {...(c.boxProps ?? {})}
-          >
-            {c.render({
-              pool: item,
-            })}
-          </Box>
-        </ListItem.Column>
-      ))}
-    </ListItem>
+  const desktopRender = useCallback(
+    (item: IOverviewDeFiPortfolioItem, index: number) => {
+      const isLast = index === pools.length - 1;
+      return (
+        <HStack
+          alignItems="flex-start"
+          borderBottomColor="border-subdued"
+          borderBottomWidth={isLast ? 0 : '1px'}
+          mx="6"
+          py="4"
+          key={item.poolCode}
+        >
+          {columns.map((c) => (
+            <Box flex="1" {...(c.boxProps ?? {})} key={c.header}>
+              {c.render({
+                pool: item,
+              })}
+            </Box>
+          ))}
+        </HStack>
+      );
+    },
+    [pools, columns],
   );
 
   const listHeaderRender = useMemo(() => {
     if (isVertical) {
-      return undefined;
+      return null;
     }
-    // eslint-disable-next-line
-    return () => (
-      <ListItem borderBottomWidth="1px" borderBottomColor="divider">
-        {columns.map((c, i) => (
-          <Box
-            key={c.header}
-            flex="1"
-            pl={i === 0 ? '6' : 0}
-            pr={i === len - 1 ? '6' : 0}
-            {...(c.boxProps ?? {})}
-          >
-            <ListItem.Column
-              text={{
-                label: intl.formatMessage({ id: c.header }),
-              }}
-            />
+    return (
+      <HStack mx="6" py="0" flex="1">
+        {columns.map((c) => (
+          <Box key={c.header} flex="1" {...(c.boxProps ?? {})}>
+            <Typography.Subheading color="text-subdued">
+              {intl.formatMessage({ id: c.header })}
+            </Typography.Subheading>
           </Box>
         ))}
-      </ListItem>
+      </HStack>
     );
-  }, [columns, intl, isVertical, len]);
+  }, [columns, intl, isVertical]);
 
   if (!columns.length) {
     return null;
   }
 
   return (
-    <List
-      data={pools}
-      keyExtractor={(item) => item.poolCode}
-      showDivider
-      ListHeaderComponent={listHeaderRender}
-      renderItem={isVertical ? verticalRender : desktopRender}
-    />
+    <Box>
+      {listHeaderRender}
+      {pools.map((item, index) => {
+        const render = isVertical ? verticalRender : desktopRender;
+        return render(item, index);
+      })}
+    </Box>
   );
 };

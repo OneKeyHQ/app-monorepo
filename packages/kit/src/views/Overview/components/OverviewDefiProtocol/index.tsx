@@ -4,13 +4,14 @@ import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Collapse,
-  List,
   Text,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useAccountAllValues, useActiveWalletAccount } from '../../../../hooks';
@@ -26,18 +27,12 @@ const PoolName: FC<{
 }> = ({ poolType }) => {
   const isVertical = useIsVerticalLayout();
   return (
-    <Text my={3}>
-      <Typography.Body2Strong
-        bg="surface-highlight-default"
-        borderRadius="6px"
-        numberOfLines={1}
-        ml={isVertical ? 4 : 6}
-        color="text-default"
-        px="6px"
-        py="2px"
-      >
-        {poolType}
-      </Typography.Body2Strong>
+    <Text ml={isVertical ? 4 : 6} my="4">
+      <Box px="6px" bg="surface-highlight-default" borderRadius="6px">
+        <Typography.Body2Strong color="text-default" numberOfLines={1}>
+          {poolType}
+        </Typography.Body2Strong>
+      </Box>
     </Text>
   );
 };
@@ -61,9 +56,10 @@ export const OverviewDefiProtocol: FC<OverviewDefiRes> = ({
       borderRadius="12px"
       bg="surface-default"
       borderWidth="1px"
-      borderColor="divider"
+      borderColor="border-subdued"
       mb="6"
-      defaultCollapsed={false}
+      defaultCollapsed={platformEnv.isNative}
+      overflow="hidden"
       renderCustomTrigger={(toggle, collapsed) => (
         <OverviewDefiBoxHeader
           name={protocolName}
@@ -96,12 +92,9 @@ export const OverviewDefiProtocol: FC<OverviewDefiRes> = ({
         />
       )}
     >
-      <List
-        m="0"
-        w="100%"
-        data={Object.entries(pools)}
-        renderItem={({ item }) => (
-          <VStack borderTopWidth="1px" borderTopColor="divider" pt="2" pb="4">
+      <Box>
+        {Object.entries(pools).map((item) => (
+          <VStack key={item[0]} borderTopWidth="1px" borderTopColor="divider">
             <PoolName
               poolType={item?.[0] as OverviewDeFiPoolType}
               poolName={item?.[1]?.[0]?.poolName}
@@ -112,9 +105,8 @@ export const OverviewDefiProtocol: FC<OverviewDefiRes> = ({
               pools={item?.[1]}
             />
           </VStack>
-        )}
-        keyExtractor={(item) => item[0]}
-      />
+        ))}
+      </Box>
     </Collapse>
   );
 };

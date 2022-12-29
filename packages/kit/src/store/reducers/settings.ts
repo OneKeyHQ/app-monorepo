@@ -57,6 +57,7 @@ export type SettingsState = {
     enableTestFiatEndpoint?: boolean;
     enableZeroNotificationThreshold?: boolean;
     enablePerfCheck?: boolean;
+    defiBuildService?: string;
   };
   pushNotification?: {
     registrationId?: string;
@@ -124,6 +125,7 @@ const initialState: SettingsState = {
     enableTestFiatEndpoint: false,
     enableZeroNotificationThreshold: false,
     enablePerfCheck: false,
+    defiBuildService: undefined,
   },
   pushNotification: defaultPushNotification,
   validationSetting: {
@@ -233,6 +235,15 @@ export const settingsSlice = createSlice({
     },
     setSwapSlippagePercent: (state, action: PayloadAction<string>) => {
       state.swapSlippagePercent = action.payload;
+    },
+    setOverviewDefiBuildByService: (
+      state,
+      { payload }: PayloadAction<string>,
+    ) => {
+      state.devMode = {
+        ...state.devMode,
+        defiBuildService: payload === 'all' ? undefined : payload,
+      };
     },
     setValidationState: (
       state,
@@ -445,6 +456,7 @@ export const {
   toggleDisableExt,
   disableExtSwitchTips,
   setPutMainTokenOnTop,
+  setOverviewDefiBuildByService,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

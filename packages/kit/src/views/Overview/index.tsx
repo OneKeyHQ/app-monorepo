@@ -1,19 +1,18 @@
 import type { FC } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Button,
   Center,
   HStack,
   Icon,
-  List,
   Spinner,
   Typography,
 } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 
 import { OverviewDefiProtocol } from './components/OverviewDefiProtocol';
@@ -29,18 +28,6 @@ const OverviewDefiListComponent: FC<OverviewDefiListProps> = (props) => {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const { networkId, address } = props;
-
-  useEffect(() => {
-    if (!address) {
-      return;
-    }
-    backgroundApiProxy.serviceOverview.subscribe([
-      {
-        ...props,
-        scanTypes: ['defi'],
-      },
-    ]);
-  }, [props, address]);
 
   const loadMore = useCallback(() => {
     setLoading(true);
@@ -77,16 +64,12 @@ const OverviewDefiListComponent: FC<OverviewDefiListProps> = (props) => {
   }, [loadMore, defis, page, intl, loading]);
 
   return (
-    <List
-      m="0"
-      mb="6"
-      data={defis.slice(0, page * pageSize)}
-      renderItem={({ item }) => (
+    <Box mb="6">
+      {defis.slice(0, page * pageSize).map((item) => (
         <OverviewDefiProtocol {...item} key={item._id?.protocolId} />
-      )}
-      keyExtractor={(item) => item._id.protocolId}
-      ListFooterComponent={loadMoreButton}
-    />
+      ))}
+      {loadMoreButton}
+    </Box>
   );
 };
 

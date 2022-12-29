@@ -32,7 +32,6 @@ import AccountInfo, {
 } from './AccountInfo';
 import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
-import { DefiList } from './DefiList';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { WalletHomeTabEnum } from './type';
@@ -133,8 +132,8 @@ const WalletTabs: FC = () => {
               networkId={networkId}
               ListFooterComponent={<Box h={6} />}
               limitSize={20}
+              renderDefiList
             />
-            <DefiList />
             <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
             <GuideToPushFirstTimeCheck />
           </>

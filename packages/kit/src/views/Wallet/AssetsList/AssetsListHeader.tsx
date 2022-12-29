@@ -133,6 +133,7 @@ const ListHeader: FC<{
           : undefined
       }
       flexDirection="column"
+      bg="surface-subdued"
     >
       <Box
         flexDirection="row"
@@ -204,6 +205,7 @@ const ListHeader: FC<{
               color="text-subdued"
               flex={1}
               textAlign="right"
+              pr="6"
             >
               {intl.formatMessage({ id: 'content__price_uppercase' })}
             </Typography.Subheading>

@@ -1,4 +1,4 @@
-import { isEqual, pick } from 'lodash';
+import { pick } from 'lodash';
 
 import { setOverviewPortfolioDefi } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -10,8 +10,13 @@ import type {
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import ServiceBase from './ServiceBase';
 
@@ -22,34 +27,67 @@ class ServiceOverview extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
 
-    this.queryPendingTasks();
     setInterval(() => {
       this.queryPendingTasks();
     }, getTimeDurationMs({ seconds: 15 }));
+
+    this.initialSubscribe();
   }
 
   private pendingTasks: IOverviewScanTaskItem[] = [];
 
+  async initialSubscribe() {
+    await this.backgroundApi.serviceApp.waitForAppInited({
+      logName: 'ServiceOverview',
+    });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    appEventBus.on(AppEventBusNames.AccountChanged, this.subscribe);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribe);
+  }
+
+  @bindThis()
   @backgroundMethod()
-  async subscribe(tasks: IOverviewScanTaskItem[]) {
-    const validTasks = tasks.filter(
-      (t) => !this.pendingTasks.some((task) => isEqual(t, task)),
-    );
-    if (!validTasks.length) {
+  async subscribe() {
+    const { appSelector, serviceAccount } = this.backgroundApi;
+    const {
+      activeAccountId,
+      activeNetworkId: networkId,
+      activeWalletId,
+    } = appSelector((s) => s.general);
+
+    const account = await serviceAccount.getAccount({
+      walletId: activeWalletId || '',
+      accountId: activeAccountId || '',
+    });
+    if (!account || !networkId) {
       return;
     }
+    const { address } = account;
+    if (
+      this.pendingTasks.some(
+        (t) => t.networkId === networkId && t.address === address,
+      )
+    ) {
+      return;
+    }
+    const task: IOverviewScanTaskItem = {
+      networkId,
+      address,
+      scanTypes: ['defi'],
+    };
     const res = await fetchData<{
       tasks?: IOverviewScanTaskItem[];
     }>(
       '/overview/subscribe',
       {
-        tasks: validTasks,
+        tasks: [task],
       },
       {},
       'POST',
     );
     if (res.tasks) {
-      this.pendingTasks.push(...validTasks);
+      this.pendingTasks.push(task);
       this.queryPendingTasks();
     }
     return res;
@@ -84,10 +122,18 @@ class ServiceOverview extends ServiceBase {
   }
 
   async queryOverviewDefis(tasks: IOverviewScanTaskItem[]) {
-    const res = await this.query<OverviewDefiRes[]>(
-      'defi',
-      tasks.map((t) => pick(t, 'networkId', 'address')),
+    const buildByService = this.backgroundApi.appSelector(
+      (s) => s.settings.devMode?.defiBuildService,
     );
+    const body = {
+      tasks: tasks.map((t) => pick(t, 'networkId', 'address')),
+    };
+    if (buildByService && buildByService !== 'all') {
+      Object.assign(body, {
+        buildByService,
+      });
+    }
+    const res = await this.query<OverviewDefiRes[]>('defi', body);
     const { dispatch, appSelector } = this.backgroundApi;
     const data = tasks.map((t) => ({
       networkId: t.networkId,
@@ -121,21 +167,17 @@ class ServiceOverview extends ServiceBase {
   @backgroundMethod()
   async query<T>(
     scanType: IOverviewScanTaskType,
-    tasks: IOverviewScanTaskItem[],
+    body: {
+      buildByService?: string;
+      tasks: IOverviewScanTaskItem[];
+    },
   ) {
     return fetchData<{
       status?: {
         pending: Omit<IOverviewScanTaskItem, 'taskType'>[];
       };
       data?: T;
-    }>(
-      `/overview/query/${scanType}`,
-      {
-        tasks,
-      },
-      {},
-      'POST',
-    );
+    }>(`/overview/query/${scanType}`, body, {}, 'POST');
   }
 }
 

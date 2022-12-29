@@ -1,9 +1,10 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 
 import {
+  Box,
   Divider,
   FlatList,
   useIsVerticalLayout,
@@ -24,6 +25,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';
+import { OverviewDefiList } from '../../Overview';
 
 import AssetsListHeader from './AssetsListHeader';
 import { EmptyListOfAccount } from './EmptyList';
@@ -52,6 +54,7 @@ export type IAssetsListProps = Omit<
   accountId: string;
   networkId: string;
   hideSmallBalance?: boolean;
+  renderDefiList?: boolean;
 };
 function AssetsList({
   showRoundTop,
@@ -65,6 +68,7 @@ function AssetsList({
   flatStyle,
   accountId,
   networkId,
+  renderDefiList,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const { accountTokens, loading } = useManageTokensOfAccount({
@@ -99,6 +103,12 @@ function AssetsList({
       }
     }, [account, network]),
   );
+
+  useEffect(() => {
+    if (renderDefiList) {
+      backgroundApiProxy.serviceOverview.subscribe();
+    }
+  }, [renderDefiList]);
 
   const renderListItem: FlatListProps<TokenType>['renderItem'] = ({
     item,
@@ -143,6 +153,21 @@ function AssetsList({
 
   const Container = singleton ? FlatList : Tabs.FlatList;
 
+  const footer = useMemo(
+    () => (
+      <Box>
+        {ListFooterComponent}
+        {renderDefiList ? (
+          <OverviewDefiList
+            networkId={networkId}
+            address={account?.address ?? ''}
+          />
+        ) : null}
+      </Box>
+    ),
+    [ListFooterComponent, networkId, account?.address, renderDefiList],
+  );
+
   return (
     <Container
       style={{
@@ -182,7 +207,7 @@ function AssetsList({
           : // eslint-disable-next-line react/no-unstable-nested-components
             () => <EmptyListOfAccount network={network} />
       }
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={footer}
       keyExtractor={(_item: TokenType) =>
         `${_item.id}--${_item.sendAddress ?? ''}`
       }

@@ -99,10 +99,10 @@ export default class ServiceToken extends ServiceBase {
   _fetchAccountTokensDebounced = debounce(
     // eslint-disable-next-line @typescript-eslint/unbound-method
     this.fetchAccountTokens,
-    600,
+    6000,
     {
-      leading: false,
-      trailing: true,
+      leading: true,
+      trailing: false,
     },
   );
 

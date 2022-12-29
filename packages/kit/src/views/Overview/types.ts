@@ -28,21 +28,7 @@ export type IOverviewScanTaskItem = Pick<
   'networkId' | 'address' | 'scanTypes'
 >;
 
-export enum EOverviewServiceNames {
-  SAMPLE_TO_BE_RENAME = 'SAMPLE_TO_BE_RENAME',
-  alchemy = 'alchemy',
-  blockvision = 'blockvision',
-  covalent = 'covalent',
-  debank = 'debank',
-  defiwatch = 'defiwatch',
-  moralis = 'moralis',
-  nansen = 'nansen',
-  zerion = 'zerion',
-  explorer_etherscan = 'explorer_etherscan',
-  rpc_btcfork = 'rpc_btcfork',
-  rpc_evmfork = 'rpc_evmfork',
-  nft_scan = 'nft_scan',
-}
+export type EOverviewServiceNames = string;
 export type IOverviewScanTaskType = 'token' | 'defi' | 'nfts';
 export interface IOverviewScanTaskPayload {
   tasks: IOverviewScanTaskInfo[];
@@ -149,7 +135,7 @@ export interface IOverviewDeFiPortfolioItem
   extends IBaseOverviewQuery,
     IOverviewDeFiProtocolInfo {
   // TODO rename serviceCode
-  buildByService: EOverviewServiceNames; // debank, defiwatch, blockvision
+  buildByService: EOverviewServiceNames;
 
   poolCode: string; // poolContractAddress, pool.id, poolId, id, lpAddress
   poolType: OverviewDeFiPoolType;
@@ -196,7 +182,7 @@ export interface IOverviewDeFiPortfolio
   buildByService: EOverviewServiceNames;
 }
 
-export interface DebankProject {
+export interface ProjectItem {
   active_user_count_24h: number;
   chain: string;
   contract_call_count_24h: number;

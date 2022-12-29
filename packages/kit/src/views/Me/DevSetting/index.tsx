@@ -8,6 +8,7 @@ import {
   Container,
   HStack,
   Pressable,
+  Select,
   Switch,
   Text,
   ToastManager,
@@ -27,6 +28,7 @@ import {
   setEnablePerfCheck,
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
+  setOverviewDefiBuildByService,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceRes,
@@ -84,6 +86,7 @@ export const DevSettingSection = () => {
     enableTestFiatEndpoint,
     enableZeroNotificationThreshold,
     enablePerfCheck,
+    defiBuildService,
   } = devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -276,6 +279,30 @@ export const DevSettingSection = () => {
           subDescribeCustom={
             <NetworkAccountSelectorTrigger
               mode={EAccountSelectorMode.Transfer}
+            />
+          }
+        />
+        <Container.Item
+          title="All-Chain Send"
+          titleColor="text-critical"
+          subDescribeCustom={
+            <Select
+              isTriggerPlain
+              headerShown={false}
+              footer={null}
+              containerProps={{
+                style: {
+                  minWidth: '100px',
+                },
+              }}
+              onChange={(value) => {
+                dispatch(setOverviewDefiBuildByService(value));
+              }}
+              value={defiBuildService || 'all'}
+              options={['all', '3', '5', '6', '9'].map((n) => ({
+                label: n,
+                value: n,
+              }))}
             />
           }
         />
