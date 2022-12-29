@@ -10,13 +10,13 @@ import {
   Image,
   KeyboardDismissView,
   Modal,
+  Text,
   ToastManager,
   Token,
   Typography,
 } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
