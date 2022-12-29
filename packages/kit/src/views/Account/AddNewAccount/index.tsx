@@ -10,13 +10,13 @@ import {
   Box,
   Form,
   Modal,
+  Text,
+  ToastManager,
   Typography,
   useForm,
-  useToast,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
-import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
-import { Text } from '@onekeyhq/components/src/Typography';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
@@ -49,7 +49,7 @@ type RouteProps = RouteProp<
 
 const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { dispatch, serviceAccount, serviceAccountSelector } =
     backgroundApiProxy;
   const { control, handleSubmit, getValues, setValue, watch } =
@@ -227,7 +227,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       }, 10);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [toast, getValues, selectedWalletId, purpose, dispatch, intl, networks],
+    [getValues, selectedWalletId, purpose, dispatch, intl, networks],
   );
 
   const onSubmit = handleSubmit(() => {

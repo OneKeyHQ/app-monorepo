@@ -13,12 +13,12 @@ import {
   ListItem,
   Pressable,
   Skeleton,
+  ToastManager,
   Token,
   Typography,
   useIsVerticalLayout,
-  useToast,
   useUserDevice,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
@@ -86,7 +86,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   const { size } = useUserDevice();
   const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
   const selectedCategoryId = useMarketSelectedCategoryId();
-  const toast = useToast();
+
   const intl = useIntl();
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
@@ -140,7 +140,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                           backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
                             marketTokenItem.coingeckoId,
                           );
-                          toast.show({
+                          ToastManager.show({
                             title: intl.formatMessage({
                               id: 'msg__removed',
                             }),
@@ -154,7 +154,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                               },
                             ],
                           );
-                          toast.show({
+                          ToastManager.show({
                             title: intl.formatMessage({
                               id: 'msg__added_to_favorites',
                             }),

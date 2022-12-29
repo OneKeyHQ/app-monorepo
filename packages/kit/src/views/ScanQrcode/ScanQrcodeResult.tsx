@@ -11,9 +11,9 @@ import {
   Icon,
   Modal,
   Pressable,
+  ToastManager,
   Typography,
   useSafeAreaInsets,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
@@ -51,11 +51,11 @@ const pressableProps = {
 
 function CopyButton({ data }: { data: string }) {
   const intl = useIntl();
-  const toast = useToast();
+
   const onPress = useCallback(() => {
     copyToClipboard(data);
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [data, intl, toast]);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [data, intl]);
   return (
     <Pressable {...pressableProps} onPress={onPress}>
       <HStack space="3">
@@ -93,6 +93,7 @@ const ScanQrcodeResult: FC = () => {
   ) {
     header = intl.formatMessage({ id: 'form__address' });
   }
+  const sendDisabled = wallet?.type === 'watching';
   const actions = (
     <>
       <Box {...WrapperProps}>
@@ -130,17 +131,26 @@ const ScanQrcodeResult: FC = () => {
                   },
                 );
               }}
-              disabled={wallet?.type === 'watching'}
+              isDisabled={sendDisabled}
             >
               <HStack space="3">
-                <Icon name="PaperAirplaneOutline" />
-                <Typography.Body1Strong>
+                <Icon
+                  name="PaperAirplaneOutline"
+                  color={sendDisabled ? 'icon-disabled' : 'icon-default'}
+                />
+                <Typography.Body1Strong
+                  color={sendDisabled ? 'text-disabled' : 'text-default'}
+                >
                   {intl.formatMessage({
                     id: 'form__send_tokens',
                   })}
                 </Typography.Body1Strong>
               </HStack>
-              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+              <Icon
+                name="ChevronRightMini"
+                size={20}
+                color={sendDisabled ? 'icon-disabled' : 'icon-subdued'}
+              />
             </Pressable>
             <Box h={StyleSheet.hairlineWidth} bgColor="divider" />
             <Pressable

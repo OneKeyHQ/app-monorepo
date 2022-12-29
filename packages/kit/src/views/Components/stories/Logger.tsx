@@ -5,6 +5,7 @@ import {
   Button,
   CheckBox,
   ScrollView,
+  Text,
   Typography,
 } from '@onekeyhq/components';
 import {
@@ -47,7 +48,7 @@ function DebugLoggerSettings() {
             }}
           >
             <Box minW={300} pl={2}>
-              <Typography.Text>{key}</Typography.Text>
+              <Text>{key}</Text>
             </Box>
           </CheckBox>
         </Box>

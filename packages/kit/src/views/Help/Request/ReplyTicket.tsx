@@ -16,9 +16,9 @@ import {
   IconButton,
   Modal,
   Pressable,
+  ToastManager,
   useForm,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -56,7 +56,6 @@ export const ReplyTicket: FC = () => {
   const submitterId = route?.params.order.submitter_id;
   const modalWidth = isSmallScreen ? width : 400;
   const padding = isSmallScreen ? 16 : 24;
-  const toast = useToast();
 
   const imageWidth = (modalWidth - padding * 2) / 4;
   const {
@@ -88,7 +87,7 @@ export const ReplyTicket: FC = () => {
         .then((response) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (response.data.success) {
-            toast.show({
+            ToastManager.show({
               title: intl.formatMessage({ id: 'msg__submitted_successfully' }),
             });
             navigation.goBack();
@@ -98,7 +97,7 @@ export const ReplyTicket: FC = () => {
           console.log(error);
         });
     },
-    [id, imageArr, instanceId, intl, navigation, submitterId, toast],
+    [id, imageArr, instanceId, intl, navigation, submitterId],
   );
 
   const pickImage = useCallback(async () => {
@@ -156,7 +155,7 @@ export const ReplyTicket: FC = () => {
                 ...prev.slice(imageIndex + 1),
               ];
             });
-            toast.show(
+            ToastManager.show(
               {
                 title: intl.formatMessage({ id: 'msg__upload_failed' }),
               },

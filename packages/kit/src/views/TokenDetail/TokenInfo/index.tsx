@@ -8,10 +8,10 @@ import {
   Box,
   IconButton,
   Token,
-  TokenVerifiedIcon,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
@@ -244,70 +244,77 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
             {intl.formatMessage({ id: 'title__swap' })}
           </Typography.CaptionStrong>
         </Box>
-
-        {cryptoCurrency && (
-          <Box flex={1} mx={3} minW="56px" alignItems="center">
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="PlusOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching'}
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.FiatPay,
-                  params: {
-                    screen: FiatPayRoutes.AmountInputModal,
-                    params: {
-                      token: cryptoCurrency as CurrencyType,
-                      type: 'Buy',
-                    },
-                  },
-                });
-              }}
-            />
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color={
-                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
-              }
-            >
-              {intl.formatMessage({ id: 'action__buy' })}
-            </Typography.CaptionStrong>
-          </Box>
-        )}
-        {sellEnable && (
-          <Box flex={1} mx={3} minW="56px" alignItems="center">
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="CurrencyDollarOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching'}
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.FiatPay,
-                  params: {
-                    screen: FiatPayRoutes.AmountInputModal,
-                    params: {
-                      token: cryptoCurrency as CurrencyType,
-                      type: 'Sell',
-                    },
-                  },
-                });
-              }}
-            />
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color={
-                wallet?.type === 'watching' ? 'text-disabled' : 'text-default'
-              }
-            >
-              {intl.formatMessage({ id: 'action__sell' })}
-            </Typography.CaptionStrong>
-          </Box>
+        {isVertical ? null : (
+          <>
+            {cryptoCurrency && (
+              <Box flex={1} mx={3} minW="56px" alignItems="center">
+                <IconButton
+                  circle
+                  size={isVertical ? 'xl' : 'lg'}
+                  name="PlusOutline"
+                  type="basic"
+                  isDisabled={wallet?.type === 'watching'}
+                  onPress={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.FiatPay,
+                      params: {
+                        screen: FiatPayRoutes.AmountInputModal,
+                        params: {
+                          token: cryptoCurrency as CurrencyType,
+                          type: 'Buy',
+                        },
+                      },
+                    });
+                  }}
+                />
+                <Typography.CaptionStrong
+                  textAlign="center"
+                  mt="8px"
+                  color={
+                    wallet?.type === 'watching'
+                      ? 'text-disabled'
+                      : 'text-default'
+                  }
+                >
+                  {intl.formatMessage({ id: 'action__buy' })}
+                </Typography.CaptionStrong>
+              </Box>
+            )}
+            {sellEnable && (
+              <Box flex={1} mx={3} minW="56px" alignItems="center">
+                <IconButton
+                  circle
+                  size={isVertical ? 'xl' : 'lg'}
+                  name="CurrencyDollarOutline"
+                  type="basic"
+                  isDisabled={wallet?.type === 'watching'}
+                  onPress={() => {
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.FiatPay,
+                      params: {
+                        screen: FiatPayRoutes.AmountInputModal,
+                        params: {
+                          token: cryptoCurrency as CurrencyType,
+                          type: 'Sell',
+                        },
+                      },
+                    });
+                  }}
+                />
+                <Typography.CaptionStrong
+                  textAlign="center"
+                  mt="8px"
+                  color={
+                    wallet?.type === 'watching'
+                      ? 'text-disabled'
+                      : 'text-default'
+                  }
+                >
+                  {intl.formatMessage({ id: 'action__sell' })}
+                </Typography.CaptionStrong>
+              </Box>
+            )}
+          </>
         )}
         {priceReady && !isVertical && (
           <Box flex={1} mx={3} minW="56px" alignItems="center">

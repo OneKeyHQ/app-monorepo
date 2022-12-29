@@ -10,8 +10,8 @@ import {
   FlatList,
   IconButton,
   ScrollView,
-} from '@onekeyhq/components/src';
-import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
 import { HomeRoutes } from '../../routes/types';
 import { MARKET_FAVORITES_CATEGORYID } from '../../store/reducers/market';

@@ -13,7 +13,7 @@ import {
   Typography,
   useIsVerticalLayout,
   useThemeValue,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   MARKET_TAB_NAME,
@@ -136,7 +136,7 @@ const HeaderSmall: FC = () => {
             size="base"
             name="MagnifyingGlassMini"
             type="plain"
-            iconSize={16}
+            // iconSize={16}
             onPress={() => {
               showMarketSearch({
                 modalProps: {

@@ -11,8 +11,8 @@ import {
   Divider,
   Modal,
   QRCode,
+  ToastManager,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import LogoPrimary from '@onekeyhq/components/src/Icon/react/illus/LogoPrimary';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -31,7 +31,7 @@ const logo =
 
 export const ShareView = () => {
   const ref = useRef<ViewShot | null>(null);
-  const toast = useToast();
+
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { url } = route.params;
@@ -43,7 +43,9 @@ export const ShareView = () => {
     const share = (await import('react-native-share')).default;
     const uri = await ref.current?.capture?.();
     if (!share || !uri) {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__unknown_error' }),
+      });
       return;
     }
     const options = Platform.select({
@@ -71,12 +73,12 @@ export const ShareView = () => {
     await share.open(options).catch(() => {
       console.log('user cancel share');
     });
-  }, [ref, toast, intl]);
+  }, [ref, intl]);
 
   const onCopy = useCallback(() => {
     copyToClipboard(url);
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [toast, intl, url]);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [intl, url]);
 
   const props = useMemo(
     () =>

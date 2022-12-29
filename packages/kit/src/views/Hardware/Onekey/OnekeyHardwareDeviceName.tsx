@@ -12,9 +12,9 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
+  ToastManager,
   Typography,
   useForm,
-  useToast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
@@ -57,7 +57,7 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
   deviceFeatures,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const { control, handleSubmit, setError, setValue } = useForm<FieldValues>({
     defaultValues: {
@@ -111,7 +111,9 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
        * use dispatch action to refresh the wallet list
        */
       await serviceAccount.initWallets();
-      toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__change_saved' }),
+      });
       navigation.getParent()?.goBack();
     } catch (e) {
       const error = deviceUtils.convertDeviceError(e);
