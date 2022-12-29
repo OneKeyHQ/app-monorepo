@@ -118,13 +118,13 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
       <Box
         alignItems="center"
         mt={isSmallScreen ? '32px' : '24px'}
-        px={isSmallScreen ? '54px' : '68px'}
+        px={isSmallScreen ? '24px' : '32px'}
       >
         <Text
           color="text-subdued"
           textAlign="center"
           typography={{ sm: 'Body1', md: 'Body2' }}
-          noOfLines={4}
+          noOfLines={5}
         >
           {privateKey}
         </Text>
