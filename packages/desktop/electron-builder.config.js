@@ -35,8 +35,8 @@ module.exports = {
       'to': 'static/preload.js',
     },
     {
-      'from': 'build/static/js-sdk/*',
-      'to': 'static/js-sdk/*',
+      'from': 'build/static/js-sdk/',
+      'to': 'static/js-sdk/',
     },
   ],
   'publish': {
