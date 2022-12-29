@@ -25,7 +25,6 @@ module.exports = async function (env, argv) {
     env,
     enableAnalyzerHtmlReport: true,
   });
-
   if (process.env.NODE_ENV === 'production') {
     config.devtool = false;
   }

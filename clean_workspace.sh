@@ -34,6 +34,7 @@ rm -rf ./packages/app/android/app/build
 rm -rf ./packages/app/android/lib-keys-secret/build
 rm -rf ./packages/app/android/lib-keys-secret/.cxx
 rm -rf ./packages/app/android/app/src/main/assets/web-embed
+rm -rf ./packages/app/src/public/static/js-sdk
 
 rm -rf ./packages/desktop/node_modules
 rm -rf ./packages/desktop/.expo
@@ -44,7 +45,6 @@ rm -rf ./packages/desktop/build-electron
 rm -rf ./packages/desktop/public/static/js-sdk
 rm -rf ./packages/desktop/public/static/connect
 rm -rf ./packages/desktop/public/static/preload.js
-rm -rf ./packages/desktop/web/static/js-sdk/
 
 rm -rf ./packages/web/node_modules
 rm -rf ./packages/web/.expo
