@@ -35,14 +35,14 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
   return (
     <Box flex={1} alignItems="center" justifyContent="center">
       <Box mt={isVertical ? '40px' : '56px'} maxW={GRID_MAX_WIDTH}>
-        <Center w="full" mb="32px">
+        <Box mb="32px" justifyContent="center" alignItems="center">
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'empty__your_watchlist_is_empty' })}
           </Typography.DisplayLarge>
           <Typography.Body1 mt={2}>
             {intl.formatMessage({ id: 'empty__your_watchlist_is_empty_desc' })}
           </Typography.Body1>
-        </Center>
+        </Box>
         <Box
           flexDirection="row"
           alignContent="flex-start"
