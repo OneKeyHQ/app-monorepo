@@ -26,15 +26,6 @@ module.exports = async function (env, argv) {
     enableAnalyzerHtmlReport: true,
   });
 
-  const terserExclude = config.optimization.minimizer[0].options.exclude;
-  config.optimization.minimizer[0].options.exclude =
-    // eslint-disable-next-line no-nested-ternary
-    typeof terserExclude === 'string'
-      ? [terserExclude, /static\/js-sdk/]
-      : Array.isArray(terserExclude)
-      ? [...terserExclude, /static\/js-sdk/]
-      : [/static\/js-sdk/];
-
   if (process.env.NODE_ENV === 'production') {
     config.devtool = false;
   }

@@ -1,9 +1,3 @@
-import { join } from 'path';
-
-const resolveStaticPath = (path: string) => {
-  const staticPath = join('/static', path);
-
-  return staticPath;
-};
-
-export const getConnectSrc = () => resolveStaticPath('js-sdk/');
+// @ts-expect-error
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+export const getConnectSrc = () => window.ONEKEY_DESKTOP_GLOBALS?.sdkConnectSrc;
