@@ -2,6 +2,7 @@ import type { ICON_NAMES } from '@onekeyhq/components';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import type { MarketCategory } from '../../store/reducers/market';
+import type { EMarketCellData } from './config';
 import type { MessageDescriptor } from 'react-intl';
 
 export type CommonPriceCardProps = {
@@ -26,7 +27,7 @@ export type MarketCategoryToggleComponentProp = {
 };
 
 export type ListHeadTagType = {
-  id: number;
+  id: EMarketCellData;
   title?: MessageDescriptor['id'];
   minW: string;
   textAlign?: 'center' | 'left' | 'right';
