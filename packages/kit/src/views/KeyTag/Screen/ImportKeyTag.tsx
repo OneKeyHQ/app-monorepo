@@ -13,16 +13,17 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { RootRoutes } from '../../../routes/types';
+import { HomeRoutes } from '../../../routes/types';
 import LayoutContainer from '../../Onboarding/Layout';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 import { KeyTagImportMatrix } from '../Component/KeyTagMatrix/keyTagImportMatrix';
 import { KeyTagMnemonicStatus } from '../types';
 import { generalKeyTagMnemonic, keyTagWordDataToMnemonic } from '../utils';
 
+import type { HomeRoutesParams, ModalScreenProps } from '../../../routes/types';
 import type { KeyTagRoutes } from '../Routes/enums';
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -30,11 +31,11 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 type NavigationProps = StackNavigationProp<
   IKeytagRoutesParams,
   KeyTagRoutes.ImportKeytag
->;
+> &
+  ModalScreenProps<HomeRoutesParams>;
 
 const ImportKeyTag: FC = () => {
   const navigation = useNavigation<NavigationProps>();
-  const appNavigation = useAppNavigation();
   const intl = useIntl();
   const [importCheck, setImportCheck] = useState(false);
   const [mnemonicWordDatas, setMnemonicWordDatas] = useState(() =>
@@ -84,7 +85,7 @@ const ImportKeyTag: FC = () => {
         .join(' ');
       try {
         await backgroundApiProxy.validator.validateMnemonic(mnemonic);
-        appNavigation.navigate(RootRoutes.Onboarding, {
+        navigation.navigate(HomeRoutes.HomeOnboarding, {
           screen: EOnboardingRoutes.SetPassword,
           params: { mnemonic },
         });
@@ -104,11 +105,11 @@ const ImportKeyTag: FC = () => {
       );
     }
     setImportCheck(false);
-  }, [appNavigation, mnemonicWordDatas, intl]);
+  }, [navigation, mnemonicWordDatas, intl]);
   const rightButton = useMemo(
     () => (
       <Button
-        mr={6}
+        mr={platformEnv.isNative ? 0 : 6}
         type="primary"
         size="base"
         isLoading={importCheck}
@@ -119,11 +120,27 @@ const ImportKeyTag: FC = () => {
     ),
     [importCheck, importValidation, intl],
   );
+  const LeftButton = useMemo(
+    () => (
+      <Button
+        type="plain"
+        leftIconName="ChevronLeftOutline"
+        onPress={() => {
+          if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+          }
+        }}
+      />
+    ),
+    [navigation],
+  );
   const title = useMemo(() => <Box />, []);
   navigation.setOptions({
     headerShown: true,
+    headerLeft: () => LeftButton,
     headerRight: () => rightButton,
     headerTitle: () => title,
+    headerShadowVisible: false,
   });
   const [showResult, setShowResult] = useState(true);
   const isVertical = useIsVerticalLayout();
@@ -133,7 +150,7 @@ const ImportKeyTag: FC = () => {
         flexDirection={isVertical ? 'column' : 'row'}
         justifyContent={isVertical ? 'center' : 'space-between'}
       >
-        <Box>
+        <Box mt={platformEnv.isNative ? -6 : 0}>
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'title__import_wallet_with_keytag' })}
           </Typography.DisplayLarge>
@@ -164,6 +181,10 @@ const ImportKeyTag: FC = () => {
             <Select
               activatable={!!isVertical}
               defaultValue={12}
+              containerProps={{
+                width: '120px',
+                zIndex: 5,
+              }}
               footer={null}
               headerShown={false}
               onChange={(v, item: { label: string; value: number }) => {

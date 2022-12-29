@@ -21,14 +21,12 @@ import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
 import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { useWallet } from '../../hooks/useWallet';
-import { KeyTagVerifyWalletRoutes } from '../../routes/Modal/KeyTagVerifyWallet';
+import { KeyTagRoutes } from '../KeyTag/Routes/enums';
 
-import type { KeyTagVerifyWalletRoutesParams } from '../../routes/Modal/types';
+import type { IKeytagRoutesParams } from '../KeyTag/Routes/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export type BackupWalletViewProps = {
@@ -95,14 +93,13 @@ type RouteProps = RouteProp<
 >;
 
 type NavigationProps = ModalScreenProps<
-  BackupWalletRoutesParams & KeyTagVerifyWalletRoutesParams
+  BackupWalletRoutesParams & IKeytagRoutesParams
 >;
 
 const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   const intl = useIntl();
   const { walletId } = useRoute<RouteProps>().params;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const appNavigation = useAppNavigation();
   const { wallet } = useWallet({ walletId });
   const onManual = useCallback(() => {
     navigation.navigate(BackupWalletModalRoutes.BackupWalletManualModal, {
@@ -117,17 +114,11 @@ const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   }, [navigation, walletId]);
 
   const onKeyTag = useCallback(() => {
-    appNavigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.KeyTagVerifyWallet,
-      params: {
-        screen: KeyTagVerifyWalletRoutes.KeyTagVerifyPassword,
-        params: {
-          walletId,
-          wallet,
-        },
-      },
+    navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
+      walletId,
+      wallet,
     });
-  }, [appNavigation, wallet, walletId]);
+  }, [navigation, wallet, walletId]);
 
   return (
     <Modal

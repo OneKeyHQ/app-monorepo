@@ -54,7 +54,7 @@ export const DotGroup: FC<DotGroupProps> = ({
         <Box flexDirection="column">
           {showDigitCode ? (
             <Box
-              style={{ width: size * 4, height: '35px' }}
+              style={{ width: size * 4, height: 35 }}
               flexDirection="column"
               justifyContent="center"
               alignItems="center"
@@ -65,7 +65,7 @@ export const DotGroup: FC<DotGroupProps> = ({
                 justifyContent="flex-start"
                 alignItems="center"
                 style={{
-                  width: '35px',
+                  width: 35,
                   height: size * 4,
                   transform: [{ rotate: '-90deg' }],
                 }}

@@ -1,19 +1,19 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 import { Modal } from '@onekeyhq/components';
-import type { KeyTagVerifyWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
-import { KeyTagVerifyWalletRoutes } from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import Protected, { ValidationFields } from '../../../components/Protected';
+import { KeyTagRoutes } from '../Routes/enums';
 
+import type { IKeytagRoutesParams } from '../Routes/types';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
-  KeyTagVerifyWalletRoutesParams,
-  KeyTagVerifyWalletRoutes.KeyTagVerifyPassword
+  IKeytagRoutesParams,
+  KeyTagRoutes.KeyTagVerifyPassword
 >;
-type NavigationProps = ModalScreenProps<KeyTagVerifyWalletRoutesParams>;
+type NavigationProps = ModalScreenProps<IKeytagRoutesParams>;
 
 const VerifyPassword = () => {
   const route = useRoute<RouteProps>();
@@ -23,7 +23,7 @@ const VerifyPassword = () => {
     <Modal footer={null}>
       <Protected walletId={walletId} field={ValidationFields.Secret}>
         {(password) => {
-          navigation.replace(KeyTagVerifyWalletRoutes.KeyTagAttensions, {
+          navigation.replace(KeyTagRoutes.KeyTagAttention, {
             walletId,
             password,
             wallet,

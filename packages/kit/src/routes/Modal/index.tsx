@@ -13,10 +13,6 @@ import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOption
 
 import type { ModalRoutesParams } from '../types';
 
-const KeyTagVerifyWalletModal = createLazyComponent(
-  () => import('./KeyTagVerifyWallet'),
-);
-
 const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
 
 const CollectibleModal = createLazyComponent(() => import('./Collectibles'));
@@ -217,7 +213,6 @@ const modalStackScreenList = [
     name: ModalRoutes.NFTMarket,
     component: NFTMarket,
   },
-  { name: ModalRoutes.KeyTagVerifyWallet, component: KeyTagVerifyWalletModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

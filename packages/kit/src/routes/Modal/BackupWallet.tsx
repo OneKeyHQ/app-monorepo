@@ -15,6 +15,9 @@ import type {
   IKeytagRoutesParams,
   IkeyTagShowDotMapParams,
 } from '../../views/KeyTag/Routes/types';
+import { IWallet } from '../../../../engine/src/types';
+import VerifyPassword from '../../views/KeyTag/Screen/VerifyPassword';
+import KeyTagBackupWalletAttentions from '../../views/KeyTag/Screen/KeyTagAttentions';
 
 export enum BackupWalletModalRoutes {
   BackupWalletOptionsModal = 'BackupWalletOptionsModal',
@@ -41,6 +44,15 @@ export type BackupWalletRoutesParams = {
   [BackupWalletModalRoutes.BackupWalletMnemonicModal]: {
     mnemonic: string;
     walletId: string;
+  };
+  [KeyTagRoutes.KeyTagVerifyPassword]: {
+    walletId: string;
+    wallet?: IWallet;
+  };
+  [KeyTagRoutes.KeyTagAttention]: {
+    walletId: string;
+    password: string;
+    wallet?: IWallet;
   };
   [KeyTagRoutes.ShowDotMap]: IkeyTagShowDotMapParams;
 };
@@ -69,6 +81,11 @@ const modalRoutes = [
   {
     name: BackupWalletModalRoutes.BackupWalletLiteModal,
     component: BackupLite,
+  },
+  { name: KeyTagRoutes.KeyTagVerifyPassword, component: VerifyPassword },
+  {
+    name: KeyTagRoutes.KeyTagAttention,
+    component: KeyTagBackupWalletAttentions,
   },
   {
     name: KeyTagRoutes.ShowDotMap,
