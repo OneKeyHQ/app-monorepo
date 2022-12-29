@@ -1,4 +1,5 @@
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -46,7 +47,7 @@ const Started = () => {
             <Image
               source={isDark ? keytagDark1 : keytagLight1}
               borderColor="border-subdued"
-              borderWidth="0.5px"
+              borderWidth={StyleSheet.hairlineWidth}
               borderRadius="12px"
               w={imageWidth}
               h={imageHeight}
@@ -71,7 +72,7 @@ const Started = () => {
             <Image
               source={isDark ? keytagDark2 : keytagLight2}
               borderColor="border-subdued"
-              borderWidth="0.5px"
+              borderWidth={StyleSheet.hairlineWidth}
               borderRadius="12px"
               w={imageWidth}
               h={imageHeight}
