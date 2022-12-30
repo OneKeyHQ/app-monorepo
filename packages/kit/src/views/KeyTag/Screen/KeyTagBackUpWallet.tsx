@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   Center,
   Divider,
   FlatList,
@@ -12,6 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useWalletSelectorSectionData } from '../../../components/WalletSelector/hooks/useWalletSelectorSectionData';
@@ -23,6 +25,7 @@ import { KeyTagVerifyWalletRoutes } from '../../../routes/Modal/KeyTagVerifyWall
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
+import { Bip39DotmapUrl } from '../utils';
 
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -120,6 +123,20 @@ const KeyTagBackUpWallet = () => {
               id: 'content__you_can_also_find_the_bip39_dotmap_in_the_following_site',
             })}
           </Typography.Body2>
+          <Button
+            mt={3}
+            type="plain"
+            ml="-16px"
+            justifyContent="flex-start"
+            textProps={{
+              textDecorationLine: 'underline',
+            }}
+            onPress={() => {
+              openUrl(Bip39DotmapUrl, 'bip39-dotmap', { modalMode: true });
+            }}
+          >
+            {Bip39DotmapUrl}
+          </Button>
         </Box>
       }
     >
