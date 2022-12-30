@@ -262,19 +262,20 @@ const RefreshButton = () => {
 
 export const SwapHeaderButtons = () => {
   const error = useAppSelector((s) => s.swap.error);
+
   return (
     <HStack>
       <Box position="relative">
         <RefreshButton />
-        {error === SwapError.QuoteFailed ? (
-          <Box position="absolute" bottom="1" right="1" pointerEvents="none">
-            <Icon
-              size={14}
-              name="ExclamationCircleSolid"
-              color="icon-critical"
-            />
-          </Box>
-        ) : null}
+        <Box
+          position="absolute"
+          display={error === SwapError.QuoteFailed ? 'block' : 'none'}
+          bottom="1"
+          right="1"
+          pointerEvents="none"
+        >
+          <Icon size={14} name="ExclamationCircleSolid" color="icon-critical" />
+        </Box>
       </Box>
       <HistoryButton />
     </HStack>
