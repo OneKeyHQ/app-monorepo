@@ -1,7 +1,9 @@
 import type { IWallet } from '@onekeyhq/engine/src/types';
 
 import type { HomeRoutes } from '../../../routes/routesEnum';
+import type { IOnboardingRoutesParams } from '../../Onboarding/routes/types';
 import type { KeyTagRoutes } from './enums';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type IkeyTagShowDotMapParams = {
   mnemonic: string;
@@ -24,5 +26,5 @@ export type IKeytagRoutesParams = {
     password: string;
     wallet?: IWallet;
   };
-  [HomeRoutes.HomeOnboarding]: undefined;
+  [HomeRoutes.HomeOnboarding]: NavigatorScreenParams<IOnboardingRoutesParams>;
 };

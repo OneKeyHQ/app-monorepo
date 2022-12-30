@@ -16,8 +16,8 @@ import VerifyPassword from '../Screen/VerifyPassword';
 
 import { KeyTagRoutes } from './enums';
 
+import type { HomeRoutesParams } from '../../../routes/types';
 import type { IKeytagRoutesParams } from './types';
-import { HomeRoutesParams } from '../../../routes/types';
 
 const RouteOnboarding = createLazyComponent(
   () => import('../../Onboarding/routes/RouteOnboarding'),

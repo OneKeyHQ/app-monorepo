@@ -1,4 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import type { IWallet } from '@onekeyhq/engine/src/types/types';
 import BackupAttentions from '@onekeyhq/kit/src/views/BackupWallet/BackupAttentions';
 import BackupLite from '@onekeyhq/kit/src/views/BackupWallet/BackupLite';
 import BackupManual from '@onekeyhq/kit/src/views/BackupWallet/BackupManual';
@@ -7,6 +8,8 @@ import BackupOptions from '@onekeyhq/kit/src/views/BackupWallet/BackupOptions';
 import ShowDotMap from '@onekeyhq/kit/src/views/KeyTag/Screen/ShowDotMap';
 
 import { KeyTagRoutes } from '../../views/KeyTag/Routes/enums';
+import KeyTagBackupWalletAttentions from '../../views/KeyTag/Screen/KeyTagAttentions';
+import VerifyPassword from '../../views/KeyTag/Screen/VerifyPassword';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
@@ -15,9 +18,6 @@ import type {
   IKeytagRoutesParams,
   IkeyTagShowDotMapParams,
 } from '../../views/KeyTag/Routes/types';
-import { IWallet } from '../../../../engine/src/types';
-import VerifyPassword from '../../views/KeyTag/Screen/VerifyPassword';
-import KeyTagBackupWalletAttentions from '../../views/KeyTag/Screen/KeyTagAttentions';
 
 export enum BackupWalletModalRoutes {
   BackupWalletOptionsModal = 'BackupWalletOptionsModal',
