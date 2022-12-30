@@ -251,7 +251,13 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             )}
           </Pressable>
-          <Box flex="1" h="full" position="relative">
+          <Box
+            flex="1"
+            flexDirection="row"
+            h="full"
+            justifyContent="flex-end"
+            position="relative"
+          >
             {independentField === 'OUTPUT' && loading ? (
               <Box
                 h="full"
