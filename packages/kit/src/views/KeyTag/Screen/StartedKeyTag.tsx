@@ -1,4 +1,5 @@
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -45,6 +46,8 @@ const Started = () => {
           <Box position="absolute" top="0" right="0" left="0" bottom="0">
             <Image
               source={isDark ? keytagDark1 : keytagLight1}
+              borderColor="border-subdued"
+              borderWidth={StyleSheet.hairlineWidth}
               borderRadius="12px"
               w={imageWidth}
               h={imageHeight}
@@ -68,6 +71,8 @@ const Started = () => {
           <Box position="absolute" top="0" right="0" left="0" bottom="0">
             <Image
               source={isDark ? keytagDark2 : keytagLight2}
+              borderColor="border-subdued"
+              borderWidth={StyleSheet.hairlineWidth}
               borderRadius="12px"
               w={imageWidth}
               h={imageHeight}
@@ -75,7 +80,6 @@ const Started = () => {
           </Box>
           <Box m={7}>
             <Typography.DisplayXLarge>
-              {' '}
               {intl.formatMessage({ id: 'action__import_wallet' })}
             </Typography.DisplayXLarge>
           </Box>
