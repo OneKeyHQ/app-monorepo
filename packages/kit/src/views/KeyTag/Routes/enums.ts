@@ -4,5 +4,7 @@ export enum KeyTagRoutes {
   ShowDotMap = 'ShowDotMap',
   IntroduceKeyTag = 'IntroduceKeyTag',
   KeyTagBackUpWallet = 'KeyTagBackUpWallet',
+  KeyTagVerifyPassword = 'KeyTagVerifyPassword',
+  KeyTagAttention = 'KeyTagAttention',
   EnterPhrase = 'EnterPhrase',
 }
