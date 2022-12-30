@@ -121,17 +121,18 @@ const ImportKeyTag: FC = () => {
     [importCheck, importValidation, intl],
   );
   const LeftButton = useMemo(
-    () => (
-      <Button
-        type="plain"
-        leftIconName="ChevronLeftOutline"
-        onPress={() => {
-          if (navigation?.canGoBack?.()) {
-            navigation.goBack();
-          }
-        }}
-      />
-    ),
+    () =>
+      !platformEnv.isNativeAndroid ? (
+        <Button
+          type="plain"
+          leftIconName="ChevronLeftOutline"
+          onPress={() => {
+            if (navigation?.canGoBack?.()) {
+              navigation.goBack();
+            }
+          }}
+        />
+      ) : null,
     [navigation],
   );
   const title = useMemo(() => <Box />, []);

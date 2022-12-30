@@ -70,7 +70,7 @@ export const DotGroup: FC<DotGroupProps> = ({
                   transform: [{ rotate: '-90deg' }],
                 }}
               >
-                <Typography.Body2Mono textAlign="center">
+                <Typography.Body2Mono textAlign="center" color="text-subdued">
                   {2 ** (digitCodeLimit - indexNumber)}
                 </Typography.Body2Mono>
               </Box>
