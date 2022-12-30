@@ -292,7 +292,7 @@ export const DevSettingSection = () => {
               footer={null}
               containerProps={{
                 style: {
-                  minWidth: '100px',
+                  minWidth: 100,
                 },
               }}
               onChange={(value) => {
