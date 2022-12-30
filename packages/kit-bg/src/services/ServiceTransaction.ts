@@ -75,7 +75,6 @@ export default class ServiceTransaction extends ServiceBase {
         limit: feeInfo.limit,
         price,
       };
-
     } catch {
       if (network.impl === IMPL_EVM) {
         const gasPrice = await engine.getGasPrice(params.networkId);
@@ -85,18 +84,16 @@ export default class ServiceTransaction extends ServiceBase {
           params: ['latest', false],
         });
 
-        const blockReceipt = blockData as { gasLimit: string, gasUsed: string };
+        const blockReceipt = blockData as { gasLimit: string; gasUsed: string };
         const maxLimit = +blockReceipt.gasLimit / 10;
-        const gasUsed = +blockReceipt.gasUsed
+        const gasUsed = 100 * 10000;
         const limit = Math.min(maxLimit, gasUsed);
-        
-        if (limit > 0) {
-          feeInfoUnit = {
-            eip1559: typeof gasPrice[0] === 'object',
-            limit: String(limit),
-            price: gasPrice[gasPrice.length - 1],
-          };
-        }
+
+        feeInfoUnit = {
+          eip1559: typeof gasPrice[0] === 'object',
+          limit: String(limit),
+          price: gasPrice[gasPrice.length - 1],
+        };
       }
     }
 
