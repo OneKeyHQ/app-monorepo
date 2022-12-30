@@ -96,17 +96,18 @@ const ShowDotMap: FC = () => {
     [mnemonic, wallet],
   );
   const LeftButton = useMemo(
-    () => (
-      <Button
-        type="plain"
-        leftIconName="ChevronLeftOutline"
-        onPress={() => {
-          if (navigation?.canGoBack?.()) {
-            navigation.goBack();
-          }
-        }}
-      />
-    ),
+    () =>
+      !platformEnv.isNativeAndroid ? (
+        <Button
+          type="plain"
+          leftIconName="ChevronLeftOutline"
+          onPress={() => {
+            if (navigation?.canGoBack?.()) {
+              navigation.goBack();
+            }
+          }}
+        />
+      ) : null,
     [navigation],
   );
   navigation.setOptions({
