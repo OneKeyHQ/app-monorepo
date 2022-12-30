@@ -95,11 +95,27 @@ const ShowDotMap: FC = () => {
     () => <TopMidCompoment mnemonic={mnemonic} wallet={wallet} />,
     [mnemonic, wallet],
   );
+  const LeftButton = useMemo(
+    () => (
+      <Button
+        type="plain"
+        leftIconName="ChevronLeftOutline"
+        onPress={() => {
+          if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+          }
+        }}
+      />
+    ),
+    [navigation],
+  );
   navigation.setOptions({
     headerShown: true,
     headerTitleAlign: 'center',
+    headerLeft: () => LeftButton,
     headerRight: () => rightDoneBtn,
     headerTitle: () => titleHeader,
+    headerShadowVisible: false,
   });
   return (
     <LayoutContainer backButton={false}>

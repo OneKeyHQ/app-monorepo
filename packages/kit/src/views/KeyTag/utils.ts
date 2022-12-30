@@ -31,7 +31,7 @@ const getMnemonicWordIndexNumber = (mnemonicWord: string) => {
   return index === -1 ? -1 : index + 1;
 };
 
-const mnemonicWordToKeyTagMnemonic = (mnemonic: string) => {
+export const mnemonicWordToKeyTagMnemonic = (mnemonic: string) => {
   const mnemonicIndexNumber = getMnemonicWordIndexNumber(mnemonic);
   const status =
     mnemonicIndexNumber === -1
@@ -73,7 +73,7 @@ export const keyTagWordDataToMnemonic = (data: boolean[]) => {
   const wordlist = bip39.wordlists.english;
   if (mnemonicIndexNumber === 0 || Number.isNaN(mnemonicIndexNumber)) {
     status = KeyTagMnemonicStatus.EMPTY;
-  } else if (mnemonicIndexNumber - 1 <= wordlist.length) {
+  } else if (mnemonicIndexNumber - 1 < wordlist.length) {
     mnemonicWord = wordlist[mnemonicIndexNumber - 1];
     status = KeyTagMnemonicStatus.VERIF;
   } else {

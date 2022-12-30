@@ -31,5 +31,4 @@ export type { PushNotificationRoutesParams } from '../../views/PushNotification/
 export type { WebviewRoutesParams } from './WebView';
 export type { RevokeRoutesParams } from './Revoke';
 // eslint-disable-next-line import/no-cycle
-export type { KeyTagVerifyWalletRoutesParams } from './KeyTagVerifyWallet';
 export type { NFTMarketRoutesParams } from './NFTMarket';
