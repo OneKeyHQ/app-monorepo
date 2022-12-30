@@ -1,4 +1,3 @@
-import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
