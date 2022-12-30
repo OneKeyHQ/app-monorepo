@@ -1,10 +1,4 @@
-import type {
-  CSSProperties,
-  FC,
-  ReactElement,
-  ReactNode,
-  SyntheticEvent,
-} from 'react';
+import type { CSSProperties, FC, ReactNode, SyntheticEvent } from 'react';
 import { Children, createContext, useContext, useMemo, useState } from 'react';
 
 import MaterialTab from '@mui/material/Tab';
@@ -35,21 +29,13 @@ type MaterialTabsProps = {
   indicatorStyle?: CSSProperties;
 };
 
-export function useTabProps(
-  children: ReactElement<{ children: ReactNode } & TabProps>,
-  tabType: FC<TabProps>,
-) {
+export function useTabProps(children: ReactNode) {
   const options = useMemo(() => {
     const tabOptions = new Map<string, { index: number } & TabProps>();
 
     if (children) {
       Children.forEach(children, (element, index) => {
-        if (!element) return;
-        if (element.type !== tabType)
-          throw new Error(
-            'Container children must be wrapped in a <Tabs.Tab ... /> component',
-          );
-
+        // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-shadow
         const { name, children, ...options } = element.props;
         if (tabOptions.has(name))
@@ -65,7 +51,7 @@ export function useTabProps(
     }
 
     return tabOptions;
-  }, [children, tabType]);
+  }, [children]);
   const optionKeys = Array.from(options.keys());
   return { options, names: optionKeys };
 }
@@ -133,7 +119,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   onIndexChange,
   initialTabName,
 }) => {
-  const { options, names } = useTabProps(children, Tab);
+  const { options, names } = useTabProps(children);
 
   const [value, setValue] = useState(initialTabName || names[0]);
   const handleChange = (event: SyntheticEvent, newValue: string) => {
