@@ -28,12 +28,8 @@ dirs.forEach((dir) => {
 const typesTemplate = `
 /* eslint-disable */
 
-  ${items
-    .map((item) => `import ${item.name} from './react/${item.path}';`)
-    .join('\n')}
-
   const icons = {
-    ${items.map((item) => `${item.symbol}`).join(',')}
+    ${items.map((item) => `${item.symbol}: () => import('./react/${item.path}')`).join(',')}
   }
   export type ICON_NAMES = keyof typeof icons;
   export default icons;
@@ -48,7 +44,7 @@ const typesTemplateExtBg = `
 /* eslint-disable */
 
   const icons = {
-    ${items.map((item) => `${item.symbol}:()=>null`).join(',')}
+    ${items.map((item) => `${item.symbol}:() => null`).join(',')}
   }
   export type ICON_NAMES = keyof typeof icons;
   export default icons;

@@ -27,6 +27,7 @@ import type { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { EMarketCellData } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
@@ -118,7 +119,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
     >
       {headTags.map((tag) => {
         switch (tag.id) {
-          case 1: {
+          case EMarketCellData.CollectionStar: {
             return (
               <ListItem.Column key={tag.id}>
                 <HStack
@@ -176,7 +177,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case 2: {
+          case EMarketCellData.TokenInfo: {
             return (
               <ListItem.Column key={tag.id}>
                 <HStack alignItems="center" flex={1} space={3}>
@@ -228,7 +229,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case 3: {
+          case EMarketCellData.TokenPrice: {
             return marketTokenItem && marketTokenItem.price !== undefined ? (
               <ListItem.Column
                 key={tag.id}
@@ -256,7 +257,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case 4: {
+          case EMarketCellData.Token24hChange: {
             if (
               marketTokenItem &&
               marketTokenItem.priceChangePercentage24H !== undefined
@@ -334,7 +335,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case 5: {
+          case EMarketCellData.Token24hVolume: {
             return marketTokenItem &&
               marketTokenItem.totalVolume !== undefined ? (
               <ListItem.Column
@@ -361,7 +362,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case 6: {
+          case EMarketCellData.TokenMarketCap: {
             return marketTokenItem &&
               marketTokenItem.marketCap !== undefined ? (
               <ListItem.Column
@@ -388,7 +389,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case 7: {
+          case EMarketCellData.TokenSparklineChart: {
             return (
               <ListItem.Column key={tag.id}>
                 <Box
@@ -422,7 +423,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case 8: {
+          case EMarketCellData.TokenSwapStatus: {
             return (
               <ListItem.Column key={tag.id}>
                 <Box
