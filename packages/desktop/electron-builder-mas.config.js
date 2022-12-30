@@ -38,10 +38,6 @@ module.exports = {
       'from': 'build/static/preload.js',
       'to': 'static/preload.js',
     },
-    {
-      'from': 'build/static/js-sdk/',
-      'to': 'static/js-sdk/',
-    },
   ],
   'publish': {
     'provider': 'github',

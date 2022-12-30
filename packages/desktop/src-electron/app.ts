@@ -55,7 +55,10 @@ const staticPath = isDev
   : path.join((global as any).resourcesPath, 'static');
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
-const sdkConnectSrc = path.join(staticPath, 'js-sdk/');
+
+const sdkConnectSrc = isDev
+  ? `file://${path.join(staticPath, 'js-sdk/')}`
+  : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -213,7 +216,7 @@ function createMainWindow() {
       resourcesPath: (global as any).resourcesPath,
       staticPath: `file://${staticPath}`,
       preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
-      sdkConnectSrc: `file://${sdkConnectSrc}`,
+      sdkConnectSrc,
     });
   });
 
@@ -381,14 +384,21 @@ function createMainWindow() {
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
           callback({
-            path: path.join(sdkConnectSrc, 'iframe.html'),
+            path: path.join(
+              __dirname,
+              '..',
+              'build',
+              'static',
+              'js-sdk',
+              'iframe.html',
+            ),
           });
           return;
         }
 
         // move to parent folder
         let url = request.url.substr(PROTOCOL.length + 1);
-        url = isJsSdkFile ? url : path.join(__dirname, '..', 'build', url);
+        url = path.join(__dirname, '..', 'build', url);
         callback(url);
       },
     );
