@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { AccountUtxo } from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 // @ts-expect-error
