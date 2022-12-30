@@ -31,7 +31,7 @@ const getMnemonicWordIndexNumber = (mnemonicWord: string) => {
   return index === -1 ? -1 : index + 1;
 };
 
-const mnemonicWordToKeyTagMnemonic = (mnemonic: string) => {
+export const mnemonicWordToKeyTagMnemonic = (mnemonic: string) => {
   const mnemonicIndexNumber = getMnemonicWordIndexNumber(mnemonic);
   const status =
     mnemonicIndexNumber === -1
