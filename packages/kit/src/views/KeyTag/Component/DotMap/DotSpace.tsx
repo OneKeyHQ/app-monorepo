@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useEffect } from 'react';
 import { memo, useState } from 'react';
 
 import { Box, Center, Pressable } from '@onekeyhq/components';
@@ -17,7 +18,10 @@ const DotSpace: FC<DotSpaceProps> = ({
   size = 5,
   lightColor = 'text-success',
 }) => {
-  const [openLight, setOpenLight] = useState(!!defaultLight);
+  const [openLight, setOpenLight] = useState(() => !!defaultLight);
+  useEffect(() => {
+    setOpenLight(!!defaultLight);
+  }, [defaultLight]);
   return (
     <Pressable
       size={size}

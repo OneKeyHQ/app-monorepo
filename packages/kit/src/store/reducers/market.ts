@@ -3,10 +3,11 @@ import natsort from 'natsort';
 
 import type { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 
+import { EMarketCellData } from '../../views/Market/config';
+
 import type { Token } from '../typings';
 import type { TokenChartData } from './tokens';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { EMarketCellData } from '../../views/Market/config';
 
 export const MARKET_FAVORITES_CATEGORYID = 'favorites';
 export const MARKET_SEARCH_HISTORY_MAX = 10;

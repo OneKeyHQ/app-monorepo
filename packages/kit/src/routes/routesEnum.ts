@@ -43,7 +43,6 @@ export enum ModalRoutes {
   PushNotification = 'PushNotification',
   Webview = 'Webview',
   Revoke = 'Revoke',
-  KeyTagVerifyWallet = 'KeyTagVerifyWallet',
   NFTMarket = 'NFTMarket',
 }
 

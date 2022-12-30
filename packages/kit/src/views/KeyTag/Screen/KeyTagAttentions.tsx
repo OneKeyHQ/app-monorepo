@@ -4,10 +4,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
-import type {
-  KeyTagVerifyWalletRoutes,
-  KeyTagVerifyWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/KeyTagVerifyWallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Attentions } from '../../CreateWallet/AppWallet/Attentions';
@@ -17,10 +13,7 @@ import type { IKeytagRoutesParams } from '../Routes/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
-type RouteProps = RouteProp<
-  KeyTagVerifyWalletRoutesParams,
-  KeyTagVerifyWalletRoutes.KeyTagAttensions
->;
+type RouteProps = RouteProp<IKeytagRoutesParams, KeyTagRoutes.KeyTagAttention>;
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
 const KeyTagBackupWalletAttentions = () => {
@@ -39,9 +32,7 @@ const KeyTagBackupWalletAttentions = () => {
       });
       return;
     }
-    navigation
-      .getParent()
-      ?.navigate(KeyTagRoutes.ShowDotMap, { mnemonic, wallet });
+    navigation.navigate(KeyTagRoutes.ShowDotMap, { mnemonic, wallet });
   }, [walletId, password, navigation, wallet]);
   return (
     <Attentions
