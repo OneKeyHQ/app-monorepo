@@ -16,7 +16,7 @@ cp ./node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injecte
 cp ./packages/shared/src/web/index.html.ejs ./packages/shared/src/web/index.html
 
 # copy hardware js-sdk iframe files to desktop
-mkdir -p ./packages/desktop/web/static/js-sdk/
+mkdir -p ./packages/desktop/public/static/js-sdk/
 rsync ./node_modules/@onekeyfe/hd-web-sdk/build/ ./packages/desktop/public/static/js-sdk/ --checksum  --recursive --verbose
 
 # remove the invalid fs library dependence by starcoin, to fix fs polyfill issue in native
