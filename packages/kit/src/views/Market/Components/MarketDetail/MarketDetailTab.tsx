@@ -143,13 +143,6 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         alignSelf: 'center',
         flex: 1,
       }}
-      headerContainerStyle={{
-        shadowOffset: { width: 0, height: 0 },
-        shadowColor: 'transparent',
-        elevation: 0,
-        borderBottomWidth: 1,
-        borderBottomColor: borderDefault,
-      }}
       renderHeader={() => (
         <Box
           w="100%"
