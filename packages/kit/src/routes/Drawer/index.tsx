@@ -26,7 +26,6 @@ const DrawerStackNavigator = () => {
 
   return (
     <DrawerStack.Navigator
-      useLegacyImplementation
       screenOptions={{
         headerShown: false,
         /**

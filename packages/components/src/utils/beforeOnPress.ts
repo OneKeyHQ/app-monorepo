@@ -14,7 +14,7 @@ export const beforeOnPress = (
       require('./SelectAutoHide') as typeof import('./SelectAutoHide');
     autoHideSelectFunc(e as MouseEvent);
   }
-  console.log('beforeOnPress', enableOnPressAnim.value);
+  // console.log('beforeOnPress', enableOnPressAnim.value);
   if (enableOnPressAnim.value === 1) {
     onPress?.(e);
   }
