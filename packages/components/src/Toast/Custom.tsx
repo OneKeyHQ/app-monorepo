@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import type { ComponentProps, FC } from 'react';
 

@@ -18,6 +18,7 @@ type TabProps = {
   label: string;
 };
 
+const tabbarHeight = 48;
 const Container: FC<CollapsibleContainerProps> = ({
   children,
   containerStyle,
@@ -70,21 +71,24 @@ const Container: FC<CollapsibleContainerProps> = ({
     },
     [onIndexChange, onTabChange, routes],
   );
-  const [activeLabelColor, labelColor, indicatorColor] = useThemeValue([
-    'text-default',
-    'text-subdued',
-    'action-primary-default',
-  ]);
+  const [activeLabelColor, labelColor, indicatorColor, borderDefault, bgColor] =
+    useThemeValue([
+      'text-default',
+      'text-subdued',
+      'action-primary-default',
+      'border-subdued',
+      'background-default',
+    ]);
 
   const renderTabBar = useCallback(
     (props: any) => {
-      const tabbarHeight = 48;
-
       const styles = {
         tabbar: {
           backgroundColor: 'transparent',
           width: '100%',
           height: tabbarHeight,
+          borderBottomWidth: 1,
+          borderBottomColor: borderDefault,
         },
         indicator: {
           backgroundColor: indicatorColor,
@@ -124,6 +128,7 @@ const Container: FC<CollapsibleContainerProps> = ({
     },
     [
       activeLabelColor,
+      borderDefault,
       indicatorColor,
       isVerticalLayout,
       labelColor,
@@ -133,7 +138,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   );
 
   return (
-    <ScrollView style={containerStyle}>
+    <ScrollView style={[{ backgroundColor: bgColor }, containerStyle]}>
       <Box h={headerHeight || 'auto'} style={headerContainerStyle}>
         {renderHeader?.()}
       </Box>

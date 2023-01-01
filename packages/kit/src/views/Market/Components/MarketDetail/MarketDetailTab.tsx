@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   useIsVerticalLayout,
-  useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -109,10 +108,6 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   marketTokenId,
   tokenDetail,
 }) => {
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
   const [detailTabName, setDetailTabName] = useState<string>(
     () => MarketDetailTabName.Info,
   );
@@ -120,7 +115,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
-  const contentPendding = isVerticalLayout ? '16px' : '0px';
+  const contentPadding = isVerticalLayout ? '16px' : '0px';
   return (
     <Tabs.Container
       // @ts-ignore fix type when remove react-native-collapsible-tab-view
@@ -139,16 +134,15 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: isVerticalLayout ? screenWidth : screenWidth - 224,
         marginHorizontal: 'auto', // Center align vertically
-        backgroundColor: tabbarBgColor,
         alignSelf: 'center',
         flex: 1,
       }}
       renderHeader={() => (
         <Box
           w="100%"
-          p={contentPendding}
+          p={contentPadding}
           flexDirection="column"
-          bgColor={tabbarBgColor}
+          bg="background-default"
           h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL}
         >
           {isVerticalLayout ? (
@@ -187,7 +181,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
               expolorers={tokenDetail?.explorers}
               about={tokenDetail?.about}
               links={tokenDetail?.links}
-              px={contentPendding}
+              px={contentPadding}
             />
           )}
         />
@@ -201,7 +195,7 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
           showsVerticalScrollIndicator={false}
           renderItem={() => <Box />}
           ListEmptyComponent={() => (
-            <MarketStatsContent px={contentPendding} {...tokenDetail?.stats} />
+            <MarketStatsContent px={contentPadding} {...tokenDetail?.stats} />
           )}
         />
       </Tabs.Tab>

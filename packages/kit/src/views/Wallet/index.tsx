@@ -3,12 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  useIsVerticalLayout,
-  useThemeValue,
-  useUserDevice,
-} from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import {
   useActiveWalletAccount,
@@ -41,7 +36,6 @@ const AccountHeader = () => <AccountInfo />;
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
-  const tabbarBgColor = useThemeValue('background-default');
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
@@ -106,7 +100,6 @@ const WalletTabs: FC = () => {
           // reduce the width on iPad, sidebar's width is 244
           width: isVerticalLayout ? screenWidth : screenWidth - 224,
           marginHorizontal: 'auto', // Center align vertically
-          backgroundColor: tabbarBgColor,
           alignSelf: 'center',
           flex: 1,
         }}
