@@ -1,6 +1,5 @@
 import type { FC } from 'react';
-import { useEffect } from 'react';
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { Box, Center, Pressable } from '@onekeyhq/components';
 
