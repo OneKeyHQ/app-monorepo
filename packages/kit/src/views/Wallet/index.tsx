@@ -41,10 +41,7 @@ const AccountHeader = () => <AccountInfo />;
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
+  const tabbarBgColor = useThemeValue('background-default');
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
@@ -112,13 +109,6 @@ const WalletTabs: FC = () => {
           backgroundColor: tabbarBgColor,
           alignSelf: 'center',
           flex: 1,
-        }}
-        headerContainerStyle={{
-          shadowOffset: { width: 0, height: 0 },
-          shadowColor: 'transparent',
-          elevation: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: borderDefault,
         }}
       >
         <Tabs.Tab

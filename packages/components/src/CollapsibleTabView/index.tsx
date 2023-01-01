@@ -1,8 +1,8 @@
-import type { CSSProperties, FC, ReactNode, SyntheticEvent } from 'react';
-import { Children, createContext, useContext, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { Children, useCallback, useMemo, useState } from 'react';
 
-import MaterialTab from '@mui/material/Tab';
-import MaterialTabs from '@mui/material/Tabs';
+import { useWindowDimensions } from 'react-native';
+import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
 
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 
@@ -15,98 +15,7 @@ import type { CollapsibleContainerProps } from './types';
 
 type TabProps = {
   name: string;
-  label?: string;
-};
-
-type MaterialTabsProps = {
-  value: string;
-  handleChange: (event: SyntheticEvent, value: any) => void;
-  names: string[];
-  options: Map<string, { index: number } & TabProps>;
-  activeColor?: string;
-  inactiveColor?: string;
-  labelStyle?: CSSProperties;
-  indicatorStyle?: CSSProperties;
-};
-
-export function useTabProps(children: ReactNode) {
-  const options = useMemo(() => {
-    const tabOptions = new Map<string, { index: number } & TabProps>();
-
-    if (children) {
-      Children.forEach(children, (element, index) => {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        const { name, children, ...options } = element.props;
-        if (tabOptions.has(name))
-          throw new Error(
-            'Tab names must be unique, '.concat(name, ' already exists'),
-          );
-        tabOptions.set(name, {
-          index,
-          name,
-          ...options,
-        });
-      });
-    }
-
-    return tabOptions;
-  }, [children]);
-  const optionKeys = Array.from(options.keys());
-  return { options, names: optionKeys };
-}
-
-export const MaterialTabBar: FC<MaterialTabsProps> = ({
-  value,
-  handleChange,
-  names,
-  options,
-  activeColor,
-  inactiveColor,
-  labelStyle,
-  indicatorStyle,
-}) => {
-  const tabItems = useMemo(
-    () =>
-      names.map((tabName) => (
-        <MaterialTab
-          key={tabName}
-          style={{
-            color: value === tabName ? activeColor : inactiveColor,
-            fontWeight: labelStyle?.fontWeight,
-            fontSize: labelStyle?.fontSize,
-            fontFamily: labelStyle?.fontFamily,
-          }}
-          disableRipple
-          label={
-            options?.get?.(tabName)?.label ?? options?.get?.(tabName)?.name
-          }
-          value={options?.get?.(tabName)?.name}
-        />
-      )),
-    [value, activeColor, inactiveColor, labelStyle, options, names],
-  );
-  return (
-    <MaterialTabs
-      onChange={handleChange}
-      value={value}
-      TabIndicatorProps={{
-        style: indicatorStyle,
-      }}
-      variant={useIsVerticalLayout() ? 'fullWidth' : 'standard'}
-      scrollButtons={false}
-    >
-      {tabItems}
-    </MaterialTabs>
-  );
-};
-
-const Context = createContext<string>('');
-
-const Tab: FC<TabProps> = ({ children, name }) => {
-  const activeTab = useContext(Context);
-  const isHidden = activeTab !== name;
-  return <Box display={isHidden ? 'none' : 'block'}>{children}</Box>;
+  label: string;
 };
 
 const Container: FC<CollapsibleContainerProps> = ({
@@ -119,60 +28,131 @@ const Container: FC<CollapsibleContainerProps> = ({
   onIndexChange,
   initialTabName,
 }) => {
-  const { options, names } = useTabProps(children);
-
-  const [value, setValue] = useState(initialTabName || names[0]);
-  const handleChange = (event: SyntheticEvent, newValue: string) => {
-    setValue(newValue);
-    const index = names.findIndex((item) => item === newValue);
-
-    if (onTabChange) {
-      onTabChange({
-        index,
-        tabName: newValue,
+  const layout = useWindowDimensions();
+  const isVerticalLayout = useIsVerticalLayout();
+  const { routes, renderScene, initialIndex } = useMemo(() => {
+    const routesArray: { key: string; title: string }[] = [];
+    const scene = {};
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    let initialIndex = 0;
+    Children.forEach(children, (element, index) => {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      const { name, children, label } = element.props as TabProps;
+      if (initialTabName === name) {
+        initialIndex = index;
+      }
+      routesArray.push({
+        key: name,
+        title: label,
       });
-    }
-    if (onIndexChange) {
-      onIndexChange(index);
-    }
-  };
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+      scene[name] = () => children;
+    });
+    return { routes: routesArray, renderScene: SceneMap(scene), initialIndex };
+  }, [children, initialTabName]);
+  const [index, setIndex] = useState(initialIndex);
+
+  const handleChange = useCallback(
+    (newIndex: number) => {
+      setIndex(newIndex);
+
+      if (onTabChange) {
+        onTabChange({
+          index: newIndex,
+          tabName: routes[newIndex].key,
+        });
+      }
+      if (onIndexChange) {
+        onIndexChange(newIndex);
+      }
+    },
+    [onIndexChange, onTabChange, routes],
+  );
   const [activeLabelColor, labelColor, indicatorColor] = useThemeValue([
     'text-default',
     'text-subdued',
     'action-primary-default',
   ]);
 
+  const renderTabBar = useCallback(
+    (props: any) => {
+      const tabbarHeight = 48;
+
+      const styles = {
+        tabbar: {
+          backgroundColor: 'transparent',
+          width: '100%',
+          height: tabbarHeight,
+        },
+        indicator: {
+          backgroundColor: indicatorColor,
+          height: 2,
+        },
+        indicatorContainer: {
+          height: 2,
+          top: tabbarHeight - 2,
+          width: '100%',
+        },
+        tabStyle: {
+          width: isVerticalLayout ? layout.width / routes.length : 'auto',
+          minWidth: isVerticalLayout ? undefined : 90,
+        },
+        label: {
+          fontWeight: '500',
+          fontSize: 14,
+          lineHeight: 20,
+          fontFamily: 'BlinkMacSystemFont',
+        },
+      };
+      return (
+        <TabBar
+          {...props}
+          scrollEnabled
+          indicatorStyle={styles.indicator}
+          indicatorContainerStyle={styles.indicatorContainer}
+          style={styles.tabbar}
+          tabStyle={styles.tabStyle}
+          activeColor={activeLabelColor}
+          inactiveColor={labelColor}
+          labelStyle={styles.label}
+          getLabelText={({ route }) => route.title}
+          getAccessibilityLabel={({ route }) => route.title}
+        />
+      );
+    },
+    [
+      activeLabelColor,
+      indicatorColor,
+      isVerticalLayout,
+      labelColor,
+      layout.width,
+      routes.length,
+    ],
+  );
+
   return (
     <ScrollView style={containerStyle}>
-      <Box
-        h={headerHeight ? headerHeight + 48 : 'auto'}
-        position="relative"
-        style={headerContainerStyle}
-      >
+      <Box h={headerHeight || 'auto'} style={headerContainerStyle}>
         {renderHeader?.()}
-        <Box position="absolute" bottom={0} left={0} right={0}>
-          <MaterialTabBar
-            value={value}
-            activeColor={activeLabelColor}
-            inactiveColor={labelColor}
-            labelStyle={{
-              fontFamily: 'BlinkMacSystemFont',
-            }}
-            indicatorStyle={{ backgroundColor: indicatorColor }}
-            handleChange={handleChange}
-            options={options}
-            names={names}
-          />
-        </Box>
       </Box>
-      <Context.Provider value={value}>{children}</Context.Provider>
+      <TabView
+        navigationState={{ index, routes }}
+        renderScene={renderScene}
+        onIndexChange={handleChange}
+        initialLayout={{ width: layout.width }}
+        renderTabBar={renderTabBar}
+      />
     </ScrollView>
   );
 };
 
 export const Tabs = {
   Container,
-  Tab,
+  // @ts-ignore to stop the warning about Fragment under development
+  // eslint-disable-next-line no-undef
+  Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
   FlatList,
   ScrollView,
   SectionList,
