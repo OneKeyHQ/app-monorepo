@@ -5523,8 +5523,6 @@ __metadata:
   dependencies:
     "@gorhom/bottom-sheet": ^4
     "@types/qrcode": ^1.4.2
-    "@types/styled-components": ^5.1.15
-    "@types/styled-components-react-native": ^5.1.3
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
     moti: ^0.21.0
@@ -8111,7 +8109,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/hoist-non-react-statics@npm:*, @types/hoist-non-react-statics@npm:^3.3.0, @types/hoist-non-react-statics@npm:^3.3.1":
+"@types/hoist-non-react-statics@npm:^3.3.0, @types/hoist-non-react-statics@npm:^3.3.1":
   version: 3.3.1
   resolution: "@types/hoist-non-react-statics@npm:3.3.1"
   dependencies:
@@ -8560,28 +8558,6 @@ __metadata:
   version: 2.0.1
   resolution: "@types/stack-utils@npm:2.0.1"
   checksum: 205fdbe3326b7046d7eaf5e494d8084f2659086a266f3f9cf00bccc549c8e36e407f88168ad4383c8b07099957ad669f75f2532ed4bc70be2b037330f7bae019
-  languageName: node
-  linkType: hard
-
-"@types/styled-components-react-native@npm:^5.1.3":
-  version: 5.1.3
-  resolution: "@types/styled-components-react-native@npm:5.1.3"
-  dependencies:
-    "@types/react": "*"
-    "@types/react-native": ^0.65
-    "@types/styled-components": "*"
-  checksum: 503e693c063de6b362f3e21d71c12566edf2b3606027b71cd0e976578cf3d6343aab1fdd2164417bbfca8d2976b938b159c7ed45b4fde3736c9b607bb7ebd91f
-  languageName: node
-  linkType: hard
-
-"@types/styled-components@npm:*, @types/styled-components@npm:^5.1.15":
-  version: 5.1.16
-  resolution: "@types/styled-components@npm:5.1.16"
-  dependencies:
-    "@types/hoist-non-react-statics": "*"
-    "@types/react": "*"
-    csstype: ^3.0.2
-  checksum: 573a55f4bd2f054e7b0239eae1b9ab3e541bb7c607f23c01bd5035639c1fbe84431a616fc53513416427005e85a7b0fe360391ea51bf11c0ac09b543d825865d
   languageName: node
   linkType: hard
 
