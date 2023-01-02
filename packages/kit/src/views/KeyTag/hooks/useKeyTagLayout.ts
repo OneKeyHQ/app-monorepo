@@ -21,7 +21,7 @@ export const useIntroductionBigImage = () => {
     }
     return screenHeight - ySpace - 112 - 80 - imageHeight > 0
       ? 0
-      : screenHeight - ySpace - 32 - 80 - imageHeight;
+      : screenHeight - ySpace - 112 - 80 - imageHeight;
   }, [isVertical, screenHeight, imageHeight]);
   return { imageHeight, imageWidth, marginT };
 };
