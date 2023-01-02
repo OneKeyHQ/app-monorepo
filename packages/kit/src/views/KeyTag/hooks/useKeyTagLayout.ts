@@ -17,9 +17,9 @@ export const useIntroductionBigImage = () => {
   const marginT = useMemo(() => {
     const ySpace = platformEnv.isNative ? 84 : 64;
     if (isVertical) {
-      return screenHeight - ySpace - 32 - 270 - imageHeight;
+      return screenHeight - ySpace - 109 - 220 - imageHeight;
     }
-    return screenHeight - ySpace - 32 - 80 - imageHeight > 0
+    return screenHeight - ySpace - 112 - 80 - imageHeight > 0
       ? 0
       : screenHeight - ySpace - 32 - 80 - imageHeight;
   }, [isVertical, screenHeight, imageHeight]);
@@ -32,10 +32,26 @@ export const useStartedKeyTagImage = () => {
   const ratio = 240 / 342;
   const imageWidth = useMemo(() => {
     if (isVertical) {
-      return screenWidth - 48 > 342 ? 342 : screenWidth - 48;
+      return screenWidth - 48;
     }
     return 342;
   }, [isVertical, screenWidth]);
   const imageHeight = useMemo(() => imageWidth * ratio, [imageWidth, ratio]);
   return { imageHeight, imageWidth };
+};
+
+export const useImportKeytagSpaceSize = () => {
+  const { screenWidth } = useUserDevice();
+  const isVertical = useIsVerticalLayout();
+  const size = useMemo(() => {
+    const extraWidth = isVertical
+      ? screenWidth - 256 - 36
+      : screenWidth - 256 * 2 - 48 - 82 * 2;
+    const spaceSizeWidth = isVertical ? 48 : 48 * 2;
+    if (extraWidth > spaceSizeWidth) {
+      return 5 + Math.floor(extraWidth / spaceSizeWidth);
+    }
+    return 5;
+  }, [screenWidth, isVertical]);
+  return { size };
 };

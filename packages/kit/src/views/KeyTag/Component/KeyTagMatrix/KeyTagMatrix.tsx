@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Typography } from '@onekeyhq/components';
 
+import { KeyTagMnemonicStatus } from '../../types';
 import DotMnemonicWord from '../DotMap/DotMnemonicWord';
 
 import type { KeyTagMnemonic } from '../../types';
@@ -50,31 +51,49 @@ export const KeyTagMatrixTopTitle: FC<KeyTagMatrixProps> = ({
 export const KeyTagMatrix: FC<KeyTagMatrixProps> = ({
   startIndex,
   keyTagData,
-}) => (
-  <Box flex="1" justifyContent="center" alignItems="center">
-    <KeyTagMatrixTopTitle startIndex={startIndex} keyTagData={keyTagData} />
-    <Box
-      borderColor="surface-default"
-      borderWidth="8px"
-      borderRadius="16px"
-      bgColor="surface-subdued"
-      alignItems="center"
-      pt={4}
-      w="332px"
-      h="343px"
-    >
-      <Box>
-        {keyTagData
-          ? keyTagData.map((data, index) => (
-              <DotMnemonicWord
-                showDigitCode={index === 0}
-                showIcon={index === 0}
-                mnemonicWordData={data}
-                disabled
-              />
-            ))
-          : null}
+}) => {
+  const fillData = useMemo(() => {
+    if (keyTagData?.length) {
+      const resData = [...keyTagData];
+      if (resData.length < 12) {
+        for (let i = 0; i < 12 - keyTagData.length; i += 1) {
+          resData.push({
+            index: (startIndex ?? 0) + resData.length + i,
+            status: KeyTagMnemonicStatus.FILL,
+            dotMapData: new Array(16).fill(false),
+          });
+        }
+      }
+      return resData;
+    }
+    return [];
+  }, [keyTagData, startIndex]);
+  return (
+    <Box flex="1" justifyContent="center" alignItems="center">
+      <KeyTagMatrixTopTitle startIndex={startIndex} keyTagData={keyTagData} />
+      <Box
+        borderColor="surface-default"
+        borderWidth="8px"
+        borderRadius="16px"
+        bgColor="surface-subdued"
+        alignItems="center"
+        pt={4}
+        w="332px"
+        h="343px"
+      >
+        <Box>
+          {fillData
+            ? fillData.map((data, index) => (
+                <DotMnemonicWord
+                  showDigitCode={index === 0}
+                  showIcon={index === 0}
+                  mnemonicWordData={data}
+                  disabled
+                />
+              ))
+            : null}
+        </Box>
       </Box>
     </Box>
-  </Box>
-);
+  );
+};

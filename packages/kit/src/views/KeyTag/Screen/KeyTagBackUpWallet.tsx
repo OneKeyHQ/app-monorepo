@@ -13,15 +13,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { useWalletSelectorSectionData } from '../../../components/WalletSelector/hooks/useWalletSelectorSectionData';
 import { WalletAvatarPro } from '../../../components/WalletSelector/WalletAvatar';
 import { ListItemBase } from '../../../components/WalletSelector/WalletSelectorChildren/List/ListItem';
 import { useNavigation } from '../../../hooks';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
 import { Bip39DotmapUrl } from '../utils';
@@ -58,9 +55,19 @@ const KeyTagBackUpWallet = () => {
       navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
         wallet,
         walletId: wallet.id,
+        navigateMode: true,
       });
     },
     [navigation],
+  );
+
+  const ListEmptyComponent = useMemo(
+    () => (
+      <Typography.Body1Strong ml={4} color="text-subdued">
+        {intl.formatMessage({ id: 'form__you_have_no_wallet_yet' })}
+      </Typography.Body1Strong>
+    ),
+    [intl],
   );
 
   const renderItem: ListRenderItem<IWallet> = useCallback(
@@ -74,7 +81,8 @@ const KeyTagBackUpWallet = () => {
             }}
             leftView={
               <WalletAvatarPro
-                size={platformEnv.isNative ? 'lg' : 'sm'}
+                circular
+                size="lg"
                 wallet={item}
                 deviceStatus={undefined}
               />
@@ -124,7 +132,7 @@ const KeyTagBackUpWallet = () => {
               textDecorationLine: 'underline',
             }}
             onPress={() => {
-              openUrl(Bip39DotmapUrl, 'bip39-dotmap', { modalMode: true });
+              openUrlExternal(Bip39DotmapUrl);
             }}
           >
             {Bip39DotmapUrl}
@@ -132,7 +140,12 @@ const KeyTagBackUpWallet = () => {
         </Box>
       }
     >
-      <FlatList ml={-4} data={walletsData} renderItem={renderItem} />
+      <FlatList
+        ml={-4}
+        data={walletsData}
+        renderItem={renderItem}
+        ListEmptyComponent={ListEmptyComponent}
+      />
       <Box mt={4}>
         <Divider />
         <Box ml={-4} mt={4}>
