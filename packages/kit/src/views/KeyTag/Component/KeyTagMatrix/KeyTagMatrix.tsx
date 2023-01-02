@@ -58,7 +58,7 @@ export const KeyTagMatrix: FC<KeyTagMatrixProps> = ({
       if (resData.length < 12) {
         for (let i = 0; i < 12 - keyTagData.length; i += 1) {
           resData.push({
-            index: (startIndex ?? 0) + resData.length + i,
+            index: (startIndex ?? 0) + keyTagData.length + i,
             status: KeyTagMnemonicStatus.FILL,
             dotMapData: new Array(16).fill(false),
           });
