@@ -1,3 +1,4 @@
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -5,21 +6,20 @@ import AdmZip from 'adm-zip';
 import logger from 'electron-log';
 import { WebUSB } from 'usb';
 
-/**
- * 1、webusb 轮询搜索 usb 设备，找到 Mass Storage 状态的 OneKey 设备
- * 2、区分系统，确定写入路径，写入路径的寻找过程需要考虑 ONEKEY DATA 名称被篡改的情况，可以通过读取文件夹的路径来判断 res && !res.metadata 来判断
- * 3、遍历 res 目录下的文件，写入 U 盘
- */
-
 const ONEKEY_FILTER = [
   { vendorId: 0x483, productId: 0x5720 }, // mass storage touch
 ];
+
+const ERRORS = {
+  NOT_FOUND_DISK_PATH: 'NOT_FOUND_DISK_PATH',
+  DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
+};
 
 const init = () => {
   const webusb = new WebUSB({
     allowAllDevices: true,
   });
-  // 1、webusb 轮询搜索 usb 设备，找到 Mass Storage 状态的 OneKey 设备
+
   const searchOneKeyTouch = async () => {
     const devices = await webusb.getDevices();
     const onekeyDevices = devices.filter((dev) => {
@@ -70,29 +70,119 @@ const init = () => {
     }
   };
 
-  const findDiskPath = () =>
+  const findMacDiskPath = (): Promise<string> =>
     new Promise((resolve, reject) => {
+      const MacDiskPath = '/Volumes/ONEKEY DATA';
+      fs.access(
+        MacDiskPath,
+        // eslint-disable-next-line no-bitwise
+        fs.constants.F_OK | fs.constants.R_OK | fs.constants.W_OK,
+        (err) => {
+          if (err) {
+            logger.debug('mac disk access error =====> ', err);
+            reject(err);
+            return;
+          }
+          resolve(MacDiskPath);
+        },
+      );
+    });
+
+  const findWindowsDiskPath = async (): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const wmic = spawn('wmic', [
+        'logicaldisk',
+        'where',
+        'drivetype=2',
+        'get',
+        'deviceid,volumename',
+      ]);
+
+      wmic.stdout.on('data', (buffer: Buffer) => {
+        let data = buffer.toString('utf8');
+        data = data.replace(/DeviceID/g, '');
+        data = data.replace(/VolumeName/g, '');
+        const array = [...data].filter(
+          (item) => item !== ' ' && item !== '\r' && item !== '\n',
+        );
+        const id: string[] = [];
+        let name: string[] = [];
+        const result: Record<string, string> = {};
+        array.forEach((v, i) => {
+          if (v === ':') {
+            const key = array[i - 1];
+            result[key] = '';
+            if (id.length > 0) {
+              result[id[id.length - 1]] = name.join('');
+            }
+            id.push(key);
+            name = [];
+          } else {
+            name.push(v);
+          }
+        });
+
+        if (name.length > 0) {
+          result[id[id.length - 1]] = name.join('');
+        }
+
+        const diskPath = Object.keys(result).find(
+          (key) => result[key].indexOf('ONEKEYDATA') > -1,
+        );
+        if (diskPath) {
+          fs.access(
+            `${diskPath}:`,
+            // eslint-disable-next-line no-bitwise
+            fs.constants.F_OK | fs.constants.R_OK | fs.constants.W_OK,
+            (err) => {
+              if (err) {
+                logger.error('windows disk access error =====> ', err);
+                reject(new Error(ERRORS.DISK_ACCESS_ERROR));
+                return;
+              }
+              resolve(`${diskPath}:`);
+            },
+          );
+        } else {
+          reject(new Error(ERRORS.NOT_FOUND_DISK_PATH));
+        }
+      });
+
+      wmic.stderr.on('data', (data: string) => {
+        logger.error(`wmin command failure, error ===> : ${data}`);
+        reject(new Error(ERRORS.NOT_FOUND_DISK_PATH));
+      });
+
+      wmic.on('close', (code: string) => {
+        logger.debug(`wmic command child process exited with code ${code}`);
+      });
+    });
+
+  const findDiskPath = (): Promise<string> =>
+    // eslint-disable-next-line no-async-promise-executor
+    new Promise(async (resolve, reject) => {
       const platform = getPlatform();
       if (platform === 'mac') {
-        const MacDiskPath = '/Volumes/ONEKEY DATA';
-        fs.access(
-          MacDiskPath,
-          // eslint-disable-next-line no-bitwise
-          fs.constants.F_OK | fs.constants.R_OK | fs.constants.W_OK,
-          (err) => {
-            if (err) {
-              logger.debug('mac disk access error =====> ', err);
-              reject(err);
-              return;
-            }
-            resolve(MacDiskPath);
-          },
-        );
+        try {
+          const macDiskPath = await findMacDiskPath();
+          resolve(macDiskPath);
+        } catch (e) {
+          reject(e);
+        }
+        return;
       }
 
       if (platform === 'win') {
-        // TODO: Windows 搜索盘符逻辑
+        try {
+          const winDiskPath = await findWindowsDiskPath();
+          resolve(winDiskPath);
+        } catch (e) {
+          reject(e);
+        }
+        return;
       }
+
+      return '';
     });
 
   const extractResFile = () => {
@@ -106,13 +196,13 @@ const init = () => {
     zip.extractAllTo(extractPath, true);
   };
 
-  const writeResFile = () =>
+  const writeResFile = (diskPath: string): Promise<boolean> =>
     new Promise((resolve, reject) => {
       const sourceFolder = path.join(
         __dirname,
         '../public/res/res-20221031-updater',
       );
-      const targetFolder = path.join(__dirname, '../public/copy-res');
+      const targetFolder = path.join(diskPath, 'copy-res');
 
       fs.readdir(sourceFolder, (err, files) => {
         if (err) {
@@ -147,11 +237,15 @@ const init = () => {
 
     extractResFile();
 
-    const writeResult = await writeResFile();
+    if (!diskPath) {
+      throw new Error(ERRORS.NOT_FOUND_DISK_PATH);
+    }
+
+    const writeResult = await writeResFile(diskPath);
     console.log('write result: ', writeResult);
   };
 
-  test();
+  // test();
 };
 
 export default init;
