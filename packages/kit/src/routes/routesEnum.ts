@@ -97,6 +97,7 @@ export enum HomeRoutes {
   WalletSwitch = 'WalletSwitch',
   AnnualLoading = 'AnnualLoading',
   AnnualReport = 'AnnualReport',
+  BulkSender = 'BulkSender',
 }
 export enum TabRoutes {
   // Overview = 'overview',

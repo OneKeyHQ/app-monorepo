@@ -178,6 +178,7 @@ export type HomeRoutesParams = {
       assets: Record<string, NFTAsset>;
     };
   };
+  [HomeRoutes.BulkSender]: undefined;
 };
 /** HomeStack */
 

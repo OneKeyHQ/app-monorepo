@@ -39,6 +39,7 @@ import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
+import BulkSender from '../../views/BulkSender';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
@@ -107,6 +108,11 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.AnnualReport,
         component: AnnualReport,
+      },
+      {
+        name: HomeRoutes.BulkSender,
+        component: BulkSender,
+        alwaysShowBackButton: true,
       },
     ],
   },
