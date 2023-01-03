@@ -98,9 +98,14 @@ export const DotGroup: FC<DotGroupProps> = ({
 type MnemonicStatusProps = {
   status?: KeyTagMnemonicStatus;
   word?: string;
+  showResult?: boolean;
 };
 
-export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
+export const MnemonicStatus: FC<MnemonicStatusProps> = ({
+  showResult,
+  status,
+  word,
+}) => {
   const intl = useIntl();
   const { statusTitle, titleColor } = useMemo(() => {
     const res: { statusTitle?: string; titleColor: ThemeToken } = {
@@ -108,7 +113,7 @@ export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
     };
     switch (status) {
       case KeyTagMnemonicStatus.VERIF:
-        res.statusTitle = word?.toUpperCase();
+        res.statusTitle = showResult ? word?.toUpperCase() : '';
         break;
       case KeyTagMnemonicStatus.INCORRECT:
         res.statusTitle = intl
@@ -123,13 +128,13 @@ export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
         res.titleColor = 'text-warning';
         break;
       case KeyTagMnemonicStatus.UNVERIF:
-        res.statusTitle = '-';
+        res.statusTitle = showResult ? '-' : '';
         break;
       default:
         break;
     }
     return res;
-  }, [intl, status, word]);
+  }, [intl, showResult, status, word]);
   return (
     <Box flexDirection="row">
       {status === KeyTagMnemonicStatus.INCORRECT ? (
@@ -176,14 +181,11 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
           <Typography.Body1Mono color="text-subdued">
             {mnemonicWordData?.index}
           </Typography.Body1Mono>
-          {showResult ? (
-            <MnemonicStatus
-              status={mnemonicWordData?.status}
-              word={mnemonicWordData?.mnemonicWord}
-            />
-          ) : (
-            <Box />
-          )}
+          <MnemonicStatus
+            showResult={showResult}
+            status={mnemonicWordData?.status}
+            word={mnemonicWordData?.mnemonicWord}
+          />
         </Box>
       ) : null}
       <Box flexDirection="row">

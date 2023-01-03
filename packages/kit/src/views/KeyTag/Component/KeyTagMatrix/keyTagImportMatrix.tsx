@@ -2,12 +2,12 @@ import type { FC } from 'react';
 
 import { Box } from '@onekeyhq/components';
 
+import { useImportKeytagSpaceSize } from '../../hooks/useKeyTagLayout';
 import DotMnemonicWord from '../DotMap/DotMnemonicWord';
 
 import { KeyTagMatrixTopTitle } from './KeyTagMatrix';
 
 import type { KeyTagMnemonic } from '../../types';
-import { useImportKeytagSpaceSize } from '../../hooks/useKeyTagLayout';
 
 type KeyTagImportMatrixProps = {
   keyTagData?: KeyTagMnemonic[];

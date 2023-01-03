@@ -44,14 +44,18 @@ export const useImportKeytagSpaceSize = () => {
   const { screenWidth } = useUserDevice();
   const isVertical = useIsVerticalLayout();
   const size = useMemo(() => {
+    let resSize = 5;
     const extraWidth = isVertical
       ? screenWidth - 256 - 36
       : screenWidth - 256 * 2 - 48 - 82 * 2;
     const spaceSizeWidth = isVertical ? 48 : 48 * 2;
     if (extraWidth > spaceSizeWidth) {
-      return 5 + Math.floor(extraWidth / spaceSizeWidth);
+      resSize = 5 + Math.floor(extraWidth / spaceSizeWidth);
     }
-    return 5;
+    if (resSize > 7 && !isVertical) {
+      return 7;
+    }
+    return resSize;
   }, [screenWidth, isVertical]);
   return { size };
 };
