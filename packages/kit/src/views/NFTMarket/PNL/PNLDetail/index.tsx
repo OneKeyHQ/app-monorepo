@@ -318,7 +318,7 @@ const Header: FC<HeaderProps> = ({
       >
         <Box>
           <Text typography="Body1" color="text-subdued">
-            {intl.formatMessage({ id: 'content__profit' })}
+            {intl.formatMessage({ id: 'content__total_profits' })}
           </Text>
           {totalProfit ? (
             <Text
