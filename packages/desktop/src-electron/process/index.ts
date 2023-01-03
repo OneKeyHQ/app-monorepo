@@ -44,7 +44,7 @@ const init = async ({ mainWindow, store }: Dependencies) => {
   if (!process.mas) {
     autoUpdateInit({ mainWindow, store });
   }
-  updateTouchResInit();
+  updateTouchResInit({ mainWindow });
 };
 
 export default init;

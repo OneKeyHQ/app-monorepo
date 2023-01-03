@@ -66,3 +66,8 @@ export type BLEFirmwareInfo = {
   fingerprintWeb: string;
   changelog: Changelog;
 };
+
+export type IResourceUpdateInfo = {
+  error: string | null;
+  needUpdate: boolean;
+};

@@ -23,6 +23,7 @@ import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Hardwa
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import type {
   BLEFirmwareInfo,
+  IResourceUpdateInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -53,6 +54,8 @@ const UpdateInfoModal: FC = () => {
   const [features, setFeatures] = useState<IOneKeyDeviceFeatures>();
   const [bleFirmware, setBleFirmware] = useState<BLEFirmwareInfo>();
   const [sysFirmware, setSysFirmware] = useState<SYSFirmwareInfo>();
+  const [resourceUpdateInfo, setResourceUpdateInfo] =
+    useState<IResourceUpdateInfo>();
 
   useEffect(() => {
     (async () => {
@@ -92,11 +95,11 @@ const UpdateInfoModal: FC = () => {
         setBleFirmware(ble);
       } else if (firmware) {
         // firmware check update
-        const { error } = await deviceUtils.checkTouchNeedUpdateResource(
+        const resourceInfo = await deviceUtils.checkTouchNeedUpdateResource(
           deviceFeatures,
           firmware,
         );
-        if (error === 'USE_DESKTOP') {
+        if (resourceInfo.error === 'USE_DESKTOP') {
           // TODO: i18n test for use desktop
           ToastManager.show(
             {
@@ -109,6 +112,7 @@ const UpdateInfoModal: FC = () => {
           navigation.goBack();
         }
         setSysFirmware(firmware);
+        setResourceUpdateInfo(resourceInfo);
       } else {
         ToastManager.show(
           {
@@ -143,6 +147,7 @@ const UpdateInfoModal: FC = () => {
           {
             device,
             onSuccess,
+            resourceUpdateInfo,
           },
         );
       }}

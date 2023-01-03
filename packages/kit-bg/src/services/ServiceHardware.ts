@@ -288,6 +288,21 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async rebootToBoardloader(connectId: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.deviceRebootToBoardloader(connectId)
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response;
+      });
+  }
+
+  @backgroundMethod()
   async getDeviceCertWithSig(connectId: string, dataHex: string) {
     const hardwareSDK = await this.getSDKInstance();
     return hardwareSDK

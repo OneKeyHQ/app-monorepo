@@ -3,19 +3,23 @@ import fs from 'fs';
 import path from 'path';
 
 import AdmZip from 'adm-zip';
+import { ipcMain } from 'electron';
 import logger from 'electron-log';
 import { WebUSB } from 'usb';
+
+import type { BrowserWindow } from 'electron';
 
 const ONEKEY_FILTER = [
   { vendorId: 0x483, productId: 0x5720 }, // mass storage touch
 ];
 
 const ERRORS = {
+  NOT_FOUND_DEVICE: 'NOT_FOUND_DEVICE',
   NOT_FOUND_DISK_PATH: 'NOT_FOUND_DISK_PATH',
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
 };
 
-const init = () => {
+const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   const webusb = new WebUSB({
     allowAllDevices: true,
   });
@@ -55,8 +59,8 @@ const init = () => {
       }, 1500);
       timeoutId = setTimeout(() => {
         cleanTimer();
-        reject(new Error('Not Found'));
-      }, 1000 * 60 * 5);
+        reject(new Error(ERRORS.NOT_FOUND_DEVICE));
+      }, 1000 * 60 * 1);
     });
 
   const getPlatform = () => {
@@ -228,24 +232,36 @@ const init = () => {
       });
     });
 
-  const test = async () => {
-    const result = await checkDeviceConnect();
-    console.log('connect result: ', result);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  ipcMain.on('touch/res', async (_, params: any) => {
+    logger.info('will update Touch resource file');
+    try {
+      const checkDevice = await checkDeviceConnect();
+      logger.info('connect device: ', checkDevice);
 
-    const diskPath = await findDiskPath();
-    console.log('disk path: ', diskPath);
+      const diskPath = await findDiskPath();
+      logger.info('disk path: ', diskPath);
+      if (!diskPath) {
+        throw new Error(ERRORS.NOT_FOUND_DISK_PATH);
+      }
 
-    extractResFile();
+      extractResFile();
 
-    if (!diskPath) {
-      throw new Error(ERRORS.NOT_FOUND_DISK_PATH);
+      const writeResult = await writeResFile(diskPath);
+      console.log('write result: ', writeResult);
+
+      mainWindow.webContents.send(`touch/update-res-success`, {
+        error: null,
+        result: true,
+      });
+    } catch (e) {
+      logger.error('Touch update resource error ====> ', e);
+      mainWindow.webContents.send(`touch/update-res-success`, {
+        error: e,
+        result: false,
+      });
     }
-
-    const writeResult = await writeResFile(diskPath);
-    console.log('write result: ', writeResult);
-  };
-
-  // test();
+  });
 };
 
 export default init;
