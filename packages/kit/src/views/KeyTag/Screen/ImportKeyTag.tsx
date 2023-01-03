@@ -126,7 +126,7 @@ const ImportKeyTag: FC = () => {
     () =>
       !platformEnv.isNativeAndroid ? (
         <Button
-          ml={2}
+          ml={isVertical ? 0 : 2}
           mt={isVertical ? 2 : 4}
           type="plain"
           leftIconName="ChevronLeftOutline"
@@ -154,7 +154,7 @@ const ImportKeyTag: FC = () => {
         flexDirection={isVertical ? 'column' : 'row'}
         justifyContent={isVertical ? 'center' : 'space-between'}
       >
-        <Box mt={platformEnv.isNative ? -12 : 0}>
+        <Box mt={platformEnv.isNativeIOS ? -12 : 0}>
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'title__import_wallet_with_keytag' })}
           </Typography.DisplayLarge>

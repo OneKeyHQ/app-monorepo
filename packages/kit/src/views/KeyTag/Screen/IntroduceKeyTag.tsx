@@ -41,7 +41,7 @@ const Introduce = () => {
       </Box>
     );
     res.detail = (
-      <Box h="220px">
+      <Box>
         <Typography.DisplayLarge
           fontSize="24px"
           fontWeight={700}
