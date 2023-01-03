@@ -74,22 +74,53 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     }
   };
 
+  const pollingDiskPathCanAccess = (diskPath: string) =>
+    new Promise((resolve, reject) => {
+      let tryCount = 0;
+      const maxTryCount = 20;
+      let intervalId: ReturnType<typeof setInterval> | null = null;
+
+      const cleanTimer = () => {
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+      };
+
+      intervalId = setInterval(() => {
+        logger.info(`access disk path, ${tryCount} try ===>`);
+        fs.access(
+          diskPath,
+          // eslint-disable-next-line no-bitwise
+          fs.constants.F_OK | fs.constants.R_OK | fs.constants.W_OK,
+          (err) => {
+            if (err) {
+              logger.error('disk access error =====> ', err);
+              tryCount += 1;
+              return;
+            }
+            cleanTimer();
+            resolve(diskPath);
+          },
+        );
+
+        if (tryCount >= maxTryCount) {
+          cleanTimer();
+          reject(new Error(ERRORS.DISK_ACCESS_ERROR));
+        }
+      }, 1000);
+    });
+
   const findMacDiskPath = (): Promise<string> =>
     new Promise((resolve, reject) => {
-      const MacDiskPath = '/Volumes/ONEKEY DATA';
-      fs.access(
-        MacDiskPath,
-        // eslint-disable-next-line no-bitwise
-        fs.constants.F_OK | fs.constants.R_OK | fs.constants.W_OK,
-        (err) => {
-          if (err) {
-            logger.debug('mac disk access error =====> ', err);
-            reject(err);
-            return;
-          }
+      const MacDiskPath = '/Volumes/ONEKEY DATA/';
+      pollingDiskPathCanAccess(MacDiskPath)
+        .then(() => {
           resolve(MacDiskPath);
-        },
-      );
+        })
+        .catch((err) => {
+          logger.debug('mac disk access error =====> ', err);
+          reject(err);
+        });
     });
 
   const findWindowsDiskPath = async (): Promise<string> =>
@@ -208,36 +239,71 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       );
       const targetFolder = path.join(diskPath, 'copy-res');
 
-      fs.readdir(sourceFolder, (err, files) => {
+      logger.info(
+        'targetFolder exists: ',
+        fs.existsSync(targetFolder),
+        ' .   target: ',
+        targetFolder,
+      );
+      if (!fs.existsSync(targetFolder)) {
+        fs.mkdirSync(targetFolder, { recursive: true });
+      }
+
+      fs.readdir(sourceFolder, async (err, files) => {
         if (err) {
           logger.error('readdir error: ', err);
           reject(err);
           return;
         }
 
-        files.forEach((file) => {
+        const promises: Promise<any>[] = [];
+        for (const file of files) {
           const sourceFile = path.join(sourceFolder, file);
           const targetFile = path.join(targetFolder, file);
 
-          fs.copyFile(sourceFile, targetFile, (copyErr) => {
-            if (copyErr) {
-              logger.error('copyFile error: ', copyErr);
-              reject(copyErr);
-            }
-          });
-          logger.log(`Copied ${sourceFile} to ${targetFile}`);
-        });
+          // eslint-disable-next-line @typescript-eslint/no-use-before-define
+          promises.push(copyFile(sourceFile, targetFile));
+        }
+        try {
+          await Promise.all(promises);
+        } catch (copyErr) {
+          logger.error('copyFile error: ', copyErr);
+          reject(copyErr);
+        }
 
         resolve(true);
       });
     });
 
+  const copyFile = async (sourceFile: string, targetFile: string) =>
+    new Promise((resolve, reject) => {
+      fs.copyFile(
+        sourceFile,
+        targetFile,
+        fs.constants.COPYFILE_FICLONE,
+        (copyErr) => {
+          if (copyErr) {
+            logger.error('copyFile error: ', copyErr);
+            reject(copyErr);
+            return;
+          }
+          logger.log(`Copied ${sourceFile} to ${targetFile}`);
+          resolve(true);
+        },
+      );
+    });
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ipcMain.on('touch/res', async (_, params: any) => {
     logger.info('will update Touch resource file');
+    logger.info('new Version');
     try {
       const checkDevice = await checkDeviceConnect();
       logger.info('connect device: ', checkDevice);
+
+      // logger.info('wait start ===> ');
+      // await wait(5000);
+      // logger.info('wait end ===> ');
 
       const diskPath = await findDiskPath();
       logger.info('disk path: ', diskPath);
@@ -248,7 +314,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       extractResFile();
 
       const writeResult = await writeResFile(diskPath);
-      console.log('write result: ', writeResult);
+      logger.info('write result: ', writeResult);
 
       mainWindow.webContents.send(`touch/update-res-success`, {
         error: null,
