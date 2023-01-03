@@ -10,9 +10,9 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ?style=for-the-badge&labelColor=000)](https://twitter.com/OneKeyHQ)
 
 
-[![Appstore](https://github.com/rayston92/graph_bed/blob/db26285245645aacd695d97b3214709dccd7d4d4/img/app_store.png)](https://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473)
-[![Playstore](https://github.com/rayston92/graph_bed/blob/db26285245645aacd695d97b3214709dccd7d4d4/img/play.png)](https://play.google.com/store/apps/details?id=so.onekey.app.wallet)
-
+[![Appstore](https://github.com/rayston92/graph_bed/blob/275d053220d5b54b32b01ce4c4985210951043c5/img/app_store.svg)](https://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473)
+[![Playstore](https://github.com/rayston92/graph_bed/blob/275d053220d5b54b32b01ce4c4985210951043c5/img/play.svg
+)](https://play.google.com/store/apps/details?id=so.onekey.app.wallet)
 
 ## Community & Support
 
