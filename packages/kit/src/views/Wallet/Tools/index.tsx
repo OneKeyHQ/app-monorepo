@@ -8,7 +8,6 @@ import { StyleSheet } from 'react-native';
 import {
   Box,
   Center,
-  HStack,
   Icon,
   Pressable,
   ScrollView,
@@ -42,7 +41,7 @@ type DataItem = {
   key: string;
   icon: ComponentProps<typeof Icon> | string;
   iconBg: ThemeToken | string | undefined;
-  title: LocaleIds | string;
+  title: LocaleIds;
   description: LocaleIds;
   link?: string;
 };
@@ -165,12 +164,15 @@ const ToolsPage: FC = () => {
       contentContainerStyle={{
         marginVertical: 24,
         paddingHorizontal: responsivePadding,
-        alignItems: 'center',
         flexDirection: 'row',
-        flexWrap: 'wrap',
       }}
     >
-      <Box m="-6px" flexDirection={isVertical ? 'column' : 'row'} flex={1}>
+      <Box
+        m="-6px"
+        flexDirection={isVertical ? 'column' : 'row'}
+        flex={1}
+        flexWrap="wrap"
+      >
         {items.map((item) => (
           <Box p="6px" width={isVertical ? '100%' : '50%'}>
             <Pressable
