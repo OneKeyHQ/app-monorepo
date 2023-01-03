@@ -72,14 +72,8 @@ const UpdateInfoModal: FC = () => {
 
       const connectId = findDevice.mac;
 
-      serviceHardware
-        .getFeatures(connectId ?? '')
-        .then((f) => {
-          setFeatures(f);
-        })
-        .catch(() => {
-          // ignore
-        });
+      const deviceFeatures = await serviceHardware.getFeatures(connectId ?? '');
+      setFeatures(deviceFeatures);
 
       let { ble, firmware } = deviceUpdates?.[connectId] || {};
 
@@ -97,6 +91,23 @@ const UpdateInfoModal: FC = () => {
       if (ble) {
         setBleFirmware(ble);
       } else if (firmware) {
+        // firmware check update
+        const { error } = await deviceUtils.checkTouchNeedUpdateResource(
+          deviceFeatures,
+          firmware,
+        );
+        if (error === 'USE_DESKTOP') {
+          // TODO: i18n test for use desktop
+          ToastManager.show(
+            {
+              title: 'Please use desktop client',
+            },
+            {
+              type: 'error',
+            },
+          );
+          navigation.goBack();
+        }
         setSysFirmware(firmware);
       } else {
         ToastManager.show(

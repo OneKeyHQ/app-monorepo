@@ -8,7 +8,10 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import { getHardwareSDKInstance } from '@onekeyhq/shared/src/device/hardwareInstance';
+import {
+  CoreSDKLoader,
+  getHardwareSDKInstance,
+} from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
@@ -19,9 +22,12 @@ import showHardwarePopup, {
 } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 import * as Error from './errors';
+import { getDeviceFirmwareVersion } from './OneKeyHardware';
 
 import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import type { SYSFirmwareInfo } from '../updates/type';
 import type {
+  Features,
   IDeviceType,
   SearchDevice,
   Success,
@@ -212,6 +218,28 @@ class DeviceUtils {
     setTimeout(() => {
       showHardwarePopup({ uiRequest, payload, content });
     }, delay);
+  }
+
+  async checkTouchNeedUpdateResource(
+    features: Features | undefined,
+    firmware: SYSFirmwareInfo,
+  ) {
+    const { getDeviceType } = await CoreSDKLoader();
+    const deviceType = getDeviceType(features);
+    if (deviceType !== 'touch') return { error: null, needUpdate: false };
+    const currentVersion = getDeviceFirmwareVersion(features).join('.');
+    const targetVersion = firmware.version.join('.');
+    if (
+      semver.lt(currentVersion, '3.5.0') &&
+      semver.gte(targetVersion, '3.5.0')
+    ) {
+      return {
+        error: !platformEnv.isDesktop ? 'USE_DESKTOP' : null,
+        needUpdate: true,
+      };
+    }
+
+    return { error: null, needUpdate: false };
   }
 
   showErrorToast(error: any, defKey?: LocaleIds): boolean {
