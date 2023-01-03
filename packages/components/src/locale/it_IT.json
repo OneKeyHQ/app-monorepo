@@ -1460,6 +1460,7 @@
   "msg__image_saved": "Immagine salvata",
   "msg__import_icloud_backup_failed_version": "Importazione fallita. Si prega di aggiornare all'ultima versione per continuare",
   "msg__incorrect_token_information": "Informazioni errate sul token",
+  "msg__link_copied": "Collegamento copiato",
   "msg__minted": "💎 {assets} coniati",
   "msg__mismatched_account": "Conto non corrispondente.",
   "msg__mismatched_networks": "Reti non corrispondenti.",

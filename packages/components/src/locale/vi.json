@@ -1460,6 +1460,7 @@
   "msg__image_saved": "Đã lưu hình ảnh",
   "msg__import_icloud_backup_failed_version": "Nhập không thành công. Vui lòng cập nhật lên phiên bản mới nhất để tiếp tục",
   "msg__incorrect_token_information": "Thông tin mã thông báo không chính xác",
+  "msg__link_copied": "Đã sao chép liên kết",
   "msg__minted": "💎 Đã đúc {assets}",
   "msg__mismatched_account": "Tài khoản không khớp.",
   "msg__mismatched_networks": "Mạng không khớp.",

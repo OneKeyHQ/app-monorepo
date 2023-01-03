@@ -1460,6 +1460,7 @@
   "msg__image_saved": "छवि सहेजी गई",
   "msg__import_icloud_backup_failed_version": "आयात विफल। कृपया जारी रखने के लिए नवीनतम संस्करण में अपडेट करें",
   "msg__incorrect_token_information": "गलत टोकन जानकारी",
+  "msg__link_copied": "लिंक कॉपी किया गया",
   "msg__minted": "ढाला {assets}",
   "msg__mismatched_account": "बेमेल खाता।",
   "msg__mismatched_networks": "बेमेल नेटवर्क।",

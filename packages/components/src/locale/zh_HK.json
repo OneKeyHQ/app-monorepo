@@ -1460,6 +1460,7 @@
   "msg__image_saved": "圖片已保存",
   "msg__import_icloud_backup_failed_version": "導入失敗。請升級至最新版本以繼續",
   "msg__incorrect_token_information": "代幣信息不正確",
+  "msg__link_copied": "鏈接已復制",
   "msg__minted": "💎 鑄造{assets}",
   "msg__mismatched_account": "帳戶不匹配",
   "msg__mismatched_networks": "網絡不匹配",
