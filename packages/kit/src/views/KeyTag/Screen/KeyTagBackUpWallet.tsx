@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useWalletSelectorSectionData } from '../../../components/WalletSelector/hooks/useWalletSelectorSectionData';
 import { WalletAvatarPro } from '../../../components/WalletSelector/WalletAvatar';
@@ -26,7 +27,6 @@ import { Bip39DotmapUrl } from '../utils';
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { ListRenderItem } from 'react-native';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 

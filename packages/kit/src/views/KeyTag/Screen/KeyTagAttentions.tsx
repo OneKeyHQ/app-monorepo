@@ -7,12 +7,12 @@ import { ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Attentions } from '../../CreateWallet/AppWallet/Attentions';
+import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
 
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import LayoutContainer from '../../Onboarding/Layout';
 
 type RouteProps = RouteProp<IKeytagRoutesParams, KeyTagRoutes.KeyTagAttention>;
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
