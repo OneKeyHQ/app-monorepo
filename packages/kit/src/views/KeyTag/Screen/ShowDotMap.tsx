@@ -107,7 +107,7 @@ const ShowDotMap: FC = () => {
     () =>
       !platformEnv.isNativeAndroid ? (
         <Button
-          ml={2}
+          ml={isVertical ? 0 : 2}
           mt={isVertical ? 2 : 4}
           type="plain"
           leftIconName="ChevronLeftOutline"
@@ -132,7 +132,7 @@ const ShowDotMap: FC = () => {
     <LayoutContainer backButton={false}>
       <Box flex="1">
         <Box
-          mt={platformEnv.isNative ? -12 : 0}
+          mt={platformEnv.isNativeIOS ? -12 : 0}
           flexDirection={isVertical ? 'column' : 'row'}
         >
           {keyTagData?.length && keyTagData.length > 12 ? (

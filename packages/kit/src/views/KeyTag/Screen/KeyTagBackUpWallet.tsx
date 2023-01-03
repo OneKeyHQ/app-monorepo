@@ -26,6 +26,7 @@ import { Bip39DotmapUrl } from '../utils';
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { ListRenderItem } from 'react-native';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
 
@@ -55,10 +56,10 @@ const KeyTagBackUpWallet = () => {
       navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
         wallet,
         walletId: wallet.id,
-        navigateMode: true,
+        navigateMode: isVertical && platformEnv.isNative,
       });
     },
-    [navigation],
+    [isVertical, navigation],
   );
 
   const ListEmptyComponent = useMemo(
