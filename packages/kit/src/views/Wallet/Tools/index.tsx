@@ -131,6 +131,8 @@ const ToolsPage: FC = () => {
           accountAddress,
           intl.formatMessage({ id: 'title__blockchain_explorer' }),
         );
+      } else if (key === 'pnl') {
+        navigation.navigate(HomeRoutes.NFTPNLScreen);
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {
