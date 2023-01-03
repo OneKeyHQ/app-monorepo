@@ -32,7 +32,7 @@ const Started = () => {
   const { isDark } = useTheme();
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { imageWidth, imageHeight } = useStartedKeyTagImage();
+  const { imageWidth, imageHeight, imageBoxWidth } = useStartedKeyTagImage();
   return (
     <LayoutContainer
       backButton
@@ -40,17 +40,19 @@ const Started = () => {
     >
       <Box flex="1" flexDirection={isVerticalLayout ? 'column' : 'row'}>
         <Pressable
-          w={imageWidth}
+          w={imageBoxWidth}
           h={imageHeight}
+          bgColor={isDark ? '#040407' : '#ECEDEE'}
+          borderColor="border-subdued"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderRadius="12px"
           onPress={() => {
             navigation.navigate(KeyTagRoutes.IntroduceKeyTag);
           }}
         >
-          <Box position="absolute" top="0" right="0" left="0" bottom="0">
+          <Box position="absolute" top="0" right="0" bottom="0">
             <Image
               source={isDark ? keytagDark1 : keytagLight1}
-              borderColor="border-subdued"
-              borderWidth={StyleSheet.hairlineWidth}
               borderRadius="12px"
               w={imageWidth}
               h={imageHeight}
@@ -65,17 +67,19 @@ const Started = () => {
         <Pressable
           mt={isVerticalLayout ? 6 : 0}
           ml={isVerticalLayout ? 0 : 6}
-          w={imageWidth}
+          bgColor={isDark ? '#040407' : '#ECEDEE'}
+          w={imageBoxWidth}
           h={imageHeight}
+          borderColor="border-subdued"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderRadius="12px"
           onPress={() => {
             navigation.navigate(KeyTagRoutes.ImportKeytag);
           }}
         >
-          <Box position="absolute" top="0" right="0" left="0" bottom="0">
+          <Box position="absolute" top="0" right="0" bottom="0">
             <Image
               source={isDark ? keytagDark2 : keytagLight2}
-              borderColor="border-subdued"
-              borderWidth={StyleSheet.hairlineWidth}
               borderRadius="12px"
               w={imageWidth}
               h={imageHeight}
