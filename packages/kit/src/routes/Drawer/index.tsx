@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { WalletSelectorMobile } from '@onekeyhq/kit/src/components/WalletSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -15,6 +15,7 @@ const DrawerStack = createDrawerNavigator();
 
 const DrawerStackNavigator = () => {
   const isWeb = !platformEnv.isNative;
+  const isVertical = useIsVerticalLayout();
   const drawerStyle: Partial<StyleProp<ViewStyle>> = {
     width: '85%',
     maxWidth: 400,
@@ -34,7 +35,7 @@ const DrawerStackNavigator = () => {
         drawerType: 'back',
         swipeEdgeWidth: 16,
         drawerStyle,
-        swipeEnabled: !platformEnv.isNativeIOSPad,
+        swipeEnabled: isVertical && !isWeb,
       }}
       // eslint-disable-next-line react/no-unstable-nested-components
       drawerContent={(props) => <WalletSelectorMobile {...props} />}
