@@ -5455,10 +5455,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.35":
-  version: 1.6.35
-  resolution: "@onekeyfe/network-list@npm:1.6.35"
-  checksum: 06ed2ef0ee53cd4980337dded9fedf8ebe1e232dd55883bb78918e5472a0b0b9868eff4006fe4e35362c488651b2cf926506df860b0191cb30cc90d4572c5b00
+"@onekeyfe/network-list@npm:1.6.36":
+  version: 1.6.36
+  resolution: "@onekeyfe/network-list@npm:1.6.36"
+  checksum: c4a3a1d4dfec07929c0ed4444e49c360f37aa82c7c1cf9e216a27d69dc2cfa476d7b646a7fb6ce462f86ccd640d7ea0ad1e7b19775a4245fab8001851e258a80
   languageName: node
   linkType: hard
 
@@ -5643,7 +5643,7 @@ __metadata:
     "@onekeyfe/hd-web-sdk": 0.2.15
     "@onekeyfe/inpage-providers-hub": 1.1.13
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.35
+    "@onekeyfe/network-list": 1.6.36
     "@onekeyfe/onekey-aptos-provider": 1.1.13
     "@onekeyfe/onekey-cross-webview": 1.1.13
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
