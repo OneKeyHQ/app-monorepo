@@ -1460,6 +1460,7 @@
   "msg__image_saved": "Image enregistrée",
   "msg__import_icloud_backup_failed_version": "Échec de l'importation. Veuillez mettre à jour vers la dernière version pour continuer",
   "msg__incorrect_token_information": "Informations incorrectes sur le jeton",
+  "msg__link_copied": "Lien copié",
   "msg__minted": "💎 Monnaie {assets}",
   "msg__mismatched_account": "Compte incompatible.",
   "msg__mismatched_networks": "Réseaux incompatibles.",
