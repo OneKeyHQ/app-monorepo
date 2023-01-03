@@ -6,11 +6,11 @@ import { Modal } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import Protected, { ValidationFields } from '../../../components/Protected';
+import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagRoutes } from '../Routes/enums';
 
 import type { IKeytagRoutesParams } from '../Routes/types';
 import type { RouteProp } from '@react-navigation/native';
-import LayoutContainer from '../../Onboarding/Layout';
 
 type RouteProps = RouteProp<
   IKeytagRoutesParams,
