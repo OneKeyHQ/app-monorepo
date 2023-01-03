@@ -70,7 +70,7 @@ export const ListHeadTags: ListHeadTagType[] = [
   {
     id: EMarketCellData.Token24hChange,
     title: 'form__24h%_uppercase',
-    minW: '90px',
+    minW: '100px',
     textAlign: 'right',
     showVerticalLayout: true,
     showNorMalDevice: true,

@@ -35,6 +35,7 @@ type DotGroupProps = {
   size?: number;
   disabled?: boolean;
   onChange?: (index: number, value: boolean) => void;
+  defaultBgColor?: string;
 };
 
 export const DotGroup: FC<DotGroupProps> = ({
@@ -45,6 +46,7 @@ export const DotGroup: FC<DotGroupProps> = ({
   lightsData = [],
   digitCodeLimit = 11,
   disabled = false,
+  defaultBgColor,
   onChange,
 }) => (
   <>
@@ -77,6 +79,7 @@ export const DotGroup: FC<DotGroupProps> = ({
             </Box>
           ) : null}
           <DotSpace
+            defaultBgColor={defaultBgColor}
             disabled={disabled}
             size={size}
             defaultLight={data}
@@ -170,7 +173,9 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
     <Box flexDirection="column">
       {showWordStatus ? (
         <Box flexDirection="row" justifyContent="space-between" my={1}>
-          <Typography.Body1Mono>{mnemonicWordData?.index}</Typography.Body1Mono>
+          <Typography.Body1Mono color="text-subdued">
+            {mnemonicWordData?.index}
+          </Typography.Body1Mono>
           {showResult ? (
             <MnemonicStatus
               status={mnemonicWordData?.status}
@@ -200,7 +205,7 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
               justifyContent="flex-end"
               alignItems="flex-end"
             >
-              <Typography.Body1Mono marginRight="8px">
+              <Typography.Body1Mono color="text-subdued" marginRight="8px">
                 {mnemonicWordData?.index}
               </Typography.Body1Mono>
             </Box>
@@ -209,6 +214,11 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
         <HStack space={space}>
           {groupArr.map((group, index) => (
             <DotGroup
+              defaultBgColor={
+                mnemonicWordData?.status === KeyTagMnemonicStatus.FILL
+                  ? 'background-hovered'
+                  : 'background-default'
+              }
               disabled={disabled}
               size={size}
               groupIndex={index}

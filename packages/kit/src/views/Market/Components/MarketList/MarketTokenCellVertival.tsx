@@ -144,7 +144,7 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
             {marketTokenItem && marketTokenItem.priceChangePercentage24H ? (
               <Box
                 // flex={1}
-                w="90px"
+                w="100px"
                 flexDirection="row"
                 alignItems="center"
                 justifyContent="flex-end"
