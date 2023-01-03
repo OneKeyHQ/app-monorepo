@@ -7,7 +7,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import {
   useAccountTokensBalance,
   useAppSelector,
-  useNetworkTokensPrice,
   useThrottle,
 } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
@@ -59,11 +58,6 @@ export const useTokenSearch = (keyword: string, networkId?: string | null) => {
     loading,
     result,
   };
-};
-
-export const useCachedPrices = (networkId?: string) => {
-  const prices = useNetworkTokensPrice(networkId);
-  return useThrottle(prices, 2000);
 };
 
 export const useCachedBalances = (networkId?: string, accountId?: string) => {

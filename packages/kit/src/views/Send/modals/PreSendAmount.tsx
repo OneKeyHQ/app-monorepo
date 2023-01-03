@@ -41,6 +41,7 @@ import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MessageDescriptor } from 'react-intl';
+import { useTokenBalance } from '../../../hooks/useTokens';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -131,20 +132,12 @@ function PreSendAmount() {
     tokenIdOnNetwork,
   });
 
-  const { balances, getTokenBalance } = useManageTokensOfAccount({
-    fetchTokensOnMount: true,
-    accountId,
+  const tokenBalance = useTokenBalance({
     networkId,
+    accountId,
+    token: tokenInfo,
+    fallback: '0',
   });
-
-  const tokenBalance = useMemo(
-    () =>
-      getTokenBalance({
-        token: tokenInfo,
-        defaultValue: '0',
-      }),
-    [getTokenBalance, tokenInfo],
-  );
 
   const getAmountValidateError = useCallback(() => {
     if (!tokenInfo || !amount) {

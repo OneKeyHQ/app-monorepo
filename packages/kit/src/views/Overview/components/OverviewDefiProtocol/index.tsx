@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,7 +12,6 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useAccountAllValues, useActiveWalletAccount } from '../../../../hooks';
@@ -37,19 +37,48 @@ const PoolName: FC<{
   );
 };
 
-export const OverviewDefiProtocol: FC<OverviewDefiRes> = ({
+export const OverviewDefiProtocol: FC<
+  OverviewDefiRes & {
+    showHeader?: boolean;
+    bgColor?: string;
+  }
+> = ({
   _id,
   pools,
   protocolValue,
   protocolName,
   protocolIcon,
   claimableValue,
+  showHeader = true,
+  bgColor,
 }) => {
   const intl = useIntl();
 
   const { networkId, accountAddress } = useActiveWalletAccount();
 
   const accountAllValues = useAccountAllValues(networkId, accountAddress);
+
+  const content = useMemo(
+    () => (
+      <Box bg={bgColor}>
+        {pools.map(([poolType, items], idx) => (
+          <VStack
+            key={poolType}
+            borderTopWidth={idx === 0 ? 0 : '1px'}
+            borderTopColor="divider"
+          >
+            <PoolName poolType={poolType} poolName={items?.[0]?.poolName} />
+            <OverviewDefiPool
+              networkId={_id.networkId}
+              poolType={poolType}
+              pools={items}
+            />
+          </VStack>
+        ))}
+      </Box>
+    ),
+    [bgColor, pools, _id],
+  );
 
   return (
     <Collapse
@@ -58,55 +87,43 @@ export const OverviewDefiProtocol: FC<OverviewDefiRes> = ({
       borderWidth="1px"
       borderColor="border-subdued"
       mb="6"
-      defaultCollapsed={platformEnv.isNative}
+      defaultCollapsed={false}
       overflow="hidden"
-      renderCustomTrigger={(toggle, collapsed) => (
-        <OverviewDefiBoxHeader
-          name={protocolName}
-          rate={new B(protocolValue)
-            .div(accountAllValues.value)
-            .multipliedBy(100)}
-          desc={
-            <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
-              <FormatCurrencyNumber value={new B(protocolValue)} />
-            </Text>
-          }
-          extra={
-            +claimableValue > 0 ? (
-              <Text
-                color="text-subdued"
-                typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
-              >
-                {intl.formatMessage(
-                  { id: 'form__claimable_str' },
-                  {
-                    0: <FormatCurrencyNumber value={new B(claimableValue)} />,
-                  },
-                )}
+      renderCustomTrigger={(toggle, collapsed) =>
+        showHeader ? (
+          <OverviewDefiBoxHeader
+            name={protocolName}
+            rate={new B(protocolValue)
+              .div(accountAllValues.value)
+              .multipliedBy(100)}
+            desc={
+              <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
+                <FormatCurrencyNumber value={new B(protocolValue)} />
               </Text>
-            ) : undefined
-          }
-          icon={protocolIcon}
-          toggle={toggle}
-          collapsed={collapsed}
-        />
-      )}
+            }
+            extra={
+              +claimableValue > 0 ? (
+                <Text
+                  color="text-subdued"
+                  typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
+                >
+                  {intl.formatMessage(
+                    { id: 'form__claimable_str' },
+                    {
+                      0: <FormatCurrencyNumber value={new B(claimableValue)} />,
+                    },
+                  )}
+                </Text>
+              ) : undefined
+            }
+            icon={protocolIcon}
+            toggle={toggle}
+            collapsed={collapsed}
+          />
+        ) : null
+      }
     >
-      <Box>
-        {Object.entries(pools).map((item) => (
-          <VStack key={item[0]} borderTopWidth="1px" borderTopColor="divider">
-            <PoolName
-              poolType={item?.[0] as OverviewDeFiPoolType}
-              poolName={item?.[1]?.[0]?.poolName}
-            />
-            <OverviewDefiPool
-              networkId={_id.networkId}
-              poolType={item?.[0]}
-              pools={item?.[1]}
-            />
-          </VStack>
-        ))}
-      </Box>
+      {content}
     </Collapse>
   );
 };

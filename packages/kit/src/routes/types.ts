@@ -57,6 +57,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Webview]: NavigatorScreenParams<SubModalRoutesParams.WebviewRoutesParams>;
   [ModalRoutes.Revoke]: NavigatorScreenParams<SubModalRoutesParams.RevokeRoutesParams>;
   [ModalRoutes.NFTMarket]: NavigatorScreenParams<SubModalRoutesParams.NFTMarketRoutesParams>;
+  [ModalRoutes.Overview]: NavigatorScreenParams<SubModalRoutesParams.OverviewModalRoutesParams>;
 };
 /** Modal */
 
@@ -149,6 +150,10 @@ export type HomeRoutesParams = {
   [HomeRoutes.RevokeRedirect]: undefined;
   [HomeRoutes.KeyTag]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;
+  [HomeRoutes.OverviewDefiListScreen]: {
+    networkId: string;
+    address: string;
+  };
 };
 /** HomeStack */
 

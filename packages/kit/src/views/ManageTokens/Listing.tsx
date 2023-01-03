@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -561,22 +561,6 @@ export const Listing: FC = () => {
       ));
     },
     [accountId, intl, networkId],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      backgroundApiProxy.serviceToken.fetchTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
   );
 
   return <ListingModal onRemoveAccountToken={openDeleteDialog} />;

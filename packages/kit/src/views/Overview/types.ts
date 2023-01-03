@@ -214,11 +214,23 @@ export type OverviewDefiRes = {
     address: string;
     protocolId: string;
   };
-  pools: Record<OverviewDeFiPoolType, IOverviewDeFiPortfolioItem[]>;
+  pools: [OverviewDeFiPoolType, IOverviewDeFiPortfolioItem[]][];
   poolSize: number;
   protocolValue: string;
   protocolValue24h: string;
   claimableValue: string;
   protocolName: string;
   protocolIcon: string;
+};
+
+export enum OverviewModalRoutes {
+  OverviewProtocolDetail = 'OverviewProtocolDetail',
+}
+
+export type OverviewModalRoutesParams = {
+  [OverviewModalRoutes.OverviewProtocolDetail]: {
+    networkId: string;
+    address: string;
+    protocolId: string;
+  };
 };

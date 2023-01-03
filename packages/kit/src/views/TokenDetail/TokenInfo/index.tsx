@@ -12,7 +12,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
@@ -20,7 +19,6 @@ import {
   useFiatPay,
   useMoonpayPayCurrency,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -34,6 +32,10 @@ import type { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  useAccountTokensBalance,
+  useTokenBalance,
+} from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
@@ -53,6 +55,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const { wallet, network, networkId, accountId } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
+  const balances = useAccountTokensBalance(networkId, accountId);
   const currencies = useFiatPay(network?.id ?? '');
   let cryptoCurrency = currencies.find((item) => {
     if (!token?.tokenIdOnNetwork) {
@@ -61,9 +64,15 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     return item.contract === token?.tokenIdOnNetwork;
   });
 
-  const { balances } = useManageTokens();
-
-  const amount = balances[getBalanceKey({ ...token, sendAddress })] ?? '0';
+  const amount = useTokenBalance({
+    networkId,
+    accountId,
+    token: {
+      ...token,
+      sendAddress,
+    },
+    fallback: '0',
+  });
 
   if (cryptoCurrency) {
     cryptoCurrency = { ...cryptoCurrency, balance: amount };

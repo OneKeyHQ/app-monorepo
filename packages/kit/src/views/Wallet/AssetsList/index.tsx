@@ -11,7 +11,6 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { useManageTokensOfAccount } from '@onekeyhq/kit/src/hooks/useManageTokens';
@@ -25,13 +24,14 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';
-import { OverviewDefiList } from '../../Overview';
+import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 
 import AssetsListHeader from './AssetsListHeader';
 import { EmptyListOfAccount } from './EmptyList';
 import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
+import type { SimplifiedToken } from '../../../store/reducers/tokens';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { FlatListProps } from 'react-native';
 
@@ -45,7 +45,10 @@ export type IAssetsListProps = Omit<
   ComponentProps<typeof Tabs.FlatList>,
   'data' | 'renderItem'
 > & {
-  onTokenPress?: null | ((event: { token: TokenType }) => void) | undefined;
+  onTokenPress?:
+    | null
+    | ((event: { token: SimplifiedToken }) => void)
+    | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
@@ -110,7 +113,29 @@ function AssetsList({
     }
   }, [renderDefiList]);
 
-  const renderListItem: FlatListProps<TokenType>['renderItem'] = ({
+  const onTokenCellPress = useCallback(
+    (item: SimplifiedToken) => {
+      if (onTokenPress) {
+        onTokenPress({ token: item });
+        return;
+      }
+      // TODO: make it work with multi chains.
+      const filter = item.tokenIdOnNetwork
+        ? undefined
+        : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+
+      navigation.navigate(HomeRoutes.ScreenTokenDetail, {
+        accountId: account?.id ?? '',
+        networkId: networkId ?? '',
+        tokenId: item.tokenIdOnNetwork ?? '',
+        sendAddress: item.sendAddress,
+        historyFilter: filter,
+      });
+    },
+    [account?.id, networkId, navigation, onTokenPress],
+  );
+
+  const renderListItem: FlatListProps<SimplifiedToken>['renderItem'] = ({
     item,
     index,
   }) => (
@@ -119,7 +144,6 @@ function AssetsList({
       accountId={accountId}
       hidePriceInfo={hidePriceInfo}
       bg={flatStyle ? 'transparent' : 'surface-default'}
-      token={item}
       borderTopRadius={!flatStyle && showRoundTop && index === 0 ? '12px' : 0}
       borderRadius={
         // eslint-disable-next-line no-unsafe-optional-chaining
@@ -129,44 +153,34 @@ function AssetsList({
       // eslint-disable-next-line no-unsafe-optional-chaining
       borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
       borderColor={flatStyle ? 'transparent' : 'border-subdued'}
-      onPress={() => {
-        if (onTokenPress) {
-          onTokenPress({ token: item });
-          return;
-        }
-        // TODO: make it work with multi chains.
-        const filter = item.tokenIdOnNetwork
-          ? undefined
-          : (i: EVMDecodedItem) =>
-              i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
-
-        navigation.navigate(HomeRoutes.ScreenTokenDetail, {
-          accountId: account?.id ?? '',
-          networkId: item.networkId ?? '',
-          tokenId: item.tokenIdOnNetwork,
-          sendAddress: item.sendAddress,
-          historyFilter: filter,
-        });
-      }}
+      onPress={onTokenCellPress}
+      {...item}
     />
   );
 
   const Container = singleton ? FlatList : Tabs.FlatList;
 
-  const footer = useMemo(
-    () => (
+  const footer = useMemo(() => {
+    console.log('rerender');
+    return (
       <Box>
         {ListFooterComponent}
         {renderDefiList ? (
-          <OverviewDefiList
+          <OverviewDefiThumbnal
             networkId={networkId}
             address={account?.address ?? ''}
+            limitSize={limitSize}
           />
         ) : null}
       </Box>
-    ),
-    [ListFooterComponent, networkId, account?.address, renderDefiList],
-  );
+    );
+  }, [
+    ListFooterComponent,
+    networkId,
+    account?.address,
+    renderDefiList,
+    limitSize,
+  ]);
 
   return (
     <Container
@@ -208,8 +222,8 @@ function AssetsList({
             () => <EmptyListOfAccount network={network} />
       }
       ListFooterComponent={footer}
-      keyExtractor={(_item: TokenType) =>
-        `${_item.id}--${_item.sendAddress ?? ''}`
+      keyExtractor={(_item: SimplifiedToken) =>
+        `${_item.tokenIdOnNetwork}--${_item.sendAddress ?? ''}`
       }
       extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}

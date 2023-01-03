@@ -40,7 +40,7 @@ const GenernalTokens = ({
   pool: IOverviewDeFiPortfolioItem;
   tokenKey: 'supplyTokens' | 'rewardTokens' | 'borrowTokens';
 }) => (
-  <VStack flex="1" space="1">
+  <VStack>
     {pool?.[tokenKey]?.map((t, i) => (
       <HStack alignItems="center" mt={i > 0 ? '4px' : 0} key={t.tokenAddress}>
         <TokenIcon token={t} size={4} mr="1" />
@@ -62,13 +62,7 @@ const GenernalTokens = ({
 const getPoolColumn = (): ColumnItem => ({
   dataIndex: 'supplyTokens',
   header: 'form__pool_uppercase',
-  render: (params) => (
-    <GenernalTokens
-      key={params.pool.poolCode}
-      {...params}
-      tokenKey="supplyTokens"
-    />
-  ),
+  render: (params) => <GenernalTokens {...params} tokenKey="supplyTokens" />,
   visibleOn: ({ pools }) => pools.some((p) => p.supplyTokens?.length > 0),
   boxProps: { minW: '300px' },
 });
@@ -77,33 +71,21 @@ const getRewardsColumn = (): ColumnItem => ({
   dataIndex: 'rewardTokens',
   header: 'form__rewards_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => p.rewardTokens?.length > 0),
-  render: (params) => (
-    <GenernalTokens
-      key={params.pool.poolCode}
-      {...params}
-      tokenKey="rewardTokens"
-    />
-  ),
+  render: (params) => <GenernalTokens {...params} tokenKey="rewardTokens" />,
 });
 
 const getBorrowedColumn = (): ColumnItem => ({
   dataIndex: 'borrowTokens',
   header: 'form__borrowed_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => p.borrowTokens?.length > 0),
-  render: (params) => (
-    <GenernalTokens
-      key={params.pool.poolCode}
-      {...params}
-      tokenKey="borrowTokens"
-    />
-  ),
+  render: (params) => <GenernalTokens {...params} tokenKey="borrowTokens" />,
 });
 
 const getValueColumn = (): ColumnItem => ({
   dataIndex: 'poolValue',
   header: 'form__value_uppercase',
   render: ({ pool }) => (
-    <Typography.Body2Strong flex="1" key={pool.poolCode}>
+    <Typography.Body2Strong>
       <FormatCurrencyNumber value={new B(pool.poolValue ?? 0)} />
     </Typography.Body2Strong>
   ),
@@ -116,7 +98,7 @@ const getValueColumn = (): ColumnItem => ({
 const getPriceColumn = (tokenKey: TokenKey): ColumnItem => ({
   header: 'content__price',
   render: ({ pool }) => (
-    <VStack key={pool.poolCode}>
+    <VStack>
       {pool?.[tokenKey].map((t) => (
         <Typography.Body2Strong key={t.tokenAddress}>
           <FormatCurrencyNumber value={new B(t.price ?? 0)} />
@@ -135,7 +117,7 @@ const getAprColumn = (): ColumnItem => ({
   header: 'form__apr_uppercase',
   visibleOn: ({ pools }) => pools.some((p) => !!p.apr),
   render: ({ pool }) => (
-    <Typography.Body2Strong key={pool.poolCode}>
+    <Typography.Body2Strong>
       <FormatCurrencyNumber onlyNumber value={new B(pool.apr ?? 0)} />%
     </Typography.Body2Strong>
   ),
@@ -154,7 +136,7 @@ const getUnlockTimeColumn = (): ColumnItem => ({
       return unlockTime;
     }
     return (
-      <Typography.Body2Strong key={pool.poolCode}>
+      <Typography.Body2Strong>
         {dayjs(unlockTime * 1000).format('YYYY/MM/DD HH:mm')}
       </Typography.Body2Strong>
     );

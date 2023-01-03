@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce } from 'lodash';
+import { debounce, pick, uniq } from 'lodash';
 import memoizee from 'memoizee';
 
 import { balanceSupprtedNetwork } from '@onekeyhq/engine/src/apiProxyUtils';
@@ -20,8 +20,6 @@ import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   setAccountTokens,
   setAccountTokensBalances,
-  setNativeToken,
-  setNetworkTokens,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -51,68 +49,25 @@ export default class ServiceToken extends ServiceBase {
     super(props);
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, this.refreshTokenBalance);
+
+    setInterval(() => {
+      this.refreshTokenBalance();
+    }, getTimeDurationMs({ seconds: 15 }));
   }
 
   @bindThis()
   refreshTokenBalance() {
     const { appSelector } = this.backgroundApi;
-    const activeAccountId = appSelector((s) => s.general.activeAccountId);
-    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
     if (activeAccountId && activeNetworkId) {
-      this.fetchTokenBalance({ activeAccountId, activeNetworkId });
-    }
-  }
-
-  @backgroundMethod()
-  async fetchTokens({
-    activeAccountId,
-    activeNetworkId,
-    withBalance,
-  }: {
-    activeAccountId: string;
-    activeNetworkId: string;
-    withBalance?: boolean;
-  }) {
-    const { engine, dispatch } = this.backgroundApi;
-    const networkTokens = await engine.getTopTokensOnNetwork(
-      activeNetworkId,
-      50,
-    );
-    dispatch(
-      setNetworkTokens({
-        activeNetworkId,
-        tokens: networkTokens,
-        keepAutoDetected: true,
-      }),
-    );
-    const tokenIds = networkTokens.map((token) => token.tokenIdOnNetwork);
-    if (withBalance) {
-      this.fetchTokenBalance({
+      this.fetchAccountTokens({
         activeAccountId,
         activeNetworkId,
-        tokenIds,
+        withBalance: true,
       });
     }
-    return networkTokens;
   }
 
-  _fetchAccountTokensDebounced = debounce(
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    this.fetchAccountTokens,
-    6000,
-    {
-      leading: true,
-      trailing: false,
-    },
-  );
-
-  // avoid multiple calling from hooks, and modal animation done
-  @backgroundMethod()
-  fetchAccountTokensDebounced(params: IFetchAccountTokensParams) {
-    this._fetchAccountTokensDebounced(params);
-  }
-
-  // TODO performance issue in web
   @bindThis()
   @backgroundMethod()
   async fetchAccountTokens({
@@ -136,17 +91,6 @@ export default class ServiceToken extends ServiceBase {
     );
     let autodetectedTokens: Token[] = [];
     const actions: any[] = [];
-    const nativeToken = tokens.find(
-      (item) => item.isNative || !item.tokenIdOnNetwork,
-    );
-    if (nativeToken) {
-      actions.push(
-        setNativeToken({
-          networkId: activeNetworkId,
-          token: nativeToken,
-        }),
-      );
-    }
     if (balanceSupprtedNetwork.includes(activeNetworkId)) {
       Object.assign(options, {
         withBalance: true,
@@ -176,7 +120,9 @@ export default class ServiceToken extends ServiceBase {
       setAccountTokens({
         activeAccountId,
         activeNetworkId,
-        tokens: accountTokens,
+        tokens: accountTokens.map((t) =>
+          pick(t, 'tokenIdOnNetwork', 'sendAddress', 'autoDetected'),
+        ),
       }),
     );
     dispatch(...actions);
@@ -205,15 +151,21 @@ export default class ServiceToken extends ServiceBase {
     activeAccountId: string;
     tokenIds?: string[];
   }): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
+    const top50tokens = await this.backgroundApi.engine.getTopTokensOnNetwork(
+      activeNetworkId,
+      50,
+    );
     const { engine, appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector((s) => s.tokens);
+    const { accountTokens } = appSelector((s) => s.tokens);
     let tokenIdsOnNetwork: string[] = [];
     if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
     } else {
-      const ids1 = tokens[activeNetworkId] || [];
-      const ids2 = accountTokens[activeNetworkId]?.[activeAccountId] || [];
-      tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
+      const ids1 = top50tokens.map((t) => t.tokenIdOnNetwork) ?? [];
+      const ids2 = (
+        accountTokens[activeNetworkId]?.[activeAccountId] || []
+      ).map((t) => t.tokenIdOnNetwork);
+      tokenIdsOnNetwork = ids1.concat(ids2);
     }
     if (!activeAccountId) {
       return [{}, undefined];
@@ -221,7 +173,7 @@ export default class ServiceToken extends ServiceBase {
     const [tokensBalance, autodetectedTokens] = await engine.getAccountBalance(
       activeAccountId,
       activeNetworkId,
-      Array.from(new Set(tokenIdsOnNetwork)),
+      uniq(tokenIdsOnNetwork),
       true,
     );
     dispatch(
@@ -359,15 +311,8 @@ export default class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   async getNativeToken(networkId: string) {
-    const { appSelector, engine, dispatch } = this.backgroundApi;
-    const nativeTokens = appSelector((s) => s.tokens.nativeTokens) ?? {};
-    const target = nativeTokens?.[networkId];
-    if (target) {
-      return target;
-    }
-    const nativeTokenInfo = await engine.getNativeTokenInfo(networkId);
-    dispatch(setNativeToken({ networkId, token: nativeTokenInfo }));
-    return nativeTokenInfo;
+    const { engine } = this.backgroundApi;
+    return engine.getNativeTokenInfo(networkId);
   }
 
   @backgroundMethod()

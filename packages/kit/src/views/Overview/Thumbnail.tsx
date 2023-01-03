@@ -1,0 +1,237 @@
+import type { FC } from 'react';
+import { memo, useCallback, useMemo } from 'react';
+
+import B from 'bignumber.js';
+
+import {
+  Badge,
+  Box,
+  HStack,
+  Icon,
+  Pressable,
+  Text,
+  Token,
+  Typography,
+  VStack,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
+
+import { FormatCurrencyNumber } from '../../components/Format';
+import {
+  useAccountAllValues,
+  useAppSelector,
+  useNavigation,
+} from '../../hooks';
+import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/types';
+
+import { OverviewModalRoutes } from './types';
+
+import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  RootRoutesParams,
+  RootRoutes.Root
+> &
+  NativeStackNavigationProp<
+    HomeRoutesParams,
+    HomeRoutes.OverviewDefiListScreen
+  >;
+
+export type OverviewDefiListProps = {
+  networkId: string;
+  address: string;
+  limitSize?: number;
+};
+
+export type IAssetHeaderProps = {
+  name: string;
+  value: B;
+  itemLength: number;
+  accountAllValue: B;
+  onPress: () => void;
+};
+
+const AssetHeader: FC<IAssetHeaderProps> = ({
+  name,
+  value,
+  itemLength,
+  accountAllValue,
+  onPress,
+}) => {
+  const isVertical = useIsVerticalLayout();
+  const rate = useMemo(
+    () => value.div(accountAllValue).multipliedBy(100),
+    [value, accountAllValue],
+  );
+
+  const protocolValueComp = useMemo(
+    () => (
+      <>
+        {isVertical ? null : (
+          <Box
+            mx="2"
+            my="auto"
+            w="1"
+            h="1"
+            borderRadius="2px"
+            bg="text-default"
+          />
+        )}
+        <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
+          <FormatCurrencyNumber value={value} />
+        </Text>
+      </>
+    ),
+    [value, isVertical],
+  );
+  return (
+    <VStack>
+      <Pressable.Item px="6" py="4" bg="surface-subdued" onPress={onPress}>
+        <VStack flex="1">
+          <HStack flex="1">
+            <HStack flex="1" alignItems="center">
+              <Box
+                size={isVertical ? 6 : 8}
+                borderRadius="full"
+                bg="decorative-icon-one"
+                justifyContent="center"
+                alignItems="center"
+                mr={isVertical ? '8px' : '12px'}
+              >
+                <Icon
+                  size={isVertical ? 12 : 16}
+                  color="icon-on-primary"
+                  name="DatabaseOutline"
+                />
+              </Box>
+              <Typography.Heading>{name}</Typography.Heading>
+              {isVertical ? null : protocolValueComp}
+              {rate.isGreaterThan(0) ? (
+                <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
+              ) : null}
+            </HStack>
+            <HStack alignItems="center">
+              <Typography.Body2Strong color="text-subdued">
+                {itemLength}
+              </Typography.Body2Strong>
+              <Icon size={24} name="ChevronRightMini" />
+            </HStack>
+          </HStack>
+          {isVertical ? protocolValueComp : null}
+        </VStack>
+      </Pressable.Item>
+      {isVertical ? null : (
+        <HStack mt="4" px="6">
+          <Typography.Subheading flex="1" color="text-subdued">
+            PROTOCOLS
+          </Typography.Subheading>
+          <Typography.Subheading flex="1" color="text-subdued">
+            CLAIMABLE
+          </Typography.Subheading>
+          <Typography.Subheading
+            flex="1"
+            color="text-subdued"
+            textAlign="right"
+          >
+            VALUE
+          </Typography.Subheading>
+        </HStack>
+      )}
+    </VStack>
+  );
+};
+
+const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
+  const { networkId, address, limitSize } = props;
+
+  const isVertical = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps>();
+
+  const defis = useAppSelector(
+    (s) => s.overview.defi?.[`${networkId}--${address}`] ?? [],
+  );
+
+  const len = useMemo(() => defis.length, [defis]);
+
+  const allDefiValues = useMemo(
+    () => defis.reduce((sum, next) => sum.plus(next.protocolValue), new B(0)),
+    [defis],
+  );
+
+  const accountAllValue = useAccountAllValues(networkId, address).value;
+
+  const handlePressHeader = useCallback(() => {
+    navigation.navigate(HomeRoutes.OverviewDefiListScreen, {
+      networkId,
+      address,
+    });
+  }, [navigation, networkId, address]);
+
+  if (!len) {
+    return null;
+  }
+
+  return (
+    <VStack
+      overflow="hidden"
+      borderColor="border-subdued"
+      borderWidth="1px"
+      borderRadius={12}
+      mb="24"
+    >
+      <AssetHeader
+        name="Defi"
+        value={allDefiValues}
+        accountAllValue={accountAllValue}
+        itemLength={len}
+        onPress={handlePressHeader}
+      />
+      {defis.slice(0, limitSize).map((item, idx) => (
+        <Pressable.Item
+          key={item._id.protocolId}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Overview,
+              params: {
+                screen: OverviewModalRoutes.OverviewProtocolDetail,
+                params: {
+                  protocolId: item._id.protocolId,
+                  networkId,
+                  address,
+                },
+              },
+            });
+          }}
+          flex={1}
+          px="6"
+          py="4"
+          flexDirection="row"
+          alignItems="center"
+          borderTopWidth={idx === 0 ? 0 : '1px'}
+          borderTopColor="divider"
+        >
+          <Token
+            flex="1"
+            size={8}
+            showInfo
+            token={{
+              logoURI: item.protocolIcon,
+              name: item.protocolName,
+            }}
+          />
+          {isVertical ? null : (
+            <Typography.Body2Strong flex="1">
+              <FormatCurrencyNumber value={+item.claimableValue} />
+            </Typography.Body2Strong>
+          )}
+          <Typography.Body2Strong flex="1" textAlign="right">
+            <FormatCurrencyNumber value={+item.protocolValue} />
+          </Typography.Body2Strong>
+        </Pressable.Item>
+      ))}
+    </VStack>
+  );
+};
+
+export const OverviewDefiThumbnal = memo(OverviewDefiThumbnalWithoutMemo);

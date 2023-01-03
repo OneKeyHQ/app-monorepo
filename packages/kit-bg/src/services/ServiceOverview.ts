@@ -20,30 +20,22 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IServiceBaseProps } from './ServiceTransaction';
-
 @backgroundClass()
 class ServiceOverview extends ServiceBase {
-  constructor(props: IServiceBaseProps) {
-    super(props);
+  private pendingTasks: IOverviewScanTaskItem[] = [];
+
+  @bindThis()
+  registerEvents() {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    appEventBus.on(AppEventBusNames.AccountChanged, this.subscribe);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribe);
 
     setInterval(() => {
       this.queryPendingTasks();
     }, getTimeDurationMs({ seconds: 15 }));
 
-    this.initialSubscribe();
-  }
-
-  private pendingTasks: IOverviewScanTaskItem[] = [];
-
-  async initialSubscribe() {
-    await this.backgroundApi.serviceApp.waitForAppInited({
-      logName: 'ServiceOverview',
-    });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.AccountChanged, this.subscribe);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribe);
+    this.subscribe();
   }
 
   @bindThis()

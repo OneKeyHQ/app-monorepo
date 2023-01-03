@@ -39,7 +39,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAccountValues, useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
-import { useNFTPrice } from '../../../hooks/useTokens';
+import { useAccountTokensBalance, useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { setOverviewOnChainValue } from '../../../store/reducers/overview';
 import { getTimeDurationMs } from '../../../utils/helper';
@@ -69,14 +69,14 @@ const AccountAmountInfo: FC = () => {
   const { account, wallet, network, networkId, accountId } =
     useActiveWalletAccount();
 
+  const balances = useAccountTokensBalance(networkId, accountId);
+
   const nftValue = useNFTPrice({
     accountId: account?.address,
     networkId: network?.id,
   });
 
-  const { accountTokens, balances } = useManageTokens({
-    pollingInterval: 15000,
-  });
+  const { accountTokens } = useManageTokens();
 
   const { prices } = useManageTokenprices({
     networkId,
@@ -92,8 +92,8 @@ const AccountAmountInfo: FC = () => {
     const basePrices: Record<string, SimpleTokenPrices> = {};
     accountTokens.forEach((token) => {
       const priceId = token?.tokenIdOnNetwork
-        ? `${token?.networkId}-${token.tokenIdOnNetwork}`
-        : token?.networkId ?? '';
+        ? `${networkId}-${token.tokenIdOnNetwork}`
+        : networkId ?? '';
       const balance = balances[getBalanceKey(token)];
       const priceInfo = prices?.[priceId];
       if (typeof balance !== 'undefined') {
@@ -104,7 +104,7 @@ const AccountAmountInfo: FC = () => {
       }
     });
     return basePrices;
-  }, [accountTokens, balances, prices, vsCurrency]);
+  }, [accountTokens, balances, prices, vsCurrency, networkId]);
 
   const displayBaseValue = useMemo(
     () =>

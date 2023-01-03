@@ -92,6 +92,35 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     [token, navigation],
   );
 
+  const headerRight = useCallback(
+    () => (
+      <Select
+        dropdownPosition="right"
+        title={intl.formatMessage({ id: 'action__more' })}
+        onChange={onHeaderRightPress}
+        footer={null}
+        activatable={false}
+        triggerProps={{
+          width: '40px',
+        }}
+        dropdownProps={{
+          width: 248,
+        }}
+        options={[
+          {
+            label: intl.formatMessage({
+              id: 'form__price_alert',
+            }),
+            value: 'priceAlert',
+            iconProps: { name: 'BellOutline' },
+          },
+        ]}
+        renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
+      />
+    ),
+    [intl, onHeaderRightPress],
+  );
+
   useLayoutEffect(() => {
     if (!priceReady) {
       return;
@@ -100,33 +129,17 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       return;
     }
     navigation.setOptions({
-      headerRight: () => (
-        <Select
-          dropdownPosition="right"
-          title={intl.formatMessage({ id: 'action__more' })}
-          onChange={onHeaderRightPress}
-          footer={null}
-          activatable={false}
-          triggerProps={{
-            width: '40px',
-          }}
-          dropdownProps={{
-            width: 248,
-          }}
-          options={[
-            {
-              label: intl.formatMessage({
-                id: 'form__price_alert',
-              }),
-              value: 'priceAlert',
-              iconProps: { name: 'BellOutline' },
-            },
-          ]}
-          renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
-        />
-      ),
+      headerRight,
     });
-  }, [navigation, intl, onHeaderRightPress, priceReady, token, isVertical]);
+  }, [
+    navigation,
+    intl,
+    headerRight,
+    onHeaderRightPress,
+    priceReady,
+    token,
+    isVertical,
+  ]);
 
   const headerView = (
     <>

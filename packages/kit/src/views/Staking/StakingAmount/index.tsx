@@ -45,6 +45,7 @@ import { StakingRoutes } from '../typing';
 
 import type { StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
+import { useTokenBalance } from '../../../hooks/useTokens';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
 
@@ -283,7 +284,7 @@ export default function StakingAmount() {
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
   const [amount, setAmount] = useState('');
-  const { account } = useActiveWalletAccount();
+  const { account, accountId } = useActiveWalletAccount();
   const network = useNetworkSimple(networkId);
 
   const tokenInfo = useTokenInfo({
@@ -291,18 +292,12 @@ export default function StakingAmount() {
     tokenIdOnNetwork,
   });
 
-  const { getTokenBalance } = useManageTokens({
-    fetchTokensOnMount: true,
+  const tokenBalance = useTokenBalance({
+    networkId,
+    accountId,
+    token: tokenInfo,
+    fallback: '0',
   });
-
-  const tokenBalance = useMemo(
-    () =>
-      getTokenBalance({
-        token: tokenInfo,
-        defaultValue: '0',
-      }),
-    [getTokenBalance, tokenInfo],
-  );
 
   const getAmountValidateError = useCallback(() => {
     if (!tokenInfo || !amount) {

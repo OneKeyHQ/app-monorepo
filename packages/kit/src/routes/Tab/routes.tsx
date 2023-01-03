@@ -21,6 +21,7 @@ import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup'
 import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
 import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
 import NFTMarket from '@onekeyhq/kit/src/views/NFTMarket/Home';
+import OverviewDefiListScreen from '@onekeyhq/kit/src/views/Overview';
 import Protected from '@onekeyhq/kit/src/views/Protected';
 import PushNotification from '@onekeyhq/kit/src/views/PushNotification';
 import PushNotificationManageAccountDynamic from '@onekeyhq/kit/src/views/PushNotification/AccountDynamic';
@@ -91,6 +92,10 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.NFTPNLScreen,
         component: PNLDetailScreen,
         alwaysShowBackButton: true,
+      },
+      {
+        name: HomeRoutes.OverviewDefiListScreen,
+        component: OverviewDefiListScreen,
       },
     ],
   },
