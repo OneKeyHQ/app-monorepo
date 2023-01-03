@@ -29,29 +29,35 @@ export const useIntroductionBigImage = () => {
 export const useStartedKeyTagImage = () => {
   const { screenWidth } = useUserDevice();
   const isVertical = useIsVerticalLayout();
-  const ratio = 240 / 342;
-  const imageWidth = useMemo(() => {
+  const imageBoxWidth = useMemo(() => {
     if (isVertical) {
       return screenWidth - 48;
     }
-    return 342;
+    const fullWidth = screenWidth > 800 ? 800 : screenWidth;
+    const space = screenWidth > 800 ? 24 : 72;
+    return (fullWidth - space) / 2;
   }, [isVertical, screenWidth]);
-  const imageHeight = useMemo(() => imageWidth * ratio, [imageWidth, ratio]);
-  return { imageHeight, imageWidth };
+  const imageHeight = 240;
+  const imageWidth = 342;
+  return { imageHeight, imageBoxWidth, imageWidth };
 };
 
 export const useImportKeytagSpaceSize = () => {
   const { screenWidth } = useUserDevice();
   const isVertical = useIsVerticalLayout();
   const size = useMemo(() => {
+    let resSize = 5;
     const extraWidth = isVertical
       ? screenWidth - 256 - 36
       : screenWidth - 256 * 2 - 48 - 82 * 2;
     const spaceSizeWidth = isVertical ? 48 : 48 * 2;
     if (extraWidth > spaceSizeWidth) {
-      return 5 + Math.floor(extraWidth / spaceSizeWidth);
+      resSize = 5 + Math.floor(extraWidth / spaceSizeWidth);
     }
-    return 5;
+    if (resSize > 7 && !isVertical) {
+      return 7;
+    }
+    return resSize;
   }, [screenWidth, isVertical]);
   return { size };
 };
