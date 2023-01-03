@@ -33,6 +33,7 @@ import { MyDAppListContext } from './context';
 import type { ShowMenuProps } from '../../Overlay/Discover/type';
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { ListRenderItem } from 'react-native';
+import { useTranslation } from '../../../hooks';
 
 const FavoratesListEmptyComponent = () => {
   const intl = useIntl();
@@ -63,6 +64,7 @@ type RenderItemProps = {
 const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
   const ref = useRef();
   const { width } = useWindowDimensions();
+  const t = useTranslation();
   const { onItemSelect } = useContext(MyDAppListContext);
   const screenWidth = width - 64 - 256;
   const minWidth = 250;
@@ -75,7 +77,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
   const networkIds = item.dapp?.networkIds;
   let description = 'Unknown';
   if (item.dapp) {
-    description = item.dapp.subtitle;
+    description = t(item.dapp._subtitle) ?? item.dapp.subtitle;
   } else if (url) {
     description = new URL(url).host;
   }

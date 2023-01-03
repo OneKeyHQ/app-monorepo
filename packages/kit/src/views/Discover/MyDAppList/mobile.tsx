@@ -22,7 +22,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../hooks';
+import { useNavigation, useTranslation } from '../../../hooks';
 import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
 import DAppIcon from '../DAppIcon';
@@ -39,14 +39,14 @@ type RenderItemProps = { item: MatchDAppItemType; callback: ShowMenuProps };
 const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
   const ref = useRef();
   const { onItemSelect } = useContext(MyDAppListContext);
-
+  const t = useTranslation()
   const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
   const name = item.dapp?.name ?? item.webSite?.title ?? 'Unknown';
   const url = item.dapp?.url ?? item.webSite?.url;
   const networkIds = item.dapp?.networkIds;
   let description = 'Unknown';
   if (item.dapp) {
-    description = item.dapp.subtitle;
+    description = t(item.dapp._subtitle) ?? item.dapp.subtitle;
   } else if (url) {
     description = new URL(url).host;
   }

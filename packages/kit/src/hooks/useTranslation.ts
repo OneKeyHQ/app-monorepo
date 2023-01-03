@@ -1,6 +1,6 @@
 import { useCallback, useContext } from 'react';
 
-import { useLocale } from '@onekeyhq/components/src/Provider/hooks';
+import useLocale from '@onekeyhq/components/src/Provider/hooks/useLocale';
 
 import { TranslationContext } from '../provider/TranslationProvider';
 import { getDefaultLocale, normalize } from '../utils/locale';
