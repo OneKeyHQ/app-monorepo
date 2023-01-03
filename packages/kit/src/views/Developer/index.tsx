@@ -58,6 +58,8 @@ const DEFAULT_TEST_EVM_ADDRESS_2 = '0xA9b4d559A98ff47C83B74522b7986146538cD4dF';
 
 const { HTTPServerManager } = NativeModules;
 
+// const app: Express = express();
+
 export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
@@ -224,6 +226,18 @@ export const Debug = () => {
       }
     },
   );
+
+  window.desktopApi.serverListener(({ requestId, type, url }) => {
+    console.log('requestId = ', requestId);
+    console.log('type = ', url);
+    console.log('url = ', type);
+    window.desktopApi.serverRespond(
+      requestId,
+      200,
+      'application/json',
+      '{"message": "desktop OK"}',
+    );
+  });
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -420,14 +434,23 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                HTTPServerManager.start(
-                  5561,
-                  'http_service',
-                  (data, success) => {
-                    console.log('data = ', data);
-                    console.log('success = ', success);
-                  },
-                );
+                window.desktopApi.startServer(5555, (data, success) => {
+                  console.log('data = ', data);
+                  console.log('success = ', success);
+                });
+
+                window.desktopApi?.on?.('httpServer/req', (data) => {
+                  console.log('httpServer/req = ', data);
+                });
+
+                // HTTPServerManager.start(
+                //   5561,
+                //   'http_service',
+                //   (data, success) => {
+                //     console.log('data = ', data);
+                //     console.log('success = ', success);
+                //   },
+                // );
               }}
             >
               <Typography.Body1>Start HttpServer</Typography.Body1>

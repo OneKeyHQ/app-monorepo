@@ -62,6 +62,21 @@ export type DesktopAPI = {
   setAutoUpdateSettings: (settings: UpdateSettings) => void;
   clearAutoUpdateSettings: () => void;
   restore: () => void;
+  // startServer: (port: number) => Promise<{ success: boolean; error?: string }>;
+  startServer: (
+    port: number,
+    cb: (data: string, success: boolean) => void,
+  ) => void;
+  serverListener: (
+    cb: (request: { requestId: string; type: string; url: string }) => void,
+  ) => void;
+  serverRespond: (
+    requestId: string,
+    code: number,
+    type: string,
+    body: string,
+  ) => void;
+  stopServer: () => void;
 };
 declare global {
   interface Window {
@@ -166,6 +181,31 @@ const desktopApi = {
 
   restore: () => {
     ipcRenderer.send('app/restoreMainWindow');
+  },
+
+  startServer: (port: number, cb: (data: string, success: boolean) => void) => {
+    ipcRenderer.on('server/start/res', (_, arg) => {
+      const { data, success } = arg;
+      cb(data, success);
+    });
+    ipcRenderer.send('server/start', port);
+  },
+  stopServer: () => ipcRenderer.send('server/stop'),
+  serverListener: (
+    cb: (request: { requestId: string; type: string; url: string }) => void,
+  ) => {
+    ipcRenderer.on('server/listener', (_, arg) => {
+      const { requestId, type, url } = arg;
+      cb({ requestId, type, url });
+    });
+  },
+  serverRespond: (
+    requestId: string,
+    code: number,
+    type: string,
+    body: string,
+  ) => {
+    ipcRenderer.send('server/respond', { requestId, code, type, body });
   },
 };
 
