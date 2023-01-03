@@ -14,6 +14,11 @@
 [![Playstore](https://github.com/rayston92/graph_bed/blob/275d053220d5b54b32b01ce4c4985210951043c5/img/play.svg
 )](https://play.google.com/store/apps/details?id=so.onekey.app.wallet)
 
+- [Desktop clients: macOS, Windows & Linux](https://onekey.so/zh_CN/download?client=desktop)
+- [Browser extensions: Chrome, Firefox, Edge & Brave](https://onekey.so/zh_CN/download?client=browserExtension)
+- [Bridge](https://onekey.so/zh_CN/download?client=bridge)
+
+
 ## Community & Support
 
 - [Community Forum](https://github.com/orgs/OneKeyHQ/discussions). Best for: help with building, discussion about best practices.
