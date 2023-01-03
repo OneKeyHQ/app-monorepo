@@ -38,7 +38,7 @@ const RightDoneBtn = ({
   const isVerticalLayout = useIsVerticalLayout();
   return (
     <Button
-      mt={isVerticalLayout ? 2 : 4}
+      mt={isVerticalLayout ? 2 : 6}
       mr={platformEnv.isNative ? 0 : 6}
       type="primary"
       size="sm"
@@ -57,9 +57,14 @@ const TopMidCompoment = ({
   wallet?: IWallet;
 }) => {
   const intl = useIntl();
+  const isVerticalLayout = useIsVerticalLayout();
   const mnemonicCounts = useMemo(() => mnemonic.split(' ').length, [mnemonic]);
   return (
-    <Center flexDirection="row" alignItems="center">
+    <Center
+      mt={isVerticalLayout ? 2 : 6}
+      flexDirection="row"
+      alignItems="center"
+    >
       {wallet ? (
         <WalletAvatarPro
           size={platformEnv.isNative ? 'lg' : 'sm'}
@@ -108,7 +113,7 @@ const ShowDotMap: FC = () => {
       !platformEnv.isNativeAndroid ? (
         <Button
           ml={isVertical ? 0 : 2}
-          mt={isVertical ? 2 : 4}
+          mt={isVertical ? 2 : 6}
           type="plain"
           leftIconName="ChevronLeftOutline"
           onPress={() => {
