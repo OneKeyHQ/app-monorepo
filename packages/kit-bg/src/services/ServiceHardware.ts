@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import { get } from 'lodash';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -319,11 +320,14 @@ class ServiceHardware extends ServiceBase {
     const updateDeviceRes = settings?.devMode?.updateDeviceRes ?? false;
 
     const forcedUpdateRes = enable && updateDeviceRes;
+    const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
     return hardwareSDK
       .firmwareUpdateV2(connectId, {
         updateType: firmwareType,
         forcedUpdateRes,
+        version,
+        platform: platformEnv.symbol,
       })
       .finally(() => {
         hardwareSDK.off('ui-firmware-tip', listener);
