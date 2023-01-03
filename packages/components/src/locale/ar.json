@@ -481,6 +481,7 @@
   "content__native_metamask_tutorials_3": "انقر فوق الأمان والخصوصية",
   "content__native_metamask_tutorials_4": "انقر فوق كشف عبارة الاسترداد السرية",
   "content__native_metamask_tutorials_5": "انسخ والصق عبارة الاسترداد في الحقل الموجود على اليسار.",
+  "content__nft_profit_and_loss": "NFT - الربح والخسارة",
   "content__nft_standard": "معيار NFT",
   "content__no_charge": "لا تهمة",
   "content__no_description": "بدون وصف",
@@ -1460,6 +1461,7 @@
   "msg__image_saved": "تم حفظ الصورة",
   "msg__import_icloud_backup_failed_version": "فشل الاستيراد. يرجى التحديث إلى أحدث إصدار للمتابعة",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
+  "msg__link_copied": "تم نسخ الرابط",
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
   "msg__mismatched_networks": "شبكات غير متطابقة.",

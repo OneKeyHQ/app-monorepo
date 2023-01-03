@@ -3,8 +3,10 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
+  Box,
   Center,
   HStack,
   Icon,
@@ -16,6 +18,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
@@ -38,7 +41,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type DataItem = {
   key: string;
   icon: ComponentProps<typeof Icon> | string;
-  title: LocaleIds;
+  iconBg: ThemeToken | string | undefined;
+  title: LocaleIds | string;
   description: LocaleIds;
   link?: string;
 };
@@ -47,22 +51,32 @@ const data: DataItem[] = [
   {
     key: 'revoke',
     icon: {
-      name: 'ShieldCheckMini',
-      color: 'icon-success',
-      size: 32,
+      name: 'ShieldCheckSolid',
+      color: 'decorative-icon-one',
     },
+    iconBg: 'decorative-surface-one',
     title: 'title__contract_approvals',
     description: 'title__token_approvals_desc',
   },
   {
     key: 'explorer',
     icon: {
-      name: 'BlockExplorerMini',
-      color: 'icon-success',
-      size: 32,
+      name: 'GlobeAltSolid',
+      color: 'decorative-icon-two',
     },
+    iconBg: 'decorative-surface-two',
     title: 'title__blockchain_explorer',
     description: 'title__blockchain_explorer_desc',
+  },
+  {
+    key: 'pnl',
+    icon: {
+      name: 'DocumentChartBarSolid',
+      color: 'decorative-icon-four',
+    },
+    iconBg: 'decorative-surface-four',
+    title: 'content__nft_profit_and_loss',
+    description: 'empty__pnl',
   },
 ];
 
@@ -101,6 +115,7 @@ const ToolsPage: FC = () => {
       tools.map((t) => ({
         key: t.title,
         icon: t.logoURI,
+        iconBg: undefined,
         title: t.title,
         description: t.desc,
         link: t.link,
@@ -147,52 +162,60 @@ const ToolsPage: FC = () => {
 
   return (
     <ScrollView
-      px={isVertical ? 4 : 0}
       contentContainerStyle={{
-        marginTop: 32,
+        marginVertical: 24,
         paddingHorizontal: responsivePadding,
         alignItems: 'center',
         flexDirection: 'row',
         flexWrap: 'wrap',
       }}
     >
-      {items.map((item, index) => (
-        <Pressable
-          width={isVertical ? '100%' : '50%'}
-          key={item.title}
-          mb="4"
-          onPress={() => {
-            handlePress(item.key);
-          }}
-          pl={!isVertical && index % 2 === 1 ? 4 : 0}
-        >
-          <HStack
-            bg="surface-default"
-            borderWidth={1}
-            borderColor="divider"
-            borderRadius="12px"
-            px="3"
-            h="80px"
-            alignItems="center"
-          >
-            <Center w="8" h="8">
-              {typeof item.icon === 'string' ? (
-                <Token token={{ logoURI: item.icon }} size={8} />
-              ) : (
-                <Icon {...item.icon} size={32} />
-              )}
-            </Center>
-            <VStack ml="4" flex="1">
-              <Typography.Body1Strong numberOfLines={1} isTruncated>
-                {intl.formatMessage({ id: item.title })}
-              </Typography.Body1Strong>
-              <Typography.Caption numberOfLines={2} isTruncated>
-                {intl.formatMessage({ id: item.description })}
-              </Typography.Caption>
-            </VStack>
-          </HStack>
-        </Pressable>
-      ))}
+      <Box m="-6px" flexDirection={isVertical ? 'column' : 'row'} flex={1}>
+        {items.map((item) => (
+          <Box p="6px" width={isVertical ? '100%' : '50%'}>
+            <Pressable
+              flexDirection="row"
+              p="16px"
+              bg="surface-default"
+              _hover={{ bg: 'surface-hovered' }}
+              _pressed={{ bg: 'surface-pressed' }}
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="border-default"
+              borderRadius="12px"
+              key={item.title}
+              onPress={() => {
+                handlePress(item.key);
+              }}
+            >
+              <Center
+                w="48px"
+                h="48px"
+                bgColor={item.iconBg}
+                borderRadius="12px"
+              >
+                {typeof item.icon === 'string' ? (
+                  <Token token={{ logoURI: item.icon }} size={8} />
+                ) : (
+                  <Icon {...item.icon} size={24} />
+                )}
+              </Center>
+              <VStack ml="4" flex="1">
+                <Typography.Body1Strong numberOfLines={1} isTruncated>
+                  {intl.formatMessage({ id: item.title })}
+                </Typography.Body1Strong>
+                <Typography.Body2
+                  mt="4px"
+                  numberOfLines={2}
+                  isTruncated
+                  color="text-subdued"
+                >
+                  {intl.formatMessage({ id: item.description })}
+                </Typography.Body2>
+              </VStack>
+            </Pressable>
+          </Box>
+        ))}
+      </Box>
     </ScrollView>
   );
 };
