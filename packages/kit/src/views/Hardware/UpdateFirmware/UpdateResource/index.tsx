@@ -110,9 +110,8 @@ const UpdateWarningModal: FC = () => {
     <Modal
       maxHeight={560}
       hideSecondaryAction
-      primaryActionTranslationId="action__confirm"
+      primaryActionTranslationId="action__continue"
       onPrimaryActionPress={() => {
-        navigation.popToTop();
         navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
           device,
           onSuccess,
@@ -139,7 +138,7 @@ const UpdateWarningModal: FC = () => {
             )}
             {updateResult && (
               <Typography.DisplayMedium mt={6}>
-                请重启设备
+                请重启设备后点击继续 👇 按钮
               </Typography.DisplayMedium>
             )}
           </Box>

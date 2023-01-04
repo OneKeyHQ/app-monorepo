@@ -233,7 +233,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
         __dirname,
         '../public/res/res-20221031-updater',
       );
-      const targetFolder = path.join(diskPath, 'copy-res');
+      const targetFolder = path.join(diskPath, 'res');
 
       logger.info(
         'targetFolder exists: ',

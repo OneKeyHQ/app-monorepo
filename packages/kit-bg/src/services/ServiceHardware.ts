@@ -555,8 +555,11 @@ class ServiceHardware extends ServiceBase {
       case 'none':
         hasSysUpgrade = false;
         break;
-      default:
+      case 'outdated':
         hasSysUpgrade = true;
+        break;
+      default:
+        hasSysUpgrade = false;
         break;
     }
 
@@ -602,8 +605,11 @@ class ServiceHardware extends ServiceBase {
       case 'none':
         hasBleUpgrade = false;
         break;
-      default:
+      case 'outdated':
         hasBleUpgrade = true;
+        break;
+      default:
+        hasBleUpgrade = false;
         break;
     }
 
