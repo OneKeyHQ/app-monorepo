@@ -342,7 +342,7 @@ class ServiceHardware extends ServiceBase {
         updateType: firmwareType,
         forcedUpdateRes,
         version,
-        platform: platformEnv.symbol,
+        platform: platformEnv.symbol ?? 'web',
       })
       .finally(() => {
         hardwareSDK.off('ui-firmware-tip', listener);
@@ -543,7 +543,8 @@ class ServiceHardware extends ServiceBase {
     }
     if (!connectId) return;
 
-    const firmware: SYSFirmwareInfo | undefined = payload.release;
+    const firmware: SYSFirmwareInfo | undefined =
+      payload.release as unknown as SYSFirmwareInfo;
     let hasSysUpgrade = false;
     let hasFirmwareForce = false;
 
