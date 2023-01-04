@@ -277,20 +277,15 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
 
   const copyFile = async (sourceFile: string, targetFile: string) =>
     new Promise((resolve, reject) => {
-      fs.copyFile(
-        sourceFile,
-        targetFile,
-        fs.constants.COPYFILE_FICLONE,
-        (copyErr) => {
-          if (copyErr) {
-            logger.error('copyFile error: ', copyErr);
-            reject(copyErr);
-            return;
-          }
-          logger.log(`Copied ${sourceFile} to ${targetFile}`);
-          resolve(true);
-        },
-      );
+      fs.copyFile(sourceFile, targetFile, (copyErr) => {
+        if (copyErr) {
+          logger.error('copyFile error: ', copyErr);
+          reject(copyErr);
+          return;
+        }
+        logger.log(`Copied ${sourceFile} to ${targetFile}`);
+        resolve(true);
+      });
     });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -300,10 +295,6 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     try {
       const checkDevice = await checkDeviceConnect();
       logger.info('connect device: ', checkDevice);
-
-      // logger.info('wait start ===> ');
-      // await wait(5000);
-      // logger.info('wait end ===> ');
 
       const diskPath = await findDiskPath();
       logger.info('disk path: ', diskPath);
