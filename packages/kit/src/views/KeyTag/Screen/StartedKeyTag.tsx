@@ -32,7 +32,8 @@ const Started = () => {
   const { isDark } = useTheme();
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { imageWidth, imageHeight, imageBoxWidth } = useStartedKeyTagImage();
+  const { imageWidth, imageHeight, imageBoxWidth, imageBoxHeight } =
+    useStartedKeyTagImage();
   return (
     <LayoutContainer
       backButton
@@ -41,7 +42,7 @@ const Started = () => {
       <Box flex="1" flexDirection={isVerticalLayout ? 'column' : 'row'}>
         <Pressable
           w={imageBoxWidth}
-          h={imageHeight}
+          h={imageBoxHeight}
           bgColor={isDark ? '#040407' : '#ECEDEE'}
           borderColor="border-subdued"
           borderWidth={StyleSheet.hairlineWidth}
@@ -50,7 +51,7 @@ const Started = () => {
             navigation.navigate(KeyTagRoutes.IntroduceKeyTag);
           }}
         >
-          <Box position="absolute" top="0" right="0" bottom="0">
+          <Box position="absolute" top="0" right="0" bottom="1">
             <Image
               source={isDark ? keytagDark1 : keytagLight1}
               borderRadius="12px"
@@ -69,7 +70,7 @@ const Started = () => {
           ml={isVerticalLayout ? 0 : 6}
           bgColor={isDark ? '#040407' : '#ECEDEE'}
           w={imageBoxWidth}
-          h={imageHeight}
+          h={imageBoxHeight}
           borderColor="border-subdued"
           borderWidth={StyleSheet.hairlineWidth}
           borderRadius="12px"
@@ -77,7 +78,7 @@ const Started = () => {
             navigation.navigate(KeyTagRoutes.ImportKeytag);
           }}
         >
-          <Box position="absolute" top="0" right="0" bottom="0">
+          <Box position="absolute" top="0" right="0" bottom="1">
             <Image
               source={isDark ? keytagDark2 : keytagLight2}
               borderRadius="12px"
