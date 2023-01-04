@@ -1,13 +1,18 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import stream from 'stream';
+import { promisify } from 'util';
 
 import AdmZip from 'adm-zip';
+import Axios from 'axios';
 import { ipcMain } from 'electron';
 import logger from 'electron-log';
 import { WebUSB } from 'usb';
 
 import type { BrowserWindow } from 'electron';
+
+const finished = promisify(stream.finished);
 
 const ONEKEY_FILTER = [
   { vendorId: 0x483, productId: 0x5720 }, // mass storage touch
@@ -216,23 +221,38 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       return '';
     });
 
+  const ZipFilePath = path.join(__dirname, '../public/res-updater.zip');
+  const ExtractPath = path.join(__dirname, '../public/res');
+  const SourceFolder = path.join(__dirname, '../public/res/res');
+
+  const downloadFile = (fileUrl: string) => {
+    const writer = fs.createWriteStream(ZipFilePath);
+    return Axios({
+      method: 'get',
+      url: fileUrl,
+      responseType: 'stream',
+    })
+      .then((response) => {
+        logger.info('download resource file success');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        response.data.pipe(writer);
+        return finished(writer);
+      })
+      .catch((e) => {
+        logger.info('download resource file error: ', e);
+      });
+  };
+
   const extractResFile = () => {
-    const zipFilePath = path.join(__dirname, '../public/res-updater.zip');
-    const extractPath = path.join(__dirname, '../public/res');
+    console.log('zipFilePath: ', ZipFilePath);
+    console.log('extractPath: ', ExtractPath);
 
-    console.log('zipFilePath: ', zipFilePath);
-    console.log('extractPath: ', extractPath);
-
-    const zip = new AdmZip(zipFilePath);
-    zip.extractAllTo(extractPath, true);
+    const zip = new AdmZip(ZipFilePath);
+    zip.extractAllTo(ExtractPath, true);
   };
 
   const writeResFile = (diskPath: string): Promise<boolean> =>
     new Promise((resolve, reject) => {
-      const sourceFolder = path.join(
-        __dirname,
-        '../public/res/res-20221031-updater',
-      );
       const targetFolder = path.join(diskPath, 'res');
 
       logger.info(
@@ -245,7 +265,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
         fs.mkdirSync(targetFolder, { recursive: true });
       }
 
-      fs.readdir(sourceFolder, async (err, files) => {
+      fs.readdir(SourceFolder, async (err, files) => {
         if (err) {
           logger.error('readdir error: ', err);
           reject(err);
@@ -254,7 +274,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
 
         const promises: Promise<any>[] = [];
         for (const file of files) {
-          const sourceFile = path.join(sourceFolder, file);
+          const sourceFile = path.join(SourceFolder, file);
           const targetFile = path.join(targetFolder, file);
 
           // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -285,7 +305,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ipcMain.on('touch/res', async (_, params: any) => {
+  ipcMain.on('touch/res', async (_, params: { resourceUrl: string }) => {
     logger.info('will update Touch resource file');
     try {
       const checkDevice = await checkDeviceConnect();
@@ -297,6 +317,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
         throw new Error(ERRORS.NOT_FOUND_DISK_PATH);
       }
 
+      await downloadFile(params.resourceUrl);
       extractResFile();
 
       const writeResult = await writeResFile(diskPath);

@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -38,10 +39,13 @@ const UpdateWarningModal: FC = () => {
   const { device, resourceUpdateInfo, onSuccess } =
     useRoute<RouteProps>().params;
   const { serviceHardware } = backgroundApiProxy;
+
   const [isInBoardloader, setIsInBoardloader] = useState(false);
   const [updateResult, setUpdateResult] = useState(false);
 
   const connectId = useMemo(() => device?.mac ?? '', [device]);
+  const { deviceUpdates } = useSettings();
+  const { firmware } = deviceUpdates?.[connectId] || {};
 
   const rebootToBoardloader = () => {
     serviceHardware.rebootToBoardloader(connectId).then((res) => {
@@ -65,7 +69,9 @@ const UpdateWarningModal: FC = () => {
 
   useEffect(() => {
     if (isInBoardloader) {
-      window.desktopApi?.touchUpdateResource();
+      window.desktopApi?.touchUpdateResource({
+        resourceUrl: firmware?.fullResource ?? '',
+      });
       window.desktopApi?.on?.(
         'touch/update-res-success',
         ({ error, result }: { error: Error; result: boolean }) => {
@@ -104,7 +110,7 @@ const UpdateWarningModal: FC = () => {
         },
       );
     }
-  }, [isInBoardloader, navigation]);
+  }, [isInBoardloader, navigation, firmware]);
 
   return (
     <Modal
