@@ -19,6 +19,7 @@ import { NetworkAccountSelectorEffectsSingleton } from '../../components/Network
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { createLazyComponent } from '../../utils/createLazyComponent';
+import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
 import { HomeRoutes } from '../types';
 
 import renderCustomSubStackHeader from './Header';
@@ -288,6 +289,14 @@ const Dashboard = () => {
         <StackNavigator.Screen
           name={HomeRoutes.HomeOnboarding}
           component={RouteOnboarding}
+        />
+        <StackNavigator.Screen
+          name={HomeRoutes.KeyTag}
+          component={RouteKeytag}
+          options={{
+            presentation: 'fullScreenModal', // containedModal card fullScreenModal
+            animation: 'fade',
+          }}
         />
       </StackNavigator.Group>
       <StackNavigator.Group

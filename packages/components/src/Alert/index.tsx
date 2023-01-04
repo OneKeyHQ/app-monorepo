@@ -3,10 +3,11 @@ import { useState } from 'react';
 
 import { Box } from 'native-base';
 
+import { useThemeValue } from '@onekeyhq/components';
+
 import Icon from '../Icon';
 import IconButton from '../IconButton';
 import Pressable from '../Pressable';
-import { useThemeValue } from '../Provider/hooks';
 import Typography from '../Typography';
 import VStack from '../VStack';
 

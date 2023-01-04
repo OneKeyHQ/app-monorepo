@@ -10,13 +10,13 @@ import {
   Image,
   KeyboardDismissView,
   Modal,
+  Text,
+  ToastManager,
   Token,
-  TokenVerifiedIcon,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
-import { Text } from '@onekeyhq/components/src/Typography';
+import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
@@ -252,7 +252,6 @@ function ViewTokenModal(props: IViewTokenModalProps) {
 }
 
 function AddTokenModal() {
-  const toast = useToast();
   const {
     walletId,
     account: activeAccount,
@@ -283,7 +282,7 @@ function AddTokenModal() {
           address,
         } as TokenType | undefined;
         if (accountTokens.some((t) => t.tokenIdOnNetwork === address)) {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({
               id: 'msg__token_already_existed',
             }),
@@ -295,7 +294,7 @@ function AddTokenModal() {
             address,
             logoURI,
           );
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({
               id: 'msg__token_added',
               defaultMessage: 'Token Added',
@@ -317,7 +316,7 @@ function AddTokenModal() {
       activeAccount,
       activeNetwork,
       address,
-      toast,
+
       intl,
       dappApprove,
       logoURI,

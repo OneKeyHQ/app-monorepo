@@ -2,8 +2,7 @@ import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button, useToast } from '@onekeyhq/components';
-import { Toast } from '@onekeyhq/components/src/Toast/useToast';
+import { Button, ToastManager } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -39,7 +38,6 @@ async function doSpeedUpOrCancelTx(props: {
   historyTx: IHistoryTx;
   actionType: SendConfirmActionType;
   navigation: NavigationProp<any>;
-  toast: typeof Toast;
 }) {
   const { historyTx, actionType, navigation } = props;
   const encodedTx = (historyTx.decodedTx?.encodedTx ?? {}) as IEncodedTxEvm;
@@ -100,7 +98,7 @@ async function doSpeedUpOrCancelTx(props: {
           encodedTxOrigin.nonce || '0',
         ))
     ) {
-      Toast.show(
+      ToastManager.show(
         { title: 'Speedup failed. History transaction data not matched' },
         { type: 'error' },
       );
@@ -142,7 +140,6 @@ export function TxResendButtons(props: { historyTx: IHistoryTx }) {
   const navigation =
     useNavigation<HistoryListViewNavigationProp['navigation']>();
   const intl = useIntl();
-  const toast = useToast();
   const isCancel = historyTx.replacedType === 'cancel';
 
   return (
@@ -156,7 +153,6 @@ export function TxResendButtons(props: { historyTx: IHistoryTx }) {
               historyTx,
               actionType: 'cancel',
               navigation,
-              toast,
             });
           }}
         >
@@ -174,14 +170,12 @@ export function TxResendButtons(props: { historyTx: IHistoryTx }) {
               historyTx,
               actionType: 'cancel',
               navigation,
-              toast,
             });
           } else {
             doSpeedUpOrCancelTx({
               historyTx,
               actionType: 'speedUp',
               navigation,
-              toast,
             });
           }
         }}

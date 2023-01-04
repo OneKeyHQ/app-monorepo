@@ -240,57 +240,51 @@ export async function waitForDataLoaded({
   logName: string;
   timeout?: number;
 }) {
-  return new Promise<void>((resolve, reject) => {
-    (async () => {
-      let timeoutReject = false;
-      let timer: any = null;
-      const getDataArrFunc = ([] as ((...args: any) => any)[]).concat(data);
-      if (timeout) {
-        timer = setTimeout(() => {
-          timeoutReject = true;
-        }, timeout);
-      }
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        let isAllLoaded = true;
+  let timeoutReject = false;
+  let timer: any = null;
+  const getDataArrFunc = ([] as ((...args: any) => any)[]).concat(data);
+  if (timeout) {
+    timer = setTimeout(() => {
+      timeoutReject = true;
+    }, timeout);
+  }
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let isAllLoaded = true;
 
-        // eslint-disable-next-line no-undef
-        if (logName && __DEV__) {
-          console.log(`waitForDataLoaded: ${logName}`);
+    if (logName && __DEV__) {
+      console.log(`waitForDataLoaded: ${logName}`);
+    }
+    await Promise.all(
+      getDataArrFunc.map(async (getData) => {
+        const d = await getData();
+        if (d === false) {
+          isAllLoaded = false;
+          return;
         }
 
-        await Promise.all(
-          getDataArrFunc.map(async (getData) => {
-            const d = await getData();
-            if (d === false) {
-              isAllLoaded = false;
-            }
-
-            if (isNil(d)) {
-              isAllLoaded = false;
-            }
-
-            if (isEmpty(d)) {
-              if (isPlainObject(d) || isArray(d)) {
-                isAllLoaded = false;
-              }
-            }
-          }),
-        );
-
-        if (isAllLoaded || timeoutReject) {
-          break;
+        if (isNil(d)) {
+          isAllLoaded = false;
+          return;
         }
-        await waitAsync(wait);
-      }
-      clearTimeout(timer);
-      if (timeoutReject) {
-        reject(new Error(`waitForDataLoaded: ${logName ?? ''} timeout`));
-      } else {
-        resolve();
-      }
-    })();
-  });
+
+        if (isEmpty(d)) {
+          if (isPlainObject(d) || isArray(d)) {
+            isAllLoaded = false;
+          }
+        }
+      }),
+    );
+
+    if (isAllLoaded || timeoutReject) {
+      break;
+    }
+    await waitAsync(wait);
+  }
+  clearTimeout(timer);
+  if (timeoutReject) {
+    throw new Error(`waitForDataLoaded: ${logName ?? ''} timeout`);
+  }
 }
 
 export const MAX_LOG_LENGTH = 1000;

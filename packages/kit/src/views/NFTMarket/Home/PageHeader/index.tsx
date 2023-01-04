@@ -59,10 +59,7 @@ const PageHeader = () => {
   }, [goToCollectionDetail, modalNavigation]);
 
   const nplAction = useCallback(() => {
-    // const nplAddress = await serviceNFT.getNPLAddress();
-    navigation.navigate(HomeRoutes.NFTPNLScreen, {
-      address: '',
-    });
+    navigation.navigate(HomeRoutes.NFTPNLScreen);
   }, [navigation]);
 
   return (

@@ -167,6 +167,7 @@ const Layout: FC<LayoutProps> = ({
               name="ArrowLeftOutline"
               size="lg"
               type="plain"
+              zIndex={9999}
               circle
               onPress={() =>
                 onPressBackButton ? onPressBackButton() : onboardingGoBack()

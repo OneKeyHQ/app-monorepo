@@ -50,18 +50,6 @@ function normalizeConfig({ platform, config }) {
       },
     };
   }
-  if (platform === developmentConsts.platforms.app) {
-    moduleResolver = {
-      alias: {
-        '@onekeyfe/js-sdk': fullPath(
-          '../node_modules/@onekeyfe/js-sdk/dist/js-sdk-native',
-        ),
-        // 'bn.js': fullPath('../node_modules/react-native-bignumber'),
-        // 'buffer': fullPath('../node_modules/@craftzdog/react-native-buffer'),
-        // 'base64-js': fullPath('../node_modules/react-native-quick-base64'),
-      },
-    };
-  }
 
   const transformInlineEnviromentVariables = [
     'NODE_ENV',
@@ -79,6 +67,13 @@ function normalizeConfig({ platform, config }) {
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnviromentVariables.push('JPUSH_KEY');
   }
+  const customAliasForComponents = (name, file) => {
+    // const filename = file.opts.filename;
+    if (name.startsWith('use')) {
+      return `@onekeyhq/components/src/Provider/hooks/${name}`;
+    }
+    return `@onekeyhq/components/src/${name}`;
+  };
 
   config.plugins = [
     ...(config.plugins || []),
@@ -99,7 +94,34 @@ function normalizeConfig({ platform, config }) {
        Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.
     and background code will never be executed.
      */
-    ['babel-plugin-lodash'],
+    // ['babel-plugin-lodash'],
+    [
+      'babel-plugin-import',
+      {
+        'libraryName': 'lodash',
+        'libraryDirectory': '',
+        'camel2DashComponentName': false, // default: true
+      },
+      'lodash',
+    ],
+    [
+      'babel-plugin-import',
+      {
+        'libraryName': '@onekeyhq/components',
+        'camel2DashComponentName': false, // default: true
+        'customName': customAliasForComponents,
+      },
+      '@onekeyhq_components',
+    ],
+    [
+      'babel-plugin-import',
+      {
+        'libraryName': '@onekeyhq/components/src',
+        'camel2DashComponentName': false, // default: true
+        'customName': customAliasForComponents,
+      },
+      '@onekeyhq_components_src',
+    ],
     [
       'babel-plugin-inline-import',
       {

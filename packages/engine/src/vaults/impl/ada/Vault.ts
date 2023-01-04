@@ -29,8 +29,7 @@ import {
 } from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
 import Client from './helper/client';
-import { getCardanoApi } from './helper/sdk';
-import { transformToOneKeyInputs } from './helper/transformations';
+import { ensureSDKReady, getCardanoApi } from './helper/sdk';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -367,7 +366,10 @@ export default class Vault extends VaultBase {
     }
 
     const client = await this.getClient();
-    const utxos = await client.getUTXOs(dbAccount);
+    const [utxos] = await Promise.all([
+      client.getUTXOs(dbAccount),
+      ensureSDKReady(),
+    ]);
 
     const amountBN = new BigNumber(amount).shiftedBy(decimals);
     const output = tokenAddress

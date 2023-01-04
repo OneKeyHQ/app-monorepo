@@ -15,7 +15,6 @@ import {
   Text,
   ToastManager,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -37,7 +36,7 @@ type NavigationProps = RouteProp<
 
 const ReceiveToken = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const route = useRoute<NavigationProps>();
 
   const { address, name } = route.params ?? {};
@@ -94,8 +93,10 @@ const ReceiveToken = () => {
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);
-    toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
-  }, [toast, shownAddress, intl]);
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__address_copied' }),
+    });
+  }, [shownAddress, intl]);
 
   const renderHiddenAddress = useMemo(
     () => (

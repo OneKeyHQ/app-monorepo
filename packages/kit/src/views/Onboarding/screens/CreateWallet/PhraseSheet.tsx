@@ -10,8 +10,8 @@ import {
   Pressable,
   ScrollView,
   Text,
+  ToastManager,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
@@ -32,7 +32,7 @@ const PhraseSheet: FC<PhraseSheetProps> = ({
   ...rest
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const words = useMemo(
     () => mnemonic.split(' ').map((item) => item.trim()),
     [mnemonic],
@@ -44,9 +44,9 @@ const PhraseSheet: FC<PhraseSheetProps> = ({
     (text) => {
       if (!text) return;
       copyToClipboard(text);
-      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+      ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
     },
-    [toast, intl],
+    [intl],
   );
 
   const onPressSavedPhrasePromise = useCallback(async () => {

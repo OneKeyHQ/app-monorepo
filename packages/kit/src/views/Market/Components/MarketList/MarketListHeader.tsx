@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,9 +11,10 @@ import {
   Pressable,
   Typography,
   useIsVerticalLayout,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import { EMarketCellData } from '../../config';
 import { useListSort } from '../../hooks/useMarketList';
 
 import type { ListHeadTagType } from '../../types';
@@ -26,11 +27,15 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
   const listSort = useListSort();
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
+  const ContainComponent = useMemo(
+    () => (isVertical ? Box : ListItem),
+    [isVertical],
+  );
   return (
     <Box mt="2" w="full">
-      <ListItem>
+      <ContainComponent flexDirection="row" px={2} py={1.5} my={0.5}>
         {headTags.map((tag) => {
-          if (tag.id === 1) {
+          if (tag.id === EMarketCellData.CollectionStar) {
             return (
               <ListItem.Column
                 key={tag.id}
@@ -47,14 +52,17 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
             );
           }
           if (
-            tag.id === 2 ||
-            tag.id === 3 ||
-            tag.id === 4 ||
-            tag.id === 5 ||
-            tag.id === 6 ||
-            tag.id === 7
+            tag.id === EMarketCellData.TokenInfo ||
+            tag.id === EMarketCellData.TokenPrice ||
+            tag.id === EMarketCellData.Token24hChange ||
+            tag.id === EMarketCellData.Token24hVolume ||
+            tag.id === EMarketCellData.TokenMarketCap ||
+            tag.id === EMarketCellData.TokenSparklineChart
           ) {
-            const pressProps = tag.id === 4 ? { w: tag.minW } : { flex: 1 };
+            const pressProps =
+              tag.id === EMarketCellData.Token24hChange
+                ? { w: tag.minW }
+                : { flex: 1 };
             return (
               <ListItem.Column key={`${tag.title ?? ''}--${tag.id}`}>
                 <Pressable
@@ -74,7 +82,11 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                   }}
                   flexDirection="row"
                   alignItems="center"
-                  justifyContent={tag.id === 2 ? 'flex-start' : 'flex-end'}
+                  justifyContent={
+                    tag.id === EMarketCellData.TokenInfo
+                      ? 'flex-start'
+                      : 'flex-end'
+                  }
                   {...pressProps}
                 >
                   <Typography.Subheading
@@ -102,7 +114,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
               </ListItem.Column>
             );
           }
-          if (tag.id === 8) {
+          if (tag.id === EMarketCellData.TokenSwapStatus) {
             return (
               <ListItem.Column key={`${tag.title ?? ''}--${tag.id}`}>
                 <Box flex={1} />
@@ -111,7 +123,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
           }
           return null;
         })}
-      </ListItem>
+      </ContainComponent>
       {!isVertical ? <Divider /> : null}
     </Box>
   );

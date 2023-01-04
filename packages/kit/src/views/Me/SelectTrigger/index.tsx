@@ -1,7 +1,6 @@
-import { Box, Icon, Typography } from '@onekeyhq/components';
+import { Box, Icon, Text, Typography } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import type { SelectItem } from '@onekeyhq/components/src/Select';
-import { Text } from '@onekeyhq/components/src/Typography';
 
 type FieldProps<T> = {
   title: string;

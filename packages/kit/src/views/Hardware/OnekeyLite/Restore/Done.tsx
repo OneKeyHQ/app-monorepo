@@ -6,7 +6,7 @@ import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 import { useIntl } from 'react-intl';
 
-import { Modal, Spinner, useToast } from '@onekeyhq/components';
+import { Modal, Spinner, ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected, {
@@ -36,7 +36,6 @@ const PasswordView: FC<PasswordViewProps> = ({
 }) => {
   const { serviceAccount, dispatch } = backgroundApiProxy;
   const intl = useIntl();
-  const toast = useToast();
 
   useEffect(() => {
     if (!password) return;
@@ -54,7 +53,7 @@ const PasswordView: FC<PasswordViewProps> = ({
         onSuccess?.();
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
-        toast.show({ title: intl.formatMessage({ id: errorKey }) });
+        ToastManager.show({ title: intl.formatMessage({ id: errorKey }) });
       }
     })();
 

@@ -1,11 +1,19 @@
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Divider, Icon, Pressable, useTheme } from '@onekeyhq/components';
-import { Text } from '@onekeyhq/components/src/Typography';
+import {
+  Box,
+  Divider,
+  Icon,
+  Pressable,
+  Text,
+  useTheme,
+} from '@onekeyhq/components';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
+
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -17,6 +25,7 @@ type NavigationProps = NativeStackNavigationProp<
 export const DefaultSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const addNavigation = useAppNavigation();
   const { themeVariant } = useTheme();
 
   return (
@@ -58,6 +67,35 @@ export const DefaultSection = () => {
             <Divider />
           </>
         )}
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() => {
+            addNavigation.navigate(RootRoutes.Root, {
+              screen: HomeRoutes.KeyTag,
+            });
+          }}
+        >
+          <Icon name="KeytagOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex="1"
+            numberOfLines={1}
+            mx={3}
+          >
+            {intl.formatMessage({
+              id: 'form__onekey_keytag',
+            })}
+          </Text>
+          <Box>
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+          </Box>
+        </Pressable>
+        <Divider />
         <Pressable
           display="flex"
           flexDirection="row"

@@ -1,7 +1,7 @@
 import type { ComponentProps, FC } from 'react';
 
 import Box from '../Box';
-import { Text } from '../Typography';
+import Text from '../Text';
 
 interface Props extends ComponentProps<typeof Text> {
   text: string;

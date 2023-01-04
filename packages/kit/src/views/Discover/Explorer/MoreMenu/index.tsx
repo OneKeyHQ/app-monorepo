@@ -3,8 +3,7 @@ import type { FC } from 'react';
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
 
-import { Select } from '@onekeyhq/components';
-import { Toast } from '@onekeyhq/components/src/Toast/useToast';
+import { Select, ToastManager } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -74,7 +73,9 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
             } else {
               backgroundApiProxy.serviceDiscover.addFavorite(currentTab.url);
             }
-            Toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
+            ToastManager.show({
+              title: intl.formatMessage({ id: 'msg__success' }),
+            });
           },
           iconProps: { name: 'StarOutline' },
         },
@@ -84,7 +85,9 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
           }),
           value: () => {
             copyToClipboard(getCurrentUrl());
-            Toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+            ToastManager.show({
+              title: intl.formatMessage({ id: 'msg__copied' }),
+            });
           },
           iconProps: { name: 'LinkOutline' },
         },

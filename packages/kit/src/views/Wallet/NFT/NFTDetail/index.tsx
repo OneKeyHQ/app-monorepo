@@ -18,12 +18,12 @@ import {
   ScrollView,
   Skeleton,
   Text,
+  ToastManager,
   Typography,
   VStack,
   useIsVerticalLayout,
   useSafeAreaInsets,
   useTheme,
-  useToast,
 } from '@onekeyhq/components';
 import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -95,7 +95,7 @@ const Mobile: FC<Props> = ({ imageContent, content }) => {
 
 const NFTDetailModal: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const modalClose = useModalClose();
   const { themeVariant } = useTheme();
 
@@ -470,7 +470,7 @@ const NFTDetailModal: FC = () => {
                   flexDirection="row"
                   onPress={() => {
                     copyToClipboard(asset.contractAddress ?? '');
-                    toast.show({
+                    ToastManager.show({
                       title: intl.formatMessage({ id: 'msg__copied' }),
                     });
                   }}
@@ -491,7 +491,7 @@ const NFTDetailModal: FC = () => {
                   flexDirection="row"
                   onPress={() => {
                     copyToClipboard(asset.tokenAddress ?? '');
-                    toast.show({
+                    ToastManager.show({
                       title: intl.formatMessage({ id: 'msg__copied' }),
                     });
                   }}
@@ -512,7 +512,7 @@ const NFTDetailModal: FC = () => {
                   flexDirection="row"
                   onPress={() => {
                     copyToClipboard(asset.tokenId ?? '');
-                    toast.show({
+                    ToastManager.show({
                       title: intl.formatMessage({ id: 'msg__copied' }),
                     });
                   }}

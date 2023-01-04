@@ -3,7 +3,8 @@ import type { FC } from 'react';
 import { StyleSheet } from 'react-native';
 import { BaseToast as RNToast } from 'react-native-toast-message';
 
-import { useThemeValue } from '../Provider/hooks';
+import { useThemeValue } from '@onekeyhq/components';
+
 import { Body1Props } from '../Typography';
 
 import type { ThemeToken } from '../Provider/theme';

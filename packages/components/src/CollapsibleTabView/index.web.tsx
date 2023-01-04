@@ -12,9 +12,10 @@ import MaterialTab from '@mui/material/Tab';
 import MaterialTabs from '@mui/material/Tabs';
 import { useDeepCompareMemo } from 'use-deep-compare';
 
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+
 import Box from '../Box';
 import FlatList from '../FlatList';
-import { useIsVerticalLayout, useThemeValue } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 

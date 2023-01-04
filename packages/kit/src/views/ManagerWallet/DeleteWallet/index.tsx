@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { CheckBox, Dialog, useToast } from '@onekeyhq/components';
+import { CheckBox, Dialog, ToastManager } from '@onekeyhq/components';
 import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -27,7 +27,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   onDialogClose,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { engine, serviceAccount } = backgroundApiProxy;
   const { closeWalletSelector } = useNavigationActions();
 
@@ -90,7 +90,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
             .getWallet(walletId)
             .then(async (wallet) => {
               await serviceAccount.removeWallet(walletId, password);
-              toast.show({
+              ToastManager.show({
                 title: intl.formatMessage(
                   { id: 'msg__wallet_deleted' },
                   { 0: wallet.name },
@@ -102,7 +102,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
               }, 600);
             })
             .catch((e) => {
-              toast.show({
+              ToastManager.show({
                 title: intl.formatMessage({ id: 'msg__unknown_error' }),
               });
               console.log(e);

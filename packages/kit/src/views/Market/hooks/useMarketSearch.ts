@@ -6,7 +6,7 @@ import {
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';

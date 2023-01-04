@@ -13,7 +13,7 @@ import {
   Spinner,
   Typography,
   useIsVerticalLayout,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { SelectProps } from '@onekeyhq/components/src/Select';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';

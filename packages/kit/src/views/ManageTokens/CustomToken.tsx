@@ -8,10 +8,10 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
+  ToastManager,
   useForm,
-  useToast,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -43,7 +43,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const address = route.params?.address;
   const networkId = route.params?.networkId;
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
@@ -90,7 +90,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         $address,
       );
       if (result) {
-        toast.show({
+        ToastManager.show({
           title: intl.formatMessage({
             id: 'msg__token_added',
             defaultMessage: 'Token Added',
@@ -105,7 +105,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         }
       }
     },
-    [intl, navigation, toast],
+    [intl, navigation],
   );
 
   const onSubmit = useCallback(

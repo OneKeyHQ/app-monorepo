@@ -60,12 +60,19 @@ const ExplorerMobile: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const onSearch = useCallback(
-    (isNewWindow: boolean) => {
+    ({
+      isNewWindow,
+      defaultUrl,
+    }: {
+      isNewWindow: boolean;
+      defaultUrl?: string;
+    }) => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Discover,
         params: {
           screen: DiscoverModalRoutes.SearchHistoryModal,
           params: {
+            url: defaultUrl,
             onSelectorItem: (item: MatchDAppItemType | string) => {
               if (typeof item === 'string') {
                 return gotoSite({ url: item, isNewWindow });
@@ -82,14 +89,16 @@ const ExplorerMobile: FC = () => {
   return (
     <Box flex={1} bg="background-default" mt={`${top}px`}>
       <Freeze freeze={!showHome}>
-        <ExplorerBar onSearch={() => onSearch(true)} />
+        <ExplorerBar
+          onSearch={() => onSearch({ isNewWindow: true, defaultUrl: '' })}
+        />
         <WebHomeContainer alwaysOpenNewWindow />
       </Freeze>
       {showContent && (
         <FloatingContainer
           afterMaximize={() => setShowHome(false)}
           beforeMinimize={beforeMinimize}
-          onSearch={() => onSearch(false)}
+          onSearch={() => onSearch({ isNewWindow: false })}
         />
       )}
     </Box>

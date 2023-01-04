@@ -13,9 +13,9 @@ import {
   Modal,
   Spinner,
   Text,
+  ToastManager,
   Typography,
   VStack,
-  useToast,
 } from '@onekeyhq/components';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -239,7 +239,7 @@ const Connection = () => {
   );
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
-  const toast = useToast();
+
   const { networkImpl, network, accountAddress, account } =
     useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
@@ -307,7 +307,7 @@ const Connection = () => {
   useEffect(() => {
     if (walletConnectUri) {
       if (walletConnectUriInfo?.v2) {
-        toast.show({ title: 'WalletConnect V2 not supported yet.' });
+        ToastManager.show({ title: 'WalletConnect V2 not supported yet.' });
       }
       if (refreshKey) {
         setWalletConnectError('');
@@ -341,7 +341,7 @@ const Connection = () => {
     dispatch,
     intl,
     isDeepLink,
-    toast,
+
     walletConnectUri,
     walletConnectUriInfo?.v2,
   ]);

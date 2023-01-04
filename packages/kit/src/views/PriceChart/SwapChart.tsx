@@ -90,7 +90,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
       networkId: toToken.networkId,
       contractAdress: toToken.tokenIdOnNetwork,
     });
-  }, [toToken, fetchData]);
+  }, [toToken, fetchData, selectedTimeIndex]);
 
   useEffect(() => {
     fetchData({
@@ -98,7 +98,7 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
       networkId: fromToken.networkId,
       contractAdress: fromToken.tokenIdOnNetwork,
     });
-  }, [fromToken, fetchData]);
+  }, [fromToken, fetchData, selectedTimeIndex]);
 
   const refreshDataOnTimeChange = useCallback(
     async (newTimeValue: string) => {

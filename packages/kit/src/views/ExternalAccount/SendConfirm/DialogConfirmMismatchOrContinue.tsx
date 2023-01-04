@@ -11,8 +11,8 @@ import {
   Image,
   Pressable,
   Text,
+  ToastManager,
   VStack,
-  useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
@@ -72,7 +72,7 @@ export function DialogConfirmMismatchOrContinue(
     isChainMismatched,
     connectToWalletResult,
   } = props;
-  const toast = useToast();
+
   const { engine } = backgroundApiProxy;
   const { addExternalAccount } = useAddExternalAccount();
   const { openRootHome } = useNavigationActions();
@@ -170,7 +170,7 @@ export function DialogConfirmMismatchOrContinue(
                           await addExternalAccount(connectToWalletResult);
                           openRootHome();
                           await wait(600);
-                          toast.show({
+                          ToastManager.show({
                             title: intl.formatMessage({
                               id: 'msg__connect_and_switch',
                             }),

@@ -11,7 +11,8 @@ import {
 } from '@react-navigation/elements';
 import { Platform, StyleSheet } from 'react-native';
 
-import { useIsVerticalLayout, useThemeValue } from '../../../Provider/hooks';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+
 import NavigationBar from '../../NavigationBar';
 import { getTabBarHeight } from '../../NavigationBar/Mobile';
 import BottomTabBarHeightCallbackContext from '../utils/BottomTabBarHeightCallbackContext';

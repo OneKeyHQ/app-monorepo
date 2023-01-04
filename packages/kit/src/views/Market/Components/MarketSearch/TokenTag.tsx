@@ -7,7 +7,7 @@ import {
   Token,
   Typography,
   useThemeValue,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 
 type TokenTagProps = {
   logoURI?: string;

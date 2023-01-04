@@ -15,11 +15,11 @@ import {
   Modal,
   Pressable,
   Text,
+  ToastManager,
   Typography,
   VStack,
   useForm,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -63,7 +63,7 @@ const URITester =
 export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const toast = useToast();
+
   const route = useRoute<RouteProps>();
   const { network, mode } = route.params;
   const isSmallScreen = useIsVerticalLayout();
@@ -163,14 +163,18 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
       };
       if (network?.id) {
         await serviceNetwork.updateNetwork(network.id, params);
-        toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__change_saved' }),
+        });
       } else {
         await serviceNetwork.addNetwork('evm', params);
-        toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__network_added' }),
+        });
       }
       navigation.navigate(ManageNetworkRoutes.Listing);
     },
-    [toast, intl, serviceNetwork, navigation, route, network?.id],
+    [intl, serviceNetwork, navigation, route, network?.id],
   );
 
   const onShowRemoveModal = useCallback(() => {
@@ -184,11 +188,13 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   const onRemove = useCallback(async () => {
     await serviceNetwork.deleteNetwork(network?.id ?? '');
     setRemoveOpened(false);
-    toast.show({ title: intl.formatMessage({ id: 'msg__network_removed' }) });
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__network_removed' }),
+    });
     if (navigation?.canGoBack?.()) {
       navigation.goBack();
     }
-  }, [intl, toast, serviceNetwork, network?.id, navigation]);
+  }, [intl, serviceNetwork, network?.id, navigation]);
 
   const quickAddButton = useMemo(() => {
     if (mode === 'add' && network) {

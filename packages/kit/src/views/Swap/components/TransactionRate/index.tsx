@@ -44,9 +44,9 @@ const TransactionRate: FC<TransactionRateProps> = ({
   const symbolB = tokenB.symbol;
   let title = '';
   if (!isSwitched) {
-    title = `1${symbolA} ≈ ${formatRateAmount(rate)}${symbolB}`;
+    title = `1 ${symbolA} ≈ ${formatRateAmount(rate)} ${symbolB}`;
   } else {
-    title = `1${symbolB} ≈ ${formatRateAmount(1 / Number(rate))}${symbolA}`;
+    title = `1 ${symbolB} ≈ ${formatRateAmount(1 / Number(rate))} ${symbolA}`;
   }
 
   return (

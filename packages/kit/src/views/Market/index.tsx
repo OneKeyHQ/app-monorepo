@@ -6,7 +6,7 @@ import {
   Box,
   useIsVerticalLayout,
   useSafeAreaInsets,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { MARKET_TAB_NAME, SWAP_TAB_NAME } from '../../store/reducers/market';

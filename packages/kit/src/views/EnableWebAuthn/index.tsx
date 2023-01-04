@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
+import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import Protected from '../../components/Protected';
@@ -21,7 +21,7 @@ type EnableWebAuthnProps = {
 
 const EnableWebAuthnDone: FC<EnableWebAuthnProps> = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
 
   const navigation = useNavigation();
@@ -33,7 +33,9 @@ const EnableWebAuthnDone: FC<EnableWebAuthnProps> = () => {
         } else {
           await enableWebAuthnCall();
         }
-        toast.show({ title: intl.formatMessage({ id: 'msg__success' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__success' }),
+        });
       } catch (e: any) {
         debugLogger.common.error(e.message);
         if (
@@ -41,7 +43,7 @@ const EnableWebAuthnDone: FC<EnableWebAuthnProps> = () => {
             'The operation either timed out or was not allowed',
           )
         ) {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
           });
         }

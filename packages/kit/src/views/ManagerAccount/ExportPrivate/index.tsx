@@ -13,9 +13,9 @@ import {
   QRCode,
   Spinner,
   Text,
+  ToastManager,
   ZStack,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Account as AccountEngineType } from '@onekeyhq/engine/src/types/account';
@@ -47,7 +47,7 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
   onAccountChange,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { engine } = backgroundApiProxy;
   const isSmallScreen = useIsVerticalLayout();
   const qrCodeContainerSize = { base: 296, md: 208 };
@@ -69,8 +69,8 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
 
   const copyDataToClipboard = useCallback(() => {
     copyToClipboard(privateKey ?? '');
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [toast, privateKey, intl]);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [privateKey, intl]);
 
   const renderLoading = () => (
     <ZStack w={qrCodeContainerSize} h={qrCodeContainerSize}>
@@ -118,13 +118,13 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
       <Box
         alignItems="center"
         mt={isSmallScreen ? '32px' : '24px'}
-        px={isSmallScreen ? '54px' : '68px'}
+        px={isSmallScreen ? '24px' : '32px'}
       >
         <Text
           color="text-subdued"
           textAlign="center"
           typography={{ sm: 'Body1', md: 'Body2' }}
-          noOfLines={4}
+          noOfLines={5}
         >
           {privateKey}
         </Text>

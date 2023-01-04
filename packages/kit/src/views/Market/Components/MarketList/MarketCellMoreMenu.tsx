@@ -3,14 +3,14 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ICON_NAMES } from '@onekeyhq/components/src';
+import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   Icon,
   Text,
+  ToastManager,
   useIsVerticalLayout,
-  useToast,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
@@ -40,7 +40,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
   token,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const selectedCategoryId = useMarketSelectedCategoryId();
   const isVerticalLayout = useIsVerticalLayout();
   const options: MarketCellMoreMenuOption[] = useMemo(() => {
@@ -50,7 +50,9 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
         backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
           token.coingeckoId,
         );
-        toast.show({ title: intl.formatMessage({ id: 'msg__removed' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__removed' }),
+        });
       },
       icon: 'TrashMini',
       textColor: 'text-critical',
@@ -82,7 +84,7 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
               backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
                 { coingeckoId: token.coingeckoId, symbol: token.symbol },
               ]);
-              toast.show({
+              ToastManager.show({
                 title: intl.formatMessage({ id: 'msg__added_to_favorites' }),
               });
             },
@@ -95,7 +97,6 @@ const MarketCellMoreMenu: FC<MarketCellMoreMenuProps> = ({
     token.favorited,
     token.coingeckoId,
     token.symbol,
-    toast,
   ]);
   return (
     <Box>

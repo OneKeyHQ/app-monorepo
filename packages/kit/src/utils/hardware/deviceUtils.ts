@@ -3,9 +3,9 @@ import { HardwareErrorCode, createDeferred } from '@onekeyfe/hd-shared';
 import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
+import { ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
-import { Toast as ToastManager } from '@onekeyhq/components/src/Toast/useToast';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { getHardwareSDKInstance } from '@onekeyhq/shared/src/device/hardwareInstance';

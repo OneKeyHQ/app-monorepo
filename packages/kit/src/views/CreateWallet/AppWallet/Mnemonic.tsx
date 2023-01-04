@@ -11,11 +11,11 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  useToast,
+  Text,
+  ToastManager,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -49,7 +49,7 @@ export const Mnemonic: FC<MnemonicProps> = ({
 }) => {
   const intl = useIntl();
   const insets = useSafeAreaInsets();
-  const toast = useToast();
+
   const words = mnemonic.split(' ').filter(Boolean);
   const halfWords = words.length / 2;
 
@@ -57,9 +57,9 @@ export const Mnemonic: FC<MnemonicProps> = ({
     (text) => {
       if (!text) return;
       copyToClipboard(text);
-      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+      ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
     },
-    [toast, intl],
+    [intl],
   );
   return (
     <Modal footer={null}>
@@ -158,7 +158,7 @@ export const Mnemonic: FC<MnemonicProps> = ({
 const MnemonicContainer = () => {
   const route = useRoute<RouteProps>();
   const { mnemonic, password, withEnableAuthentication } = route.params ?? {};
-  const toast = useToast();
+
   const intl = useIntl();
   const { closeWalletSelector, openRootHome } = useNavigationActions();
   const onPromise = useCallback(async () => {
@@ -171,10 +171,12 @@ const MnemonicContainer = () => {
         backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
         await savePassword(password);
       }
-      toast.show({ title: intl.formatMessage({ id: 'msg__account_created' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__account_created' }),
+      });
     } catch (e) {
       const errorKey = (e as { key: LocaleIds }).key;
-      toast.show({ title: intl.formatMessage({ id: errorKey }) });
+      ToastManager.show({ title: intl.formatMessage({ id: errorKey }) });
     }
     closeWalletSelector();
     await wait(600);
@@ -187,7 +189,7 @@ const MnemonicContainer = () => {
     withEnableAuthentication,
     closeWalletSelector,
     intl,
-    toast,
+
     openRootHome,
   ]);
   return <Mnemonic mnemonic={mnemonic} onPromise={onPromise} />;

@@ -44,9 +44,7 @@ const BackupToast: FC<BackupToastProps> = ({ onClose, walletId }) => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.BackupWallet,
                 params: {
-                  screen: platformEnv.isNative
-                    ? BackupWalletModalRoutes.BackupWalletOptionsModal
-                    : BackupWalletModalRoutes.BackupWalletManualModal,
+                  screen: BackupWalletModalRoutes.BackupWalletOptionsModal,
                   params: {
                     walletId: walletId ?? '',
                   },

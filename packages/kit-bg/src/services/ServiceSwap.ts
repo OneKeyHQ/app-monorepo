@@ -545,4 +545,10 @@ export default class ServiceSwap extends ServiceBase {
       feePresetIndex: swapFeePresetIndex,
     });
   }
+
+  @backgroundMethod()
+  async getSwapError() {
+    const { appSelector } = this.backgroundApi;
+    return appSelector((s) => s.swap.error);
+  }
 }

@@ -3,6 +3,8 @@ import natsort from 'natsort';
 
 import type { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 
+import { EMarketCellData } from '../../views/Market/config';
+
 import type { Token } from '../typings';
 import type { TokenChartData } from './tokens';
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -114,7 +116,7 @@ export type MarketStats = {
 };
 
 export type MarketListSortType = {
-  id: number;
+  id: EMarketCellData;
   direction: 'up' | 'down';
 };
 
@@ -333,7 +335,7 @@ export const MarketSlicer = createSlice({
             let sortIds = [...categoryTokenIds];
             sortIds = sortIds.sort((id1, id2) => {
               switch (payload.id) {
-                case 2: {
+                case EMarketCellData.TokenInfo: {
                   return payload.direction === 'down'
                     ? natsort({ insensitive: true })(
                         marketTokens[id2]?.symbol ?? '',
@@ -344,29 +346,29 @@ export const MarketSlicer = createSlice({
                         marketTokens[id2]?.symbol ?? '',
                       );
                 }
-                case 3: {
+                case EMarketCellData.TokenPrice: {
                   return payload.direction === 'down'
                     ? (marketTokens[id2]?.price ?? 0) -
                         (marketTokens[id1]?.price ?? 0)
                     : (marketTokens[id1]?.price ?? 0) -
                         (marketTokens[id2]?.price ?? 0);
                 }
-                case 4:
-                case 7: {
+                case EMarketCellData.Token24hChange:
+                case EMarketCellData.TokenSparklineChart: {
                   return payload.direction === 'down'
                     ? (marketTokens[id2]?.priceChangePercentage24H ?? 0) -
                         (marketTokens[id1]?.priceChangePercentage24H ?? 0)
                     : (marketTokens[id1]?.priceChangePercentage24H ?? 0) -
                         (marketTokens[id2]?.priceChangePercentage24H ?? 0);
                 }
-                case 5: {
+                case EMarketCellData.Token24hVolume: {
                   return payload.direction === 'down'
                     ? (marketTokens[id2]?.totalVolume ?? 0) -
                         (marketTokens[id1]?.totalVolume ?? 0)
                     : (marketTokens[id1]?.totalVolume ?? 0) -
                         (marketTokens[id2]?.totalVolume ?? 0);
                 }
-                case 6: {
+                case EMarketCellData.TokenMarketCap: {
                   return payload.direction === 'down'
                     ? (marketTokens[id2]?.marketCap ?? 0) -
                         (marketTokens[id1]?.marketCap ?? 0)

@@ -24,13 +24,7 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
-/packages/desktop/public/static/connect
-/packages/kit/src/public/static/connect
-/packages/app/src/public/static/connect
-
 /packages/desktop/public/static/js-sdk
-/packages/kit/src/public/static/js-sdk
-/packages/app/src/public/static/js-sdk
 
 /packages/shared/src/config/networkIds.ts
 

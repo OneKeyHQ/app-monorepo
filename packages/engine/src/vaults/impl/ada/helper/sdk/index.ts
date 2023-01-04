@@ -10,4 +10,9 @@ const getCardanoApi = async () => {
   };
 };
 
-export { getCardanoApi };
+/**
+ * Web SDK is always successful
+ */
+const ensureSDKReady = async () => Promise.resolve(true);
+
+export { getCardanoApi, ensureSDKReady };

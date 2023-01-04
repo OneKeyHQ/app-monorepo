@@ -12,10 +12,10 @@ import {
   FlatList,
   IconButton,
   Select,
+  ToastManager,
   Typography,
   useIsVerticalLayout,
   useTheme,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
@@ -47,7 +47,7 @@ const ListingItem: FC<ListingItemValues> = ({
   total,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { themeVariant } = useTheme();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -65,12 +65,16 @@ const ListingItem: FC<ListingItemValues> = ({
   }, [navigation, name, address, networkId, id]);
   const onCopy = useCallback(() => {
     copyToClipboard(address);
-    toast.show({ title: intl.formatMessage({ id: 'msg__address_copied' }) });
-  }, [toast, intl, address]);
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__address_copied' }),
+    });
+  }, [intl, address]);
   const onDel = useCallback(() => {
     backgroundApiProxy.dispatch(remove({ uuid: id }));
-    toast.show({ title: intl.formatMessage({ id: 'msg__address_deleted' }) });
-  }, [id, toast, intl]);
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__address_deleted' }),
+    });
+  }, [id, intl]);
 
   const onLongPress = useCallback(() => {
     onCopy();

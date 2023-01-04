@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, useToast } from '@onekeyhq/components';
+import { Button, ToastManager } from '@onekeyhq/components';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -88,7 +88,7 @@ function convertToSwapInfo(options: {
 
 const ExchangeButton = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const ref = useRef(false);
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
@@ -105,7 +105,9 @@ const ExchangeButton = () => {
 
   const onSubmit = useCallback(async () => {
     if (!params || !sendingAccount || !quote || !inputAmount || !outputAmount) {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__unknown_error' }),
+      });
       return;
     }
 
@@ -115,7 +117,7 @@ const ExchangeButton = () => {
       );
 
     if (!accountInWallets) {
-      toast.show({
+      ToastManager.show({
         title: intl.formatMessage(
           { id: 'msg__account_deleted' },
           { '0': sendingAccount.name },
@@ -129,7 +131,9 @@ const ExchangeButton = () => {
 
     const targetNetwork = networks.find((item) => item.id === targetNetworkId);
     if (!targetNetwork) {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__unknown_error' }),
+      });
       return;
     }
 
@@ -146,7 +150,7 @@ const ExchangeButton = () => {
     if (!res?.data) {
       const title =
         res?.error?.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
-      toast.show({ title });
+      ToastManager.show({ title });
       return;
     }
 
@@ -172,14 +176,18 @@ const ExchangeButton = () => {
     }
 
     if (encodedTx === undefined) {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__unknown_error' }),
+      });
       return;
     }
 
     const newQuote = res.result;
 
     if (!newQuote) {
-      toast.show({ title: intl.formatMessage({ id: 'msg__unknown_error' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__unknown_error' }),
+      });
       return;
     }
 
@@ -510,7 +518,7 @@ const ExchangeButton = () => {
       ref.current = false;
       setLoading(false);
     }
-  }, []);
+  }, [onSubmit]);
 
   return (
     <Button

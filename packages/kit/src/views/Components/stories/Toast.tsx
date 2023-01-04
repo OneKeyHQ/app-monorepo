@@ -2,16 +2,20 @@ import { useCallback } from 'react';
 
 import { Column } from 'native-base';
 
-import { Button, Center, Stack, Toast, useToast } from '@onekeyhq/components';
+import {
+  Button,
+  Center,
+  Stack,
+  Toast,
+  ToastManager,
+} from '@onekeyhq/components';
 
 const ToastGallery = () => {
-  const toast = useToast();
-
   const addToast = useCallback(() => {
-    toast.show({
+    ToastManager.show({
       title: 'Hello World',
     });
-  }, [toast]);
+  }, []);
 
   return (
     <Center flex="1" bg="background-hovered">

@@ -10,7 +10,7 @@ import {
   useIsVerticalLayout,
   useThemeValue,
   useUserDevice,
-} from '@onekeyhq/components/src';
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market';

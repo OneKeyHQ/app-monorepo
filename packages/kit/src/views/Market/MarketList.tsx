@@ -10,8 +10,8 @@ import {
   FlatList,
   IconButton,
   ScrollView,
-} from '@onekeyhq/components/src';
-import { useIsVerticalLayout } from '@onekeyhq/components/src/Provider/hooks';
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
 import { HomeRoutes } from '../../routes/types';
 import { MARKET_FAVORITES_CATEGORYID } from '../../store/reducers/market';
@@ -21,6 +21,7 @@ import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMe
 import MarketListHeader from './Components/MarketList/MarketListHeader';
 import MarketRecomment from './Components/MarketList/MarketRecomment';
 import MarketTokenCell from './Components/MarketList/MarketTokenCell';
+import MarketTokenCellVertival from './Components/MarketList/MarketTokenCellVertival';
 import { ListHeadTags, MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
 import {
   useMarketCategoryList,
@@ -61,22 +62,40 @@ const MarketList: FC = () => {
   const navigation = useNavigation<NavigationProps>();
   const scrollRef = useRef<ScrollViewType>(null);
   const renderItem: ListRenderItem<string> = useCallback(
-    ({ item }) => (
-      <MarketTokenCell
-        marketTokenId={item}
-        headTags={listHeadTags}
-        onPress={() => {
-          // goto detail
-          navigation.navigate(HomeRoutes.MarketDetail, { marketTokenId: item });
-        }}
-        onLongPress={(marketTokenItem) => {
-          showMarketCellMoreMenu(marketTokenItem, {
-            header: `${marketTokenItem.symbol ?? marketTokenItem.name ?? ''}`,
-          });
-        }}
-      />
-    ),
-    [listHeadTags, navigation],
+    ({ item }) =>
+      isVerticalLayout ? (
+        <MarketTokenCellVertival
+          marketTokenId={item}
+          onPress={() => {
+            // goto detail
+            navigation.navigate(HomeRoutes.MarketDetail, {
+              marketTokenId: item,
+            });
+          }}
+          onLongPress={(marketTokenItem) => {
+            showMarketCellMoreMenu(marketTokenItem, {
+              header: `${marketTokenItem.symbol ?? marketTokenItem.name ?? ''}`,
+            });
+          }}
+        />
+      ) : (
+        <MarketTokenCell
+          marketTokenId={item}
+          headTags={listHeadTags}
+          onPress={() => {
+            // goto detail
+            navigation.navigate(HomeRoutes.MarketDetail, {
+              marketTokenId: item,
+            });
+          }}
+          onLongPress={(marketTokenItem) => {
+            showMarketCellMoreMenu(marketTokenItem, {
+              header: `${marketTokenItem.symbol ?? marketTokenItem.name ?? ''}`,
+            });
+          }}
+        />
+      ),
+    [isVerticalLayout, listHeadTags, navigation],
   );
   const [goToTopBtnShow, setGoToTopBtnShow] = useState(false);
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -90,6 +109,10 @@ const MarketList: FC = () => {
       setRefreshing(false);
     });
   }, [onRefreshingMarketList]);
+  const listHeader = useMemo(
+    () => <MarketListHeader headTags={listHeadTags} />,
+    [listHeadTags],
+  );
   return (
     <Box flex={1}>
       <ScrollView
@@ -118,9 +141,7 @@ const MarketList: FC = () => {
                 : selectedCategory.coingeckoIds
             }
             renderItem={renderItem}
-            ListHeaderComponent={() => (
-              <MarketListHeader headTags={listHeadTags} />
-            )}
+            ListHeaderComponent={listHeader}
             ItemSeparatorComponent={!isVerticalLayout ? Divider : null}
           />
         )}

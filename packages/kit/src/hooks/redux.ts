@@ -1,7 +1,7 @@
 import type { DependencyList } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import {
@@ -161,11 +161,11 @@ export const {
 export function useActiveWalletAccount() {
   const result = useActiveWalletAccountOrigin();
   const context = useTransactionSendContext();
-  const toast = useToast();
+
   if (context && context.isTransactionSendFlow) {
     const msg =
       'useActiveWalletAccount() is NOT allowed in Send flow. please replace to useActiveSideAccount()';
-    toast.show(
+    ToastManager.show(
       {
         title: msg,
       },

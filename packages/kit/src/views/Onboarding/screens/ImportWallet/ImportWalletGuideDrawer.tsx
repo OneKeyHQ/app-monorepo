@@ -14,8 +14,8 @@ import {
   Text,
   ZStack,
   useIsVerticalLayout,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/Provider/hooks';
 import ExtStepFourImage from '@onekeyhq/kit/assets/onboarding/desk_reveal.png';
 import ExtStepThreeImage from '@onekeyhq/kit/assets/onboarding/desk_security.png';
 import ExtStepTwoImage from '@onekeyhq/kit/assets/onboarding/desk_settings.png';

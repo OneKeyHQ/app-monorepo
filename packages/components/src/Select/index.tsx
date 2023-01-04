@@ -16,14 +16,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { useUserDevice } from '@onekeyhq/components';
+
 import Box from '../Box';
 import Icon from '../Icon';
 import { ChevronDown } from '../Icon/react/mini';
-import { OverlayContainer } from '../OverlayContainer';
+import OverlayContainer from '../OverlayContainer';
 import Pressable from '../Pressable';
-import { useUserDevice } from '../Provider/hooks';
+import Text from '../Text';
 import Token from '../Token';
-import { Text } from '../Typography';
 
 import Desktop from './Container/Desktop';
 import Mobile from './Container/Mobile';

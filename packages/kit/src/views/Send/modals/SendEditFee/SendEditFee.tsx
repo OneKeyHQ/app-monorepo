@@ -11,8 +11,8 @@ import {
   Button,
   Center,
   Spinner,
+  ToastManager,
   useForm,
-  useToast,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
@@ -82,7 +82,7 @@ function selectMaxValue(
 function ScreenSendEditFee({ ...rest }) {
   const { trigger } = rest;
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
   // autoConfirmAfterFeeSaved=true speedUp & cancel
@@ -218,7 +218,7 @@ function ScreenSendEditFee({ ...rest }) {
         console.error(e);
         const { key: errorKey = '' } = e;
         if (errorKey === 'form__amount_invalid') {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage(
               { id: 'form__amount_invalid' },
               { 0: '' },

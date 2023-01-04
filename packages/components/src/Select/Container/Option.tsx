@@ -1,14 +1,16 @@
 import { Fragment } from 'react';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
+
 import Badge from '../../Badge';
 import Box from '../../Box';
 import Divider from '../../Divider';
 import HStack from '../../HStack';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
-import { useIsVerticalLayout } from '../../Provider/hooks';
+import Text from '../../Text';
 import Token from '../../Token';
-import Typography, { Text } from '../../Typography';
+import Typography from '../../Typography';
 
 import type { ChildProps, SelectGroupItem, SelectItem } from '..';
 
@@ -52,8 +54,9 @@ function RenderSingleOption<T>({
   option: SelectItem<T>;
 }) {
   const isActive = option.value === activeOption.value;
+  const isSmallScreen = useIsVerticalLayout();
 
-  const OptionText = () => (
+  const optionText = (
     <Box flex={1}>
       <HStack alignItems="center">
         <Text
@@ -79,17 +82,6 @@ function RenderSingleOption<T>({
       )}
     </Box>
   );
-  const SelectedIndicator = () => {
-    // hooks only available in React component
-    const isSmallScreen = useIsVerticalLayout();
-    return (
-      <Icon
-        name={isSmallScreen ? 'CheckOutline' : 'CheckMini'}
-        color="interactive-default"
-        size={isSmallScreen ? 24 : 20}
-      />
-    );
-  };
   return (
     renderItem?.(option, isActive, onChange) ?? (
       <Pressable
@@ -120,9 +112,15 @@ function RenderSingleOption<T>({
             {(!!option.tokenProps ||
               !!option.iconProps ||
               !!option.leading) && <Leading option={option} />}
-            <OptionText />
+            {optionText}
             {!!option.trailing && option.trailing}
-            {!!isActive && !!activatable && <SelectedIndicator />}
+            {!!isActive && !!activatable && (
+              <Icon
+                name={isSmallScreen ? 'CheckOutline' : 'CheckMini'}
+                color="interactive-default"
+                size={isSmallScreen ? 24 : 20}
+              />
+            )}
           </HStack>
         )}
       </Pressable>

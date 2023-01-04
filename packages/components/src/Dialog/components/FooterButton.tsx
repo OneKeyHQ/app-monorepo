@@ -3,9 +3,10 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { useUserDevice } from '@onekeyhq/components';
+
 import Box from '../../Box';
 import Button from '../../Button';
-import { useUserDevice } from '../../Provider/hooks';
 
 import type { ButtonSize } from '../../Button';
 import type { LocaleIds } from '../../locale';

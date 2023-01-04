@@ -3,59 +3,16 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import {
-  FlatList as NBFlatList,
-  SectionList as NBSectionList,
-} from '@onekeyhq/components';
-import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { SectionList as NBSectionList } from '@onekeyhq/components';
 import type { SectionListProps } from '@onekeyhq/components/src/SectionList';
 
-import Footer from './Footer';
-import Header from './Header';
-import ListItem from './ListItem';
-import ListItemSeparator from './ListItemSeparator';
+import Footer from '../List/Footer';
+import Header from '../List/Header';
+import ListItemSeparator from '../List/ListItemSeparator';
+
 import SectionHeader from './SectionHeader';
 
-import type { HeaderProps } from './Header';
-
-interface ListProps<T> extends FlatListProps<T> {
-  headerProps?: HeaderProps;
-  footerText?: string;
-  showDivider?: boolean;
-  ListHeaderComponent?: () => JSX.Element;
-}
-
-function List<T>({
-  ListHeaderComponent,
-  ListFooterComponent,
-  headerProps,
-  footerText,
-  showDivider,
-  ...rest
-}: ListProps<T>) {
-  const header = useMemo(() => {
-    if (ListHeaderComponent) return ListHeaderComponent();
-    if (headerProps) {
-      return <Header {...headerProps} />;
-    }
-    return null;
-  }, [ListHeaderComponent, headerProps]);
-
-  return (
-    <NBFlatList
-      ListHeaderComponent={header}
-      ListFooterComponent={
-        footerText ? <Footer text={footerText} /> : ListFooterComponent
-      }
-      ItemSeparatorComponent={() => (
-        <ListItemSeparator showDivider={showDivider} />
-      )}
-      showsVerticalScrollIndicator={false}
-      m={-2}
-      {...rest}
-    />
-  );
-}
+import type { HeaderProps } from '../List/Header';
 
 interface GroupingListRow {
   iconName?: string;
@@ -119,6 +76,10 @@ function GroupingList<T>({
       section.footerText ? <Footer text={section.footerText} /> : null,
     [],
   );
+  const separator = useCallback(
+    () => <ListItemSeparator showDivider={showDivider} />,
+    [showDivider],
+  );
 
   return (
     <NBSectionList
@@ -130,9 +91,7 @@ function GroupingList<T>({
       renderSectionHeader={renderSectionHeader ?? renderSectionHeaderInner}
       // @ts-expect-error
       renderSectionFooter={renderSectionFooter ?? renderSectionFooterInner}
-      ItemSeparatorComponent={() => (
-        <ListItemSeparator showDivider={showDivider} />
-      )}
+      ItemSeparatorComponent={separator}
       showsVerticalScrollIndicator={false}
       m={-2}
       sections={indexedSections}
@@ -141,4 +100,4 @@ function GroupingList<T>({
   );
 }
 
-export { List, GroupingList, ListItem };
+export default GroupingList;

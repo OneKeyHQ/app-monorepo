@@ -28,7 +28,15 @@ export const getHardwareSDKInstance = memoizee(
       HardwareSDK = await importHardwareSDK();
 
       if (!platformEnv.isNative) {
-        settings.connectSrc = HARDWARE_SDK_IFRAME_SRC;
+        let connectSrc = HARDWARE_SDK_IFRAME_SRC;
+        if (platformEnv.isDesktop) {
+          // @ts-expect-error
+          const { sdkConnectSrc } = window.ONEKEY_DESKTOP_GLOBALS ?? {};
+          if (sdkConnectSrc) {
+            connectSrc = sdkConnectSrc;
+          }
+        }
+        settings.connectSrc = connectSrc;
       }
 
       try {

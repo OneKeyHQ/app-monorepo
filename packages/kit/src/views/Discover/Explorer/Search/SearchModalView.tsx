@@ -37,7 +37,7 @@ export const SearchModalView: FC = () => {
   const { url, onSelectorItem } = route.params;
 
   const [searchContent, setSearchContent] = useState<string>(() => {
-    if (url && url !== homeTab.url) {
+    if (url !== undefined && url !== homeTab.url) {
       return url;
     }
     const { tab } = getWebTabs();

@@ -7,6 +7,7 @@ export { default as EmptyNft } from './EmptyNft';
 export { default as Gas } from './Gas';
 export { default as ImageBroken } from './ImageBroken';
 export { default as LogoBlack } from './LogoBlack';
+export { default as LogoCircular } from './LogoCircular';
 export { default as LogoPrimary } from './LogoPrimary';
 export { default as LogoWhite } from './LogoWhite';
 export { default as Logo } from './Logo';

@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from 'react';
+import type { ComponentProps } from 'react';
 import { forwardRef } from 'react';
 
 import Button from '../Button';

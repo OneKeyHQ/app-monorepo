@@ -4,10 +4,11 @@ import { Animated } from 'react-native';
 import { Modalize } from 'react-native-modalize';
 import { RootSiblingPortal } from 'react-native-root-siblings';
 
+import { useSafeAreaInsets, useThemeValue } from '@onekeyhq/components';
+
 import Box from '../../Box';
 import Button from '../../Button';
 import IconButton from '../../IconButton';
-import { useSafeAreaInsets, useThemeValue } from '../../Provider/hooks';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 

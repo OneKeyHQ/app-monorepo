@@ -8,9 +8,9 @@ import {
   Icon,
   Pressable,
   Text,
+  ToastManager,
   Typography,
   useTheme,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -23,7 +23,7 @@ const getShareModule = async () => {
 
 export const FooterAction = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { themeVariant } = useTheme();
 
   const getLogName = useCallback(() => {
@@ -70,8 +70,8 @@ export const FooterAction = () => {
 
   const handleCopyEmail = useCallback(() => {
     copyToClipboard('hi@onekey.so');
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [intl, toast]);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [intl]);
 
   return (
     <Box w="full" mb="6">

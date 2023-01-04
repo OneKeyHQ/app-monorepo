@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -29,17 +29,15 @@ import {
   Skeleton,
   Spinner,
   Text,
+  ToastManager,
   Tooltip,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
-import type {
-  HomeRoutes,
-  HomeRoutesParams,
-  ModalScreenProps,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -59,7 +57,6 @@ import Mobile from './List/Mobile';
 import SearchAddress from './SearchAddress';
 
 import type { NFTMarketRoutesParams } from '../../Modals/type';
-import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
@@ -224,7 +221,6 @@ const Header: FC<HeaderProps> = ({
   const name = useRef<string>();
   const { loading: inputLoading } = useSearchAddress({
     keyword: nameOrAddress,
-    network,
     onAddressSearch: ({ ens: ensName, address: vaildAddress }) => {
       name.current = ensName;
       if (vaildAddress) {
@@ -241,25 +237,31 @@ const Header: FC<HeaderProps> = ({
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const shareAction = useCallback(() => {
-    let displayName = '';
-    if (name.current && name.current?.length > 0) {
-      displayName = name.current;
-    } else {
-      displayName = shortenAddress(nameOrAddress);
-    }
-
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.NFTMarket,
-      params: {
-        screen: NFTMarketRoutes.ShareNFTPNLModal,
+    if (platformEnv.isNative) {
+      let displayName = '';
+      if (name.current && name.current?.length > 0) {
+        displayName = name.current;
+      } else {
+        displayName = shortenAddress(nameOrAddress);
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.NFTMarket,
         params: {
-          network,
-          nameOrAddress: displayName,
-          data: pnlData,
+          screen: NFTMarketRoutes.ShareNFTPNLModal,
+          params: {
+            network,
+            nameOrAddress: displayName,
+            data: pnlData,
+          },
         },
-      },
-    });
-  }, [nameOrAddress, navigation, network, pnlData]);
+      });
+    } else {
+      copyToClipboard('https://app.onekey.so/pnl');
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__link_copied' }),
+      });
+    }
+  }, [intl, nameOrAddress, navigation, network, pnlData]);
 
   const { account: activeAccount } = useActiveWalletAccount();
 
@@ -316,7 +318,7 @@ const Header: FC<HeaderProps> = ({
       >
         <Box>
           <Text typography="Body1" color="text-subdued">
-            {intl.formatMessage({ id: 'content__profit' })}
+            {intl.formatMessage({ id: 'content__total_profits' })}
           </Text>
           {totalProfit ? (
             <Text
@@ -380,18 +382,16 @@ const Header: FC<HeaderProps> = ({
             </Hidden>
           </Box>
         </Box>
-        {platformEnv.isNative && (
-          <Button
-            isDisabled={loading}
-            type="primary"
-            size={isVerticalLayout ? 'lg' : 'base'}
-            leftIconName="ArrowTopRightOnSquareSolid"
-            onPress={shareAction}
-            mt={{ base: 6, sm: 0 }}
-          >
-            {intl.formatMessage({ id: 'action__share' })}
-          </Button>
-        )}
+        <Button
+          isDisabled={loading}
+          type="primary"
+          size={isVerticalLayout ? 'lg' : 'base'}
+          leftIconName="ArrowTopRightOnSquareSolid"
+          onPress={shareAction}
+          mt={{ base: 6, sm: 0 }}
+        >
+          {intl.formatMessage({ id: 'action__share' })}
+        </Button>
       </Box>
       <Hidden from="base" till="md">
         <ListTitle />
@@ -409,8 +409,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   const { account: activeAccount } = useActiveWalletAccount();
 
   const navigation = useNavigation();
-  const defaultNetwork = useDefaultNetWork();
-  const [selectNetwork] = useState<Network>(defaultNetwork);
+  const selectNetwork = useDefaultNetWork();
 
   const { serviceNFT } = backgroundApiProxy;
 
@@ -635,21 +634,13 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
 };
 
 const NPLScreen = () => {
-  const route =
-    useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTPNLScreen>>();
-  const { address: lastAddress } = route.params;
   const { network, account } = useActiveWalletAccount();
   const isEvmAddress = network?.impl === IMPL_EVM;
 
   const [addressInfo, setAddressInfo] = useState<{
     address?: string;
     ens?: string;
-  }>(() => {
-    if (lastAddress && lastAddress.length > 0) {
-      return { address: lastAddress };
-    }
-    return { address: isEvmAddress ? account?.address : undefined };
-  });
+  }>(() => ({ address: isEvmAddress ? account?.address : undefined }));
   if (addressInfo?.address) {
     return (
       <NPLDetail accountAddress={addressInfo?.address} ens={addressInfo.ens} />

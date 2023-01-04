@@ -375,11 +375,9 @@ export default class ServiceRevoke extends ServiceBase {
       approvals.filter(
         (item) => item !== undefined,
       ) as unknown as ERC721TokenApproval[]
-    )
-      .filter(({ token }) => !isSpamToken(token))
-      .sort((a: ERC721TokenApproval, b: ERC721TokenApproval) =>
-        a.token.symbol.localeCompare(b.token.symbol),
-      );
+    ).sort((a: ERC721TokenApproval, b: ERC721TokenApproval) =>
+      a.token.symbol.localeCompare(b.token.symbol),
+    );
   }
 
   @backgroundMethod()

@@ -5,17 +5,11 @@ import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
 import { chunk } from 'lodash';
 
-import {
-  Box,
-  Center,
+import { Box, Center, Modal, Pressable, Text } from '@onekeyhq/components';
+import RecyclerListView, {
   DataProvider,
   LayoutProvider,
-  Modal,
-  Pressable,
-  RecyclerListView,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+} from '@onekeyhq/components/src/RecyclerListView';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import type {
   ManagerWalletModalRoutes,
@@ -90,11 +84,10 @@ const ModifyWalletEmojiViewModal: FC = () => {
   const { avatar, onDone } = useRoute<RouteProps>().params;
   const [color, updateColor] = useState(avatar.bgColor);
   const [emoji, updateEmoji] = useState(avatar.emoji);
-  const isSmallScreen = useIsVerticalLayout();
   const [pageWidth, setPageWidth] = useState<number>(0);
   const padding = 24;
-  const itemWidth = 44;
-  const containerWidth = pageWidth - padding;
+  const itemWidth = 48;
+  const containerWidth = pageWidth - padding * 2;
   const rowItems = Math.floor(containerWidth / itemWidth);
 
   const dataProvider = useMemo(() => {
@@ -123,6 +116,7 @@ const ModifyWalletEmojiViewModal: FC = () => {
             <Box
               key={`rows${rowIndex}`}
               flexDirection="row"
+              justifyContent="space-between"
               width={`${containerWidth}px`}
               height={`${itemWidth}px`}
             >
@@ -195,16 +189,16 @@ const ModifyWalletEmojiViewModal: FC = () => {
           bgColor="surface-subdued"
         >
           {pageWidth > 0 && (
-            <Box paddingLeft="24px" paddingTop="24px" flex={1}>
+            <Box flex={1}>
               <RecyclerListView
                 dataProvider={dataProvider}
                 layoutProvider={layoutProvider}
                 rowRenderer={renderItem}
                 renderAheadOffset={300}
                 renderAheadStep={100}
-                renderFooter={() =>
-                  isSmallScreen ? <Box height="24px" /> : null
-                }
+                style={{
+                  padding,
+                }}
               />
             </Box>
           )}

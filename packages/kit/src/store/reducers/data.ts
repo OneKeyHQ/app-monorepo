@@ -12,7 +12,7 @@ export type DataInitialState = {
   isUnlock: boolean;
   isPasswordSet: boolean;
   homePageCheckBoarding: boolean;
-  isReduxReady?: boolean;
+  isExtUiReduxReady?: boolean;
   onekeySupportList: CurrencyType[];
   currencyList: MoonpayListType[];
   cursorMap: Record<string, string>;
@@ -24,7 +24,7 @@ export type DataInitialState = {
 const initialState: DataInitialState = {
   isUnlock: !!platformEnv.isDev, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
   isPasswordSet: false,
-  isReduxReady: false,
+  isExtUiReduxReady: false,
   homePageCheckBoarding: false,
   onekeySupportList: [],
   currencyList: [],
@@ -41,8 +41,8 @@ export const dataSlice = createSlice({
       stopTrace('js_render');
       state.isAppRenderReady = true;
     },
-    setIsReduxReady(state) {
-      state.isReduxReady = true;
+    setIsExtUiReduxReady(state) {
+      state.isExtUiReduxReady = true;
     },
     release(state) {
       state.isUnlock = true;
@@ -99,7 +99,7 @@ export const {
   setHomePageCheckBoarding,
   currenciesSet,
   setAppRenderReady,
-  setIsReduxReady,
+  setIsExtUiReduxReady,
   cursorMapSet,
   lock,
   setHandOperatedLock,

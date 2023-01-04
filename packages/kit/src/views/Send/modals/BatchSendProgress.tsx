@@ -11,7 +11,7 @@ import {
   Center,
   Progress,
   Text,
-  useToast,
+  ToastManager,
 } from '@onekeyhq/components';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -62,7 +62,6 @@ function SendProgress({
   const [currentFinished, setCurrentFinished] = useState(0);
   const navigation = useNavigation<NavigationProps>();
 
-  const toast = useToast();
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const submitted = useRef(false);
@@ -250,7 +249,7 @@ function SendProgress({
       }
       await wait(600);
       if (error?.code === -32603 && typeof error?.data?.message === 'string') {
-        toast.show(
+        ToastManager.show(
           {
             title:
               error.data.message ||
@@ -268,7 +267,7 @@ function SendProgress({
           OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError
         ) {
           if (!deviceUtils.showErrorToast(error)) {
-            toast.show(
+            ToastManager.show(
               {
                 title: msg || intl.formatMessage({ id: 'transaction__failed' }),
                 description: msg,
@@ -280,7 +279,7 @@ function SendProgress({
       }
 
       await wait(100);
-      // onFail() should be called after show toast, otherwise toast won't display
+      // onFail() should be called after show otherwise toast won't display
       onFail?.(error);
     }
   }, [
@@ -295,7 +294,6 @@ function SendProgress({
     onFail,
     payload,
     sendTxs,
-    toast,
   ]);
 
   useEffect(

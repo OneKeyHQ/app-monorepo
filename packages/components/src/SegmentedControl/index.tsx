@@ -2,7 +2,8 @@ import type { ComponentProps, FC } from 'react';
 
 import SegmentedControlBase from '@react-native-segmented-control/segmented-control';
 
-import { useThemeValue } from '../Provider/hooks';
+import { useThemeValue } from '@onekeyhq/components';
+
 import { Body2StrongProps } from '../Typography';
 
 export type SegmentedControlProps = Omit<

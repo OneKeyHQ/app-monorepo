@@ -45,8 +45,9 @@ const Share = () => {
   const { data, network, nameOrAddress } = route.params;
   const { content, win, lose, totalProfit, totalWinProfit, totalLoseProfit } =
     data;
-  const startTime = content[0].exit.timestamp;
-  const endTime = content[content.length - 1].exit.timestamp;
+
+  const endTime = content[0].exit.timestamp;
+  const startTime = content[content.length - 1].exit.timestamp;
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const onCapture = useCallback(async () => {

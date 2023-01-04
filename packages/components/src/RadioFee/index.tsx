@@ -2,7 +2,8 @@ import type { FC, ReactElement } from 'react';
 
 import Box from '../Box';
 import RadioBox from '../RadioBox';
-import Typography, { Text } from '../Typography';
+import Text from '../Text';
+import Typography from '../Typography';
 
 import type { RadioBoxProps } from '../RadioBox/RadioBox';
 import type { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';

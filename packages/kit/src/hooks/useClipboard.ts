@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   copyToClipboard,
@@ -12,7 +12,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useClipboard() {
   const intl = useIntl();
-  const toast = useToast();
 
   const { canGetClipboard } = platformEnv;
   const copyText = useCallback(
@@ -22,11 +21,11 @@ export function useClipboard() {
       // msg__copied
       // msg__address_copied
       // msg__url_copied
-      toast.show({
+      ToastManager.show({
         title: intl.formatMessage({ id: successMessageId || 'msg__copied' }),
       });
     },
-    [toast, intl],
+    [intl],
   );
 
   return { copyText, getClipboard, canGetClipboard };

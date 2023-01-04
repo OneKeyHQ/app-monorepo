@@ -10,11 +10,11 @@ import {
   Image,
   KeyboardDismissView,
   Modal,
+  Text,
+  ToastManager,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
-import { Text } from '@onekeyhq/components/src/Typography';
 import type { AddEthereumChainParameter } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -186,7 +186,6 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
 }
 
 function AddNetworkConfirmModal() {
-  const toast = useToast();
   const intl = useIntl();
   const { rpcURL, name, symbol, exploreUrl } = useRouteParams();
   const queryInfo = useDappParams();
@@ -204,7 +203,7 @@ function AddNetworkConfirmModal() {
       try {
         const { existingNetwork } = await serviceNetwork.preAddNetwork(rpcURL);
         if (existingNetwork) {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage(
               {
                 id: 'form__rpc_url_invalid_exist',
@@ -222,30 +221,23 @@ function AddNetworkConfirmModal() {
           explorerURL: exploreUrl,
         });
 
-        toast.show({ title: intl.formatMessage({ id: 'msg__network_added' }) });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__network_added' }),
+        });
         await dappApprove.resolve({
           close,
           result: addedNetwork,
         });
       } catch (error) {
         console.error(error);
-        toast.show({
+        ToastManager.show({
           title: intl.formatMessage({
             id: 'form__rpc_fetched_failed',
           }),
         });
       }
     },
-    [
-      rpcURL,
-      serviceNetwork,
-      name,
-      symbol,
-      exploreUrl,
-      toast,
-      intl,
-      dappApprove,
-    ],
+    [rpcURL, serviceNetwork, name, symbol, exploreUrl, intl, dappApprove],
   );
 
   return (

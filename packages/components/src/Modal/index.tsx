@@ -9,11 +9,11 @@ import { cloneElement, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import FlatList from '../FlatList';
-import { useIsVerticalLayout, useUserDevice } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import SortableList from '../SortableList';

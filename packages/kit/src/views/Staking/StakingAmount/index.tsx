@@ -16,9 +16,9 @@ import {
   Modal,
   Spinner,
   Text,
+  ToastManager,
   Typography,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -274,7 +274,7 @@ function usePreSendAmountInfo({
 
 export default function StakingAmount() {
   const intl = useIntl();
-  const toast = useToast();
+
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
   const [isLoading, setIsLoading] = useState(false);
@@ -410,7 +410,7 @@ export default function StakingAmount() {
           console.error(e);
           const { key: errorKey = '' } = e;
           if (errorKey === 'form__amount_invalid') {
-            toast.show({
+            ToastManager.show({
               title: intl.formatMessage(
                 { id: 'form__amount_invalid' },
                 { 0: tokenInfo?.symbol ?? '' },

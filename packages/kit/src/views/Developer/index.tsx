@@ -16,9 +16,9 @@ import {
   Input,
   Pressable,
   ScrollView,
+  ToastManager,
   Typography,
   VStack,
-  useToast,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
@@ -70,7 +70,7 @@ export const Debug = () => {
   const { width, height } = useWindowDimensions();
   const { network, account, wallet } = useActiveWalletAccount();
   const { serviceAccount, engine } = backgroundApiProxy;
-  const toast = useToast();
+
   const pressableProps = {
     p: '4',
     bg: 'surface-default',
@@ -365,7 +365,7 @@ export const Debug = () => {
                     address,
                   });
                   console.log('Add Temp Watching Account', acc, address);
-                  toast.show({
+                  ToastManager.show({
                     title: `Added temp watching: ${address}`,
                   });
                 } catch (err) {

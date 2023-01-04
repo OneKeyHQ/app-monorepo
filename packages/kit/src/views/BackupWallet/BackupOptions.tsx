@@ -16,12 +16,17 @@ import {
 } from '@onekeyhq/components';
 import type { BadgeType } from '@onekeyhq/components/src/Badge';
 import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
+import BackupKeyTag from '@onekeyhq/kit/assets/keytag/OneKeyTag.png';
 import OneKeyLite from '@onekeyhq/kit/assets/onekey-lite.png';
 import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
+import { useWallet } from '../../hooks/useWallet';
+import { KeyTagRoutes } from '../KeyTag/Routes/enums';
+
+import type { IKeytagRoutesParams } from '../KeyTag/Routes/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export type BackupWalletViewProps = {
@@ -87,13 +92,15 @@ type RouteProps = RouteProp<
   BackupWalletModalRoutes.BackupWalletOptionsModal
 >;
 
-type NavigationProps = ModalScreenProps<BackupWalletRoutesParams>;
+type NavigationProps = ModalScreenProps<
+  BackupWalletRoutesParams & IKeytagRoutesParams
+>;
 
 const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
   const intl = useIntl();
   const { walletId } = useRoute<RouteProps>().params;
   const navigation = useNavigation<NavigationProps['navigation']>();
-
+  const { wallet } = useWallet({ walletId });
   const onManual = useCallback(() => {
     navigation.navigate(BackupWalletModalRoutes.BackupWalletManualModal, {
       walletId,
@@ -105,6 +112,13 @@ const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
       walletId,
     });
   }, [navigation, walletId]);
+
+  const onKeyTag = useCallback(() => {
+    navigation.navigate(KeyTagRoutes.KeyTagVerifyPassword, {
+      walletId,
+      wallet,
+    });
+  }, [navigation, wallet, walletId]);
 
   return (
     <Modal
@@ -132,6 +146,14 @@ const BackupWalletOptionsView: FC<BackupWalletViewProps> = () => {
                 onPress={onLite}
               />
             )}
+            <BackupItem
+              imageSrc={BackupKeyTag}
+              title={intl.formatMessage({ id: 'form__onekey_keytag' })}
+              discription={intl.formatMessage({
+                id: 'form__record_your_recovery_phrase_like_a_dot_punching_game',
+              })}
+              onPress={onKeyTag}
+            />
           </Column>
         ),
       }}

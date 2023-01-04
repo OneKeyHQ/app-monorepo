@@ -3,11 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  CustomSkeleton,
-  ToggleButtonGroup,
-} from '@onekeyhq/components/src';
+import { Box, CustomSkeleton, ToggleButtonGroup } from '@onekeyhq/components';
 import type { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';

@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
+import { Center, Modal, Spinner, ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected from '../../components/Protected';
@@ -24,7 +24,7 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
   const { enableLocalAuthentication } = useSettings();
-  const toast = useToast();
+
   const { localAuthenticate, savePassword } = useLocalAuthentication();
 
   const navigation = useNavigation();
@@ -35,7 +35,7 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
         if (!result.success) {
           const { error } = result;
           if (!error.includes('cancelled')) {
-            toast.show(
+            ToastManager.show(
               {
                 title: intl.formatMessage({ id: 'msg__verification_failure' }),
               },

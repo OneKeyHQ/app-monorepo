@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
@@ -66,7 +66,7 @@ export function useBatchSendConfirmFeeInfoPayload({
   const timer = useRef<ReturnType<typeof setInterval>>();
   const [loading, setLoading] = useState(true);
   const route = useRoute();
-  const toast = useToast();
+
   const defaultFeePresetIndex = useFeePresetIndex(networkId);
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
@@ -332,7 +332,7 @@ export function useBatchSendConfirmFeeInfoPayload({
             data: { message },
           } = error;
           if (typeof message === 'string') {
-            toast.show({ title: message });
+            ToastManager.show({ title: message });
           }
         }
         setFeeInfoPayloads([]);
@@ -342,7 +342,7 @@ export function useBatchSendConfirmFeeInfoPayload({
         setLoading(false);
       }
     })();
-  }, [decodedTxs, encodedTxs, fetchFeeInfo, setFeeInfoPayloads, toast]);
+  }, [decodedTxs, encodedTxs, fetchFeeInfo, setFeeInfoPayloads]);
 
   useEffect(() => {
     clearInterval(timer.current);

@@ -5,7 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ToastShowParams } from 'react-native-toast-message';
 
 /*
- toast.show(
+ ToastManager.show(
         {
           title: intl.formatMessage({ id: 'msg__verification_failure' }),
         },
@@ -33,13 +33,10 @@ const toastShow = (props: any, toastShowParams?: ToastShowParams) => {
   }, 50);
 };
 
-export const Toast = { show: toastShow, hide: ToastBase.hide };
+const ToastManager = { show: toastShow, hide: ToastBase.hide };
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
-  global.$$toast = Toast;
+  global.$$toast = ToastManager;
 }
-
-export function useToast() {
-  return Toast;
-}
+export default ToastManager;

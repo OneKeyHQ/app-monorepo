@@ -55,6 +55,7 @@ import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typogr
 import WalletSelectorGallery from '@onekeyhq/kit/src/views/Components/stories/WalletSelector/index';
 import WebViewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
+import DotMapGallery from '../../views/Components/stories/DotMap';
 import NavHeaderGallery from '../../views/Components/stories/NavHeader';
 import PriceChart from '../../views/Components/stories/PriceChart';
 import renderCustomSubStackHeader from '../Stack/Header';
@@ -118,6 +119,7 @@ export enum StackRoutes {
   ComponentHomescreen = 'component/homescreen',
   ComponentToggleButtonGroup = 'component/ToggleButtonGroup',
   ComponentCollapse = 'component/Collapse',
+  ComponentDotMap = 'component/DotMap',
   ComponentBottomSheetModal = 'component/BottomSheetModal',
   ComponentNavHeaderGallery = 'component/NavHeader',
 }
@@ -181,6 +183,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentList]: undefined;
   [StackRoutes.ComponentToggleButtonGroup]: undefined;
   [StackRoutes.ComponentCollapse]: undefined;
+  [StackRoutes.ComponentDotMap]: undefined;
   [StackRoutes.ComponentBottomSheetModal]: undefined;
   [StackRoutes.ComponentNavHeaderGallery]: undefined;
 };
@@ -272,6 +275,7 @@ export const stackScreenList = [
     name: StackRoutes.ComponentCollapse,
     component: CollapseGallery,
   },
+  { name: StackRoutes.ComponentDotMap, component: DotMapGallery },
   {
     name: StackRoutes.ComponentBottomSheetModal,
     component: BottomSheetModalGallery,

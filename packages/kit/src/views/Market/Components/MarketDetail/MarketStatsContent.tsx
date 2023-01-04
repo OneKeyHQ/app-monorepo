@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Divider, Typography, VStack } from '@onekeyhq/components/src';
+import { Box, Divider, Typography, VStack } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { useSettings } from '@onekeyhq/kit/src/hooks';
 import type { MarketStats } from '@onekeyhq/kit/src/store/reducers/market';

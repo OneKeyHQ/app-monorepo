@@ -9,9 +9,9 @@ import {
   Center,
   Form,
   Modal,
+  ToastManager,
   useForm,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
@@ -73,7 +73,7 @@ function useAddExistingWallet({
 }) {
   const route = useRoute();
   const intl = useIntl();
-  const toast = useToast();
+
   const { activeNetworkId } = useGeneral();
   const { wallets } = useRuntime();
   const onboardingDone = useOnboardingDone();
@@ -142,7 +142,7 @@ function useAddExistingWallet({
           text,
           checkResults: results,
           onSuccess() {
-            toast.show(
+            ToastManager.show(
               {
                 title: intl.formatMessage({ id: 'msg__account_imported' }),
               },
@@ -160,7 +160,7 @@ function useAddExistingWallet({
         onAddMnemonicAuth({
           mnemonic: text,
           onSuccess() {
-            toast.show(
+            ToastManager.show(
               {
                 title: intl.formatMessage({ id: 'msg__account_imported' }),
               },
@@ -175,7 +175,7 @@ function useAddExistingWallet({
       if (possibleNetworks.length < 1) {
         // This shouldn't happen.
         console.error('No possible networks found.');
-        toast.show(
+        ToastManager.show(
           {
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
           },
@@ -210,7 +210,7 @@ function useAddExistingWallet({
             text,
             accountName,
           );
-          toast.show(
+          ToastManager.show(
             {
               title: intl.formatMessage({ id: 'msg__account_imported' }),
             },
@@ -220,7 +220,7 @@ function useAddExistingWallet({
           onboardingDone({ showOnBoardingLoading: true });
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
-          toast.show(
+          ToastManager.show(
             {
               title: intl.formatMessage({ id: errorKey }),
             },
@@ -233,7 +233,7 @@ function useAddExistingWallet({
           name: accountName,
           networkId,
           onSuccess() {
-            toast.show(
+            ToastManager.show(
               {
                 title: intl.formatMessage({ id: 'msg__account_imported' }),
               },
@@ -255,7 +255,7 @@ function useAddExistingWallet({
       onMultipleResults,
       onboardingDone,
       onFailure,
-      toast,
+
       wallets,
     ],
   );

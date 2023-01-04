@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 
-import { Center, Modal, Spinner, useToast } from '@onekeyhq/components';
+import { Center, Modal, Spinner } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { deviceUtils } from '../../../utils/hardware';
@@ -14,7 +14,6 @@ import type { RouteProp } from '@react-navigation/native';
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Send>;
 
 const Send = () => {
-  const toast = useToast();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { accountId, networkId, payload, encodedTx, onSuccess } = route.params;
@@ -35,7 +34,7 @@ const Send = () => {
       }
     }
     main();
-  }, [accountId, networkId, payload, encodedTx, onSuccess, toast, navigation]);
+  }, [accountId, networkId, payload, encodedTx, onSuccess, navigation]);
   return (
     <Modal footer={null} closeable={false}>
       <Center h="full" w="full">

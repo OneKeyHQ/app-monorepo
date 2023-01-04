@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
+import { useThemeValue } from '@onekeyhq/components';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -11,7 +12,6 @@ import Box from '../../Box';
 import { DesktopDragZoneAbsoluteBar } from '../../DesktopDragZoneBox';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
-import { useThemeValue } from '../../Provider/hooks';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 import VStack from '../../VStack';

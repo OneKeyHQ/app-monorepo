@@ -12,11 +12,9 @@ import {
 
 import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
-import isArray from 'lodash/isArray';
-import isEmpty from 'lodash/isEmpty';
-import isNil from 'lodash/isNil';
-import isPlainObject from 'lodash/isPlainObject';
 import { Freeze } from 'react-freeze';
+
+import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -51,78 +49,6 @@ function usePreloadJsUrl() {
 
 // Used for webview type referencing
 const WEBVIEW_TAG = 'webview';
-
-export function waitAsync(timeout: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, timeout);
-  });
-}
-
-export async function waitForDataLoaded({
-  data,
-  wait = 600,
-  logName,
-  timeout = 0,
-}: {
-  data: (...args: any) => any;
-  wait?: number;
-  logName: string;
-  timeout?: number;
-}) {
-  return new Promise<void>((resolve, reject) => {
-    (async () => {
-      let timeoutReject = false;
-      let timer: any = null;
-      const getDataArrFunc = ([] as ((...args: any) => any)[]).concat(data);
-      if (timeout) {
-        timer = setTimeout(() => {
-          timeoutReject = true;
-        }, timeout);
-      }
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        let isAllLoaded = true;
-
-        await Promise.all(
-          getDataArrFunc.map(async (getData) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            const d = await getData();
-            if (d === false) {
-              isAllLoaded = false;
-              return;
-            }
-
-            if (isNil(d)) {
-              isAllLoaded = false;
-              return;
-            }
-
-            if (isEmpty(d)) {
-              if (isPlainObject(d) || isArray(d)) {
-                isAllLoaded = false;
-              }
-            }
-          }),
-        );
-
-        if (isAllLoaded || timeoutReject) {
-          break;
-        }
-        await waitAsync(wait);
-        if (logName) {
-          console.log(`waitForDataLoaded: ${logName}`);
-        }
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      clearTimeout(timer);
-      if (timeoutReject) {
-        reject(new Error(`waitForDataLoaded: ${logName ?? ''} timeout`));
-      } else {
-        resolve();
-      }
-    })();
-  });
-}
 
 const DesktopWebView = forwardRef(
   (

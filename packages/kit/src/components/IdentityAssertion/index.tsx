@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Empty, useToast } from '@onekeyhq/components';
+import { Box, Button, Empty, ToastManager } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
@@ -25,7 +25,6 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
     walletId,
     networkId,
   });
-  const toast = useToast();
 
   if (!walletId) {
     return (
@@ -102,7 +101,7 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
                 // openDrawer();
                 // dispatch(updateDesktopWalletSelectorVisible(true));
               } else {
-                toast.show({
+                ToastManager.show({
                   title: intl.formatMessage(
                     {
                       id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,

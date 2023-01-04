@@ -13,8 +13,8 @@ import {
   Pressable,
   Tooltip,
   Typography,
-  utils,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -170,7 +170,7 @@ const TokenInputReceivingAddress: FC = () => {
           color={recipientUnknown ? 'text-warning' : 'text-subdued'}
         >
           {intl.formatMessage({ id: 'form__unknown' })}{' '}
-          {utils.shortenAddress(address)}
+          {shortenAddress(address)}
         </Typography.Body2>
       </Box>
     );

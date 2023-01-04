@@ -6,7 +6,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
+const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
   useFullWindowForIOS,
   ...props
 }) => {
@@ -25,3 +25,4 @@ export const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
     </Container>
   );
 };
+export default OverlayContainer;

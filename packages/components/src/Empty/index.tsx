@@ -1,13 +1,14 @@
 import type { ComponentProps, FC, ReactNode } from 'react';
 import { isValidElement } from 'react';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
+
 import Box from '../Box';
 import Button from '../Button';
 import Center from '../Center';
 import Icon from '../Icon';
 import Image from '../Image';
-import { useIsVerticalLayout } from '../Provider/hooks';
-import { Text } from '../Typography';
+import Text from '../Text';
 
 import type { ICON_NAMES } from '../Icon/Icons';
 

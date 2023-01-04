@@ -86,7 +86,10 @@ const tsRules = {
   ],
 };
 module.exports = {
-  ignorePatterns: ['packages/components/src/Icon/*'],
+  ignorePatterns: [
+    'packages/components/src/Icon/*',
+    'packages/desktop/public/static/js-sdk/*',
+  ],
   env: {
     browser: true,
     es6: true,

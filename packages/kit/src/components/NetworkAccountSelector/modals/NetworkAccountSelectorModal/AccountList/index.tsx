@@ -11,8 +11,8 @@ import {
   Box,
   Empty,
   SectionList,
+  ToastManager,
   useSafeAreaInsets,
-  useToast,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { IAccount } from '@onekeyhq/engine/src/types';
@@ -48,7 +48,7 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
   networkId,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     walletId,
     networkId,
@@ -65,7 +65,7 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
         if (isCreateAccountSupported) {
           createAccount();
         } else {
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage(
               {
                 id: NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,

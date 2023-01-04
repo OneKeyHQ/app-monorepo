@@ -3,12 +3,13 @@ import type { FC, ReactNode } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
+import { useUserDevice } from '@onekeyhq/components';
+
 import Box from '../Box';
 import Center from '../Center';
 import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
-import { useUserDevice } from '../Provider/hooks';
 import Typography from '../Typography';
 
 import type { IPressableProps } from 'native-base';

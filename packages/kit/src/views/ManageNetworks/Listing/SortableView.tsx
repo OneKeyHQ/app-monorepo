@@ -11,9 +11,9 @@ import {
   IconButton,
   Modal,
   Text,
+  ToastManager,
   Token,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -89,7 +89,7 @@ type RenderItemProps = {
 
 export const SortableView: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation();
   const { serviceNetwork } = backgroundApiProxy;
   const refData = useRef({ isDiscard: false });
@@ -153,21 +153,15 @@ export const SortableView: FC = () => {
       await serviceNetwork.updateNetworks(
         list.map((item) => [item.id, networksIdMap[item.id]]),
       );
-      toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__change_saved' }),
+      });
     }
     if (navigation?.canGoBack?.()) {
       refData.current.isDiscard = true;
       navigation.goBack();
     }
-  }, [
-    networksIdMap,
-    list,
-    initialData,
-    serviceNetwork,
-    toast,
-    intl,
-    navigation,
-  ]);
+  }, [networksIdMap, list, initialData, serviceNetwork, intl, navigation]);
 
   const onBeforeRemove = useCallback(
     (e) => {

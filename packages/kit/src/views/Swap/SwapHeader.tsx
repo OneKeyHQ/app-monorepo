@@ -179,7 +179,7 @@ const RefreshButton = () => {
   );
 
   const onRefresh = useCallback(() => {
-    if (!isOk) {
+    if (limited || !quote) {
       loadingAnim.setValue(0);
       Animated.timing(loadingAnim, {
         toValue: -1,
@@ -199,7 +199,7 @@ const RefreshButton = () => {
       await onSwapQuote();
       lottie.play();
     });
-  }, [onSwapQuote, loadingAnim, isOk, lottie]);
+  }, [onSwapQuote, loadingAnim, limited, quote, lottie]);
 
   useEffect(() => {
     const fn = processAnim.addListener(({ value }) => {
@@ -262,19 +262,20 @@ const RefreshButton = () => {
 
 export const SwapHeaderButtons = () => {
   const error = useAppSelector((s) => s.swap.error);
+
   return (
     <HStack>
       <Box position="relative">
         <RefreshButton />
-        {error === SwapError.QuoteFailed ? (
-          <Box position="absolute" bottom="1" right="1" pointerEvents="none">
-            <Icon
-              size={14}
-              name="ExclamationCircleSolid"
-              color="icon-critical"
-            />
-          </Box>
-        ) : null}
+        <Box
+          position="absolute"
+          display={error === SwapError.QuoteFailed ? 'block' : 'none'}
+          bottom="1"
+          right="1"
+          pointerEvents="none"
+        >
+          <Icon size={14} name="ExclamationCircleSolid" color="icon-critical" />
+        </Box>
       </Box>
       <HistoryButton />
     </HStack>

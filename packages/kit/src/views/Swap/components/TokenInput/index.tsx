@@ -9,8 +9,8 @@ import {
   Icon,
   NumberInput,
   Pressable,
+  ToastManager,
   Typography,
-  useToast,
 } from '@onekeyhq/components';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 
@@ -145,7 +145,7 @@ const TokenInput: FC<TokenInputProps> = ({
   isDisabled,
 }) => {
   const intl = useIntl();
-  const toast = useToast();
+
   const tokenNetwork = useNetworkSimple(token?.networkId);
 
   const balance = useTokenBalance(token, account?.id);
@@ -165,14 +165,14 @@ const TokenInput: FC<TokenInputProps> = ({
       if (v > 0) {
         backgroundApiProxy.serviceSwap.userInput(type, String(v));
       } else if (Number(value) > 0) {
-        toast.show({
+        ToastManager.show({
           title: intl.formatMessage({
             id: 'msg__current_token_balance_is_insufficient',
           }),
         });
       }
     }
-  }, [token, value, type, toast, intl, tokenNetwork]);
+  }, [token, value, type, intl, tokenNetwork]);
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';
@@ -251,7 +251,13 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             )}
           </Pressable>
-          <Box flex="1" h="full" position="relative">
+          <Box
+            flex="1"
+            flexDirection="row"
+            h="full"
+            justifyContent="flex-end"
+            position="relative"
+          >
             {independentField === 'OUTPUT' && loading ? (
               <Box
                 h="full"

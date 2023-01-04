@@ -11,9 +11,9 @@ import {
   Form,
   KeyboardDismissView,
   Modal,
+  ToastManager,
   Typography,
   useForm,
-  useToast,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -128,7 +128,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
   const [attention, showAttention] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
-  const toast = useToast();
+
   const ref = useRef({ unmount: false });
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const enableLocalAuthentication = useAppSelector(
@@ -168,7 +168,7 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
         );
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
-        toast.show({ title: intl.formatMessage({ id: errorKey }) });
+        ToastManager.show({ title: intl.formatMessage({ id: errorKey }) });
         return;
       }
 
@@ -181,13 +181,13 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
       }
       // if oldPassword is empty. set password
       if (!oldPassword) {
-        toast.show({
+        ToastManager.show({
           title: intl.formatMessage({
             id: 'msg__password_has_been_set',
           }),
         });
       } else {
-        toast.show({
+        ToastManager.show({
           title: intl.formatMessage({
             id: 'msg__password_changed',
           }),
@@ -197,7 +197,6 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
     },
     [
       navigation,
-      toast,
       intl,
       oldPassword,
       dispatch,

@@ -9,12 +9,12 @@ import {
   Icon,
   IconButton,
   Pressable,
+  Skeleton,
+  Text,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
-import Skeleton from '@onekeyhq/components/src/Skeleton';
-import { Text } from '@onekeyhq/components/src/Typography';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {

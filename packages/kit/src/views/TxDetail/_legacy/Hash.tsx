@@ -3,8 +3,8 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Container, useToast } from '@onekeyhq/components';
-import type { ContentItemProps } from '@onekeyhq/components/src/ContentBox/ContentBasisItem';
+import { Container, ToastManager } from '@onekeyhq/components';
+import type { ContentItemProps } from '@onekeyhq/components/src/Container/ContentBasisItem';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
@@ -15,12 +15,11 @@ export type HashProps = {
 const Hash: FC<HashProps> = (props) => {
   const { hash } = props;
   const intl = useIntl();
-  const toast = useToast();
 
   const copyHashToClipboard = useCallback(() => {
     copyToClipboard(hash ?? '');
-    toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-  }, [hash, toast, intl]);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [hash, intl]);
 
   return (
     <Container.Item

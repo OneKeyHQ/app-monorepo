@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Form, Modal, useForm, useToast } from '@onekeyhq/components';
+import { Form, Modal, ToastManager, useForm } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -35,7 +35,6 @@ const inputCategories = [
 
 const AddImportedOrWatchingAccount = () => {
   const intl = useIntl();
-  const toast = useToast();
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -132,7 +131,7 @@ const AddImportedOrWatchingAccount = () => {
           });
         } catch (e) {
           const errorKey = (e as { key: LocaleIds }).key;
-          toast.show({
+          ToastManager.show({
             title: intl.formatMessage({ id: errorKey }),
           });
           onFailure?.();
@@ -147,7 +146,7 @@ const AddImportedOrWatchingAccount = () => {
       text,
       onSuccess,
       onFailure,
-      toast,
+
       intl,
     ],
   );

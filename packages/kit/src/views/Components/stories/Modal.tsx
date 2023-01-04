@@ -1,13 +1,12 @@
 import { useState } from 'react';
 
-import { Toast } from 'native-base';
-
 import {
   Box,
   Button,
   Center,
   Modal,
   Stack,
+  ToastManager,
   Typography,
 } from '@onekeyhq/components';
 
@@ -57,7 +56,7 @@ const Modal4 = () => (
     hideSecondaryAction
     onPrimaryActionPress={({ onClose }) => {
       onClose?.();
-      Toast.show({
+      ToastManager.show({
         title: '点击了 primary action',
       });
     }}
@@ -81,7 +80,7 @@ const Modal5 = () => {
         visible={visible}
         onPrimaryActionPress={({ onClose }) => {
           onClose?.();
-          Toast.show({
+          ToastManager.show({
             title: '点击了 primary action',
           });
         }}

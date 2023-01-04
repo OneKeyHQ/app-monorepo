@@ -3,16 +3,17 @@ import type { FC, ReactNode } from 'react';
 import { BlurView } from 'expo-blur';
 import { Platform } from 'react-native';
 
-import Box from '../../Box';
-import DesktopDragZoneBox from '../../DesktopDragZoneBox';
-import HStack from '../../HStack';
 import {
   useIsVerticalLayout,
   useSafeAreaInsets,
   useTheme,
   useThemeValue,
   useUserDevice,
-} from '../../Provider/hooks';
+} from '@onekeyhq/components';
+
+import Box from '../../Box';
+import DesktopDragZoneBox from '../../DesktopDragZoneBox';
+import HStack from '../../HStack';
 
 type HeaderProps = {
   headerLeft: () => ReactNode;

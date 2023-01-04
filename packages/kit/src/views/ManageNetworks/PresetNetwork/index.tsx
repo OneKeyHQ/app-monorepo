@@ -12,10 +12,10 @@ import {
   Modal,
   Spinner,
   Switch,
+  ToastManager,
   Typography,
   useForm,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
@@ -79,7 +79,7 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const [visible, setVisible] = useState(false);
   const refData = useRef({ preventRemove: false, isResetting: false });
   const navigation = useNavigation<NavigationProps>();
-  const toast = useToast();
+
   const [rpcUrls, setRpcUrls] = useState<string[]>([]);
   const [defaultRpcURL, setDefaultRpcURL] = useState<string>(rpcURL ?? '');
   const [networkStatus, setNetworkStatus] = useState<Record<string, number>>(
@@ -120,13 +120,15 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
   const onSubmit = useCallback(
     async (data: NetworkValues) => {
       await serviceNetwork.updateNetwork(id, { rpcURL: data.rpcURL });
-      toast.show({ title: intl.formatMessage({ id: 'msg__change_saved' }) });
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__change_saved' }),
+      });
       refData.current.preventRemove = true;
       if (navigation?.canGoBack?.()) {
         navigation.goBack();
       }
     },
-    [serviceNetwork, id, toast, intl, navigation, refData],
+    [serviceNetwork, id, intl, navigation, refData],
   );
 
   useEffect(() => {
@@ -162,9 +164,11 @@ export const PresetNetwork: FC<PresetNetwokProps> = ({ route }) => {
     refData.current.isResetting = true;
     reset({ ...route.params, rpcURL: defaultRpcURL });
     setResetOpened(false);
-    toast.show({ title: intl.formatMessage({ id: 'msg__network_reset' }) });
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__network_reset' }),
+    });
     navigation.popToTop();
-  }, [route.params, toast, intl, reset, navigation, defaultRpcURL, refData]);
+  }, [route.params, intl, reset, navigation, defaultRpcURL, refData]);
 
   const onBeforeRemove = useCallback(
     (e) => {

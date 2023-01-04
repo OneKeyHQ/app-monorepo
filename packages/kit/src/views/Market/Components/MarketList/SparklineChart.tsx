@@ -3,7 +3,7 @@ import { memo, useCallback } from 'react';
 
 import Canvas from 'react-native-canvas';
 
-import { Box } from '@onekeyhq/components/src';
+import { Box } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDevicePixelRatio } from '../../hooks/useMarketLayout';

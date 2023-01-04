@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
-import { Icon, Pressable, Select, useToast } from '@onekeyhq/components';
+import { Icon, Pressable, Select } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NetImage from '../NetImage';
+import ToastManager from '../ToastManager';
 
 type ImageViewerProps = {
   visible: boolean;
@@ -37,7 +38,6 @@ const ImageViewer: FC<ImageViewerProps> = ({
   const [innerVisible, setInnerVisible] = useState(outerVisible);
   const visible = outerVisible ?? innerVisible;
   const intl = useIntl();
-  const toast = useToast();
 
   const screenWidth = useWindowDimensions().width;
   const screenHeight = useWindowDimensions().height;
@@ -64,7 +64,9 @@ const ImageViewer: FC<ImageViewerProps> = ({
       FileSystem.downloadAsync(imageUri, imagePath)
         .then(({ uri }) => {
           MediaLibrary.saveToLibraryAsync(uri);
-          toast.show({ title: intl.formatMessage({ id: 'msg__image_saved' }) });
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'msg__image_saved' }),
+          });
         })
         .catch((error) => {
           console.error(error);
@@ -72,7 +74,7 @@ const ImageViewer: FC<ImageViewerProps> = ({
     } else {
       // No permissions
     }
-  }, [imageUri, intl, toast]);
+  }, [imageUri, intl]);
 
   const onChange = (value: string) => {
     setTimeout(() => {

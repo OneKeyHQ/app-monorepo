@@ -13,9 +13,9 @@ import {
   Keyboard,
   Modal,
   Pressable,
+  ToastManager,
   Typography,
   useIsVerticalLayout,
-  useToast,
 } from '@onekeyhq/components';
 import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -47,7 +47,7 @@ type RouteProps = RouteProp<
 
 export const PriceAlertAddModal: FC = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const [loading, setLoading] = useState(false);
   const route = useRoute<RouteProps>();
   const { token, alerts } = route.params;
@@ -134,7 +134,7 @@ export const PriceAlertAddModal: FC = () => {
     const currency = selectedFiatMoneySymbol;
     if (alerts.find((a) => a.price === newPrice && a.currency === currency)) {
       if (navigation.canGoBack?.()) navigation.goBack();
-      toast.show({
+      ToastManager.show({
         title: intl.formatMessage({ id: 'msg__alert_already_exists' }),
       });
       return;
@@ -162,7 +162,7 @@ export const PriceAlertAddModal: FC = () => {
     }, 100);
   }, [
     intl,
-    toast,
+
     alerts,
     maxDecimals,
     navigation,

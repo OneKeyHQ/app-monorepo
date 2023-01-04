@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
 
-import { useToast } from '@onekeyhq/components';
+import { ToastManager } from '@onekeyhq/components';
 import type {
   IEncodedTx,
   IFeeInfo,
@@ -61,7 +61,7 @@ export function useFeeInfoPayload({
   const feeInfoPayloadCacheRef = useRef<IFeeInfoPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const route = useRoute();
-  const toast = useToast();
+
   let defaultFeePresetIndex = useFeePresetIndex(networkId);
   const swapFeePresetIndex = useAppSelector(
     (s) => s.swapTransactions.swapFeePresetIndex,
@@ -256,7 +256,7 @@ export function useFeeInfoPayload({
             data: { message },
           } = error;
           if (typeof message === 'string') {
-            toast.show({ title: message });
+            ToastManager.show({ title: message });
           }
         }
         setFeeInfoPayload(null);
@@ -266,7 +266,7 @@ export function useFeeInfoPayload({
         setLoading(false);
       }
     })();
-  }, [encodedTx, fetchFeeInfo, setFeeInfoPayload, toast]);
+  }, [encodedTx, fetchFeeInfo, setFeeInfoPayload]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;

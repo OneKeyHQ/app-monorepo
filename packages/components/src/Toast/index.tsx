@@ -3,7 +3,7 @@ import type { ComponentProps, FC } from 'react';
 import Box from '../Box';
 import Icon from '../Icon';
 import Pressable from '../Pressable';
-import { Text } from '../Typography';
+import Text from '../Text';
 
 import type { ICON_NAMES } from '../Icon';
 import type { ThemeValues } from '../Provider/theme';

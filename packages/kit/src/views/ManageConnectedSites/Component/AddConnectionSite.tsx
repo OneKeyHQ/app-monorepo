@@ -3,7 +3,13 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, Input, Text, useToast } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Input,
+  Text,
+  ToastManager,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import walletConnectUtils from '../../../components/WalletConnect/utils/walletConnectUtils';
@@ -22,7 +28,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
   };
   const { getClipboard, canGetClipboard } = useClipboard();
   const { networkImpl } = useActiveWalletAccount();
-  const toast = useToast();
+
   return (
     <Dialog
       visible
@@ -61,7 +67,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
                     });
                   }, 600);
                 } else {
-                  toast.show({
+                  ToastManager.show({
                     title: intl.formatMessage({
                       id: 'msg__this_address_already_exists',
                     }),

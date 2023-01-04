@@ -9,8 +9,8 @@ import {
   Pressable,
   SectionList,
   Typography,
-  utils,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
@@ -104,7 +104,7 @@ const MyWallet = () => {
           {item.name}
         </Typography.Body1Strong>
         <Typography.Body2 color="text-subdued">
-          {utils.shortenAddress(item.address)}
+          {shortenAddress(item.address)}
         </Typography.Body2>
       </Box>
     </Pressable>

@@ -27,7 +27,6 @@ import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import { useActiveWalletAccount } from '../../../../hooks';
 import { useConnectAndCreateExternalAccount } from '../../../ExternalAccount/useConnectAndCreateExternalAccount';
-import { useDefaultNetWork } from '../../Home/hook';
 import { NFTMarketRoutes } from '../../Modals/type';
 
 import { useSearchAddress } from './hook';
@@ -89,11 +88,9 @@ const SearchAddress: FC<{
     });
   }, [headerRight, navigation]);
   const [keyword, setKeyword] = useState<string>('');
-  const defaultNetWork = useDefaultNetWork();
 
   const { loading } = useSearchAddress({
     keyword,
-    network: defaultNetWork,
     onAddressSearch,
   });
   const isVerticalLayout = useIsVerticalLayout();

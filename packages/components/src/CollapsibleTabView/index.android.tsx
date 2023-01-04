@@ -6,9 +6,9 @@ import NestedScrollView from 'react-native-nested-scroll-view';
 
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NativeNestedTabView';
 import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
+import { useThemeValue } from '@onekeyhq/components';
 
 import FlatList from '../FlatList';
-import { useThemeValue } from '../Provider/hooks';
 import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';

@@ -2,12 +2,11 @@
 import type { ComponentProps, FC } from 'react';
 import { memo, useMemo } from 'react';
 
-import { Box, Center, Icon, Image } from '@onekeyhq/components';
+import { Box, Center, Icon, Image, Text } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
-import { Text } from '@onekeyhq/components/src/Typography';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';

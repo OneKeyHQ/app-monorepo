@@ -9,9 +9,9 @@ import {
   Icon,
   Pressable,
   Text,
+  ToastManager,
   Typography,
   useTheme,
-  useToast,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -33,7 +33,7 @@ type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 export const AboutSection = () => {
   const intl = useIntl();
-  const toast = useToast();
+
   const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
   const { themeVariant } = useTheme();
@@ -94,9 +94,9 @@ export const AboutSection = () => {
   const handleCopyVersion = useCallback(
     (version) => {
       copyToClipboard(version);
-      toast.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+      ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
     },
-    [toast, intl],
+    [intl],
   );
   return (
     <Box w="full" mb="6">

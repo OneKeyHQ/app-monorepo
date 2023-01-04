@@ -12,7 +12,8 @@ import LOCALES from '../locale';
 import { Body1Props, Body2Props, SubheadingProps } from '../Typography';
 
 import { SCREEN_SIZE, getSize } from './device';
-import { Context, useLoadCustomFonts } from './hooks';
+import useLoadCustomFonts from './hooks/useLoadCustomFonts';
+import { Context } from './hooks/useProviderValue';
 import COLORS from './theme';
 
 import type { LocaleSymbol } from '../locale';
