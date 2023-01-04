@@ -25,7 +25,7 @@ import * as Error from './errors';
 import { getDeviceFirmwareVersion } from './OneKeyHardware';
 
 import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
-import type { SYSFirmwareInfo } from '../updates/type';
+import type { IResourceUpdateInfo, SYSFirmwareInfo } from '../updates/type';
 import type {
   Features,
   IDeviceType,
@@ -223,7 +223,7 @@ class DeviceUtils {
   async checkTouchNeedUpdateResource(
     features: Features | undefined,
     firmware: SYSFirmwareInfo,
-  ) {
+  ): Promise<IResourceUpdateInfo> {
     const { getDeviceType } = await CoreSDKLoader();
     const deviceType = getDeviceType(features);
     if (deviceType !== 'touch') return { error: null, needUpdate: false };

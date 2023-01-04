@@ -165,19 +165,15 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
           (key) => result[key].indexOf('ONEKEYDATA') > -1,
         );
         if (diskPath) {
-          fs.access(
-            `${diskPath}:`,
-            // eslint-disable-next-line no-bitwise
-            fs.constants.F_OK | fs.constants.R_OK | fs.constants.W_OK,
-            (err) => {
-              if (err) {
-                logger.error('windows disk access error =====> ', err);
-                reject(new Error(ERRORS.DISK_ACCESS_ERROR));
-                return;
-              }
-              resolve(`${diskPath}:`);
-            },
-          );
+          const WinDiskPath = `${diskPath}:`;
+          pollingDiskPathCanAccess(WinDiskPath)
+            .then(() => {
+              resolve(WinDiskPath);
+            })
+            .catch((err) => {
+              logger.debug('mac disk access error =====> ', err);
+              reject(err);
+            });
         } else {
           reject(new Error(ERRORS.NOT_FOUND_DISK_PATH));
         }
@@ -291,7 +287,6 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ipcMain.on('touch/res', async (_, params: any) => {
     logger.info('will update Touch resource file');
-    logger.info('new Version');
     try {
       const checkDevice = await checkDeviceConnect();
       logger.info('connect device: ', checkDevice);
