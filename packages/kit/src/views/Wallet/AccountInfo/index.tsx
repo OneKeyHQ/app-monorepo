@@ -32,6 +32,7 @@ import {
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -308,7 +309,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
       </Box>
 
       <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
-        <AccountMoreMenu offset={30} placement="bottom right">
+        <AccountMoreMenu offset={platformEnv.isNativeAndroid ? 55 : 30}>
           <IconButton
             circle
             size={isSmallView ? 'xl' : 'lg'}
