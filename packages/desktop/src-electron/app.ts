@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
-import { createServer } from 'http';
 import os from 'os';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
@@ -19,14 +18,13 @@ import Config from 'electron-config';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
-import { address } from 'ip';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
 import type { PrefType } from './preload';
-import type { Server, ServerResponse } from 'http';
 
 const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
 const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
@@ -425,52 +423,6 @@ function createMainWindow() {
         // browserWindow.minimize();
       }
     }
-  });
-
-  let server: Server;
-
-  const resMap: Record<string, ServerResponse> = {};
-  ipcMain.on('server/start', (event, port: number) => {
-    try {
-      if (!server) {
-        server = createServer({ keepAlive: true }, (req, res) => {
-          // console.log('http req = ', req);
-          event.reply('server/listener', {
-            requestId: '123456',
-            type: req.method,
-            url: req.url,
-          });
-          resMap['123456'] = res;
-          // res.writeHead(200);
-          // res.end('hello world\n');
-        });
-      }
-
-      if (!server.listening) {
-        server.listen(port);
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const ipAddress = address();
-      event.reply('server/start/res', {
-        data: `${ipAddress as string}:${port}`,
-        success: true,
-      });
-    } catch (e: any) {
-      event.reply('server/start/res', { success: false });
-    }
-  });
-
-  ipcMain.on('server/respond', (_, args) => {
-    const { requestId, code, type, body } = args;
-    const res = resMap[requestId];
-    if (res) {
-      res.writeHead(200);
-      res.end(body);
-    }
-  });
-
-  ipcMain.on('server/stop', () => {
-    server.close();
   });
 
   return browserWindow;

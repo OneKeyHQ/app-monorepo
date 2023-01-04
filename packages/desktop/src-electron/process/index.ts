@@ -3,6 +3,7 @@ import logger from 'electron-log';
 
 import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
+import HttpServerInit from './HttpServer';
 
 import type { LocalStore } from '../libs/store';
 import type { BrowserWindow } from 'electron';
@@ -43,6 +44,7 @@ const init = async ({ mainWindow, store }: Dependencies) => {
   if (!process.mas) {
     autoUpdateInit({ mainWindow, store });
   }
+  HttpServerInit();
 };
 
 export default init;
