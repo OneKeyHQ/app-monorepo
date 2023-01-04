@@ -543,8 +543,7 @@ class ServiceHardware extends ServiceBase {
     }
     if (!connectId) return;
 
-    const firmware: SYSFirmwareInfo | undefined =
-      payload.release as unknown as SYSFirmwareInfo;
+    const firmware: SYSFirmwareInfo | undefined = payload.release;
     let hasSysUpgrade = false;
     let hasFirmwareForce = false;
 
