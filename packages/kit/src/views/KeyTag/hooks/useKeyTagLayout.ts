@@ -37,9 +37,13 @@ export const useStartedKeyTagImage = () => {
     const space = screenWidth > 800 ? 24 : 72;
     return (fullWidth - space) / 2;
   }, [isVertical, screenWidth]);
-  const imageHeight = 240;
-  const imageWidth = 342;
-  return { imageHeight, imageBoxWidth, imageWidth };
+  const imageRatio = 240 / 342;
+  const imageBoxRatio = 241 / 342;
+  const imageWidth = imageBoxWidth > 342 ? 342 : imageBoxWidth;
+  const imageHeight = imageWidth * imageRatio;
+  const imageBoxHeight =
+    imageBoxWidth * imageBoxRatio > 241 ? 242 : imageBoxWidth * imageBoxRatio;
+  return { imageHeight, imageBoxWidth, imageWidth, imageBoxHeight };
 };
 
 export const useImportKeytagSpaceSize = () => {
