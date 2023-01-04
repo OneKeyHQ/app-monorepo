@@ -7,6 +7,7 @@
 #import <React/RCTLinkingManager.h>
 #import <React/RCTConvert.h>
 #import "RCTRootView+Orientation.h"
+#import <React/RCTAppSetupUtils.h>
 
 #ifdef DEBUG
 #else
@@ -17,6 +18,7 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+  RCTAppSetupPrepareApp(application);
   [JPushManager shareInstance];
   
 #ifdef DEBUG
@@ -28,7 +30,7 @@
 #endif
   
   RCTBridge *bridge = [self.reactDelegate createBridgeWithDelegate:self launchOptions:launchOptions];
-  RCTRootView *rootView = [self.reactDelegate createRootViewWithBridge:bridge moduleName:@"main" initialProperties:launchOptions];
+  RCTRootView *rootView = RCTAppSetupDefaultRootView(bridge, @"main", launchOptions);
   rootView.loadingView = nil;
   id rootViewBackgroundColor = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"RCTRootViewBackgroundColor"];
   if (rootViewBackgroundColor != nil) {
