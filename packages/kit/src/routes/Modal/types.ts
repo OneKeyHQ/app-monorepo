@@ -30,6 +30,7 @@ export type { ManageConnectedSitesRoutesParams } from '../../views/ManageConnect
 export type { PushNotificationRoutesParams } from '../../views/PushNotification/types';
 export type { WebviewRoutesParams } from './WebView';
 export type { RevokeRoutesParams } from './Revoke';
+export type { BulkSenderRoutesParams } from './BulkSender';
 // eslint-disable-next-line import/no-cycle
 export type { NFTMarketRoutesParams } from './NFTMarket';
 export type { OverviewModalRoutesParams } from './Overview';
