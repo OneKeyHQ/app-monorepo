@@ -7,6 +7,7 @@ import { promisify } from 'util';
 import AdmZip from 'adm-zip';
 import Axios from 'axios';
 import { ipcMain } from 'electron';
+import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { WebUSB } from 'usb';
 
@@ -221,9 +222,12 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       return '';
     });
 
-  const ZipFilePath = path.join(__dirname, '../public/res-updater.zip');
-  const ExtractPath = path.join(__dirname, '../public/res');
-  const SourceFolder = path.join(__dirname, '../public/res/res');
+  const resourcePath = isDev
+    ? path.join(__dirname, '../public')
+    : path.join(process.resourcesPath, 'static');
+  const ZipFilePath = path.join(resourcePath, 'res-updater.zip');
+  const ExtractPath = path.join(resourcePath, 'res');
+  const SourceFolder = path.join(resourcePath, 'res/res');
 
   const downloadFile = (fileUrl: string) => {
     const writer = fs.createWriteStream(ZipFilePath);
