@@ -9,15 +9,14 @@ import Axios from 'axios';
 import { ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
-import { WebUSB } from 'usb';
 
 import type { BrowserWindow } from 'electron';
 
 const finished = promisify(stream.finished);
 
-const ONEKEY_FILTER = [
-  { vendorId: 0x483, productId: 0x5720 }, // mass storage touch
-];
+// const ONEKEY_FILTER = [
+//   { vendorId: 0x483, productId: 0x5720 }, // mass storage touch
+// ];
 
 const ERRORS = {
   NOT_FOUND_DEVICE: 'NOT_FOUND_DEVICE',
@@ -26,48 +25,48 @@ const ERRORS = {
 };
 
 const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
-  const webusb = new WebUSB({
-    allowAllDevices: true,
-  });
+  // const webusb = new WebUSB({
+  //   allowAllDevices: true,
+  // });
 
-  const searchOneKeyTouch = async () => {
-    const devices = await webusb.getDevices();
-    const onekeyDevices = devices.filter((dev) => {
-      const isOneKey = ONEKEY_FILTER.some(
-        (desc) =>
-          dev.vendorId === desc.vendorId && dev.productId === desc.productId,
-      );
-      return isOneKey;
-    });
+  // const searchOneKeyTouch = async () => {
+  //   const devices = await webusb.getDevices();
+  //   const onekeyDevices = devices.filter((dev) => {
+  //     const isOneKey = ONEKEY_FILTER.some(
+  //       (desc) =>
+  //         dev.vendorId === desc.vendorId && dev.productId === desc.productId,
+  //     );
+  //     return isOneKey;
+  //   });
 
-    return onekeyDevices;
-  };
+  //   return onekeyDevices;
+  // };
 
-  const checkDeviceConnect = async () =>
-    new Promise((resolve, reject) => {
-      let intervalId: ReturnType<typeof setInterval> | null = null;
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  // const checkDeviceConnect = async () =>
+  //   new Promise((resolve, reject) => {
+  //     let intervalId: ReturnType<typeof setInterval> | null = null;
+  //     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-      const cleanTimer = () => {
-        if (intervalId) {
-          clearInterval(intervalId);
-        }
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-      };
-      intervalId = setInterval(async () => {
-        const devices = await searchOneKeyTouch();
-        if (devices.length) {
-          cleanTimer();
-          resolve(devices);
-        }
-      }, 1500);
-      timeoutId = setTimeout(() => {
-        cleanTimer();
-        reject(new Error(ERRORS.NOT_FOUND_DEVICE));
-      }, 1000 * 60 * 1);
-    });
+  //     const cleanTimer = () => {
+  //       if (intervalId) {
+  //         clearInterval(intervalId);
+  //       }
+  //       if (timeoutId) {
+  //         clearTimeout(timeoutId);
+  //       }
+  //     };
+  //     intervalId = setInterval(async () => {
+  //       const devices = await searchOneKeyTouch();
+  //       if (devices.length) {
+  //         cleanTimer();
+  //         resolve(devices);
+  //       }
+  //     }, 1500);
+  //     timeoutId = setTimeout(() => {
+  //       cleanTimer();
+  //       reject(new Error(ERRORS.NOT_FOUND_DEVICE));
+  //     }, 1000 * 60 * 1);
+  //   });
 
   const getPlatform = () => {
     switch (process.platform) {
@@ -83,7 +82,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   const pollingDiskPathCanAccess = (diskPath: string) =>
     new Promise((resolve, reject) => {
       let tryCount = 0;
-      const maxTryCount = 20;
+      const maxTryCount = 60;
       let intervalId: ReturnType<typeof setInterval> | null = null;
 
       const cleanTimer = () => {
@@ -312,8 +311,8 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   ipcMain.on('touch/res', async (_, params: { resourceUrl: string }) => {
     logger.info('will update Touch resource file');
     try {
-      const checkDevice = await checkDeviceConnect();
-      logger.info('connect device: ', checkDevice);
+      // const checkDevice = await checkDeviceConnect();
+      // logger.info('connect device: ', checkDevice);
 
       const diskPath = await findDiskPath();
       logger.info('disk path: ', diskPath);
