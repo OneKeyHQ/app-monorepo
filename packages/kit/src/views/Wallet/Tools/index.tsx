@@ -48,6 +48,16 @@ type DataItem = {
 
 const data: DataItem[] = [
   {
+    key: 'annual',
+    icon: {
+      name: 'ShieldCheckSolid',
+      color: 'decorative-icon-one',
+    },
+    iconBg: 'decorative-surface-one',
+    title: 'title__contract_approvals',
+    description: 'title__token_approvals_desc',
+  },
+  {
     key: 'revoke',
     icon: {
       name: 'ShieldCheckSolid',
@@ -124,7 +134,9 @@ const ToolsPage: FC = () => {
 
   const handlePress = useCallback(
     (key: string) => {
-      if (key === 'revoke') {
+      if (key === 'annual') {
+        navigation.navigate(HomeRoutes.AnnualLoading);
+      } else if (key === 'revoke') {
         navigation.navigate(HomeRoutes.Revoke);
       } else if (key === 'explorer') {
         openAddressDetails(
