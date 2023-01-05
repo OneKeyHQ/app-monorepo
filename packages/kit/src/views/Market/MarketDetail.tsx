@@ -230,7 +230,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     token?.networkId,
     token?.tokenIdOnNetwork,
   );
-  const { cryptoCurrency, sellEnable } = useMoonpaySell(network?.id, token);
+  const { cryptoCurrency } = useMoonpaySell(network?.id, token);
 
   if (isVertical) {
     return children ?? null;
@@ -281,7 +281,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {sellEnable ? (
+              {cryptoCurrency ? (
                 <PurchaseButton
                   onPress={() => {
                     navigation.navigate(RootRoutes.Modal, {
@@ -289,7 +289,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                       params: {
                         screen: FiatPayRoutes.AmountInputModal,
                         params: {
-                          token: cryptoCurrency as CurrencyType,
+                          token: cryptoCurrency,
                           type: 'Buy',
                         },
                       },
