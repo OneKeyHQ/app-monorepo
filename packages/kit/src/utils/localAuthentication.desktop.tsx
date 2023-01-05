@@ -40,8 +40,13 @@ export const localAuthenticate: () => Promise<LocalAuthenticationResult> =
     }
   };
 
-export const savePassword = (password: string) =>
-  window?.desktopApi.secureSetItemAsync('password', password);
+export const savePassword = (password: string) => {
+  if (password) {
+    window?.desktopApi.secureSetItemAsync('password', password);
+  } else {
+    window?.desktopApi.secureDelItemAsync('password');
+  }
+};
 
 export const getPassword = () =>
   window?.desktopApi.secureGetItemAsync('password');
