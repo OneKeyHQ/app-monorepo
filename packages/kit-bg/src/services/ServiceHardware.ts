@@ -324,6 +324,7 @@ class ServiceHardware extends ServiceBase {
       .firmwareUpdateV2(connectId, {
         updateType: firmwareType,
         forcedUpdateRes,
+        platform: platformEnv.symbol ?? 'web',
       })
       .finally(() => {
         hardwareSDK.off('ui-firmware-tip', listener);
