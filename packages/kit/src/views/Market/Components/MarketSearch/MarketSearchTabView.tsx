@@ -73,5 +73,4 @@ const MarketSearchTabView: FC<Props> = ({
     />
   );
 };
-export { SceneMap } from 'react-native-tab-view';
 export default MarketSearchTabView;

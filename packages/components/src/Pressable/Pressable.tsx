@@ -6,7 +6,7 @@ import { Pressable as NBPressable } from 'native-base';
 import { enableHaptics } from '@onekeyhq/shared/src/haptics';
 
 import useProviderValue from '../Provider/hooks/useProviderValue';
-import { autoHideSelectFunc } from '../utils/SelectAutoHide';
+import { beforeOnPress } from '../utils/beforeOnPress';
 
 export type PressableItemProps = ComponentProps<typeof NBPressable>;
 
@@ -18,8 +18,7 @@ const PressableCapture = forwardRef<typeof NBPressable, PressableItemProps>(
         if (hapticsEnabled && onPress) {
           enableHaptics();
         }
-        autoHideSelectFunc(e);
-        onPress?.(e);
+        beforeOnPress(e, onPress);
       },
       [onPress, hapticsEnabled],
     );

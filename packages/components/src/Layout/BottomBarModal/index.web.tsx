@@ -1,6 +1,5 @@
 /* eslint-disable react/prop-types */
-import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef, useEffect, useRef } from 'react';
+import { forwardRef } from 'react';
 
 import { Modalize } from 'react-native-modalize';
 
@@ -10,6 +9,7 @@ import Box from '../../Box';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 import Typography from '../../Typography';
+import { useForwardRef } from '../../utils/useForwardRef';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
 import type {
@@ -17,35 +17,9 @@ import type {
   TBottomBarRefAttr,
 } from '../BottomTabs/types';
 
-export const useCombinedRefs = (
-  ...refs: (
-    | ForwardedRef<any>
-    | ((c: MutableRefObject<any>['current']) => void)
-  )[]
-) => {
-  const targetRef = useRef();
-
-  useEffect(() => {
-    refs.forEach((ref) => {
-      if (!ref) {
-        return;
-      }
-
-      if (typeof ref === 'function') {
-        ref(targetRef.current);
-      } else {
-        ref.current = targetRef.current;
-      }
-    });
-  }, [refs]);
-
-  return targetRef;
-};
-
 const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
   (props, ref) => {
-    const modalizeRef = useRef(null);
-    const combinedRef = useCombinedRefs(ref, modalizeRef);
+    const modalizeRef = useForwardRef(ref);
     const [defaultBgColor, handleBgColor] = useThemeValue([
       'background-default',
       'icon-subdued',
@@ -53,7 +27,7 @@ const BottomBarModal = forwardRef<TBottomBarRefAttr, TBottomBarModalProps>(
     return (
       <Modalize
         adjustToContentHeight
-        ref={combinedRef}
+        ref={modalizeRef}
         withHandle={false}
         onClose={props.onClose}
         onOpen={props.onOpen}

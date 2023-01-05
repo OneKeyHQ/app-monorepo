@@ -3,12 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  useIsVerticalLayout,
-  useThemeValue,
-  useUserDevice,
-} from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import {
   useActiveWalletAccount,
@@ -36,13 +31,11 @@ import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { WalletHomeTabEnum } from './type';
 
+const AccountHeader = () => <AccountInfo />;
+
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
@@ -74,7 +67,6 @@ const WalletTabs: FC = () => {
     <>
       <Tabs.Container
         initialTabName={homeTabName}
-        // @ts-ignore fix type when remove react-native-collapsible-tab-view
         refreshing={refreshing}
         onRefresh={async () => {
           setRefreshing(true);
@@ -97,9 +89,7 @@ const WalletTabs: FC = () => {
         onTabChange={({ tabName }) => {
           backgroundApiProxy.dispatch(setHomeTabName(tabName));
         }}
-        renderHeader={() => <AccountInfo />}
-        width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
-        pagerProps={{ scrollEnabled: false }}
+        renderHeader={AccountHeader}
         headerHeight={
           isVerticalLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT
@@ -107,18 +97,11 @@ const WalletTabs: FC = () => {
         }
         containerStyle={{
           maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-          width: '100%',
+          // reduce the width on iPad, sidebar's width is 244
+          width: isVerticalLayout ? screenWidth : screenWidth - 224,
           marginHorizontal: 'auto', // Center align vertically
-          backgroundColor: tabbarBgColor,
           alignSelf: 'center',
           flex: 1,
-        }}
-        headerContainerStyle={{
-          shadowOffset: { width: 0, height: 0 },
-          shadowColor: 'transparent',
-          elevation: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: borderDefault,
         }}
       >
         <Tabs.Tab

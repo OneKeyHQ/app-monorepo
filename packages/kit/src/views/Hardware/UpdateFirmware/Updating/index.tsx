@@ -5,7 +5,6 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
-import { useDeepCompareMemo } from 'use-deep-compare';
 
 import { Modal, ToastManager } from '@onekeyhq/components';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -67,10 +66,6 @@ const UpdatingModal: FC = () => {
   const [progressStep, setProgressStep] = useState<ProgressStepType>();
   const progressStepRef = useRef<ProgressStepType>();
   const [progressState, setProgressState] = useState<ProgressStateType>();
-  const progressStateMemo = useDeepCompareMemo(
-    () => progressState,
-    [progressState],
-  );
 
   useEffect(() => {
     progressStepRef.current = progressStep;
@@ -86,17 +81,13 @@ const UpdatingModal: FC = () => {
     [device],
   );
 
-  const hasFailure = useMemo(
-    () => progressStateMemo === 'failure',
-    [progressStateMemo],
-  );
+  const hasFailure = progressState === 'failure';
   const hasStepDone = useMemo(
     () => progressStep === 'done-step',
     [progressStep],
   );
 
   const [progress, setProgress] = useState(0);
-  const progressMemo = useDeepCompareMemo(() => progress, [progress]);
   const [maxProgress, setMaxProgress] = useState(0);
   const [progressStepDesc, setProgressStepDesc] = useState('Updating...');
 
@@ -464,7 +455,7 @@ const UpdatingModal: FC = () => {
       {hasStepDone || hasFailure ? (
         <StateView stateInfo={stateViewInfo} />
       ) : (
-        <RunningView progress={progressMemo} hint={progressStepDesc} />
+        <RunningView progress={progress} hint={progressStepDesc} />
       )}
     </Modal>
   );
