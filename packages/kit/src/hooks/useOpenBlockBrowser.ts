@@ -61,8 +61,8 @@ export default function useOpenBlockBrowser(
   );
 
   const openAddressDetails = useCallback(
-    (txId: string | null | undefined, title?: string) => {
-      const url = buildAddressDetailsUrl(network, txId);
+    (address: string | null | undefined, title?: string) => {
+      const url = buildAddressDetailsUrl(network, address);
 
       openUrl(
         url,

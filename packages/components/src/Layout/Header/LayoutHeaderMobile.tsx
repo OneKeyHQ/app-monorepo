@@ -10,9 +10,7 @@ const headerLeft = () => <WalletSelectorTrigger />;
 const headerRight = () => (
   <HStack space={3} alignItems="center">
     <NetworkAccountSelectorTriggerMobile />
-    <HomeMoreMenu
-      offset={platformEnv.isNativeAndroid ? 25 : 0}
-    >
+    <HomeMoreMenu offset={platformEnv.isNativeAndroid ? 25 : 0}>
       <IconButton
         name="EllipsisVerticalOutline"
         type="plain"
