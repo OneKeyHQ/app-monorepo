@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useDebounce, useNetwork } from '@onekeyhq/kit/src/hooks';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import type { BulkSenderRoutes, BulkSenderRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/native';
@@ -77,31 +78,44 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   onSelect,
 }) => {
   const intl = useIntl();
+  const closeModal = useModalClose();
   const onPress = useCallback(() => {
     onSelect?.(token);
-  }, [onSelect, token]);
+    closeModal();
+  }, [onSelect, closeModal, token]);
 
   return (
-    <Pressable.Item px={4} py={2} borderRadius={12} onPress={onPress}>
-      <HStack alignItems="center">
-        <TokenComponent
-          flex={1}
-          size={8}
-          showInfo
-          showTokenVerifiedIcon={false}
-          token={token}
-          name={token.symbol}
-          showExtra={false}
-          description={intl.formatMessage(
-            { id: 'content__balance_str' },
-            {
-              0: balance,
-            },
-          )}
-        />
-        <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-      </HStack>
-    </Pressable.Item>
+    <Pressable
+      width="full"
+      display="flex"
+      justifyContent="space-between"
+      alignItems="center"
+      overflow="hidden"
+      flexDirection="row"
+      key={token.tokenIdOnNetwork}
+      px={4}
+      py={2}
+      borderRadius={12}
+      onPress={onPress}
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
+    >
+      <TokenComponent
+        size={8}
+        showInfo
+        showTokenVerifiedIcon={false}
+        token={token}
+        name={token.symbol}
+        showExtra={false}
+        description={intl.formatMessage(
+          { id: 'content__balance_str' },
+          {
+            0: balance,
+          },
+        )}
+      />
+      <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+    </Pressable>
   );
 };
 

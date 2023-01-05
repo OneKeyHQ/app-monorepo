@@ -102,13 +102,9 @@ function TokenOutbox(props: Props) {
     [balances, intl, initialToken, selectedToken],
   );
 
-  const handleOnTokenSelected = useCallback(
-    (token: Token) => {
-      setSelectedToken(token);
-      navigation.goBack();
-    },
-    [navigation],
-  );
+  const handleOnTokenSelected = useCallback((token: Token) => {
+    setSelectedToken(token);
+  }, []);
 
   const handleOpenTokenSelector = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
