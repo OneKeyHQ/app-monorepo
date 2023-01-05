@@ -365,9 +365,7 @@ function TxHistoryListViewComponent({
   if (!accountId || !networkId) {
     return null;
   }
-  const SectionListComponent = (
-    isHomeTab ? Tabs.SectionList : SectionList
-  ) as typeof SectionList;
+  const SectionListComponent = isHomeTab ? Tabs.SectionList : SectionList;
 
   return (
     <TxHistoryListSectionsMemo

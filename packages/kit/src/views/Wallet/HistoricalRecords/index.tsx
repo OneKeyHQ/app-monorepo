@@ -236,9 +236,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Center>
   );
 
-  const ListElementType = isTab
-    ? (Tabs.SectionList as typeof SectionList)
-    : SectionList;
+  const ListElementType = isTab ? Tabs.SectionList : SectionList;
 
   return (
     <ListElementType

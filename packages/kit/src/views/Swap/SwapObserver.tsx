@@ -91,7 +91,7 @@ const NetworkStatusObserver = () => {
       }
     }
     main();
-  }, [prevResponseTime, responseTime]);
+  }, [networkStatus.status?.responseTime, prevResponseTime, responseTime]);
   return null;
 };
 
