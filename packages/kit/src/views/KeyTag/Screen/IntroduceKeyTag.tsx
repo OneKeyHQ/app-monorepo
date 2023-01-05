@@ -41,7 +41,7 @@ const Introduce = () => {
       </Box>
     );
     res.detail = (
-      <Box h="270px">
+      <Box>
         <Typography.DisplayLarge
           fontSize="24px"
           fontWeight={700}
@@ -58,6 +58,7 @@ const Introduce = () => {
         </Typography.Body1>
         <Button
           type="primary"
+          size="xl"
           onPress={() => {
             navigation.navigate(KeyTagRoutes.KeyTagBackUpWallet);
           }}
@@ -71,11 +72,11 @@ const Introduce = () => {
   }, [imageHeight, imageWidth, intl, marginT, navigation]);
   return (
     <LayoutContainer backButton>
-      <Box flexDirection={isVertical ? 'column' : 'row'}>
+      <Box flexDirection={isVertical ? 'column-reverse' : 'row'}>
         {isVertical ? (
           <>
-            {components.image}
             {components.detail}
+            {components.image}
           </>
         ) : (
           <>

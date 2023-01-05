@@ -71,7 +71,7 @@
     "react-native-confirmation-code-field": "^7.2.0",
     "react-native-crypto": "^2.2.0",
     "react-native-fast-image": "^8.6.3",
-    "react-native-flipper": "^0.174.0",
+    "react-native-flipper": "0.162.0",
     "react-native-gesture-handler": "^2.8.0",
     "react-native-get-random-values": "^1.8.0",
     "react-native-in-app-review": "^4.2.1",

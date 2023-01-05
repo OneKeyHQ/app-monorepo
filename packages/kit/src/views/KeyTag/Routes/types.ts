@@ -20,11 +20,13 @@ export type IKeytagRoutesParams = {
   [KeyTagRoutes.KeyTagVerifyPassword]: {
     walletId: string;
     wallet?: IWallet;
+    navigateMode?: boolean;
   };
   [KeyTagRoutes.KeyTagAttention]: {
     walletId: string;
     password: string;
     wallet?: IWallet;
+    navigateMode?: boolean;
   };
   [HomeRoutes.HomeOnboarding]: NavigatorScreenParams<IOnboardingRoutesParams>;
 };

@@ -69,7 +69,7 @@
     "@onekeyfe/hd-web-sdk": "0.2.15",
     "@onekeyfe/inpage-providers-hub": "1.1.13",
     "@onekeyfe/js-sdk": "1.1.5",
-    "@onekeyfe/network-list": "1.6.35",
+    "@onekeyfe/network-list": "1.6.36",
     "@onekeyfe/onekey-aptos-provider": "1.1.13",
     "@onekeyfe/onekey-cross-webview": "1.1.13",
     "@web3-react/core": "8.0.35-beta.0",

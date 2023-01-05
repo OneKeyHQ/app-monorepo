@@ -1,8 +1,4 @@
-<p align="center">
-<img width="200" src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_logo_badge_border.png?raw=trueg"/>
-</p>
-
----
+# OneKey - Open Source Crypto Wallet
 
 [![Github Stars](https://img.shields.io/github/stars/OneKeyHQ/app-monorepo?t&logo=github&style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/stargazers)
 [![Version](https://img.shields.io/github/release/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/releases)
@@ -13,9 +9,14 @@
 [![Discord](https://img.shields.io/discord/868309113942196295?style=for-the-badge&labelColor=000)](https://discord.gg/onekey)
 [![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ?style=for-the-badge&labelColor=000)](https://twitter.com/OneKeyHQ)
 
-<p align="center">
-<img src="https://github.com/rayston92/graph_bed/blob/master/img/repo-hero-bg.png?raw=true"/>
-</p>
+
+[![Appstore](https://github.com/rayston92/graph_bed/blob/275d053220d5b54b32b01ce4c4985210951043c5/img/app_store.svg)](https://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473)
+[![Playstore](https://github.com/rayston92/graph_bed/blob/275d053220d5b54b32b01ce4c4985210951043c5/img/play.svg
+)](https://play.google.com/store/apps/details?id=so.onekey.app.wallet)
+
+- [Desktop clients: macOS, Windows & Linux](https://onekey.so/zh_CN/download?client=desktop)
+- [Browser extensions: Chrome, Firefox, Edge & Brave](https://onekey.so/zh_CN/download?client=browserExtension)
+- [Bridge](https://onekey.so/zh_CN/download?client=bridge)
 
 
 ## Community & Support
@@ -166,5 +167,5 @@ Check out where we are now!
 
 ## ⚖️ License
 
-OneKey is available under the [MIT](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE) license. 
+OneKey is available under the [MIT](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE) license.
 Free for commercial and non-commercial use.

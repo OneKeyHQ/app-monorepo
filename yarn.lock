@@ -5455,10 +5455,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.35":
-  version: 1.6.35
-  resolution: "@onekeyfe/network-list@npm:1.6.35"
-  checksum: 06ed2ef0ee53cd4980337dded9fedf8ebe1e232dd55883bb78918e5472a0b0b9868eff4006fe4e35362c488651b2cf926506df860b0191cb30cc90d4572c5b00
+"@onekeyfe/network-list@npm:1.6.36":
+  version: 1.6.36
+  resolution: "@onekeyfe/network-list@npm:1.6.36"
+  checksum: c4a3a1d4dfec07929c0ed4444e49c360f37aa82c7c1cf9e216a27d69dc2cfa476d7b646a7fb6ce462f86ccd640d7ea0ad1e7b19775a4245fab8001851e258a80
   languageName: node
   linkType: hard
 
@@ -5643,7 +5643,7 @@ __metadata:
     "@onekeyfe/hd-web-sdk": 0.2.15
     "@onekeyfe/inpage-providers-hub": 1.1.13
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.35
+    "@onekeyfe/network-list": 1.6.36
     "@onekeyfe/onekey-aptos-provider": 1.1.13
     "@onekeyfe/onekey-cross-webview": 1.1.13
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
@@ -5787,7 +5787,7 @@ __metadata:
     react-native-confirmation-code-field: ^7.2.0
     react-native-crypto: ^2.2.0
     react-native-fast-image: ^8.6.3
-    react-native-flipper: ^0.174.0
+    react-native-flipper: 0.162.0
     react-native-gesture-handler: ^2.8.0
     react-native-get-random-values: ^1.8.0
     react-native-in-app-review: ^4.2.1
@@ -5984,6 +5984,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyhq/components": "*"
+    "@react-navigation/devtools": ^6.0.15
     "@reduxjs/toolkit": ^1.6.2
     "@types/d3-scale": ^4.0.2
     "@types/d3-shape": ^3.1.0
@@ -7074,6 +7075,19 @@ __metadata:
   peerDependencies:
     react: "*"
   checksum: 02a00792e96ded2c2859b43d435fc6d6b6e84f6b1a0a04254b09f8742620ab384a99e745e0a918d334ef27f64cd8552d414579059046284af330e3efae77cba9
+  languageName: node
+  linkType: hard
+
+"@react-navigation/devtools@npm:^6.0.15":
+  version: 6.0.15
+  resolution: "@react-navigation/devtools@npm:6.0.15"
+  dependencies:
+    deep-equal: ^2.0.5
+    nanoid: ^3.1.23
+    stacktrace-parser: ^0.1.10
+  peerDependencies:
+    react: "*"
+  checksum: b92832cf08876413b8b37f96be620313c4a3869036327beaf4750cc02d7a9353cc00065a1f64cfb6c46b2d800754a63d0c47c152b6b0540379fd31a15b0a1bac
   languageName: node
   linkType: hard
 
@@ -14622,6 +14636,29 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"deep-equal@npm:^2.0.5":
+  version: 2.1.0
+  resolution: "deep-equal@npm:2.1.0"
+  dependencies:
+    call-bind: ^1.0.2
+    es-get-iterator: ^1.1.2
+    get-intrinsic: ^1.1.3
+    is-arguments: ^1.1.1
+    is-date-object: ^1.0.5
+    is-regex: ^1.1.4
+    isarray: ^2.0.5
+    object-is: ^1.1.5
+    object-keys: ^1.1.1
+    object.assign: ^4.1.4
+    regexp.prototype.flags: ^1.4.3
+    side-channel: ^1.0.4
+    which-boxed-primitive: ^1.0.2
+    which-collection: ^1.0.1
+    which-typed-array: ^1.1.8
+  checksum: a3efc772f14372d2a88bb1e414ab2218cf23cc77673521bbccbb2fc128dd8b6cccfad05eb35b9a8a4669bd7f3ecebaa137beebdf549b7be56c617bd5488ca987
+  languageName: node
+  linkType: hard
+
 "deep-extend@npm:^0.6.0":
   version: 0.6.0
   resolution: "deep-extend@npm:0.6.0"
@@ -15915,6 +15952,22 @@ colour@latest:
     string.prototype.trimstart: ^1.0.6
     unbox-primitive: ^1.0.2
   checksum: 00564779ddaf7fb977ab5aa2b8ea2cbd4fa2335ad5368f788bd0bb094c86bc1790335dd9c3e30374bb0af2fa54c724fb4e0c73659dcfe8e427355a56f2b65946
+  languageName: node
+  linkType: hard
+
+"es-get-iterator@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "es-get-iterator@npm:1.1.2"
+  dependencies:
+    call-bind: ^1.0.2
+    get-intrinsic: ^1.1.0
+    has-symbols: ^1.0.1
+    is-arguments: ^1.1.0
+    is-map: ^2.0.2
+    is-set: ^2.0.2
+    is-string: ^1.0.5
+    isarray: ^2.0.5
+  checksum: f75e66acb6a45686fa08b3ade9c9421a70d36a0c43ed4363e67f4d7aab2226cb73dd977cb48abbaf75721b946d3cd810682fcf310c7ad0867802fbf929b17dcf
   languageName: node
   linkType: hard
 
@@ -18146,6 +18199,15 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"for-each@npm:^0.3.3":
+  version: 0.3.3
+  resolution: "for-each@npm:0.3.3"
+  dependencies:
+    is-callable: ^1.1.3
+  checksum: 6c48ff2bc63362319c65e2edca4a8e1e3483a2fabc72fbe7feaf8c73db94fc7861bd53bc02c8a66a0c1dd709da6b04eec42e0abdd6b40ce47305ae92a25e5d28
+  languageName: node
+  linkType: hard
+
 "for-in@npm:^0.1.3":
   version: 0.1.8
   resolution: "for-in@npm:0.1.8"
@@ -20143,7 +20205,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"is-arguments@npm:^1.0.4":
+"is-arguments@npm:^1.0.4, is-arguments@npm:^1.1.0, is-arguments@npm:^1.1.1":
   version: 1.1.1
   resolution: "is-arguments@npm:1.1.1"
   dependencies:
@@ -20218,7 +20280,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"is-callable@npm:^1.1.4, is-callable@npm:^1.2.7":
+"is-callable@npm:^1.1.3, is-callable@npm:^1.1.4, is-callable@npm:^1.2.7":
   version: 1.2.7
   resolution: "is-callable@npm:1.2.7"
   checksum: 61fd57d03b0d984e2ed3720fb1c7a897827ea174bd44402878e059542ea8c4aeedee0ea0985998aa5cc2736b2fa6e271c08587addb5b3959ac52cf665173d1ac
@@ -20309,7 +20371,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"is-date-object@npm:^1.0.1":
+"is-date-object@npm:^1.0.1, is-date-object@npm:^1.0.5":
   version: 1.0.5
   resolution: "is-date-object@npm:1.0.5"
   dependencies:
@@ -20514,6 +20576,13 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"is-map@npm:^2.0.1, is-map@npm:^2.0.2":
+  version: 2.0.2
+  resolution: "is-map@npm:2.0.2"
+  checksum: ace3d0ecd667bbdefdb1852de601268f67f2db725624b1958f279316e13fecb8fa7df91fd60f690d7417b4ec180712f5a7ee967008e27c65cfd475cc84337728
+  languageName: node
+  linkType: hard
+
 "is-nan@npm:^1.2.1":
   version: 1.3.2
   resolution: "is-nan@npm:1.3.2"
@@ -20691,6 +20760,13 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"is-set@npm:^2.0.1, is-set@npm:^2.0.2":
+  version: 2.0.2
+  resolution: "is-set@npm:2.0.2"
+  checksum: b64343faf45e9387b97a6fd32be632ee7b269bd8183701f3b3f5b71a7cf00d04450ed8669d0bd08753e08b968beda96fca73a10fd0ff56a32603f64deba55a57
+  languageName: node
+  linkType: hard
+
 "is-shared-array-buffer@npm:^1.0.2":
   version: 1.0.2
   resolution: "is-shared-array-buffer@npm:1.0.2"
@@ -20732,6 +20808,19 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"is-typed-array@npm:^1.1.10":
+  version: 1.1.10
+  resolution: "is-typed-array@npm:1.1.10"
+  dependencies:
+    available-typed-arrays: ^1.0.5
+    call-bind: ^1.0.2
+    for-each: ^0.3.3
+    gopd: ^1.0.1
+    has-tostringtag: ^1.0.0
+  checksum: aac6ecb59d4c56a1cdeb69b1f129154ef462bbffe434cb8a8235ca89b42f258b7ae94073c41b3cb7bce37f6a1733ad4499f07882d5d5093a7ba84dfc4ebb8017
+  languageName: node
+  linkType: hard
+
 "is-typed-array@npm:^1.1.3, is-typed-array@npm:^1.1.7":
   version: 1.1.8
   resolution: "is-typed-array@npm:1.1.8"
@@ -20768,12 +20857,29 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"is-weakmap@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "is-weakmap@npm:2.0.1"
+  checksum: 1222bb7e90c32bdb949226e66d26cb7bce12e1e28e3e1b40bfa6b390ba3e08192a8664a703dff2a00a84825f4e022f9cd58c4599ff9981ab72b1d69479f4f7f6
+  languageName: node
+  linkType: hard
+
 "is-weakref@npm:^1.0.2":
   version: 1.0.2
   resolution: "is-weakref@npm:1.0.2"
   dependencies:
     call-bind: ^1.0.2
   checksum: 95bd9a57cdcb58c63b1c401c60a474b0f45b94719c30f548c891860f051bc2231575c290a6b420c6bc6e7ed99459d424c652bd5bf9a1d5259505dc35b4bf83de
+  languageName: node
+  linkType: hard
+
+"is-weakset@npm:^2.0.1":
+  version: 2.0.2
+  resolution: "is-weakset@npm:2.0.2"
+  dependencies:
+    call-bind: ^1.0.2
+    get-intrinsic: ^1.1.1
+  checksum: 5d8698d1fa599a0635d7ca85be9c26d547b317ed8fd83fc75f03efbe75d50001b5eececb1e9971de85fcde84f69ae6f8346bc92d20d55d46201d328e4c74a367
   languageName: node
   linkType: hard
 
@@ -20856,7 +20962,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"isarray@npm:^2.0.1":
+"isarray@npm:^2.0.1, isarray@npm:^2.0.5":
   version: 2.0.5
   resolution: "isarray@npm:2.0.5"
   checksum: bd5bbe4104438c4196ba58a54650116007fa0262eccef13a4c55b2e09a5b36b59f1e75b9fcc49883dd9d4953892e6fc007eef9e9155648ceea036e184b0f930a
@@ -25044,7 +25150,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"object-is@npm:^1.0.1":
+"object-is@npm:^1.0.1, object-is@npm:^1.1.5":
   version: 1.1.5
   resolution: "object-is@npm:1.1.5"
   dependencies:
@@ -27514,13 +27620,13 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-flipper@npm:^0.174.0":
-  version: 0.174.0
-  resolution: "react-native-flipper@npm:0.174.0"
+"react-native-flipper@npm:0.162.0":
+  version: 0.162.0
+  resolution: "react-native-flipper@npm:0.162.0"
   peerDependencies:
     react: ^16.8.0 || ^17.0.0 || ^18.0.0
     react-native: ">0.62.0"
-  checksum: aa0e817493b0273cbc9c74da90cd570614792cbfad88c71b945a88d2f5e20458b6ac95489609639f2b33f3b30d78b177a35ac6232e20d0bfa7e100027d21bb7e
+  checksum: d7a9206a165489c93aa0855c74d3a40ba43dcf3f219cb88b522c83beb69c2d02052bd6a4f2d9b5c6586d6dfb3bb3c44937ba9dc514acab5dc4e0dc6b74b1db6c
   languageName: node
   linkType: hard
 
@@ -30237,7 +30343,7 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"stacktrace-parser@npm:0.1.10, stacktrace-parser@npm:^0.1.3":
+"stacktrace-parser@npm:0.1.10, stacktrace-parser@npm:^0.1.10, stacktrace-parser@npm:^0.1.3":
   version: 0.1.10
   resolution: "stacktrace-parser@npm:0.1.10"
   dependencies:
@@ -33365,6 +33471,18 @@ optjs@latest:
   languageName: node
   linkType: hard
 
+"which-collection@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "which-collection@npm:1.0.1"
+  dependencies:
+    is-map: ^2.0.1
+    is-set: ^2.0.1
+    is-weakmap: ^2.0.1
+    is-weakset: ^2.0.1
+  checksum: c815bbd163107ef9cb84f135e6f34453eaf4cca994e7ba85ddb0d27cea724c623fae2a473ceccfd5549c53cc65a5d82692de418166df3f858e1e5dc60818581c
+  languageName: node
+  linkType: hard
+
 "which-module@npm:^2.0.0":
   version: 2.0.0
   resolution: "which-module@npm:2.0.0"
@@ -33383,6 +33501,20 @@ optjs@latest:
     has-tostringtag: ^1.0.0
     is-typed-array: ^1.1.7
   checksum: 147837cf5866e36b6b2e427731709e02f79f1578477cbde68ed773a5307520a6cb6836c73c79c30690a473266ee59010b83b6d9b25d8d677a40ff77fb37a8a84
+  languageName: node
+  linkType: hard
+
+"which-typed-array@npm:^1.1.8":
+  version: 1.1.9
+  resolution: "which-typed-array@npm:1.1.9"
+  dependencies:
+    available-typed-arrays: ^1.0.5
+    call-bind: ^1.0.2
+    for-each: ^0.3.3
+    gopd: ^1.0.1
+    has-tostringtag: ^1.0.0
+    is-typed-array: ^1.1.10
+  checksum: fe0178ca44c57699ca2c0e657b64eaa8d2db2372a4e2851184f568f98c478ae3dc3fdb5f7e46c384487046b0cf9e23241423242b277e03e8ba3dabc7c84c98ef
   languageName: node
   linkType: hard
 

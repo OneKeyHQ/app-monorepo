@@ -1,5 +1,6 @@
 import { createRef, memo, useEffect, useMemo, useRef } from 'react';
 
+import { useFlipper } from '@react-navigation/devtools';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -83,6 +84,10 @@ const NavigationApp = () => {
   global.$$onekeyPerfTrace?.log({
     name: 'NavigationProvider/NavigationApp render',
   });
+
+  // https://reactnavigation.org/docs/devtools/#useflipper
+  // only work during development and are disabled in production.
+  useFlipper(navigationRef);
 
   return (
     <NavigationContainer

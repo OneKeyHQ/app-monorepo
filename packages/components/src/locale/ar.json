@@ -136,6 +136,7 @@
   "action__install_and_restart": "التثبيت وإعادة التشغيل",
   "action__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "action__learn_more": "يتعلم أكثر",
+  "action__learn_more_n_purchase": "تعلم المزيد واشتري",
   "action__lets_go": "لنذهب",
   "action__list_view": "عرض القائمة",
   "action__load_more": "تحميل المزيد",
@@ -480,6 +481,7 @@
   "content__native_metamask_tutorials_3": "انقر فوق الأمان والخصوصية",
   "content__native_metamask_tutorials_4": "انقر فوق كشف عبارة الاسترداد السرية",
   "content__native_metamask_tutorials_5": "انسخ والصق عبارة الاسترداد في الحقل الموجود على اليسار.",
+  "content__nft_profit_and_loss": "NFT - الربح والخسارة",
   "content__nft_standard": "معيار NFT",
   "content__no_charge": "لا تهمة",
   "content__no_description": "بدون وصف",
@@ -600,6 +602,7 @@
   "content__token_approve_owner": "صاحب",
   "content__token_approve_spender": "Approved Spender",
   "content__total": "المجموع",
+  "content__total_profits": "إجمالي الأرباح",
   "content__total_value_by_str": "إجمالي القيمة بواسطة {0}",
   "content__touch_id": "معرف اتصال",
   "content__transfer_tokens_to_another_wallet": "تحويل الرموز إلى محفظة أخرى",
@@ -1215,6 +1218,7 @@
   "form__whitelist_included_desc": "قد لا يتم تداول بعض العناوين بانتظام إذا كانت هناك قائمة بيضاء.",
   "form__whitepaper": "ورق ابيض",
   "form__with_str": "مع {0}",
+  "form__you_have_no_wallet_yet": "ليس لديك محفظة بعد",
   "form__your_email": "بريدك الالكتروني",
   "form__your_question_is": "سؤالك هو ...",
   "form__your_reply": "ردك",
@@ -1455,7 +1459,9 @@
   "msg__high_price_volatility_risen_desc": "ارتفع سعر {0} {1} في آخر {2} ساعة إلى {3}",
   "msg__history_deleted": "تم حذف السجل",
   "msg__image_saved": "تم حفظ الصورة",
+  "msg__import_icloud_backup_failed_version": "فشل الاستيراد. يرجى التحديث إلى أحدث إصدار للمتابعة",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
+  "msg__link_copied": "تم نسخ الرابط",
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
   "msg__mismatched_networks": "شبكات غير متطابقة.",
