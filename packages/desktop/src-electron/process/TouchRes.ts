@@ -6,7 +6,7 @@ import { promisify } from 'util';
 
 import AdmZip from 'adm-zip';
 import Axios from 'axios';
-import { ipcMain } from 'electron';
+import { dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
@@ -311,6 +311,18 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   ipcMain.on('touch/res', async (_, params: { resourceUrl: string }) => {
     logger.info('will update Touch resource file');
     try {
+      const result = dialog.showOpenDialogSync(mainWindow, {
+        defaultPath: '/Volumes/ONEKEY DATA',
+        properties: ['openDirectory'],
+      });
+      logger.info('open dialog permission : ====> ', result);
+
+      const saveResult = dialog.showSaveDialogSync(mainWindow, {
+        defaultPath: '/Volumes/ONEKEY DATA',
+      });
+
+      console.log('saveResult: ', saveResult);
+
       // const checkDevice = await checkDeviceConnect();
       // logger.info('connect device: ', checkDevice);
 
