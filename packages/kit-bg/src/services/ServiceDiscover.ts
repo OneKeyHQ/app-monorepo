@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import { setWebTabData } from '@onekeyhq/kit/src/store/reducers/webTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
-import type { DAppItemType, TagDappsType } from '@onekeyhq/kit/src/views/Discover/type';
+import type {
+  DAppItemType,
+  TagDappsType,
+} from '@onekeyhq/kit/src/views/Discover/type';
 import {
   backgroundClass,
   backgroundMethod,
@@ -36,8 +39,8 @@ class ServicDiscover extends ServiceBase {
   }
 
   get baseUrl() {
-    // const url = getFiatEndpoint();
-    const url = 'http://localhost:9000';
+    const url = getFiatEndpoint();
+    // const url = 'http://localhost:9000';
     return `${url}/discover`;
   }
 

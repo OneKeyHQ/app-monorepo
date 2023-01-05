@@ -1,5 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Box, ToggleButtonGroup } from '@onekeyhq/components';
 
 import { useTranslation } from '../../../../hooks';
@@ -9,6 +11,7 @@ import { DiscoverContext } from '../context';
 import type { CatagoryType } from '../../type';
 
 export const DAppCategories = () => {
+  const intl = useIntl();
   const { categoryId, setCategoryId } = useContext(DiscoverContext);
   const categories = useCategories();
   const t = useTranslation();
@@ -17,7 +20,9 @@ export const DAppCategories = () => {
     if (!categories) {
       return [];
     }
-    return [{ name: 'Mine', _id: '' }].concat(categories) as CatagoryType[];
+    return [{ name: intl.formatMessage({ id: 'msg__mine' }), _id: '' }].concat(
+      categories,
+    ) as CatagoryType[];
   }, [categories]);
 
   const [selectedIndex, setSelectedIndex] = useState(() =>

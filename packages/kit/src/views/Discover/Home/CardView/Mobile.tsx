@@ -89,10 +89,14 @@ export const Mobile: FC<SectionDataType> = ({
   onItemSelect,
 }) => {
   const sections = group(data);
-  const t = useTranslation()
+  const t = useTranslation();
   return (
     <Box width="100%" mt="8">
-      <SectionTitle tagId={tagId} title={t(_title)?? title} onItemSelect={onItemSelect} />
+      <SectionTitle
+        tagId={tagId}
+        title={t(_title) ?? title}
+        onItemSelect={onItemSelect}
+      />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <Box flexDirection="row">
           {sections.map((section) => (

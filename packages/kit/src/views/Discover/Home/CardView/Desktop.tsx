@@ -116,10 +116,14 @@ export const Desktop: FC<SectionDataType> = ({
 }) => {
   const { width } = useWindowDimensions();
   const w = useDebounce(width, 1000);
-  const t = useTranslation()
+  const t = useTranslation();
   return (
     <Box width="100%" mt="8">
-      <SectionTitle title={t(_title) ?? title} tagId={tagId} onItemSelect={onItemSelect} />
+      <SectionTitle
+        title={t(_title) ?? title}
+        tagId={tagId}
+        onItemSelect={onItemSelect}
+      />
       <Sections data={data} onItemSelect={onItemSelect} width={w} />
     </Box>
   );

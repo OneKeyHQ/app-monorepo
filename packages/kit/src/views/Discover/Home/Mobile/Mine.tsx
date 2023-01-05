@@ -232,7 +232,7 @@ export const Mine = () => {
       title: item.label,
       data: item.items,
       tagId: item.id,
-      _title: item._label
+      _title: item._label,
     }));
     return total < items.length ? items.slice(0, total) : items;
   }, [dapps, total]);

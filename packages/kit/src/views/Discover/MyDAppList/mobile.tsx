@@ -39,7 +39,7 @@ type RenderItemProps = { item: MatchDAppItemType; callback: ShowMenuProps };
 const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
   const ref = useRef();
   const { onItemSelect } = useContext(MyDAppListContext);
-  const t = useTranslation()
+  const t = useTranslation();
   const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
   const name = item.dapp?.name ?? item.webSite?.title ?? 'Unknown';
   const url = item.dapp?.url ?? item.webSite?.url;

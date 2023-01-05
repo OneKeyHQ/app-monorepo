@@ -46,8 +46,8 @@ export type TagDappsType = {
   label: string;
   _label: string;
   id: string;
-  items: DAppItemType[]
-}
+  items: DAppItemType[];
+};
 
 export type ItemsType = {
   label: string;

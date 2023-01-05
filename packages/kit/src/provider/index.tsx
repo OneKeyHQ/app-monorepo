@@ -18,7 +18,6 @@ import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
 import NotificationProvider from './NotificationProvider';
 import ThemeApp from './ThemeProvider';
-import { TranslationProvider } from './TranslationProvider';
 import { WhenAppActive } from './WhenAppActive';
 
 type LaunchProps = {
@@ -57,30 +56,28 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
           <ThemeApp>
             <AppLoading>
               <ErrorBoundary>
-                <TranslationProvider>
-                  <NotificationProvider launchNotification={launchNotification}>
-                    <RootSiblingParent>
-                      <NavigationApp />
-                      <WhenAppActive />
-                      {platformEnv.isNativeIOS ? (
-                        // FullWindowOverlay can render above native views
-                        // but can not work with modal
-                        // https://github.com/software-mansion/react-native-screens/issues/1149
-                        // so now only used for toast
-                        <FullWindowOverlay style={StyleSheet.absoluteFill}>
-                          <View
-                            pointerEvents="box-none"
-                            style={StyleSheet.absoluteFill}
-                          >
-                            <CustomToast bottomOffset={60} />
-                          </View>
-                        </FullWindowOverlay>
-                      ) : (
-                        <CustomToast bottomOffset={60} />
-                      )}
-                    </RootSiblingParent>
-                  </NotificationProvider>
-                </TranslationProvider>
+                <NotificationProvider launchNotification={launchNotification}>
+                  <RootSiblingParent>
+                    <NavigationApp />
+                    <WhenAppActive />
+                    {platformEnv.isNativeIOS ? (
+                      // FullWindowOverlay can render above native views
+                      // but can not work with modal
+                      // https://github.com/software-mansion/react-native-screens/issues/1149
+                      // so now only used for toast
+                      <FullWindowOverlay style={StyleSheet.absoluteFill}>
+                        <View
+                          pointerEvents="box-none"
+                          style={StyleSheet.absoluteFill}
+                        >
+                          <CustomToast bottomOffset={60} />
+                        </View>
+                      </FullWindowOverlay>
+                    ) : (
+                      <CustomToast bottomOffset={60} />
+                    )}
+                  </RootSiblingParent>
+                </NotificationProvider>
               </ErrorBoundary>
             </AppLoading>
           </ThemeApp>

@@ -22,6 +22,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import { useTranslation } from '../../../hooks';
 import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
 import { Chains } from '../Chains';
@@ -33,7 +34,6 @@ import { MyDAppListContext } from './context';
 import type { ShowMenuProps } from '../../Overlay/Discover/type';
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { ListRenderItem } from 'react-native';
-import { useTranslation } from '../../../hooks';
 
 const FavoratesListEmptyComponent = () => {
   const intl = useIntl();

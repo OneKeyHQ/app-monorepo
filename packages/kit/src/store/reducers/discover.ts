@@ -5,8 +5,8 @@ import type {
   DAppItemType,
   DiscoverHistory,
   HistoryItemData,
+  TagDappsType,
   WebSiteHistory,
-  TagDappsType
 } from '../../views/Discover/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
 

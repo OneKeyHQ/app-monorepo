@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
-
+import { setTranslations } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   backgroundClass,
   backgroundMethod,
@@ -19,16 +19,17 @@ class ServicTranslation extends ServiceBase {
   }
 
   get baseUrl() {
-    // const url = getFiatEndpoint();
-    const url = 'http://localhost:9000';
+    const url = getFiatEndpoint();
+    // const url = 'http://localhost:9000';
     return `${url}/translations`;
   }
 
   @backgroundMethod()
-  async getAll() {
+  async getTranslations() {
     const url = `${this.baseUrl}/all`;
-    const res = await this.client.get(url)
-    return res.data as Record<string, Record<string, string>>
+    const res = await this.client.get(url);
+    const data = res.data as Record<string, Record<string, string>>;
+    this.backgroundApi.dispatch(setTranslations(data));
   }
 }
 

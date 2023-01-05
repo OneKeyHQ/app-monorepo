@@ -2,8 +2,9 @@ import { useCallback, useContext } from 'react';
 
 import useLocale from '@onekeyhq/components/src/Provider/hooks/useLocale';
 
-import { TranslationContext } from '../provider/TranslationProvider';
 import { getDefaultLocale, normalize } from '../utils/locale';
+
+import { useAppSelector } from './redux';
 
 function useKey() {
   const { locale } = useLocale();
@@ -14,7 +15,7 @@ function useKey() {
 
 export function useTranslation() {
   const key = useKey();
-  const context = useContext(TranslationContext);
+  const context = useAppSelector((s) => s.data.translations);
   const t = useCallback(
     (id?: string) => {
       if (!id) {
