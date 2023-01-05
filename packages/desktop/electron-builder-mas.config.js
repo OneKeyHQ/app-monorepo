@@ -4,13 +4,13 @@ require('../../development/env');
 module.exports = {
   'extraMetadata': {
     'main': 'dist/app.js',
-    'version': process.env.VERSION,
+    'version': '3.25.0',
   },
   'appId': 'so.onekey.wallet',
   'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
-  'buildVersion': `${process.env.BUILD_NUMBER}0`,
+  'buildVersion': `20230104181`,
   'directories': {
     'output': 'build-electron',
   },
@@ -75,5 +75,5 @@ module.exports = {
   },
   'afterSign': 'scripts/notarize.js',
   'afterPack': 'scripts/fileOperation.js',
-  'asarUnpack': ['**/*.node'],
+  'asarUnpack': ['**/*.node', 'node_modules/usb'],
 };
