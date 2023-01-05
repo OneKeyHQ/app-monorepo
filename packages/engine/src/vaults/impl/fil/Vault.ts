@@ -482,7 +482,6 @@ export default class Vault extends VaultBase {
     let result: CID;
     try {
       result = await client.request('MpoolPush', JSON.parse(signedTx.rawTx));
-      console.log(result);
     } catch (err) {
       debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
       throw err;
