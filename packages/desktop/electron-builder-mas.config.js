@@ -10,7 +10,7 @@ module.exports = {
   'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
-  'buildVersion': `20230104182`,
+  'buildVersion': `20230104183`,
   'directories': {
     'output': 'build-electron',
   },
@@ -75,5 +75,5 @@ module.exports = {
   },
   'afterSign': 'scripts/notarize.js',
   'afterPack': 'scripts/fileOperation.js',
-  'asarUnpack': ['**/*.node', 'node_modules/usb'],
+  'asarUnpack': ['**/*.node'],
 };

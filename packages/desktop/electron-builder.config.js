@@ -108,5 +108,4 @@ module.exports = {
     'target': ['AppImage'],
   },
   'afterSign': 'scripts/notarize.js',
-  'asarUnpack': ['node_modules/usb'],
 };
