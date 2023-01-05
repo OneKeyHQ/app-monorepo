@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { ToastManager } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,
@@ -16,6 +17,7 @@ import { fetchCurrencies } from '../views/FiatPay/Service';
 import { useTransactionSendContext } from '../views/Send/utils/TransactionSendContext';
 
 import { useAppSelector } from './useAppSelector';
+import { useManageTokens } from './useManageTokens';
 
 export { useAppSelector };
 export type ISelectorBuilder = (
@@ -212,6 +214,32 @@ export const useMoonpayPayCurrency = (code?: string) => {
     () => currencyList.find((item) => item.code === code),
     [currencyList, code],
   );
+};
+
+export const useMoonpaySell = (networkId?: string, token?: Token | null) => {
+  const currencies = useFiatPay(networkId ?? '');
+  let cryptoCurrency = currencies.find((item) => {
+    if (!token?.tokenIdOnNetwork) {
+      return item.contract === '' && item.networkId === token?.networkId;
+    }
+    return (
+      item.networkId === token?.networkId &&
+      item.contract === token?.tokenIdOnNetwork
+    );
+  });
+  const { balances } = useManageTokens();
+  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
+  if (cryptoCurrency) {
+    cryptoCurrency = { ...cryptoCurrency, balance: amount };
+  }
+
+  const moonpayCurrency = useMoonpayPayCurrency(
+    cryptoCurrency?.provider.moonpay,
+  );
+
+  const sellEnable = cryptoCurrency && moonpayCurrency?.isSellSupported;
+
+  return { cryptoCurrency, sellEnable, amount, balances };
 };
 
 export const useTools = (networkId?: string) =>
