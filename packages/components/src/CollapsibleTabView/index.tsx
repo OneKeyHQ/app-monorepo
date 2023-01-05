@@ -28,6 +28,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   onTabChange,
   onIndexChange,
   initialTabName,
+  scrollEnabled = true,
 }) => {
   const layout = useWindowDimensions();
   const isVerticalLayout = useIsVerticalLayout();
@@ -113,7 +114,7 @@ const Container: FC<CollapsibleContainerProps> = ({
       return (
         <TabBar
           {...props}
-          scrollEnabled
+          scrollEnabled={scrollEnabled}
           indicatorStyle={styles.indicator}
           indicatorContainerStyle={styles.indicatorContainer}
           style={styles.tabbar}

@@ -15,7 +15,6 @@ import { Body2StrongProps } from '../Typography';
 
 import type { CollapsibleContainerProps } from './types';
 
-// TODO: Compatible with the pad
 const Container: FC<CollapsibleContainerProps> = ({
   disableRefresh,
   refreshing,
@@ -25,6 +24,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   onIndexChange,
   onRefresh,
   containerStyle,
+  scrollEnabled = true,
   ...props
 }) => {
   const tabs = Children.map(children, (child) =>
@@ -49,7 +49,6 @@ const Container: FC<CollapsibleContainerProps> = ({
 
   return (
     <NestedTabView
-      {...props}
       values={tabs}
       style={containerStyle}
       disableRefresh={disableRefresh}
@@ -76,6 +75,8 @@ const Container: FC<CollapsibleContainerProps> = ({
         });
         onIndexChange?.(e.nativeEvent.index);
       }}
+      scrollEnabled={scrollEnabled}
+      {...props}
     >
       {children}
     </NestedTabView>
