@@ -8,7 +8,7 @@ export type IManageNetworks = {
   enabledNetworks: INetwork[];
 };
 
-const CHAINS_DISAPLYED_IN_DEV: string[] = [IMPL_FIL, IMPL_ADA];
+const CHAINS_DISAPLYED_IN_DEV: string[] = [IMPL_ADA];
 const emptyArray = Object.freeze([]);
 
 export const { use: useManageNetworks, get: getManageNetworks } =
