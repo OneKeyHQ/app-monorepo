@@ -4,7 +4,7 @@ require('../../development/env');
 module.exports = {
   'extraMetadata': {
     'main': 'dist/app.js',
-    'version': '3.25.0',
+    'version': '3.25.1',
   },
   'appId': 'so.onekey.wallet',
   'productName': 'OneKey',
