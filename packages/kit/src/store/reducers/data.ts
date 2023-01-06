@@ -19,6 +19,7 @@ export type DataInitialState = {
   handOperatedLock?: boolean;
   feePresetIndexMap?: Record<string, string | undefined>;
   tools: Tool[];
+  translations?: Record<string, Record<string, string>>;
 };
 
 const initialState: DataInitialState = {
@@ -31,6 +32,7 @@ const initialState: DataInitialState = {
   isAppRenderReady: false,
   cursorMap: {},
   tools: [],
+  translations: {},
 };
 
 export const dataSlice = createSlice({
@@ -90,6 +92,12 @@ export const dataSlice = createSlice({
     setTools(state, action: PayloadAction<Tool[]>) {
       state.tools = action.payload;
     },
+    setTranslations(
+      state,
+      actions: PayloadAction<Record<string, Record<string, string>>>,
+    ) {
+      state.translations = actions.payload;
+    },
   },
 });
 
@@ -105,6 +113,7 @@ export const {
   setHandOperatedLock,
   setFeePresetIndex,
   setTools,
+  setTranslations,
 } = dataSlice.actions;
 
 export default dataSlice.reducer;

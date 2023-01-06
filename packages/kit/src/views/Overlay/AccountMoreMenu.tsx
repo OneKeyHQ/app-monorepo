@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { capitalize } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
@@ -18,9 +19,11 @@ import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
+import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
+import { openUrl } from '../../utils/openUrl';
 import {
   useAddressCanSubscribe,
   useEnabledAccountDynamicAccounts,
@@ -130,6 +133,17 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   ]);
 
   const walletType = wallet?.type;
+
+  const explorerUrl = buildAddressDetailsUrl(network, account?.address);
+  const explorerName = useMemo(() => {
+    try {
+      const hostnameArray = new URL(explorerUrl).hostname.split('.');
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return capitalize(hostnameArray.at(-2));
+    } catch (e) {
+      return 'Explorer';
+    }
+  }, [explorerUrl]);
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -186,6 +200,18 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         },
         icon: 'BanknotesMini',
       },
+      !!explorerUrl && {
+        id: 'action__view_on_somewhere',
+        intlValues: {
+          where: explorerName,
+        },
+        icon: 'GlobeAltMini',
+        onPress: () => {
+          openUrl(explorerUrl, explorerName, {
+            modalMode: true,
+          });
+        },
+      },
       {
         id: 'action__copy_address',
         onPress: () => {
@@ -205,6 +231,8 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     [
       needActivateAccount,
       walletType,
+      explorerUrl,
+      explorerName,
       showSubscriptionIcon,
       enabledNotification,
       onChangeAccountSubscribe,
@@ -215,7 +243,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       copyAddress,
     ],
   );
-  return <BaseMenu options={options} {...props} onOpen={refresh} />;
+  return <BaseMenu w={220} options={options} {...props} onOpen={refresh} />;
 };
 
 export default AccountMoreMenu;

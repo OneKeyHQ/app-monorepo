@@ -15,6 +15,7 @@ import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
@@ -32,6 +33,7 @@ import type ServiceSocket from './services/ServiceSocket';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
+import type ServiceTranslation from './services/ServiceTranslation';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -91,4 +93,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceTransaction: ServiceTransaction;
   servicePrice: ServicePrice;
   serviceSwap: ServiceSwap;
+  serviceTranslation: ServiceTranslation;
+  serviceDiscover: ServiceDiscover;
 }

@@ -100,6 +100,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       return;
     }
     navigation.setOptions({
+      // eslint-disable-next-line react/no-unstable-nested-components
       headerRight: () => (
         <Select
           dropdownPosition="right"

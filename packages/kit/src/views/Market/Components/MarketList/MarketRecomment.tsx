@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  Center,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';

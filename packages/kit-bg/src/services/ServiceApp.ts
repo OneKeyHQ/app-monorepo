@@ -251,6 +251,8 @@ class ServiceApp extends ServiceBase {
       serviceOnboarding,
       serviceSetting,
       serviceCloudBackup,
+      serviceTranslation,
+      serviceDiscover,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -297,6 +299,8 @@ class ServiceApp extends ServiceBase {
     serviceOnboarding.checkOnboardingStatus();
     serviceSetting.updateRemoteSetting();
     serviceCloudBackup.initCloudBackup();
+    serviceTranslation.getTranslations();
+    serviceDiscover.getCompactList();
     this._appInited = true;
   }
 
