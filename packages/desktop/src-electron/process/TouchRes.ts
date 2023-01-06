@@ -328,11 +328,11 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       });
       logger.info('open dialog permission : ====> ', result);
 
-      const saveResult = dialog.showSaveDialogSync(mainWindow, {
-        defaultPath: '/Volumes/ONEKEY DATA',
-      });
+      // const saveResult = dialog.showSaveDialogSync(mainWindow, {
+      //   defaultPath: '/Volumes/ONEKEY DATA',
+      // });
 
-      console.log('saveResult: ', saveResult);
+      // console.log('saveResult: ', saveResult);
 
       // const checkDevice = await checkDeviceConnect();
       // logger.info('connect device: ', checkDevice);

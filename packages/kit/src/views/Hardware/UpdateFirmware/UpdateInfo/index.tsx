@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
@@ -7,12 +7,14 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  BottomSheetModal,
   Box,
   Markdown,
   Modal,
   Spinner,
   ToastManager,
   Typography,
+  useIsVerticalLayout,
   useLocale,
 } from '@onekeyhq/components';
 import type { Device } from '@onekeyhq/engine/src/types/device';
@@ -21,11 +23,13 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 import type {
   BLEFirmwareInfo,
   IResourceUpdateInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../../utils/hardware';
@@ -42,6 +46,7 @@ const UpdateInfoModal: FC = () => {
   const intl = useIntl();
   const local = useLocale();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const isSmallScreen = useIsVerticalLayout();
   const routeParams = useRoute<RouteProps>().params;
   const { recheckFirmwareUpdate, onSuccess } = routeParams;
   const deviceId = get(routeParams, 'deviceId', null);
@@ -56,6 +61,22 @@ const UpdateInfoModal: FC = () => {
   const [sysFirmware, setSysFirmware] = useState<SYSFirmwareInfo>();
   const [resourceUpdateInfo, setResourceUpdateInfo] =
     useState<IResourceUpdateInfo>();
+
+  const showUpdateOnDesktopModal = useCallback(() => {
+    showOverlay((close) => (
+      <BottomSheetModal
+        title="提示"
+        closeOverlay={() => {
+          close?.();
+          if (isSmallScreen) {
+            navigation.goBack();
+          }
+        }}
+      >
+        <Box>请在桌面端升级</Box>
+      </BottomSheetModal>
+    ));
+  }, [navigation]);
 
   useEffect(() => {
     (async () => {
@@ -101,15 +122,10 @@ const UpdateInfoModal: FC = () => {
         );
         if (resourceInfo.error === 'USE_DESKTOP') {
           // TODO: i18n test for use desktop
-          ToastManager.show(
-            {
-              title: 'Please use desktop client',
-            },
-            {
-              type: 'error',
-            },
-          );
-          navigation.goBack();
+          showUpdateOnDesktopModal();
+          if (!isSmallScreen) {
+            navigation.goBack();
+          }
         }
         setSysFirmware(firmware);
         setResourceUpdateInfo(resourceInfo);
@@ -134,6 +150,7 @@ const UpdateInfoModal: FC = () => {
     recheckFirmwareUpdate,
     serviceHardware,
     walletId,
+    showUpdateOnDesktopModal,
   ]);
 
   return (
