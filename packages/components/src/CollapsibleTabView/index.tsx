@@ -1,8 +1,8 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { Children, useCallback, useMemo, useState } from 'react';
 
 import { useWindowDimensions } from 'react-native';
-import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
+import { TabBar, TabView } from 'react-native-tab-view';
 
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 
@@ -34,12 +34,12 @@ const Container: FC<CollapsibleContainerProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const { routes, renderScene, initialIndex } = useMemo(() => {
     const routesArray: { key: string; title: string }[] = [];
-    const scene = {};
+    const scene: Record<string, ReactNode> = {};
     // eslint-disable-next-line @typescript-eslint/no-shadow
     let initialIndex = 0;
     Children.forEach(children, (element, index) => {
       // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-shadow
+      // eslint-disable-next-line @typescript-eslint/no-shadow, @typescript-eslint/no-unsafe-member-access
       const { name, children, label } = element.props as TabProps;
       if (initialTabName === name) {
         initialIndex = index;
@@ -48,11 +48,14 @@ const Container: FC<CollapsibleContainerProps> = ({
         key: name,
         title: label,
       });
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-      scene[name] = () => children;
+      scene[name] = children;
     });
-    return { routes: routesArray, renderScene: SceneMap(scene), initialIndex };
+    return {
+      routes: routesArray,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      renderScene: ({ route }: any) => scene[route.key],
+      initialIndex,
+    };
   }, [children, initialTabName]);
   const [index, setIndex] = useState(initialIndex);
 
@@ -135,6 +138,7 @@ const Container: FC<CollapsibleContainerProps> = ({
       labelColor,
       layout.width,
       routes.length,
+      scrollEnabled,
     ],
   );
 
