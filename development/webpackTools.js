@@ -160,14 +160,14 @@ function normalizeConfig({
     }
     oneOfArr.forEach((oneOf) => {
       if (oneOf.loader && oneOf.loader.indexOf('file-loader') >= 0) {
-        // expo webpack config
+        // **** expo webpack config
         if (oneOf.exclude) {
           oneOf.exclude.push(/\.wasm$/);
         }
-        // ext webpack config
+        // **** ext webpack config
         else if (rule.use) {
-          rule.exclude = rule.exclude || [];
-          rule.exclude.push(/\.wasm$/);
+          // rule.exclude = rule.exclude || [];
+          // rule.exclude.push(/\.wasm$/);
         }
       }
     });
