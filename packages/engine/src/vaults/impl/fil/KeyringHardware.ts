@@ -21,7 +21,7 @@ import type {
 } from '../../types';
 import type { IEncodedTxFil } from './types';
 
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
+const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 const accountNamePrefix = 'FIL';
 
 // @ts-ignore
@@ -30,7 +30,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBVariantAccount[]> {
     const { indexes, names } = params;
-    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'/0/0`);
+    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
     const showOnOneKey = false;
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();

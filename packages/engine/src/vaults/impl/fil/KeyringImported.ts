@@ -8,8 +8,15 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
+import { signTransaction } from './utils';
+
 import type { DBVariantAccount } from '../../../types/account';
-import type { IPrepareImportedAccountsParams } from '../../types';
+import type {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+  IUnsignedTxPro,
+} from '../../types';
+import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {
@@ -56,5 +63,22 @@ export class KeyringImported extends KeyringImportedBase {
         addresses: { [this.networkId]: address },
       },
     ]);
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+    const selectedAddress = (dbAccount as DBVariantAccount).addresses[
+      this.networkId
+    ];
+
+    const signers = await this.getSigners(options.password || '', [
+      selectedAddress,
+    ]);
+    const signer = signers[selectedAddress];
+
+    return signTransaction(unsignedTx, signer);
   }
 }
