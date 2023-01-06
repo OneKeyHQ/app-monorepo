@@ -4,13 +4,13 @@ require('../../development/env');
 module.exports = {
   'extraMetadata': {
     'main': 'dist/app.js',
-    'version': '3.25.1',
+    'version': '3.26.0',
   },
   'appId': 'so.onekey.wallet',
   'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
-  'buildVersion': `20230104183`,
+  'buildVersion': `20230105191`,
   'directories': {
     'output': 'build-electron',
   },

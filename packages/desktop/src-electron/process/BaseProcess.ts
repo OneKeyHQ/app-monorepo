@@ -124,15 +124,6 @@ export default abstract class BaseProcess {
     });
     this.process.on('error', (err) => this.onError(err));
     this.process.on('exit', (code) => this.onExit(code));
-    this.process.stderr?.on('data', (data: string) => {
-      logger.info(`bridge stderr data ====> :  ${data}`);
-    });
-    this.process.stderr?.on('error', (data: string) => {
-      logger.info(`bridge stderr error ====> :  ${data}`);
-    });
-    this.process.stdout?.on('data', (data: string) => {
-      logger.info(`bridge stdout data ====> :  ${data}`);
-    });
   }
 
   /**
