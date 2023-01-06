@@ -1,3 +1,4 @@
+import { Resolution } from '@unstoppabledomains/resolution';
 import { createInstance } from 'dotbit';
 import { filter, groupBy, map } from 'lodash';
 
@@ -61,6 +62,29 @@ export default class ServiceNameResolver extends ServiceBase {
           [OnekeyNetwork.doge]: ['doge'],
         },
         resolver: this.resolveDotBit.bind(this),
+      },
+      {
+        pattern:
+          /(\.crypto|\.bitcoin|\.blockchain|\.dao|\.nft|\.888|\.wallet|\.x|\.klever|\.zil|\.hi)$/,
+        shownSymbol: 'UD',
+        supportImplsMap: {
+          'evm--*': ['ETH', 'POLY', 'CRO', 'CELO', 'AVAX', 'OKT', 'ETC'],
+          [OnekeyNetwork.ada]: ['ADA'],
+          [OnekeyNetwork.algo]: ['ALGO'],
+          [OnekeyNetwork.bch]: ['BCH'],
+          [OnekeyNetwork.btc]: ['BTC'],
+          [OnekeyNetwork.cfx]: ['CFX'],
+          [OnekeyNetwork.doge]: ['DOGE'],
+          [OnekeyNetwork.fil]: ['FIL'],
+          [OnekeyNetwork.ltc]: ['LTC'],
+          [OnekeyNetwork.near]: ['NEAR'],
+          [OnekeyNetwork.sol]: ['SOL'],
+          [OnekeyNetwork.trx]: ['TRX'],
+          [OnekeyNetwork.xrp]: ['XRP'],
+          [OnekeyNetwork.cosmoshub]: ['ATOM'],
+          [OnekeyNetwork.fetch]: ['FET.version.FETCHAI'],
+        },
+        resolver: this.resolveUnstoppableDomains.bind(this),
       },
     ];
     return NAME_RESOLVER;
@@ -231,6 +255,30 @@ export default class ServiceNameResolver extends ServiceBase {
         return null;
       }
 
+      return 'msg__network_request_failed';
+    }
+  }
+
+  async resolveUnstoppableDomains(
+    name: string,
+  ): Promise<ResolverNameList | null | string> {
+    const resolution = new Resolution();
+    try {
+      const result = await resolution.allNonEmptyRecords(name);
+      const names: ResolverNameList = [];
+      Object.keys(result).forEach((key) => {
+        if (key.startsWith('crypto.') && key.endsWith('.address')) {
+          const subtype = key.replace('crypto.', '').replace('.address', '');
+          names.push({
+            subtype,
+            value: result[key],
+            type: 'address',
+            key,
+          });
+        }
+      });
+      return names;
+    } catch (e) {
       return 'msg__network_request_failed';
     }
   }

@@ -290,7 +290,7 @@ function useAddExistingWallet({
           : ''
       }`,
       mode === 'watching' || mode === 'all'
-        ? `ENS ${intl.formatMessage({ id: 'content__or_lowercase' })} .bit`
+        ? `ENS, UD ${intl.formatMessage({ id: 'content__or_lowercase' })} .bit`
         : '',
     ];
     return `${intl.formatMessage({
