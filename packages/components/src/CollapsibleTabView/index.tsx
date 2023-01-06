@@ -1,5 +1,5 @@
 import type { FC, ReactNode } from 'react';
-import { Children, useCallback, useMemo, useState } from 'react';
+import { Children, Fragment, useCallback, useMemo, useState } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 import { TabBar, TabView } from 'react-native-tab-view';
@@ -161,8 +161,7 @@ const Container: FC<CollapsibleContainerProps> = ({
 export const Tabs = {
   Container,
   // @ts-ignore to stop the warning about Fragment under development
-  // eslint-disable-next-line no-undef
-  Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
+  Tab: (__DEV__ ? ({ children }) => <>{children}</> : Fragment) as FC<TabProps>,
   FlatList,
   ScrollView,
   SectionList,
