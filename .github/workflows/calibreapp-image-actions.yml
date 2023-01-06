@@ -43,8 +43,8 @@ jobs:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           # For non-Pull Requests, run in compressOnly mode and we'll PR after.
           compressOnly: ${{ github.event_name != 'pull_request' }}
-          pngQuality: '100'
-          webpQuality: '100'
+          # pngQuality: '100'
+          # webpQuality: '100'
           ignorePaths: 'node_modules/**,**/*.jpg'
       - name: Create Pull Request
         # If it's not a Pull Request then commit any changes as a new PR.
