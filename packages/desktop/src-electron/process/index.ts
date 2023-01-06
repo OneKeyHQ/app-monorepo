@@ -39,6 +39,7 @@ export const restartBridge = async () => {
 };
 
 const init = async ({ mainWindow, store }: Dependencies) => {
+  logger.info('Electron main process log path: ', logger.transports.file.file);
   await launchBridge();
   if (!process.mas) {
     autoUpdateInit({ mainWindow, store });
