@@ -161,7 +161,7 @@ const Container: FC<CollapsibleContainerProps> = ({
 export const Tabs = {
   Container,
   // @ts-ignore to stop the warning about Fragment under development
-  Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
+  Tab: (__DEV__ ? ({ children }) => <>{children}</> : Fragment) as FC<TabProps>,
   FlatList,
   ScrollView,
   SectionList,
