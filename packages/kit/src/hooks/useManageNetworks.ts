@@ -1,5 +1,5 @@
 import type { INetwork } from '@onekeyhq/engine/src/types';
-import { IMPL_ADA, IMPL_FIL } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { makeSelector } from './redux';
 

@@ -398,19 +398,23 @@ export default class Vault extends VaultBase {
       address: dbAccount.addresses?.[this.networkId] || '',
     };
     if (ret.address.length === 0) {
-      const network = await this.getNetwork();
-      const addressObj = decode(dbAccount.address);
-      const address = encode(
-        network.isTestnet ? CoinType.TEST : CoinType.MAIN,
-        addressObj,
-      );
+      try {
+        const network = await this.getNetwork();
+        const addressObj = decode(dbAccount.address);
+        const address = encode(
+          network.isTestnet ? CoinType.TEST : CoinType.MAIN,
+          addressObj,
+        );
 
-      await this.engine.dbApi.addAccountAddress(
-        dbAccount.id,
-        this.networkId,
-        address,
-      );
-      ret.address = address;
+        await this.engine.dbApi.addAccountAddress(
+          dbAccount.id,
+          this.networkId,
+          address,
+        );
+        ret.address = address;
+      } catch {
+        // pass
+      }
     }
     return ret;
   }
