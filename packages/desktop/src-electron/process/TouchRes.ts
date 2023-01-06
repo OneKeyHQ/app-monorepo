@@ -225,7 +225,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   const resourcePath = isDev
     ? path.join(__dirname, '../public')
     : process.mas
-    ? path.join(__dirname, 'static')
+    ? path.join(process.env.HOME ?? '', 'static')
     : path.join(process.resourcesPath, 'static');
   const ZipFilePath = path.join(resourcePath, 'res-updater.zip');
   const ExtractPath = path.join(resourcePath, 'res');

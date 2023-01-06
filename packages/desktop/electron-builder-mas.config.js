@@ -10,7 +10,7 @@ module.exports = {
   'productName': 'OneKey',
   'copyright': 'Copyright © ${author}',
   'asar': true,
-  'buildVersion': `20230105191`,
+  'buildVersion': `20230105192`,
   'directories': {
     'output': 'build-electron',
   },

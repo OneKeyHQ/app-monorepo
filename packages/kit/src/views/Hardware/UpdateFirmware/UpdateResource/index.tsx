@@ -95,6 +95,7 @@ const UpdateWarningModal: FC = () => {
                 message = 'NOT FOUND DISK PATH';
                 break;
               default:
+                message = error.message;
                 break;
             }
             ToastManager.show(
