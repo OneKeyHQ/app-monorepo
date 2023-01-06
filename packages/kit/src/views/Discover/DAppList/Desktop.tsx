@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import { useTranslation } from '../../../hooks';
 import { Chains } from '../Chains';
 import DAppIcon from '../DAppIcon';
 import { useTagDapps } from '../hooks';
@@ -113,6 +114,7 @@ export const EmptySkeleton = () => (
 export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
   const { tagId, onItemSelect } = rest;
   const data = useTagDapps(tagId);
+  const t = useTranslation();
   const { width } = useWindowDimensions();
   const screenWidth = width - 72 - 256;
   const minWidth = 250;
@@ -165,12 +167,12 @@ export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
             textAlign="left"
             color="text-subdued"
           >
-            {item.subtitle}
+            {t(item._subtitle) ?? item.subtitle}
           </Typography.Caption>
         </Pressable>
       </Box>
     ),
-    [cardWidth, onItemSelect],
+    [cardWidth, onItemSelect, t],
   );
 
   const flatList = useMemo(

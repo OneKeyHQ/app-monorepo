@@ -37,6 +37,7 @@ import type ServiceStaking from './services/ServiceStaking';
 import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
+import type ServiceTranslation from './services/ServiceTranslation';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 
 class BackgroundApiProxy
@@ -141,6 +142,10 @@ class BackgroundApiProxy
   ) as ServiceTransaction;
 
   servicePrice = this._createProxyService('servicePrice') as ServicePrice;
+
+  serviceTranslation = this._createProxyService(
+    'serviceTranslation',
+  ) as ServiceTranslation;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {
