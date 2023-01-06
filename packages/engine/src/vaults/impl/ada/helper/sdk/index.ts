@@ -2,6 +2,8 @@ import { LibLoader } from './loader';
 
 const getCardanoApi = async () => {
   const Loader = await LibLoader();
+  // @ts-ignore
+  global.$$onekeyAdaSdkLoader = Loader;
   return {
     composeTxPlan: Loader.onekeyUtils.composeTxPlan,
     signTransaction: Loader.onekeyUtils.signTransaction,

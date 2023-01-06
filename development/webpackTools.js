@@ -154,9 +154,21 @@ function normalizeConfig({
 
   // let file-loader skip handle wasm files
   config.module.rules.forEach((rule) => {
-    (rule.oneOf || []).forEach((oneOf) => {
+    let oneOfArr = rule.oneOf || [];
+    if (!oneOfArr.length && rule.use) {
+      oneOfArr = [rule.use];
+    }
+    oneOfArr.forEach((oneOf) => {
       if (oneOf.loader && oneOf.loader.indexOf('file-loader') >= 0) {
-        oneOf.exclude.push(/\.wasm$/);
+        // expo webpack config
+        if (oneOf.exclude) {
+          oneOf.exclude.push(/\.wasm$/);
+        }
+        // ext webpack config
+        else if (rule.use) {
+          rule.exclude = rule.exclude || [];
+          rule.exclude.push(/\.wasm$/);
+        }
       }
     });
   });
