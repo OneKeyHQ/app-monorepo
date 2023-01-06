@@ -221,14 +221,24 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       return '';
     });
 
+  // eslint-disable-next-line no-nested-ternary
   const resourcePath = isDev
     ? path.join(__dirname, '../public')
+    : process.mas
+    ? path.join(__dirname, 'static')
     : path.join(process.resourcesPath, 'static');
   const ZipFilePath = path.join(resourcePath, 'res-updater.zip');
   const ExtractPath = path.join(resourcePath, 'res');
   const SourceFolder = path.join(resourcePath, 'res/res');
 
   const downloadFile = (fileUrl: string) => {
+    logger.info('process: ', process);
+    logger.info('resource path: ', resourcePath);
+    if (!fs.existsSync(resourcePath)) {
+      logger.info('create resource path start');
+      fs.mkdirSync(resourcePath, { recursive: true });
+      logger.info('create resource path end');
+    }
     const writer = fs.createWriteStream(ZipFilePath);
     return Axios({
       method: 'get',
