@@ -2,15 +2,13 @@ import { useCallback, useContext } from 'react';
 
 import useLocale from '@onekeyhq/components/src/Provider/hooks/useLocale';
 
-import { getDefaultLocale, normalize } from '../utils/locale';
+import { getDefaultLocale } from '../utils/locale';
 
 import { useAppSelector } from './redux';
 
 function useKey() {
   const { locale } = useLocale();
-  return locale === 'system'
-    ? normalize(getDefaultLocale())
-    : normalize(locale);
+  return locale === 'system' ? getDefaultLocale() : locale;
 }
 
 export function useTranslation() {
@@ -24,7 +22,7 @@ export function useTranslation() {
       const result = context?.[key]?.[id];
       return result || undefined;
     },
-    [context],
+    [context, key],
   );
   return t;
 }
