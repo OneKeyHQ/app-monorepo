@@ -276,7 +276,8 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
         }
 
         const promises: Promise<any>[] = [];
-        for (const file of files) {
+        const copyFiles = files.filter((file) => file !== '.DS_Store');
+        for (const file of copyFiles) {
           const sourceFile = path.join(SourceFolder, file);
           const targetFile = path.join(targetFolder, file);
 
