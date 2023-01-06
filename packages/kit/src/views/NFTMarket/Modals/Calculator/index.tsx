@@ -147,7 +147,7 @@ const CalculatorModal: FC = () => {
     const bGas = new BigNumber(gasFee);
 
     if (buy.isNaN() || sell.isNaN()) {
-      return '0 ETH';
+      return 0;
     }
     const platform = new BigNumber(platformFee / 100).multipliedBy(sell);
     const creator = new BigNumber(creatorFee).multipliedBy(sell);
@@ -159,12 +159,18 @@ const CalculatorModal: FC = () => {
       .minus(bGas)
       .decimalPlaces(6);
     if (result.isNaN()) {
-      return '0 ETH';
+      return 0;
     }
 
-    return `${result.toFixed()} ETH`;
+    return result.toNumber();
   }, [buyText, creatorFee, gasFee, platformFee, sellText]);
 
+  let profitColor = 'text-default';
+  if (profit > 0) {
+    profitColor = 'text-success';
+  } else if (profit < 0) {
+    profitColor = 'text-critical';
+  }
   return (
     <Modal
       size="xs"
@@ -342,7 +348,10 @@ const CalculatorModal: FC = () => {
           <Text typography="Body2Strong" color="text-subdued">
             {intl.formatMessage({ id: 'content__profit' })}
           </Text>
-          <Text typography="Display2XLarge">{profit}</Text>
+          <Text
+            typography="Display2XLarge"
+            color={profitColor}
+          >{`${profit} ETH`}</Text>
         </Row>
       </Column>
     </Modal>

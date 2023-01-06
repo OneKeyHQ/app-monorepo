@@ -11,11 +11,11 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletAvatarPro } from '../../../components/WalletSelector/WalletAvatar';
-import { RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import LayoutContainer from '../../Onboarding/Layout';
 import { KeyTagMatrix } from '../Component/KeyTagMatrix/KeyTagMatrix';
 import { mnemonicWordsToKeyTagMnemonic } from '../utils';
@@ -34,11 +34,20 @@ const RightDoneBtn = ({
 }: {
   onDone?: () => void;
   message?: string;
-}) => (
-  <Button mr={2} type="primary" size="sm" onPress={onDone}>
-    {message ?? 'Done'}
-  </Button>
-);
+}) => {
+  const isVerticalLayout = useIsVerticalLayout();
+  return (
+    <Button
+      mt={isVerticalLayout ? 2 : 6}
+      mr={platformEnv.isNative ? 0 : 6}
+      type="primary"
+      size="sm"
+      onPress={onDone}
+    >
+      {message ?? 'Done'}
+    </Button>
+  );
+};
 
 const TopMidCompoment = ({
   mnemonic,
@@ -48,9 +57,14 @@ const TopMidCompoment = ({
   wallet?: IWallet;
 }) => {
   const intl = useIntl();
+  const isVerticalLayout = useIsVerticalLayout();
   const mnemonicCounts = useMemo(() => mnemonic.split(' ').length, [mnemonic]);
   return (
-    <Center flexDirection="row" alignItems="center">
+    <Center
+      mt={isVerticalLayout ? 2 : 6}
+      flexDirection="row"
+      alignItems="center"
+    >
       {wallet ? (
         <WalletAvatarPro
           size={platformEnv.isNative ? 'lg' : 'sm'}
@@ -78,18 +92,17 @@ const ShowDotMap: FC = () => {
   const keyTagData = mnemonicWordsToKeyTagMnemonic(mnemonic);
   const navigation = useNavigation<NavigationProps>();
   const isVertical = useIsVerticalLayout();
+  const closeModal = useModalClose();
   const rightDoneBtn = useMemo(
     () => (
       <RightDoneBtn
         message={intl.formatMessage({ id: 'action__done' })}
         onDone={() => {
-          navigation
-            .getParent()
-            ?.navigate(RootRoutes.Tab, { screen: TabRoutes.Home });
+          closeModal();
         }}
       />
     ),
-    [intl, navigation],
+    [closeModal, intl],
   );
   const titleHeader = useMemo(
     () => <TopMidCompoment mnemonic={mnemonic} wallet={wallet} />,
@@ -99,6 +112,8 @@ const ShowDotMap: FC = () => {
     () =>
       !platformEnv.isNativeAndroid ? (
         <Button
+          ml={isVertical ? 0 : 2}
+          mt={isVertical ? 2 : 6}
           type="plain"
           leftIconName="ChevronLeftOutline"
           onPress={() => {
@@ -108,7 +123,7 @@ const ShowDotMap: FC = () => {
           }}
         />
       ) : null,
-    [navigation],
+    [isVertical, navigation],
   );
   navigation.setOptions({
     headerShown: true,
@@ -121,7 +136,10 @@ const ShowDotMap: FC = () => {
   return (
     <LayoutContainer backButton={false}>
       <Box flex="1">
-        <Box flexDirection={isVertical ? 'column' : 'row'}>
+        <Box
+          mt={platformEnv.isNativeIOS ? -12 : 0}
+          flexDirection={isVertical ? 'column' : 'row'}
+        >
           {keyTagData?.length && keyTagData.length > 12 ? (
             <>
               <KeyTagMatrix keyTagData={keyTagData.slice(0, 12)} />

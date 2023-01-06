@@ -132,6 +132,14 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
       )
         .decimalPlaces(3)
         .toString();
+
+      let description = item.tokenId ? `#${item.tokenId}` : '–';
+      if (
+        item.contractAddress?.toLowerCase() ===
+        '0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85'
+      ) {
+        description = item.asset?.name as string;
+      }
       return (
         <ListItem>
           <Pressable
@@ -165,7 +173,7 @@ const Desktop: FC<ListProps> = ({ network, loading, ...props }) => {
                       typography: 'Body1Strong',
                       isTruncated: true,
                     },
-                    description: item.tokenId ? `#${item.tokenId}` : '–',
+                    description,
                     descriptionProps: { isTruncated: true },
                   }}
                 />

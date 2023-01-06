@@ -153,12 +153,15 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
               />
             </Box>
             <Box>
-              <Typography.Body1Strong>
-                {formatTokenAmount({
-                  token: tx.tokens?.to.token,
-                  amount: tx.tokens?.to.amount,
-                })}
-              </Typography.Body1Strong>
+              <Box flexDirection="row" alignItems="center">
+                <Typography.Caption mr="1">≈</Typography.Caption>
+                <Typography.Body1Strong>
+                  {formatTokenAmount({
+                    token: tx.tokens?.to.token,
+                    amount: tx.tokens?.to.amount,
+                  })}
+                </Typography.Body1Strong>
+              </Box>
               <Typography.Body2 color="text-subdued">
                 {toNetwork?.shortName}
               </Typography.Body2>
@@ -272,6 +275,7 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
             />
           </Box>
           <Box flexDirection="row" alignItems="center" flex="1" flexWrap="wrap">
+            <Typography.Caption mr="1">≈</Typography.Caption>
             <Typography.Body1Strong mr="2">
               {formatTokenAmount({
                 token: tx.tokens?.to.token,

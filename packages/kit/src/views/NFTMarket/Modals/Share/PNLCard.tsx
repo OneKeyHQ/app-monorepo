@@ -32,6 +32,17 @@ export const PNLCard: FC<Props> = ({ data, scale, opacity }) => {
   const { formatDistanceStrict } = useFormatDate();
   const { themeVariant } = useTheme();
 
+  let description = '';
+  if (data) {
+    description = data.tokenId ? `#${data.tokenId}` : '–';
+    if (
+      data.contractAddress?.toLowerCase() ===
+      '0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85'
+    ) {
+      description = data.asset?.name as string;
+    }
+  }
+
   return (
     <Box
       width="358px"
@@ -82,7 +93,7 @@ export const PNLCard: FC<Props> = ({ data, scale, opacity }) => {
                   {data.contractName}
                 </Text>
                 <Text isTruncated typography="Body2" color="text-subdued">
-                  {data.tokenId ? `#${data.tokenId}` : '–'}
+                  {description}
                 </Text>
               </VStack>
             </HStack>

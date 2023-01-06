@@ -9,10 +9,12 @@ type DotSpaceProps = {
   disabled?: boolean;
   onClickSpace?: (openLight: boolean) => void;
   lightColor?: string;
+  defaultBgColor?: string;
 };
 const DotSpace: FC<DotSpaceProps> = ({
   defaultLight,
   disabled,
+  defaultBgColor,
   onClickSpace,
   size = 5,
   lightColor = 'text-success',
@@ -23,7 +25,7 @@ const DotSpace: FC<DotSpaceProps> = ({
   }, [defaultLight]);
   return (
     <Pressable
-      size={size}
+      size={`${size * 4}px`}
       borderWidth="1px"
       borderColor="divider"
       disabled={disabled}
@@ -41,7 +43,7 @@ const DotSpace: FC<DotSpaceProps> = ({
               ? 'surface-pressed'
               : isHovered
               ? 'surface-hovered'
-              : 'background-default'
+              : defaultBgColor ?? 'background-default'
           }
         >
           {openLight ? (

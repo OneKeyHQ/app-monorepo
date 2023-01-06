@@ -12,9 +12,17 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 
-type AttentionsProps = { pressTitle?: string; onPress: () => void };
+type AttentionsProps = {
+  navigateMode?: boolean;
+  pressTitle?: string;
+  onPress: () => void;
+};
 
-export const Attentions: FC<AttentionsProps> = ({ onPress, pressTitle }) => {
+export const Attentions: FC<AttentionsProps> = ({
+  navigateMode,
+  onPress,
+  pressTitle,
+}) => {
   const intl = useIntl();
   const insets = useSafeAreaInsets();
   const List = [
@@ -29,7 +37,11 @@ export const Attentions: FC<AttentionsProps> = ({ onPress, pressTitle }) => {
     },
   ];
   return (
-    <Modal footer={null}>
+    <Modal
+      footer={null}
+      hideBackButton={!!navigateMode}
+      headerShown={!navigateMode}
+    >
       <Box flex={1} px={{ base: 2, md: 0 }}>
         <Box flex={1}>
           <Center mb={8}>

@@ -5,6 +5,7 @@ export enum KeyTagMnemonicStatus {
   VERIF = 'verif',
   EMPTY = 'empty',
   INCORRECT = 'incorrect',
+  FILL = 'FILLED',
 }
 
 export type KeyTagMnemonic = {
