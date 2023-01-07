@@ -16,10 +16,8 @@ import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
   useActiveWalletAccount,
-  useFiatPay,
-  useMoonpayPayCurrency,
+  useMoonpaySell,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -50,27 +48,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
   const isVertical = useIsVerticalLayout();
   const { wallet, network, networkId, accountId } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
-
-  const currencies = useFiatPay(network?.id ?? '');
-  let cryptoCurrency = currencies.find((item) => {
-    if (!token?.tokenIdOnNetwork) {
-      return item.contract === '';
-    }
-    return item.contract === token?.tokenIdOnNetwork;
-  });
-
-  const { balances } = useManageTokens();
-
-  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
-
-  if (cryptoCurrency) {
-    cryptoCurrency = { ...cryptoCurrency, balance: amount };
-  }
-  const moonpayCurrency = useMoonpayPayCurrency(
-    cryptoCurrency?.provider.moonpay,
+  const { sellEnable, balances, cryptoCurrency, amount } = useMoonpaySell(
+    network?.id,
+    token,
   );
-
-  const sellEnable = cryptoCurrency && moonpayCurrency?.isSellSupported;
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -260,7 +241,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
                       params: {
                         screen: FiatPayRoutes.AmountInputModal,
                         params: {
-                          token: cryptoCurrency as CurrencyType,
+                          token: cryptoCurrency,
                           type: 'Buy',
                         },
                       },

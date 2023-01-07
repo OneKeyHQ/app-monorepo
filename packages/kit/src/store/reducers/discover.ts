@@ -1,9 +1,11 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 import type {
+  CatagoryType,
   DAppItemType,
   DiscoverHistory,
   HistoryItemData,
+  TagDappsType,
   WebSiteHistory,
 } from '../../views/Discover/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -21,8 +23,8 @@ type InitialState = {
   // REMOVED
 
   home?: {
-    categories: { name: string; _id: string }[];
-    tagDapps: { label: string; id: string; items: DAppItemType[] }[];
+    categories: CatagoryType[];
+    tagDapps: TagDappsType[];
   };
 
   history: Record<string, DiscoverHistory>;
@@ -253,8 +255,8 @@ export const discoverSlice = createSlice({
     setHomeData(
       state,
       action: PayloadAction<{
-        categories: { name: string; _id: string }[];
-        tagDapps: { label: string; id: string; items: DAppItemType[] }[];
+        categories: CatagoryType[];
+        tagDapps: TagDappsType[];
       }>,
     ) {
       state.home = action.payload;

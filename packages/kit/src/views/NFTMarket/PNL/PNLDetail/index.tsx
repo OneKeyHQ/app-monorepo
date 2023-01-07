@@ -29,10 +29,12 @@ import {
   Skeleton,
   Spinner,
   Text,
+  ToastManager,
   Tooltip,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -235,25 +237,31 @@ const Header: FC<HeaderProps> = ({
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const shareAction = useCallback(() => {
-    let displayName = '';
-    if (name.current && name.current?.length > 0) {
-      displayName = name.current;
-    } else {
-      displayName = shortenAddress(nameOrAddress);
-    }
-
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.NFTMarket,
-      params: {
-        screen: NFTMarketRoutes.ShareNFTPNLModal,
+    if (platformEnv.isNative) {
+      let displayName = '';
+      if (name.current && name.current?.length > 0) {
+        displayName = name.current;
+      } else {
+        displayName = shortenAddress(nameOrAddress);
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.NFTMarket,
         params: {
-          network,
-          nameOrAddress: displayName,
-          data: pnlData,
+          screen: NFTMarketRoutes.ShareNFTPNLModal,
+          params: {
+            network,
+            nameOrAddress: displayName,
+            data: pnlData,
+          },
         },
-      },
-    });
-  }, [nameOrAddress, navigation, network, pnlData]);
+      });
+    } else {
+      copyToClipboard('https://app.onekey.so/pnl');
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__link_copied' }),
+      });
+    }
+  }, [intl, nameOrAddress, navigation, network, pnlData]);
 
   const { account: activeAccount } = useActiveWalletAccount();
 
@@ -310,7 +318,7 @@ const Header: FC<HeaderProps> = ({
       >
         <Box>
           <Text typography="Body1" color="text-subdued">
-            {intl.formatMessage({ id: 'content__profit' })}
+            {intl.formatMessage({ id: 'content__total_profits' })}
           </Text>
           {totalProfit ? (
             <Text
@@ -374,18 +382,16 @@ const Header: FC<HeaderProps> = ({
             </Hidden>
           </Box>
         </Box>
-        {platformEnv.isNative && (
-          <Button
-            isDisabled={loading}
-            type="primary"
-            size={isVerticalLayout ? 'lg' : 'base'}
-            leftIconName="ArrowTopRightOnSquareSolid"
-            onPress={shareAction}
-            mt={{ base: 6, sm: 0 }}
-          >
-            {intl.formatMessage({ id: 'action__share' })}
-          </Button>
-        )}
+        <Button
+          isDisabled={loading}
+          type="primary"
+          size={isVerticalLayout ? 'lg' : 'base'}
+          leftIconName="ArrowTopRightOnSquareSolid"
+          onPress={shareAction}
+          mt={{ base: 6, sm: 0 }}
+        >
+          {intl.formatMessage({ id: 'action__share' })}
+        </Button>
       </Box>
       <Hidden from="base" till="md">
         <ListTitle />

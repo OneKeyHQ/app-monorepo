@@ -1,5 +1,4 @@
 import type { ComponentProps, FC } from 'react';
-import { useEffect, useRef, useState } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
 
@@ -69,14 +68,6 @@ const Switch: FC<SwitchProps> = ({
   ...props
 }) => {
   const iSize = getRectSize(size);
-  const [isCheckedLocal, setIsCheckedLocal] = useState(isChecked);
-  const isCheckedLocalRef = useRef(isCheckedLocal);
-  isCheckedLocalRef.current = isCheckedLocal;
-  useEffect(() => {
-    if (isCheckedLocalRef.current !== isChecked) {
-      setIsCheckedLocal(isChecked);
-    }
-  }, [isChecked]);
 
   return (
     <Box
@@ -103,13 +94,12 @@ const Switch: FC<SwitchProps> = ({
         onTrackColor="action-primary-default"
         offTrackColor="surface-neutral-default"
         {...props}
-        isChecked={isCheckedLocal}
+        isChecked={isChecked}
         isDisabled={isDisabled}
         onToggle={
           onToggle
             ? () => {
                 if (platformEnv.isNative) {
-                  setIsCheckedLocal((v) => !v);
                   setTimeout(onToggle);
                 } else {
                   onToggle();

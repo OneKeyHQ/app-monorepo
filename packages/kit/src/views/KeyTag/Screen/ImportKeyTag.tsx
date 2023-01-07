@@ -37,6 +37,7 @@ type NavigationProps = StackNavigationProp<
 const ImportKeyTag: FC = () => {
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
   const [importCheck, setImportCheck] = useState(false);
   const [mnemonicWordDatas, setMnemonicWordDatas] = useState(() =>
     generalKeyTagMnemonic(12),
@@ -109,6 +110,7 @@ const ImportKeyTag: FC = () => {
   const rightButton = useMemo(
     () => (
       <Button
+        mt={isVertical ? 2 : 6}
         mr={platformEnv.isNative ? 0 : 6}
         type="primary"
         size="base"
@@ -118,12 +120,14 @@ const ImportKeyTag: FC = () => {
         {intl.formatMessage({ id: 'action__import' })}
       </Button>
     ),
-    [importCheck, importValidation, intl],
+    [importCheck, importValidation, intl, isVertical],
   );
   const LeftButton = useMemo(
     () =>
       !platformEnv.isNativeAndroid ? (
         <Button
+          ml={isVertical ? 0 : 2}
+          mt={isVertical ? 2 : 6}
           type="plain"
           leftIconName="ChevronLeftOutline"
           onPress={() => {
@@ -133,7 +137,7 @@ const ImportKeyTag: FC = () => {
           }}
         />
       ) : null,
-    [navigation],
+    [isVertical, navigation],
   );
   const title = useMemo(() => <Box />, []);
   navigation.setOptions({
@@ -144,14 +148,13 @@ const ImportKeyTag: FC = () => {
     headerShadowVisible: false,
   });
   const [showResult, setShowResult] = useState(true);
-  const isVertical = useIsVerticalLayout();
   return (
     <LayoutContainer backButton={false}>
       <Box
         flexDirection={isVertical ? 'column' : 'row'}
         justifyContent={isVertical ? 'center' : 'space-between'}
       >
-        <Box mt={platformEnv.isNative ? -6 : 0}>
+        <Box mt={platformEnv.isNativeIOS ? -12 : 0}>
           <Typography.DisplayLarge>
             {intl.formatMessage({ id: 'title__import_wallet_with_keytag' })}
           </Typography.DisplayLarge>
@@ -183,7 +186,7 @@ const ImportKeyTag: FC = () => {
               activatable={!!isVertical}
               defaultValue={12}
               containerProps={{
-                width: '120px',
+                width: '130px',
                 zIndex: 5,
               }}
               footer={null}

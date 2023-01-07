@@ -35,6 +35,7 @@ type DotGroupProps = {
   size?: number;
   disabled?: boolean;
   onChange?: (index: number, value: boolean) => void;
+  defaultBgColor?: string;
 };
 
 export const DotGroup: FC<DotGroupProps> = ({
@@ -45,6 +46,7 @@ export const DotGroup: FC<DotGroupProps> = ({
   lightsData = [],
   digitCodeLimit = 11,
   disabled = false,
+  defaultBgColor,
   onChange,
 }) => (
   <>
@@ -54,7 +56,7 @@ export const DotGroup: FC<DotGroupProps> = ({
         <Box flexDirection="column">
           {showDigitCode ? (
             <Box
-              style={{ width: size * 4, height: 35 }}
+              style={{ width: size * 4, height: 40 }}
               flexDirection="column"
               justifyContent="center"
               alignItems="center"
@@ -65,18 +67,23 @@ export const DotGroup: FC<DotGroupProps> = ({
                 justifyContent="flex-start"
                 alignItems="center"
                 style={{
-                  width: 35,
+                  width: 40,
                   height: size * 4,
                   transform: [{ rotate: '-90deg' }],
                 }}
               >
-                <Typography.Body2Mono textAlign="center" color="text-subdued">
+                <Typography.Body2Mono
+                  lineHeight="18px"
+                  textAlign="center"
+                  color="text-subdued"
+                >
                   {2 ** (digitCodeLimit - indexNumber)}
                 </Typography.Body2Mono>
               </Box>
             </Box>
           ) : null}
           <DotSpace
+            defaultBgColor={defaultBgColor}
             disabled={disabled}
             size={size}
             defaultLight={data}
@@ -95,9 +102,14 @@ export const DotGroup: FC<DotGroupProps> = ({
 type MnemonicStatusProps = {
   status?: KeyTagMnemonicStatus;
   word?: string;
+  showResult?: boolean;
 };
 
-export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
+export const MnemonicStatus: FC<MnemonicStatusProps> = ({
+  showResult,
+  status,
+  word,
+}) => {
   const intl = useIntl();
   const { statusTitle, titleColor } = useMemo(() => {
     const res: { statusTitle?: string; titleColor: ThemeToken } = {
@@ -105,7 +117,7 @@ export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
     };
     switch (status) {
       case KeyTagMnemonicStatus.VERIF:
-        res.statusTitle = word?.toUpperCase();
+        res.statusTitle = showResult ? word?.toUpperCase() : '';
         break;
       case KeyTagMnemonicStatus.INCORRECT:
         res.statusTitle = intl
@@ -120,13 +132,13 @@ export const MnemonicStatus: FC<MnemonicStatusProps> = ({ status, word }) => {
         res.titleColor = 'text-warning';
         break;
       case KeyTagMnemonicStatus.UNVERIF:
-        res.statusTitle = '-';
+        res.statusTitle = showResult ? '-' : '';
         break;
       default:
         break;
     }
     return res;
-  }, [intl, status, word]);
+  }, [intl, showResult, status, word]);
   return (
     <Box flexDirection="row">
       {status === KeyTagMnemonicStatus.INCORRECT ? (
@@ -170,15 +182,14 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
     <Box flexDirection="column">
       {showWordStatus ? (
         <Box flexDirection="row" justifyContent="space-between" my={1}>
-          <Typography.Body1Mono>{mnemonicWordData?.index}</Typography.Body1Mono>
-          {showResult ? (
-            <MnemonicStatus
-              status={mnemonicWordData?.status}
-              word={mnemonicWordData?.mnemonicWord}
-            />
-          ) : (
-            <Box />
-          )}
+          <Typography.Body1Mono color="text-subdued">
+            {mnemonicWordData?.index}
+          </Typography.Body1Mono>
+          <MnemonicStatus
+            showResult={showResult}
+            status={mnemonicWordData?.status}
+            word={mnemonicWordData?.mnemonicWord}
+          />
         </Box>
       ) : null}
       <Box flexDirection="row">
@@ -198,9 +209,13 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
               h={size}
               flexDirection="row"
               justifyContent="flex-end"
-              alignItems="flex-end"
+              alignItems="flex-start"
             >
-              <Typography.Body1Mono marginRight="8px">
+              <Typography.Body1Mono
+                lineHeight="18px"
+                color="text-subdued"
+                marginRight="8px"
+              >
                 {mnemonicWordData?.index}
               </Typography.Body1Mono>
             </Box>
@@ -209,6 +224,11 @@ const DotMnemonicWord: FC<DotMnemonicWordProps> = ({
         <HStack space={space}>
           {groupArr.map((group, index) => (
             <DotGroup
+              defaultBgColor={
+                mnemonicWordData?.status === KeyTagMnemonicStatus.FILL
+                  ? 'background-hovered'
+                  : 'background-default'
+              }
               disabled={disabled}
               size={size}
               groupIndex={index}

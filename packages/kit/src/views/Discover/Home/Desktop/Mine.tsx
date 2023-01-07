@@ -243,6 +243,7 @@ export const Mine: FC = () => {
         title: item.label,
         data: item.items,
         tagId: item.id,
+        _title: item._label,
       })),
     [dapps],
   );

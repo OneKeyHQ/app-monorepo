@@ -13,6 +13,10 @@ let keytar = {
     console.error('keytar.getPassword() not working.');
     return Promise.resolve('');
   },
+  async deletePassword(...args: any[]) {
+    console.error('keytar.deletePassword() not working.');
+    return Promise.resolve('');
+  },
 };
 
 try {
@@ -45,6 +49,7 @@ export type DesktopAPI = {
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
+  secureDelItemAsync: (key: string) => Promise<string | null>;
   reloadBridgeProcess: () => void;
   addIpcEventListener: (
     event: string,
@@ -152,6 +157,9 @@ const desktopApi = {
   },
   secureGetItemAsync(key: string) {
     return keytar.getPassword('OneKey', key);
+  },
+  secureDelItemAsync(key: string) {
+    return keytar.deletePassword('OneKey', key);
   },
   reloadBridgeProcess: () => {
     ipcRenderer.send('app/reloadBridgeProcess');

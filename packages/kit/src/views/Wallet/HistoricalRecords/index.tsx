@@ -56,6 +56,8 @@ const defaultProps = {
   isTab: false,
 } as const;
 
+const divider = () => <Divider key="separator" />;
+const footer = () => <Box key="footer" h="20px" />;
 const renderSectionHeader: SectionListProps<Transaction>['renderSectionHeader'] =
   ({ section: { title, data } }) => (
     <Box key="section-header" pb={2} flexDirection="row">
@@ -236,9 +238,7 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
     </Center>
   );
 
-  const ListElementType = isTab
-    ? (Tabs.SectionList as typeof SectionList)
-    : SectionList;
+  const ListElementType = isTab ? Tabs.SectionList : SectionList;
 
   return (
     <ListElementType
@@ -254,8 +254,8 @@ const HistoricalRecords: FC<HistoricalRecordProps> = ({
       renderSectionHeader={renderSectionHeader}
       ListHeaderComponent={renderListHeader}
       ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
-      ListFooterComponent={() => <Box key="footer" h="20px" />}
-      ItemSeparatorComponent={() => <Divider key="separator" />}
+      ListFooterComponent={footer}
+      ItemSeparatorComponent={divider}
       keyExtractor={(tx: Transaction) => tx.txHash}
       showsVerticalScrollIndicator={false}
       stickySectionHeadersEnabled={false}

@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import { useTranslation } from '../../../hooks';
 import DAppIcon from '../DAppIcon';
 import { useTagDapps } from '../hooks';
 
@@ -52,6 +53,7 @@ const EmptySkeleton = () => (
 export const Mobile: FC<DAppListProps> = ({ ...rest }) => {
   const { onItemSelect, tagId } = rest;
   const data = useTagDapps(tagId);
+  const t = useTranslation();
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
       <Pressable
@@ -75,14 +77,14 @@ export const Mobile: FC<DAppListProps> = ({ ...rest }) => {
                 mt="4px"
                 numberOfLines={1}
               >
-                {item.subtitle}
+                {t(item._subtitle) ?? item.subtitle}
               </Typography.Caption>
             </Box>
           </Box>
         </Box>
       </Pressable>
     ),
-    [onItemSelect],
+    [onItemSelect, t],
   );
   return (
     <Box flex="1" bg="background-default">

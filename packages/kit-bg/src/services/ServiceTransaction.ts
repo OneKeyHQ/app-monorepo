@@ -84,11 +84,14 @@ export default class ServiceTransaction extends ServiceBase {
           params: ['latest', false],
         });
 
-        const blockReceipt = blockData as { gasLimit: string };
+        const blockReceipt = blockData as { gasLimit: string; gasUsed: string };
+        const maxLimit = +blockReceipt.gasLimit / 10;
+        const gasUsed = 100 * 10000;
+        const limit = Math.min(maxLimit, gasUsed);
 
         feeInfoUnit = {
           eip1559: typeof gasPrice[0] === 'object',
-          limit: String(+blockReceipt.gasLimit / 10),
+          limit: String(limit),
           price: gasPrice[gasPrice.length - 1],
         };
       }

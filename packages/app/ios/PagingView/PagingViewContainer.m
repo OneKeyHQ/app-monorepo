@@ -8,9 +8,6 @@
 #import "PagingViewContainer.h"
 #import "RCTScrollView+swizzled.h"
 
-#import <React/RCTRootViewDelegate.h>
-#import <React/RCTAppSetupUtils.h>
-
 @interface PagingViewContainer ()<UIScrollViewDelegate>
 @property (nonatomic, copy) void(^scrollCallback)(UIScrollView *scrollView);
 @property (nonatomic, strong) UIView *reactView;
