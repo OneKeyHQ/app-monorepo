@@ -1,56 +1,42 @@
 import type { FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import bg from '@onekeyhq/kit/assets/annual/6.png';
 
 import { Container, WText } from '../components';
 
 const AnnualPage5: FC<{ height: number }> = ({ height }) => {
-  console.log(1);
+  const intl = useIntl();
   return (
     <Container bg={bg} height={height} showLogo={false}>
-      <WText
-        fontWeight="600"
-        fontSize="32px"
-        color="#E2E2E8"
-        mb="2"
-        lineHeight="45px"
-      >
-        {`今年重大的Rug事件，\n机智的您逃过了么？`}
+      <WText fontWeight="600" fontSize="32px" color="#E2E2E8" lineHeight="40px">
+        {intl.formatMessage({
+          id: 'content__did_you_get_away_with_most_of_the_rug_pulls_this_year',
+        })}
       </WText>
-      <WText
-        fontWeight="900"
-        fontSize="24px"
-        color="text-success"
-        mb="2"
-        mt="9"
-        lineHeight="29px"
-      >
+      <WText fontWeight="900" fontSize="24px" color="text-success" mt="9">
         2022.05.13
       </WText>
-      <WText fontWeight="500" fontSize="24px" color="#E2E2E8" mb="2">
-        LUNA 崩盘事故
+      <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
+        {intl.formatMessage({ id: 'content__luna_crash' })}
       </WText>
-      <WText
-        fontWeight="900"
-        fontSize="24px"
-        color="text-success"
-        mb="2"
-        mt="7"
-        lineHeight="29px"
-      >
+      <WText fontWeight="900" fontSize="24px" color="text-success" mt="7">
         2022.11.11
       </WText>
-      <WText fontWeight="500" fontSize="24px" color="#E2E2E8" mb="7">
-        FTX RUG 事件
+      <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
+        {intl.formatMessage({ id: 'content__ftx_collapse' })}
       </WText>
-      <WText fontWeight="500" fontSize="24px" color="#E2E2E8" mb="9">
+      <WText fontWeight="500" fontSize="24px" color="#E2E2E8" mt="7" mb="9">
         ...
       </WText>
-      <WText fontWeight="500" fontSize="24px" color="#E2E2E8" mb="2">
-        今年 RUG 事件频发，希望您都幸免于难，成为真正的
+      <WText fontWeight="500" fontSize="24px" color="#E2E2E8" mb="4">
+        {intl.formatMessage({
+          id: 'content__have_you_been_spared_this_year_we_hope_you_re_the',
+        })}
       </WText>
-      <WText fontWeight="700" fontSize="40px" color="text-success" mb="2">
-        跑路高手
+      <WText fontWeight="700" fontSize="40px" color="text-success">
+        {intl.formatMessage({ id: 'content__anti_rug_master' })}
       </WText>
     </Container>
   );

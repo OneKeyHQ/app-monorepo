@@ -1,14 +1,18 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
+
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 // define enum here to avoid cycle import
+
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
+import type { Token } from '../store/typings';
+import type { PNLData } from '../views/NFTMarket/PNL/PNLDetail';
 import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 import type { StackBasicRoutesParams } from './Dev';
 import type * as SubModalRoutesParams from './Modal/types';
@@ -19,6 +23,7 @@ import type {
   ParamListBase,
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
+import type B from 'bignumber.js';
 
 export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
@@ -150,7 +155,17 @@ export type HomeRoutesParams = {
   [HomeRoutes.KeyTag]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;
   [HomeRoutes.AnnualLoading]: undefined;
-  [HomeRoutes.AnnualReport]: undefined;
+  [HomeRoutes.AnnualReport]: {
+    name: string;
+    tokens?: (Token & {
+      value: B;
+    })[];
+    nfts?: Collection[];
+    pnls?: {
+      data: PNLData;
+      assets: Record<string, NFTAsset>;
+    };
+  };
 };
 /** HomeStack */
 

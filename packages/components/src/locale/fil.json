@@ -676,6 +676,11 @@
   "content__you_can_use_it_as_a_new_onekey_lite": "Magagamit mo ito bilang bagong OneKey Lite",
   "content__you_don_t_have_a_str_account": "Wala kang {0} account.",
   "content__you_dont_have_any_nft_in_your_wallet": "Wala kang anumang NFT sa iyong wallet",
+<<<<<<< HEAD
+=======
+  "content__you_have_not_made_any_nft_transactions": "Hindi ka nakagawa ng anumang mga transaksyong NFT.",
+  "content__you_have_not_made_any_nft_transactions_desc": "Ito ay nagdadala ng magandang balita,\n Wala kang talo.\n (*´∀`)~ ♥",
+>>>>>>> 202ee12b9 (feat: annual ui)
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "Maaari kang makatanggap ng maraming kahilingan sa pagpirma sa hardware wallet.",
   "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "Ikaw na pinakamamahal sa NFT, marami ring bagong nadagdag.",
   "content__your_biological_data_is_encrypted": "Ang iyong Biological Data ay Naka-encrypt.",

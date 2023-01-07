@@ -1,12 +1,56 @@
 import type { FC } from 'react';
+import { useMemo } from 'react';
 
-import { HStack, Icon, Image, VStack } from '@onekeyhq/components';
+import B from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import { HStack, VStack } from '@onekeyhq/components';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import bg from '@onekeyhq/kit/assets/annual/4.png';
 
+import { useActiveWalletAccount } from '../../../hooks';
+import { PriceString } from '../../NFTMarket/PriceText';
+import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { Container, WText } from '../components';
 
-const AnnualPage3: FC<{ height: number }> = ({ height }) => {
-  console.log(1);
+import type { HomeRoutesParams } from '../../../routes/types';
+
+const AnnualPage3: FC<{
+  height: number;
+  params: HomeRoutesParams['AnnualReport'];
+}> = ({ height, params: { pnls } }) => {
+  const { data, assets } = pnls ?? {};
+  const intl = useIntl();
+  const { networkId } = useActiveWalletAccount();
+
+  const total = useMemo(() => {
+    let totalValue = '0';
+    if (data?.totalProfit) {
+      totalValue = data?.totalProfit?.decimalPlaces(3).toString();
+      totalValue = `${
+        data?.totalProfit?.toNumber() >= 0 ? '+' : ''
+      }${totalValue}`;
+    }
+    return PriceString({ price: totalValue, networkId });
+  }, [data, networkId]);
+
+  const items = useMemo(
+    () =>
+      data?.content.map((n) => {
+        const key = `${n.contractAddress as string}-${n.tokenId}`;
+        return {
+          ...n,
+          key,
+          asset: assets?.[key],
+        };
+      }) ?? [],
+    [data, assets],
+  );
+
+  if (!pnls) {
+    return null;
+  }
+
   return (
     <Container bg={bg} height={height} showLogo={false}>
       <WText
@@ -16,7 +60,9 @@ const AnnualPage3: FC<{ height: number }> = ({ height }) => {
         mb="2"
         lineHeight="45px"
       >
-        {`最爱NFT的您，\n这一年也有不少收获。`}
+        {intl.formatMessage({
+          id: 'content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year',
+        })}
       </WText>
       <HStack mt="6">
         <VStack flex="1">
@@ -27,7 +73,7 @@ const AnnualPage3: FC<{ height: number }> = ({ height }) => {
             color="#E2E2E8"
             mb="2"
           >
-            花了
+            {intl.formatMessage({ id: 'content__spent' })}
           </WText>
           <WText
             fontWeight="bold"
@@ -36,7 +82,10 @@ const AnnualPage3: FC<{ height: number }> = ({ height }) => {
             color="#E2E2E8"
             mb="2"
           >
-            23.3 ETH
+            {PriceString({
+              price: data?.spend?.decimalPlaces(3).toString() ?? '',
+              networkId,
+            })}
           </WText>
         </VStack>
         <VStack flex="1">
@@ -47,7 +96,7 @@ const AnnualPage3: FC<{ height: number }> = ({ height }) => {
             color="#E2E2E8"
             mb="2"
           >
-            盈利
+            {intl.formatMessage({ id: 'content__profit' })}
           </WText>
           <WText
             fontWeight="bold"
@@ -56,39 +105,38 @@ const AnnualPage3: FC<{ height: number }> = ({ height }) => {
             color="#E2E2E8"
             mb="6"
           >
-            -2.3 ETH
+            {total}
           </WText>
         </VStack>
       </HStack>
-      <HStack alignItems="center">
-        <Image
-          source={{
-            uri: 'https://common.onekey-asset.com/token/evm-1/0xdAC17F958D2ee523a2206206994597C13D831ec7.jpg',
-          }}
-          w={20}
-          h={20}
-          mr="6"
-        />
-        <VStack>
-          <WText
-            fontWeight="600"
-            fontSize="20px"
-            lineHeight="28px"
-            color="#E2E2E8"
-            mb="2"
-          >
-            KaijuKing #6511
-          </WText>
-          <WText
-            fontWeight="600"
-            fontSize="20px"
-            lineHeight="28px"
-            color="text-success"
-          >
-            13%
-          </WText>
-        </VStack>
-      </HStack>
+      {items.map((item) => (
+        <HStack alignItems="center" mb="6">
+          <NFTListImage asset={item.asset || ({} as NFTAsset)} size={80} />
+          <VStack ml="6">
+            <WText
+              fontWeight="600"
+              fontSize="20px"
+              lineHeight="28px"
+              color="#E2E2E8"
+              mb="2"
+            >
+              {`${item.contractName ?? ''}  #${item.tokenId ?? ''}`}
+            </WText>
+            <WText
+              fontWeight="600"
+              fontSize="20px"
+              lineHeight="28px"
+              color="text-success"
+            >
+              {PriceString({
+                price:
+                  new B(item?.profit || 0).decimalPlaces(3).toString() ?? '',
+                networkId,
+              })}
+            </WText>
+          </VStack>
+        </HStack>
+      ))}
     </Container>
   );
 };

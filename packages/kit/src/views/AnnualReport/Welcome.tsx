@@ -1,7 +1,9 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
+import B from 'bignumber.js';
 import { useAsync } from 'react-async-hook';
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -12,9 +14,11 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import bg1 from '@onekeyhq/kit/assets/annual/1.png';
 import bgLoading from '@onekeyhq/kit/assets/annual/bg_loading.png';
 import bgStart from '@onekeyhq/kit/assets/annual/bg_start.png';
+import { parsePNLData } from '@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
@@ -32,7 +36,6 @@ import type {
   RootRoutesParams,
 } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -41,6 +44,7 @@ type NavigationProps = NativeStackNavigationProp<
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.AnnualReport>;
 const AnnualLoading: FC = () => {
   useHeaderHide();
+  const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { openAccountSelector } = useNavigationActions();
   const { accountAddress, accountId, networkId } = useActiveWalletAccount();
@@ -64,15 +68,31 @@ const AnnualLoading: FC = () => {
       tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
       vsCurrency: 'usd',
     });
-    const balances = serviceToken.fetchTokenBalance({
+    const balances = await serviceToken.fetchTokenBalance({
       activeAccountId: accountId,
       activeNetworkId: networkId,
     });
-    return {
-      prices,
-      balances,
-      accountTokens,
-    };
+
+    return accountTokens
+      .map((t) => {
+        const balance = balances[t.tokenIdOnNetwork || 'main'];
+        const price =
+          prices[
+            t.tokenIdOnNetwork
+              ? `${networkId}-${t.tokenIdOnNetwork}`
+              : networkId
+          ]?.usd;
+
+        const value = new B(balance ?? '0').multipliedBy(price ?? 0);
+        return {
+          ...t,
+          price,
+          balance,
+          value,
+        };
+      })
+      .sort((a, b) => b.value.minus(a.value).toNumber())
+      .filter((t) => t.value.isGreaterThan(0));
   }, [networkId, accountId]);
 
   const { result: nfts, loading: nftLoading } = useAsync(
@@ -84,21 +104,50 @@ const AnnualLoading: FC = () => {
     [accountAddress, networkId],
   );
 
-  const { result: pnls, loading: pnlLoading } = useAsync(
-    async () =>
-      backgroundApiProxy.serviceNFT.getPNLData({ address: accountAddress }),
-    [accountAddress],
-  );
+  const { result: pnls, loading: pnlLoading } = useAsync(async () => {
+    const { serviceNFT } = backgroundApiProxy;
+    const data = await serviceNFT.getPNLData({
+      address: accountAddress,
+    });
+    const parsed = parsePNLData(data ?? []);
+    const top5 =
+      parsed?.content?.sort((a, b) => b.profit - a.profit).slice(0, 5) ?? [];
+
+    let assets: NFTAsset[] = [];
+
+    if (top5.length) {
+      assets =
+        (await serviceNFT.batchAsset({
+          chain: networkId,
+          items: top5.map((item) => ({
+            contract_address: item.contractAddress,
+            token_id: item.tokenId,
+          })),
+        })) ?? [];
+    }
+
+    return {
+      data: {
+        ...(parsed || {}),
+        content: top5,
+      },
+      assets: assets?.reduce((m, n) => {
+        const key = `${n.contractAddress as string}-${n.tokenId as string}`;
+        return {
+          ...m,
+          [key]: n,
+        };
+      }, {}),
+    };
+  }, [accountAddress]);
 
   console.log(ens, 'ens result');
 
-  console.log(tokens?.prices, 'prices');
-
-  console.log(tokens?.accountTokens.length, 'tokens');
-
   console.log(nfts?.length, 'nfts');
 
-  console.log(pnls?.length, 'pnls');
+  console.log(tokens, 'tokens');
+
+  console.log(pnls, 'pnls');
 
   const loading = useMemo(() => {
     const pipeline = [ensLoading, tokensLoading, nftLoading, pnlLoading];
@@ -111,7 +160,7 @@ const AnnualLoading: FC = () => {
     return Math.floor(progress);
   }, [ensLoading, tokensLoading, nftLoading, pnlLoading]);
 
-  const isDone = loading >= 100;
+  const isDone = useMemo(() => loading >= 100, [loading]);
 
   const name = useMemo(() => {
     if (ens) {
@@ -121,7 +170,7 @@ const AnnualLoading: FC = () => {
   }, [ens, accountAddress]);
 
   const button = useMemo(() => {
-    if (loading !== 100) {
+    if (!isDone) {
       return (
         <BgButton w={134} h={32} bg={bgLoading}>
           <WText
@@ -141,7 +190,12 @@ const AnnualLoading: FC = () => {
         h={50}
         bg={bgStart}
         onPress={() => {
-          navigation.navigate(HomeRoutes.AnnualReport);
+          navigation.navigate(HomeRoutes.AnnualReport, {
+            name,
+            tokens,
+            nfts,
+            pnls,
+          });
         }}
       >
         <WText fontSize="16" fontWeight="600">
@@ -149,14 +203,14 @@ const AnnualLoading: FC = () => {
         </WText>
       </BgButton>
     );
-  }, [loading, navigation]);
+  }, [loading, isDone, navigation, tokens, nfts, pnls, name]);
 
   return (
     <Container bg={bg1} showLogo showFooter={false}>
       <VStack flex="1" flexDirection="column-reverse">
-        <WText fontSize="48">Journey.</WText>
-        <WText fontSize="48">on-chain</WText>
-        <WText fontSize="48">My</WText>
+        <WText fontSize="48">
+          {intl.formatMessage({ id: 'title__my_on_chain_journey_uppercase' })}
+        </WText>
       </VStack>
       {isDone ? (
         <Center w="full" mt="37px">
@@ -187,8 +241,11 @@ const AnnualLoading: FC = () => {
               lineHeight="25px"
               textTransform="none"
               fontWeight="400"
+              w="full"
             >
-              看看你的链上身份是什么？
+              {intl.formatMessage({
+                id: 'content__check_out_what_s_your_identity_on_the_blockchain',
+              })}
             </WText>
           </Box>
         </Center>
@@ -203,9 +260,11 @@ const AnnualLoading: FC = () => {
         textTransform="none"
         textAlign="center"
         lineHeight="20px"
-        mb={platformEnv.isNativeAndroid ? '38px' : 0}
+        mb="38px"
       >
-        {`统计范围仅限于 ETH 网络\n所有数据都来自于区块链浏览器，OneKey不会保存任何用户的隐私数据。`}
+        {intl.formatMessage({
+          id: 'content__the_statistical_scope_is_limited_to_eth_networks_all_data_comes_from_the_blockchain_browser',
+        })}
       </WText>
     </Container>
   );

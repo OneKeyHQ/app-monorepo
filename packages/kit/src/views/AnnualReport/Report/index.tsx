@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { Dimensions } from 'react-native';
 
 import { FlatList } from '@onekeyhq/components';
@@ -15,8 +16,14 @@ import AnnualPage5 from './Page5';
 import AnnualPage6 from './Page6';
 import AnnualPage7 from './Page7';
 
+import type { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
+import type { RouteProp } from '@react-navigation/core';
+
+type NavigationProps = RouteProp<HomeRoutesParams, HomeRoutes.AnnualReport>;
+
 const AnnualReport = () => {
   useHeaderHide();
+  const route = useRoute<NavigationProps>();
   const [height, setHeight] = useState(Dimensions.get('window').height);
 
   return (
@@ -35,7 +42,9 @@ const AnnualReport = () => {
       onLayout={(e) => {
         setHeight(e.nativeEvent.layout.height);
       }}
-      renderItem={({ item }) => React.createElement(item, { height })}
+      renderItem={({ item }) =>
+        React.createElement(item, { height, params: route.params })
+      }
     />
   );
 };

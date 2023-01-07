@@ -676,6 +676,11 @@
   "content__you_can_use_it_as_a_new_onekey_lite": "Bạn có thể sử dụng nó như một OneKey Lite mới",
   "content__you_don_t_have_a_str_account": "Bạn không có tài khoản {0} .",
   "content__you_dont_have_any_nft_in_your_wallet": "Bạn không có bất kỳ NFT nào trong ví của mình",
+<<<<<<< HEAD
+=======
+  "content__you_have_not_made_any_nft_transactions": "Bạn chưa thực hiện bất kỳ giao dịch NFT nào.",
+  "content__you_have_not_made_any_nft_transactions_desc": "Điều này mang lại tin tốt,\n Bạn không có thiệt hại.\n (*´∀`)~ ♥",
+>>>>>>> 202ee12b9 (feat: annual ui)
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "Bạn có thể nhận được nhiều yêu cầu ký trên ví phần cứng.",
   "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "Bạn, người yêu thích NFT nhất, cũng có rất nhiều lợi ích mới.",
   "content__your_biological_data_is_encrypted": "Dữ liệu sinh học của bạn được mã hóa.",

@@ -1,10 +1,9 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback, useLayoutEffect, useMemo } from 'react';
 
-import { ImageBackground, StatusBar, useWindowDimensions } from 'react-native';
+import { ImageBackground, useWindowDimensions } from 'react-native';
 
 import {
-  Box,
   Center,
   HStack,
   Icon,
@@ -40,7 +39,7 @@ export const Logo: FC<{
   }, [navigation]);
 
   return (
-    <HStack justifyContent="space-between" px="6" pt="5">
+    <HStack justifyContent="space-between" px="6">
       {showLogo ? (
         <HStack alignItems="center">
           <Image borderRadius="14px" source={logo} w={8} h={8} />
@@ -131,6 +130,7 @@ export const Container: FC<{
   showFooter?: boolean;
   onShare?: () => void;
   height?: number;
+  containerProps?: ComponentProps<typeof VStack>;
 }> = ({
   bg,
   children,
@@ -138,8 +138,9 @@ export const Container: FC<{
   height,
   showFooter = true,
   onShare,
+  containerProps = {},
 }) => {
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   return (
     <ImageBackground
@@ -147,13 +148,9 @@ export const Container: FC<{
       resizeMode="stretch"
       style={{ height: height ?? '100%', width }}
     >
-      <VStack
-        style={{ width, height: height ?? '100%' }}
-        pt={`${top}px`}
-        pb={`${bottom}px`}
-      >
+      <VStack style={{ width, height: height ?? '100%' }} pt={`${top}px`}>
         <Logo showLogo={showLogo} />
-        <VStack flex="1" px="6">
+        <VStack flex="1" px="6" {...containerProps}>
           {children}
         </VStack>
         {showFooter ? <Footer onShare={onShare} /> : null}
@@ -166,13 +163,7 @@ export const WText: FC<ComponentProps<typeof Text>> = ({
   children,
   ...props
 }) => (
-  <Text
-    textTransform="uppercase"
-    color="text-on-primary"
-    fontSize="16"
-    fontWeight="800"
-    {...props}
-  >
+  <Text color="text-on-primary" fontSize="16" fontWeight="800" {...props}>
     {children}
   </Text>
 );
