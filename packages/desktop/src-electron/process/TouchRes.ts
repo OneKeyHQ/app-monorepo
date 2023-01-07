@@ -282,7 +282,11 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
           properties: ['openDirectory'],
         });
         logger.info('open dialog permission : ====> ', result);
-        if (!(result ?? []).includes(MacDiskPath)) {
+        if (
+          !(result ?? []).find(
+            (item) => item.indexOf('/Volumes/ONEKEY DATA') > -1,
+          )
+        ) {
           logger.error('mas permission denied');
           throw new Error(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
         }
