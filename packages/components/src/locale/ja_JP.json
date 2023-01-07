@@ -1245,11 +1245,7 @@
   "form__whitelist_included_desc": "ホワイトリストがある場合、一部のアドレスは正常に取引できない場合がある",
   "form__whitepaper": "ホワイトペーパー",
   "form__with_str": "{0}を利用する",
-<<<<<<< HEAD
-  "form__you_have_no_wallet_yet": "まだウォレットを持っていない",
-=======
   "form__you_have_no_wallet_yet": "あなたはまだ財布を持っていません",
->>>>>>> 51498439ba2eb007f90e397c1c43cafb15b9331e
   "form__your_email": "メールアドレス",
   "form__your_question_is": "ご質問内容",
   "form__your_reply": "ご返信",
