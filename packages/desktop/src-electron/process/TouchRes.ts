@@ -14,60 +14,16 @@ import type { BrowserWindow } from 'electron';
 
 const finished = promisify(stream.finished);
 
-// const ONEKEY_FILTER = [
-//   { vendorId: 0x483, productId: 0x5720 }, // mass storage touch
-// ];
-
 const ERRORS = {
   NOT_FOUND_DEVICE: 'NOT_FOUND_DEVICE',
   NOT_FOUND_DISK_PATH: 'NOT_FOUND_DISK_PATH',
+  MAS_DISK_PATH_PERMISSION_DENIED: 'MAS_DISK_PATH_PERMISSION_DENIED',
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
 };
 
+const MacDiskPath = '/Volumes/ONEKEY DATA/';
+
 const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
-  // const webusb = new WebUSB({
-  //   allowAllDevices: true,
-  // });
-
-  // const searchOneKeyTouch = async () => {
-  //   const devices = await webusb.getDevices();
-  //   const onekeyDevices = devices.filter((dev) => {
-  //     const isOneKey = ONEKEY_FILTER.some(
-  //       (desc) =>
-  //         dev.vendorId === desc.vendorId && dev.productId === desc.productId,
-  //     );
-  //     return isOneKey;
-  //   });
-
-  //   return onekeyDevices;
-  // };
-
-  // const checkDeviceConnect = async () =>
-  //   new Promise((resolve, reject) => {
-  //     let intervalId: ReturnType<typeof setInterval> | null = null;
-  //     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  //     const cleanTimer = () => {
-  //       if (intervalId) {
-  //         clearInterval(intervalId);
-  //       }
-  //       if (timeoutId) {
-  //         clearTimeout(timeoutId);
-  //       }
-  //     };
-  //     intervalId = setInterval(async () => {
-  //       const devices = await searchOneKeyTouch();
-  //       if (devices.length) {
-  //         cleanTimer();
-  //         resolve(devices);
-  //       }
-  //     }, 1500);
-  //     timeoutId = setTimeout(() => {
-  //       cleanTimer();
-  //       reject(new Error(ERRORS.NOT_FOUND_DEVICE));
-  //     }, 1000 * 60 * 1);
-  //   });
-
   const getPlatform = () => {
     switch (process.platform) {
       case 'darwin':
@@ -114,10 +70,8 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
         }
       }, 1000);
     });
-
   const findMacDiskPath = (): Promise<string> =>
     new Promise((resolve, reject) => {
-      const MacDiskPath = '/Volumes/ONEKEY DATA/';
       pollingDiskPathCanAccess(MacDiskPath)
         .then(() => {
           resolve(MacDiskPath);
@@ -232,7 +186,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   const SourceFolder = path.join(resourcePath, 'res/res');
 
   const downloadFile = (fileUrl: string) => {
-    logger.info('process: ', process);
+    logger.info('process: ', process.env);
     logger.info('resource path: ', resourcePath);
     if (!fs.existsSync(resourcePath)) {
       logger.info('create resource path start');
@@ -318,24 +272,21 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       });
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ipcMain.on('touch/res', async (_, params: { resourceUrl: string }) => {
     logger.info('will update Touch resource file');
     try {
-      const result = dialog.showOpenDialogSync(mainWindow, {
-        defaultPath: '/Volumes/ONEKEY DATA',
-        properties: ['openDirectory'],
-      });
-      logger.info('open dialog permission : ====> ', result);
-
-      // const saveResult = dialog.showSaveDialogSync(mainWindow, {
-      //   defaultPath: '/Volumes/ONEKEY DATA',
-      // });
-
-      // console.log('saveResult: ', saveResult);
-
-      // const checkDevice = await checkDeviceConnect();
-      // logger.info('connect device: ', checkDevice);
+      const testMode = true;
+      if (process.mas || testMode) {
+        const result = dialog.showOpenDialogSync(mainWindow, {
+          defaultPath: MacDiskPath,
+          properties: ['openDirectory'],
+        });
+        logger.info('open dialog permission : ====> ', result);
+        if (!(result ?? []).includes(MacDiskPath)) {
+          logger.error('mas permission denied');
+          throw new Error(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
+        }
+      }
 
       const diskPath = await findDiskPath();
       logger.info('disk path: ', diskPath);

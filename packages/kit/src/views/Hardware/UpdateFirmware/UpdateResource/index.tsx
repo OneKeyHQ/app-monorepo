@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -30,24 +30,25 @@ type RouteProps = RouteProp<
 const ERRORS = {
   NOT_FOUND_DEVICE: 'NOT_FOUND_DEVICE',
   NOT_FOUND_DISK_PATH: 'NOT_FOUND_DISK_PATH',
+  MAS_DISK_PATH_PERMISSION_DENIED: 'MAS_DISK_PATH_PERMISSION_DENIED',
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
 };
 
 const UpdateWarningModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const intl = useIntl();
-  const { device, resourceUpdateInfo, onSuccess } =
-    useRoute<RouteProps>().params;
+  const { device, onSuccess } = useRoute<RouteProps>().params;
   const { serviceHardware } = backgroundApiProxy;
 
   const [isInBoardloader, setIsInBoardloader] = useState(false);
   const [updateResult, setUpdateResult] = useState(false);
+  const [resError, setResError] = useState('');
 
   const connectId = useMemo(() => device?.mac ?? '', [device]);
   const { deviceUpdates } = useSettings();
   const { firmware } = deviceUpdates?.[connectId] || {};
 
-  const rebootToBoardloader = () => {
+  const rebootToBoardloader = useCallback(() => {
     serviceHardware.rebootToBoardloader(connectId).then((res) => {
       if (res.success) {
         setIsInBoardloader(true);
@@ -57,7 +58,7 @@ const UpdateWarningModal: FC = () => {
       deviceUtils.showErrorToast(error);
       navigation.goBack();
     });
-  };
+  }, [connectId, navigation, serviceHardware]);
 
   useEffect(() => {
     if (!device) {
@@ -66,6 +67,31 @@ const UpdateWarningModal: FC = () => {
     rebootToBoardloader();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const retryState = useMemo(
+    () => !!(!updateResult && resError),
+    [updateResult, resError],
+  );
+
+  const retry = useCallback(async () => {
+    setResError('');
+    const response = await serviceHardware.searchDevices();
+    if (!response.success) {
+      // Failed to search for device, retry copy resource
+      window.desktopApi?.touchUpdateResource({
+        resourceUrl: firmware?.fullResource ?? '',
+      });
+      return;
+    }
+    if ((response.payload ?? []).find((d) => d.connectId === connectId)) {
+      setIsInBoardloader(false);
+      rebootToBoardloader();
+      return;
+    }
+    window.desktopApi?.touchUpdateResource({
+      resourceUrl: firmware?.fullResource ?? '',
+    });
+  }, [connectId, firmware, rebootToBoardloader, serviceHardware]);
 
   useEffect(() => {
     if (isInBoardloader) {
@@ -78,7 +104,6 @@ const UpdateWarningModal: FC = () => {
           console.log('update result =======> ', result);
           setUpdateResult(result);
           if (error) {
-            // TODO: handle error
             console.log('update error =======> ', error);
             let message = '';
             switch (error.message) {
@@ -94,10 +119,15 @@ const UpdateWarningModal: FC = () => {
               case ERRORS.NOT_FOUND_DISK_PATH:
                 message = 'NOT FOUND DISK PATH';
                 break;
+              // Mas 版本在选文件弹窗时没有给予正确的路径权限，导致无法访问磁盘
+              case ERRORS.MAS_DISK_PATH_PERMISSION_DENIED:
+                message = 'MAS DISK PATH PERMISSION DENIED';
+                break;
               default:
                 message = error.message;
                 break;
             }
+            setResError(message);
             ToastManager.show(
               {
                 title: message,
@@ -106,33 +136,46 @@ const UpdateWarningModal: FC = () => {
                 type: 'error',
               },
             );
-            navigation.goBack();
+            // navigation.goBack();
           }
         },
       );
     }
   }, [isInBoardloader, navigation, firmware]);
 
+  const isDisabledAndLoading = useMemo(() => {
+    if (retryState) {
+      return false;
+    }
+    return !updateResult;
+  }, [retryState, updateResult]);
+
   return (
     <Modal
       maxHeight={560}
       hideSecondaryAction
-      primaryActionTranslationId="action__continue"
+      primaryActionTranslationId={
+        retryState ? 'action__retry' : 'action__continue'
+      }
       onPrimaryActionPress={() => {
-        navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
-          device,
-          onSuccess,
-        });
+        if (retryState) {
+          retry();
+        } else {
+          navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
+            device,
+            onSuccess,
+          });
+        }
       }}
       primaryActionProps={{
-        isDisabled: !updateResult,
-        isLoading: !updateResult,
+        isDisabled: isDisabledAndLoading,
+        isLoading: isDisabledAndLoading,
       }}
     >
       <Center flex={1} paddingX={4}>
         <Box alignItems="center">
           <Box mt={6} alignItems="center">
-            {!updateResult && <Spinner size="lg" />}
+            {!updateResult && !retryState && <Spinner size="lg" />}
             {!isInBoardloader && (
               <Typography.DisplayMedium mt={6}>
                 进入资源更新模式
@@ -146,6 +189,11 @@ const UpdateWarningModal: FC = () => {
             {updateResult && (
               <Typography.DisplayMedium mt={6}>
                 请重启设备后点击继续 👇 按钮
+              </Typography.DisplayMedium>
+            )}
+            {retryState && (
+              <Typography.DisplayMedium mt={6}>
+                更新失败，请重试
               </Typography.DisplayMedium>
             )}
           </Box>
