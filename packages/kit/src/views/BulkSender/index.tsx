@@ -108,8 +108,6 @@ function BulkSender() {
         <Box maxW="768px" w="100%">
           <Tabs.Container
             initialTabName={BulkSenderTabEnum.NativeToken}
-            width={isVertical ? screenWidth : screenWidth - 224}
-            pagerProps={{ scrollEnabled: false }}
             containerStyle={{
               width: '100%',
               marginHorizontal: 'auto',
@@ -117,18 +115,11 @@ function BulkSender() {
               alignSelf: 'center',
               flex: 1,
             }}
-            headerHeight={isVertical ? 20 : 30}
-            headerContainerStyle={{
-              shadowOffset: { width: 0, height: 0 },
-              shadowColor: 'transparent',
-              elevation: 0,
-              borderBottomWidth: 1,
-              borderBottomColor: borderDefault,
-            }}
+            headerHeight={isVertical ? 0 : 30}
           >
             <Tabs.Tab
               name={BulkSenderTabEnum.NativeToken}
-              label={nativeToken?.symbol}
+              label={nativeToken?.symbol ?? ''}
             >
               <TokenOutbox
                 accountId={accountId}
@@ -138,12 +129,7 @@ function BulkSender() {
             </Tabs.Tab>
             <Tabs.Tab
               name={BulkSenderTabEnum.Token}
-              // @ts-ignore
-              label={
-                <span style={styles.tabLabel}>
-                  {intl.formatMessage({ id: 'form__token' })}
-                </span>
-              }
+              label={intl.formatMessage({ id: 'form__token' })}
             >
               <TokenOutbox accountId={accountId} networkId={networkId} />
             </Tabs.Tab>
