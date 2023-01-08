@@ -50,7 +50,6 @@ const Screen = () => {
           bgColor="background-default"
         />
       )}
-      scrollEnabled={false}
       onIndexChange={(index) => {
         if (setContext) {
           setContext((ctx) => ({ ...ctx, selectedIndex: index }));

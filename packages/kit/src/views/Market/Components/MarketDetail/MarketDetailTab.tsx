@@ -129,7 +129,6 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
       onTabChange={({ tabName }) => {
         setDetailTabName(tabName);
       }}
-      scrollEnabled={false}
       containerStyle={{
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: isVerticalLayout ? screenWidth : screenWidth - 224,
