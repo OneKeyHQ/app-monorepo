@@ -35,7 +35,6 @@ const Screen = () => {
   }
   return (
     <Tabs.Container
-      // @ts-ignore
       refreshing={context?.refreshing}
       onRefresh={() => {
         if (setContext) {
