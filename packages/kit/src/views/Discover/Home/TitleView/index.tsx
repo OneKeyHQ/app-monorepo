@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useTranslation } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { DiscoverModalRoutes } from '../../type';
 
@@ -26,6 +27,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type SectionTitleProps = {
   title: string;
+  _title?: string;
   tagId: string;
   onItemSelect?: (item: DAppItemType) => void;
 };
@@ -37,10 +39,12 @@ type NavigationProps = NativeStackNavigationProp<
 
 export const SectionTitle: FC<SectionTitleProps> = ({
   title,
+  _title,
   tagId,
   onItemSelect,
 }) => {
   const intl = useIntl();
+  const t = useTranslation();
   const isSmallScreen = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const onSelected = useCallback(
@@ -62,7 +66,9 @@ export const SectionTitle: FC<SectionTitleProps> = ({
       mb="14px"
     >
       <Box flex={1}>
-        <Typography.Heading numberOfLines={1}>{title}</Typography.Heading>
+        <Typography.Heading numberOfLines={1}>
+          {t(_title) ?? title}
+        </Typography.Heading>
       </Box>
       <Button
         onPress={() => {
@@ -74,6 +80,7 @@ export const SectionTitle: FC<SectionTitleProps> = ({
                 params: {
                   tagId,
                   title,
+                  _title,
                   onItemSelect: onSelected,
                 },
               },
@@ -82,6 +89,7 @@ export const SectionTitle: FC<SectionTitleProps> = ({
             navigation.navigate(HomeRoutes.DAppListScreen, {
               tagId,
               title,
+              _title,
               onItemSelect: onSelected,
             });
           }
