@@ -65,7 +65,11 @@ export type DesktopAPI = {
   downloadUpdate: () => void;
   installUpdate: () => void;
   setAutoUpdateSettings: (settings: UpdateSettings) => void;
-  touchUpdateResource: (params: { resourceUrl: string }) => void;
+  touchUpdateResource: (params: {
+    resourceUrl: string;
+    dialogTitle: string;
+    buttonLabel: string;
+  }) => void;
   clearAutoUpdateSettings: () => void;
   restore: () => void;
 };
@@ -174,8 +178,11 @@ const desktopApi = {
     ipcRenderer.send('update/settings', settings),
   clearAutoUpdateSettings: () => ipcRenderer.send('update/clearSettings'),
 
-  touchUpdateResource: (params: { resourceUrl: string }) =>
-    ipcRenderer.send('touch/res', params),
+  touchUpdateResource: (params: {
+    resourceUrl: string;
+    dialogTitle: string;
+    buttonLabel: string;
+  }) => ipcRenderer.send('touch/res', params),
 
   restore: () => {
     ipcRenderer.send('app/restoreMainWindow');

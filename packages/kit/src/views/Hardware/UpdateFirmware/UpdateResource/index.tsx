@@ -49,6 +49,9 @@ const UpdateWarningModal: FC = () => {
   const { deviceUpdates } = useSettings();
   const { firmware } = deviceUpdates?.[connectId] || {};
 
+  const masDialogTitle = 'Please select ONEKEY DATA disk';
+  const masDialogButtonLabel = 'Access Permission';
+
   const rebootToBoardloader = useCallback(() => {
     serviceHardware.rebootToBoardloader(connectId).then((res) => {
       if (res.success) {
@@ -69,6 +72,14 @@ const UpdateWarningModal: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const updateTouchResource = useCallback(() => {
+    window.desktopApi?.touchUpdateResource({
+      resourceUrl: firmware?.fullResource ?? '',
+      dialogTitle: masDialogTitle,
+      buttonLabel: masDialogButtonLabel,
+    });
+  }, [firmware]);
+
   const retryState = useMemo(
     () => !!(!updateResult && resError),
     [updateResult, resError],
@@ -79,9 +90,7 @@ const UpdateWarningModal: FC = () => {
     const response = await serviceHardware.searchDevices();
     if (!response.success) {
       // Failed to search for device, retry copy resource
-      window.desktopApi?.touchUpdateResource({
-        resourceUrl: firmware?.fullResource ?? '',
-      });
+      updateTouchResource();
       return;
     }
     if ((response.payload ?? []).find((d) => d.connectId === connectId)) {
@@ -89,10 +98,8 @@ const UpdateWarningModal: FC = () => {
       rebootToBoardloader();
       return;
     }
-    window.desktopApi?.touchUpdateResource({
-      resourceUrl: firmware?.fullResource ?? '',
-    });
-  }, [connectId, firmware, rebootToBoardloader, serviceHardware]);
+    updateTouchResource();
+  }, [connectId, rebootToBoardloader, updateTouchResource, serviceHardware]);
 
   //  polling device when update success
   useEffect(() => {
@@ -117,9 +124,7 @@ const UpdateWarningModal: FC = () => {
 
   useEffect(() => {
     if (isInBoardloader) {
-      window.desktopApi?.touchUpdateResource({
-        resourceUrl: firmware?.fullResource ?? '',
-      });
+      updateTouchResource();
       window.desktopApi?.on?.(
         'touch/update-res-success',
         ({ error, result }: { error: Error; result: boolean }) => {
@@ -163,7 +168,7 @@ const UpdateWarningModal: FC = () => {
         },
       );
     }
-  }, [isInBoardloader, navigation, firmware]);
+  }, [isInBoardloader, updateTouchResource, navigation, firmware]);
 
   const showFooter = useMemo(() => retryState, [retryState]);
 

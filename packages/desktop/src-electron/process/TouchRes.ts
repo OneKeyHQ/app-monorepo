@@ -273,50 +273,62 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       });
     });
 
-  ipcMain.on('touch/res', async (_, params: { resourceUrl: string }) => {
-    logger.info('will update Touch resource file');
-    try {
-      const platform = getPlatform();
-      if (process.mas || platform === 'mac') {
-        const result = dialog.showOpenDialogSync(mainWindow, {
-          defaultPath: MacVolumesPath,
-          properties: ['openDirectory'],
-        });
-        logger.info('open dialog permission : ====> ', result);
-        if (
-          !(result ?? []).find(
-            (item) => item.indexOf('/Volumes/ONEKEY DATA') > -1,
-          )
-        ) {
-          logger.error('mas permission denied');
-          throw new Error(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
+  ipcMain.on(
+    'touch/res',
+    async (
+      _,
+      params: {
+        resourceUrl: string;
+        dialogTitle: string;
+        buttonLabel: string;
+      },
+    ) => {
+      logger.info('will update Touch resource file, params: ', params);
+      try {
+        const platform = getPlatform();
+        if (process.mas || platform === 'mac') {
+          const result = dialog.showOpenDialogSync(mainWindow, {
+            buttonLabel: params.buttonLabel,
+            defaultPath: MacVolumesPath,
+            properties: ['openDirectory'],
+            message: params.dialogTitle,
+          });
+          logger.info('open dialog permission : ====> ', result);
+          if (
+            !(result ?? []).find(
+              (item) => item.indexOf('/Volumes/ONEKEY DATA') > -1,
+            )
+          ) {
+            logger.error('mas permission denied');
+            throw new Error(ERRORS.MAS_DISK_PATH_PERMISSION_DENIED);
+          }
         }
+
+        const diskPath = await findDiskPath();
+        logger.info('disk path: ', diskPath);
+        if (!diskPath) {
+          throw new Error(ERRORS.NOT_FOUND_DISK_PATH);
+        }
+
+        await downloadFile(params.resourceUrl);
+        extractResFile();
+
+        const writeResult = await writeResFile(diskPath);
+        logger.info('write result: ', writeResult);
+
+        mainWindow.webContents.send(`touch/update-res-success`, {
+          error: null,
+          result: true,
+        });
+      } catch (e) {
+        logger.error('Touch update resource error ====> ', e);
+        mainWindow.webContents.send(`touch/update-res-success`, {
+          error: e,
+          result: false,
+        });
       }
-
-      const diskPath = await findDiskPath();
-      logger.info('disk path: ', diskPath);
-      if (!diskPath) {
-        throw new Error(ERRORS.NOT_FOUND_DISK_PATH);
-      }
-
-      await downloadFile(params.resourceUrl);
-      extractResFile();
-
-      const writeResult = await writeResFile(diskPath);
-      logger.info('write result: ', writeResult);
-
-      mainWindow.webContents.send(`touch/update-res-success`, {
-        error: null,
-        result: true,
-      });
-    } catch (e) {
-      logger.error('Touch update resource error ====> ', e);
-      mainWindow.webContents.send(`touch/update-res-success`, {
-        error: e,
-        result: false,
-      });
-    }
-  });
+    },
+  );
 };
 
 export default init;
