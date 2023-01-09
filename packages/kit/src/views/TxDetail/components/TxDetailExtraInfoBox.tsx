@@ -11,6 +11,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useClipboard } from '../../../hooks/useClipboard';
@@ -114,6 +115,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
     });
   }
   if (
+    network?.impl === IMPL_ALGO &&
     decodedTx.extraInfo &&
     (decodedTx.extraInfo as IDecodedTxExtraAlgo).note
   ) {
