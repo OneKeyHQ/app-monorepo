@@ -19,6 +19,7 @@ import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -35,6 +36,8 @@ const ERRORS = {
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
 };
 
+const MOCK_MAS = true;
+
 const UpdateWarningModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const intl = useIntl();
@@ -44,6 +47,8 @@ const UpdateWarningModal: FC = () => {
   const [isInBoardloader, setIsInBoardloader] = useState(false);
   const [updateResult, setUpdateResult] = useState(false);
   const [resError, setResError] = useState('');
+  // confirm choose disk path for Mac app store version
+  const [confirmChooseDisk, setConfirmChooseDisk] = useState(false);
 
   const connectId = useMemo(() => device?.mac ?? '', [device]);
   const { deviceUpdates } = useSettings();
@@ -124,7 +129,9 @@ const UpdateWarningModal: FC = () => {
 
   useEffect(() => {
     if (isInBoardloader) {
-      updateTouchResource();
+      if (!MOCK_MAS) {
+        updateTouchResource();
+      }
       window.desktopApi?.on?.(
         'touch/update-res-success',
         ({ error, result }: { error: Error; result: boolean }) => {
@@ -171,14 +178,20 @@ const UpdateWarningModal: FC = () => {
   }, [isInBoardloader, updateTouchResource, navigation, firmware]);
 
   const showFooter = useMemo(() => retryState, [retryState]);
+  const showMasTip = useMemo(
+    // TODO: platformEnv.isMas replace
+    () => isInBoardloader && MOCK_MAS && !confirmChooseDisk,
+    [isInBoardloader, confirmChooseDisk],
+  );
 
   const renderTitle = useMemo(() => {
     if (!isInBoardloader) return 'Switch to Boardloader';
+    if (showMasTip) return 'Please choose OneKey DATA disk';
     if (!isInBoardloader && !updateResult) return 'Updating Resources...';
     if (updateResult) return '资源更新成功，请重启设备后继续';
     if (retryState) return '更新失败，请重试';
     return '';
-  }, [isInBoardloader, retryState, updateResult]);
+  }, [isInBoardloader, retryState, updateResult, showMasTip]);
 
   const renderSubTitle = useMemo(() => {
     if (!isInBoardloader)
@@ -199,9 +212,18 @@ const UpdateWarningModal: FC = () => {
     <Modal
       header={intl.formatMessage({ id: 'modal__firmware_update' })}
       hideSecondaryAction
-      primaryActionTranslationId="action__retry"
-      onPrimaryActionPress={() => retry()}
-      footer={showFooter ? undefined : null}
+      primaryActionTranslationId={
+        retryState ? 'action__retry' : 'action__confirm'
+      }
+      onPrimaryActionPress={() => {
+        if (retryState) {
+          retry();
+        } else if (showMasTip) {
+          setConfirmChooseDisk(true);
+          updateTouchResource();
+        }
+      }}
+      footer={showFooter || showMasTip ? undefined : null}
     >
       <Center>
         <Empty
