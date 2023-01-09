@@ -10,7 +10,7 @@ import type {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 import type { IEncodedTxADA } from './impl/ada/types';
-import type { IEncodedTxAlgo } from './impl/algo/types';
+import type { IDecodedTxExtraAlgo, IEncodedTxAlgo } from './impl/algo/types';
 import type { IEncodedTxAptos } from './impl/apt/types';
 import type {
   IDecodedTxExtraBtc,
@@ -453,7 +453,11 @@ export type IDecodedTx = {
   interactInfo?: IDecodedTxInteractInfo;
 
   // TODO use nativeTx & decodedTx in frontend UI render
-  extraInfo: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
+  extraInfo:
+    | IDecodedTxExtraNear
+    | IDecodedTxExtraBtc
+    | IDecodedTxExtraAlgo
+    | null;
 
   encodedTx?: IEncodedTx;
   encodedTxEncrypted?: string;
