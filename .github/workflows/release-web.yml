@@ -70,9 +70,9 @@ jobs:
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
-          npm i -g expo-cli && yarn
+          npm i -g expo-cli && NODE_TLS_REJECT_UNAUTHORIZED=0 yarn
 
       - name: Inject Environment Variables
         env:
