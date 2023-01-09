@@ -52,6 +52,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<string[]> {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
+    const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     return Promise.all(
@@ -63,6 +64,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           passphraseState,
           path,
           message,
+          chainId: Number(chainId),
         }),
       ),
     );
@@ -72,6 +74,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const HardwareSDK = await this.getHardwareSDKInstance();
+    const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const { indexes, names, type } = params;
@@ -86,6 +89,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         response = await HardwareSDK.evmGetPublicKey(connectId, deviceId, {
           path: PATH_PREFIX,
           showOnOneKey: false,
+          chainId: Number(chainId),
           ...passphraseState,
         });
       } catch (e: any) {
@@ -116,6 +120,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         connectId,
         deviceId,
         passphraseState,
+        Number(chainId),
       );
     }
 
@@ -140,6 +145,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async getAddress(params: IGetAddressParams): Promise<string> {
     const HardwareSDK = await this.getHardwareSDKInstance();
+    const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const address = await OneKeyHardware.ethereumGetAddress(
@@ -149,6 +155,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       params.path,
       params.showOnOneKey,
       passphraseState,
+      Number(chainId),
     );
 
     return address;

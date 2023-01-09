@@ -89,12 +89,12 @@ export const Mobile: FC<SectionDataType> = ({
   onItemSelect,
 }) => {
   const sections = group(data);
-  const t = useTranslation();
   return (
     <Box width="100%" mt="8">
       <SectionTitle
         tagId={tagId}
-        title={t(_title) ?? title}
+        title={title}
+        _title={_title}
         onItemSelect={onItemSelect}
       />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
