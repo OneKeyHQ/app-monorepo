@@ -100,7 +100,14 @@ const Card: FC<
         >
           of 2022
         </WText>
-        <WText mt="2" fontSize="16px" fontWeight="400" color="#fff">
+        <WText
+          mt="2"
+          fontSize="16px"
+          fontWeight="400"
+          color="#fff"
+          numberOfLines={3}
+          minHeight="57px"
+        >
           {intl.formatMessage({ id: desc })}
         </WText>
         <HStack justifyContent="space-between" mt="5">
