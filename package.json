@@ -189,5 +189,5 @@
     "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch",
     "@metamask/eth-sig-util@^4.0.1": "patch:@metamask/eth-sig-util@npm%3A4.0.1#./.yarn/patches/@metamask-eth-sig-util-npm-4.0.1-27d55ec43e.patch"
   },
-  "packageManager": "yarn@3.3.0"
+  "packageManager": "yarn@3.3.1"
 }
