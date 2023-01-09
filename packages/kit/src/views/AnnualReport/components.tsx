@@ -16,6 +16,7 @@ import {
 import qrcode from '@onekeyhq/kit/assets/annual/qrcode.png';
 import down from '@onekeyhq/kit/assets/annual/scrolldown.png';
 import logo from '@onekeyhq/kit/assets/qrcode_logo.png';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigation } from '../../hooks';
 
@@ -42,6 +43,7 @@ export const Footer: FC<{
     py="4"
     px="6"
     w="full"
+    zIndex="99"
   >
     {showIndicator ? (
       <Center w="full" px="6" position="absolute" bottom="82px" left="24px">
@@ -87,6 +89,7 @@ export const ShareFooter: FC = () => (
     bottom="0"
     left="0"
     w="full"
+    zIndex="99"
   >
     <VStack>
       <HStack alignItems="center">
@@ -174,7 +177,7 @@ export const Container: FC<{
       }}
     >
       <VStack
-        pt={`${top}px`}
+        pt={`${platformEnv.isNativeAndroid ? 24 : top}px`}
         pb={`${bottom}px`}
         flex="1"
         position="relative"

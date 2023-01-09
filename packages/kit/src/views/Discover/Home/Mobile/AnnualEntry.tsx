@@ -49,7 +49,12 @@ export const AnnualEntry: FC = () => {
               justifyContent: 'center',
             }}
           >
-            <HStack alignItems="center">
+            <HStack
+              alignItems="center"
+              w="100%"
+              justifyContent="space-between"
+              px="4"
+            >
               <VStack>
                 <Text fontWeight="700" fontSize="20" color="#E2E2E8">
                   {intl.formatMessage({ id: 'title__my_on_chain_journey' })}

@@ -3,7 +3,7 @@ import * as React from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { useWindowDimensions } from 'react-native';
+import { StatusBar, useWindowDimensions } from 'react-native';
 
 import { Box, FlatList } from '@onekeyhq/components';
 import bg1 from '@onekeyhq/kit/assets/annual/2.png';
@@ -170,16 +170,19 @@ const AnnualReport = () => {
   );
 
   return (
-    <FlatList
-      pagingEnabled
-      data={pages}
-      onMomentumScrollEnd={handleScrollEnd}
-      keyExtractor={(item) => String(item.bg)}
-      onLayout={(e) => {
-        setHeight(e.nativeEvent.layout.height);
-      }}
-      renderItem={renderItem}
-    />
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <FlatList
+        pagingEnabled
+        data={pages}
+        onMomentumScrollEnd={handleScrollEnd}
+        keyExtractor={(item) => String(item.bg)}
+        onLayout={(e) => {
+          setHeight(e.nativeEvent.layout.height);
+        }}
+        renderItem={renderItem}
+      />
+    </>
   );
 };
 

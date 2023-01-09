@@ -70,6 +70,7 @@ const Card: FC<
   } & ComponentProps<typeof Box>
 > = ({ name, tag, image, desc, w, ...props }) => {
   const intl = useIntl();
+  const { height } = useWindowDimensions();
   return (
     <Box
       borderRadius="16px"
@@ -78,7 +79,7 @@ const Card: FC<
       {...props}
       w={`${w}px`}
     >
-      <Image source={image} w={`${w}px`} h={`${200}px`} />
+      <Image source={image} w={`${w}px`} h={`${height < 800 ? 200 : 289}px`} />
       <VStack px="4" pt="4" pb="3">
         <WText
           fontSize="14px"
