@@ -675,13 +675,7 @@ export default class Vault extends VaultBase {
     if (isTransferToken) {
       if (isNFT && type && tokenId) {
         batchMethod = BatchTransferSelectors.disperseNFT;
-        paramTypes = [
-          'address',
-          'address[]',
-          'uint256[]',
-          'uint256[]',
-          'bytes',
-        ];
+        paramTypes = ['address', 'address[]', 'uint256[]', 'uint256[]'];
         ParamValues = [
           transferInfo.to,
           ...reduce(
@@ -698,7 +692,6 @@ export default class Vault extends VaultBase {
             },
             [[], [], []],
           ),
-          '0x00',
         ];
       } else {
         const token = await this.engine.ensureTokenInDB(
