@@ -118,7 +118,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
     (decodedTx.extraInfo as IDecodedTxExtraAlgo).note
   ) {
     details.push({
-      title: intl.formatMessage({ id: 'content__info' }),
+      title: intl.formatMessage({ id: 'form__algo__note' }),
       content: (decodedTx.extraInfo as IDecodedTxExtraAlgo).note,
     });
   }
