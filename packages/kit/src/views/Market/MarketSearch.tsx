@@ -98,7 +98,7 @@ const MarketSearch: FC<{
   const searchContent = useMemo(() => {
     if (searchKeyword?.length) {
       return (
-        <Box mt="3" h={isVertical ? 'full' : '400px'}>
+        <Box flex={1} mt="3">
           <Typography.Subheading ml={2} mb="3">
             {intl.formatMessage({ id: 'form__search_results_uppercase' })}
           </Typography.Subheading>
@@ -184,7 +184,6 @@ const MarketSearch: FC<{
     intl,
     searchSelectedCategoryIndex,
     options,
-    isVertical,
     searchTokens,
     onTokenPress,
   ]);
@@ -218,15 +217,20 @@ export const showMarketSearch = ({
   modalProps,
   triggerEle,
   modalLizeProps,
+  searchOnChangeDebounce,
 }: {
   modalProps?: ModalProps;
   triggerEle?: SelectProps['triggerEle'];
   modalLizeProps?: ModalizeProps;
+  searchOnChangeDebounce: (text: string) => void;
 }) =>
   showOverlay((closeOverlay) => (
     <OverlayPanel
       triggerEle={triggerEle}
-      closeOverlay={closeOverlay}
+      closeOverlay={() => {
+        searchOnChangeDebounce('');
+        closeOverlay();
+      }}
       modalProps={modalProps}
       modalLizeProps={modalLizeProps}
       dropdownPosition="left"
