@@ -98,14 +98,14 @@ const MarketSearch: FC<{
   const searchContent = useMemo(() => {
     if (searchKeyword?.length) {
       return (
-        <Box mt="3">
-          <Typography.Subheading mb="3">
+        <Box mt="3" h={isVertical ? 'full' : '400px'}>
+          <Typography.Subheading ml={2} mb="3">
             {intl.formatMessage({ id: 'form__search_results_uppercase' })}
           </Typography.Subheading>
           {searchTokens ? (
             <MarketSearchList data={searchTokens} onPress={onTokenPress} />
           ) : (
-            <Center w="full" h="full">
+            <Center w="full" h="300px">
               <Spinner size="lg" />
             </Center>
           )}
@@ -178,12 +178,13 @@ const MarketSearch: FC<{
       </Center>
     );
   }, [
-    searchKeyword,
+    searchKeyword?.length,
     searchCategorys,
-    intl,
     searchHistory,
+    intl,
     searchSelectedCategoryIndex,
     options,
+    isVertical,
     searchTokens,
     onTokenPress,
   ]);
