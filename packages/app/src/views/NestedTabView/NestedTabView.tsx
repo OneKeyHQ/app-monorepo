@@ -54,7 +54,7 @@ const NestedTabView: FC<NestedTabViewProps> = ({
             // when fingers move,
             // disable the onPress function
             enableOnPressAnim.value = 0;
-            if (canOpenDrawer && tabIndex.value === 0) {
+            if (canOpenDrawer && tabIndex.value === 0 && e.translationX > 0) {
               nestedTabTransX.value = lastTransX.value + e.translationX;
             }
           })
