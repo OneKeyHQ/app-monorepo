@@ -144,13 +144,16 @@ export function renderOptions<T>({
       return (
         <Fragment key={`${option.title}${index}`}>
           {option.title.length > 0 ? (
-            <Typography.Subheading
-              px={{ base: '4', lg: '2' }}
-              py={{ base: '3', lg: '2' }}
-              color="text-subdued"
-            >
-              {option.title}
-            </Typography.Subheading>
+            // add Pressabel fix https://onekeyhq.atlassian.net/browse/OK-16171  Sliding events do not trigger problems
+            <Pressable>
+              <Typography.Subheading
+                px={{ base: '4', md: '2' }}
+                pt={2}
+                color="text-subdued"
+              >
+                {option.title}
+              </Typography.Subheading>
+            </Pressable>
           ) : null}
           {option.options.map((subOption) =>
             RenderSingleOption<T>({
@@ -162,7 +165,7 @@ export function renderOptions<T>({
             }),
           )}
           {!isLast && (
-            <Box px={{ base: '4', lg: '2' }} py={{ base: '2', lg: '1' }}>
+            <Box px={{ base: '4', md: '2' }} py={1}>
               <Divider />
             </Box>
           )}
