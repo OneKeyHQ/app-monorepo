@@ -27,6 +27,7 @@ import {
   setEnablePerfCheck,
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
+  setHideDiscoverContent,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceRes,
@@ -84,6 +85,7 @@ export const DevSettingSection = () => {
     enableTestFiatEndpoint,
     enableZeroNotificationThreshold,
     enablePerfCheck,
+    hideDiscoverContent,
   } = devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -279,6 +281,18 @@ export const DevSettingSection = () => {
             />
           }
         />
+        <Container.Item
+          title="Hidden Discover Content"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={hideDiscoverContent}
+            onToggle={() => {
+              dispatch(setHideDiscoverContent(!hideDiscoverContent));
+            }}
+          />
+        </Container.Item>
       </Container.Box>
     </Box>
   );

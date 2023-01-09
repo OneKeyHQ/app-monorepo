@@ -57,6 +57,7 @@ export type SettingsState = {
     enableTestFiatEndpoint?: boolean;
     enableZeroNotificationThreshold?: boolean;
     enablePerfCheck?: boolean;
+    hideDiscoverContent?: boolean;
   };
   pushNotification?: {
     registrationId?: string;
@@ -257,6 +258,9 @@ export const settingsSlice = createSlice({
     setUpdateDeviceRes(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, updateDeviceRes: action.payload };
     },
+    setHideDiscoverContent(state, action: PayloadAction<boolean>) {
+      state.devMode = { ...state.devMode, hideDiscoverContent: action.payload };
+    },
     setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
       state.devMode = {
         ...state.devMode,
@@ -439,6 +443,7 @@ export const {
   setEnableWebAuthn,
   toggleDisableExt,
   disableExtSwitchTips,
+  setHideDiscoverContent,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

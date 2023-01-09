@@ -23,6 +23,7 @@ import {
   IMPL_ALGO,
   IMPL_APTOS,
   IMPL_CFX,
+  IMPL_COSMOS,
   IMPL_EVM,
   IMPL_NEAR,
   IMPL_SOL,
@@ -303,6 +304,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'algo': IMPL_ALGO,
     'sui': IMPL_SUI,
     'cardano': IMPL_ADA,
+    'cosmos': IMPL_COSMOS,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };

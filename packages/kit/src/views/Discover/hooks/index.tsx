@@ -217,10 +217,16 @@ export function useCategories() {
 export function useShowBookmark() {
   const isApple = platformEnv.isNativeIOS || platformEnv.isMas;
   const showBookmark = useAppSelector((s) => s.discover.showBookmark);
+  const hideDiscoverContent = useAppSelector(
+    (s) => s.settings.devMode?.hideDiscoverContent,
+  );
   return useMemo(() => {
+    if (hideDiscoverContent) {
+      return false;
+    }
     if (!isApple) {
       return true;
     }
     return showBookmark;
-  }, [showBookmark, isApple]);
+  }, [showBookmark, isApple, hideDiscoverContent]);
 }

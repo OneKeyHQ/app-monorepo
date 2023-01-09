@@ -4,7 +4,7 @@ import { Children, Fragment } from 'react';
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
 
-import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NativeNestedTabView';
+import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
 
@@ -13,10 +13,9 @@ import ScrollView from '../ScrollView';
 import SectionList from '../SectionList';
 import { Body2StrongProps } from '../Typography';
 
-import type { ContainerProps } from './types';
+import type { CollapsibleContainerProps } from './types';
 
-// TODO: Compatible with the pad
-const Container: FC<ContainerProps> = ({
+const Container: FC<CollapsibleContainerProps> = ({
   disableRefresh,
   refreshing,
   renderHeader,
@@ -25,6 +24,7 @@ const Container: FC<ContainerProps> = ({
   onIndexChange,
   onRefresh,
   containerStyle,
+  scrollEnabled = true,
   ...props
 }) => {
   const tabs = Children.map(children, (child) =>
@@ -49,7 +49,6 @@ const Container: FC<ContainerProps> = ({
 
   return (
     <NestedTabView
-      {...props}
       values={tabs}
       style={containerStyle}
       disableRefresh={disableRefresh}
@@ -68,6 +67,7 @@ const Container: FC<ContainerProps> = ({
           onRefresh?.();
         }, 0);
       }}
+      renderHeader={renderHeader}
       onChange={(e) => {
         onTabChange?.({
           tabName: e.nativeEvent.tabName,
@@ -75,8 +75,9 @@ const Container: FC<ContainerProps> = ({
         });
         onIndexChange?.(e.nativeEvent.index);
       }}
+      scrollEnabled={scrollEnabled}
+      {...props}
     >
-      {renderHeader?.()}
       {children}
     </NestedTabView>
   );
@@ -87,7 +88,6 @@ const renderScrollComponent = (props: any) => <NestedScrollView {...props} />;
 export const Tabs = {
   Container,
   // @ts-ignore to stop the warning about Fragment under development
-  // eslint-disable-next-line no-undef
   Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
   FlatList: ({ contentContainerStyle, ...props }: any) => (
     <FlatList
