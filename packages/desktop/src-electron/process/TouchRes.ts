@@ -275,8 +275,8 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   ipcMain.on('touch/res', async (_, params: { resourceUrl: string }) => {
     logger.info('will update Touch resource file');
     try {
-      const testMode = true;
-      if (process.mas || testMode) {
+      const platform = getPlatform();
+      if (process.mas || platform === 'mac') {
         const result = dialog.showOpenDialogSync(mainWindow, {
           defaultPath: MacDiskPath,
           properties: ['openDirectory'],
