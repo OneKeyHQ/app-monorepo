@@ -10,7 +10,6 @@ import {
   HStack,
   Icon,
   Pressable,
-  Text,
   Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -23,6 +22,7 @@ import { getTokenValues } from '@onekeyhq/kit/src/utils/priceUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
+import { IutputEditor } from './IutputEditor';
 import { BulkSenderRoutes } from './types';
 
 interface Props {
@@ -173,11 +173,9 @@ function TokenOutbox(props: Props) {
           )}
         </HStack>
       </Pressable.Item>
-      <HStack>
-        <Text fontSize={18} typography="Heading">
-          {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-        </Text>
-      </HStack>
+      <Box mt={6}>
+        <IutputEditor />
+      </Box>
     </Box>
   );
 }

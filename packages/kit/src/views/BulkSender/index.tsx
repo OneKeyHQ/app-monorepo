@@ -1,9 +1,8 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -14,7 +13,6 @@ import {
   Text,
   useIsVerticalLayout,
   useThemeValue,
-  useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { useNativeToken } from '@onekeyhq/kit/src/hooks';
@@ -28,22 +26,12 @@ import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnec
 import { TokenOutbox } from './TokenOutbox';
 import { BulkSenderTabEnum } from './types';
 
-const styles = StyleSheet.create({
-  tabLabel: {
-    textTransform: 'capitalize',
-  },
-});
-
 function BulkSender() {
   const intl = useIntl();
   const goBack = useNavigationBack();
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
-  const { screenWidth } = useUserDevice();
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
+  const [tabbarBgColor] = useThemeValue(['background-default']);
 
   const { accountId, networkId } = useActiveWalletAccount();
 
