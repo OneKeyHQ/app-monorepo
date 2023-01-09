@@ -49,8 +49,10 @@ const UpdateWarningModal: FC = () => {
   const { deviceUpdates } = useSettings();
   const { firmware } = deviceUpdates?.[connectId] || {};
 
-  const masDialogTitle = 'Please select ONEKEY DATA disk';
-  const masDialogButtonLabel = 'Access Permission';
+  const masDialogTitle = intl.formatMessage({
+    id: 'title__select_disk_and_continue',
+  });
+  const masDialogButtonLabel = intl.formatMessage({ id: 'action__continue' });
 
   const rebootToBoardloader = useCallback(() => {
     serviceHardware.rebootToBoardloader(connectId).then((res) => {
@@ -136,7 +138,7 @@ const UpdateWarningModal: FC = () => {
             switch (error.message) {
               // 没有搜索到 Mass Storage 模式的设备，可能用户操作了设备，导致设备状态不对，比如断开连接、重启等
               case ERRORS.NOT_FOUND_DEVICE:
-                message = 'NOT FOUND DEVICE';
+                message = 'Device not found';
                 break;
               // 无法访问磁盘 - 此时可能用户电脑有磁盘权限问题
               case ERRORS.DISK_ACCESS_ERROR:
@@ -203,20 +205,18 @@ const UpdateWarningModal: FC = () => {
       onPrimaryActionPress={() => retry()}
       footer={showFooter ? undefined : null}
     >
-      <Center>
-        <Empty
-          emoji={renderEmoji}
-          icon={
-            !updateResult && !retryState && isInBoardloader ? (
-              <Box mb="16px">
-                <Spinner size="lg" />
-              </Box>
-            ) : undefined
-          }
-          title={renderTitle}
-          subTitle={renderSubTitle}
-        />
-      </Center>
+      <Empty
+        emoji={renderEmoji}
+        icon={
+          !updateResult && !retryState && isInBoardloader ? (
+            <Box mb="16px">
+              <Spinner size="lg" />
+            </Box>
+          ) : undefined
+        }
+        title={renderTitle}
+        subTitle={renderSubTitle}
+      />
     </Modal>
   );
 };
