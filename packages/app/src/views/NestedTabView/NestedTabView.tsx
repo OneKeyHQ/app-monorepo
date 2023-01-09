@@ -17,11 +17,9 @@ import { nestedTabStartX, nestedTabTransX } from './types';
 
 import type { NestedTabViewProps } from './types';
 import type { NativeSyntheticEvent } from 'react-native';
-import type {
-  GestureStateChangeEvent,
-  PanGestureHandlerEventPayload,
-} from 'react-native-gesture-handler';
+import type { PanGestureHandlerEventPayload } from 'react-native-gesture-handler';
 
+const failOffsetY = 10;
 const native = Gesture.Native();
 const NestedTabView: FC<NestedTabViewProps> = ({
   renderHeader,
@@ -34,12 +32,25 @@ const NestedTabView: FC<NestedTabViewProps> = ({
   // const { width: screenWidth } = useWindowDimensions();
   const tabIndex = useSharedValue(defaultIndex);
   const offsetX = useSharedValue(0);
+
+  // only used on android cause touchMove event does not have translation values
   const lastTransX = useSharedValue(0);
+  const startY = useSharedValue(0);
+
   const onEnd = useCallback(
-    (e: PanGestureHandlerEventPayload) => {
-      if (canOpenDrawer && tabIndex.value === 0 && e.translationX > 0) {
+    ({
+      translationX,
+      translationY,
+      velocityX,
+    }: PanGestureHandlerEventPayload) => {
+      if (
+        canOpenDrawer &&
+        tabIndex.value === 0 &&
+        translationX > 0 &&
+        translationY < failOffsetY
+      ) {
         nestedTabTransX.value = withSpring(0, {
-          velocity: e.velocityX,
+          velocity: velocityX,
           stiffness: 1000,
           damping: 500,
           mass: 3,
@@ -54,8 +65,9 @@ const NestedTabView: FC<NestedTabViewProps> = ({
     [canOpenDrawer, tabIndex],
   );
   const pan = useMemo(() => {
-    const basePan = Gesture.Pan().onTouchesDown((e) => {
-      nestedTabStartX.value = e.allTouches[0].x;
+    const basePan = Gesture.Pan().onTouchesDown(({ allTouches }) => {
+      nestedTabStartX.value = allTouches[0].x;
+      startY.value = allTouches[0].y;
       offsetX.value = nestedTabTransX.value;
       lastTransX.value = 0;
       // enable onPress when fingers down
@@ -77,14 +89,21 @@ const NestedTabView: FC<NestedTabViewProps> = ({
     if (platformEnv.isNativeAndroid) {
       // onTouchesMove works better on Android
       basePan
-        .onTouchesMove((e) => {
+        .onTouchesMove(({ allTouches }) => {
           // use Math.max to ensure the translation always increase
           const transX = Math.max(
             lastTransX.value,
-            e.allTouches[0].x - nestedTabStartX.value,
+            allTouches[0].x - nestedTabStartX.value,
           );
           lastTransX.value = transX;
-          if (canOpenDrawer && tabIndex.value === 0 && transX > 0) {
+
+          if (
+            canOpenDrawer &&
+            tabIndex.value === 0 &&
+            transX > 0 &&
+            // cancel swipe if scroll vertically
+            Math.abs(allTouches[0].y - startY.value) < failOffsetY
+          ) {
             nestedTabTransX.value = offsetX.value + transX;
           }
           // when fingers move,
@@ -94,7 +113,7 @@ const NestedTabView: FC<NestedTabViewProps> = ({
         .onFinalize(onEnd);
     }
     return basePan;
-  }, [canOpenDrawer, lastTransX, offsetX, onEnd, tabIndex]);
+  }, [canOpenDrawer, lastTransX, offsetX, onEnd, startY, tabIndex]);
 
   const onTabChange = useCallback(
     (e: NativeSyntheticEvent<{ tabName: string; index: number }>) => {
