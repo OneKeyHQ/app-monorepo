@@ -9,15 +9,20 @@ import {
   Alert,
   BottomSheetModal,
   Box,
+  Button,
+  Image,
   Markdown,
   Modal,
+  Pressable,
   Spinner,
+  Text,
   ToastManager,
   Typography,
   useIsVerticalLayout,
   useLocale,
 } from '@onekeyhq/components';
 import type { Device } from '@onekeyhq/engine/src/types/device';
+import TouchConnectDesktop from '@onekeyhq/kit/assets/illus_touch_connect_desktop.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
@@ -29,7 +34,6 @@ import type {
   IResourceUpdateInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../../utils/hardware';
@@ -65,7 +69,7 @@ const UpdateInfoModal: FC = () => {
   const showUpdateOnDesktopModal = useCallback(() => {
     showOverlay((close) => (
       <BottomSheetModal
-        title="提示"
+        title={`🌟 ${intl.formatMessage({ id: 'title__major_update' })}`}
         closeOverlay={() => {
           close?.();
           if (isSmallScreen) {
@@ -73,10 +77,41 @@ const UpdateInfoModal: FC = () => {
           }
         }}
       >
-        <Box>请在桌面端升级</Box>
+        <Box pt="8px" alignItems="center">
+          <Image source={TouchConnectDesktop} w="191px" h="64px" />
+        </Box>
+        <Box my="24px">
+          <Text typography="Body1Strong">
+            {intl.formatMessage({
+              id: 'content__connect_onekey_desktop_to_upgrade',
+            })}
+          </Text>
+          <Text mt="8px" typography="Body2" color="text-subdued">
+            {intl.formatMessage(
+              {
+                id: 'content__major_update_description',
+              },
+              {
+                url: (
+                  // TODO click event
+                  <Pressable>
+                    <Text
+                      typography="Body2Underline"
+                      color="interactive-default"
+                    >
+                      https://onekey.so/download
+                    </Text>
+                  </Pressable>
+                ),
+              },
+            )}
+          </Text>
+        </Box>
+        {/* TODO click event */}
+        <Button>{intl.formatMessage({ id: 'action__close' })}</Button>
       </BottomSheetModal>
     ));
-  }, [navigation]);
+  }, [intl, isSmallScreen, navigation]);
 
   useEffect(() => {
     (async () => {
@@ -151,6 +186,7 @@ const UpdateInfoModal: FC = () => {
     serviceHardware,
     walletId,
     showUpdateOnDesktopModal,
+    isSmallScreen,
   ]);
 
   return (
@@ -201,9 +237,15 @@ const UpdateInfoModal: FC = () => {
             )}
 
             {!bleFirmware && !sysFirmware && (
-              <Box mt={6} alignItems="center">
+              <Box
+                borderRadius="12px"
+                bgColor="surface-subdued"
+                py="24px"
+                mt="24px"
+                alignItems="center"
+              >
                 <Spinner size="lg" />
-                <Typography.DisplayMedium mt={6}>
+                <Typography.DisplayMedium mt="24px">
                   {intl.formatMessage({ id: 'modal__device_status_check' })}
                 </Typography.DisplayMedium>
               </Box>
