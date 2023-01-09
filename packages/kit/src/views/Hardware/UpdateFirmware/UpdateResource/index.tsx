@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -7,6 +8,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
+  Empty,
   Modal,
   Spinner,
   ToastManager,
@@ -150,9 +152,32 @@ const UpdateWarningModal: FC = () => {
     return !updateResult;
   }, [retryState, updateResult]);
 
+  const renderTitle = useMemo(() => {
+    if (!isInBoardloader) return 'Switch to Boardloader';
+    if (!isInBoardloader && !updateResult) return 'Updating Resources...';
+    if (updateResult) return '请重启设备后点击继续 👇 按钮';
+    if (retryState) return '更新失败，请重试';
+    return '';
+  }, [isInBoardloader, retryState, updateResult]);
+
+  const renderSubTitle = useMemo(() => {
+    if (!isInBoardloader)
+      return 'In order to install the latest firmware on your device, you will need to switch it to Boardloader mode.';
+    if (!isInBoardloader && !updateResult)
+      return 'This process may take a while, please wait...';
+    return undefined;
+  }, [isInBoardloader, updateResult]);
+
+  const renderEmoji = useMemo(() => {
+    if (!isInBoardloader) return '🔁';
+    if (updateResult) return '🔘';
+    if (retryState) return '😔';
+    return undefined;
+  }, [isInBoardloader, retryState, updateResult]);
+
   return (
     <Modal
-      maxHeight={560}
+      header={intl.formatMessage({ id: 'modal__firmware_update' })}
       hideSecondaryAction
       primaryActionTranslationId={
         retryState ? 'action__retry' : 'action__continue'
@@ -167,37 +192,21 @@ const UpdateWarningModal: FC = () => {
           });
         }
       }}
-      primaryActionProps={{
-        isDisabled: isDisabledAndLoading,
-        isLoading: isDisabledAndLoading,
-      }}
+      footer={isDisabledAndLoading && null}
     >
-      <Center flex={1} paddingX={4}>
-        <Box alignItems="center">
-          <Box mt={6} alignItems="center">
-            {!updateResult && !retryState && <Spinner size="lg" />}
-            {!isInBoardloader && (
-              <Typography.DisplayMedium mt={6}>
-                进入资源更新模式
-              </Typography.DisplayMedium>
-            )}
-            {isInBoardloader && !updateResult && (
-              <Typography.DisplayMedium mt={6}>
-                正在更新资源
-              </Typography.DisplayMedium>
-            )}
-            {updateResult && (
-              <Typography.DisplayMedium mt={6}>
-                请重启设备后点击继续 👇 按钮
-              </Typography.DisplayMedium>
-            )}
-            {retryState && (
-              <Typography.DisplayMedium mt={6}>
-                更新失败，请重试
-              </Typography.DisplayMedium>
-            )}
-          </Box>
-        </Box>
+      <Center>
+        <Empty
+          emoji={renderEmoji}
+          icon={
+            !updateResult && !retryState && isInBoardloader ? (
+              <Box mb="16px">
+                <Spinner size="lg" />
+              </Box>
+            ) : undefined
+          }
+          title={renderTitle}
+          subTitle={renderSubTitle}
+        />
       </Center>
     </Modal>
   );

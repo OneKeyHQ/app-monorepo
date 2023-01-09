@@ -54,7 +54,7 @@ const UpdateWarningModal: FC = () => {
           <Typography.DisplayMedium mt={8}>
             {intl.formatMessage({ id: 'modal__do_you_have_your_phrase' })}
           </Typography.DisplayMedium>
-          <Typography.Body1 color="text-subdued" mt={3}>
+          <Typography.Body1 color="text-subdued" mt={3} textAlign="center">
             {intl.formatMessage({
               id: 'modal__do_you_have_your_phrase_desc',
             })}

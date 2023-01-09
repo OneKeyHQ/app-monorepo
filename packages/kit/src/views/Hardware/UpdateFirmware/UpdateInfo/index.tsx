@@ -193,6 +193,7 @@ const UpdateInfoModal: FC = () => {
     <Modal
       maxHeight={560}
       hideSecondaryAction
+      header={intl.formatMessage({ id: 'modal__firmware_update' })}
       primaryActionTranslationId="action__update"
       onPrimaryActionPress={() => {
         navigation.navigate(
@@ -207,33 +208,25 @@ const UpdateInfoModal: FC = () => {
       scrollViewProps={{
         children: (
           <>
-            <Typography.DisplayMedium textAlign="center">
-              {intl.formatMessage({ id: 'modal__firmware_update' })}
-            </Typography.DisplayMedium>
-
-            <Box mt={4}>
-              <Alert
-                dismiss={false}
-                alertType="info"
-                customIconName="LightningBoltMini"
-                title={intl.formatMessage({
-                  id: 'modal__firmware_update_hint',
-                })}
-              />
-            </Box>
+            <Alert
+              dismiss={false}
+              alertType="info"
+              customIconName="LightningBoltMini"
+              title={intl.formatMessage({
+                id: 'modal__firmware_update_hint',
+              })}
+            />
             {!!deviceUtils.detectIsPublicBetaTouch(
               device?.uuid,
               features?.onekey_version,
             ) && (
-              <Box mt={4}>
-                <Alert
-                  dismiss={false}
-                  alertType="warn"
-                  title={intl.formatMessage({
-                    id: 'modal__firmware_pre_release_hint',
-                  })}
-                />
-              </Box>
+              <Alert
+                dismiss={false}
+                alertType="warn"
+                title={intl.formatMessage({
+                  id: 'modal__firmware_pre_release_hint',
+                })}
+              />
             )}
 
             {!bleFirmware && !sysFirmware && (

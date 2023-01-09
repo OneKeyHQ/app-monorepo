@@ -61,14 +61,8 @@ const Empty: FC<EmptyProps> = ({
   const isSmallScreen = useIsVerticalLayout();
 
   return (
-    <Box
-      width="100%"
-      display="flex"
-      flexDirection="row"
-      justifyContent="center"
-      {...rest}
-    >
-      <Center width="320px" py="4">
+    <Box width="100%" flexDirection="row" justifyContent="center" {...rest}>
+      <Center flex={1} py="4">
         {!!icon && renderIcon(icon)}
         {!!imageUrl && (
           <Box mb={3}>
@@ -76,7 +70,7 @@ const Empty: FC<EmptyProps> = ({
           </Box>
         )}
         {!!emoji && (
-          <Text fontSize={56} mb={3}>
+          <Text fontSize={56} mb={3} lineHeight="normal">
             {emoji}
           </Text>
         )}
