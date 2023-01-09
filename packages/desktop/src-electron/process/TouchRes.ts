@@ -21,7 +21,8 @@ const ERRORS = {
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
 };
 
-const MacDiskPath = '/Volumes/ONEKEY DATA/';
+const MacVolumesPath = '/Volumes';
+const MacDiskPath = path.join(MacVolumesPath, 'ONEKEY DATA');
 
 const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   const getPlatform = () => {
@@ -278,7 +279,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       const platform = getPlatform();
       if (process.mas || platform === 'mac') {
         const result = dialog.showOpenDialogSync(mainWindow, {
-          defaultPath: MacDiskPath,
+          defaultPath: MacVolumesPath,
           properties: ['openDirectory'],
         });
         logger.info('open dialog permission : ====> ', result);

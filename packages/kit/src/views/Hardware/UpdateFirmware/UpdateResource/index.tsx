@@ -12,7 +12,6 @@ import {
   Modal,
   Spinner,
   ToastManager,
-  Typography,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -95,6 +94,27 @@ const UpdateWarningModal: FC = () => {
     });
   }, [connectId, firmware, rebootToBoardloader, serviceHardware]);
 
+  //  polling device when update success
+  useEffect(() => {
+    if (!updateResult) return;
+
+    deviceUtils.startDeviceScan(
+      (response) => {
+        if (!response.success) {
+          return;
+        }
+        if ((response.payload ?? []).find((d) => d.connectId === connectId)) {
+          deviceUtils.stopScan();
+          navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
+            device,
+            onSuccess,
+          });
+        }
+      },
+      () => {},
+    );
+  }, [updateResult, connectId, device, navigation, onSuccess]);
+
   useEffect(() => {
     if (isInBoardloader) {
       window.desktopApi?.touchUpdateResource({
@@ -145,17 +165,12 @@ const UpdateWarningModal: FC = () => {
     }
   }, [isInBoardloader, navigation, firmware]);
 
-  const isDisabledAndLoading = useMemo(() => {
-    if (retryState) {
-      return false;
-    }
-    return !updateResult;
-  }, [retryState, updateResult]);
+  const showFooter = useMemo(() => retryState, [retryState]);
 
   const renderTitle = useMemo(() => {
     if (!isInBoardloader) return 'Switch to Boardloader';
     if (!isInBoardloader && !updateResult) return 'Updating Resources...';
-    if (updateResult) return '请重启设备后点击继续 👇 按钮';
+    if (updateResult) return '资源更新成功，请重启设备后继续';
     if (retryState) return '更新失败，请重试';
     return '';
   }, [isInBoardloader, retryState, updateResult]);
@@ -179,20 +194,9 @@ const UpdateWarningModal: FC = () => {
     <Modal
       header={intl.formatMessage({ id: 'modal__firmware_update' })}
       hideSecondaryAction
-      primaryActionTranslationId={
-        retryState ? 'action__retry' : 'action__continue'
-      }
-      onPrimaryActionPress={() => {
-        if (retryState) {
-          retry();
-        } else {
-          navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
-            device,
-            onSuccess,
-          });
-        }
-      }}
-      footer={isDisabledAndLoading && null}
+      primaryActionTranslationId="action__retry"
+      onPrimaryActionPress={() => retry()}
+      footer={showFooter ? undefined : null}
     >
       <Center>
         <Empty
