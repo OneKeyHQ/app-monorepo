@@ -85,6 +85,7 @@ export type DiscoverRoutesParams = {
   };
   [DiscoverModalRoutes.DAppListModal]: {
     title: string;
+    _title?: string;
     tagId: string;
     onItemSelect?: (item: DAppItemType) => void;
   };

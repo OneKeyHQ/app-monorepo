@@ -324,7 +324,7 @@ export default class Vault extends VaultBase {
     const sender = sdk.encodeAddress(nativeTx.snd);
 
     if (nativeTx.type === sdk.TransactionType.pay) {
-      const amount = nativeTx.amt!.toString();
+      const amount = nativeTx.amt?.toString() || '0';
       const to = sdk.encodeAddress(nativeTx.rcv!);
       action = {
         type: IDecodedTxActionType.NATIVE_TRANSFER,
@@ -404,7 +404,9 @@ export default class Vault extends VaultBase {
       totalFeeInNative: new BigNumber(nativeTx.fee!)
         .shiftedBy(-nativeToken.decimals)
         .toFixed(),
-      extraInfo: null,
+      extraInfo: {
+        note: Buffer.from(nativeTx.note ?? '').toString(),
+      },
       encodedTx,
     };
   }

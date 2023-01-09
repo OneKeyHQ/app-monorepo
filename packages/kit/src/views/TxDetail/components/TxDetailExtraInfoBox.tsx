@@ -5,11 +5,13 @@ import { useIntl } from 'react-intl';
 
 import { Icon, Pressable } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { IDecodedTxExtraAlgo } from '@onekeyhq/engine/src/vaults/impl/algo/types';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useClipboard } from '../../../hooks/useClipboard';
@@ -112,6 +114,16 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       ),
     });
   }
+  if (
+    network?.impl === IMPL_ALGO &&
+    decodedTx.extraInfo &&
+    (decodedTx.extraInfo as IDecodedTxExtraAlgo).note
+  ) {
+    details.push({
+      title: intl.formatMessage({ id: 'form__algo__note' }),
+      content: (decodedTx.extraInfo as IDecodedTxExtraAlgo).note,
+    });
+  }
   details.push({
     title: intl.formatMessage({ id: 'content__fee' }),
     content:
@@ -121,5 +133,6 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
         decodedTx,
       }),
   });
+
   return <TxDetailActionBox details={details} />;
 }
