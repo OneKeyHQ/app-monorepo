@@ -73,7 +73,12 @@ export type DesktopAPI = {
     cb: (data: string, success: boolean) => void,
   ) => void;
   serverListener: (
-    cb: (request: { requestId: string; type: string; url: string }) => void,
+    cb: (request: {
+      requestId: string;
+      postData: any;
+      type: string;
+      url: string;
+    }) => void,
   ) => void;
   serverRespond: (
     requestId: string,
@@ -198,13 +203,19 @@ const desktopApi = {
     });
     ipcRenderer.send('server/start', port);
   },
+
   stopServer: () => ipcRenderer.send('server/stop'),
   serverListener: (
-    cb: (request: { requestId: string; type: string; url: string }) => void,
+    cb: (request: {
+      requestId: string;
+      postData: any;
+      type: string;
+      url: string;
+    }) => void,
   ) => {
     ipcRenderer.on('server/listener', (_, arg) => {
-      const { requestId, type, url } = arg;
-      cb({ requestId, type, url });
+      const { requestId, type, url, postData } = arg;
+      cb({ requestId, postData, type, url });
     });
   },
   serverRespond: (

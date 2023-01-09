@@ -3,7 +3,7 @@ import { createServer } from 'http';
 
 import { ipcMain } from 'electron';
 
-import type { Server, ServerResponse } from 'http';
+import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 const init = () => {
   // Enable feature on FE once it's ready
@@ -14,19 +14,46 @@ const init = () => {
   ipcMain.on('server/start', (event, port: number) => {
     try {
       if (!server) {
-        server = createServer({ keepAlive: true }, (req, res) => {
-          const timestamp = Date.now();
-          const requestId = `${timestamp}:${Math.floor(
-            Math.random() * 1000000,
-          )}`;
+        server = createServer(
+          { keepAlive: true },
+          (request: IncomingMessage, response: ServerResponse) => {
+            const timestamp = Date.now();
+            const requestId = `${timestamp}:${Math.floor(
+              Math.random() * 1000000,
+            )}`;
 
-          event.reply('server/listener', {
-            requestId,
-            type: req.method,
-            url: req.url,
-          });
-          resMap[requestId] = res;
-        });
+            const { method, url } = request;
+            if (method === 'GET') {
+              event.reply('server/listener', {
+                requestId,
+                type: method,
+                url,
+                postData: undefined,
+              });
+            } else if (method === 'POST') {
+              let body: any = [];
+              request
+                .on('error', (err) => {
+                  console.error(err);
+                })
+                .on('data', (chunk) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                  body.push(chunk);
+                })
+                .on('end', () => {
+                  body = Buffer.concat(body).toString();
+
+                  event.reply('server/listener', {
+                    requestId,
+                    type: method,
+                    url,
+                    postData: body,
+                  });
+                });
+            }
+            resMap[requestId] = response;
+          },
+        );
       }
 
       if (!server.listening) {
@@ -48,7 +75,7 @@ const init = () => {
     const { requestId, code, type, body } = args;
     const res = resMap[requestId];
     if (res) {
-      res.writeHead(200);
+      res.writeHead(code);
       res.end(body);
     }
   });
