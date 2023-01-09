@@ -9,10 +9,15 @@ import {
   Box,
   Center,
   Empty,
+  Image,
   Modal,
   Spinner,
+  Text,
   ToastManager,
+  useTheme,
 } from '@onekeyhq/components';
+import SelectFirmwareResources from '@onekeyhq/kit/assets/select_firmware_resources.png';
+import SelectFirmwareResourcesDark from '@onekeyhq/kit/assets/select_firmware_resources_dark.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
@@ -35,15 +40,46 @@ const ERRORS = {
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
 };
 
+const MOCK_MAS = true;
+
+const StepsItem: FC<{ finished?: boolean; inProgress?: boolean }> = ({
+  finished,
+  inProgress,
+}) => (
+  <Center size="18px" ml="8px">
+    <Box
+      size="8px"
+      borderRadius="full"
+      bgColor={finished || inProgress ? 'interactive-default' : 'icon-disabled'}
+    />
+    {inProgress && (
+      <Box
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        zIndex={-1}
+        bgColor="interactive-default"
+        opacity={0.3}
+        borderRadius="full"
+      />
+    )}
+  </Center>
+);
+
 const UpdateWarningModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const intl = useIntl();
+  const { themeVariant } = useTheme();
   const { device, onSuccess } = useRoute<RouteProps>().params;
   const { serviceHardware } = backgroundApiProxy;
 
   const [isInBoardloader, setIsInBoardloader] = useState(false);
   const [updateResult, setUpdateResult] = useState(false);
   const [resError, setResError] = useState('');
+  // confirm choose disk path for Mac app store version
+  const [confirmChooseDisk, setConfirmChooseDisk] = useState(false);
 
   const connectId = useMemo(() => device?.mac ?? '', [device]);
   const { deviceUpdates } = useSettings();
@@ -80,7 +116,7 @@ const UpdateWarningModal: FC = () => {
       dialogTitle: masDialogTitle,
       buttonLabel: masDialogButtonLabel,
     });
-  }, [firmware]);
+  }, [firmware?.fullResource, masDialogButtonLabel, masDialogTitle]);
 
   const retryState = useMemo(
     () => !!(!updateResult && resError),
@@ -126,7 +162,9 @@ const UpdateWarningModal: FC = () => {
 
   useEffect(() => {
     if (isInBoardloader) {
-      updateTouchResource();
+      if (!MOCK_MAS) {
+        updateTouchResource();
+      }
       window.desktopApi?.on?.(
         'touch/update-res-success',
         ({ error, result }: { error: Error; result: boolean }) => {
@@ -173,50 +211,108 @@ const UpdateWarningModal: FC = () => {
   }, [isInBoardloader, updateTouchResource, navigation, firmware]);
 
   const showFooter = useMemo(() => retryState, [retryState]);
+  const showMasTip = useMemo(
+    // TODO: platformEnv.isMas replace
+    () => isInBoardloader && MOCK_MAS && !confirmChooseDisk,
+    [isInBoardloader, confirmChooseDisk],
+  );
 
   const renderTitle = useMemo(() => {
     if (!isInBoardloader) return 'Switch to Boardloader';
-    if (!isInBoardloader && !updateResult) return 'Updating Resources...';
-    if (updateResult) return '资源更新成功，请重启设备后继续';
+    if (showMasTip) return 'Select Resources';
+    if (isInBoardloader && !updateResult) return 'Updating Resources...';
+    if (updateResult) return 'Restart Device to Install Firmware';
     if (retryState) return '更新失败，请重试';
     return '';
-  }, [isInBoardloader, retryState, updateResult]);
+  }, [isInBoardloader, retryState, updateResult, showMasTip]);
 
   const renderSubTitle = useMemo(() => {
     if (!isInBoardloader)
-      return 'In order to install the latest firmware on your device, you will need to switch it to Boardloader mode.';
-    if (!isInBoardloader && !updateResult)
+      return 'In order to update firmware resources on your device, you will need to switch it to Boardloader mode';
+    if (showMasTip)
+      return 'Click "Open Finder," then select the disk "ONEKEY DATA" and continue';
+    if (isInBoardloader && !updateResult)
       return 'This process may take a while, please wait...';
+    if (updateResult)
+      return 'Resources have been updated. Please restart your device to install the firmware';
     return undefined;
-  }, [isInBoardloader, updateResult]);
+  }, [isInBoardloader, showMasTip, updateResult]);
 
   const renderEmoji = useMemo(() => {
-    if (!isInBoardloader) return '🔁';
-    if (updateResult) return '🔘';
+    if (!isInBoardloader) return '🧩';
+    if (updateResult) return '🔁';
     if (retryState) return '😔';
     return undefined;
   }, [isInBoardloader, retryState, updateResult]);
 
+  const currentStep = useMemo(() => {
+    if (!isInBoardloader) return '1';
+    if (showMasTip) return '2';
+    if (isInBoardloader && !updateResult) return '3';
+    if (updateResult) return '4';
+  }, [isInBoardloader, showMasTip, updateResult]);
+
   return (
     <Modal
-      header={intl.formatMessage({ id: 'modal__firmware_update' })}
+      header="Update Resource"
       hideSecondaryAction
-      primaryActionTranslationId="action__retry"
-      onPrimaryActionPress={() => retry()}
-      footer={showFooter ? undefined : null}
-    >
-      <Empty
-        emoji={renderEmoji}
-        icon={
-          !updateResult && !retryState && isInBoardloader ? (
-            <Box mb="16px">
-              <Spinner size="lg" />
-            </Box>
-          ) : undefined
+      primaryActionTranslationId={
+        retryState ? 'action__retry' : 'action__open_finder'
+      }
+      onPrimaryActionPress={() => {
+        if (retryState) {
+          retry();
+        } else if (showMasTip) {
+          setConfirmChooseDisk(true);
+          updateTouchResource();
         }
-        title={renderTitle}
-        subTitle={renderSubTitle}
-      />
+      }}
+      footer={showFooter || showMasTip ? undefined : null}
+    >
+      <Center>
+        <Box flexDirection="row" mb="24px" alignItems="center">
+          <Text typography="Body2Strong">{currentStep} of 4</Text>
+          <Box flexDirection="row" ml="8px">
+            <StepsItem
+              inProgress={!isInBoardloader}
+              finished={isInBoardloader}
+            />
+            <StepsItem
+              inProgress={showMasTip}
+              finished={isInBoardloader && !updateResult}
+            />
+            <StepsItem
+              inProgress={isInBoardloader && !updateResult && !showMasTip}
+              finished={updateResult}
+            />
+            <StepsItem inProgress={updateResult} />
+          </Box>
+        </Box>
+        <Empty
+          emoji={renderEmoji}
+          icon={
+            isInBoardloader && !updateResult && !showMasTip ? (
+              <Box mb="16px">
+                <Spinner size="lg" />
+              </Box>
+            ) : showMasTip ? (
+              <Image
+                source={
+                  themeVariant === 'light'
+                    ? SelectFirmwareResources
+                    : SelectFirmwareResourcesDark
+                }
+                w="352px"
+                h="191px"
+                mb="16px"
+              />
+            ) : undefined
+          }
+          title={renderTitle}
+          subTitle={renderSubTitle}
+          {...(showMasTip && { my: '-16px' })}
+        />
+      </Center>
     </Modal>
   );
 };
