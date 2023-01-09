@@ -15,7 +15,8 @@ export const getDrawerWidth = () => {
 
 export const nestedTabStartX = makeMutable(0);
 
-export const nestedTabTransX = makeMutable(getDrawerWidth());
+// to control drawer translation
+export const nestedTabTransX = makeMutable(-getDrawerWidth());
 
 type TabViewStyle = {
   height: number;
