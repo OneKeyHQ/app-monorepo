@@ -51,12 +51,14 @@ export async function ethereumGetAddress(
   path: string | number[],
   display = false,
   passphraseState?: WalletPassphraseState,
+  chainId?: number,
 ): Promise<string> {
   let response;
   try {
     response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
       path,
       showOnOneKey: display,
+      chainId,
       ...passphraseState,
     });
   } catch (error: any) {
@@ -132,6 +134,7 @@ export async function ethereumSignMessage({
   passphraseState,
   path,
   message,
+  chainId,
 }: {
   HardwareSDK: CoreApi;
   connectId: string;
@@ -139,6 +142,7 @@ export async function ethereumSignMessage({
   passphraseState?: WalletPassphraseState;
   path: string;
   message: IUnsignedMessageEvm;
+  chainId: number;
 }): Promise<string> {
   // const features = await getFeatures();
   if (message.type === ETHMessageTypes.TYPED_DATA_V1) {
@@ -168,6 +172,7 @@ export async function ethereumSignMessage({
     const res = await HardwareSDK.evmSignMessage(connectId, deviceId, {
       path,
       messageHex,
+      chainId,
       ...passphraseState,
     });
 
@@ -206,6 +211,7 @@ export async function ethereumSignMessage({
       data,
       domainHash,
       messageHash,
+      chainId,
       ...passphraseState,
     });
 
@@ -340,6 +346,7 @@ export async function getXpubs(
   connectId: string,
   deviceId: string,
   passphraseState?: WalletPassphraseState,
+  chainId?: number,
 ): Promise<Array<{ path: string; info: string }>> {
   if (impl !== IMPL_EVM || outputFormat !== 'address') {
     return Promise.resolve([]);
@@ -357,6 +364,7 @@ export async function getXpubs(
            * Search accounts not show detail at device.Only show on device when add accounts into wallet.
            */
           showOnOneKey: false,
+          chainId,
         })),
         ...passphraseState,
       });
@@ -364,6 +372,7 @@ export async function getXpubs(
       response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
         path: paths[0],
         showOnOneKey: false,
+        chainId,
         ...passphraseState,
       });
     }
