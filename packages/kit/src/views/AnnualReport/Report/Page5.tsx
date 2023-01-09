@@ -1,32 +1,47 @@
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
-import bg from '@onekeyhq/kit/assets/annual/6.png';
+import { HStack, VStack } from '@onekeyhq/components';
 
-import { Container, WText } from '../components';
+import { WText } from '../components';
 
-const AnnualPage5: FC<{ height: number }> = ({ height }) => {
+import type { PageProps } from '../types';
+
+const AnnualPage5: FC<PageProps> = () => {
   const intl = useIntl();
+  const { height } = useWindowDimensions();
   return (
-    <Container bg={bg} height={height} showLogo={false}>
+    <>
       <WText fontWeight="600" fontSize="32px" color="#E2E2E8" lineHeight="40px">
         {intl.formatMessage({
           id: 'content__did_you_get_away_with_most_of_the_rug_pulls_this_year',
         })}
       </WText>
-      <WText fontWeight="900" fontSize="24px" color="text-success" mt="9">
-        2022.05.13
-      </WText>
-      <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
-        {intl.formatMessage({ id: 'content__luna_crash' })}
-      </WText>
-      <WText fontWeight="900" fontSize="24px" color="text-success" mt="7">
-        2022.11.11
-      </WText>
-      <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
-        {intl.formatMessage({ id: 'content__ftx_collapse' })}
-      </WText>
+      <HStack
+        alignItems="center"
+        flexWrap="wrap"
+        mt="9"
+        justifyContent="space-between"
+      >
+        <VStack w={height < 800 ? undefined : 'full'}>
+          <WText fontWeight="900" fontSize="24px" color="text-success">
+            2022.05.13
+          </WText>
+          <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
+            {intl.formatMessage({ id: 'content__luna_crash' })}
+          </WText>
+        </VStack>
+        <VStack>
+          <WText fontWeight="900" fontSize="24px" color="text-success">
+            2022.11.11
+          </WText>
+          <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
+            {intl.formatMessage({ id: 'content__ftx_collapse' })}
+          </WText>
+        </VStack>
+      </HStack>
       <WText fontWeight="500" fontSize="24px" color="#E2E2E8" mt="7" mb="9">
         ...
       </WText>
@@ -38,7 +53,7 @@ const AnnualPage5: FC<{ height: number }> = ({ height }) => {
       <WText fontWeight="700" fontSize="40px" color="text-success">
         {intl.formatMessage({ id: 'content__anti_rug_master' })}
       </WText>
-    </Container>
+    </>
   );
 };
 

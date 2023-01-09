@@ -6,18 +6,21 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Box,
   Center,
+  HStack,
   Icon,
+  Image,
   Pressable,
   ScrollView,
-  Token,
   Typography,
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.png';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
@@ -36,26 +39,26 @@ import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 import { WalletHomeTabEnum } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ImageSourcePropType } from 'react-native';
 
 type DataItem = {
   key: string;
-  icon: ComponentProps<typeof Icon> | string;
+  icon: ComponentProps<typeof Icon> & ImageSourcePropType;
   iconBg: ThemeToken | string | undefined;
   title: LocaleIds;
   description: LocaleIds;
   link?: string;
+  tag?: LocaleIds;
 };
 
 const data: DataItem[] = [
   {
     key: 'annual',
-    icon: {
-      name: 'ShieldCheckSolid',
-      color: 'decorative-icon-one',
-    },
-    iconBg: 'decorative-surface-one',
-    title: 'title__contract_approvals',
-    description: 'title__token_approvals_desc',
+    icon: bg1,
+    iconBg: undefined,
+    title: 'title__my_on_chain_journey',
+    description: 'title__my_on_chain_journey_desc',
+    tag: 'content__time_limit',
   },
   {
     key: 'revoke',
@@ -123,7 +126,9 @@ const ToolsPage: FC = () => {
     return allItems.concat(
       tools.map((t) => ({
         key: t.title,
-        icon: t.logoURI,
+        icon: {
+          uri: t.logoURI,
+        } as any,
         iconBg: undefined,
         title: t.title,
         description: t.desc,
@@ -173,6 +178,19 @@ const ToolsPage: FC = () => {
     fetchData();
   }, [fetchData, homeTabName]);
 
+  const renderIcon = useCallback((icon: DataItem['icon']) => {
+    if (!icon) {
+      return null;
+    }
+    if (typeof icon === 'number') {
+      return <Image borderRadius="14px" source={icon} w="full" h="full" />;
+    }
+    if (icon.name) {
+      return <Icon {...icon} size={24} />;
+    }
+    return <Image borderRadius="14px" source={icon} w="full" h="full" />;
+  }, []);
+
   return (
     <ScrollView
       contentContainerStyle={{
@@ -209,16 +227,21 @@ const ToolsPage: FC = () => {
                 bgColor={item.iconBg}
                 borderRadius="12px"
               >
-                {typeof item.icon === 'string' ? (
-                  <Token token={{ logoURI: item.icon }} size={8} />
-                ) : (
-                  <Icon {...item.icon} size={24} />
-                )}
+                {renderIcon(item.icon)}
               </Center>
               <VStack ml="4" flex="1">
-                <Typography.Body1Strong numberOfLines={1} isTruncated>
-                  {intl.formatMessage({ id: item.title })}
-                </Typography.Body1Strong>
+                <HStack alignItems="center">
+                  <Typography.Body1Strong mr="1" numberOfLines={1} isTruncated>
+                    {intl.formatMessage({ id: item.title })}
+                  </Typography.Body1Strong>
+                  {item.tag ? (
+                    <Badge
+                      size="sm"
+                      type="success"
+                      title={intl.formatMessage({ id: item.tag })}
+                    />
+                  ) : null}
+                </HStack>
                 <Typography.Body2
                   mt="4px"
                   numberOfLines={2}

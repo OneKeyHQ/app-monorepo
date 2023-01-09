@@ -68,7 +68,7 @@ const PieChartComponent: FunctionComponent<PieChartProps> = ({
 }) => {
   const { strokeWidth, radius, circleCircumference } = useMemo(() => {
     // const newStrokeWidth = size * 0.25;
-    const newStrokeWidth = 50;
+    const newStrokeWidth = 40;
     const newRadius = size / 2 - newStrokeWidth / 2;
     return {
       strokeWidth: newStrokeWidth,
@@ -101,15 +101,17 @@ const PieChartComponent: FunctionComponent<PieChartProps> = ({
   return (
     <Box
       style={{
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
       }}
       {...containerProps}
       position="relative"
+      pt="54px"
+      pb="37px"
     >
       <Center w="full" position="absolute" left="0" top="0">
-        <Text ml="1" fontSize="16px" fontWeight="600">
+        <Text ml="1" fontSize="16px" fontWeight="600" color="#E2E2E8">
           {title}
         </Text>
       </Center>
@@ -131,6 +133,7 @@ const PieChartComponent: FunctionComponent<PieChartProps> = ({
               color={gradientColors[i]?.[0]}
               fontSize="12px"
               fontWeight="600"
+              lineHeight="24px"
             >
               {d.key}
             </Text>
@@ -152,6 +155,7 @@ const PieChartComponent: FunctionComponent<PieChartProps> = ({
               x2="0%"
               y2="100%"
               gradientTransform="rotate(180)"
+              key={`${start}${stop}${i}`}
             >
               <Stop offset="0%" stopColor={start} stopOpacity="1" />
               <Stop offset="100%" stopColor={stop} stopOpacity="1" />

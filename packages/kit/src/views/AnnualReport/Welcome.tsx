@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import B from 'bignumber.js';
 import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
+import { StatusBar } from 'react-native';
 
 import {
   Box,
@@ -141,14 +142,6 @@ const AnnualLoading: FC = () => {
     };
   }, [accountAddress]);
 
-  console.log(ens, 'ens result');
-
-  console.log(nfts?.length, 'nfts');
-
-  console.log(tokens, 'tokens');
-
-  console.log(pnls, 'pnls');
-
   const loading = useMemo(() => {
     const pipeline = [ensLoading, tokensLoading, nftLoading, pnlLoading];
     const progress = pipeline.reduce((p, n) => {
@@ -179,7 +172,12 @@ const AnnualLoading: FC = () => {
             fontWeight="600"
             color="#34C759"
           >
-            Loading...{loading}%
+            {intl.formatMessage(
+              { id: 'content__loading' },
+              {
+                0: `${loading}%`,
+              },
+            )}
           </WText>
         </BgButton>
       );
@@ -190,6 +188,9 @@ const AnnualLoading: FC = () => {
         h={50}
         bg={bgStart}
         onPress={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          }
           navigation.navigate(HomeRoutes.AnnualReport, {
             name,
             tokens,
@@ -203,16 +204,17 @@ const AnnualLoading: FC = () => {
         </WText>
       </BgButton>
     );
-  }, [loading, isDone, navigation, tokens, nfts, pnls, name]);
+  }, [intl, loading, isDone, navigation, tokens, nfts, pnls, name]);
 
   return (
-    <Container bg={bg1} showLogo showFooter={false}>
+    <Container bg={bg1} showHeader showHeaderLogo>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
       <VStack flex="1" flexDirection="column-reverse">
         <WText fontSize="48">
           {intl.formatMessage({ id: 'title__my_on_chain_journey_uppercase' })}
         </WText>
       </VStack>
-      {isDone ? (
+      {name ? (
         <Center w="full" mt="37px">
           <HStack alignItems="center">
             <Pressable
@@ -224,7 +226,7 @@ const AnnualLoading: FC = () => {
                 <WText mr="2" fontSize="24" textTransform="none">
                   Hi, {name}
                 </WText>
-                <Icon name="PencilSquareSolid" color="text-on-primary" />
+                <Icon name="ChevronDownMini" color="text-on-primary" />
               </HStack>
             </Pressable>
           </HStack>
@@ -250,7 +252,7 @@ const AnnualLoading: FC = () => {
           </Box>
         </Center>
       ) : null}
-      <Center w="full" mt={isDone ? '7' : '162px'} mb="72px">
+      <Center w="full" mt={name ? '7' : '162px'} mb="72px">
         {button}
       </Center>
       <WText
@@ -260,7 +262,6 @@ const AnnualLoading: FC = () => {
         textTransform="none"
         textAlign="center"
         lineHeight="20px"
-        mb="38px"
       >
         {intl.formatMessage({
           id: 'content__the_statistical_scope_is_limited_to_eth_networks_all_data_comes_from_the_blockchain_browser',

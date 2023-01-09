@@ -5,17 +5,13 @@ import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { VStack } from '@onekeyhq/components';
-import bg from '@onekeyhq/kit/assets/annual/3.png';
 
-import { Container, WText } from '../components';
+import { WText } from '../components';
 import PieChart from '../PieChart';
 
-import type { HomeRoutesParams } from '../../../routes/types';
+import type { PageProps } from '../types';
 
-const AnnualPage2: FC<{
-  height: number;
-  params: HomeRoutesParams['AnnualReport'];
-}> = ({ height, params: { tokens } }) => {
+const AnnualPage2: FC<PageProps> = ({ params: { tokens } }) => {
   const intl = useIntl();
 
   const processTokens = useMemo(() => {
@@ -70,15 +66,73 @@ const AnnualPage2: FC<{
     return 'tag__adventurist_uppercase';
   }, [processTokens]);
 
+  const tokenDesc = useMemo(() => {
+    const [token0, token1, token2] = processTokens.map((t) =>
+      t ? (
+        <WText
+          color="text-success"
+          fontWeight="600"
+          fontSize="24px"
+          lineHeight="34px"
+          pr="16px"
+        >
+          {t.symbol}
+        </WText>
+      ) : null,
+    );
+    switch (processTokens.length) {
+      case 0:
+        return null;
+      case 1:
+        return (
+          <WText fontWeight="600" fontSize="24px" lineHeight="34px" pr="16px">
+            {intl.formatMessage(
+              { id: 'content__str_is_your_favorite_onlyone' },
+              {
+                0: token0,
+              },
+            )}
+          </WText>
+        );
+      case 2:
+        return (
+          <WText fontWeight="600" fontSize="24px" lineHeight="34px" pr="16px">
+            {intl.formatMessage(
+              { id: 'content__str_is_your_favorite_onlytwo' },
+              {
+                symbol_0: token0,
+                symbol_1: token1,
+              },
+            )}
+          </WText>
+        );
+
+      default: {
+        return (
+          <WText fontWeight="600" fontSize="24px" lineHeight="34px" pr="16px">
+            {intl.formatMessage(
+              { id: 'content__str_is_your_favorite' },
+              {
+                symbol_0: token0,
+                symbol_1: token1,
+                symbol_2: token2,
+              },
+            )}
+          </WText>
+        );
+      }
+    }
+  }, [processTokens, intl]);
+
   return (
-    <Container bg={bg} height={height} showLogo={false}>
+    <>
       <PieChart
         title={intl.formatMessage({ id: 'content__position_distribution' })}
         data={processTokens.map((t) => ({
           key: t?.symbol ?? '',
           count: t?.value?.toNumber() ?? 0,
         }))}
-        size={290}
+        size={220}
       />
       <VStack>
         <WText
@@ -99,50 +153,9 @@ const AnnualPage2: FC<{
         >
           {intl.formatMessage({ id: positionStyle })}
         </WText>
-        {processTokens.length > 3 ? (
-          <WText fontWeight="600" fontSize="24px" lineHeight="34px" pr="16px">
-            {intl.formatMessage(
-              { id: 'content__str_is_your_favorite' },
-              {
-                symbol_0: (
-                  <WText
-                    color="text-success"
-                    fontWeight="600"
-                    fontSize="24px"
-                    lineHeight="34px"
-                    pr="16px"
-                  >
-                    ETH
-                  </WText>
-                ),
-                symbol_1: (
-                  <WText
-                    color="text-success"
-                    fontWeight="600"
-                    fontSize="24px"
-                    lineHeight="34px"
-                    pr="16px"
-                  >
-                    USDC
-                  </WText>
-                ),
-                symbol_2: (
-                  <WText
-                    color="text-success"
-                    fontWeight="600"
-                    fontSize="24px"
-                    lineHeight="34px"
-                    pr="16px"
-                  >
-                    USDT
-                  </WText>
-                ),
-              },
-            )}
-          </WText>
-        ) : null}
+        {tokenDesc}
       </VStack>
-    </Container>
+    </>
   );
 };
 

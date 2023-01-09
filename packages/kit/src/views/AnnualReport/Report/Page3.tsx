@@ -6,19 +6,15 @@ import { useIntl } from 'react-intl';
 
 import { HStack, VStack } from '@onekeyhq/components';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import bg from '@onekeyhq/kit/assets/annual/4.png';
 
 import { useActiveWalletAccount } from '../../../hooks';
 import { PriceString } from '../../NFTMarket/PriceText';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
-import { Container, WText } from '../components';
+import { WText } from '../components';
 
-import type { HomeRoutesParams } from '../../../routes/types';
+import type { PageProps } from '../types';
 
-const AnnualPage3: FC<{
-  height: number;
-  params: HomeRoutesParams['AnnualReport'];
-}> = ({ height, params: { pnls } }) => {
+const AnnualPage3: FC<PageProps> = ({ params: { pnls } }) => {
   const { data, assets } = pnls ?? {};
   const intl = useIntl();
   const { networkId } = useActiveWalletAccount();
@@ -52,7 +48,7 @@ const AnnualPage3: FC<{
   }
 
   return (
-    <Container bg={bg} height={height} showLogo={false}>
+    <>
       <WText
         fontWeight="600"
         fontSize="32px"
@@ -137,7 +133,7 @@ const AnnualPage3: FC<{
           </VStack>
         </HStack>
       ))}
-    </Container>
+    </>
   );
 };
 

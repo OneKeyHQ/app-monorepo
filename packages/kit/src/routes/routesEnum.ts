@@ -44,6 +44,7 @@ export enum ModalRoutes {
   Webview = 'Webview',
   Revoke = 'Revoke',
   NFTMarket = 'NFTMarket',
+  AnnualReport = 'AnnualReport',
 }
 
 export enum RootRoutes {

@@ -4,20 +4,15 @@ import { useMemo } from 'react';
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Divider } from '@onekeyhq/components';
-import bg from '@onekeyhq/kit/assets/annual/2.png';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
 import { useNFTPrice } from '../../../hooks/useTokens';
-import { Container, WText } from '../components';
+import { WText } from '../components';
 
-import type { HomeRoutesParams } from '../../../routes/types';
+import type { PageProps } from '../types';
 
-const AnnualPage1: FC<{
-  height: number;
-  params: HomeRoutesParams['AnnualReport'];
-}> = ({ height, params: { tokens } }) => {
+const AnnualPage1: FC<PageProps> = ({ params: { tokens } }) => {
   const intl = useIntl();
 
   const { networkId, accountAddress } = useActiveWalletAccount();
@@ -40,7 +35,7 @@ const AnnualPage1: FC<{
   const hasNoAsset = useMemo(() => totalValue.isEqualTo(0), [totalValue]);
 
   return (
-    <Container bg={bg} height={height} showLogo={false}>
+    <>
       <WText
         fontWeight="600"
         fontSize="24px"
@@ -82,7 +77,9 @@ const AnnualPage1: FC<{
           mb="2"
           mt="6"
         >
-          积微而著，由著复微。 零不是终点， 而是全新的起点。
+          {intl.formatMessage({
+            id: 'content__zero_is_not_the_end_it_s_a_brand_new_start',
+          })}
         </WText>
       ) : (
         <WText
@@ -108,7 +105,7 @@ const AnnualPage1: FC<{
       >
         #HYOK
       </WText>
-    </Container>
+    </>
   );
 };
 

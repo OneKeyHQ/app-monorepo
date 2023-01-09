@@ -62,6 +62,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Webview]: NavigatorScreenParams<SubModalRoutesParams.WebviewRoutesParams>;
   [ModalRoutes.Revoke]: NavigatorScreenParams<SubModalRoutesParams.RevokeRoutesParams>;
   [ModalRoutes.NFTMarket]: NavigatorScreenParams<SubModalRoutesParams.NFTMarketRoutesParams>;
+  [ModalRoutes.AnnualReport]: NavigatorScreenParams<SubModalRoutesParams.AnnualReportModalParams>;
 };
 /** Modal */
 

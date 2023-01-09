@@ -1,20 +1,19 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { random } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
-  Center,
   HStack,
   Image,
   ScrollView,
   Text,
   VStack,
 } from '@onekeyhq/components';
-import bg from '@onekeyhq/kit/assets/annual/3.png';
-import bgStart from '@onekeyhq/kit/assets/annual/bg_start.png';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import c1 from '@onekeyhq/kit/assets/annual/card-1.png';
 import c2 from '@onekeyhq/kit/assets/annual/card-2.png';
 import c3 from '@onekeyhq/kit/assets/annual/card-3.png';
@@ -23,91 +22,99 @@ import c5 from '@onekeyhq/kit/assets/annual/card-5.png';
 import qrcode from '@onekeyhq/kit/assets/annual/qrcode.png';
 import logo from '@onekeyhq/kit/assets/qrcode_logo.png';
 
-import { BgButton, Container, WText } from '../components';
+import { WText } from '../components';
 
-import type { HomeRoutesParams } from '../../../routes/types';
-import type { ImageSourcePropType } from 'react-native';
+import type { PageProps } from '../types';
+import type {
+  ImageSourcePropType,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView as ScrollViewType,
+} from 'react-native';
 
 const tags = [
   {
     tag: 'HODLER',
     image: c1,
-    desc: `您是守正不移的持有者，\b时光向前流淌，依然坚守本心。`,
+    desc: 'content__hodler_desc',
   },
   {
     tag: 'NFT Collector',
     image: c2,
-    desc: `您是守正不移的持有者，\n时光向前流淌，依然坚守本心。`,
+    desc: 'content__nft_collector_desc',
   },
   {
     tag: 'Web3 Trader',
     image: c3,
-    desc: `您是守正不移的持有者，\n时光向前流淌，依然坚守本心。`,
+    desc: 'content__web3_trader_desc',
   },
   {
     tag: 'DeFi Master',
     image: c4,
-    desc: `您是守正不移的持有者，\n时光向前流淌，依然坚守本心。`,
+    desc: 'content__defi_master_desc',
   },
   {
     tag: 'Web3 Master',
     image: c5,
-    desc: `您是守正不移的持有者，\n时光向前流淌，依然坚守本心。`,
+    desc: 'content__web3_master_desc',
   },
-];
+] as const;
 
 const Card: FC<
   {
     name: string;
     tag: string;
     image: ImageSourcePropType;
-    desc: string;
+    desc: LocaleIds;
     w: number;
   } & ComponentProps<typeof Box>
-> = ({ name, tag, image, desc, w, ...props }) => (
-  <Box
-    borderRadius="16px"
-    bg="#1E252F"
-    overflow="hidden"
-    {...props}
-    w={`${w}px`}
-  >
-    <Image source={image} w={`${w}px`} h={`${289 * (w / 307)}px`} />
-    <VStack px="4" pt="4" pb="3">
-      <WText
-        fontSize="14px"
-        fontFamily="mono"
-        lineHeight="17px"
-        fontWeight="900"
-      >
-        {name}
-      </WText>
-      <WText color="#34C759" fontSize="32px" fontWeight="900">
-        {tag}
-      </WText>
-      <WText
-        fontSize="14px"
-        fontFamily="mono"
-        lineHeight="17px"
-        fontWeight="900"
-      >
-        of 2022
-      </WText>
-      <WText mt="2" fontSize="16px" fontWeight="400" color="#fff">
-        {desc}
-      </WText>
-      <HStack justifyContent="space-between" mt="5">
-        <HStack alignItems="center">
-          <Image borderRadius="14px" source={logo} w={8} h={8} />
-          <Text fontSize="18px" color="#44D62C" ml="1" fontWeight="800">
-            OneKey
-          </Text>
+> = ({ name, tag, image, desc, w, ...props }) => {
+  const intl = useIntl();
+  return (
+    <Box
+      borderRadius="16px"
+      bg="#1E252F"
+      overflow="hidden"
+      {...props}
+      w={`${w}px`}
+    >
+      <Image source={image} w={`${w}px`} h={`${200}px`} />
+      <VStack px="4" pt="4" pb="3">
+        <WText
+          fontSize="14px"
+          fontFamily="mono"
+          lineHeight="17px"
+          fontWeight="900"
+        >
+          {name}
+        </WText>
+        <WText color="#34C759" fontSize="32px" fontWeight="900">
+          {tag}
+        </WText>
+        <WText
+          fontSize="14px"
+          fontFamily="mono"
+          lineHeight="17px"
+          fontWeight="900"
+        >
+          of 2022
+        </WText>
+        <WText mt="2" fontSize="16px" fontWeight="400" color="#fff">
+          {intl.formatMessage({ id: desc })}
+        </WText>
+        <HStack justifyContent="space-between" mt="5">
+          <HStack alignItems="center">
+            <Image borderRadius="14px" source={logo} w={8} h={8} />
+            <Text fontSize="18px" color="#44D62C" ml="1" fontWeight="800">
+              OneKey
+            </Text>
+          </HStack>
+          <Image borderRadius="6px" source={qrcode} size={10} />
         </HStack>
-        <Image borderRadius="6px" source={qrcode} size={10} />
-      </HStack>
-    </VStack>
-  </Box>
-);
+      </VStack>
+    </Box>
+  );
+};
 
 const CardContainer: FC<{
   index: number;
@@ -120,7 +127,11 @@ const CardContainer: FC<{
   const { width } = useWindowDimensions();
   const w = useMemo(() => width - 42 * 2, [width]);
   return (
-    <HStack width={`${width}px`}>
+    <HStack
+      width={`${width}px`}
+      alignItems="flex-start"
+      justifyContent="flex-start"
+    >
       <HStack
         alignItems="center"
         justifyContent="flex-end"
@@ -147,44 +158,62 @@ const CardContainer: FC<{
   );
 };
 
-const AnnualPage7: FC<{
-  height: number;
-  params: HomeRoutesParams['AnnualReport'];
-}> = ({ height, params: { name } }) => {
+const AnnualPage7: FC<PageProps> = ({
+  params: { name },
+  selectedCardIndex,
+  onSelectedCardIndexChange,
+}) => {
+  const ref = useRef<ScrollViewType>();
   const intl = useIntl();
   const [scrolling, setScrolling] = useState(false);
+  const { width } = useWindowDimensions();
 
   const handleScrollBegin = useCallback(() => {
     setScrolling(true);
   }, []);
 
-  const handleScrollEnd = useCallback(() => {
-    setScrolling(false);
-  }, []);
+  const handleScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      setScrolling(false);
+      const { contentOffset } = e.nativeEvent;
+      const viewSize = e.nativeEvent.layoutMeasurement;
+      const pageNum = Math.floor(contentOffset.x / viewSize.width);
+      onSelectedCardIndexChange?.(pageNum);
+    },
+    [onSelectedCardIndexChange],
+  );
+
+  useEffect(() => {
+    const x = (selectedCardIndex ?? random(0, 5)) * width;
+    const timeout = setTimeout(() => {
+      ref.current?.scrollTo({
+        animated: true,
+        x,
+      });
+    }, 600);
+    return () => clearTimeout(timeout);
+  }, [width, selectedCardIndex]);
 
   return (
-    <Container
-      bg={bg}
-      height={height}
-      showLogo={false}
-      containerProps={{ px: '0' }}
-    >
+    <>
       <WText
         textAlign="center"
         fontWeight="600"
         fontSize="20px"
         color="#E2E2E8"
-        mb="6"
+        px="6"
       >
         {intl.formatMessage({
           id: 'content__looking_back_at_your_on_chain_story_you_are_the',
         })}
       </WText>
       <ScrollView
+        ref={ref}
         horizontal
         pagingEnabled
         onScrollBeginDrag={handleScrollBegin}
-        onScrollEndDrag={handleScrollEnd}
+        onMomentumScrollEnd={handleScrollEnd}
+        contentContainerStyle={{ paddingTop: 24 }}
       >
         {tags.map((t, i) => (
           <CardContainer
@@ -195,14 +224,7 @@ const AnnualPage7: FC<{
           />
         ))}
       </ScrollView>
-      <Center mt="6">
-        <BgButton w={196} h={50} bg={bgStart} onPress={console.log}>
-          <WText fontSize="16" fontWeight="600">
-            {intl.formatMessage({ id: 'action__save_image' })}
-          </WText>
-        </BgButton>
-      </Center>
-    </Container>
+    </>
   );
 };
 

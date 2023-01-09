@@ -1,7 +1,7 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback, useLayoutEffect, useMemo } from 'react';
 
-import { ImageBackground, useWindowDimensions } from 'react-native';
+import { ImageBackground } from 'react-native';
 
 import {
   Center,
@@ -13,6 +13,8 @@ import {
   VStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import qrcode from '@onekeyhq/kit/assets/annual/qrcode.png';
+import down from '@onekeyhq/kit/assets/annual/scrolldown.png';
 import logo from '@onekeyhq/kit/assets/qrcode_logo.png';
 
 import { useNavigation } from '../../hooks';
@@ -27,50 +29,25 @@ export const useHeaderHide = () => {
   }, [navigation]);
 };
 
-export const Logo: FC<{
-  showLogo?: boolean;
-}> = ({ showLogo = true }) => {
-  const navigation = useNavigation();
-
-  const onPress = useCallback(() => {
-    if (navigation) {
-      navigation.goBack();
-    }
-  }, [navigation]);
-
-  return (
-    <HStack justifyContent="space-between" px="6">
-      {showLogo ? (
-        <HStack alignItems="center">
-          <Image borderRadius="14px" source={logo} w={8} h={8} />
-          <Text fontSize="24px" color="text-on-primary" ml="1" fontWeight="800">
-            OneKey
-          </Text>
-        </HStack>
-      ) : (
-        <HStack flex="1" />
-      )}
-      <Pressable onPress={onPress}>
-        <Center size="30px" borderRadius="full" bg="rgba(255, 255, 255, 0.1)">
-          <Icon name="XMarkMini" size={20} color="text-on-primary" />
-        </Center>
-      </Pressable>
-    </HStack>
-  );
-};
-
 export const Footer: FC<{
   onShare?: () => void;
-}> = ({ onShare }) => (
+  showIndicator?: boolean;
+}> = ({ onShare, showIndicator }) => (
   <HStack
+    position="absolute"
     alignItems="center"
     bg="rgba(19, 19, 27, 0.8)"
     left="0"
     bottom="0"
-    pt="4"
+    py="4"
     px="6"
-    pb="10"
+    w="full"
   >
+    {showIndicator ? (
+      <Center w="full" px="6" position="absolute" bottom="82px" left="24px">
+        <Image borderRadius="14px" source={down} w={34.5} h={18} />
+      </Center>
+    ) : null}
     <Image borderRadius="14px" source={logo} w={8} h={8} />
     <VStack ml="3" flex="1">
       <Text
@@ -96,6 +73,39 @@ export const Footer: FC<{
         <Icon name="ShareMini" color="icon-on-primary" size={20} />
       </Center>
     </Pressable>
+  </HStack>
+);
+
+export const ShareFooter: FC = () => (
+  <HStack
+    bg="rgba(0, 6, 17, 0.8)"
+    px="30px"
+    py="4"
+    justifyContent="space-between"
+    alignItems="center"
+    position="absolute"
+    bottom="0"
+    left="0"
+    w="full"
+  >
+    <VStack>
+      <HStack alignItems="center">
+        <Image borderRadius="14px" source={logo} w={8} h={8} />
+        <Text fontSize="24px" color="#44D62C" ml="1" fontWeight="800">
+          OneKey
+        </Text>
+      </HStack>
+      <Text
+        fontSize="14px"
+        textTransform="uppercase"
+        color="#fff"
+        opacity=".5"
+        fontWeight="500"
+      >
+        2022 My on-chain Journey.
+      </Text>
+    </VStack>
+    <Image mt="10px" borderRadius="6px" source={qrcode} w="60px" h="60px" />
   </HStack>
 );
 
@@ -126,34 +136,85 @@ export const BgButton: FC<{
 
 export const Container: FC<{
   bg: ImageSourcePropType;
-  showLogo?: boolean;
-  showFooter?: boolean;
+  showHeader?: boolean;
+  showHeaderLogo?: boolean;
+  renderShareFooter?: boolean;
+  showIndicator?: boolean;
   onShare?: () => void;
-  height?: number;
   containerProps?: ComponentProps<typeof VStack>;
 }> = ({
   bg,
   children,
-  showLogo = true,
-  height,
-  showFooter = true,
+  showHeaderLogo = true,
+  showHeader = true,
+  showIndicator = true,
   onShare,
+  renderShareFooter = false,
   containerProps = {},
 }) => {
-  const { top } = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { top, bottom } = useSafeAreaInsets();
+
+  const navigation = useNavigation();
+
+  const handleClose = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [navigation]);
+
   return (
     <ImageBackground
       source={bg}
       resizeMode="stretch"
-      style={{ height: height ?? '100%', width }}
+      style={{
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
-      <VStack style={{ width, height: height ?? '100%' }} pt={`${top}px`}>
-        <Logo showLogo={showLogo} />
-        <VStack flex="1" px="6" {...containerProps}>
+      <VStack
+        pt={`${top}px`}
+        pb={`${bottom}px`}
+        flex="1"
+        position="relative"
+        w="full"
+      >
+        {showHeader ? (
+          <HStack justifyContent="space-between" px="6">
+            {showHeaderLogo ? (
+              <HStack alignItems="center">
+                <Image borderRadius="14px" source={logo} w={8} h={8} />
+                <Text
+                  fontSize="24px"
+                  color="text-on-primary"
+                  ml="1"
+                  fontWeight="800"
+                >
+                  OneKey
+                </Text>
+              </HStack>
+            ) : (
+              <HStack flex="1" />
+            )}
+            <Pressable onPress={handleClose}>
+              <Center
+                size="30px"
+                borderRadius="full"
+                bg="rgba(255, 255, 255, 0.1)"
+              >
+                <Icon name="XMarkMini" size={20} color="text-on-primary" />
+              </Center>
+            </Pressable>
+          </HStack>
+        ) : null}
+        <VStack flex="1" px="6" overflowY="scroll" {...containerProps}>
           {children}
         </VStack>
-        {showFooter ? <Footer onShare={onShare} /> : null}
+        {renderShareFooter ? <ShareFooter /> : null}
+        {onShare ? (
+          <Footer onShare={onShare} showIndicator={showIndicator} />
+        ) : null}
       </VStack>
     </ImageBackground>
   );
