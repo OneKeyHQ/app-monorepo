@@ -219,6 +219,19 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     zip.extractAllTo(ExtractPath, true);
   };
 
+  const copyFile = async (sourceFile: string, targetFile: string) =>
+    new Promise((resolve, reject) => {
+      fs.copyFile(sourceFile, targetFile, (copyErr) => {
+        if (copyErr) {
+          logger.error('copyFile error: ', copyErr);
+          reject(copyErr);
+          return;
+        }
+        logger.log(`Copied ${sourceFile} to ${targetFile}`);
+        resolve(true);
+      });
+    });
+
   const writeResFile = (diskPath: string): Promise<boolean> =>
     new Promise((resolve, reject) => {
       const targetFolder = path.join(diskPath, 'res');
@@ -240,35 +253,19 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
           return;
         }
 
-        const promises: Promise<any>[] = [];
-        const copyFiles = files.filter((file) => file !== '.DS_Store');
-        for (const file of copyFiles) {
-          const sourceFile = path.join(SourceFolder, file);
-          const targetFile = path.join(targetFolder, file);
-
-          // eslint-disable-next-line @typescript-eslint/no-use-before-define
-          promises.push(copyFile(sourceFile, targetFile));
-        }
         try {
-          await Promise.all(promises);
+          const copyFiles = files.filter((file) => file !== '.DS_Store');
+          for (const file of copyFiles) {
+            const sourceFile = path.join(SourceFolder, file);
+            const targetFile = path.join(targetFolder, file);
+
+            await copyFile(sourceFile, targetFile);
+          }
         } catch (copyErr) {
           logger.error('copyFile error: ', copyErr);
           reject(copyErr);
         }
 
-        resolve(true);
-      });
-    });
-
-  const copyFile = async (sourceFile: string, targetFile: string) =>
-    new Promise((resolve, reject) => {
-      fs.copyFile(sourceFile, targetFile, (copyErr) => {
-        if (copyErr) {
-          logger.error('copyFile error: ', copyErr);
-          reject(copyErr);
-          return;
-        }
-        logger.log(`Copied ${sourceFile} to ${targetFile}`);
         resolve(true);
       });
     });
