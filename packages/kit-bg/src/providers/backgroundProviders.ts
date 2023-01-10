@@ -4,6 +4,7 @@ import ProviderAlgo from './ProviderAlgo';
 import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiCardano from './ProviderApiCardano';
 import ProviderApiConflux from './ProviderApiConflux';
+import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
 import ProviderApiPrivate from './ProviderApiPrivate';
@@ -52,6 +53,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.cardano]: new ProviderApiCardano({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
       backgroundApi,
     }),
     // near
