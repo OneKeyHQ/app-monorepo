@@ -3,6 +3,7 @@ import { appSelector } from '../../../../store';
 import {
   addWebSiteHistory,
   setDappHistory,
+  setUserBrowserHistory,
   updateHistory,
 } from '../../../../store/reducers/discover';
 import {
@@ -24,11 +25,13 @@ export const gotoSite = ({
   isNewWindow,
   isInPlace,
   id,
+  userTriggered,
 }: WebSiteHistory & {
   dAppId?: string;
   isNewWindow?: boolean;
   isInPlace?: boolean;
   id?: string;
+  userTriggered?: boolean;
 }) => {
   const {
     webTabs: { tabs, currentTabId },
@@ -55,6 +58,18 @@ export const gotoSite = ({
     if (dAppId) {
       dispatch(setDappHistory(dAppId));
     }
+
+    if (userTriggered) {
+      dispatch(
+        setUserBrowserHistory({
+          url: validatedUrl,
+          dappId: dAppId,
+          title,
+          logoUrl: favicon,
+        }),
+      );
+    }
+
     const isBookmarked = dappFavorites?.includes(url);
 
     dispatch(
@@ -110,6 +125,7 @@ export const openMatchDApp = ({
       title: webSite.title,
       favicon: webSite.favicon,
       isNewWindow,
+      userTriggered: true,
     });
   }
 
@@ -152,6 +168,7 @@ export const openMatchDApp = ({
       title: dapp.name,
       dAppId: dapp._id,
       favicon: dapp.logoURL,
+      userTriggered: true,
       isNewWindow,
     });
   }

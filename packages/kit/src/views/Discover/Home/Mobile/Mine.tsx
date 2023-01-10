@@ -9,7 +9,6 @@ import {
   Button,
   Empty,
   FlatList,
-  Image,
   Pressable,
   Typography,
 } from '@onekeyhq/components';
@@ -21,8 +20,8 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
-  useDiscoverHistory,
   useTaggedDapps,
+  useUserBrowserHistories,
 } from '../../hooks';
 import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
@@ -32,7 +31,7 @@ import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
 import type { MatchDAppItemType } from '../../Explorer/explorerUtils';
-import type { DAppItemType, SectionDataType, TagDappsType } from '../../type';
+import type { SectionDataType, TagDappsType } from '../../type';
 import type { ListRenderItem } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -106,7 +105,7 @@ const ListHeaderFavorites = () => {
 
 const ListHeaderHistories = () => {
   const { onItemSelectHistory } = useContext(DiscoverContext);
-  const histories = useDiscoverHistory();
+  const histories = useUserBrowserHistories();
 
   const renderItem: ListRenderItem<MatchDAppItemType> = ({ item }) => {
     const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
@@ -120,7 +119,7 @@ const ListHeaderHistories = () => {
         alignItems="center"
         onPress={() => onItemSelectHistory(item)}
       >
-        <Image w="10" h="10" src={logoURL} borderRadius={12} mb="1.5" />
+        <DAppIcon size={48} url={logoURL} borderRadius={12} mb="1.5" />
         <Typography.Caption w="12" numberOfLines={1} textAlign="center">
           {name ?? 'Unknown'}
         </Typography.Caption>

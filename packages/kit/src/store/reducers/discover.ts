@@ -6,6 +6,7 @@ import type {
   DiscoverHistory,
   HistoryItemData,
   TagDappsType,
+  UserBrowserHistory,
   WebSiteHistory,
 } from '../../views/Discover/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -13,6 +14,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 type InitialState = {
   dappHistory?: Record<string, HistoryItemData>;
   dappFavorites?: string[];
+  userBrowserHistories?: UserBrowserHistory[];
 
   // REMOVED
   dappItems?: DAppItemType[] | null;
@@ -192,6 +194,7 @@ export const discoverSlice = createSlice({
     },
     clearHistory(state) {
       state.dappHistory = {};
+      state.userBrowserHistories = [];
     },
     addFavorite(state, action: PayloadAction<string>) {
       if (!state.dappFavorites) {
@@ -261,6 +264,30 @@ export const discoverSlice = createSlice({
     ) {
       state.home = action.payload;
     },
+    setUserBrowserHistory(state, action: PayloadAction<UserBrowserHistory>) {
+      if (!state.userBrowserHistories) {
+        state.userBrowserHistories = [];
+      }
+      const index = state.userBrowserHistories.findIndex(
+        (o) => o.url === action.payload.url,
+      );
+      if (index < 0) {
+        state.userBrowserHistories.unshift(action.payload);
+      } else {
+        const current = state.userBrowserHistories[index];
+        const data = { ...current, ...action.payload };
+        state.userBrowserHistories.splice(index, 1);
+        state.userBrowserHistories.unshift(data);
+      }
+    },
+    removeUserBrowserHistory(state, action: PayloadAction<{ url: string }>) {
+      if (!state.userBrowserHistories) {
+        return;
+      }
+      state.userBrowserHistories = state.userBrowserHistories.filter(
+        (o) => o.url !== action.payload.url,
+      );
+    },
   },
 });
 
@@ -284,6 +311,8 @@ export const {
   setShowBookmark,
   cleanOldState,
   setHomeData,
+  setUserBrowserHistory,
+  removeUserBrowserHistory,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;

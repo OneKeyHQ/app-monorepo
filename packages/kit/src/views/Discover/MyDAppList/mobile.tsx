@@ -26,7 +26,7 @@ import { useNavigation, useTranslation } from '../../../hooks';
 import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
 import DAppIcon from '../DAppIcon';
-import { useDiscoverFavorites, useDiscoverHistory } from '../hooks';
+import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';
 
@@ -131,7 +131,7 @@ const Favorates = () => {
 };
 
 const History = () => {
-  const data = useDiscoverHistory();
+  const data = useUserBrowserHistories();
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
     ({ item }) => <RenderItem item={item} callback={showHistoryMenu} />,
     [],
