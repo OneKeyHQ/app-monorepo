@@ -99,7 +99,7 @@ export class ProtoSignDoc {
                 return msg.toJSON();
               }
               if ('factory' in msg) {
-                return msg.factory.toJSON(msg.unpacked);
+                return msg.factory?.toJSON(msg.unpacked);
               }
             }
             return msg;
