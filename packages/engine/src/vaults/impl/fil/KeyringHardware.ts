@@ -1,5 +1,4 @@
 import { FilecoinSigner } from '@blitslabs/filecoin-js-signer';
-import { CoinType, decode, encode } from '@glif/filecoin-address';
 import BigNumber from 'bignumber.js';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
@@ -40,7 +39,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     let response;
     try {
       response = await HardwareSDK.filecoinGetAddress(connectId, deviceId, {
-        bundle: paths.map((path) => ({ path, showOnOneKey })),
+        bundle: paths.map((path) => ({
+          path,
+          showOnOneKey,
+          isTestnet: network.isTestnet,
+        })),
         ...passphraseState,
       });
     } catch (error: any) {
@@ -61,12 +64,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         const name =
           (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
 
-        const addressObj = decode(address);
-        const addressOnNetwork = encode(
-          network.isTestnet ? CoinType.TEST : CoinType.MAIN,
-          addressObj,
-        );
-
         ret.push({
           id: `${this.walletId}--${path}`,
           name,
@@ -75,7 +72,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           coinType: COIN_TYPE,
           pub: '',
           address,
-          addresses: { [this.networkId]: addressOnNetwork },
+          addresses: { [this.networkId]: address },
         });
         index += 1;
       }
@@ -91,22 +88,19 @@ export class KeyringHardware extends KeyringHardwareBase {
     const response = await HardwareSDK.filecoinGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
+      isTestnet: network.isTestnet,
       ...passphraseState,
     });
 
     if (response.success && !!response.payload?.address) {
-      const addressObj = decode(response.payload.address);
-      const addressOnNetwork = encode(
-        network.isTestnet ? CoinType.TEST : CoinType.MAIN,
-        addressObj,
-      );
-      return addressOnNetwork;
+      return response.payload.address;
     }
     throw convertDeviceError(response.payload);
   }
 
   async signTransaction(unsignedTx: IUnsignedTxPro): Promise<ISignedTxPro> {
     const HardwareSDK = await this.getHardwareSDKInstance();
+    const network = await this.getNetwork();
     const path = await this.getAccountPath();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -127,6 +121,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       {
         path,
         rawTx: Buffer.from(message).toString('hex'),
+        isTestnet: network.isTestnet,
         ...passphraseState,
       },
     );

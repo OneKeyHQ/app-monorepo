@@ -3,17 +3,36 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import { IMPL_FIL } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { openUrl } from '../utils/openUrl';
 
 import { useRuntime } from './redux';
+
+function fixBlockExplorerUrl(network: Network | null | undefined, url: string) {
+  if (
+    network?.impl === IMPL_FIL &&
+    platformEnv.isNative &&
+    !network.isTestnet
+  ) {
+    // filscan will change the domain to m.filsacn on the native, but does lose the parameters
+    // Manually changing it to m.filscan can avoid parameter loss when converting
+    return url.replace('filscan', 'm.filscan');
+  }
+  return url;
+}
 
 export function buildTransactionDetailsUrl(
   network: Network | null | undefined,
   txId: string | null | undefined,
 ) {
   if (!network || !txId) return '';
-  return network.blockExplorerURL.transaction.replace('{transaction}', txId);
+  const fixedUrl = fixBlockExplorerUrl(
+    network,
+    network.blockExplorerURL.transaction,
+  );
+  return fixedUrl.replace('{transaction}', txId);
 }
 
 export function buildAddressDetailsUrl(
@@ -21,7 +40,11 @@ export function buildAddressDetailsUrl(
   address: string | null | undefined,
 ) {
   if (!network || !address) return '';
-  return network.blockExplorerURL.address.replace('{address}', address);
+  const fixedUrl = fixBlockExplorerUrl(
+    network,
+    network.blockExplorerURL.address,
+  );
+  return fixedUrl.replace('{address}', address);
 }
 
 export function buildBlockDetailsUrl(
@@ -29,7 +52,8 @@ export function buildBlockDetailsUrl(
   block: string | null | undefined,
 ) {
   if (!network || !block) return '';
-  return network.blockExplorerURL.block.replace('{block}', block);
+  const fixedUrl = fixBlockExplorerUrl(network, network.blockExplorerURL.block);
+  return fixedUrl.replace('{block}', block);
 }
 
 export default function useOpenBlockBrowser(
