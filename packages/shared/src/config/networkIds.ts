@@ -48,7 +48,7 @@ export const OnekeyNetwork = {
   'tpolygon': 'evm--80001',
   'tbsc': 'evm--97',
   'fil': 'fil--314',
-  'tfil': 'fil--31415',
+  'tfil': 'fil--314159',
   'ltc': 'ltc--0',
   'near': 'near--0',
   'tnear': 'near--1',

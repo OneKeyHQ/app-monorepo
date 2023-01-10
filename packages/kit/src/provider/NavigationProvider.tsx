@@ -83,6 +83,13 @@ const NavigationApp = () => {
 
   global.$$onekeyPerfTrace?.log({
     name: 'NavigationProvider/NavigationApp render',
+    payload: {
+      instanceId,
+      isVerticalLayout,
+      bgColor,
+      textColor,
+      dividerColor,
+    },
   });
 
   // https://reactnavigation.org/docs/devtools/#useflipper

@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import { get } from 'lodash';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -287,6 +288,21 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async rebootToBoardloader(connectId: string) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.deviceRebootToBoardloader(connectId)
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response;
+      });
+  }
+
+  @backgroundMethod()
   async getDeviceCertWithSig(connectId: string, dataHex: string) {
     const hardwareSDK = await this.getSDKInstance();
     return hardwareSDK
@@ -319,11 +335,13 @@ class ServiceHardware extends ServiceBase {
     const updateDeviceRes = settings?.devMode?.updateDeviceRes ?? false;
 
     const forcedUpdateRes = enable && updateDeviceRes;
+    const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
     return hardwareSDK
       .firmwareUpdateV2(connectId, {
         updateType: firmwareType,
         forcedUpdateRes,
+        version,
         platform: platformEnv.symbol ?? 'web',
       })
       .finally(() => {
@@ -537,8 +555,11 @@ class ServiceHardware extends ServiceBase {
       case 'none':
         hasSysUpgrade = false;
         break;
-      default:
+      case 'outdated':
         hasSysUpgrade = true;
+        break;
+      default:
+        hasSysUpgrade = false;
         break;
     }
 
@@ -584,8 +605,11 @@ class ServiceHardware extends ServiceBase {
       case 'none':
         hasBleUpgrade = false;
         break;
-      default:
+      case 'outdated':
         hasBleUpgrade = true;
+        break;
+      default:
+        hasBleUpgrade = false;
         break;
     }
 
