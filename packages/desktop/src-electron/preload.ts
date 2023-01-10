@@ -204,7 +204,11 @@ const desktopApi = {
     ipcRenderer.send('server/start', port);
   },
 
-  stopServer: () => ipcRenderer.send('server/stop'),
+  stopServer: () => {
+    ipcRenderer.send('server/stop');
+    ipcRenderer.removeAllListeners('server/start/res');
+    ipcRenderer.removeAllListeners('server/listener');
+  },
   serverListener: (
     cb: (request: {
       requestId: string;
