@@ -2,6 +2,10 @@ import type * as sdk from 'algosdk';
 
 export type IEncodedTxAlgo = string; // Base64 encoded string
 
+export type IDecodedTxExtraAlgo = {
+  note: string;
+};
+
 export type IAccountInformation = {
   address: string;
   amount: number;

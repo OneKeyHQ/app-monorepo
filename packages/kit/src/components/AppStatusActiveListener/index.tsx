@@ -24,11 +24,21 @@ const DesktopStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
   return null;
 };
 
+const ExtStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
+  onActive,
+}) => {
+  useEffect(onActive, [onActive]);
+  return null;
+};
+
 export const AppStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
   onActive,
 }) => {
   if (platformEnv.isDesktop) {
     return <DesktopStatusActiveListener onActive={onActive} />;
+  }
+  if (platformEnv.isExtension) {
+    return <ExtStatusActiveListener onActive={onActive} />;
   }
   return null;
 };
