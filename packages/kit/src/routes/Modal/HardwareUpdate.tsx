@@ -2,17 +2,21 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 
 import UpdateInfoModel from '../../views/Hardware/UpdateFirmware/UpdateInfo';
+import UpdateResourceModal from '../../views/Hardware/UpdateFirmware/UpdateResource';
 import UpdateWarningModel from '../../views/Hardware/UpdateFirmware/UpdateWarning';
 import UpdatingModel from '../../views/Hardware/UpdateFirmware/Updating';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
+import type { IResourceUpdateInfo } from '../../utils/updates/type';
+
 export enum HardwareUpdateModalRoutes {
   HardwareUpdateInfoModel = 'HardwareUpdateInfoModel',
   HardwareUpdateWarningModal = 'HardwareUpdateWarningModal',
   HardwareUpdateWarningPowerModal = 'HardwareUpdateWarningPowerModal',
   HardwareUpdatingModal = 'HardwareUpdatingModal',
+  HardwareUpdateResourceModal = 'HardwareUpdateResourceModal',
 }
 
 export type HardwareUpdateRoutesParams = {
@@ -25,6 +29,7 @@ export type HardwareUpdateRoutesParams = {
   };
   [HardwareUpdateModalRoutes.HardwareUpdateWarningModal]: {
     device?: Device;
+    resourceUpdateInfo?: IResourceUpdateInfo;
     onSuccess?: () => void;
   };
   [HardwareUpdateModalRoutes.HardwareUpdateWarningPowerModal]: {
@@ -33,6 +38,11 @@ export type HardwareUpdateRoutesParams = {
   };
   [HardwareUpdateModalRoutes.HardwareUpdatingModal]: {
     device?: Device;
+    onSuccess?: () => void;
+  };
+  [HardwareUpdateModalRoutes.HardwareUpdateResourceModal]: {
+    device?: Device;
+    resourceUpdateInfo?: IResourceUpdateInfo;
     onSuccess?: () => void;
   };
 };
@@ -52,6 +62,10 @@ const modalRoutes = [
   {
     name: HardwareUpdateModalRoutes.HardwareUpdatingModal,
     component: UpdatingModel,
+  },
+  {
+    name: HardwareUpdateModalRoutes.HardwareUpdateResourceModal,
+    component: UpdateResourceModal,
   },
 ];
 
