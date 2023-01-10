@@ -31,15 +31,22 @@ import { GroupedBackupDetails } from '../../Me/SecuritySection/CloudBackup/Backu
 import Layout from '../../Onboarding/Layout';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const defaultProps = {} as const;
+
+type NavigationProps = NativeStackNavigationProp<
+  HomeRoutesParams,
+  HomeRoutes.InitialTab
+>;
 
 const PreviewImportData = () => {
   const intl = useIntl();
   const route =
     useRoute<RouteProp<HomeRoutesParams, HomeRoutes.MigrationPreview>>();
   const { data } = route.params;
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const { serviceCloudBackup } = backgroundApiProxy;
   const isVerticalLayout = useIsVerticalLayout();
   const { isPasswordSet } = useData();
@@ -69,9 +76,10 @@ const PreviewImportData = () => {
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__backup_imported' }),
     });
+    navigation.goBack();
 
     // return Promise.resolve('');
-  }, [intl]);
+  }, [intl, navigation]);
 
   const onImportError = useCallback(() => {
     ToastManager.show({
