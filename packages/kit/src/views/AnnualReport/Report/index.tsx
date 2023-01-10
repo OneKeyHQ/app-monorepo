@@ -3,31 +3,25 @@ import * as React from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { StatusBar, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import { Box, FlatList } from '@onekeyhq/components';
-import bg1 from '@onekeyhq/kit/assets/annual/2.png';
-import bg2 from '@onekeyhq/kit/assets/annual/3.png';
-import bg3 from '@onekeyhq/kit/assets/annual/4.png';
-import bg4 from '@onekeyhq/kit/assets/annual/5.png';
-import bg5 from '@onekeyhq/kit/assets/annual/6.png';
-import bg6 from '@onekeyhq/kit/assets/annual/7.png';
 
 import { useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { Container, useHeaderHide } from '../components';
+import { Container, Footer, bgs, useHeaderHide } from '../components';
 import { AnnualReportModal } from '../types';
 
-import AnnualPage1 from './Page1';
-import AnnualPage2 from './Page2';
-import AnnualPage3 from './Page3';
-import AnnualPage4 from './Page4';
-import AnnualPage5 from './Page5';
-import AnnualPage6 from './Page6';
-import AnnualPage7 from './Page7';
+import Identity, { Card, tags } from './Identity';
+import NftList from './NftList';
+import NftPNL from './NftPNL';
+import PositionStyle from './PositionStyle';
+import Rug from './Rug';
+import Safe from './Safe';
+import TotalAsset from './TotalAsset';
 
 import type { HomeRoutes, HomeRoutesParams } from '../../../routes/types';
-import type { PageProps } from '../types';
+import type { AnnualReportModalParams, PageProps } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 import type {
   ImageSourcePropType,
@@ -42,41 +36,39 @@ type DataItem = {
   bg: ImageSourcePropType;
   page: FC<PageProps>;
   containerProps?: ComponentProps<typeof Box>;
-  showIndicator?: boolean;
 };
 
 const pages: DataItem[] = [
   {
-    bg: bg1,
-    page: AnnualPage1,
+    bg: bgs.bg1,
+    page: TotalAsset,
   },
   {
-    bg: bg2,
-    page: AnnualPage2,
+    bg: bgs.bg2,
+    page: PositionStyle,
   },
   {
-    bg: bg3,
-    page: AnnualPage3,
+    bg: bgs.bg3,
+    page: NftPNL,
   },
   {
-    bg: bg4,
-    page: AnnualPage4,
+    bg: bgs.bg4,
+    page: NftList,
   },
   {
-    bg: bg5,
-    page: AnnualPage5,
+    bg: bgs.bg5,
+    page: Rug,
   },
   {
-    bg: bg6,
-    page: AnnualPage6,
+    bg: bgs.bg6,
+    page: Safe,
   },
   {
-    bg: bg2,
-    page: AnnualPage7,
+    bg: bgs.bg2,
+    page: Identity,
     containerProps: {
       px: 0,
     },
-    showIndicator: false,
   },
 ];
 
@@ -84,7 +76,7 @@ const AnnualReport = () => {
   useHeaderHide();
 
   const navigation = useNavigation();
-  const currentPage = useRef<number>(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const selectCardRef = useRef<number>(0);
   const route = useRoute<NavigationProps>();
   const { width, height: winHeight } = useWindowDimensions();
@@ -97,26 +89,18 @@ const AnnualReport = () => {
   const renderItemContent = useCallback(
     ({
       item,
-      onShare,
-      showHeader = true,
-      renderShareFooter = false,
+      shareMode = false,
       pageProps = {},
     }: {
       item: DataItem;
-      onShare?: () => void;
-      showHeader?: boolean;
-      renderShareFooter?: boolean;
+      shareMode?: boolean;
       pageProps?: Partial<PageProps>;
     }) => (
       <Box style={{ width, height }}>
         <Container
           bg={item.bg}
-          onShare={onShare}
-          showHeader={showHeader}
+          shareMode={shareMode}
           containerProps={item.containerProps}
-          showHeaderLogo={false}
-          showIndicator={item.showIndicator}
-          renderShareFooter={renderShareFooter}
         >
           {React.createElement(item.page, {
             ...pageProps,
@@ -129,34 +113,40 @@ const AnnualReport = () => {
   );
 
   const handleShare = useCallback(() => {
-    const index = currentPage.current;
-    if (!pages[index]) {
+    if (!pages[currentPage]) {
       return;
+    }
+    let params: AnnualReportModalParams['ShareModal'] = {
+      page: renderItemContent({
+        item: pages[currentPage],
+        shareMode: true,
+      }),
+    };
+    if (currentPage === pages.length - 1) {
+      const card = tags[selectCardRef.current ?? 0];
+      if (card) {
+        params = {
+          page: <Card {...card} name={route?.params?.name ?? ''} w={307} />,
+          scale: false,
+        };
+      }
     }
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.AnnualReport,
       params: {
         screen: AnnualReportModal.ShareModal,
-        params: {
-          page: renderItemContent({
-            item: pages[index],
-            showHeader: false,
-            renderShareFooter: true,
-            pageProps: { selectedCardIndex: selectCardRef.current ?? 0 },
-          }),
-        },
+        params,
       },
     });
-  }, [navigation, renderItemContent]);
+  }, [route, navigation, renderItemContent, currentPage]);
 
   const renderItem: ListRenderItem<DataItem> = useCallback(
     ({ item }) =>
       renderItemContent({
         item,
-        onShare: handleShare,
         pageProps: { onSelectedCardIndexChange },
       }),
-    [handleShare, renderItemContent, onSelectedCardIndexChange],
+    [renderItemContent, onSelectedCardIndexChange],
   );
 
   const handleScrollEnd = useCallback(
@@ -164,25 +154,28 @@ const AnnualReport = () => {
       const { contentOffset } = e.nativeEvent;
       const viewSize = e.nativeEvent.layoutMeasurement;
       const pageNum = Math.floor(contentOffset.y / viewSize.height);
-      currentPage.current = pageNum;
+      setCurrentPage(pageNum);
     },
     [],
   );
 
   return (
-    <>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <Box position="relative">
       <FlatList
         pagingEnabled
         data={pages}
-        onMomentumScrollEnd={handleScrollEnd}
-        keyExtractor={(item) => String(item.bg)}
         onLayout={(e) => {
           setHeight(e.nativeEvent.layout.height);
         }}
+        onMomentumScrollEnd={handleScrollEnd}
+        keyExtractor={(item) => String(item.page)}
         renderItem={renderItem}
       />
-    </>
+      <Footer
+        onShare={handleShare}
+        showIndicator={currentPage !== pages.length - 1}
+      />
+    </Box>
   );
 };
 

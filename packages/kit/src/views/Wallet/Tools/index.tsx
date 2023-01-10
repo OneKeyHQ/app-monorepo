@@ -236,12 +236,17 @@ const ToolsPage: FC = () => {
                 {renderIcon(item.icon)}
               </Center>
               <VStack ml="4" flex="1">
-                <HStack alignItems="center">
-                  <Typography.Body1Strong mr="1" numberOfLines={1} isTruncated>
+                <HStack alignItems="center" flex="1" pr="18px">
+                  <Typography.Body1Strong
+                    numberOfLines={1}
+                    isTruncated
+                    maxW="200px"
+                  >
                     {intl.formatMessage({ id: item.title })}
                   </Typography.Body1Strong>
                   {item.tag ? (
                     <Badge
+                      ml="1"
                       size="sm"
                       type="success"
                       title={intl.formatMessage({ id: item.tag })}

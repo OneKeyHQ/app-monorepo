@@ -104,22 +104,26 @@ const Share = () => {
         flex="1"
         onLayout={handleLayout}
       >
-        <Box
-          style={{
-            width,
-            height,
-            transform: [
-              {
-                scale,
-              },
-            ],
-          }}
-          bg="#000"
-          borderRadius="8px"
-          overflow="hidden"
-        >
+        {route.params.scale === false ? (
           <ViewShot ref={ref}>{page}</ViewShot>
-        </Box>
+        ) : (
+          <Box
+            style={{
+              width,
+              height,
+              transform: [
+                {
+                  scale,
+                },
+              ],
+            }}
+            bg="#000"
+            borderRadius="8px"
+            overflow="hidden"
+          >
+            <ViewShot ref={ref}>{page}</ViewShot>
+          </Box>
+        )}
       </VStack>
     </Modal>
   );

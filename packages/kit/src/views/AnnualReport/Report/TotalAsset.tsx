@@ -12,7 +12,7 @@ import { WText } from '../components';
 
 import type { PageProps } from '../types';
 
-const AnnualPage1: FC<PageProps> = ({ params: { tokens } }) => {
+const TotalAsset: FC<PageProps> = ({ params: { tokens } }) => {
   const intl = useIntl();
 
   const { networkId, accountAddress } = useActiveWalletAccount();
@@ -52,7 +52,7 @@ const AnnualPage1: FC<PageProps> = ({ params: { tokens } }) => {
         color="#E2E2E8"
         mb="2"
       >
-        <FormatCurrencyNumber value={totalValue} />
+        $<FormatCurrencyNumber value={totalValue} onlyNumber />
       </WText>
       {hasNoAsset ? null : (
         <WText fontWeight="600" fontSize="24px" color="#E2E2E8" mb="2">
@@ -61,6 +61,7 @@ const AnnualPage1: FC<PageProps> = ({ params: { tokens } }) => {
             {
               0: (
                 <FormatCurrencyNumber
+                  onlyNumber
                   value={totalValue.multipliedBy(btcPrice)}
                 />
               ),
@@ -109,4 +110,4 @@ const AnnualPage1: FC<PageProps> = ({ params: { tokens } }) => {
   );
 };
 
-export default AnnualPage1;
+export default TotalAsset;

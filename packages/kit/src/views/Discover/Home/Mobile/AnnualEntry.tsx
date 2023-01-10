@@ -52,7 +52,6 @@ export const AnnualEntry: FC = () => {
             resizeMode="cover"
             style={{
               width: width - 32,
-              height: 84,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -61,13 +60,18 @@ export const AnnualEntry: FC = () => {
               alignItems="center"
               w="100%"
               justifyContent="space-between"
-              px="4"
+              p="4"
             >
               <VStack>
-                <Text fontWeight="700" fontSize="20" color="#E2E2E8">
+                <Text
+                  fontWeight="700"
+                  fontSize="20"
+                  color="#E2E2E8"
+                  numberOfLines={1}
+                >
                   {intl.formatMessage({ id: 'title__my_on_chain_journey' })}
                 </Text>
-                <Text fontSize="14px" color="#E2E2E8">
+                <Text fontSize="14px" color="#E2E2E8" numberOfLines={2}>
                   {intl.formatMessage({
                     id: 'title__my_on_chain_journey_desc',
                   })}

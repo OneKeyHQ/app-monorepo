@@ -14,7 +14,7 @@ import { WText } from '../components';
 
 import type { PageProps } from '../types';
 
-const AnnualPage3: FC<PageProps> = ({ params: { pnls } }) => {
+const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
   const { data, assets } = pnls ?? {};
   const intl = useIntl();
   const { networkId } = useActiveWalletAccount();
@@ -43,8 +43,34 @@ const AnnualPage3: FC<PageProps> = ({ params: { pnls } }) => {
     [data, assets],
   );
 
-  if (!pnls) {
-    return null;
+  if (!items?.length) {
+    return (
+      <>
+        <WText
+          fontWeight="600"
+          fontSize="32px"
+          color="#E2E2E8"
+          mb="2"
+          lineHeight="45px"
+        >
+          {intl.formatMessage({
+            id: 'content__you_have_not_made_any_nft_transactions',
+          })}
+        </WText>
+        <WText
+          fontWeight="600"
+          fontSize="24px"
+          lineHeight="34px"
+          color="#E2E2E8"
+          mb="2"
+          mt="6"
+        >
+          {intl.formatMessage({
+            id: 'content__you_have_not_made_any_nft_transactions_desc',
+          })}
+        </WText>
+      </>
+    );
   }
 
   return (
@@ -108,13 +134,15 @@ const AnnualPage3: FC<PageProps> = ({ params: { pnls } }) => {
       {items.map((item) => (
         <HStack alignItems="center" mb="6">
           <NFTListImage asset={item.asset || ({} as NFTAsset)} size={80} />
-          <VStack ml="6">
+          <VStack ml="6" flex="1">
             <WText
               fontWeight="600"
               fontSize="20px"
               lineHeight="28px"
               color="#E2E2E8"
               mb="2"
+              flex="1"
+              numberOfLines={1}
             >
               {`${item.contractName ?? ''}  #${item.tokenId ?? ''}`}
             </WText>
@@ -123,6 +151,8 @@ const AnnualPage3: FC<PageProps> = ({ params: { pnls } }) => {
               fontSize="20px"
               lineHeight="28px"
               color="text-success"
+              flex="1"
+              numberOfLines={1}
             >
               {PriceString({
                 price:
@@ -137,4 +167,4 @@ const AnnualPage3: FC<PageProps> = ({ params: { pnls } }) => {
   );
 };
 
-export default AnnualPage3;
+export default NftPNL;

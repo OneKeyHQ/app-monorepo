@@ -9,6 +9,7 @@ export enum AnnualReportModal {
 export type AnnualReportModalParams = {
   [AnnualReportModal.ShareModal]: {
     page: ReactElement;
+    scale?: boolean;
   };
 };
 

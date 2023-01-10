@@ -9,7 +9,7 @@ import { WText } from '../components';
 
 import type { PageProps } from '../types';
 
-const AnnualPage6: FC<PageProps> = () => {
+const Safe: FC<PageProps> = () => {
   const intl = useIntl();
 
   const formatChunk = useCallback(
@@ -68,4 +68,4 @@ const AnnualPage6: FC<PageProps> = () => {
   );
 };
 
-export default AnnualPage6;
+export default Safe;

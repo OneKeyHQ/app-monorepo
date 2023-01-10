@@ -9,7 +9,7 @@ import { WText } from '../components';
 
 import type { PageProps } from '../types';
 
-const AnnualPage5: FC<PageProps> = () => {
+const Rug: FC<PageProps> = () => {
   const intl = useIntl();
   const { height } = useWindowDimensions();
   return (
@@ -57,4 +57,4 @@ const AnnualPage5: FC<PageProps> = () => {
   );
 };
 
-export default AnnualPage5;
+export default Rug;

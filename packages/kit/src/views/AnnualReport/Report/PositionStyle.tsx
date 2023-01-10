@@ -11,7 +11,7 @@ import PieChart from '../PieChart';
 
 import type { PageProps } from '../types';
 
-const AnnualPage2: FC<PageProps> = ({ params: { tokens } }) => {
+const PositionStyle: FC<PageProps> = ({ params: { tokens } }) => {
   const intl = useIntl();
 
   const processTokens = useMemo(() => {
@@ -30,11 +30,11 @@ const AnnualPage2: FC<PageProps> = ({ params: { tokens } }) => {
         ...t,
         value: t.value.plus(n.value),
       }),
-      { value: new B(0), symbol: 'Other' },
+      { value: new B(0), symbol: intl.formatMessage({ id: 'content__other' }) },
     );
 
     return [...(top5 ?? []), other];
-  }, [tokens]);
+  }, [tokens, intl]);
 
   const positionStyle = useMemo(() => {
     let total = new B(0);
@@ -159,4 +159,4 @@ const AnnualPage2: FC<PageProps> = ({ params: { tokens } }) => {
   );
 };
 
-export default AnnualPage2;
+export default PositionStyle;

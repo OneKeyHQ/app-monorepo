@@ -4,13 +4,13 @@ import { useMemo } from 'react';
 import B from 'bignumber.js';
 import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
-import { StatusBar } from 'react-native';
 
 import {
   Box,
   Center,
   HStack,
   Icon,
+  Image,
   Pressable,
   VStack,
 } from '@onekeyhq/components';
@@ -19,17 +19,23 @@ import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import bg1 from '@onekeyhq/kit/assets/annual/1.png';
 import bgLoading from '@onekeyhq/kit/assets/annual/bg_loading.png';
 import bgStart from '@onekeyhq/kit/assets/annual/bg_start.png';
+import empty from '@onekeyhq/kit/assets/annual/empty.png';
+import emptyBg from '@onekeyhq/kit/assets/annual/empty_bg.png';
 import { parsePNLData } from '@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useNavigation,
-  useNavigationActions,
-} from '../../hooks';
+import { useNavigation, useNavigationActions } from '../../hooks';
 import { HomeRoutes } from '../../routes/types';
 
-import { BgButton, Container, WText, useHeaderHide } from './components';
+import {
+  BgButton,
+  Container,
+  Footer,
+  WText,
+  useHeaderHide,
+} from './components';
+import { useEvmAccount } from './hooks';
 
 import type {
   HomeRoutesParams,
@@ -48,13 +54,21 @@ const AnnualLoading: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const { openAccountSelector } = useNavigationActions();
-  const { accountAddress, accountId, networkId } = useActiveWalletAccount();
-  const { result: ens, loading: ensLoading } = useAsync(
-    async () => backgroundApiProxy.serviceRevoke.lookupEnsName(accountAddress),
-    [accountAddress],
-  );
+  const account = useEvmAccount();
+  const networkId = OnekeyNetwork.eth;
+
+  const { result: ens, loading: ensLoading } = useAsync(async () => {
+    if (account?.address) {
+      return backgroundApiProxy.serviceRevoke.lookupEnsName(account.address);
+    }
+    return '';
+  }, [account?.address]);
 
   const { result: tokens, loading: tokensLoading } = useAsync(async () => {
+    if (!account?.id) {
+      return [];
+    }
+    const accountId = account.id;
     const { servicePrice, serviceToken } = backgroundApiProxy;
     const res = await serviceToken.fetchAccountTokens({
       activeNetworkId: networkId,
@@ -94,21 +108,25 @@ const AnnualLoading: FC = () => {
       })
       .sort((a, b) => b.value.minus(a.value).toNumber())
       .filter((t) => t.value.isGreaterThan(0));
-  }, [networkId, accountId]);
+  }, [networkId, account?.id]);
 
-  const { result: nfts, loading: nftLoading } = useAsync(
-    async () =>
-      backgroundApiProxy.serviceNFT.fetchNFT({
-        accountId: accountAddress,
-        networkId,
-      }),
-    [accountAddress, networkId],
-  );
+  const { result: nfts, loading: nftLoading } = useAsync(async () => {
+    if (!account?.address) {
+      return [];
+    }
+    return backgroundApiProxy.serviceNFT.fetchNFT({
+      accountId: account.address,
+      networkId,
+    });
+  }, [account?.address, networkId]);
 
   const { result: pnls, loading: pnlLoading } = useAsync(async () => {
     const { serviceNFT } = backgroundApiProxy;
+    if (!account?.address) {
+      return;
+    }
     const data = await serviceNFT.getPNLData({
-      address: accountAddress,
+      address: account?.address,
     });
     const parsed = parsePNLData(data ?? []);
     const top5 =
@@ -140,7 +158,7 @@ const AnnualLoading: FC = () => {
         };
       }, {}),
     };
-  }, [accountAddress]);
+  }, [account?.address]);
 
   const loading = useMemo(() => {
     const pipeline = [ensLoading, tokensLoading, nftLoading, pnlLoading];
@@ -159,8 +177,8 @@ const AnnualLoading: FC = () => {
     if (ens) {
       return ens;
     }
-    return shortenAddress(accountAddress);
-  }, [ens, accountAddress]);
+    return shortenAddress(account?.address ?? '');
+  }, [ens, account?.address]);
 
   const button = useMemo(() => {
     if (!isDone) {
@@ -206,9 +224,31 @@ const AnnualLoading: FC = () => {
     );
   }, [intl, loading, isDone, navigation, tokens, nfts, pnls, name]);
 
+  if (!name) {
+    return (
+      <Container
+        bg={emptyBg}
+        containerProps={{
+          position: 'relative',
+          px: 0,
+          flexDirection: 'column',
+        }}
+      >
+        <WText fontWeight="600" fontSize="24px" lineHeight="34px" px="6">
+          {intl.formatMessage({
+            id: 'content__in_2022_you_dont_have_a_story_left_on_the_chain',
+          })}
+        </WText>
+        <Center flex="1">
+          <Image source={empty} w={300} h={300} />
+        </Center>
+        <Footer />
+      </Container>
+    );
+  }
+
   return (
-    <Container bg={bg1} showHeader showHeaderLogo>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <Container bg={bg1}>
       <VStack flex="1" flexDirection="column-reverse">
         <WText fontSize="48">
           {intl.formatMessage({ id: 'title__my_on_chain_journey_uppercase' })}

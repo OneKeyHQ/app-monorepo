@@ -3,7 +3,9 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { HStack, VStack } from '@onekeyhq/components';
+import { HStack, Image, VStack } from '@onekeyhq/components';
+import empty1 from '@onekeyhq/kit/assets/annual/empty1.png';
+import empty2 from '@onekeyhq/kit/assets/annual/empty2.png';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
@@ -39,7 +41,7 @@ const styles = [
   },
 ];
 
-const AnnualPage4: FC<PageProps> = ({ params: { nfts } }) => {
+const NftList: FC<PageProps> = ({ params: { nfts } }) => {
   const intl = useIntl();
   const { top5, total } = useMemo(() => {
     const all =
@@ -91,40 +93,61 @@ const AnnualPage4: FC<PageProps> = ({ params: { nfts } }) => {
             })}
       </WText>
 
-      <HStack zIndex="1" position="relative" flex="1" top="-100px">
-        {top5?.slice(0, 5).map((n, i) => (
-          <VStack
-            key={`${n.contractAddress ?? ''}-${n.tokenId ?? ''}-${
-              n.tokenAddress ?? ''
-            }`}
-            bg="#fff"
-            w="122px"
-            p="2"
-            position="absolute"
-            style={styles[i]}
-          >
-            <NFTListImage size={106} asset={n} />
-            <WText mt="1" numberOfLines={1} color="#1F1F38" fontSize="12">
-              {`${n.name ?? n.collection.contractName ?? ''}  #${
-                n.tokenId ?? ''
+      {top5?.length ? (
+        <HStack zIndex="1" position="relative" flex="1" top="-100px">
+          {top5?.slice(0, 5).map((n, i) => (
+            <VStack
+              key={`${n.contractAddress ?? ''}-${n.tokenId ?? ''}-${
+                n.tokenAddress ?? ''
               }`}
-            </WText>
-            {n.latestTradePrice ? (
-              <WText
-                numberOfLines={1}
-                color="#1F1F38"
-                fontSize="12"
-                fontWeight="900"
-              >
-                <FormatCurrencyNumber value={n.latestTradePrice} />
-                {`  ${n.latestTradeSymbol ?? ''}`}
+              bg="#fff"
+              w="122px"
+              p="2"
+              position="absolute"
+              style={styles[i]}
+            >
+              <NFTListImage size={106} asset={n} />
+              <WText mt="1" numberOfLines={1} color="#1F1F38" fontSize="12">
+                {`${n.name ?? n.collection.contractName ?? ''}  #${
+                  n.tokenId ?? ''
+                }`}
               </WText>
-            ) : null}
-          </VStack>
-        ))}
-      </HStack>
+              {n.latestTradePrice ? (
+                <WText
+                  numberOfLines={1}
+                  color="#1F1F38"
+                  fontSize="12"
+                  fontWeight="900"
+                >
+                  <FormatCurrencyNumber value={n.latestTradePrice} />
+                  {`  ${n.latestTradeSymbol ?? ''}`}
+                </WText>
+              ) : null}
+            </VStack>
+          ))}
+        </HStack>
+      ) : (
+        <HStack zIndex="1" position="relative" flex="1">
+          <Image
+            source={empty1}
+            w={285}
+            h={307}
+            position="absolute"
+            right="-24px"
+            bottom="0"
+          />
+          <Image
+            source={empty2}
+            w={163}
+            h={229}
+            position="absolute"
+            bottom="110px"
+            left="0"
+          />
+        </HStack>
+      )}
     </>
   );
 };
 
-export default AnnualPage4;
+export default NftList;
