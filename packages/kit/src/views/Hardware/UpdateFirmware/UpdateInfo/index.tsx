@@ -37,6 +37,7 @@ import type {
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../../utils/hardware';
+import { openUrlExternal } from '../../../../utils/openUrl';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -67,15 +68,16 @@ const UpdateInfoModal: FC = () => {
     useState<IResourceUpdateInfo>();
 
   const showUpdateOnDesktopModal = useCallback(() => {
+    const closeOverlay = (close?: () => void) => {
+      close?.();
+      if (isSmallScreen) {
+        navigation.goBack();
+      }
+    };
     showOverlay((close) => (
       <BottomSheetModal
         title={`🌟 ${intl.formatMessage({ id: 'title__major_update' })}`}
-        closeOverlay={() => {
-          close?.();
-          if (isSmallScreen) {
-            navigation.goBack();
-          }
-        }}
+        closeOverlay={() => closeOverlay(close)}
       >
         <Box pt="8px" alignItems="center">
           <Image source={TouchConnectDesktop} w="191px" h="64px" />
@@ -94,7 +96,12 @@ const UpdateInfoModal: FC = () => {
               {
                 url: (
                   // TODO click event
-                  <Pressable>
+                  <Pressable
+                    onPress={() => {
+                      openUrlExternal('https://onekey.so/download');
+                      closeOverlay(close);
+                    }}
+                  >
                     <Text
                       typography="Body2Underline"
                       color="interactive-default"
@@ -107,8 +114,9 @@ const UpdateInfoModal: FC = () => {
             )}
           </Text>
         </Box>
-        {/* TODO click event */}
-        <Button>{intl.formatMessage({ id: 'action__close' })}</Button>
+        <Button onPress={() => closeOverlay(close)}>
+          {intl.formatMessage({ id: 'action__close' })}
+        </Button>
       </BottomSheetModal>
     ));
   }, [intl, isSmallScreen, navigation]);
@@ -156,7 +164,6 @@ const UpdateInfoModal: FC = () => {
           firmware,
         );
         if (resourceInfo.error === 'USE_DESKTOP') {
-          // TODO: i18n test for use desktop
           showUpdateOnDesktopModal();
           if (!isSmallScreen) {
             navigation.goBack();
