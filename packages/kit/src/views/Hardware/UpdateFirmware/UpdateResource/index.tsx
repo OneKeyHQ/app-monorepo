@@ -237,25 +237,49 @@ const UpdateWarningModal: FC = () => {
   const step4 = useMemo(() => updateResult, [updateResult]);
 
   const renderTitle = useMemo(() => {
-    if (shouldRetry) return 'Update failed, please retry...';
-    if (step1) return 'Switch to Boardloader';
-    if (step2) return 'Select Resources';
-    if (step3) return 'Updating Resources...';
-    if (step4) return 'Restart Device to Install Firmware';
+    if (shouldRetry)
+      return `${intl.formatMessage({
+        id: 'modal__update_resources_failed',
+      })}...`;
+    if (step1)
+      return intl.formatMessage({
+        id: 'modal__update_resources_switch_to_boardloader',
+      });
+    if (step2)
+      return intl.formatMessage({
+        id: 'modal__update_resources_select_resources',
+      });
+    if (step3)
+      return `${intl.formatMessage({
+        id: 'modal__update_resources_updating_resources',
+      })}...`;
+    if (step4)
+      return intl.formatMessage({
+        id: 'modal__update_resources_restart_device',
+      });
     return '';
-  }, [shouldRetry, step1, step2, step3, step4]);
+  }, [intl, shouldRetry, step1, step2, step3, step4]);
 
   const renderSubTitle = useMemo(() => {
     if (shouldRetry) return undefined;
     if (step1)
-      return 'In order to update firmware resources on your device, you will need to switch it to Boardloader mode';
+      return intl.formatMessage({
+        id: 'modal__update_resources_switch_to_boardloader_desc',
+      });
     if (step2)
-      return 'Click "Open Finder," then select the disk "ONEKEY DATA" and continue';
-    if (step3) return 'This process may take a while, please wait...';
+      return intl.formatMessage({
+        id: 'modal__update_resources_select_resources_desc',
+      });
+    if (step3)
+      return intl.formatMessage({
+        id: 'modal__update_resources_updating_resources_desc',
+      });
     if (step4)
-      return 'Resources have been updated. Please restart your device to install the firmware';
+      return intl.formatMessage({
+        id: 'modal__update_resources_restart_device_desc',
+      });
     return undefined;
-  }, [shouldRetry, step1, step2, step3, step4]);
+  }, [intl, shouldRetry, step1, step2, step3, step4]);
 
   const renderEmoji = useMemo(() => {
     if (shouldRetry) return '😔';
@@ -273,7 +297,7 @@ const UpdateWarningModal: FC = () => {
   return (
     <Modal
       closeOnOverlayClick={false}
-      header="Update Resource"
+      header={intl.formatMessage({ id: 'modal__update_resources' })}
       hideSecondaryAction
       primaryActionTranslationId={
         shouldRetry ? 'action__retry' : 'action__open_finder'
