@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { Children, Fragment, createContext } from 'react';
+import { Children, Fragment } from 'react';
 
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
@@ -12,21 +12,18 @@ import { Body2StrongProps } from '../Typography';
 
 import type { CollapsibleContainerProps } from './types';
 
-const Context = createContext<string>('');
-
 const Container: FC<CollapsibleContainerProps> = ({
   disableRefresh,
   children,
   headerHeight,
   renderHeader,
-  onTabChange,
   onIndexChange,
   initialTabName,
   onRefresh,
   refreshing,
   containerStyle,
   scrollEnabled = true,
-  // ref,
+  ...props
 }) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
@@ -52,45 +49,38 @@ const Container: FC<CollapsibleContainerProps> = ({
     'text-default',
   ]);
 
-  // const iosRef = useRef<NestedTabView>(null);
   return (
-    <Context.Provider value={tabs[selectedIndex].name}>
-      <NestedTabView
-        // ref={iosRef}
-        style={containerStyle}
-        scrollEnabled={scrollEnabled}
-        values={tabs}
-        defaultIndex={selectedIndex}
-        disableRefresh={disableRefresh}
-        refresh={refreshing}
-        spinnerColor={spinnerColor}
-        onChange={(e) => {
-          onTabChange?.({
-            tabName: e.nativeEvent.tabName,
-            index: e.nativeEvent.index,
-          });
-          onIndexChange?.(e.nativeEvent.index);
-        }}
-        onRefreshCallBack={() => {
-          setTimeout(() => {
-            onRefresh?.();
-          }, 0);
-        }}
-        headerHeight={headerHeight}
-        renderHeader={renderHeader}
-        tabViewStyle={{
-          paddingX: 0,
-          height: 54,
-          activeColor: activeLabelColor,
-          inactiveColor: labelColor,
-          indicatorColor,
-          bottomLineColor,
-          labelStyle: Body2StrongProps,
-        }}
-      >
-        {children}
-      </NestedTabView>
-    </Context.Provider>
+    <NestedTabView
+      style={containerStyle}
+      scrollEnabled={scrollEnabled}
+      values={tabs}
+      defaultIndex={selectedIndex}
+      disableRefresh={disableRefresh}
+      refresh={refreshing}
+      spinnerColor={spinnerColor}
+      onChange={(e) => {
+        onIndexChange?.(e.nativeEvent.index);
+      }}
+      onRefreshCallBack={() => {
+        setTimeout(() => {
+          onRefresh?.();
+        }, 0);
+      }}
+      headerHeight={headerHeight}
+      renderHeader={renderHeader}
+      tabViewStyle={{
+        paddingX: 0,
+        height: 54,
+        activeColor: activeLabelColor,
+        inactiveColor: labelColor,
+        indicatorColor,
+        bottomLineColor,
+        labelStyle: Body2StrongProps,
+      }}
+      {...props}
+    >
+      {children}
+    </NestedTabView>
   );
 };
 

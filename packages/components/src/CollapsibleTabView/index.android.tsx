@@ -20,7 +20,6 @@ const Container: FC<CollapsibleContainerProps> = ({
   refreshing,
   renderHeader,
   children,
-  onTabChange,
   onIndexChange,
   onRefresh,
   containerStyle,
@@ -69,10 +68,6 @@ const Container: FC<CollapsibleContainerProps> = ({
       }}
       renderHeader={renderHeader}
       onChange={(e) => {
-        onTabChange?.({
-          tabName: e.nativeEvent.tabName,
-          index: e.nativeEvent.index,
-        });
         onIndexChange?.(e.nativeEvent.index);
       }}
       scrollEnabled={scrollEnabled}

@@ -35,7 +35,6 @@ const Screen = () => {
   }
   return (
     <Tabs.Container
-      // @ts-ignore
       refreshing={context?.refreshing}
       onRefresh={() => {
         if (setContext) {
@@ -50,7 +49,6 @@ const Screen = () => {
           bgColor="background-default"
         />
       )}
-      scrollEnabled={false}
       onIndexChange={(index) => {
         if (setContext) {
           setContext((ctx) => ({ ...ctx, selectedIndex: index }));
