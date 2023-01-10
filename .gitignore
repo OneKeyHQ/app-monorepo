@@ -73,3 +73,6 @@ stats.html
 tsconfig.tsbuildinfo
 
 test-report.html
+
+/packages/desktop/public/res
+/packages/desktop/public/res-updater.zip
