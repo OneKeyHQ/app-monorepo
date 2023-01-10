@@ -352,12 +352,19 @@ const UpdateWarningModal: FC = () => {
                 <Spinner size="lg" />
               </Box>
             ) : step4 ? (
-              <LottieView
-                source={RestartTouch}
-                autoPlay
-                loop
-                style={{ width: '276px', marginBottom: 24 }}
-              />
+              <Center
+                bgColor="surface-subdued"
+                borderRadius="12px"
+                mt="-16px"
+                mb="16px"
+              >
+                <LottieView
+                  source={RestartTouch}
+                  autoPlay
+                  loop
+                  style={{ width: '276px' }}
+                />
+              </Center>
             ) : undefined
           }
           title={renderTitle}
