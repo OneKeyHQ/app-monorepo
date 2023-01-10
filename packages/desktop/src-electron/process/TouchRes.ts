@@ -212,8 +212,8 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   };
 
   const extractResFile = () => {
-    console.log('zipFilePath: ', ZipFilePath);
-    console.log('extractPath: ', ExtractPath);
+    logger.info('zipFilePath: ', ZipFilePath);
+    logger.info('extractPath: ', ExtractPath);
 
     const zip = new AdmZip(ZipFilePath);
     zip.extractAllTo(ExtractPath, true);

@@ -2,6 +2,8 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { debuglog } from 'util';
+
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -26,6 +28,7 @@ import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -179,10 +182,10 @@ const UpdateWarningModal: FC = () => {
       window.desktopApi?.on?.(
         'touch/update-res-success',
         ({ error, result }: { error: Error; result: boolean }) => {
-          console.log('update result =======> ', result);
+          debugLogger.hardwareSDK.info('update result =======> ', result);
           setUpdateResult(result);
           if (error) {
-            console.log('update error =======> ', error);
+            debugLogger.hardwareSDK.info('update error =======> ', error);
             let message = '';
             switch (error.message) {
               // 无法访问磁盘 - 此时可能用户电脑有磁盘权限问题
@@ -224,7 +227,7 @@ const UpdateWarningModal: FC = () => {
         },
       );
     }
-  }, [isInBoardloader, updateTouchResource, navigation, firmware]);
+  }, [intl, isInBoardloader, updateTouchResource, navigation, firmware]);
 
   const showMasTip = useMemo(
     // TODO: platformEnv.isMas replace

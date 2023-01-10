@@ -98,7 +98,9 @@ const UpdateInfoModal: FC = () => {
                   // TODO click event
                   <Pressable
                     onPress={() => {
-                      openUrlExternal('https://onekey.so/download');
+                      openUrlExternal(
+                        'https://onekey.so/zh_CN/download/?client=desktop',
+                      );
                       closeOverlay(close);
                     }}
                   >
