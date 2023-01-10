@@ -14,11 +14,10 @@ import {
   Text,
   useUserDevice,
 } from '@onekeyhq/components';
-import LogoLedger from '@onekeyhq/kit/assets/onboarding/logo_ledger.png';
 import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
-import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
-import LogoTokenPocket from '@onekeyhq/kit/assets/onboarding/logo_tokenpocket.png';
-import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
+import LogoRainbow from '@onekeyhq/kit/assets/onboarding/logo_rainbow.png';
+import LogoTrustWallet from '@onekeyhq/kit/assets/onboarding/logo_trustwallet.png';
+import LogoWalletconnect from '@onekeyhq/kit/assets/onboarding/logo_walletconnect.png';
 import ContentHardwareImage from '@onekeyhq/kit/assets/onboarding/welcome_hardware.png';
 import {
   AppUIEventBusNames,
@@ -115,13 +114,7 @@ const Welcome = () => {
     navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
   }, [navigation]);
 
-  const logos = [
-    LogoOneKey,
-    LogoTrezor,
-    LogoLedger,
-    LogoMetaMask,
-    LogoTokenPocket,
-  ];
+  const logos = [LogoMetaMask, LogoTrustWallet, LogoRainbow, LogoWalletconnect];
 
   return (
     <>
@@ -231,8 +224,8 @@ const Welcome = () => {
         <Hidden till="sm">
           <Box
             flexDirection={{ sm: 'row' }}
-            alignItems="center"
-            justifyContent="center"
+            alignItems={{ sm: 'center' }}
+            justifyContent={{ sm: 'center' }}
             my={{ sm: 6 }}
           >
             <Divider flex={1} />
@@ -242,6 +235,38 @@ const Welcome = () => {
             <Divider flex={1} />
           </Box>
         </Hidden>
+        <Box
+          flexDirection={{ base: 'row' }}
+          alignItems={{ base: 'center' }}
+          justifyContent={{ base: 'center' }}
+          mt={{ base: 6, sm: 0 }}
+        >
+          <Text
+            typography={{ sm: 'Body2Strong', md: 'DisplaySmall' }}
+            color="text-default"
+          >
+            Connect 3rd-Party Wallet
+          </Text>
+          <Box
+            flexDirection={{ base: 'row' }}
+            alignItems={{ base: 'center' }}
+            mx={2}
+          >
+            {logos.map((logo, index) => (
+              <Image key={index} source={logo} size={4} mx={0.5} rounded="sm" />
+            ))}
+            <Box bg="surface-neutral-default" rounded="sm" mx={0.5}>
+              <Icon
+                name="EllipsisHorizontalMini"
+                size={16}
+                color="icon-default"
+              />
+            </Box>
+          </Box>
+          <Box py={0.5}>
+            <Icon name="ChevronRightMini" size={16} color="icon-subdued" />
+          </Box>
+        </Box>
       </Layout>
       <TermsOfService />
     </>
