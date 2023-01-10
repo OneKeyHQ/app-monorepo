@@ -25,7 +25,6 @@ const Container: FC<CollapsibleContainerProps> = ({
   headerHeight,
   renderHeader,
   headerContainerStyle,
-  onTabChange,
   onIndexChange,
   initialTabName,
   scrollEnabled = true,
@@ -63,17 +62,9 @@ const Container: FC<CollapsibleContainerProps> = ({
     (newIndex: number) => {
       setIndex(newIndex);
 
-      if (onTabChange) {
-        onTabChange({
-          index: newIndex,
-          tabName: routes[newIndex].key,
-        });
-      }
-      if (onIndexChange) {
-        onIndexChange(newIndex);
-      }
+      onIndexChange?.(newIndex);
     },
-    [onIndexChange, onTabChange, routes],
+    [onIndexChange],
   );
   const [activeLabelColor, labelColor, indicatorColor, borderDefault, bgColor] =
     useThemeValue([

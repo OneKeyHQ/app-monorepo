@@ -203,10 +203,9 @@ const AddImportedOrWatchingAccount = () => {
             },
           }}
           control={control}
+          defaultValue={defaultName || defaultAccountNames[importTypeIndex]}
         >
-          <Form.Input
-            defaultValue={defaultName || defaultAccountNames[importTypeIndex]}
-          />
+          <Form.Input />
         </Form.Item>
       </Form>
     </Modal>

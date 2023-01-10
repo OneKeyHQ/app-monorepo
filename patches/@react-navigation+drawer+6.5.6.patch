@@ -1,0 +1,26 @@
+diff --git a/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx b/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx
+index 1356741..c74fe9e 100644
+--- a/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx
++++ b/node_modules/@react-navigation/drawer/src/views/modern/Drawer.tsx
+@@ -23,6 +23,9 @@ import Animated, {
+   withSpring,
+ } from 'react-native-reanimated';
+ 
++
++import { nestedTabTransX as translationX, nestedTabStartX as touchStartX } from '@onekeyhq/app/src/views/NestedTabView/types';
++
+ import type { DrawerProps } from '../../types';
+ import DrawerProgressContext from '../../utils/DrawerProgressContext';
+ import Overlay from './Overlay';
+@@ -148,9 +151,9 @@ export default function Drawer({
+       { right: 0, width: isOpen ? undefined : swipeEdgeWidth }
+     : { left: 0, width: isOpen ? undefined : swipeEdgeWidth };
+ 
+-  const touchStartX = useSharedValue(0);
++  // const touchStartX = useSharedValue(0);
+   const touchX = useSharedValue(0);
+-  const translationX = useSharedValue(getDrawerTranslationX(open));
++  // const translationX = useSharedValue(getDrawerTranslationX(open));
+   const gestureState = useSharedValue<GestureState>(GestureState.UNDETERMINED);
+ 
+   const toggleDrawer = React.useCallback(

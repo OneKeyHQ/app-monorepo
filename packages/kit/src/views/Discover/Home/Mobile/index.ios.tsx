@@ -19,6 +19,6 @@ export const MobileFull = () => {
 };
 
 export const Mobile = () => {
-  const showFullLayout = useShowBookmark();
-  return !showFullLayout ? <Beta /> : <MobileFull />;
+  const showBookmark = useShowBookmark();
+  return !showBookmark ? <Beta /> : <MobileFull />;
 };

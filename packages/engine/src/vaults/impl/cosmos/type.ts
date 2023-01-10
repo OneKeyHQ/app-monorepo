@@ -1,7 +1,8 @@
 import type { Message } from './sdk/message';
 import type { Publickey } from './sdk/publickey';
+import type { TransactionWrapper } from './sdk/wrapper/index';
 
-export type IEncodedTxCosmos = SignDocHex;
+export type IEncodedTxCosmos = TransactionWrapper;
 
 export interface CosmosImplOptions {
   mainCoinDenom: string;
@@ -34,18 +35,6 @@ export interface StdFee {
   granter: string;
 
   feePayer?: string;
-}
-
-export interface StdSignature {
-  readonly pub_key: Publickey;
-  readonly signature: string;
-}
-
-export interface StdTx {
-  readonly msg: readonly Message[];
-  readonly fee: StdFee;
-  readonly signatures: readonly StdSignature[];
-  readonly memo: string | undefined;
 }
 
 export interface BlockHeader {
