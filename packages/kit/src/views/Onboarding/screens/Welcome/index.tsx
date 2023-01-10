@@ -19,6 +19,7 @@ import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
 import LogoTokenPocket from '@onekeyhq/kit/assets/onboarding/logo_tokenpocket.png';
 import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
+import ContentHardwareImage from '@onekeyhq/kit/assets/onboarding/welcome_hardware.png';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -154,6 +155,7 @@ const Welcome = () => {
               label={intl.formatMessage({
                 id: 'action__create_wallet',
               })}
+              description="by generating a new recovery phrase on app"
               roundedBottom={{ base: 0, sm: 'xl' }}
               onPress={onPressCreateWallet}
             />
@@ -162,6 +164,7 @@ const Welcome = () => {
               label={intl.formatMessage({
                 id: 'action__import_wallet',
               })}
+              description="with recovery phrase, private key, address, OneKey Lite, KeyTag and more..."
               mt="-1px"
               mb={{ base: 6, sm: 0 }}
               roundedTop={{ base: 0, sm: 'xl' }}
@@ -177,28 +180,23 @@ const Welcome = () => {
               <PressableListItem
                 icon="LinkOutline"
                 label={intl.formatMessage({
-                  id: 'action__connect_wallet',
+                  id: 'action__connect_hardware_wallet',
                 })}
+                description="Support OneKey hardware wallet"
                 onPress={onPressConnectWallet}
+                overflow="hidden"
               >
                 <Box
-                  flexDir="row"
                   position={{ sm: 'absolute' }}
-                  top={{ base: 1, sm: 33 }}
-                  right={{ sm: 25 }}
-                  ml={2}
+                  right={{ sm: '-58px' }}
+                  bottom={{ sm: '-40px' }}
                 >
-                  {logos.map((logo, index) => (
-                    <Image
-                      key={index}
-                      source={logo}
-                      size={4}
-                      mx={0.5}
-                      borderWidth={StyleSheet.hairlineWidth}
-                      borderColor="border-subdued"
-                      rounded="sm"
-                    />
-                  ))}
+                  <Image
+                    opacity={0.3}
+                    source={ContentHardwareImage}
+                    size={247}
+                    rounded="sm"
+                  />
                 </Box>
               </PressableListItem>
               <Hidden from="sm">
@@ -226,6 +224,7 @@ const Welcome = () => {
                   label={intl.formatMessage({
                     id: 'action__restore_from_icloud',
                   })}
+                  description=""
                   onPress={onPressRestoreFromCloud}
                 />
               </PresenceTransition>

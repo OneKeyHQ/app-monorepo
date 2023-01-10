@@ -15,12 +15,14 @@ import type { IBoxProps } from 'native-base';
 type PressableListItemProps = {
   icon: ICON_NAMES;
   label: string;
+  description: string;
   onPress?: () => void;
 } & IBoxProps;
 
 const PressableListItem: FC<PressableListItemProps> = ({
   icon,
   label,
+  description,
   onPress,
   children,
   ...rest
@@ -52,12 +54,21 @@ const PressableListItem: FC<PressableListItemProps> = ({
         />
       </Box>
       <Text
-        flex={1}
-        mt={{ sm: 8 }}
+        mt={{ sm: 6 }}
         typography={{ sm: 'Body1Strong', md: 'DisplayMedium' }}
       >
         {label}
       </Text>
+      <Hidden till="sm">
+        <Text
+          flex={1}
+          mt={{ sm: 2 }}
+          typography={{ sm: 'Body2', md: 'Body2' }}
+          color="text-subdued"
+        >
+          {description}
+        </Text>
+      </Hidden>
       {children}
       <Hidden from="sm">
         <Box py={0.5}>
