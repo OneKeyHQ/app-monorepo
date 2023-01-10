@@ -185,24 +185,26 @@ const UpdateWarningModal: FC = () => {
             console.log('update error =======> ', error);
             let message = '';
             switch (error.message) {
-              // 没有搜索到 Mass Storage 模式的设备，可能用户操作了设备，导致设备状态不对，比如断开连接、重启等
-              case ERRORS.NOT_FOUND_DEVICE:
-                message = 'Device not found';
-                break;
               // 无法访问磁盘 - 此时可能用户电脑有磁盘权限问题
               case ERRORS.DISK_ACCESS_ERROR:
-                message = 'DISK ACCESS ERROR';
+                message = intl.formatMessage({
+                  id: 'msg__disk_access_is_denied',
+                });
                 break;
               // 没有找到 OneKey Touch 磁盘的对应路径，可能是用户自行更改了磁盘名称，导致匹配失败
               case ERRORS.NOT_FOUND_DISK_PATH:
-                message = 'NOT FOUND DISK PATH';
+                message = intl.formatMessage({
+                  id: 'msg__the_disk_path_was_not_found',
+                });
                 break;
               // Mas 版本在选文件弹窗时没有给予正确的路径权限，导致无法访问磁盘
               case ERRORS.MAS_DISK_PATH_PERMISSION_DENIED:
                 // return to step2 to choose disk path
                 setResError('');
                 setConfirmChooseDisk(false);
-                message = 'MAS DISK PATH PERMISSION DENIED';
+                message = intl.formatMessage({
+                  id: 'msg__unable_to_access_disk_onekey_data',
+                });
                 return;
               default:
                 message = error.message;
