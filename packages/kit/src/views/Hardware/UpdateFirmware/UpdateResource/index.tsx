@@ -199,8 +199,11 @@ const UpdateWarningModal: FC = () => {
                 break;
               // Mas 版本在选文件弹窗时没有给予正确的路径权限，导致无法访问磁盘
               case ERRORS.MAS_DISK_PATH_PERMISSION_DENIED:
+                // return to step2 to choose disk path
+                setResError('');
+                setConfirmChooseDisk(false);
                 message = 'MAS DISK PATH PERMISSION DENIED';
-                break;
+                return;
               default:
                 message = error.message;
                 break;
