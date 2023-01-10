@@ -220,26 +220,48 @@ const UpdateWarningModal: FC = () => {
   );
 
   const renderTitle = useMemo(() => {
-    if (!isInBoardloader) return 'Switch to Boardloader';
-    if (showMasTip) return 'Select Resources';
+    if (!isInBoardloader)
+      return intl.formatMessage({
+        id: 'modal__update_resources_switch_to_boardloader',
+      });
+    if (showMasTip)
+      return intl.formatMessage({
+        id: 'modal__update_resources_select_resources',
+      });
     if (isInBoardloader && !updateResult && !retryState)
-      return 'Updating Resources...';
-    if (updateResult) return 'Restart Device to Install Firmware';
-    if (retryState) return 'Update failed, please retry...';
+      return `${intl.formatMessage({
+        id: 'modal__update_resources_updating_resources',
+      })}...`;
+    if (updateResult)
+      return intl.formatMessage({
+        id: 'modal__update_resources_restart_device',
+      });
+    if (retryState)
+      return `${intl.formatMessage({
+        id: 'modal__update_resources_failed',
+      })}...`;
     return '';
-  }, [isInBoardloader, retryState, updateResult, showMasTip]);
+  }, [isInBoardloader, intl, showMasTip, updateResult, retryState]);
 
   const renderSubTitle = useMemo(() => {
     if (!isInBoardloader)
-      return 'In order to update firmware resources on your device, you will need to switch it to Boardloader mode';
+      return intl.formatMessage({
+        id: 'modal__update_resources_switch_to_boardloader_desc',
+      });
     if (showMasTip)
-      return 'Click "Open Finder," then select the disk "ONEKEY DATA" and continue';
+      return intl.formatMessage({
+        id: 'modal__update_resources_select_resources_desc',
+      });
     if (isInBoardloader && !updateResult && !retryState)
-      return 'This process may take a while, please wait...';
+      return intl.formatMessage({
+        id: 'modal__update_resources_updating_resources_desc',
+      });
     if (updateResult)
-      return 'Resources have been updated. Please restart your device to install the firmware';
+      return intl.formatMessage({
+        id: 'modal__update_resources_restart_device_desc',
+      });
     return undefined;
-  }, [isInBoardloader, retryState, showMasTip, updateResult]);
+  }, [intl, isInBoardloader, retryState, showMasTip, updateResult]);
 
   const renderEmoji = useMemo(() => {
     if (!isInBoardloader) return '🧩';
@@ -256,7 +278,7 @@ const UpdateWarningModal: FC = () => {
 
   return (
     <Modal
-      header="Update Resource"
+      header={intl.formatMessage({ id: 'modal__update_resources' })}
       hideSecondaryAction
       primaryActionTranslationId={
         retryState ? 'action__retry' : 'action__open_finder'
