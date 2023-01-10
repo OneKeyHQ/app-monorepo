@@ -20,8 +20,8 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
-  useUserBrowserHistories,
   useTaggedDapps,
+  useUserBrowserHistories,
 } from '../../hooks';
 import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
