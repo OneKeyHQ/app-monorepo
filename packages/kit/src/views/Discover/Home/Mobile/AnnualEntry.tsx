@@ -14,6 +14,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import bg1 from '@onekeyhq/kit/assets/annual/1.png';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { HomeRoutes } from '../../../../routes/types';
@@ -39,7 +40,10 @@ export const AnnualEntry: FC = () => {
     navigation.navigate(HomeRoutes.AnnualLoading);
   }, [navigation]);
 
-  if (!annualReportEntryEnabled) {
+  if (
+    !annualReportEntryEnabled ||
+    !(platformEnv.isNativeAndroid || platformEnv.isNativeIOSPhone)
+  ) {
     return null;
   }
 

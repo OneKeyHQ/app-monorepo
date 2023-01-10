@@ -29,6 +29,7 @@ import type {
 } from '@onekeyhq/kit/src/routes/types';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
@@ -126,7 +127,10 @@ const ToolsPage: FC = () => {
     if (network?.impl !== IMPL_EVM) {
       allItems = allItems.filter((n) => n.key !== 'revoke');
     }
-    if (!annualReportEntryEnabled) {
+    if (
+      !annualReportEntryEnabled ||
+      !(platformEnv.isNativeAndroid || platformEnv.isNativeIOSPhone)
+    ) {
       allItems = allItems.filter((n) => n.key !== 'annual');
     }
     return allItems.concat(
