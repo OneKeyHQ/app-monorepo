@@ -151,6 +151,7 @@
   "action__notnow": "ليس الآن",
   "action__ok": "نعم",
   "action__ok_im_done": "نعم. منتهي!",
+  "action__open_finder": "افتح الباحث",
   "action__open_in_browser": "افتح في المتصفح",
   "action__overwrite": "الكتابة فوق",
   "action__paste": "معجون",
@@ -302,6 +303,7 @@
   "conetnt__last_sync": "آخر مزامنة",
   "conten__please_be_patient_as_net_work": "يرجى التحلي بالصبر لأن التذكرة الجديدة قد تستغرق بعض الوقت لتظهر على هذه الصفحة بسبب مشاكل في الشبكة.",
   "content__Insufficient_str_balance": "رصيد {0} غير كافٍ",
+  "content___2022_my_on_chain_journey_uppercase": "2022\n رحلتي في سلسلة",
   "content__a_few_seconds": "بضع ثوان",
   "content__about_int_str": "حول {time} {unit}",
   "content__account_and_network_not_matched": "كلا الحساب والسلسلة غير متطابقين",
@@ -376,6 +378,7 @@
   "content__data_source": "مصدر البيانات:",
   "content__day": "يوم",
   "content__default": "تقصير",
+  "content__defi_master_desc": "أنت الرجل الحكيم صاحب الرؤية. هناك دائما حصاد عندما تنتظر",
   "content__deposit_tokens_to_your_wallet": "إيداع الرموز في محفظتك",
   "content__description": "وصف",
   "content__details": "تفاصيل",
@@ -441,6 +444,7 @@
   "content__have_you_been_spared_this_year_we_hope_you_re_the": "هل نجت هذا العام؟\n نأمل أن تكون ...",
   "content__height": "ارتفاع",
   "content__hodl_duration": "مدة HODL",
+  "content__hodler_desc": "أنت صاحب لا يتزعزع. يتدفق الوقت إلى الأمام ، لكنك ما زلت مخلصًا لإيمانك.",
   "content__hours": "ساعات",
   "content__how_to_receive_push_in_str": "كيفية تلقي الدفع في {0}",
   "content__how_to_receive_push_in_str_desc": "1. وافق على تطبيق إذن إعلام OneKey في المتصفح.\n 2. في إعدادات النظام ، افتح إذن إعلام المتصفح.",
@@ -456,6 +460,7 @@
   "content__import_wallet_desc": "استيراد عبارة الاسترداد الحالية أو المفتاح الخاص أو مشاهدة عنوان",
   "content__import_wallet_from_str": "استيراد المحفظة من {0}",
   "content__in_2022_onekey_took_greater_care_of_your_wallet_security": "في عام 2022 ، اهتم OneKey بشكل أكبر بأمان محفظتك",
+  "content__in_2022_you_dont_have_a_story_left_on_the_chain": "في عام 2022 ، لم يتبق لديك قصة على السلسلة. \n\n الدب أو الثور ، الكساد أو الازدهار ، كل هذا مجرد مادة خارجية.",
   "content__in_progress": "في تَقَدم",
   "content__in_the_rare_event_staked_eth_will_be_lost": "في حدث نادر ، سيتم فقد ETH المكدس.",
   "content__in_the_rare_event_staked_eth_will_be_lost_desc": "ينطوي التراص والتحقق من صحة شبكات إثبات الحصة مثل Ethereum على خفض المخاطر. OneKey / Kele Pool غير مسؤول عن عقوبات تخفيض المدقق.",
@@ -499,6 +504,8 @@
   "content__native_metamask_tutorials_3": "انقر فوق الأمان والخصوصية",
   "content__native_metamask_tutorials_4": "انقر فوق كشف عبارة الاسترداد السرية",
   "content__native_metamask_tutorials_5": "انسخ والصق عبارة الاسترداد في الحقل الموجود على اليسار.",
+  "content__nft_collector_desc": "أنت جامع متمرس يجد دائمًا قيمة من وجهات نظر مختلفة.",
+  "content__nft_market_will_boom_or_bust_that_s_a_question": "سوق NFT سوف تزدهر أو تفلس؟ هذا سؤال.\n يبدو أن لديك تحفظات على سوق NFT.",
   "content__nft_profit_and_loss": "NFT - الربح والخسارة",
   "content__nft_standard": "معيار NFT",
   "content__no_charge": "لا تهمة",
@@ -598,6 +605,8 @@
   "content__str_chain_is_unsupprted": "سلسلة {0} غير معتمدة حتى الآن",
   "content__str_failed": "فشل {0} !",
   "content__str_is_your_favorite": "{symbol_0} هو المفضل لديك ،\n لكنك أيضًا تحب {symbol_1} و {symbol_2} .",
+  "content__str_is_your_favorite_onlyone": "{0} هو المفضل لديك فقط.",
+  "content__str_is_your_favorite_onlytwo": "{symbol_0} هو المفضل لديك ،\n لكنك أيضًا تحب {symbol_1} .",
   "content__str_mins": "{content__str_mins, plural, zero {} one {# دقيقة} two {} few {} many {} other {# دقيقة}}",
   "content__str_seconds": "{content__str_seconds, plural, zero {} one {# ثانية} two {} few {} many {} other {# ثانية}}",
   "content__str_succeeded": "{0} تم النجاح!",
@@ -646,6 +655,8 @@
   "content__watch_your_account_balance_and_activity": "راقب رصيد حسابك ونشاطك.",
   "content__we_dont_store_any_of_your_information": "لا نقوم بتخزين أي من معلوماتك ، لذلك إذا نسيت رقم التعريف الشخصي الخاص بك ، فلا يمكننا مساعدتك في استعادتها.",
   "content__we_ll_continue_to_secure_your_assets_in_2023": "سنواصل تأمين أصولك في عام 2023",
+  "content__web3_master_desc": "أنت المفكر المتعالي ، وتبحث عن إجابة لكل لغز أخير.",
+  "content__web3_trader_desc": "أنت رائد في التفكير المستقل. وحيد ولكن مع الشجاعة لتغيير العالم.",
   "content__what_is_a_validator": "ما هو المدقق؟",
   "content__what_is_a_validator_desc": "{0} أجهزة كمبيوتر blockchain هي أجهزة التحقق من الصحة. للثقة في المدقق لمعالجة معاملات الشبكة ، فإنك تشارك في {0} . يكافئ المدقق عملية التخزين.",
   "content__what_is_node_height": "ما هو \"ارتفاع\" العقد؟",
@@ -664,8 +675,9 @@
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
   "content__you_don_t_have_a_str_account": "ليس لديك حساب {0} .",
+  "content__you_dont_have_any_nft_in_your_wallet": "ليس لديك أي NFT في محفظتك",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "قد تتلقى طلبات توقيع متعددة على محفظة الأجهزة.",
-  "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "أنت من تحب NFT أكثر من غيرها ، هذا العام لديه أيضًا الكثير من المكاسب.",
+  "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "أنت من تحب NFT أكثر من غيرها ، فلديك أيضًا الكثير من المكاسب الجديدة.",
   "content__your_biological_data_is_encrypted": "يتم تشفير بياناتك البيولوجية.",
   "content__your_biological_data_is_encrypted_desc": "يتم تخزين معلومات السيرة الذاتية محليًا ولا يمكن لـ OneKey الوصول إلى هذه البيانات أو تخزينها.",
   "content__your_positioning_style": "أسلوبك في تحديد المواقع",
@@ -673,6 +685,7 @@
   "content__your_str_will_appear_here": "سيظهر {0} الخاص بك هنا",
   "content__your_total_assets": "إجمالي الأصول الخاصة بك",
   "content__your_wallet_is_now_ready": "محفظتك الآن <b> جاهزة </b>",
+  "content__zero_is_not_the_end_it_s_a_brand_new_start": "الصفر ليس النهاية.\n إنها بداية جديدة تمامًا.",
   "dialog__backup_wallet_desc": "نسخة احتياطية من عبارة الاسترداد الخاصة بك قبل الحذف.",
   "dialog__backup_wallet_title": "المحفظة الاحتياطية",
   "dialog__chain_already_existed": "\"{chain}\" موجودة بالفعل",
@@ -1389,6 +1402,16 @@
   "modal__unable_to_connect": "غير قادر على الاتصال",
   "modal__unable_to_connect_desc": "جهازك الحالي لا يدعم NFC ، استبدله بجهاز مزود بتقنية NFC وحاول مرة أخرى",
   "modal__unlock_vault": "افتح Vault",
+  "modal__update_resources": "تحديث الموارد",
+  "modal__update_resources_failed": "فشل التحديث ، يرجى إعادة المحاولة",
+  "modal__update_resources_restart_device": "أعد تشغيل الجهاز لتثبيت البرنامج الثابت",
+  "modal__update_resources_restart_device_desc": "تم تحديث الموارد. يرجى إعادة تشغيل جهازك ، وسيقوم OneKey بالمتابعة إلى المرحلة التالية وتثبيت البرنامج الثابت تلقائيًا.",
+  "modal__update_resources_select_resources": "حدد الموارد",
+  "modal__update_resources_select_resources_desc": "انقر فوق \"فتح الباحث\" ، ثم حدد القرص \"ONEKEY DATA\" وتابع.",
+  "modal__update_resources_switch_to_boardloader": "قم بالتبديل إلى Boardloader",
+  "modal__update_resources_switch_to_boardloader_desc": "لتحديث موارد البرامج الثابتة على جهازك ، ستحتاج إلى تبديلها إلى وضع Boardloader.",
+  "modal__update_resources_updating_resources": "تحديث الموارد",
+  "modal__update_resources_updating_resources_desc": "قد تستغرق هذه العملية بعض الوقت ، الرجاء الانتظار ...",
   "modal__updating": "التحديث",
   "modal__updating_attention": "اترك التطبيق مفتوحًا والجهاز مفتوحًا أثناء التحديث.",
   "modal__what_is_new_in_onekey_str": "ما الجديد في OneKey {0}",
@@ -1412,6 +1435,8 @@
   "msg__amount_too_small": "مبلغ التحويل صغير جدًا",
   "msg__aptos_first_activation_token": "إذا تم تنشيط الرمز المميز لأول مرة ، فسيتم إصدار معاملة عملة.",
   "msg__backup_imported": "استيراد النسخ الاحتياطي",
+  "msg__broadcast_dot_tx_Insufficient_fee": "الرصيد غير كافٍ أو أقل من 1.",
+  "msg__broadcast_dot_tx_outdated": "الصفقة عفا عليها الزمن.",
   "msg__broadcast_tx_Insufficient_fee": "رسوم غير كافية: يرجى التحقق مما إذا كان الرصيد كافياً أو حاول تبديل ترس الرسوم.",
   "msg__broadcast_tx_sequence_number_error": "توجد بالفعل معاملات تم تأكيدها أو فشل العقدة.",
   "msg__cannot_import_existing_wallet": "لا يمكن استيراد المحافظ الموجودة.",
@@ -1422,6 +1447,7 @@
   "msg__copied": "نسخ!",
   "msg__current_token_balance_is_insufficient": "رصيد الرمز الحالي غير كاف.",
   "msg__deleted_str": "تم حذف \" {0} \"",
+  "msg__disk_access_is_denied": "تم رفض الوصول إلى القرص",
   "msg__engine__account_already_exists": "الحساب موجود بالفعل.",
   "msg__engine__account_name_length_error": "طول اسم الحساب خارج عن الحد.",
   "msg__engine__account_not_activated": "الحساب غير مفعل.",
@@ -1551,6 +1577,7 @@
   "msg__switch_to_str": "تحول إلى {0}",
   "msg__tab_has_reached_the_maximum_limit_of_str": "وصلت علامة التبويب إلى الحد الأقصى البالغ {0} .",
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
+  "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__this_address_already_exists": "هذا العنوان موجود بالفعل.",
   "msg__this_is_a_cross_chain_swap_transaction": "هذه معاملة مقايضة عبر سلسلة.",
@@ -1570,6 +1597,7 @@
   "msg__transaction_failed": "😵 فشلت المعاملة",
   "msg__transaction_failed_desc": "فشل تنفيذ العقد",
   "msg__transaction_submitted": "تم إرسال المعاملة",
+  "msg__unable_to_access_disk_onekey_data": "تعذر الوصول إلى القرص \"ONEKEY DATA\"",
   "msg__unknown_error": "خطأ غير معروف",
   "msg__unsubscription_succeeded": "نجح إلغاء الاشتراك",
   "msg__update_to_onekey_str_is_available": "يتوفر التحديث إلى OneKey {0}",
@@ -1759,6 +1787,7 @@
   "title__select_an_account_and_network_to_continue": "حدد حسابًا وشبكة للمتابعة",
   "title__select_blockchain_browser": "حدد متصفح Blockchain",
   "title__select_contact": "حدد جهة اتصال",
+  "title__select_disk_and_continue": "الرجاء تحديد القرص \"ONEKEY DATA\" والنقر فوق \"متابعة\"",
   "title__select_route": "حدد الطريق",
   "title__sell_str": "بيع {0}",
   "title__set_password": "ضبط كلمة السر",
