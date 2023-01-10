@@ -10,12 +10,14 @@ import {
   Center,
   Empty,
   Image,
+  LottieView,
   Modal,
   Spinner,
   Text,
   ToastManager,
   useTheme,
 } from '@onekeyhq/components';
+import RestartTouch from '@onekeyhq/kit/assets/animations/restart-touch.json';
 import SelectFirmwareResources from '@onekeyhq/kit/assets/select_firmware_resources.png';
 import SelectFirmwareResourcesDark from '@onekeyhq/kit/assets/select_firmware_resources_dark.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -220,9 +222,10 @@ const UpdateWarningModal: FC = () => {
   const renderTitle = useMemo(() => {
     if (!isInBoardloader) return 'Switch to Boardloader';
     if (showMasTip) return 'Select Resources';
-    if (isInBoardloader && !updateResult) return 'Updating Resources...';
+    if (isInBoardloader && !updateResult && !retryState)
+      return 'Updating Resources...';
     if (updateResult) return 'Restart Device to Install Firmware';
-    if (retryState) return '更新失败，请重试';
+    if (retryState) return 'Update failed, please retry...';
     return '';
   }, [isInBoardloader, retryState, updateResult, showMasTip]);
 
@@ -231,26 +234,25 @@ const UpdateWarningModal: FC = () => {
       return 'In order to update firmware resources on your device, you will need to switch it to Boardloader mode';
     if (showMasTip)
       return 'Click "Open Finder," then select the disk "ONEKEY DATA" and continue';
-    if (isInBoardloader && !updateResult)
+    if (isInBoardloader && !updateResult && !retryState)
       return 'This process may take a while, please wait...';
     if (updateResult)
       return 'Resources have been updated. Please restart your device to install the firmware';
     return undefined;
-  }, [isInBoardloader, showMasTip, updateResult]);
+  }, [isInBoardloader, retryState, showMasTip, updateResult]);
 
   const renderEmoji = useMemo(() => {
     if (!isInBoardloader) return '🧩';
-    if (updateResult) return '🔁';
     if (retryState) return '😔';
     return undefined;
-  }, [isInBoardloader, retryState, updateResult]);
+  }, [isInBoardloader, retryState]);
 
   const currentStep = useMemo(() => {
     if (!isInBoardloader) return '1';
     if (showMasTip) return '2';
-    if (isInBoardloader && !updateResult) return '3';
+    if (isInBoardloader && !updateResult && !retryState) return '3';
     if (updateResult) return '4';
-  }, [isInBoardloader, showMasTip, updateResult]);
+  }, [isInBoardloader, retryState, showMasTip, updateResult]);
 
   return (
     <Modal
@@ -268,6 +270,7 @@ const UpdateWarningModal: FC = () => {
         }
       }}
       footer={showFooter || showMasTip ? undefined : null}
+      closeable={false}
     >
       <Center>
         <Box flexDirection="row" mb="24px" alignItems="center">
@@ -291,7 +294,7 @@ const UpdateWarningModal: FC = () => {
         <Empty
           emoji={renderEmoji}
           icon={
-            isInBoardloader && !updateResult && !showMasTip ? (
+            isInBoardloader && !updateResult && !showMasTip && !retryState ? (
               <Box mb="16px">
                 <Spinner size="lg" />
               </Box>
@@ -305,6 +308,13 @@ const UpdateWarningModal: FC = () => {
                 w="352px"
                 h="191px"
                 mb="16px"
+              />
+            ) : updateResult ? (
+              <LottieView
+                source={RestartTouch}
+                autoPlay
+                loop
+                style={{ width: '276px', marginBottom: 24 }}
               />
             ) : undefined
           }
