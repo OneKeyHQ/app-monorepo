@@ -86,6 +86,7 @@ const NativeWebView = forwardRef(
     return (
       <WebView
         style={styles.container}
+        fraudulentWebsiteWarningEnabled={false}
         onLoadProgress={onLoadProgress}
         ref={webviewRef}
         // injectedJavaScript={injectedNative}
