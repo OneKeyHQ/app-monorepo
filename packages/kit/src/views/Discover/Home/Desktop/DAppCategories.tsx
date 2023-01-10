@@ -22,7 +22,7 @@ export const DAppCategories = () => {
     return [{ name: intl.formatMessage({ id: 'msg__mine' }), _id: '' }].concat(
       categories,
     );
-  }, [categories]);
+  }, [categories, intl]);
 
   const [selectedIndex, setSelectedIndex] = useState(() =>
     data.findIndex((item) => item._id === categoryId),
