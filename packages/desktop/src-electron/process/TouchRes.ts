@@ -282,8 +282,10 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     ) => {
       logger.info('will update Touch resource file, params: ', params);
       try {
-        const platform = getPlatform();
-        if (process.mas || platform === 'mac') {
+        // mock mas
+        // const platform = getPlatform();
+        // if (process.mas || platform === 'mac') {
+        if (process.mas) {
           const result = dialog.showOpenDialogSync(mainWindow, {
             buttonLabel: params.buttonLabel,
             defaultPath: MacVolumesPath,

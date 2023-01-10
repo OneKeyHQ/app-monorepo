@@ -26,6 +26,7 @@ import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -42,7 +43,9 @@ const ERRORS = {
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
 };
 
-const MOCK_MAS = true;
+const { isMas } = platformEnv;
+// mock mas
+// const isMas = true;
 
 const StepsItem: FC<{ finished?: boolean; inProgress?: boolean }> = ({
   finished,
@@ -93,16 +96,15 @@ const UpdateWarningModal: FC = () => {
   const masDialogButtonLabel = intl.formatMessage({ id: 'action__continue' });
 
   const rebootToBoardloader = useCallback(() => {
-    serviceHardware.rebootToBoardloader(connectId).then((res) => {
-      if (res.success) {
-        setIsInBoardloader(true);
-        return;
-      }
-      const error = deviceUtils.convertDeviceError(res.payload);
-      deviceUtils.showErrorToast(error);
-      navigation.goBack();
-    });
-  }, [connectId, navigation, serviceHardware]);
+    serviceHardware
+      .rebootToBoardloader(connectId)
+      .then(() => setIsInBoardloader(true))
+      .catch((e) => {
+        const error = deviceUtils.convertDeviceError(e);
+        deviceUtils.showErrorToast(error);
+        setResError(error.message);
+      });
+  }, [connectId, serviceHardware]);
 
   useEffect(() => {
     if (!device) {
@@ -120,7 +122,7 @@ const UpdateWarningModal: FC = () => {
     });
   }, [firmware?.fullResource, masDialogButtonLabel, masDialogTitle]);
 
-  const retryState = useMemo(
+  const shouldRetry = useMemo(
     () => !!(!updateResult && resError),
     [updateResult, resError],
   );
@@ -171,7 +173,7 @@ const UpdateWarningModal: FC = () => {
 
   useEffect(() => {
     if (isInBoardloader) {
-      if (!MOCK_MAS) {
+      if (!isMas) {
         updateTouchResource();
       }
       window.desktopApi?.on?.(
@@ -219,47 +221,54 @@ const UpdateWarningModal: FC = () => {
     }
   }, [isInBoardloader, updateTouchResource, navigation, firmware]);
 
-  const showFooter = useMemo(() => retryState, [retryState]);
   const showMasTip = useMemo(
     // TODO: platformEnv.isMas replace
-    () => isInBoardloader && MOCK_MAS && !confirmChooseDisk,
+    () => isInBoardloader && isMas && !confirmChooseDisk,
     [isInBoardloader, confirmChooseDisk],
   );
 
+  const step1 = useMemo(() => !isInBoardloader, [isInBoardloader]);
+  // Step 2 Select the disk to be displayed only on the Mac App Store platform and not on other platforms
+  const step2 = useMemo(() => showMasTip, [showMasTip]);
+  const step3 = useMemo(
+    () => isInBoardloader && !updateResult && !shouldRetry,
+    [isInBoardloader, updateResult, shouldRetry],
+  );
+  const step4 = useMemo(() => updateResult, [updateResult]);
+
   const renderTitle = useMemo(() => {
-    if (!isInBoardloader) return 'Switch to Boardloader';
-    if (showMasTip) return 'Select Resources';
-    if (isInBoardloader && !updateResult && !retryState)
-      return 'Updating Resources...';
-    if (updateResult) return 'Restart Device to Install Firmware';
-    if (retryState) return 'Update failed, please retry...';
+    if (shouldRetry) return 'Update failed, please retry...';
+    if (step1) return 'Switch to Boardloader';
+    if (step2) return 'Select Resources';
+    if (step3) return 'Updating Resources...';
+    if (step4) return 'Restart Device to Install Firmware';
     return '';
-  }, [isInBoardloader, retryState, updateResult, showMasTip]);
+  }, [shouldRetry, step1, step2, step3, step4]);
 
   const renderSubTitle = useMemo(() => {
-    if (!isInBoardloader)
+    if (shouldRetry) return undefined;
+    if (step1)
       return 'In order to update firmware resources on your device, you will need to switch it to Boardloader mode';
-    if (showMasTip)
+    if (step2)
       return 'Click "Open Finder," then select the disk "ONEKEY DATA" and continue';
-    if (isInBoardloader && !updateResult && !retryState)
-      return 'This process may take a while, please wait...';
-    if (updateResult)
+    if (step3) return 'This process may take a while, please wait...';
+    if (step4)
       return 'Resources have been updated. Please restart your device to install the firmware';
     return undefined;
-  }, [isInBoardloader, retryState, showMasTip, updateResult]);
+  }, [shouldRetry, step1, step2, step3, step4]);
 
   const renderEmoji = useMemo(() => {
-    if (!isInBoardloader) return '🧩';
-    if (retryState) return '😔';
+    if (shouldRetry) return '😔';
+    if (step1) return '🧩';
     return undefined;
-  }, [isInBoardloader, retryState]);
+  }, [step1, shouldRetry]);
 
   const currentStep = useMemo(() => {
-    if (!isInBoardloader) return '1';
-    if (showMasTip) return '2';
-    if (isInBoardloader && !updateResult && !retryState) return '3';
-    if (updateResult) return '4';
-  }, [isInBoardloader, retryState, showMasTip, updateResult]);
+    if (step1) return '1';
+    if (step2) return '2';
+    if (step3) return isMas ? '3' : '2';
+    if (step4) return isMas ? '4' : '3';
+  }, [step1, step2, step3, step4]);
 
   return (
     <Modal
@@ -267,46 +276,40 @@ const UpdateWarningModal: FC = () => {
       header="Update Resource"
       hideSecondaryAction
       primaryActionTranslationId={
-        retryState ? 'action__retry' : 'action__open_finder'
+        shouldRetry ? 'action__retry' : 'action__open_finder'
       }
       onPrimaryActionPress={() => {
-        if (retryState) {
+        if (shouldRetry) {
           retry();
         } else if (showMasTip) {
           setConfirmChooseDisk(true);
           updateTouchResource();
         }
       }}
-      footer={showFooter || showMasTip ? undefined : null}
+      footer={shouldRetry || showMasTip ? undefined : null}
       closeable={false}
     >
       <Center>
-        <Box flexDirection="row" mb="24px" alignItems="center">
-          <Text typography="Body2Strong">{currentStep} of 4</Text>
-          <Box flexDirection="row" ml="8px">
-            <StepsItem
-              inProgress={!isInBoardloader}
-              finished={isInBoardloader}
-            />
-            <StepsItem
-              inProgress={showMasTip}
-              finished={isInBoardloader && !updateResult}
-            />
-            <StepsItem
-              inProgress={isInBoardloader && !updateResult && !showMasTip}
-              finished={updateResult}
-            />
-            <StepsItem inProgress={updateResult} />
+        {/* Hide step component on failed state */}
+        {shouldRetry ? null : (
+          <Box flexDirection="row" mb="24px" alignItems="center">
+            <Text typography="Body2Strong">
+              {currentStep} of {isMas ? '4' : '3'}
+            </Text>
+            <Box flexDirection="row" ml="8px">
+              <StepsItem inProgress={step1} finished={!step1} />
+              {isMas && (
+                <StepsItem inProgress={step2} finished={!step1 && !step2} />
+              )}
+              <StepsItem inProgress={!step2 && step3} finished={step4} />
+              <StepsItem inProgress={step4} />
+            </Box>
           </Box>
-        </Box>
+        )}
         <Empty
           emoji={renderEmoji}
           icon={
-            isInBoardloader && !updateResult && !showMasTip && !retryState ? (
-              <Box mb="16px">
-                <Spinner size="lg" />
-              </Box>
-            ) : showMasTip ? (
+            step2 ? (
               <Image
                 source={
                   themeVariant === 'light'
@@ -317,7 +320,11 @@ const UpdateWarningModal: FC = () => {
                 h="191px"
                 mb="16px"
               />
-            ) : updateResult ? (
+            ) : step3 ? (
+              <Box mb="16px">
+                <Spinner size="lg" />
+              </Box>
+            ) : step4 ? (
               <LottieView
                 source={RestartTouch}
                 autoPlay
