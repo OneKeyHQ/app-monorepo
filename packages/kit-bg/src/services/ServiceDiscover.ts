@@ -8,6 +8,7 @@ import {
   clearHistory,
   removeDappHistory,
   removeFavorite,
+  removeUserBrowserHistory,
   removeWebSiteHistory,
   setDappHistory,
   // setCategoryDapps,
@@ -180,9 +181,15 @@ class ServicDiscover extends ServiceBase {
   async removeMatchItem(item: MatchDAppItemType) {
     if (item.dapp) {
       this.removeDappHistory(item.id);
+      this.backgroundApi.dispatch(
+        removeUserBrowserHistory({ url: item.dapp?.url }),
+      );
     }
     if (item.webSite && item.webSite.url && new URL(item.webSite.url).host) {
       this.removeWebSiteHistory(new URL(item.webSite.url).host);
+      this.backgroundApi.dispatch(
+        removeUserBrowserHistory({ url: item.webSite.url }),
+      );
     }
   }
 

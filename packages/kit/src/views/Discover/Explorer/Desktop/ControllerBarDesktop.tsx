@@ -88,7 +88,7 @@ const ControllerBarDesktop: FC = () => {
 
   const onSearchSubmitEditing = (dapp: MatchDAppItemType | string) => {
     if (typeof dapp === 'string') {
-      return gotoSite({ url: dapp });
+      return gotoSite({ url: dapp, userTriggered: true });
     }
     openMatchDApp(dapp);
   };
