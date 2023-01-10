@@ -12,7 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { baseAddressToAddress, pubkeyToBaseAddress } from './sdk/address';
-import { generateSignBytes, generateSignedTx } from './utils';
+import { serializeSignedTx, serializeTxForSignature } from './sdk/txBuilder';
 
 import type {
   IPrepareSoftwareAccountsParams,
@@ -117,7 +117,7 @@ export class KeyringHd extends KeyringHdBase {
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
     debugLogger.common.info('signTransaction result', unsignedTx);
-    const dbAccount = await this.getDbAccount();
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
 
     debugLogger.common.info('signTransaction dbAccount', dbAccount);
 
@@ -127,10 +127,24 @@ export class KeyringHd extends KeyringHdBase {
 
     const signer = signers[dbAccount.address];
 
+    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+    if (!senderPublicKey) {
+      throw new OneKeyInternalError('Unable to get sender public key.');
+    }
+
     const encodedTx = unsignedTx.payload.encodedTx as IEncodedTxCosmos;
-    const signBytes = generateSignBytes(encodedTx);
+    const signBytes = serializeTxForSignature(encodedTx);
     const [signature] = await signer.sign(Buffer.from(sha256(signBytes)));
-    const rawTx = generateSignedTx(encodedTx, signature);
+
+    const rawTx = serializeSignedTx({
+      txWrapper: encodedTx,
+      signature: {
+        signatures: [signature],
+      },
+      publicKey: {
+        pubKey: senderPublicKey,
+      },
+    });
 
     return {
       txid: '',

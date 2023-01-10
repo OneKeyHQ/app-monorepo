@@ -52,11 +52,15 @@ class ServiceNetwork extends ServiceBase {
     let shouldDispatch = true;
     this.notifyChainChanged();
 
-    if (
-      previousNetwork?.impl !== newNetwork?.impl ||
-      serviceAccount.shouldForceRefreshAccount(newNetwork?.id)
-    ) {
+    const implChange = previousNetwork?.impl !== newNetwork?.impl;
+    // Use symbol to determine chainId changes
+    const chainIdChange = previousNetwork?.symbol !== newNetwork?.symbol;
+    const forceRefreshAccount =
+      chainIdChange && serviceAccount.shouldForceRefreshAccount(newNetwork?.id);
+
+    if (implChange || forceRefreshAccount) {
       // 当切换了不同 impl 类型的链时更新 accounts 内容
+      // 有一些特殊的链比如 Cosmos，如果 chainId 改变了，需要更新 accounts 内容
       const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
         activeWalletId,
         networkId,
