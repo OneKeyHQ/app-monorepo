@@ -1,6 +1,6 @@
 import type { ComponentProps, FC } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import * as React from 'react';
-import { useCallback, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useWindowDimensions } from 'react-native';
@@ -36,9 +36,10 @@ type DataItem = {
   bg: ImageSourcePropType;
   page: FC<PageProps>;
   containerProps?: ComponentProps<typeof Box>;
+  filter?: (params: HomeRoutesParams['AnnualReport']) => boolean;
 };
 
-const pages: DataItem[] = [
+const defaultPages: DataItem[] = [
   {
     bg: bgs.bg1,
     page: TotalAsset,
@@ -46,6 +47,7 @@ const pages: DataItem[] = [
   {
     bg: bgs.bg2,
     page: PositionStyle,
+    filter: (params) => !!params.tokens?.length,
   },
   {
     bg: bgs.bg3,
@@ -81,6 +83,17 @@ const AnnualReport = () => {
   const route = useRoute<NavigationProps>();
   const { width, height: winHeight } = useWindowDimensions();
   const [height, setHeight] = useState(() => winHeight);
+
+  const pages = useMemo(
+    () =>
+      defaultPages.filter((p) => {
+        if (!p.filter) {
+          return true;
+        }
+        return p.filter(route.params);
+      }),
+    [route.params],
+  );
 
   const onSelectedCardIndexChange = useCallback((index: number) => {
     selectCardRef.current = index;
@@ -138,7 +151,7 @@ const AnnualReport = () => {
         params,
       },
     });
-  }, [route, navigation, renderItemContent, currentPage]);
+  }, [route, navigation, renderItemContent, currentPage, pages]);
 
   const renderItem: ListRenderItem<DataItem> = useCallback(
     ({ item }) =>

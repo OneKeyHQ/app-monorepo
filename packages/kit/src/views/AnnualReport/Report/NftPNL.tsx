@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import { HStack, VStack } from '@onekeyhq/components';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -17,6 +18,7 @@ import type { PageProps } from '../types';
 const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
   const { data, assets } = pnls ?? {};
   const intl = useIntl();
+  const { height } = useWindowDimensions();
   const { networkId } = useActiveWalletAccount();
 
   const total = useMemo(() => {
@@ -30,8 +32,8 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
     return PriceString({ price: totalValue, networkId });
   }, [data, networkId]);
 
-  const items = useMemo(
-    () =>
+  const items = useMemo(() => {
+    const list =
       data?.content.map((n) => {
         const key = `${n.contractAddress as string}-${n.tokenId}`;
         return {
@@ -39,9 +41,13 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
           key,
           asset: assets?.[key],
         };
-      }) ?? [],
-    [data, assets],
-  );
+      }) ?? [];
+
+    if (height > 800) {
+      return list;
+    }
+    return list.slice(0, 3);
+  }, [data, assets, height]);
 
   if (!items?.length) {
     return (
@@ -131,7 +137,7 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
           </WText>
         </VStack>
       </HStack>
-      {items.map((item) => (
+      {items.slice(0, 3).map((item) => (
         <HStack alignItems="center" mb="6">
           <NFTListImage asset={item.asset || ({} as NFTAsset)} size={80} />
           <VStack ml="6" flex="1">
