@@ -27567,14 +27567,14 @@ optjs@latest:
 
 "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview":
   version: 11.24.0
-  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=bde72e10489e4503e022b3aa72987378f31fe176"
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=1a62cb499f411bedccbe765418b19609852ae37e"
   dependencies:
     escape-string-regexp: 2.0.0
     invariant: 2.2.4
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 65ff5592fbbb04741a07ac543535feea400305626222d531009db5ff5336ebdda16b1420ba9d7df50ea039870f6f3be446b27c1d954d1eb29a4fec2fdc29df04
+  checksum: 5a4df5325e6dc253add757b315148d6d22db252eba2f30d6b33e7cdd04566e340c1e042bf5e7b13514037c331d56cd578130a2cd253a8cf704e47ad21caf6826
   languageName: node
   linkType: hard
 
