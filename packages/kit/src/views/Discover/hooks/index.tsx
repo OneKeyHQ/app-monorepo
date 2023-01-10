@@ -57,6 +57,62 @@ export function useHistoryHostMap(): Record<string, WebSiteHistory> {
   }, [history]);
 }
 
+export function useUserBrowserHistories(): MatchDAppItemType[] {
+  const [dapps, setDapps] = useState<Record<string, DAppItemType>>({});
+  const hostMap = useHistoryHostMap();
+  const userBrowserHistories = useAppSelector(
+    (s) => s.discover.userBrowserHistories,
+  );
+
+  const dappsIds = useMemo(() => {
+    if (!userBrowserHistories) {
+      return [];
+    }
+    return userBrowserHistories
+      .filter((s) => s.dappId)
+      .map((o) => o.dappId) as string[];
+  }, [userBrowserHistories]);
+
+  useEffect(() => {
+    async function main() {
+      if (dappsIds && dappsIds.length) {
+        const itemDapps =
+          await backgroundApiProxy.serviceDiscover.getDappsByIds(dappsIds);
+        setDapps(
+          itemDapps.reduce((result, item) => {
+            result[item._id] = item;
+            return result;
+          }, {} as Record<string, DAppItemType>),
+        );
+      }
+    }
+    main();
+  }, [dappsIds]);
+
+  return useMemo<MatchDAppItemType[]>(() => {
+    if (!userBrowserHistories) {
+      return [];
+    }
+    return userBrowserHistories.map((item) => {
+      const { dappId, url } = item;
+      if (dappId && dapps[dappId]) {
+        const dapp = dapps[dappId];
+        return { id: dapp._id, dapp };
+      }
+      const { host } = new URL(url);
+      const website = hostMap[host];
+      return {
+        id: url,
+        webSite: {
+          url,
+          title: item.title ?? website?.title,
+          favicon: item.logoUrl ?? website.favicon,
+        },
+      };
+    });
+  }, [userBrowserHistories, dapps, hostMap]);
+}
+
 export function useDiscoverHistory(): MatchDAppItemType[] {
   const [items, setItems] = useState<MatchDAppItemType[]>([]);
   const dappHistory = useAppSelector((s) => s.discover.dappHistory);

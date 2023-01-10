@@ -176,7 +176,7 @@ const ToolsPage: FC = () => {
         flexWrap="wrap"
       >
         {items.map((item) => (
-          <Box p="6px" width={isVertical ? '100%' : '50%'}>
+          <Box key={item.key} p="6px" width={isVertical ? '100%' : '50%'}>
             <Pressable
               flexDirection="row"
               p="16px"

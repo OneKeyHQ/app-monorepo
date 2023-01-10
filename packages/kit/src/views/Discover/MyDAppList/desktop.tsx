@@ -27,7 +27,7 @@ import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
 import { Chains } from '../Chains';
 import DAppIcon from '../DAppIcon';
-import { useDiscoverFavorites, useDiscoverHistory } from '../hooks';
+import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';
 
@@ -168,7 +168,7 @@ const Favorites = () => {
 
 const History = () => {
   const { width } = useWindowDimensions();
-  const data = useDiscoverHistory();
+  const data = useUserBrowserHistories();
   const screenWidth = width - 48 - 256;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);

@@ -26,6 +26,6 @@ export const DesktopMini = () => (
 );
 
 export const Desktop: FC = () => {
-  const showFullLayout = useShowBookmark();
-  return !showFullLayout ? <DesktopMini /> : <DesktopFull />;
+  const showBookmark = useShowBookmark();
+  return !showBookmark ? <DesktopMini /> : <DesktopFull />;
 };

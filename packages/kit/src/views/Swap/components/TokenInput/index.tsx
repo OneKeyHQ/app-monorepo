@@ -21,7 +21,6 @@ import {
   useActiveWalletAccount,
   useAppSelector,
   useNavigation,
-  useNetworkSimple,
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
@@ -146,8 +145,6 @@ const TokenInput: FC<TokenInputProps> = ({
 }) => {
   const intl = useIntl();
 
-  const tokenNetwork = useNetworkSimple(token?.networkId);
-
   const balance = useTokenBalance(token, account?.id);
   const loading = useAppSelector((s) => s.swap.loading);
   const independentField = useAppSelector((s) => s.swap.independentField);
@@ -157,7 +154,7 @@ const TokenInput: FC<TokenInputProps> = ({
     if (!token || !value) {
       return;
     }
-    if (token.tokenIdOnNetwork || tokenNetwork?.impl !== 'evm') {
+    if (token.tokenIdOnNetwork) {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
       const reserved = tokenReservedValues[token.networkId] ?? 0.1;
@@ -172,7 +169,7 @@ const TokenInput: FC<TokenInputProps> = ({
         });
       }
     }
-  }, [token, value, type, intl, tokenNetwork]);
+  }, [token, value, type, intl]);
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';

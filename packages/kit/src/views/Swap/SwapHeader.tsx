@@ -30,7 +30,10 @@ import { useAppSelector } from '../../hooks';
 import { HomeRoutes } from '../../routes/types';
 import { setSwapPopoverShown } from '../../store/reducers/status';
 
-import { useSwapQuoteCallback } from './hooks/useSwap';
+import {
+  useSwapQuoteCallback,
+  useSwapQuoteRequestParams,
+} from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
 import { SwapError } from './typings';
 
@@ -133,18 +136,17 @@ const RefreshButton = () => {
 
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
-
+  const params = useSwapQuoteRequestParams();
   const error = useAppSelector((s) => s.swap.error);
-  const quote = useAppSelector((s) => s.swap.quote);
   const limited = useAppSelector((s) => s.swap.quoteLimited);
   const loading = useAppSelector((s) => s.swap.loading);
 
   const isOk = useMemo(() => {
-    if (error || limited || !quote) {
+    if (error || limited || !params) {
       return false;
     }
     return true;
-  }, [error, limited, quote]);
+  }, [error, limited, params]);
 
   const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
 
@@ -179,7 +181,7 @@ const RefreshButton = () => {
   );
 
   const onRefresh = useCallback(() => {
-    if (limited || !quote) {
+    if (limited || !params) {
       loadingAnim.setValue(0);
       Animated.timing(loadingAnim, {
         toValue: -1,
@@ -199,7 +201,7 @@ const RefreshButton = () => {
       await onSwapQuote();
       lottie.play();
     });
-  }, [onSwapQuote, loadingAnim, limited, quote, lottie]);
+  }, [onSwapQuote, loadingAnim, limited, params, lottie]);
 
   useEffect(() => {
     const fn = processAnim.addListener(({ value }) => {

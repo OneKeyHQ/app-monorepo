@@ -13,7 +13,7 @@ import ExtremeLabels from './ExtremeLabels';
 
 import type { OnHoverFunction } from '../chartService';
 
-export const { width: WIDTH } = Dimensions.get('window');
+const { width: WIDTH } = Dimensions.get('window');
 
 export default function ChartWrapper({
   isFetching,

@@ -29,7 +29,7 @@ import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
-import { WalletHomeTabEnum } from './type';
+import { HomeTabOrder, WalletHomeTabEnum } from './type';
 
 const AccountHeader = () => <AccountInfo />;
 
@@ -37,7 +37,6 @@ const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network, accountId, networkId } =
     useActiveWalletAccount();
@@ -66,7 +65,7 @@ const WalletTabs: FC = () => {
   return (
     <>
       <Tabs.Container
-        initialTabName={homeTabName}
+        canOpenDrawer
         refreshing={refreshing}
         onRefresh={async () => {
           setRefreshing(true);
@@ -86,8 +85,8 @@ const WalletTabs: FC = () => {
           }
           setTimeout(() => setRefreshing(false), 10);
         }}
-        onTabChange={({ tabName }) => {
-          backgroundApiProxy.dispatch(setHomeTabName(tabName));
+        onIndexChange={(index) => {
+          backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[index]));
         }}
         renderHeader={AccountHeader}
         headerHeight={

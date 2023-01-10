@@ -237,7 +237,7 @@ const Listing = () => {
               total={data.length}
             />
           )}
-          ItemSeparatorComponent={() => <Divider />}
+          ItemSeparatorComponent={Divider}
           keyExtractor={(item) => String(item.id)}
         />
       </Box>

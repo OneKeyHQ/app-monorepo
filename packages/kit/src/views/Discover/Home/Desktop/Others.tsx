@@ -105,6 +105,7 @@ const ChainsSelector: FC<{ networkIds: string[] }> = ({ networkIds }) => {
     <FlatList
       data={data}
       renderItem={renderItem}
+      showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item.networkId}
     />
   );
@@ -196,6 +197,7 @@ const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
       data={data}
       removeClippedSubviews
       windowSize={5}
+      showsHorizontalScrollIndicator={false}
       renderItem={renderItem}
       numColumns={numColumns}
       key={`key${numColumns}`}

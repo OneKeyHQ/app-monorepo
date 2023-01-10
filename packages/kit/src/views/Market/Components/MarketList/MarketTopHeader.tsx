@@ -72,7 +72,10 @@ const Header: FC = () => {
           }}
           onFocus={() => {
             setSearchFocused(true);
-            showMarketSearch({ triggerEle: searchBarRef?.current });
+            showMarketSearch({
+              triggerEle: searchBarRef?.current,
+              searchOnChangeDebounce,
+            });
           }}
           onBlur={() => {
             setSearchFocused(false);
@@ -91,6 +94,7 @@ const HeaderSmall: FC = () => {
   const tabName = useMarketTopTabName();
   const handleBg = useThemeValue('icon-subdued');
   const intl = useIntl();
+  const searchOnChangeDebounce = useMarketSearchTokenChange();
   const marketTopTabName = useMarketTopTabName();
   return (
     <Box
@@ -150,6 +154,7 @@ const HeaderSmall: FC = () => {
                   tapGestureEnabled: false,
                   scrollViewProps: { keyboardShouldPersistTaps: 'handled' },
                 },
+                searchOnChangeDebounce,
               });
             }}
           />

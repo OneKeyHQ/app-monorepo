@@ -1,14 +1,11 @@
-import { hexToBytes } from '@noble/hashes/utils';
-
 import { IDecodedTxActionType } from '../../types';
 
+import { defaultAminoMsgOpts } from './sdk/amino/types';
 import { MessageType } from './sdk/message';
-import { makeTxRawBytes } from './sdk/signing';
-import { getDirectSignDoc } from './sdk/wrapper/utils';
 
+import type { StdSignDoc } from './sdk/amino/types';
 import type { Message, SendMessage } from './sdk/message';
 import type { UnpackedMessage } from './sdk/proto/protoDecode';
-import type { IEncodedTxCosmos } from './type';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 export const getTransactionTypeByMessage = (
@@ -30,7 +27,10 @@ export const getTransactionTypeByProtoMessage = (
   mainCoinDenom?: string,
 ) => {
   if ('unpacked' in message) {
-    if (message.typeUrl === MessageType.SEND) {
+    if (
+      message.typeUrl === MessageType.SEND ||
+      message.typeUrl === defaultAminoMsgOpts.send.native.type
+    ) {
       const { amount }: { amount: Coin[] } = message.unpacked;
       if (amount.length === 1 && amount[0].denom === mainCoinDenom) {
         return IDecodedTxActionType.NATIVE_TRANSFER;
@@ -42,17 +42,36 @@ export const getTransactionTypeByProtoMessage = (
   return IDecodedTxActionType.UNKNOWN;
 };
 
-export const generateSignBytes = (encodedTx: IEncodedTxCosmos) => {
-  const directSignDoc = getDirectSignDoc(encodedTx);
-  return directSignDoc.toBytes();
+export const getDataForADR36 = (
+  data: string | Uint8Array,
+): [string, boolean] => {
+  let isADR36WithString = false;
+  let newData = data;
+  if (typeof data === 'string') {
+    newData = Buffer.from(data).toString('base64');
+    isADR36WithString = true;
+  } else {
+    newData = Buffer.from(data).toString('base64');
+  }
+  return [newData, isADR36WithString];
 };
 
-export const generateSignedTx = (
-  encodedTx: IEncodedTxCosmos,
-  signature: Buffer,
-) =>
-  makeTxRawBytes(
-    hexToBytes(encodedTx.bodyBytes),
-    hexToBytes(encodedTx.authInfoBytes),
-    [signature],
-  );
+export const getADR36SignDoc = (signer: string, data: string): StdSignDoc => ({
+  chain_id: '',
+  account_number: '0',
+  sequence: '0',
+  fee: {
+    gas: '0',
+    amount: [],
+  },
+  msgs: [
+    {
+      type: 'sign/MsgSignData',
+      value: {
+        signer,
+        data,
+      },
+    },
+  ],
+  memo: '',
+});

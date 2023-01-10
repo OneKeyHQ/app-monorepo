@@ -150,7 +150,6 @@ const AddImportedOrWatchingAccount = () => {
       intl,
     ],
   );
-
   return (
     <Modal
       header={intl.formatMessage({ id: 'action__add_account' })}
@@ -192,11 +191,21 @@ const AddImportedOrWatchingAccount = () => {
         <Form.Item
           name="name"
           label={intl.formatMessage({ id: 'form__account_name' })}
+          rules={{
+            required: intl.formatMessage({
+              id: 'form__field_is_required',
+            }),
+            maxLength: {
+              value: 24,
+              message: intl.formatMessage({
+                id: 'msg__exceeding_the_maximum_word_limit',
+              }),
+            },
+          }}
           control={control}
+          defaultValue={defaultName || defaultAccountNames[importTypeIndex]}
         >
-          <Form.Input
-            placeholder={defaultName || defaultAccountNames[importTypeIndex]}
-          />
+          <Form.Input />
         </Form.Item>
       </Form>
     </Modal>

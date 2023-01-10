@@ -104,7 +104,7 @@ const WebContent: FC<WebTab & WebViewProps> = ({
         }}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          gotoSite({ url: e.nativeEvent.targetUrl });
+          gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
         }}
         allowpopups
       />

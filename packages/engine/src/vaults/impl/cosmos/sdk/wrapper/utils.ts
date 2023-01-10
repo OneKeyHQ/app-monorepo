@@ -2,32 +2,74 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { BigNumber } from 'bignumber.js';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { get } from 'lodash';
 import Long from 'long';
 
+import { defaultAminoDecodeRegistry } from '../amino/aminoDecode';
+import { defaultAminoMsgOpts } from '../amino/types';
 import { MessageType } from '../message';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
-import type { SignDocHex, StdFee } from '../../type';
+import type { TransactionWrapper } from '.';
+import type { StdFee } from '../../type';
+import type { StdSignDoc } from '../amino/types';
 import type { UnpackedMessage } from '../proto/protoDecode';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
-export function getDirectSignDoc(signDoc: SignDocHex): ProtoSignDoc {
-  return new ProtoSignDoc(signDoc);
+export function getDirectSignDoc(tx: TransactionWrapper): ProtoSignDoc {
+  if (tx.mode === 'amino') {
+    throw new Error('Sign doc is encoded as Amino Json');
+  }
+
+  if ('msgs' in tx.signDoc) {
+    throw new Error('Sign doc is encoded as Amino Json');
+  }
+  return new ProtoSignDoc(tx.signDoc);
 }
 
-export function getChainId(signDoc: SignDocHex) {
-  return getDirectSignDoc(signDoc).chainId;
+export function getAminoSignDoc(tx: TransactionWrapper): StdSignDoc {
+  if (tx.mode === 'direct') {
+    throw new Error('Sign doc is encoded as Protobuf');
+  }
+
+  if (!('msgs' in tx.signDoc)) {
+    throw new Error('Unexpected error');
+  }
+
+  return tx.signDoc;
 }
 
-export function getMsgs(signDoc: SignDocHex): UnpackedMessage[] {
-  return getDirectSignDoc(signDoc).txMsgs;
+export function getChainId(tx: TransactionWrapper) {
+  if (tx.mode === 'amino') {
+    return getAminoSignDoc(tx).chain_id;
+  }
+
+  return getDirectSignDoc(tx).chainId;
 }
 
-export function getMemo(signDoc: SignDocHex): string {
+export function getMsgs(tx: TransactionWrapper): UnpackedMessage[] {
+  if (tx.mode === 'amino') {
+    return getAminoSignDoc(tx).msgs.map((msg) =>
+      defaultAminoDecodeRegistry.unpackMessage(msg),
+    );
+  }
+
+  return getDirectSignDoc(tx).txMsgs;
+}
+
+export function getMemo(signDoc: TransactionWrapper): string {
+  if (signDoc.mode === 'amino') {
+    return getAminoSignDoc(signDoc).memo;
+  }
+
   return getDirectSignDoc(signDoc).txBody.memo;
 }
 
-export function getFeeAmount(signDoc: SignDocHex): readonly Coin[] {
+export function getFeeAmount(signDoc: TransactionWrapper): readonly Coin[] {
+  if (signDoc.mode === 'amino') {
+    return getAminoSignDoc(signDoc).fee.amount;
+  }
+
   const fees: Coin[] = [];
   for (const coinObj of getDirectSignDoc(signDoc).authInfo.fee?.amount ?? []) {
     if (coinObj.denom == null || coinObj.amount == null) {
@@ -42,7 +84,17 @@ export function getFeeAmount(signDoc: SignDocHex): readonly Coin[] {
   return fees;
 }
 
-export function getFee(signDoc: SignDocHex): StdFee {
+export function getFee(signDoc: TransactionWrapper): StdFee {
+  if (signDoc.mode === 'amino') {
+    const { fee } = getAminoSignDoc(signDoc);
+    return {
+      amount: fee.amount,
+      gas_limit: fee.gas,
+      payer: '',
+      granter: '',
+    };
+  }
+
   const { fee } = getDirectSignDoc(signDoc).authInfo;
 
   return {
@@ -54,7 +106,19 @@ export function getFee(signDoc: SignDocHex): StdFee {
   };
 }
 
-export function setFee(signDoc: SignDocHex, fee: StdFee) {
+export function setFee(signDoc: TransactionWrapper, fee: StdFee) {
+  if (signDoc.mode === 'amino') {
+    const aminoSignDoc = getAminoSignDoc(signDoc);
+    aminoSignDoc.fee = {
+      amount: fee.amount,
+      gas: fee.gas_limit,
+    };
+
+    // @ts-expect-error
+    signDoc.signDoc.fee = aminoSignDoc.fee;
+    return;
+  }
+
   const directSignDoc = getDirectSignDoc(signDoc);
   directSignDoc.authInfo = {
     ...directSignDoc.authInfo,
@@ -66,13 +130,38 @@ export function setFee(signDoc: SignDocHex, fee: StdFee) {
     },
   };
 
+  // @ts-expect-error
   signDoc.authInfoBytes = bytesToHex(
     AuthInfo.encode(directSignDoc.authInfo).finish(),
   );
 }
 
-export function setSendAmount(signDoc: SignDocHex, amount: string) {
-  const directSignDoc = getDirectSignDoc(signDoc);
+export function setSendAmount(tx: TransactionWrapper, amount: string) {
+  if (tx.mode === 'amino') {
+    const aminoSignDoc = getAminoSignDoc(tx);
+    const msg = aminoSignDoc.msgs[0];
+    if (msg.type !== defaultAminoMsgOpts.send.native.type) {
+      throw new Error('Unexpected error');
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    msg.value.amount = [
+      {
+        denom: get(msg, 'amount[0].denom'),
+        amount: new BigNumber(amount).toFixed(),
+      },
+    ];
+
+    // @ts-expect-error
+    tx.signDoc.msgs = aminoSignDoc.msgs;
+    // // @ts-expect-error
+    // tx.msg?.aminoMsgs[0].value = msg.value;
+    // // @ts-expect-error
+    // tx.msg?.protoMsgs[0].value = msg.value;
+    return tx;
+  }
+
+  const directSignDoc = getDirectSignDoc(tx);
   const msg = directSignDoc.txMsgs[0];
   if (msg.typeUrl !== MessageType.SEND) {
     throw new Error('Invalid message type');
@@ -96,11 +185,22 @@ export function setSendAmount(signDoc: SignDocHex, amount: string) {
     ],
   };
 
-  signDoc.bodyBytes = bytesToHex(TxBody.encode(directSignDoc.txBody).finish());
-  return signDoc;
+  // @ts-expect-error
+  tx.signDoc.bodyBytes = bytesToHex(
+    TxBody.encode(directSignDoc.txBody).finish(),
+  );
+  return tx;
 }
 
-export function getGas(signDoc: SignDocHex): number {
+export function getGas(signDoc: TransactionWrapper): number {
+  if (signDoc.mode === 'amino') {
+    const limit = getAminoSignDoc(signDoc).fee.gas;
+    if (limit == null) {
+      return 0;
+    }
+    return parseInt(limit);
+  }
+
   const directSignDoc = getDirectSignDoc(signDoc);
   if (directSignDoc.authInfo?.fee?.gasLimit) {
     return directSignDoc.authInfo.fee?.gasLimit.toNumber() ?? 0;
@@ -108,7 +208,11 @@ export function getGas(signDoc: SignDocHex): number {
   return 0;
 }
 
-export function getSequence(signDoc: SignDocHex): BigNumber {
+export function getSequence(signDoc: TransactionWrapper): BigNumber {
+  if (signDoc.mode === 'amino') {
+    return new BigNumber(getAminoSignDoc(signDoc).sequence ?? '0');
+  }
+
   const { signerInfos } = getDirectSignDoc(signDoc).authInfo;
 
   return (
@@ -116,4 +220,24 @@ export function getSequence(signDoc: SignDocHex): BigNumber {
       .map((s) => new BigNumber(s.sequence.toString()))
       .sort((a, b) => b.comparedTo(a))[0] ?? new BigNumber(0)
   );
+}
+
+function sortObjectByKey(obj: Record<string, any>): any {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return obj.map(sortObjectByKey);
+  }
+  const sortedKeys = Object.keys(obj).sort();
+  const result: Record<string, any> = {};
+  sortedKeys.forEach((key) => {
+    result[key] = sortObjectByKey(obj[key]);
+  });
+  return result;
+}
+
+export function sortedJsonByKeyStringify(obj: Record<string, any>): string {
+  return JSON.stringify(sortObjectByKey(obj));
 }
