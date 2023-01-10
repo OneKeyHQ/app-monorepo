@@ -156,7 +156,7 @@ export const GroupedBackupDetails = ({
     .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
 
   return (
-    <Box flex="1" my={4} mx={12}>
+    <Box my={4} mx={12}>
       <Text typography="Heading" pb="4">
         {intl.formatMessage({
           id: onDevice

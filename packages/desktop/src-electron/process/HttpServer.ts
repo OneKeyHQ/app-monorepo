@@ -75,7 +75,12 @@ const init = () => {
     const { requestId, code, type, body } = args;
     const res = resMap[requestId];
     if (res) {
-      res.writeHead(code);
+      res.writeHead(code, {
+        'Content-Type': type,
+        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      });
       res.end(body);
     }
   });

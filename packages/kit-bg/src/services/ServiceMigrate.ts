@@ -184,6 +184,8 @@ class ServiceMigrate extends ServiceBase {
       return new Promise((resolve) => {
         window.desktopApi.startServer(port, (data, success) => {
           if (success) {
+            this.listenHttpRequest();
+            this.serverUrl = data;
             return resolve(data);
           }
           return resolve('');
