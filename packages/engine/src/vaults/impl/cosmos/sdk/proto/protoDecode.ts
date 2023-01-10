@@ -20,7 +20,7 @@ import type * as $protobuf from 'protobufjs';
 
 export type UnpackedMessage =
   | Any
-  | (Any & { unpacked: any; factory: ProtoFactory });
+  | (Any & { unpacked: any; factory?: ProtoFactory });
 
 interface ProtoFactory {
   encode: (message: any, writer?: $protobuf.Writer) => $protobuf.Writer;

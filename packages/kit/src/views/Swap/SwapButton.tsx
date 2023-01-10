@@ -165,10 +165,10 @@ const ExchangeButton = () => {
 
     let encodedTx: IEncodedTx | undefined;
     if (typeof res?.data === 'object') {
+      // @ts-expect-error
       encodedTx = {
         ...res?.data,
         // SUI Transaction: error TS2322
-        // @ts-expect-error
         from: sendingAccount.address,
       };
     } else {

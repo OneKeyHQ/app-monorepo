@@ -9,7 +9,7 @@ import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
-import { isObject } from 'lodash';
+import { isNil, isObject } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -203,8 +203,10 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxFil;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxFil> {
-    const { encodedTx } = params;
+    const network = await this.getNetwork();
     const client = await this.getClient();
+    const { encodedTx, feeInfoValue } = params;
+    const { limit, price } = feeInfoValue;
 
     const encodedTxWithFeeInfo: IEncodedTxFil = await client.request(
       'GasEstimateMessageGas',
@@ -212,6 +214,18 @@ export default class Vault extends VaultBase {
       {},
       [],
     );
+
+    if (!isNil(limit)) {
+      encodedTxWithFeeInfo.GasLimit = new BigNumber(limit).toNumber();
+    }
+
+    if (!isNil(price)) {
+      encodedTxWithFeeInfo.GasFeeCap = new BigNumber(
+        (price as string) || '0.000000001',
+      )
+        .shiftedBy(network.feeDecimals)
+        .toFixed();
+    }
 
     return Promise.resolve(encodedTxWithFeeInfo);
   }
