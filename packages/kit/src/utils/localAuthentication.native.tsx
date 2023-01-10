@@ -15,10 +15,7 @@ export const localAuthenticate = async () => {
     return { success: false, error: 'no supported' };
   }
 
-  return authenticateAsync({
-    cancelLabel: 'Cancel',
-    disableDeviceFallback: true,
-  });
+  return authenticateAsync();
 };
 
 export const savePassword = (password: string) =>
