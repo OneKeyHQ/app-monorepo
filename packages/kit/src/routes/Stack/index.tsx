@@ -123,6 +123,14 @@ const PNLDetailScreen = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail'),
 );
 
+const MigrationPage = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Migration/ConnectServer'),
+);
+
+const PreviewImportData = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Migration/PreviewImportData'),
+);
+
 export const stackScreenList = [
   {
     name: HomeRoutes.FullTokenListScreen,
@@ -226,6 +234,14 @@ export const stackScreenList = [
   {
     name: HomeRoutes.NFTPNLScreen,
     component: PNLDetailScreen,
+  },
+  {
+    name: HomeRoutes.Migration,
+    component: MigrationPage,
+  },
+  {
+    name: HomeRoutes.MigrationPreview,
+    component: PreviewImportData,
   },
 ];
 

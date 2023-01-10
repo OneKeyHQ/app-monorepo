@@ -13,8 +13,15 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutesParams,
+  ModalScreenProps,
+} from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -25,6 +32,7 @@ import { ManageConnectedSitesRoutes } from '../../ManageConnectedSites/types';
 import { showEnableExtTipsSheet } from './enableExtSheet';
 
 import type { ManageConnectedSitesRoutesParams } from '../../ManageConnectedSites/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = ModalScreenProps<ManageConnectedSitesRoutesParams>;
 
@@ -33,6 +41,10 @@ export const UtilSection = () => {
   const small = useIsVerticalLayout();
   const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const navigation2 =
+    useNavigation<
+      NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Migration>
+    >();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const disableExt = useAppSelector((s) => s.settings.disableExt);
   const disableExtSwitchTips = useAppSelector(
@@ -170,41 +182,64 @@ export const UtilSection = () => {
             <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
-        <>
-          <Divider />
-          <Pressable
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            py={4}
-            px={{ base: 4, md: 6 }}
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageConnectedSites,
-                params: {
-                  screen: ManageConnectedSitesRoutes.ManageConnectedSitesModel,
-                },
-              });
-            }}
+        <Divider />
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageConnectedSites,
+              params: {
+                screen: ManageConnectedSitesRoutes.ManageConnectedSitesModel,
+              },
+            });
+          }}
+        >
+          <Icon name="LinkOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex="1"
+            numberOfLines={1}
+            mx={3}
           >
-            <Icon name="LinkOutline" />
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              flex="1"
-              numberOfLines={1}
-              mx={3}
-            >
-              {intl.formatMessage({
-                id: 'action__connected_sites',
-                defaultMessage: 'Connected Sites',
-              })}
-            </Text>
-            <Box>
-              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-            </Box>
-          </Pressable>
-        </>
+            {intl.formatMessage({
+              id: 'action__connected_sites',
+              defaultMessage: 'Connected Sites',
+            })}
+          </Text>
+          <Box>
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+          </Box>
+        </Pressable>
+        <Divider />
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() => {
+            navigation2.navigate(HomeRoutes.Migration);
+          }}
+        >
+          <Icon name="ArrowPathOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex="1"
+            numberOfLines={1}
+            mx={3}
+          >
+            Migration
+          </Text>
+          <Box>
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+          </Box>
+        </Pressable>
       </Box>
     </Box>
   );

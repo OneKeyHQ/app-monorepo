@@ -36,6 +36,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
+import Migration from '../../views/Migration/ConnectServer';
+import PreviewImportData from '../../views/Migration/PreviewImportData';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import PNLDetailScreen from '../../views/NFTMarket/PNL/PNLDetail';
@@ -220,6 +222,14 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.PushNotificationManageAccountDynamic,
         component: PushNotificationManageAccountDynamic,
+      },
+      {
+        name: HomeRoutes.Migration,
+        component: Migration,
+      },
+      {
+        name: HomeRoutes.MigrationPreview,
+        component: PreviewImportData,
       },
     ],
   },

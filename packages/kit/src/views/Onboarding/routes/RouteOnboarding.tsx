@@ -5,6 +5,8 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
+import Migration from '../../Migration/ConnectServer';
+import PreviewImportData from '../../Migration/PreviewImportData';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
 import RecoveryPhrase from '../screens/CreateWallet/RecoveryPhrase';
@@ -59,6 +61,14 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.CloudBackupDetails,
     component: BackupDetails,
+  },
+  {
+    name: EOnboardingRoutes.Migration,
+    component: Migration,
+  },
+  {
+    name: EOnboardingRoutes.MigrationPreview,
+    component: PreviewImportData,
   },
 ];
 

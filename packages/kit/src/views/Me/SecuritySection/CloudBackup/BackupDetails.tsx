@@ -133,7 +133,7 @@ const GenericBackupItem = ({
   );
 };
 
-const GroupedBackupDetails = ({
+export const GroupedBackupDetails = ({
   onDevice,
   publicBackupData,
 }: {

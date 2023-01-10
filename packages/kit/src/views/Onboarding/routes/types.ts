@@ -54,4 +54,6 @@ export type IOnboardingRoutesParams = {
     numOfWatchingAccounts: number;
     numOfContacts: number;
   };
+  [EOnboardingRoutes.Migration]: undefined;
+  [EOnboardingRoutes.MigrationPreview]: undefined;
 };
