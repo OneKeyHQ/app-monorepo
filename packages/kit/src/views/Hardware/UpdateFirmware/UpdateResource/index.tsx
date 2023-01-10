@@ -126,6 +126,7 @@ const UpdateWarningModal: FC = () => {
   );
 
   const retry = useCallback(async () => {
+    setConfirmChooseDisk(false);
     setResError('');
     const response = await serviceHardware.searchDevices();
     if (!response.success) {
@@ -159,7 +160,13 @@ const UpdateWarningModal: FC = () => {
         }
       },
       () => {},
+      1,
+      3000,
     );
+
+    return () => {
+      deviceUtils.stopScan();
+    };
   }, [updateResult, connectId, device, navigation, onSuccess]);
 
   useEffect(() => {
@@ -256,6 +263,7 @@ const UpdateWarningModal: FC = () => {
 
   return (
     <Modal
+      closeOnOverlayClick={false}
       header="Update Resource"
       hideSecondaryAction
       primaryActionTranslationId={
