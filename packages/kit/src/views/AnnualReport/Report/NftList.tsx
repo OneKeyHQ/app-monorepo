@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import { HStack, Image, VStack } from '@onekeyhq/components';
 import empty1 from '@onekeyhq/kit/assets/annual/empty1.png';
@@ -43,6 +44,7 @@ const styles = [
 
 const NftList: FC<PageProps> = ({ params: { nfts } }) => {
   const intl = useIntl();
+  const { height } = useWindowDimensions();
   const { top5, total } = useMemo(() => {
     const all =
       nfts
@@ -52,8 +54,8 @@ const NftList: FC<PageProps> = ({ params: { nfts } }) => {
           (a, b) => (b?.latestTradePrice ?? 0) - (a?.latestTradePrice ?? 0),
         ) ?? [];
 
-    return { total: all.length, top5: all.slice(0, 5) };
-  }, [nfts]);
+    return { total: all.length, top5: all.slice(0, height > 800 ? 5 : 3) };
+  }, [nfts, height]);
 
   return (
     <>
