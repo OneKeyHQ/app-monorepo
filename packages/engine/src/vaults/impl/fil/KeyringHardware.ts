@@ -1,5 +1,4 @@
 import { FilecoinSigner } from '@blitslabs/filecoin-js-signer';
-import { CoinType, decode, encode } from '@glif/filecoin-address';
 import BigNumber from 'bignumber.js';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';

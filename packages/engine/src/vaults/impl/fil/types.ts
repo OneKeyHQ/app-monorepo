@@ -1,6 +1,6 @@
 export enum ChainId {
   MAIN = '314',
-  WALLABY = '31415',
+  CALIBRATION = '314159',
 }
 
 export enum ProtocolIndicator {
