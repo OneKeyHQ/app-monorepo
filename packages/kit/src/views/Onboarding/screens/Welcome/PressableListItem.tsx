@@ -48,12 +48,13 @@ const PressableListItem: FC<PressableListItemProps> = ({
     >
       <Box mr={3}>
         <Icon
-          size={isVerticalLayout ? 24 : 32}
+          size={isVerticalLayout ? 24 : 28}
           name={icon}
           color="interactive-default"
         />
       </Box>
       <Text
+        flex={{ sm: undefined, base: 1 }}
         mt={{ sm: 6 }}
         typography={{ sm: 'Body1Strong', md: 'DisplayMedium' }}
       >

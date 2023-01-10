@@ -3,10 +3,10 @@ import { useCallback, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  Divider,
   Hidden,
   Icon,
   Image,
@@ -160,7 +160,7 @@ const Welcome = () => {
               onPress={onPressCreateWallet}
             />
             <PressableListItem
-              icon="InboxArrowDownOutline"
+              icon="ArrowDownCircleOutline"
               label={intl.formatMessage({
                 id: 'action__import_wallet',
               })}
@@ -178,6 +178,7 @@ const Welcome = () => {
           >
             <Box flex={1}>
               <PressableListItem
+                // TODO: replace usb icon
                 icon="LinkOutline"
                 label={intl.formatMessage({
                   id: 'action__connect_hardware_wallet',
@@ -186,24 +187,20 @@ const Welcome = () => {
                 onPress={onPressConnectWallet}
                 overflow="hidden"
               >
-                <Box
-                  position={{ sm: 'absolute' }}
-                  right={{ sm: '-58px' }}
-                  bottom={{ sm: '-40px' }}
-                >
-                  <Image
-                    opacity={0.3}
-                    source={ContentHardwareImage}
-                    size={247}
-                    rounded="sm"
-                  />
-                </Box>
+                <Hidden till="sm">
+                  <Box
+                    position={{ sm: 'absolute' }}
+                    right={{ sm: 0 }}
+                    bottom={{ sm: '-40px' }}
+                  >
+                    <Image
+                      source={ContentHardwareImage}
+                      size={247}
+                      rounded="sm"
+                    />
+                  </Box>
+                </Hidden>
               </PressableListItem>
-              <Hidden from="sm">
-                <Text mt={3} mx={2} color="text-subdued" typography="Body2">
-                  {intl.formatMessage({ id: 'content__supported_wallets' })}
-                </Text>
-              </Hidden>
             </Box>
             {hasPreviousBackups ? (
               <PresenceTransition
@@ -231,6 +228,20 @@ const Welcome = () => {
             ) : undefined}
           </Box>
         </Box>
+        <Hidden till="sm">
+          <Box
+            flexDirection={{ sm: 'row' }}
+            alignItems="center"
+            justifyContent="center"
+            my={{ sm: 6 }}
+          >
+            <Divider flex={1} />
+            <Text mx={{ sm: 4 }} typography="Subheading" color="text-disabled">
+              OR
+            </Text>
+            <Divider flex={1} />
+          </Box>
+        </Hidden>
       </Layout>
       <TermsOfService />
     </>
