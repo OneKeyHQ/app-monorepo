@@ -41,16 +41,18 @@ const BaseMenu: FC<IBaseMenu> = ({
       }
       {...rest}
     >
-      {options.filter(Boolean).map(({ onPress, icon, id, intlValues }) => (
-        <Menu.CustomItem icon={icon} onPress={onPress}>
-          {intl.formatMessage(
-            {
-              id,
-            },
-            intlValues,
-          )}
-        </Menu.CustomItem>
-      ))}
+      {options
+        .filter(Boolean)
+        .map(({ onPress, icon, id, intlValues }, index) => (
+          <Menu.CustomItem key={index} icon={icon} onPress={onPress}>
+            {intl.formatMessage(
+              {
+                id,
+              },
+              intlValues,
+            )}
+          </Menu.CustomItem>
+        ))}
     </Menu>
   );
 };

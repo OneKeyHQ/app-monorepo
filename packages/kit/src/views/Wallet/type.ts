@@ -4,3 +4,10 @@ export enum WalletHomeTabEnum {
   History = 'History',
   Tools = 'Tools',
 }
+
+export const HomeTabOrder = [
+  WalletHomeTabEnum.Tokens,
+  WalletHomeTabEnum.Collectibles,
+  WalletHomeTabEnum.History,
+  WalletHomeTabEnum.Tools,
+];
