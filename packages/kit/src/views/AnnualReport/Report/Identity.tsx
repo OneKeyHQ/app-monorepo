@@ -1,4 +1,5 @@
 import type { ComponentProps, FC } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -121,7 +122,17 @@ const Identity: FC<PageProps> = ({
   onSelectedCardIndexChange,
 }) => {
   const intl = useIntl();
+  const ref = useRef<Carousel<any>>();
   const { width } = useWindowDimensions();
+
+  useEffect(() => {
+    const index = selectedCardIndex ?? random(0, 5);
+    const timeout = setTimeout(() => {
+      ref.current?.snapToItem?.(index);
+      onSelectedCardIndexChange?.(index);
+    }, 600);
+    return () => clearTimeout(timeout);
+  }, [width, selectedCardIndex, onSelectedCardIndexChange]);
 
   return (
     <VStack flex="1" justifyContent="center" pb="90px">
@@ -140,6 +151,8 @@ const Identity: FC<PageProps> = ({
         </WText>
         <Carousel
           loop
+          // @ts-ignore
+          ref={ref}
           data={tags}
           firstItem={selectedCardIndex ?? random(0, 5)}
           sliderWidth={width}
