@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import bg1 from '@onekeyhq/kit/assets/annual/1.png';
 
-import { useNavigation } from '../../../../hooks';
+import { useAppSelector, useNavigation } from '../../../../hooks';
 import { HomeRoutes } from '../../../../routes/types';
 
 import type { HomeRoutesParams } from '../../../../routes/types';
@@ -31,9 +31,17 @@ export const AnnualEntry: FC = () => {
   const intl = useIntl();
   const { width } = useWindowDimensions();
 
+  const annualReportEntryEnabled = useAppSelector(
+    (s) => s.settings?.annualReportEntryEnabled ?? false,
+  );
+
   const toAnnual = useCallback(() => {
     navigation.navigate(HomeRoutes.AnnualLoading);
   }, [navigation]);
+
+  if (!annualReportEntryEnabled) {
+    return null;
+  }
 
   return (
     <Center w="full" alignItems="center" my="8">

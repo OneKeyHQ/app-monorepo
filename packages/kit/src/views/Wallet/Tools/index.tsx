@@ -106,6 +106,9 @@ const ToolsPage: FC = () => {
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const annualReportEntryEnabled = useAppSelector(
+    (s) => s.settings?.annualReportEntryEnabled ?? false,
+  );
   const tools = useTools(network?.id);
 
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
@@ -123,6 +126,9 @@ const ToolsPage: FC = () => {
     if (network?.impl !== IMPL_EVM) {
       allItems = allItems.filter((n) => n.key !== 'revoke');
     }
+    if (!annualReportEntryEnabled) {
+      allItems = allItems.filter((n) => n.key !== 'annual');
+    }
     return allItems.concat(
       tools.map((t) => ({
         key: t.title,
@@ -135,7 +141,7 @@ const ToolsPage: FC = () => {
         link: t.link,
       })),
     );
-  }, [hasAvailable, accountAddress, tools, network]);
+  }, [hasAvailable, accountAddress, tools, network, annualReportEntryEnabled]);
 
   const handlePress = useCallback(
     (key: string) => {
