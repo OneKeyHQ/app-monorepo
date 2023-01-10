@@ -46,10 +46,10 @@ It is at the *sole discretion of OneKey* to decide whether or not a bug report q
 Severity levels:
 
 * *Note*: Up to $500 USD (min. $100)
-* *Low*: Up to $2,000 USD (min. $500)
-* *Medium*: Up to $5,000 USD (min. $2,000)
-* *High*: Up to $10,000 USD (min. $5,000)
-* *Critical*: Up to $20,000 USD (min. $10,000)
+* *Low*: Up to $1,000 USD (min. $500)
+* *Medium*: Up to $2,000 USD (min. $1,000)
+* *High*: Up to $5,000 USD (min. $2,000)
+* *Critical*: Up to $10,000 USD (min. $5,000)
 
 Issues reported may or may not constitute a security risk for the OneKey contracts. A higher severity will be awarded to vulnerabilities submitted that could potentially result in either the loss of funds, or a situation in which the contracts arrive in an undesirable state that cannot be rectified through existing contract mechanisms, such as 'emergency mode' or through a network upgrade. However, all submitted bugs and vulnerabilities will be considered for prizes.
 

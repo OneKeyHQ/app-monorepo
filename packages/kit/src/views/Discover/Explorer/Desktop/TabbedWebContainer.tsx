@@ -23,7 +23,7 @@ const TabbedWebContainer = memo(() => {
   useFocusEffect(
     useCallback(() => {
       if (incomingUrl) {
-        gotoSite({ url: incomingUrl, isNewWindow: true });
+        gotoSite({ url: incomingUrl, isNewWindow: true, userTriggered: true });
         clearIncomingUrl();
       }
     }, [clearIncomingUrl, incomingUrl]),

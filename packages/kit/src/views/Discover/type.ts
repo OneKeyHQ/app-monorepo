@@ -6,6 +6,13 @@ export type WebSiteHistory = {
   favicon?: string;
 };
 
+export type UserBrowserHistory = {
+  url: string;
+  title?: string;
+  logoUrl?: string;
+  dappId?: string;
+};
+
 export type DiscoverHistory = {
   webSite?: WebSiteHistory; // 手动输入的普通网站
   clicks: number;

@@ -21,7 +21,6 @@ import {
   useActiveWalletAccount,
   useAppSelector,
   useNavigation,
-  useNetworkSimple,
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
