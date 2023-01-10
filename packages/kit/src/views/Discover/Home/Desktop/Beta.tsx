@@ -19,7 +19,7 @@ import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
-import { useDiscoverFavorites, useDiscoverHistory } from '../../hooks';
+import { useDiscoverFavorites, useUserBrowserHistories } from '../../hooks';
 import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
@@ -90,7 +90,7 @@ const ListHeaderFavorites = () => {
 
 const ListHeaderHistories = () => {
   const { onItemSelectHistory } = useContext(DiscoverContext);
-  const histories = useDiscoverHistory();
+  const histories = useUserBrowserHistories();
 
   const children = useMemo(
     () =>

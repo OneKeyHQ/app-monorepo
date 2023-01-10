@@ -9,7 +9,6 @@ import {
   Box,
   Button,
   Empty,
-  Image,
   Pressable,
   ScrollView,
   Typography,
@@ -23,7 +22,6 @@ import { HomeRoutes, ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
-  useDiscoverHistory,
   useTaggedDapps,
   useUserBrowserHistories,
 } from '../../hooks';
