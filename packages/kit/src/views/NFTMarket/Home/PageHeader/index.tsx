@@ -114,16 +114,16 @@ const PageHeader = () => {
       </HStack>
       {/* Right */}
       <Hidden from="md">
-        <HStack space="8px">
-          <IconButton
-            name="DocumentChartBarOutline"
-            type="plain"
-            size="lg"
-            circle
+        <HStack space="8px" alignItems="center">
+          <Button
+            leftIconName="DocumentChartBarMini"
+            size="sm"
             onPress={() => {
               nplAction();
             }}
-          />
+          >
+            PnL
+          </Button>
           <IconButton
             name="MagnifyingGlassOutline"
             type="plain"
