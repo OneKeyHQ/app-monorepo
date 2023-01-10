@@ -35,7 +35,7 @@ import type {
 } from '@onekeyfe/hd-core';
 import type { Deferred } from '@onekeyfe/hd-shared';
 
-type IPollFn<T> = (time?: number, index?: number) => T;
+type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
 
 const MAX_SEARCH_TRY_COUNT = 15;
 const POLL_INTERVAL = 1000;
@@ -72,6 +72,8 @@ class DeviceUtils {
   startDeviceScan(
     callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
     onSearchStateChange: (state: 'start' | 'stop') => void,
+    pollIntervalRate = POLL_INTERVAL_RATE,
+    pollInterval = POLL_INTERVAL,
   ) {
     const searchDevices = async () => {
       // Should search Throttling
@@ -106,6 +108,7 @@ class DeviceUtils {
     const poll: IPollFn<void> = async (
       time = POLL_INTERVAL,
       searchIndex = 0,
+      rate = POLL_INTERVAL_RATE,
     ) => {
       if (!this.scanMap[searchIndex]) {
         return;
@@ -116,19 +119,18 @@ class DeviceUtils {
       }
 
       await searchDevices();
-
       return new Promise((resolve: (p: void) => void) =>
-        setTimeout(
-          () => resolve(poll(time * POLL_INTERVAL_RATE, searchIndex)),
-          time,
-        ),
+        setTimeout(() => resolve(poll(time * rate, searchIndex, rate)), time),
       );
     };
 
     this.searchIndex += 1;
     this.scanMap[this.searchIndex] = true;
-    const time = platformEnv.isNativeAndroid ? 2000 : POLL_INTERVAL;
-    poll(time, this.searchIndex);
+    const time = platformEnv.isNativeAndroid
+      ? 2000
+      : pollInterval ?? POLL_INTERVAL;
+    const rate = pollIntervalRate ?? POLL_INTERVAL_RATE;
+    poll(time, this.searchIndex, rate);
   }
 
   stopScan() {
