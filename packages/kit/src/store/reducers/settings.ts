@@ -58,6 +58,7 @@ export type SettingsState = {
     enableZeroNotificationThreshold?: boolean;
     enablePerfCheck?: boolean;
     hideDiscoverContent?: boolean;
+    enableExternalAccountAnnualReport?: boolean;
   };
   pushNotification?: {
     registrationId?: string;
@@ -263,6 +264,12 @@ export const settingsSlice = createSlice({
     setHideDiscoverContent(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, hideDiscoverContent: action.payload };
     },
+    setEnableExternalAccountReport(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        enableExternalAccountAnnualReport: action.payload,
+      };
+    },
     setAnnualReportEntryEnabled(state, action: PayloadAction<boolean>) {
       state.annualReportEntryEnabled = action.payload;
     },
@@ -450,6 +457,7 @@ export const {
   disableExtSwitchTips,
   setHideDiscoverContent,
   setAnnualReportEntryEnabled,
+  setEnableExternalAccountReport,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

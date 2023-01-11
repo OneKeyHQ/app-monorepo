@@ -16,7 +16,9 @@ import { useRuntime } from '../../hooks/redux';
 import { appSelector } from '../../store';
 
 const isCompatibleWallet = (w: Wallet) =>
-  appSelector((s) => s.settings.devMode?.enable)
+  appSelector(
+    (s) => s.settings.devMode?.enableExternalAccountAnnualReport ?? false,
+  )
     ? true
     : ![WALLET_TYPE_EXTERNAL, WALLET_TYPE_WATCHING].includes(w.type);
 

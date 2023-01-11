@@ -74,7 +74,9 @@ class DeviceUtils {
     onSearchStateChange: (state: 'start' | 'stop') => void,
     pollIntervalRate = POLL_INTERVAL_RATE,
     pollInterval = POLL_INTERVAL,
+    maxTryCount = MAX_SEARCH_TRY_COUNT,
   ) {
+    const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
     const searchDevices = async () => {
       // Should search Throttling
       if (searchPromise) {
@@ -113,7 +115,7 @@ class DeviceUtils {
       if (!this.scanMap[searchIndex]) {
         return;
       }
-      if (this.tryCount > MAX_SEARCH_TRY_COUNT) {
+      if (this.tryCount > MaxTryCount) {
         this.stopScan();
         return;
       }
@@ -228,12 +230,15 @@ class DeviceUtils {
   ): Promise<IResourceUpdateInfo> {
     const { getDeviceType } = await CoreSDKLoader();
     const deviceType = getDeviceType(features);
-    if (deviceType !== 'touch') return { error: null, needUpdate: false };
+    const { version, fullResourceRange } = firmware;
+    if (deviceType !== 'touch' || !fullResourceRange)
+      return { error: null, needUpdate: false };
     const currentVersion = getDeviceFirmwareVersion(features).join('.');
-    const targetVersion = firmware.version.join('.');
+    const targetVersion = version.join('.');
+    const [minVersion, limitVersion] = fullResourceRange;
     if (
-      semver.lt(currentVersion, '3.5.0') &&
-      semver.gte(targetVersion, '3.5.0')
+      semver.lt(currentVersion, minVersion) &&
+      semver.gte(targetVersion, limitVersion)
     ) {
       return {
         error: !platformEnv.isDesktop ? 'USE_DESKTOP' : null,
