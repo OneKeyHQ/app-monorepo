@@ -48,6 +48,7 @@ import {
   isValidContractAddress,
 } from './sdk/address';
 import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
+import { defaultAminoMsgOpts } from './sdk/amino/types';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
 import { MintScanQuery } from './sdk/query/MintScanQuery';
@@ -704,8 +705,9 @@ export default class Vault extends VaultBase {
 
       const msgSend = msgs.find(
         (item) =>
+          item?.typeUrl === defaultAminoMsgOpts.send.native.type ||
           // @ts-expect-error
-          item?.typeUrl === MessageType.SEND || item?.type === MessageType.SEND,
+          item?.type === MessageType.SEND,
       );
 
       if (msgSend) {
@@ -787,7 +789,7 @@ export default class Vault extends VaultBase {
     if (
       options.type === IEncodedTxUpdateType.transfer &&
       msgs.length > 0 &&
-      msgs[0].typeUrl === MessageType.SEND
+      msgs[0].typeUrl === defaultAminoMsgOpts.send.native.type
     ) {
       const network = await this.getNetwork();
 
