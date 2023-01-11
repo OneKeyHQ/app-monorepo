@@ -168,7 +168,9 @@ const UpdateInfoModal: FC = () => {
           firmware,
         );
         if (resourceInfo.error === 'USE_DESKTOP') {
-          showUpdateOnDesktopModal();
+          setTimeout(() => {
+            showUpdateOnDesktopModal();
+          }, 150);
           if (!isSmallScreen) {
             navigation.goBack();
           }
@@ -244,9 +246,13 @@ const UpdateInfoModal: FC = () => {
               <Empty
                 icon={<Spinner mb="16px" size="lg" />}
                 title={intl.formatMessage({ id: 'modal__device_status_check' })}
-                subTitle={intl.formatMessage({
-                  id: 'modal__device_status_check_restart_device_to_exit_boardloader',
-                })}
+                subTitle={
+                  device?.deviceType === 'touch'
+                    ? intl.formatMessage({
+                        id: 'modal__device_status_check_restart_device_to_exit_boardloader',
+                      })
+                    : ''
+                }
                 mt="24px"
                 p="16px"
                 borderRadius="12px"
