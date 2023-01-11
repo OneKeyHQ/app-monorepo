@@ -22,7 +22,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   onRefresh,
   refreshing,
   containerStyle,
-  scrollEnabled = true,
+  scrollEnabled = false,
   ...props
 }) => {
   const tabs = Children.map(children, (child) =>
