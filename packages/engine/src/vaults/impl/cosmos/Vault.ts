@@ -6,7 +6,6 @@ import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 import Long from 'long';
 import memoizee from 'memoizee';
-import protobufjs from 'protobufjs';
 
 import {
   InvalidAddress,
@@ -88,10 +87,6 @@ import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
-
-// see https://github.com/protobufjs/protobuf.js/issues/1745
-protobufjs.util.Long = Long;
-protobufjs.configure();
 
 const GAS_STEP_MULTIPLIER = 10000;
 const GAS_ADJUSTMENT: Record<string, string> = {
