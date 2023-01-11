@@ -236,9 +236,11 @@ export const showMarketSearch = ({
       dropdownPosition="left"
       dropdownStyle={{ w: '360px', bg: 'surface-default', p: 0 }}
     >
-      <MarketSearch closeOverlay={() => {
+      <MarketSearch
+        closeOverlay={() => {
           searchOnChangeDebounce('');
           closeOverlay();
-        }} />
+        }}
+      />
     </OverlayPanel>
   ));
