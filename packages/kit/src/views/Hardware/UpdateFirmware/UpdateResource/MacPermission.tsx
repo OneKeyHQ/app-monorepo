@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -53,7 +54,7 @@ const Marker = ({
 
 const MacPermission = () => {
   const { themeVariant } = useTheme();
-
+  const intl = useIntl();
   const PrivacyImage = useMemo(() => {
     const source =
       themeVariant === 'light'
@@ -67,10 +68,14 @@ const MacPermission = () => {
       {/* First Step */}
       <HStack justifyContent={{ base: 'space-between' }}>
         <VStack space={4} flex={1} mr={6}>
-          <Title marker="I" title="Restart Device" />
+          <Title
+            marker="I"
+            title={intl.formatMessage({ id: 'content__restart_device' })}
+          />
           <Text typography={{ sm: 'Body2', md: 'Body2' }} color="text-subdued">
-            Restart your device to escape Boardloader mode; we'll have to update
-            the firmware from scratch.
+            {intl.formatMessage({
+              id: 'content__restart_device_to_exit_boardloader',
+            })}
           </Text>
         </VStack>
         <Center
@@ -94,11 +99,18 @@ const MacPermission = () => {
       {/* Second Step */}
       <HStack justifyContent={{ base: 'space-between' }}>
         <VStack space={4} flex={1} mr={6}>
-          <Title marker="II" title="Enable macOS Permissions for OneKey" />
+          <Title
+            marker="II"
+            title={intl.formatMessage({
+              id: 'content__enable_mac_permissions_for_oneKey',
+            })}
+          />
           <VStack space={4} pl={2}>
             <Marker
               marker="1."
-              content='Click the button bellow to open "System Preference"'
+              content={intl.formatMessage({
+                id: 'content__enable_mac_permissions_for_oneKey_step_1',
+              })}
             >
               <Button
                 type="basic"
@@ -109,15 +121,27 @@ const MacPermission = () => {
                   window.desktopApi?.openPrivacyPanel?.();
                 }}
               >
-                Open System Preference
+                {intl.formatMessage({ id: 'action__open_system_preference' })}
               </Button>
             </Marker>
-            <Marker marker="2." content='Select "Files and Folders"' />
+            <Marker
+              marker="2."
+              content={intl.formatMessage({
+                id: 'content__enable_mac_permissions_for_oneKey_step_2',
+              })}
+            />
             <Marker
               marker="3."
-              content='Enable "Removable Volumes" below OneKey'
+              content={intl.formatMessage({
+                id: 'content__enable_mac_permissions_for_oneKey_step_3',
+              })}
             />
-            <Marker marker="4." content='Click "Quit & Reopen" on the dialog' />
+            <Marker
+              marker="4."
+              content={intl.formatMessage({
+                id: 'content__enable_mac_permissions_for_oneKey_step_4',
+              })}
+            />
           </VStack>
         </VStack>
         <Center>{PrivacyImage}</Center>
