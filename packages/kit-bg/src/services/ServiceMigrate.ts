@@ -160,14 +160,11 @@ class ServiceMigrate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async startHttpServer({
-    port,
-  }: {
-    port: number;
-  }): Promise<string | undefined> {
+  async startHttpServer(): Promise<string | undefined> {
     if (!this.httpServerEnable) {
       return Promise.resolve('');
     }
+    const port = 20231;
     if (platformEnv.isNative) {
       return new Promise((resolve) => {
         HTTPServerManager.start(port, 'http_service', (data, success) => {

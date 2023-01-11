@@ -99,6 +99,7 @@ const Migration = () => {
 
   return (
     <Layout
+      disableAnimation={false}
       title="Migrate"
       description="between OneKey"
       secondaryContent={rightCompoment}

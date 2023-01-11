@@ -2,12 +2,16 @@ import { useCallback } from 'react';
 
 import { isEmpty } from 'lodash';
 
+import { ToastManager } from '@onekeyhq/components';
 import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../../components/Protected';
 import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
+import { deviceInfo } from '../util';
+
+import { showMigrateDataModal } from './MigrateDataModal';
 
 function isEmptyData(data: PublicBackupData) {
   let empty = true;
@@ -25,7 +29,7 @@ export enum ExportResult {
   CANCEL = 'cancel',
 }
 
-export default function useExportData() {
+export function useExportData() {
   const { showVerify } = useLocalAuthenticationModal();
   const { serviceCloudBackup } = backgroundApiProxy;
 
@@ -64,4 +68,28 @@ export default function useExportData() {
   );
 
   return { exportDataRequest };
+}
+
+export function useConnectServer() {
+  const { serviceMigrate } = backgroundApiProxy;
+
+  const connectServer = useCallback(
+    async (serverAddress: string) => {
+      const serverInfo = await serviceMigrate.connectServer(serverAddress);
+      console.log('serverInfo = ', serverInfo);
+
+      if (serverInfo) {
+        showMigrateDataModal({
+          serverInfo,
+          serverAddress,
+          clientInfo: deviceInfo(),
+        });
+      } else {
+        ToastManager.show({ title: 'Connect Failed' }, { type: 'error' });
+      }
+    },
+    [serviceMigrate],
+  );
+
+  return { connectServer };
 }

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
@@ -150,10 +149,6 @@ export type HomeRoutesParams = {
   [HomeRoutes.RevokeRedirect]: undefined;
   [HomeRoutes.KeyTag]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;
-  [HomeRoutes.Migration]: undefined;
-  [HomeRoutes.MigrationPreview]: {
-    data: MigrateData;
-  };
 };
 /** HomeStack */
 

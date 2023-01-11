@@ -17,17 +17,15 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
-import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { showOverlay } from '../../../utils/overlayUtils';
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 import { parseDeviceInfo } from '../util';
 
-import useExportData, { ExportResult } from './hook';
-
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ExportResult, useExportData } from './hook';
 
 type Props = {
   serverInfo: DeviceInfo;
@@ -60,10 +58,7 @@ const Content: FC<Props> = ({
   const { serviceMigrate } = backgroundApiProxy;
   const { exportDataRequest } = useExportData();
 
-  const navigation =
-    useNavigation<
-      NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.MigrationPreview>
-    >();
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (isSend) {
@@ -106,9 +101,10 @@ const Content: FC<Props> = ({
         return false;
       }
       closeOverlay();
-
-      navigation.navigate(HomeRoutes.MigrationPreview, { data });
-      // navigation.navigate(HomeRoutes.Migration);
+      navigation.navigate(RootRoutes.Onboarding, {
+        screen: EOnboardingRoutes.MigrationPreview,
+        params: { data },
+      });
       return true;
     }
     return false;

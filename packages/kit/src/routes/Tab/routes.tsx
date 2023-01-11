@@ -223,14 +223,6 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.PushNotificationManageAccountDynamic,
         component: PushNotificationManageAccountDynamic,
       },
-      {
-        name: HomeRoutes.Migration,
-        component: Migration,
-      },
-      {
-        name: HomeRoutes.MigrationPreview,
-        component: PreviewImportData,
-      },
     ],
   },
 ];

@@ -15,7 +15,6 @@ import {
   SegmentedControl,
   Text,
   ToastManager,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type {
@@ -25,8 +24,7 @@ import type {
 import { MigrateNotificationNames } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
 import type { MigrateNotificationData } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
-import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import {
   AppEventBusNames,
   appEventBus,
@@ -35,13 +33,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
-import { deviceInfo, httpServerEnable } from '../util';
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
+import { httpServerEnable } from '../util';
 
-import useExportData, { ExportResult } from './hook';
-import { showMigrateDataModal } from './MigrateDataModal';
+import { ExportResult, useConnectServer, useExportData } from './hook';
 import { showSendDataRequestModal } from './SendDataRequestModal';
-
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const QRCodeView: FC = () => {
   const intl = useIntl();
@@ -49,30 +45,21 @@ const QRCodeView: FC = () => {
 
   const { exportDataRequest } = useExportData();
 
-  const navigation =
-    useNavigation<
-      NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.MigrationPreview>
-    >();
+  const navigation = useNavigation();
   const [serverAddress, updateServerAddress] = useState('');
-  const startHttpServer = useCallback(
-    async (port: number) => {
-      const serverUrl = await serviceMigrate.startHttpServer({
-        port,
-      });
-      if (serverUrl) {
-        console.log('serverUrl = ', serverUrl);
-
-        updateServerAddress(serverUrl);
-        return true;
-      }
-      return false;
-    },
-    [serviceMigrate],
-  );
+  const startHttpServer = useCallback(async () => {
+    const serverUrl = await serviceMigrate.startHttpServer();
+    if (serverUrl) {
+      // console.log('serverUrl = ', serverUrl);
+      updateServerAddress(serverUrl);
+      return true;
+    }
+    return false;
+  }, [serviceMigrate]);
 
   useEffect(() => {
     if (serverAddress.length === 0) {
-      startHttpServer(5555);
+      startHttpServer();
     }
     return () => {
       if (serverAddress.length > 0) {
@@ -93,7 +80,10 @@ const QRCodeView: FC = () => {
               typeof json?.public === 'string' &&
               typeof json?.private === 'string'
             ) {
-              navigation.navigate(HomeRoutes.MigrationPreview, { data: json });
+              navigation.navigate(RootRoutes.Onboarding, {
+                screen: EOnboardingRoutes.MigrationPreview,
+                params: { data: json },
+              });
               serviceMigrate.serverRespond({
                 requestId,
                 respondData: { success: true },
@@ -170,7 +160,7 @@ const QRCodeView: FC = () => {
           shadow="depth.4"
         >
           <QRCode
-            value={serverAddress}
+            value={`migrate://${serverAddress}`}
             size={170}
             logo={qrcodeLogo}
             logoSize={32}
@@ -208,21 +198,8 @@ const QRCodeView: FC = () => {
 
 const EnterLinkView: FC = () => {
   const intl = useIntl();
-  const isVerticalLayout = useIsVerticalLayout();
   const [value, setValue] = useState('');
-  const { serviceMigrate } = backgroundApiProxy;
-
-  const connectServer = useCallback(async () => {
-    const serverInfo = await serviceMigrate.connectServer(value);
-    if (serverInfo) {
-      showMigrateDataModal({
-        serverInfo,
-        serverAddress: value,
-        clientInfo: deviceInfo(),
-      });
-    }
-  }, [serviceMigrate, value]);
-  // const [isLoading, setIsLoading] = useState(true);
+  const { connectServer } = useConnectServer();
 
   return (
     <Box mt="74px" width="285px" height="100%">
@@ -246,7 +223,9 @@ const EnterLinkView: FC = () => {
         type="primary"
         size="xl"
         mt="24px"
-        onPromise={connectServer}
+        onPromise={async () => {
+          await connectServer(value);
+        }}
       >
         Connect
       </Button>

@@ -28,11 +28,11 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAppSelector } from '../../../hooks';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 import { ManageConnectedSitesRoutes } from '../../ManageConnectedSites/types';
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 
 import { showEnableExtTipsSheet } from './enableExtSheet';
 
 import type { ManageConnectedSitesRoutesParams } from '../../ManageConnectedSites/types';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = ModalScreenProps<ManageConnectedSitesRoutesParams>;
 
@@ -41,10 +41,6 @@ export const UtilSection = () => {
   const small = useIsVerticalLayout();
   const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const navigation2 =
-    useNavigation<
-      NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Migration>
-    >();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
   const disableExt = useAppSelector((s) => s.settings.disableExt);
   const disableExtSwitchTips = useAppSelector(
@@ -224,7 +220,10 @@ export const UtilSection = () => {
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => {
-            navigation2.navigate(HomeRoutes.Migration);
+            navigation.navigate(RootRoutes.Onboarding, {
+              screen: EOnboardingRoutes.Migration,
+              params: undefined,
+            });
           }}
         >
           <Icon name="ArrowPathOutline" />

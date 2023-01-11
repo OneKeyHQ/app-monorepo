@@ -30,8 +30,9 @@ import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationMo
 import { GroupedBackupDetails } from '../../Me/SecuritySection/CloudBackup/BackupDetails';
 import Layout from '../../Onboarding/Layout';
 
+import type { EOnboardingRoutes } from '../../Onboarding/routes/enums';
+import type { IOnboardingRoutesParams } from '../../Onboarding/routes/types';
 import type { RouteProp } from '@react-navigation/core';
-import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const defaultProps = {} as const;
@@ -41,10 +42,14 @@ type NavigationProps = NativeStackNavigationProp<
   HomeRoutes.InitialTab
 >;
 
+type RouteProps = RouteProp<
+  IOnboardingRoutesParams,
+  EOnboardingRoutes.MigrationPreview
+>;
+
 const PreviewImportData = () => {
   const intl = useIntl();
-  const route =
-    useRoute<RouteProp<HomeRoutesParams, HomeRoutes.MigrationPreview>>();
+  const route = useRoute<RouteProps>();
   const { data } = route.params;
   const navigation = useNavigation<NavigationProps>();
   const { serviceCloudBackup } = backgroundApiProxy;
@@ -249,7 +254,12 @@ const PreviewImportData = () => {
   }, [isVerticalLayout]);
 
   return (
-    <Layout title="Preview" fullHeight secondaryContent={secondaryContent}>
+    <Layout
+      disableAnimation={false}
+      title="Preview"
+      fullHeight
+      secondaryContent={secondaryContent}
+    >
       {children}
     </Layout>
   );
