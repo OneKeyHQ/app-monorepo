@@ -50,9 +50,9 @@ const NftList: FC<PageProps> = ({ params: { nfts } }) => {
       nfts
         ?.map((n) => n.assets)
         ?.flat()
-        .sort(
+        ?.sort(
           (a, b) => (b?.latestTradePrice ?? 0) - (a?.latestTradePrice ?? 0),
-        ) ?? [];
+        ) || [];
 
     return { total: all.length, top5: all.slice(0, height > 800 ? 5 : 3) };
   }, [nfts, height]);
@@ -70,7 +70,18 @@ const NftList: FC<PageProps> = ({ params: { nfts } }) => {
           ? intl.formatMessage(
               { id: 'content__eventually_str_jpegs_are_still_in_your_wallet' },
               {
-                0: total,
+                0: (
+                  <WText
+                    fontWeight="600"
+                    fontSize="32px"
+                    color="#E2E2E8"
+                    mb="2"
+                    lineHeight="45px"
+                    useCustomFont
+                  >
+                    {total}
+                  </WText>
+                ),
               },
             )
           : intl.formatMessage({
