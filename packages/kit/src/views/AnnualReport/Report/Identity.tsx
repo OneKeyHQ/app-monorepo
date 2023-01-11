@@ -78,10 +78,11 @@ export const Card: FC<
           fontFamily="mono"
           lineHeight="17px"
           fontWeight="900"
+          useCustomFont
         >
           {name}
         </WText>
-        <WText color="#34C759" fontSize="32px" fontWeight="900">
+        <WText color="#34C759" fontSize="32px" fontWeight="900" useCustomFont>
           {tag}
         </WText>
         <WText
@@ -89,6 +90,7 @@ export const Card: FC<
           fontFamily="mono"
           lineHeight="17px"
           fontWeight="900"
+          useCustomFont
         >
           of 2022
         </WText>

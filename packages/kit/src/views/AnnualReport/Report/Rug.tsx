@@ -26,7 +26,12 @@ const Rug: FC<PageProps> = () => {
         justifyContent="space-between"
       >
         <VStack w={height < 800 ? undefined : 'full'}>
-          <WText fontWeight="900" fontSize="24px" color="text-success">
+          <WText
+            fontWeight="900"
+            fontSize="24px"
+            color="text-success"
+            useCustomFont
+          >
             2022.05.13
           </WText>
           <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
@@ -34,7 +39,12 @@ const Rug: FC<PageProps> = () => {
           </WText>
         </VStack>
         <VStack>
-          <WText fontWeight="900" fontSize="24px" color="text-success">
+          <WText
+            fontWeight="900"
+            fontSize="24px"
+            color="text-success"
+            useCustomFont
+          >
             2022.11.11
           </WText>
           <WText fontWeight="500" fontSize="24px" color="#E2E2E8">
@@ -50,7 +60,12 @@ const Rug: FC<PageProps> = () => {
           id: 'content__have_you_been_spared_this_year_we_hope_you_re_the',
         })}
       </WText>
-      <WText fontWeight="700" fontSize="40px" color="text-success">
+      <WText
+        fontWeight="700"
+        fontSize="40px"
+        color="text-success"
+        useCustomFont
+      >
         {intl.formatMessage({ id: 'content__anti_rug_master' })}
       </WText>
     </>

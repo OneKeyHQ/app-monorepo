@@ -66,7 +66,7 @@ const defaultPages: DataItem[] = [
     page: Safe,
   },
   {
-    bg: bgs.bg2,
+    bg: bgs.bg7,
     page: Identity,
     containerProps: {
       px: 0,
@@ -166,8 +166,7 @@ const AnnualReport = () => {
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset } = e.nativeEvent;
       const viewSize = e.nativeEvent.layoutMeasurement;
-      const pageNum = Math.floor(contentOffset.y / viewSize.height);
-      setCurrentPage(pageNum);
+      setCurrentPage(Math.round(contentOffset.y / viewSize.height));
     },
     [],
   );
