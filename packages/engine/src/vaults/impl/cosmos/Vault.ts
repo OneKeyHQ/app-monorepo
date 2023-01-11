@@ -551,13 +551,26 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxCosmos> {
-    const { to, amount, token: tokenAddress } = transferInfo;
+    let { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
     const chainInfo = await this.getChainInfo();
     const { chainId } = parseNetworkId(this.networkId);
 
     if (!chainId) {
       throw new Error('Invalid networkId');
+    }
+
+    let memo: string = transferInfo.destinationTag ?? '';
+    // Slice destination tag from swap address
+    if (
+      !isValidAddress(to, chainInfo.implOptions.addressPrefix) &&
+      to.indexOf('#') > -1
+    ) {
+      const [address, tag] = to.split('#');
+      to = address;
+      memo = tag ?? '';
+
+      await this.validateAddress(address);
     }
 
     let message;
@@ -613,7 +626,7 @@ export default class Vault extends VaultBase {
     const pubkey = hexToBytes(stripHexPrefix(await this._getPublicKey()));
 
     return this.txBuilder.makeTxWrapper(message, {
-      memo: '',
+      memo,
       gasLimit: '0',
       feeAmount: '1',
       pubkey,
