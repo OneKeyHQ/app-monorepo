@@ -85,68 +85,104 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
 
   const findWindowsDiskPath = async (): Promise<string> =>
     new Promise((resolve, reject) => {
-      const wmic = spawn('wmic', [
-        'logicaldisk',
-        'where',
-        'drivetype=2',
-        'get',
-        'deviceid,volumename',
-      ]);
+      let tryCount = 0;
+      const maxTryCount = 60;
+      let intervalId: ReturnType<typeof setInterval> | null = null;
 
-      wmic.stdout.on('data', (buffer: Buffer) => {
-        let data = buffer.toString('utf8');
-        data = data.replace(/DeviceID/g, '');
-        data = data.replace(/VolumeName/g, '');
-        const array = [...data].filter(
-          (item) => item !== ' ' && item !== '\r' && item !== '\n',
-        );
-        const id: string[] = [];
-        let name: string[] = [];
-        const result: Record<string, string> = {};
-        array.forEach((v, i) => {
-          if (v === ':') {
-            const key = array[i - 1];
-            result[key] = '';
-            if (id.length > 0) {
+      const cleanTimer = () => {
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+      };
+
+      intervalId = setInterval(() => {
+        logger.info(`find windows disk path, ${tryCount} try ===>`);
+
+        try {
+          const wmic = spawn('wmic', [
+            'logicaldisk',
+            'where',
+            'drivetype=2',
+            'get',
+            'deviceid,volumename',
+          ]);
+
+          wmic.stdout.on('data', (buffer: Buffer) => {
+            let data = buffer.toString('utf8');
+            logger.info('wmic stdout =====> ', data);
+            data = data.replace(/DeviceID/g, '');
+            data = data.replace(/VolumeName/g, '');
+            const array = [...data].filter(
+              (item) => item !== ' ' && item !== '\r' && item !== '\n',
+            );
+            const id: string[] = [];
+            let name: string[] = [];
+            const result: Record<string, string> = {};
+            array.forEach((v, i) => {
+              if (v === ':') {
+                const key = array[i - 1];
+                result[key] = '';
+                if (id.length > 0) {
+                  result[id[id.length - 1]] = name.join('');
+                }
+                id.push(key);
+                name = [];
+              } else {
+                name.push(v);
+              }
+            });
+
+            if (name.length > 0) {
               result[id[id.length - 1]] = name.join('');
             }
-            id.push(key);
-            name = [];
-          } else {
-            name.push(v);
-          }
-        });
 
-        if (name.length > 0) {
-          result[id[id.length - 1]] = name.join('');
+            logger.info(
+              'find win disk path result =====> ',
+              JSON.stringify(result),
+            );
+
+            const diskPath = Object.keys(result).find(
+              (key) => result[key].indexOf('ONEKEYDATA') > -1,
+            );
+            if (diskPath) {
+              cleanTimer();
+              const WinDiskPath = `${diskPath}:`;
+              pollingDiskPathCanAccess(WinDiskPath)
+                .then(() => {
+                  resolve(WinDiskPath);
+                })
+                .catch((err) => {
+                  logger.debug('windows disk access error =====> ', err);
+                  cleanTimer();
+                  reject(err);
+                });
+            } else {
+              tryCount += 1;
+            }
+          });
+
+          wmic.stderr.on('data', (data: Buffer) => {
+            tryCount += 1;
+            logger.error(
+              `wmin command failure, error ===> : ${data.toString('utf-8')}`,
+            );
+          });
+
+          wmic.on('close', (code: string) => {
+            tryCount += 1;
+            logger.debug(`wmic command child process exited with code ${code}`);
+          });
+        } catch (e: any) {
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          logger.debug(`wmic command child process executed error: ${e}`);
+          tryCount += 1;
         }
 
-        const diskPath = Object.keys(result).find(
-          (key) => result[key].indexOf('ONEKEYDATA') > -1,
-        );
-        if (diskPath) {
-          const WinDiskPath = `${diskPath}:`;
-          pollingDiskPathCanAccess(WinDiskPath)
-            .then(() => {
-              resolve(WinDiskPath);
-            })
-            .catch((err) => {
-              logger.debug('mac disk access error =====> ', err);
-              reject(err);
-            });
-        } else {
+        if (tryCount >= maxTryCount) {
+          cleanTimer();
           reject(new Error(ERRORS.NOT_FOUND_DISK_PATH));
         }
-      });
-
-      wmic.stderr.on('data', (data: string) => {
-        logger.error(`wmin command failure, error ===> : ${data}`);
-        reject(new Error(ERRORS.NOT_FOUND_DISK_PATH));
-      });
-
-      wmic.on('close', (code: string) => {
-        logger.debug(`wmic command child process exited with code ${code}`);
-      });
+      }, 1500);
     });
 
   const findDiskPath = (): Promise<string> =>
