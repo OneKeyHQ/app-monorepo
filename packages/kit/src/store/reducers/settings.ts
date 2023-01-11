@@ -17,6 +17,14 @@ import type {
   SYSFirmwareInfo,
 } from '../../utils/updates/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { ImageSourcePropType } from 'react-native';
+
+export type WalletSwitchItem = {
+  logo: ImageSourcePropType;
+  title: string;
+  propertyKeys: string[];
+  enable: boolean;
+};
 
 export type FirmwareUpdate = {
   forceFirmware: boolean;
@@ -47,6 +55,10 @@ export type SettingsState = {
   deviceUpdates?: Record<
     string, // connectId
     FirmwareUpdate
+  >;
+  walletSwitchData?: Record<
+    string, // networkId + walletName
+    WalletSwitchItem
   >;
   devMode?: {
     enable?: boolean;
@@ -115,6 +127,7 @@ const initialState: SettingsState = {
   autoRefreshTimeStamp: getTimeStamp(),
   swapSlippagePercent: '1',
   deviceUpdates: {},
+  walletSwitchData: {},
   devMode: {
     enable: false,
     preReleaseUpdate: false,
@@ -405,6 +418,27 @@ export const settingsSlice = createSlice({
     disableExtSwitchTips(state) {
       state.disableExtSwitchTips = true;
     },
+    setWalletSwitch(
+      state,
+      action: PayloadAction<Record<string, WalletSwitchItem>>,
+    ) {
+      const { payload } = action;
+      const stateWalletSwitch = state.walletSwitchData || {};
+      const walletSwitch = {
+        ...payload,
+        ...stateWalletSwitch,
+      };
+      state.walletSwitchData = walletSwitch;
+    },
+    toggleWalletSwitch(
+      state,
+      action: PayloadAction<{ walletId: string; enable: boolean }>,
+    ) {
+      const { walletId, enable } = action.payload;
+      const stateWalletSwitch = state.walletSwitchData || {};
+      const cacheWalletSwitch = stateWalletSwitch[walletId] || {};
+      cacheWalletSwitch.enable = enable;
+    },
   },
 });
 
@@ -444,6 +478,8 @@ export const {
   toggleDisableExt,
   disableExtSwitchTips,
   setHideDiscoverContent,
+  setWalletSwitch,
+  toggleWalletSwitch,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

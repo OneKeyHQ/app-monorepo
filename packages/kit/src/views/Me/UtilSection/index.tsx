@@ -8,13 +8,19 @@ import {
   Divider,
   Icon,
   Pressable,
-  Switch,
   Text,
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutesParams,
+  ModalScreenProps,
+} from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -22,22 +28,18 @@ import { useAppSelector } from '../../../hooks';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 import { ManageConnectedSitesRoutes } from '../../ManageConnectedSites/types';
 
-import { showEnableExtTipsSheet } from './enableExtSheet';
-
 import type { ManageConnectedSitesRoutesParams } from '../../ManageConnectedSites/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = ModalScreenProps<ManageConnectedSitesRoutesParams>;
-
+type NavigationStackProps = NativeStackNavigationProp<HomeRoutesParams>;
 export const UtilSection = () => {
   const intl = useIntl();
   const small = useIsVerticalLayout();
   const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const stackNavigation = useNavigation<NavigationStackProps>();
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const disableExt = useAppSelector((s) => s.settings.disableExt);
-  const disableExtSwitchTips = useAppSelector(
-    (s) => s.settings.disableExtSwitchTips,
-  );
   const onLock = useCallback(() => {
     backgroundApiProxy.serviceApp.lock(true);
   }, []);
@@ -59,6 +61,9 @@ export const UtilSection = () => {
             px={{ base: 4, md: 6 }}
             borderBottomWidth="1"
             borderBottomColor="divider"
+            onPress={() => {
+              stackNavigation.navigate(HomeRoutes.WalletSwitch);
+            }}
           >
             <Icon name="OnekeyLogoOutline" />
             <Text
@@ -67,18 +72,10 @@ export const UtilSection = () => {
               numberOfLines={1}
               mx={3}
             >
-              {intl.formatMessage({ id: 'form__enable_onekey' })}
+              {intl.formatMessage({ id: 'form__wallet_switch' })}
             </Text>
             <Box>
-              <Switch
-                labelType="false"
-                isChecked={!disableExt}
-                onToggle={() => {
-                  backgroundApiProxy.serviceSetting.toggleDisableExt();
-                  if (!disableExtSwitchTips)
-                    showEnableExtTipsSheet({ enable: disableExt });
-                }}
-              />
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
             </Box>
           </Pressable>
         ) : null}
