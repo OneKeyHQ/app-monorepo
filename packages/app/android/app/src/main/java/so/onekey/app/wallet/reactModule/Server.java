@@ -64,6 +64,11 @@ public class Server extends NanoHTTPD {
 
     public void respond(String requestId, int code, String type, String body) {
         responses.put(requestId, newFixedLengthResponse(Status.lookup(code), type, body));
+        // Response response = responses.get(requestId);
+        // response.put(requestId, newFixedLengthResponse(Status.lookup(code), type, body));
+        // response.addHeader("Access-Control-Allow-Headers", "X-Requested-With, Content-Type");
+        // response.addHeader("Access-Control-Allow-Origin", "GET, POST, OPTIONS");
+        // response.addHeader("Access-Control-Allow-Methods", "*");
     }
 
     private WritableMap fillRequestMap(IHTTPSession session, String requestId) throws Exception {
