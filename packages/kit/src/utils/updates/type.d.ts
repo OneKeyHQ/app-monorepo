@@ -56,6 +56,7 @@ export type SYSFirmwareInfo = {
   fingerprint: string;
   changelog: Changelog;
   fullResource?: string;
+  fullResourceRange?: string[];
 };
 
 export type BLEFirmwareInfo = {

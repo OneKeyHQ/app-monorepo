@@ -676,6 +676,8 @@
   "content__you_can_use_it_as_a_new_onekey_lite": "Você pode usá-lo como um novo OneKey Lite",
   "content__you_don_t_have_a_str_account": "Você não tem uma conta {0} .",
   "content__you_dont_have_any_nft_in_your_wallet": "Você não tem nenhum NFT em sua carteira",
+  "content__you_have_not_made_any_nft_transactions": "Você não fez nenhuma transação NFT.",
+  "content__you_have_not_made_any_nft_transactions_desc": "Isso traz boas notícias,\n Você não tem perdas.\n (*´∀`)~ ♥",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "Você pode receber várias solicitações de assinatura na carteira de hardware.",
   "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "Você que mais ama NFT, também tem muitos novos ganhos.",
   "content__your_biological_data_is_encrypted": "Seus dados biológicos são criptografados.",

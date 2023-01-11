@@ -167,6 +167,7 @@ const UpdateWarningModal: FC = () => {
       () => {},
       1,
       3000,
+      Number.MAX_VALUE,
     );
 
     return () => {

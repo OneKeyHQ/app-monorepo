@@ -30,6 +30,7 @@ import {
   useSwapQuoteRequestParams,
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
+import { dangerRefs } from './refs';
 import { SwapError, SwapRoutes } from './typings';
 import {
   formatAmount,
@@ -513,9 +514,11 @@ const ExchangeButton = () => {
     setLoading(true);
     ref.current = true;
     try {
+      dangerRefs.submited = true;
       await onSubmit();
     } finally {
       ref.current = false;
+      dangerRefs.submited = false;
       setLoading(false);
     }
   }, [onSubmit]);

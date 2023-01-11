@@ -4989,23 +4989,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.19"
+"@onekeyfe/hd-ble-sdk@npm:0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.20"
   dependencies:
-    "@onekeyfe/hd-core": ^0.2.19
-    "@onekeyfe/hd-shared": ^0.2.19
-    "@onekeyfe/hd-transport-react-native": ^0.2.19
-  checksum: 8e636e11c7593331946c6a133e68b31ecffc68c676c04b951795f94447b1608944c11e792545ed098e62b79effb1439495a4bdc763f21b64a5e1b24e03db4cad
+    "@onekeyfe/hd-core": ^0.2.20
+    "@onekeyfe/hd-shared": ^0.2.20
+    "@onekeyfe/hd-transport-react-native": ^0.2.20
+  checksum: f7259e69374de5f9a6ec8faca70e92c6fc2fdd3c64b48a593fdedde914b8f5eed646d466b48c080d036c83f676a466716579a71289ad5ffff506402afc9d894a
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:0.2.19, @onekeyfe/hd-core@npm:^0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-core@npm:0.2.19"
+"@onekeyfe/hd-core@npm:0.2.20, @onekeyfe/hd-core@npm:^0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-core@npm:0.2.20"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.19
-    "@onekeyfe/hd-transport": ^0.2.19
+    "@onekeyfe/hd-shared": ^0.2.20
+    "@onekeyfe/hd-transport": ^0.2.20
     axios: ^0.27.2
     bignumber.js: ^9.0.2
     jszip: ^3.10.1
@@ -5014,71 +5014,71 @@ __metadata:
   peerDependencies:
     "@noble/hashes": ^1.1.3
     ripple-keypairs: ^1.1.4
-  checksum: 147dd8a5ec3bafae3ea58a11d9d2e9c71dda94aaaad10d9268e21095e4a6a42aa24c7c2ee02c2aeefd80db686679bc5f71d6cdbdf31d9f139149f0bcee442e2a
+  checksum: 2d579175e80e4c6f2401bdf58bb8f1a17cb94e1f15bed15195472d2920fd71cb187e13bada307d1e849b360ff17b36c89e1225c88c3d4489f5a8e665070d9e05
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:0.2.19, @onekeyfe/hd-shared@npm:^0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-shared@npm:0.2.19"
-  checksum: d590585f283771332eb3c0abfc931f114009dd5ea4e22d2e6eab45607dcc3a538f1ddc0fdf1f7d2efee1f5ad58b4711c35b267abc8aa3db5c6027298df97fc03
+"@onekeyfe/hd-shared@npm:0.2.20, @onekeyfe/hd-shared@npm:^0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-shared@npm:0.2.20"
+  checksum: 792d767e7e5b2206bf7736f99979e56f94d0c6768214a3dd2309b654102384bd6b5c2f7e8fbffdfea8aa6d14d04c0b2859d4a098ac61ee98a2c0a1549f504934
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:^0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-transport-http@npm:0.2.19"
+"@onekeyfe/hd-transport-http@npm:^0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-transport-http@npm:0.2.20"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.19
-    "@onekeyfe/hd-transport": ^0.2.19
+    "@onekeyfe/hd-shared": ^0.2.20
+    "@onekeyfe/hd-transport": ^0.2.20
     axios: ^0.27.2
-  checksum: 7db719c3957e7fda12a29d9c36a0c767354d4d6f6ce0ba9cc3c9e736f65c52d43bbf3e6fdd09ee887e094496be83049aa3b690d870c6376ca843635f0bd27260
+  checksum: 92447f791e38a1453e8e95a0c14ac290776eb2204bda5fbb206cb9b647a5b365ee240c7010984d278716bc0e431f74346a750fae7e8a0a3a3e6953c3aafe42ef
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:^0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.19"
+"@onekeyfe/hd-transport-react-native@npm:^0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.20"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.19
-    "@onekeyfe/hd-transport": ^0.2.19
+    "@onekeyfe/hd-shared": ^0.2.20
+    "@onekeyfe/hd-transport": ^0.2.20
     react-native-ble-manager: ^8.1.0
     react-native-ble-plx: ^2.0.3
-  checksum: 6ee2b01e0bcc7fec62dc8554799b6f1ce22b0b1963c1ff4ce12222742c347594ee5dbf2294edc810d69062b31739f37556059324641e35b0293c1ec61de036f0
+  checksum: 02a209ee61d6df225e479265f43cb0b5061c22755ece80095910e4d2f9f874134347c037643e593695ded6499e4b3f536d0da72dca19edf5135b1709f1472b5a
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-webusb@npm:^0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.19"
+"@onekeyfe/hd-transport-webusb@npm:^0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.20"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.19
-    "@onekeyfe/hd-transport": ^0.2.19
-  checksum: 5e1e0fbbb5a460c22fcce7526445a530bff94681e5c387c83676f605ba5b8c83fa29e5d24c1755004e420a439083ff9897751ed5fc866bd55041b08c82289ca7
+    "@onekeyfe/hd-shared": ^0.2.20
+    "@onekeyfe/hd-transport": ^0.2.20
+  checksum: c45ce5183041abdbbeb070fb0d9b3f78c136a977337539488014e11a11d033f611d30ea949ee7d6550834b30f75a182f5b1d3961886a83355948d4aa7084c1a4
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:0.2.19, @onekeyfe/hd-transport@npm:^0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-transport@npm:0.2.19"
+"@onekeyfe/hd-transport@npm:0.2.20, @onekeyfe/hd-transport@npm:^0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-transport@npm:0.2.20"
   dependencies:
     bytebuffer: ^5.0.1
     long: ^4.0.0
     protobufjs: ^6.11.2
-  checksum: c2e52a026526517968661988f76bcab221cb610d7061dc52d6d422e018b9b88966a3b5168e4b1f0250ad265791dd24282a152e59e849d6b99716f26834990658
+  checksum: 287adaf76a72eb182130a2c05d143b5b91df471049e6f2d8b4a64b8d6ee69684bbd1235cb98e85074fae328cd5b5e9205170044ffeff9fa086c9d84f59589370
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:0.2.19":
-  version: 0.2.19
-  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.19"
+"@onekeyfe/hd-web-sdk@npm:0.2.20":
+  version: 0.2.20
+  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.20"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": ^0.0.17
-    "@onekeyfe/hd-core": ^0.2.19
-    "@onekeyfe/hd-shared": ^0.2.19
-    "@onekeyfe/hd-transport-http": ^0.2.19
-    "@onekeyfe/hd-transport-webusb": ^0.2.19
-  checksum: 0fb3dc54be814814490ccce60b05329cb0e9a0c2bef828f44835eb16b898cdeed148121abecf9078aa358eb238d1b56453a8eed37f31d7534458a820d4cda8f1
+    "@onekeyfe/hd-core": ^0.2.20
+    "@onekeyfe/hd-shared": ^0.2.20
+    "@onekeyfe/hd-transport-http": ^0.2.20
+    "@onekeyfe/hd-transport-webusb": ^0.2.20
+  checksum: b514fbd49fd83a9b744863b7f9ae76873ae35def53a7818450a6c8ad813e84f2aaf028564d4efe2093c35268af5f5e94f5a2c064b8de4655343dff376a16b82b
   languageName: node
   linkType: hard
 
@@ -5358,11 +5358,11 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": 1.1.15
     "@onekeyfe/cross-inpage-provider-types": 1.1.15
     "@onekeyfe/extension-bridge-hosted": 1.1.15
-    "@onekeyfe/hd-ble-sdk": 0.2.19
-    "@onekeyfe/hd-core": 0.2.19
-    "@onekeyfe/hd-shared": 0.2.19
-    "@onekeyfe/hd-transport": 0.2.19
-    "@onekeyfe/hd-web-sdk": 0.2.19
+    "@onekeyfe/hd-ble-sdk": 0.2.20
+    "@onekeyfe/hd-core": 0.2.20
+    "@onekeyfe/hd-shared": 0.2.20
+    "@onekeyfe/hd-transport": 0.2.20
+    "@onekeyfe/hd-web-sdk": 0.2.20
     "@onekeyfe/js-sdk": 1.1.5
     "@onekeyfe/network-list": 1.6.38
     "@onekeyfe/onekey-cross-webview": 1.1.15
@@ -5705,6 +5705,7 @@ __metadata:
     "@reduxjs/toolkit": ^1.6.2
     "@types/d3-scale": ^4.0.2
     "@types/d3-shape": ^3.1.0
+    "@types/react-native-snap-carousel": 3.8.5
     "@types/redux-logger": ^3.0.9
     "@types/socket.io-client": ^3.0.0
     "@types/url-parse": ^1.4.8
@@ -5735,6 +5736,7 @@ __metadata:
     react-native-animated-splash-screen: ^2.0.5
     react-native-camera: 4.2.1
     react-native-root-siblings: ^4.1.1
+    react-native-snap-carousel: 3.9.1
     react-native-url-polyfill: ^1.3.0
     react-native-uuid: ^2.0.1
     react-native-vision-camera: ^2.15.2
@@ -8466,6 +8468,16 @@ __metadata:
     "@types/react": "*"
     "@types/react-native": "*"
   checksum: aad15d329f8a127729f01d6e38a0ff6e7b31e0a076ffa0d303b010e9bdd6d5c6145ee62b522f047282a8a78011915787d536f65ed8a884ebf81a58ed51bcdbd6
+  languageName: node
+  linkType: hard
+
+"@types/react-native-snap-carousel@npm:3.8.5":
+  version: 3.8.5
+  resolution: "@types/react-native-snap-carousel@npm:3.8.5"
+  dependencies:
+    "@types/react": "*"
+    "@types/react-native": "*"
+  checksum: 8f512436017d0efe95c4cedc2ca5a2ebb27ee4056b04555e0e3889ab170abcddb232ef4ce18ef01ddc2c2710a27db2aaf4a6a7375607bfd61bfd00d7d42fbeef
   languageName: node
   linkType: hard
 
@@ -13428,6 +13440,13 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"core-js@npm:^1.0.0":
+  version: 1.2.7
+  resolution: "core-js@npm:1.2.7"
+  checksum: 0b76371bfa98708351cde580f9287e2360d2209920e738ae950ae74ad08639a2e063541020bf666c28778956fc356ed9fe56d962129c88a87a6a4a0612526c75
+  languageName: node
+  linkType: hard
+
 "core-js@npm:^2.4.0, core-js@npm:^2.5.3, core-js@npm:^2.6.5":
   version: 2.6.12
   resolution: "core-js@npm:2.6.12"
@@ -17428,6 +17447,21 @@ colour@latest:
   languageName: node
   linkType: hard
 
+"fbjs@npm:^0.8.4":
+  version: 0.8.18
+  resolution: "fbjs@npm:0.8.18"
+  dependencies:
+    core-js: ^1.0.0
+    isomorphic-fetch: ^2.1.1
+    loose-envify: ^1.0.0
+    object-assign: ^4.1.0
+    promise: ^7.1.1
+    setimmediate: ^1.0.5
+    ua-parser-js: ^0.7.30
+  checksum: 668731b946a765908c9cbe51d5160f973abb78004b3d122587c3e930e3e1ddcc0ce2b17f2a8637dc9d733e149aa580f8d3035a35cc2d3bc78b78f1b19aab90e2
+  languageName: node
+  linkType: hard
+
 "fbjs@npm:^3.0.0, fbjs@npm:^3.0.4":
   version: 3.0.4
   resolution: "fbjs@npm:3.0.4"
@@ -18104,10 +18138,10 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"fs@npm:^0.0.1-security":
-  version: 0.0.1-security
-  resolution: "fs@npm:0.0.1-security"
-  checksum: 53c6230e1faae9fa32c1df82c16a84b51b1243d20f3da2b64bd110bb472b73b9185169b703e008356e3cdc92d155088b617d9d39a63b5227a30b3621baad7f5d
+"fs@https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz":
+  version: 1.2.1
+  resolution: "fs@https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz"
+  checksum: 6c75e6a05a097f40da92ec76999b93b880f0082ba6692e22597bfe87448a646fc7b0c768757f8252af971058981014adc4be09f1bb24b8ffbf2baf467c5d14e1
   languageName: node
   linkType: hard
 
@@ -20617,6 +20651,16 @@ colour@latest:
   version: 3.0.1
   resolution: "isobject@npm:3.0.1"
   checksum: db85c4c970ce30693676487cca0e61da2ca34e8d4967c2e1309143ff910c207133a969f9e4ddb2dc6aba670aabce4e0e307146c310350b298e74a31f7d464703
+  languageName: node
+  linkType: hard
+
+"isomorphic-fetch@npm:^2.1.1":
+  version: 2.2.1
+  resolution: "isomorphic-fetch@npm:2.2.1"
+  dependencies:
+    node-fetch: ^1.0.1
+    whatwg-fetch: ">=0.10.0"
+  checksum: bb5daa7c3785d6742f4379a81e55b549a469503f7c9bf9411b48592e86632cf5e8fe8ea878dba185c0f33eb7c510c23abdeb55aebfdf5d3c70f031ced68c5424
   languageName: node
   linkType: hard
 
@@ -26801,6 +26845,16 @@ optjs@latest:
   languageName: node
   linkType: hard
 
+"react-addons-shallow-compare@npm:15.6.2":
+  version: 15.6.2
+  resolution: "react-addons-shallow-compare@npm:15.6.2"
+  dependencies:
+    fbjs: ^0.8.4
+    object-assign: ^4.1.0
+  checksum: cfe94358c6103f8434b91969a2a1876d3e76df227f0be9bf58c11a1bdec01500475eb09ca7ddd9d98519a14c18f91fbd11127adfdd092c4f3c5b234b638c4802
+  languageName: node
+  linkType: hard
+
 "react-async-hook@npm:^4.0.0":
   version: 4.0.0
   resolution: "react-async-hook@npm:4.0.0"
@@ -27434,6 +27488,19 @@ optjs@latest:
   version: 7.6.6
   resolution: "react-native-share@npm:7.6.6"
   checksum: 76a53173b9cb790d9f8eabbef7dc28617c0c6490cb458e4fdc1b59a7329e09f01badcac343511f9eb2ce89c8f66a6c156062016d301ac40bddde3dae755a0b55
+  languageName: node
+  linkType: hard
+
+"react-native-snap-carousel@npm:3.9.1":
+  version: 3.9.1
+  resolution: "react-native-snap-carousel@npm:3.9.1"
+  dependencies:
+    prop-types: ^15.6.1
+    react-addons-shallow-compare: 15.6.2
+  peerDependencies:
+    react: ">=15.0.0"
+    react-native: "*"
+  checksum: e71f6887ba8e86b4aea6d6a88c304135a7acbb5ef9173b78018fc0e6d9965da9ec1d7c794db31282dc85892c6ca89f398d07145ab3e7d1e28cf12a09c247bb9d
   languageName: node
   linkType: hard
 
@@ -32836,7 +32903,7 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"whatwg-fetch@npm:^3.0.0, whatwg-fetch@npm:^3.5.0":
+"whatwg-fetch@npm:>=0.10.0, whatwg-fetch@npm:^3.0.0, whatwg-fetch@npm:^3.5.0":
   version: 3.6.2
   resolution: "whatwg-fetch@npm:3.6.2"
   checksum: ee976b7249e7791edb0d0a62cd806b29006ad7ec3a3d89145921ad8c00a3a67e4be8f3fb3ec6bc7b58498724fd568d11aeeeea1f7827e7e1e5eae6c8a275afed

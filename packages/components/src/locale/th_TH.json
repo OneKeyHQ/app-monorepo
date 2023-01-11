@@ -676,6 +676,8 @@
   "content__you_can_use_it_as_a_new_onekey_lite": "คุณสามารถใช้เป็น OneKey Lite ใหม่ได้",
   "content__you_don_t_have_a_str_account": "คุณไม่มีบัญชี {0}",
   "content__you_dont_have_any_nft_in_your_wallet": "คุณไม่มี NFT ในกระเป๋าเงินของคุณ",
+  "content__you_have_not_made_any_nft_transactions": "คุณยังไม่ได้ทำธุรกรรม NFT",
+  "content__you_have_not_made_any_nft_transactions_desc": "สิ่งนี้นำมาซึ่งข่าวดี\n คุณไม่มีทางขาดทุน\n (*´∀`)~ ♥",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "คุณอาจได้รับคำขอลงนามหลายรายการในกระเป๋าเงินของฮาร์ดแวร์",
   "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "คุณที่รัก NFT มากที่สุดก็ได้รับผลตอบแทนใหม่มากมายเช่นกัน",
   "content__your_biological_data_is_encrypted": "1. ข้อมูลชีวภาพของคุณได้รับการเข้ารหัส",

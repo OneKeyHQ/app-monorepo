@@ -123,6 +123,14 @@ const PNLDetailScreen = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail'),
 );
 
+const AnnualLoading = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/AnnualReport/Welcome'),
+);
+
+const AnnualReport = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/AnnualReport/Report'),
+);
+
 export const stackScreenList = [
   {
     name: HomeRoutes.FullTokenListScreen,
@@ -226,6 +234,14 @@ export const stackScreenList = [
   {
     name: HomeRoutes.NFTPNLScreen,
     component: PNLDetailScreen,
+  },
+  {
+    name: HomeRoutes.AnnualLoading,
+    component: AnnualLoading,
+  },
+  {
+    name: HomeRoutes.AnnualReport,
+    component: AnnualReport,
   },
 ];
 

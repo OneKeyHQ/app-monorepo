@@ -223,6 +223,7 @@ export type NFTPNL = {
   };
 
   profit: number;
+  spend: number;
 };
 
 export type MarketPlace = {
