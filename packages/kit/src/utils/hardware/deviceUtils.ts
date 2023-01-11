@@ -74,7 +74,9 @@ class DeviceUtils {
     onSearchStateChange: (state: 'start' | 'stop') => void,
     pollIntervalRate = POLL_INTERVAL_RATE,
     pollInterval = POLL_INTERVAL,
+    maxTryCount = MAX_SEARCH_TRY_COUNT,
   ) {
+    const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
     const searchDevices = async () => {
       // Should search Throttling
       if (searchPromise) {
@@ -113,7 +115,7 @@ class DeviceUtils {
       if (!this.scanMap[searchIndex]) {
         return;
       }
-      if (this.tryCount > MAX_SEARCH_TRY_COUNT) {
+      if (this.tryCount > MaxTryCount) {
         this.stopScan();
         return;
       }
