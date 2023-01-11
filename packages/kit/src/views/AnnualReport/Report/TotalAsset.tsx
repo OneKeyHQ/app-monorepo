@@ -51,6 +51,7 @@ const TotalAsset: FC<PageProps> = ({ params: { tokens } }) => {
         lineHeight="48px"
         color="#E2E2E8"
         mb="2"
+        useCustomFont
       >
         $<FormatCurrencyNumber value={totalValue} onlyNumber />
       </WText>
@@ -103,6 +104,7 @@ const TotalAsset: FC<PageProps> = ({ params: { tokens } }) => {
         mb="2"
         lineHeight="48px"
         mt="8"
+        useCustomFont
       >
         #HYOK
       </WText>

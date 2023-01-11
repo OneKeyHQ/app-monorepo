@@ -20,14 +20,13 @@ import {
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.png';
+import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.jpg';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
-  RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -150,16 +149,22 @@ const ToolsPage: FC = () => {
   const handlePress = useCallback(
     (key: string) => {
       if (key === 'annual') {
-        navigation.navigate(HomeRoutes.AnnualLoading);
+        navigation.navigate(RootRoutes.Root, {
+          screen: HomeRoutes.AnnualLoading,
+        });
       } else if (key === 'revoke') {
-        navigation.navigate(HomeRoutes.Revoke);
+        navigation.navigate(RootRoutes.Root, {
+          screen: HomeRoutes.Revoke,
+        });
       } else if (key === 'explorer') {
         openAddressDetails(
           accountAddress,
           intl.formatMessage({ id: 'title__blockchain_explorer' }),
         );
       } else if (key === 'pnl') {
-        navigation.navigate(HomeRoutes.NFTPNLScreen);
+        navigation.navigate(RootRoutes.Root, {
+          screen: HomeRoutes.NFTPNLScreen,
+        });
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {

@@ -78,10 +78,11 @@ export const Card: FC<
           fontFamily="mono"
           lineHeight="17px"
           fontWeight="900"
+          useCustomFont
         >
           {name}
         </WText>
-        <WText color="#34C759" fontSize="32px" fontWeight="900">
+        <WText color="#34C759" fontSize="32px" fontWeight="900" useCustomFont>
           {tag}
         </WText>
         <WText
@@ -89,6 +90,7 @@ export const Card: FC<
           fontFamily="mono"
           lineHeight="17px"
           fontWeight="900"
+          useCustomFont
         >
           of 2022
         </WText>
@@ -154,7 +156,6 @@ const Identity: FC<PageProps> = ({
           // @ts-ignore
           ref={ref}
           data={tags}
-          firstItem={selectedCardIndex ?? random(0, 5)}
           sliderWidth={width}
           itemWidth={307}
           renderItem={({ item }) => <Card {...item} name={name} />}
