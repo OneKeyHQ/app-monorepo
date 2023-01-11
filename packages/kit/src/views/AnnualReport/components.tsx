@@ -129,39 +129,45 @@ export const Footer: FC<{
   );
 };
 
-export const ShareFooter: FC = () => (
-  <HStack
-    bg="rgba(0, 6, 17, 0.8)"
-    px="30px"
-    py="4"
-    justifyContent="space-between"
-    alignItems="center"
-    position="absolute"
-    bottom="0"
-    left="0"
-    w="full"
-    zIndex="99"
-  >
-    <VStack>
-      <HStack alignItems="center">
-        <Image borderRadius="14px" source={logo} w={8} h={8} />
-        <Text fontSize="24px" color="#44D62C" ml="1" fontWeight="800">
-          OneKey
+export const ShareFooter: FC = () => {
+  const intl = useIntl();
+  return (
+    <HStack
+      bg="rgba(0, 6, 17, 0.8)"
+      px="30px"
+      py="4"
+      justifyContent="space-between"
+      alignItems="center"
+      position="absolute"
+      bottom="0"
+      left="0"
+      w="full"
+      zIndex="99"
+    >
+      <VStack>
+        <HStack alignItems="center">
+          <Image borderRadius="14px" source={logo} w={8} h={8} />
+          <Text fontSize="24px" color="#44D62C" ml="1" fontWeight="800">
+            OneKey
+          </Text>
+        </HStack>
+        <Text
+          fontSize="14px"
+          textTransform="uppercase"
+          color="#fff"
+          opacity=".5"
+          fontWeight="500"
+        >
+          2022{' '}
+          {intl.formatMessage({
+            id: 'title__my_on_chain_journey',
+          })}
         </Text>
-      </HStack>
-      <Text
-        fontSize="14px"
-        textTransform="uppercase"
-        color="#fff"
-        opacity=".5"
-        fontWeight="500"
-      >
-        2022 My on-chain Journey.
-      </Text>
-    </VStack>
-    <Image mt="10px" borderRadius="6px" source={qrcode} w="60px" h="60px" />
-  </HStack>
-);
+      </VStack>
+      <Image mt="10px" borderRadius="6px" source={qrcode} w="60px" h="60px" />
+    </HStack>
+  );
+};
 
 export const BgButton: FC<{
   bg: ImageSourcePropType;
