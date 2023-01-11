@@ -154,7 +154,6 @@ const Identity: FC<PageProps> = ({
           // @ts-ignore
           ref={ref}
           data={tags}
-          firstItem={selectedCardIndex ?? random(0, 5)}
           sliderWidth={width}
           itemWidth={307}
           renderItem={({ item }) => <Card {...item} name={name} />}
