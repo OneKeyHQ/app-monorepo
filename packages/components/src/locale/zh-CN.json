@@ -676,6 +676,8 @@
   "content__you_can_use_it_as_a_new_onekey_lite": "您可以将其作为一张新的 OneKey Lite 使用",
   "content__you_don_t_have_a_str_account": "您还没有 {0} 帐户",
   "content__you_dont_have_any_nft_in_your_wallet": "您的钱包里暂时没有\n任何 NFT 资产",
+  "content__you_have_not_made_any_nft_transactions": "您没有进行\n任何 NFT 交易。",
+  "content__you_have_not_made_any_nft_transactions_desc": "这带来一个好消息，\n您没有任何损失发生。\n(*´∀`)~♥",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "您可能会在硬件钱包上收到多个签名请求。",
   "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "最爱NFT的您，\n近来也有新收获。",
   "content__your_biological_data_is_encrypted": "您的生物数据是加密的",

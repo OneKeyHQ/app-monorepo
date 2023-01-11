@@ -86,6 +86,7 @@ export type SettingsState = {
   customNetworkRpcMap?: {
     [networkId: string]: string[];
   };
+  annualReportEntryEnabled?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -143,6 +144,7 @@ const initialState: SettingsState = {
   },
   disableSwapExactApproveAmount: false,
   customNetworkRpcMap: {},
+  annualReportEntryEnabled: false,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -260,6 +262,9 @@ export const settingsSlice = createSlice({
     },
     setHideDiscoverContent(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, hideDiscoverContent: action.payload };
+    },
+    setAnnualReportEntryEnabled(state, action: PayloadAction<boolean>) {
+      state.annualReportEntryEnabled = action.payload;
     },
     setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
       state.devMode = {
@@ -444,6 +449,7 @@ export const {
   toggleDisableExt,
   disableExtSwitchTips,
   setHideDiscoverContent,
+  setAnnualReportEntryEnabled,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

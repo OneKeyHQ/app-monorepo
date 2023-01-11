@@ -676,6 +676,8 @@
   "content__you_can_use_it_as_a_new_onekey_lite": "Anda dapat menggunakannya sebagai OneKey Lite baru",
   "content__you_don_t_have_a_str_account": "Anda tidak memiliki akun {0} .",
   "content__you_dont_have_any_nft_in_your_wallet": "Anda tidak memiliki NFT di dompet Anda",
+  "content__you_have_not_made_any_nft_transactions": "Anda belum melakukan transaksi NFT.",
+  "content__you_have_not_made_any_nft_transactions_desc": "Ini membawa kabar baik,\n Anda tidak memiliki kerugian.\n (*´∀`)~ ♥",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "Anda mungkin menerima beberapa permintaan penandatanganan di dompet perangkat keras.",
   "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "Anda yang paling menyukai NFT, juga memiliki banyak keuntungan baru.",
   "content__your_biological_data_is_encrypted": "Data Biologis Anda Dienkripsi.",

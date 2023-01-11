@@ -27,6 +27,7 @@ import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
 import { DiscoverContext } from '../context';
 
+import { AnnualEntry } from './AnnualEntry';
 import { DAppCategories } from './DAppCategories';
 import { EmptySkeleton } from './EmptySkeleton';
 
@@ -262,6 +263,7 @@ export const Mine = () => {
 
   return (
     <Box flex="1" bg="background-default">
+      <AnnualEntry />
       <FlatList
         contentContainerStyle={styles.listContentContainer}
         data={data}
