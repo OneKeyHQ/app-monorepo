@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Alert,
   BottomSheetModal,
   Box,
   Button,
+  Empty,
   Image,
   Markdown,
   Modal,
@@ -239,18 +241,19 @@ const UpdateInfoModal: FC = () => {
             )}
 
             {!bleFirmware && !sysFirmware && (
-              <Box
+              <Empty
+                icon={<Spinner mb="16px" size="lg" />}
+                title={intl.formatMessage({ id: 'modal__device_status_check' })}
+                subTitle={intl.formatMessage({
+                  id: 'modal__device_status_check_restart_device_to_exit_boardloader',
+                })}
+                mt="24px"
+                p="16px"
                 borderRadius="12px"
                 bgColor="surface-subdued"
-                py="24px"
-                mt="24px"
-                alignItems="center"
-              >
-                <Spinner size="lg" />
-                <Typography.DisplayMedium mt="24px">
-                  {intl.formatMessage({ id: 'modal__device_status_check' })}
-                </Typography.DisplayMedium>
-              </Box>
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="border-subdued"
+              />
             )}
 
             {!!bleFirmware && (
