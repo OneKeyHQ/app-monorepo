@@ -18104,10 +18104,10 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"fs@npm:^0.0.1-security":
-  version: 0.0.1-security
-  resolution: "fs@npm:0.0.1-security"
-  checksum: 53c6230e1faae9fa32c1df82c16a84b51b1243d20f3da2b64bd110bb472b73b9185169b703e008356e3cdc92d155088b617d9d39a63b5227a30b3621baad7f5d
+"fs@https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz":
+  version: 1.2.1
+  resolution: "fs@https://registry.yarnpkg.com/@favware/skip-dependency/-/skip-dependency-1.2.1.tgz"
+  checksum: 6c75e6a05a097f40da92ec76999b93b880f0082ba6692e22597bfe87448a646fc7b0c768757f8252af971058981014adc4be09f1bb24b8ffbf2baf467c5d14e1
   languageName: node
   linkType: hard
 
