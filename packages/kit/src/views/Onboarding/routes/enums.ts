@@ -7,6 +7,7 @@ export enum EOnboardingRoutes {
 
   // ImportWallet
   ImportWallet = 'ImportWallet',
+  ImportWalletEntry = 'ImportWalletEntry',
 
   // CreateWallet
   SetPassword = 'SetPassword',

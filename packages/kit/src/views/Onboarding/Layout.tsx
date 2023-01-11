@@ -187,7 +187,7 @@ const Layout: FC<LayoutProps> = ({
               w={{ sm: secondaryContent ? 400 : 'full' }}
             >
               {title ? (
-                <Box mb={{ base: 6, sm: 12 }}>
+                <Box mb={{ base: 0, sm: 0 }}>
                   <Text
                     typography={{ sm: 'DisplayLarge', md: 'DisplayXLarge' }}
                   >
