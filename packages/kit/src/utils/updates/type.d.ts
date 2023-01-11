@@ -72,4 +72,6 @@ export type BLEFirmwareInfo = {
 export type IResourceUpdateInfo = {
   error: string | null;
   needUpdate: boolean;
+  minVersion?: string;
+  limitVersion?: string;
 };

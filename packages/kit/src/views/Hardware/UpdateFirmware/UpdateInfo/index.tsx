@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
@@ -68,6 +68,7 @@ const UpdateInfoModal: FC = () => {
   const [sysFirmware, setSysFirmware] = useState<SYSFirmwareInfo>();
   const [resourceUpdateInfo, setResourceUpdateInfo] =
     useState<IResourceUpdateInfo>();
+  const resourceRef = useRef<IResourceUpdateInfo>();
 
   const showUpdateOnDesktopModal = useCallback(() => {
     const closeOverlay = (close?: () => void) => {
@@ -114,6 +115,7 @@ const UpdateInfoModal: FC = () => {
                     </Text>
                   </Pressable>
                 ),
+                v: resourceRef.current?.limitVersion ?? '',
               },
             )}
           </Text>
@@ -167,6 +169,7 @@ const UpdateInfoModal: FC = () => {
           deviceFeatures,
           firmware,
         );
+        resourceRef.current = resourceInfo;
         if (resourceInfo.error === 'USE_DESKTOP') {
           setTimeout(() => {
             showUpdateOnDesktopModal();

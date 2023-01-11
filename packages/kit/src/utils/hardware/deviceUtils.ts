@@ -230,9 +230,8 @@ class DeviceUtils {
   ): Promise<IResourceUpdateInfo> {
     const { getDeviceType } = await CoreSDKLoader();
     const deviceType = getDeviceType(features);
-    const { version, fullResourceRange } = firmware;
-    if (deviceType !== 'touch' || !fullResourceRange)
-      return { error: null, needUpdate: false };
+    const { version, fullResourceRange = ['3.5.0', '3.5.0'] } = firmware;
+    if (deviceType !== 'touch') return { error: null, needUpdate: false };
     const currentVersion = getDeviceFirmwareVersion(features).join('.');
     const targetVersion = version.join('.');
     const [minVersion, limitVersion] = fullResourceRange;
@@ -243,6 +242,8 @@ class DeviceUtils {
       return {
         error: !platformEnv.isDesktop ? 'USE_DESKTOP' : null,
         needUpdate: true,
+        minVersion,
+        limitVersion,
       };
     }
 
