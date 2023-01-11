@@ -22,7 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
 import useNavigation from '../../hooks/useNavigation';
 import { handleScanResult } from '../../utils/gotoScanQrcode';
-import { useConnectServer } from '../Migration/ConnectServer/hook';
+import { useConnectServer } from '../Onboarding/screens/Migration/ConnectServer/hook';
 
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';

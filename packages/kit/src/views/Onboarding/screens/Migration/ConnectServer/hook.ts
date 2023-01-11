@@ -6,9 +6,9 @@ import { ToastManager } from '@onekeyhq/components';
 import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ValidationFields } from '../../../components/Protected';
-import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import { ValidationFields } from '../../../../../components/Protected';
+import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
 import { deviceInfo } from '../util';
 
 import { showMigrateDataModal } from './MigrateDataModal';

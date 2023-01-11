@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 
-import { showOverlay } from '../../../utils/overlayUtils';
+import { showOverlay } from '../../../../../utils/overlayUtils';
 import { parseDeviceInfo } from '../util';
 
 type Props = {

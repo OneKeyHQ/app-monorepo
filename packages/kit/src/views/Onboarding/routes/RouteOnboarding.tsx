@@ -5,14 +5,14 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
-import Migration from '../../Migration/ConnectServer';
-import PreviewImportData from '../../Migration/PreviewImportData';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
 import RecoveryPhrase from '../screens/CreateWallet/RecoveryPhrase';
 import SetPassword from '../screens/CreateWallet/SetPassword';
 import ShowRecoveryPhrase from '../screens/CreateWallet/ShowRecoveryPhrase';
 import ImportWallet from '../screens/ImportWallet';
+import Migration from '../screens/Migration/ConnectServer';
+import PreviewImportData from '../screens/Migration/PreviewImportData';
 import BackupDetails from '../screens/RestoreFromCloud/BackupDetails';
 import BackupsList from '../screens/RestoreFromCloud/BackupsList';
 import Welcome from '../screens/Welcome';

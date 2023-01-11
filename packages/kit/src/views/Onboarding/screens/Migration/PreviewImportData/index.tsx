@@ -23,15 +23,16 @@ import type {
 } from '@onekeyhq/kit/src/routes/types';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useData } from '../../../hooks/redux';
-import useImportBackupPasswordModal from '../../../hooks/useImportBackupPasswordModal';
-import useLocalAuthenticationModal from '../../../hooks/useLocalAuthenticationModal';
-import { GroupedBackupDetails } from '../../Me/SecuritySection/CloudBackup/BackupDetails';
-import Layout from '../../Onboarding/Layout';
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import { useData } from '../../../../../hooks/redux';
+import useImportBackupPasswordModal from '../../../../../hooks/useImportBackupPasswordModal';
+import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
+import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
+import { GroupedBackupDetails } from '../../../../Me/SecuritySection/CloudBackup/BackupDetails';
+import Layout from '../../../Layout';
 
-import type { EOnboardingRoutes } from '../../Onboarding/routes/enums';
-import type { IOnboardingRoutesParams } from '../../Onboarding/routes/types';
+import type { EOnboardingRoutes } from '../../../routes/enums';
+import type { IOnboardingRoutesParams } from '../../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -56,6 +57,7 @@ const PreviewImportData = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const { isPasswordSet } = useData();
   const { showVerify } = useLocalAuthenticationModal();
+  const onboardingDone = useOnboardingDone();
 
   const { requestBackupPassword } = useImportBackupPasswordModal();
 
@@ -76,15 +78,12 @@ const PreviewImportData = () => {
     },
   });
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   const onImportDone = useCallback(async () => {
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__backup_imported' }),
     });
-    navigation.goBack();
-
-    // return Promise.resolve('');
-  }, [intl, navigation]);
+    await onboardingDone({ delay: 200 });
+  }, [intl, onboardingDone]);
 
   const onImportError = useCallback(() => {
     ToastManager.show({
@@ -255,7 +254,7 @@ const PreviewImportData = () => {
 
   return (
     <Layout
-      disableAnimation={false}
+      disableAnimation
       title="Preview"
       fullHeight
       secondaryContent={secondaryContent}

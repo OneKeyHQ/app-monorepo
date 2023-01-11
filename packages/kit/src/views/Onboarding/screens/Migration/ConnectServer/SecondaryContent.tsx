@@ -31,9 +31,9 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
-import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
+import { EOnboardingRoutes } from '../../../routes/enums';
 import { httpServerEnable } from '../util';
 
 import { ExportResult, useConnectServer, useExportData } from './hook';

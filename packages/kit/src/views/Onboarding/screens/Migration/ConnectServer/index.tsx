@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
 
-import Layout from '../../Onboarding/Layout';
+import Layout from '../../../Layout';
 
 import SecondaryContent from './SecondaryContent';
 
@@ -99,7 +99,7 @@ const Migration = () => {
 
   return (
     <Layout
-      disableAnimation={false}
+      disableAnimation
       title="Migrate"
       description="between OneKey"
       secondaryContent={rightCompoment}

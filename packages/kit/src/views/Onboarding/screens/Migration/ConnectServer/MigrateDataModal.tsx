@@ -20,9 +20,9 @@ import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { showOverlay } from '../../../utils/overlayUtils';
-import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import { showOverlay } from '../../../../../utils/overlayUtils';
+import { EOnboardingRoutes } from '../../../routes/enums';
 import { parseDeviceInfo } from '../util';
 
 import { ExportResult, useExportData } from './hook';

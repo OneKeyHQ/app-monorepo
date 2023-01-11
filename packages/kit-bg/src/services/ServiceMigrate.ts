@@ -7,7 +7,7 @@ import type {
   MigrateServiceResp,
 } from '@onekeyhq/engine/src/types/migrate';
 import { setEnabled } from '@onekeyhq/kit/src/store/reducers/httpServer';
-import { deviceInfo } from '@onekeyhq/kit/src/views/Migration/util';
+import { deviceInfo } from '@onekeyhq/kit/src/views/Onboarding/screens/Migration/util';
 import {
   backgroundClass,
   backgroundMethod,
