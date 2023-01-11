@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,17 +10,24 @@ import {
   Pressable,
   Text,
   Textarea,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { InputUploader } from '../InputUploader';
+import { ReceiverEditor } from '../ReceiverEditor';
+import { ReceiverUploader } from '../ReceiverUploader';
 
-function IutputEditor() {
+function ReceiverInput() {
   const [isUploadMode, setIsUploadMode] = useState(false);
   const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
 
   return (
     <>
-      <HStack justifyContent="space-between" alignItems="center" mb={4}>
+      <HStack
+        justifyContent="space-between"
+        alignItems="center"
+        mb={isVertical ? 7 : 8}
+      >
         <Text fontSize={18} typography="Heading">
           {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
         </Text>
@@ -44,16 +50,17 @@ function IutputEditor() {
                 fontSize={16}
               >
                 {intl.formatMessage({
-                  id: isUploadMode ? 'action__skip' : 'action__accept',
+                  id: isUploadMode ? 'action__edit' : 'action__upload',
                 })}
               </Text>
             </HStack>
           )}
         </Pressable>
       </HStack>
-      <InputUploader />
+      {isUploadMode && <ReceiverUploader />}
+      {!isUploadMode && <ReceiverEditor />}
     </>
   );
 }
 
-export { IutputEditor };
+export { ReceiverInput };

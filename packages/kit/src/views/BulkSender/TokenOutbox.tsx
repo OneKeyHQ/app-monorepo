@@ -22,7 +22,7 @@ import { getTokenValues } from '@onekeyhq/kit/src/utils/priceUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import { IutputEditor } from './IutputEditor';
+import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes } from './types';
 
 interface Props {
@@ -174,7 +174,7 @@ function TokenOutbox(props: Props) {
         </HStack>
       </Pressable.Item>
       <Box mt={6}>
-        <IutputEditor />
+        <ReceiverInput />
       </Box>
     </Box>
   );

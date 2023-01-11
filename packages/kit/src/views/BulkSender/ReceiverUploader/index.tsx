@@ -2,7 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Center, Icon, Text } from '@onekeyhq/components';
 
-function InputUploader() {
+function ReceiverUploader() {
   const intl = useIntl();
 
   return (
@@ -27,4 +27,4 @@ function InputUploader() {
   );
 }
 
-export { InputUploader };
+export { ReceiverUploader };
