@@ -282,8 +282,9 @@ export default class Vault extends VaultBase {
     const contractClient = await this.getContractClient();
 
     return Promise.all(
-      requests.map(async ({ address, tokenAddress }) => {
+      requests.map(async ({ address, tokenAddress: tokenId }) => {
         try {
+          const tokenAddress = tokenId?.trim() ?? undefined;
           const isNativeCoin = !tokenAddress;
           const isIBCToken = tokenAddress && this.isIbcToken(tokenAddress);
 
