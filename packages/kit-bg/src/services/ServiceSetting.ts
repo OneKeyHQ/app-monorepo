@@ -7,6 +7,7 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { setShowBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
 import {
   disableExtSwitchTips,
+  setAnnualReportEntryEnabled,
   toggleDisableExt,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setSwapMaintain } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
@@ -26,6 +27,7 @@ type RemoteSetting = {
   swapMaintain: boolean;
   helloVersion: string;
   bookmarkVersion: string;
+  annualReport: boolean;
 };
 
 @backgroundClass()
@@ -45,7 +47,10 @@ export default class ServiceSetting extends ServiceBase {
     const data = res.data as RemoteSetting;
     await simpleDb.setting.setEnableAppRatings(data.enableAppRatings);
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
-    dispatch(setSwapMaintain(data.swapMaintain));
+    dispatch(
+      setSwapMaintain(data.swapMaintain),
+      setAnnualReportEntryEnabled(data?.annualReport ?? false),
+    );
     let v = '';
     if (platformEnv.isNativeIOS || platformEnv.isMas) {
       if (platformEnv.isNativeIOS && data.helloVersion) {

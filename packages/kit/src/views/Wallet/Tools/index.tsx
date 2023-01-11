@@ -6,18 +6,21 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Box,
   Center,
+  HStack,
   Icon,
+  Image,
   Pressable,
   ScrollView,
-  Token,
   Typography,
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.png';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
@@ -26,6 +29,7 @@ import type {
 } from '@onekeyhq/kit/src/routes/types';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
@@ -36,17 +40,27 @@ import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 import { WalletHomeTabEnum } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ImageSourcePropType } from 'react-native';
 
 type DataItem = {
   key: string;
-  icon: ComponentProps<typeof Icon> | string;
+  icon: ComponentProps<typeof Icon> & ImageSourcePropType;
   iconBg: ThemeToken | string | undefined;
   title: LocaleIds;
   description: LocaleIds;
   link?: string;
+  tag?: LocaleIds;
 };
 
 const data: DataItem[] = [
+  {
+    key: 'annual',
+    icon: bg1,
+    iconBg: undefined,
+    title: 'title__my_on_chain_journey',
+    description: 'title__my_on_chain_journey_desc',
+    tag: 'content__time_limit',
+  },
   {
     key: 'revoke',
     icon: {
@@ -93,6 +107,9 @@ const ToolsPage: FC = () => {
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const annualReportEntryEnabled = useAppSelector(
+    (s) => s.settings?.annualReportEntryEnabled ?? false,
+  );
   const tools = useTools(network?.id);
 
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
@@ -110,21 +127,31 @@ const ToolsPage: FC = () => {
     if (network?.impl !== IMPL_EVM) {
       allItems = allItems.filter((n) => n.key !== 'revoke');
     }
+    if (
+      !annualReportEntryEnabled ||
+      !(platformEnv.isNativeAndroid || platformEnv.isNativeIOSPhone)
+    ) {
+      allItems = allItems.filter((n) => n.key !== 'annual');
+    }
     return allItems.concat(
       tools.map((t) => ({
         key: t.title,
-        icon: t.logoURI,
+        icon: {
+          uri: t.logoURI,
+        } as any,
         iconBg: undefined,
         title: t.title,
         description: t.desc,
         link: t.link,
       })),
     );
-  }, [hasAvailable, accountAddress, tools, network]);
+  }, [hasAvailable, accountAddress, tools, network, annualReportEntryEnabled]);
 
   const handlePress = useCallback(
     (key: string) => {
-      if (key === 'revoke') {
+      if (key === 'annual') {
+        navigation.navigate(HomeRoutes.AnnualLoading);
+      } else if (key === 'revoke') {
         navigation.navigate(HomeRoutes.Revoke);
       } else if (key === 'explorer') {
         openAddressDetails(
@@ -160,6 +187,19 @@ const ToolsPage: FC = () => {
     }
     fetchData();
   }, [fetchData, homeTabName]);
+
+  const renderIcon = useCallback((icon: DataItem['icon']) => {
+    if (!icon) {
+      return null;
+    }
+    if (typeof icon === 'number') {
+      return <Image borderRadius="14px" source={icon} w="full" h="full" />;
+    }
+    if (icon.name) {
+      return <Icon {...icon} size={24} />;
+    }
+    return <Image borderRadius="14px" source={icon} w="full" h="full" />;
+  }, []);
 
   return (
     <ScrollView
@@ -197,16 +237,26 @@ const ToolsPage: FC = () => {
                 bgColor={item.iconBg}
                 borderRadius="12px"
               >
-                {typeof item.icon === 'string' ? (
-                  <Token token={{ logoURI: item.icon }} size={8} />
-                ) : (
-                  <Icon {...item.icon} size={24} />
-                )}
+                {renderIcon(item.icon)}
               </Center>
               <VStack ml="4" flex="1">
-                <Typography.Body1Strong numberOfLines={1} isTruncated>
-                  {intl.formatMessage({ id: item.title })}
-                </Typography.Body1Strong>
+                <HStack alignItems="center" flex="1" pr="18px">
+                  <Typography.Body1Strong
+                    numberOfLines={1}
+                    isTruncated
+                    maxW="200px"
+                  >
+                    {intl.formatMessage({ id: item.title })}
+                  </Typography.Body1Strong>
+                  {item.tag ? (
+                    <Badge
+                      ml="1"
+                      size="sm"
+                      type="success"
+                      title={intl.formatMessage({ id: item.tag })}
+                    />
+                  ) : null}
+                </HStack>
                 <Typography.Body2
                   mt="4px"
                   numberOfLines={2}
