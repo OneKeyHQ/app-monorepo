@@ -6,7 +6,7 @@ import { promisify } from 'util';
 
 import AdmZip from 'adm-zip';
 import Axios from 'axios';
-import { dialog, ipcMain } from 'electron';
+import { dialog, ipcMain, shell } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
@@ -328,6 +328,12 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       }
     },
   );
+
+  ipcMain.on('touch/openPrivacyPanel', () => {
+    shell.openExternal(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy',
+    );
+  });
 };
 
 export default init;

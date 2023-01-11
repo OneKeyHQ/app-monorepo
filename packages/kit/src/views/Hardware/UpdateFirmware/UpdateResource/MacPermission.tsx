@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -10,6 +12,7 @@ import {
   LottieView,
   Text,
   VStack,
+  useTheme,
 } from '@onekeyhq/components';
 import RestartTouch from '@onekeyhq/kit/assets/animations/restart-touch.json';
 import MacSecurityPrivacyLightImage from '@onekeyhq/kit/assets/mac_security_and_privacy.png';
@@ -49,7 +52,16 @@ const Marker = ({
 );
 
 const MacPermission = () => {
-  console.log(1);
+  const { themeVariant } = useTheme();
+
+  const PrivacyImage = useMemo(() => {
+    const source =
+      themeVariant === 'light'
+        ? MacSecurityPrivacyLightImage
+        : MacSecurityPrivacyDarkImage;
+    return <Image source={source} size={360} height={270} resizeMode="cover" />;
+  }, [themeVariant]);
+
   return (
     <Box>
       {/* First Step */}
@@ -88,7 +100,15 @@ const MacPermission = () => {
               marker="1."
               content='Click the button bellow to open "System Preference"'
             >
-              <Button type="basic" size="sm" maxWidth={191} mt={2}>
+              <Button
+                type="basic"
+                size="sm"
+                maxWidth={191}
+                mt={2}
+                onPress={() => {
+                  window.desktopApi?.openPrivacyPanel?.();
+                }}
+              >
                 Open System Preference
               </Button>
             </Marker>
@@ -100,14 +120,7 @@ const MacPermission = () => {
             <Marker marker="4." content='Click "Quit & Reopen" on the dialog' />
           </VStack>
         </VStack>
-        <Center>
-          <Image
-            source={MacSecurityPrivacyDarkImage}
-            size={360}
-            height={270}
-            resizeMode="cover"
-          />
-        </Center>
+        <Center>{PrivacyImage}</Center>
       </HStack>
     </Box>
   );
