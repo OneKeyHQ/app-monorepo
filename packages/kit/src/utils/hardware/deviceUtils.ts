@@ -8,7 +8,10 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import { getHardwareSDKInstance } from '@onekeyhq/shared/src/device/hardwareInstance';
+import {
+  CoreSDKLoader,
+  getHardwareSDKInstance,
+} from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
@@ -19,9 +22,12 @@ import showHardwarePopup, {
 } from '../../views/Hardware/PopupHandle/showHardwarePopup';
 
 import * as Error from './errors';
+import { getDeviceFirmwareVersion } from './OneKeyHardware';
 
 import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import type { IResourceUpdateInfo, SYSFirmwareInfo } from '../updates/type';
 import type {
+  Features,
   IDeviceType,
   SearchDevice,
   Success,
@@ -29,7 +35,7 @@ import type {
 } from '@onekeyfe/hd-core';
 import type { Deferred } from '@onekeyfe/hd-shared';
 
-type IPollFn<T> = (time?: number, index?: number) => T;
+type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
 
 const MAX_SEARCH_TRY_COUNT = 15;
 const POLL_INTERVAL = 1000;
@@ -66,7 +72,11 @@ class DeviceUtils {
   startDeviceScan(
     callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
     onSearchStateChange: (state: 'start' | 'stop') => void,
+    pollIntervalRate = POLL_INTERVAL_RATE,
+    pollInterval = POLL_INTERVAL,
+    maxTryCount = MAX_SEARCH_TRY_COUNT,
   ) {
+    const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
     const searchDevices = async () => {
       // Should search Throttling
       if (searchPromise) {
@@ -100,29 +110,29 @@ class DeviceUtils {
     const poll: IPollFn<void> = async (
       time = POLL_INTERVAL,
       searchIndex = 0,
+      rate = POLL_INTERVAL_RATE,
     ) => {
       if (!this.scanMap[searchIndex]) {
         return;
       }
-      if (this.tryCount > MAX_SEARCH_TRY_COUNT) {
+      if (this.tryCount > MaxTryCount) {
         this.stopScan();
         return;
       }
 
       await searchDevices();
-
       return new Promise((resolve: (p: void) => void) =>
-        setTimeout(
-          () => resolve(poll(time * POLL_INTERVAL_RATE, searchIndex)),
-          time,
-        ),
+        setTimeout(() => resolve(poll(time * rate, searchIndex, rate)), time),
       );
     };
 
     this.searchIndex += 1;
     this.scanMap[this.searchIndex] = true;
-    const time = platformEnv.isNativeAndroid ? 2000 : POLL_INTERVAL;
-    poll(time, this.searchIndex);
+    const time = platformEnv.isNativeAndroid
+      ? 2000
+      : pollInterval ?? POLL_INTERVAL;
+    const rate = pollIntervalRate ?? POLL_INTERVAL_RATE;
+    poll(time, this.searchIndex, rate);
   }
 
   stopScan() {
@@ -212,6 +222,31 @@ class DeviceUtils {
     setTimeout(() => {
       showHardwarePopup({ uiRequest, payload, content });
     }, delay);
+  }
+
+  async checkTouchNeedUpdateResource(
+    features: Features | undefined,
+    firmware: SYSFirmwareInfo,
+  ): Promise<IResourceUpdateInfo> {
+    const { getDeviceType } = await CoreSDKLoader();
+    const deviceType = getDeviceType(features);
+    const { version, fullResourceRange } = firmware;
+    if (deviceType !== 'touch' || !fullResourceRange)
+      return { error: null, needUpdate: false };
+    const currentVersion = getDeviceFirmwareVersion(features).join('.');
+    const targetVersion = version.join('.');
+    const [minVersion, limitVersion] = fullResourceRange;
+    if (
+      semver.lt(currentVersion, minVersion) &&
+      semver.gte(targetVersion, limitVersion)
+    ) {
+      return {
+        error: !platformEnv.isDesktop ? 'USE_DESKTOP' : null,
+        needUpdate: true,
+      };
+    }
+
+    return { error: null, needUpdate: false };
   }
 
   showErrorToast(error: any, defKey?: LocaleIds): boolean {

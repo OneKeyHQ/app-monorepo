@@ -9,6 +9,7 @@ import type { WalletSwitchItem } from '@onekeyhq/kit/src/store/reducers/settings
 import {
   disableExtSwitchTips,
   setWalletSwitch,
+  setAnnualReportEntryEnabled,
   toggleDisableExt,
   toggleWalletSwitch,
 } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -29,6 +30,7 @@ type RemoteSetting = {
   swapMaintain: boolean;
   helloVersion: string;
   bookmarkVersion: string;
+  annualReport: boolean;
 };
 
 @backgroundClass()
@@ -48,7 +50,10 @@ export default class ServiceSetting extends ServiceBase {
     const data = res.data as RemoteSetting;
     await simpleDb.setting.setEnableAppRatings(data.enableAppRatings);
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
-    dispatch(setSwapMaintain(data.swapMaintain));
+    dispatch(
+      setSwapMaintain(data.swapMaintain),
+      setAnnualReportEntryEnabled(data?.annualReport ?? false),
+    );
     let v = '';
     if (platformEnv.isNativeIOS || platformEnv.isMas) {
       if (platformEnv.isNativeIOS && data.helloVersion) {

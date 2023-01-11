@@ -7,7 +7,7 @@
   // $$onekeyPerfTrace start ----------------------------------------------
   window.$$onekeyPerfTrace = {
     timeline: [],
-    log: ({ name }) => {
+    log: ({ name, payload }) => {
       const lastStat =
         window.$$onekeyPerfTrace.timeline[
           window.$$onekeyPerfTrace.timeline.length - 1
@@ -15,10 +15,11 @@
       const perfNow = window.performance.now();
       const time = new Date().toLocaleString();
       window.$$onekeyPerfTrace.timeline.push({
-        lag: lastStat ? perfNow - lastStat.elapsed : 0,
+        lag: parseInt(String(lastStat ? perfNow - lastStat.elapsed : 0), 10),
         name,
         time,
-        elapsed: perfNow,
+        elapsed: parseInt(String(perfNow), 10),
+        payload,
       });
       // keep limited array length to avoid memory leak
       window.$$onekeyPerfTrace.timeline =

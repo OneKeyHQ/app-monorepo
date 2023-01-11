@@ -81,7 +81,7 @@ export default class Vault extends VaultBase {
   async getScanClient() {
     const { isTestnet } = await this.engine.getNetwork(this.networkId);
     const rpcURL = isTestnet
-      ? 'https://wallaby.filscan.io:8890/rpc/v1'
+      ? 'https://calibration.filscan.io:8700/rpc/v1'
       : 'https://api.filscan.io:8700/rpc/v1';
     return this.getClientCache(rpcURL, 'filscan');
   }
