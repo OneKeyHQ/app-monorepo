@@ -13,6 +13,7 @@ import {
   setResponses,
 } from '../../../store/reducers/swap';
 import { SwapQuoter } from '../quoter';
+import { dangerRefs } from '../refs';
 import { SwapError } from '../typings';
 import { formatAmount, greaterThanZeroOrUndefined } from '../utils';
 
@@ -173,7 +174,11 @@ export const useSwapQuoteCallback = function (
 
       const fetchAllQuotes = async () => {
         const responses = await SwapQuoter.client.fetchQuotes(params);
-        if (refs.current.params === params && responses) {
+        if (
+          !dangerRefs.submited &&
+          refs.current.params === params &&
+          responses
+        ) {
           backgroundApiProxy.dispatch(setResponses(responses));
           const res = await findBestResponse(responses);
           if (res && res.data?.type !== firstResponse?.data?.type) {
@@ -223,7 +228,7 @@ export const useSwapQuoteCallback = function (
       refs.current.count += 1;
       try {
         const responses = await SwapQuoter.client.fetchQuotes(params);
-        if (refs.current.params === params) {
+        if (!dangerRefs.submited && refs.current.params === params) {
           if (responses) {
             backgroundApiProxy.dispatch(setResponses(responses));
             const res = await findBestResponse(responses);
