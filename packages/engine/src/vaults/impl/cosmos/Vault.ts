@@ -342,7 +342,16 @@ export default class Vault extends VaultBase {
       }
 
       const ibcTokens = results.reduce((acc, item) => {
-        if (item.type === Type.Ibc && ibcTokenAddresses.has(item.denom)) {
+        let normalizationAddress = item.denom;
+        if (item.denom.indexOf('/') !== -1) {
+          const [prefix, address] = item.denom.split('/');
+          normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+        }
+
+        if (
+          item.type === Type.Ibc &&
+          ibcTokenAddresses.has(normalizationAddress)
+        ) {
           acc.push({
             name: `${item.dp_denom}(${item.channel ?? ''})`,
             symbol: item.dp_denom,
@@ -356,7 +365,7 @@ export default class Vault extends VaultBase {
 
     const contractClient = await this.getContractClient();
 
-    if (!contractClient) return [];
+    if (!contractClient) return tokens;
 
     const client = await this.getClient();
 
