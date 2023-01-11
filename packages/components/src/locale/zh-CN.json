@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "无法连接到设备",
   "modal__unable_to_connect_desc": "当前设备不支持 NFC，请更换一台支持 NFC 的设备，然后再试一次",
   "modal__unlock_vault": "解锁保险库",
+  "modal__update_resource_launch_app_as_administrator": "请以管理员身份启动应用程序",
   "modal__update_resources": "更新资源",
   "modal__update_resources_failed": "更新失败，请重试",
   "modal__update_resources_restart_device": "重启设备以安装固件",

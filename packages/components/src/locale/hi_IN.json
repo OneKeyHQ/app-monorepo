@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "कनेक्ट करने में असमर्थ",
   "modal__unable_to_connect_desc": "आपका वर्तमान डिवाइस एनएफसी का समर्थन नहीं करता है, इसे एनएफसी-सक्षम डिवाइस से बदलें और फिर से प्रयास करें",
   "modal__unlock_vault": "तिजोरी अनलॉक करें",
+  "modal__update_resource_launch_app_as_administrator": "कृपया एप्लिकेशन को व्यवस्थापक के रूप में लॉन्च करें",
   "modal__update_resources": "अद्यतन संसाधन",
   "modal__update_resources_failed": "अपडेट विफल, कृपया पुनः प्रयास करें",
   "modal__update_resources_restart_device": "फर्मवेयर स्थापित करने के लिए डिवाइस को पुनरारंभ करें",

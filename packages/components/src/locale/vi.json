@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Không thể kết nối",
   "modal__unable_to_connect_desc": "Thiết bị hiện tại của bạn không hỗ trợ NFC, hãy thay thế nó bằng thiết bị hỗ trợ NFC và thử lại",
   "modal__unlock_vault": "Mở khóa Vault",
+  "modal__update_resource_launch_app_as_administrator": "Vui lòng khởi chạy ứng dụng với tư cách quản trị viên",
   "modal__update_resources": "Cập nhật tài nguyên",
   "modal__update_resources_failed": "Cập nhật không thành công, vui lòng thử lại",
   "modal__update_resources_restart_device": "Khởi động lại thiết bị để cài đặt chương trình cơ sở",

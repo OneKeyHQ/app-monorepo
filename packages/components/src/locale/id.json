@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Tidak dapat terhubung",
   "modal__unable_to_connect_desc": "Perangkat Anda saat ini tidak mendukung NFC, ganti dengan perangkat yang mendukung NFC dan coba lagi",
   "modal__unlock_vault": "Buka Kunci Vault",
+  "modal__update_resource_launch_app_as_administrator": "Silakan luncurkan aplikasi sebagai administrator",
   "modal__update_resources": "Perbarui Sumber Daya",
   "modal__update_resources_failed": "Pembaruan gagal, harap coba lagi",
   "modal__update_resources_restart_device": "Restart Perangkat untuk Menginstal Firmware",

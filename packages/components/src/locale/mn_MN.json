@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Холбогдож чадахгүй",
   "modal__unable_to_connect_desc": "Таны одоогийн төхөөрөмж NFC-г дэмждэггүй тул үүнийг NFC идэвхжүүлсэн төхөөрөмжөөр сольж, дахин оролдоно уу",
   "modal__unlock_vault": "Vault-н түгжээг тайл",
+  "modal__update_resource_launch_app_as_administrator": "Програмыг администратороор ажиллуулна уу",
   "modal__update_resources": "Нөөцүүдийг шинэчлэх",
   "modal__update_resources_failed": "Шинэчлэлт амжилтгүй болсон тул дахин оролдоно уу",
   "modal__update_resources_restart_device": "Програм хангамжийг суулгахын тулд төхөөрөмжийг дахин эхлүүлнэ үү",

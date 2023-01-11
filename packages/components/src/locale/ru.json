@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Невозможно подключиться",
   "modal__unable_to_connect_desc": "Ваше текущее устройство не поддерживает NFC, замените его на устройство с поддержкой NFC и попробуйте снова",
   "modal__unlock_vault": "Разблокировать хранилище",
+  "modal__update_resource_launch_app_as_administrator": "Пожалуйста, запустите приложение от имени администратора",
   "modal__update_resources": "Обновление ресурсов",
   "modal__update_resources_failed": "Ошибка обновления. Повторите попытку.",
   "modal__update_resources_restart_device": "Перезагрузите устройство, чтобы установить прошивку",

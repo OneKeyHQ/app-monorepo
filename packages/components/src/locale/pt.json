@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Incapaz de conectar",
   "modal__unable_to_connect_desc": "Seu dispositivo atual não suporta NFC, substitua-o por um dispositivo habilitado para NFC e tente novamente",
   "modal__unlock_vault": "Desbloquear cofre",
+  "modal__update_resource_launch_app_as_administrator": "Inicie o aplicativo como administrador",
   "modal__update_resources": "Atualizar recursos",
   "modal__update_resources_failed": "Falha na atualização, tente novamente",
   "modal__update_resources_restart_device": "Reinicie o dispositivo para instalar o firmware",

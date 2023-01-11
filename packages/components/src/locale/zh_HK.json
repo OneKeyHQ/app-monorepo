@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "無法連接到設備",
   "modal__unable_to_connect_desc": "當前設備不支持NFC，請更換一台支持NFC 的設備，然後再試一次",
   "modal__unlock_vault": "解鎖保險庫",
+  "modal__update_resource_launch_app_as_administrator": "請以管理員身份啟動應用程序",
   "modal__update_resources": "更新資源",
   "modal__update_resources_failed": "更新失敗，請重試",
   "modal__update_resources_restart_device": "重啟設備以安裝固件",

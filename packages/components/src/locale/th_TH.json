@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "ไม่สามารถเชื่อมต่อ",
   "modal__unable_to_connect_desc": "อุปกรณ์ปัจจุบันของคุณไม่รองรับ NFC ให้แทนที่ด้วยอุปกรณ์ที่เปิดใช้งาน NFC แล้วลองอีกครั้ง",
   "modal__unlock_vault": "ปลดล็อกห้องนิรภัย",
+  "modal__update_resource_launch_app_as_administrator": "โปรดเปิดแอปพลิเคชันในฐานะผู้ดูแลระบบ",
   "modal__update_resources": "อัปเดตทรัพยากร",
   "modal__update_resources_failed": "การอัปเดตล้มเหลว โปรดลองอีกครั้ง",
   "modal__update_resources_restart_device": "รีสตาร์ทอุปกรณ์เพื่อติดตั้งเฟิร์มแวร์",

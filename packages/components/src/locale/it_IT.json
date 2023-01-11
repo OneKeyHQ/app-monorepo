@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Impossibile connettersi",
   "modal__unable_to_connect_desc": "Il tuo attuale dispositivo non supporta l'NFC, sostituiscilo con un dispositivo abilitato all'NFC e riprova",
   "modal__unlock_vault": "Sblocca il caveau",
+  "modal__update_resource_launch_app_as_administrator": "Avvia l'applicazione come amministratore",
   "modal__update_resources": "Aggiorna risorse",
   "modal__update_resources_failed": "Aggiornamento non riuscito, riprova",
   "modal__update_resources_restart_device": "Riavvia il dispositivo per installare il firmware",

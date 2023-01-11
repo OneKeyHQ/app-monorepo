@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "غير قادر على الاتصال",
   "modal__unable_to_connect_desc": "جهازك الحالي لا يدعم NFC ، استبدله بجهاز مزود بتقنية NFC وحاول مرة أخرى",
   "modal__unlock_vault": "افتح Vault",
+  "modal__update_resource_launch_app_as_administrator": "يرجى تشغيل التطبيق كمسؤول",
   "modal__update_resources": "تحديث الموارد",
   "modal__update_resources_failed": "فشل التحديث ، يرجى إعادة المحاولة",
   "modal__update_resources_restart_device": "أعد تشغيل الجهاز لتثبيت البرنامج الثابت",

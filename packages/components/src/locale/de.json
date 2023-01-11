@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Keine Verbindung möglich",
   "modal__unable_to_connect_desc": "Ihr aktuelles Gerät unterstützt kein NFC, ersetzen Sie es durch ein NFC-fähiges Gerät und versuchen Sie es erneut.",
   "modal__unlock_vault": "Tresor freischalten",
+  "modal__update_resource_launch_app_as_administrator": "Bitte starten Sie die Anwendung als Administrator",
   "modal__update_resources": "Ressourcen aktualisieren",
   "modal__update_resources_failed": "Update fehlgeschlagen, bitte versuchen Sie es erneut",
   "modal__update_resources_restart_device": "Starten Sie das Gerät neu, um die Firmware zu installieren",

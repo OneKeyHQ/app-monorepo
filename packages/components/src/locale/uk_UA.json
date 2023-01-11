@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Не може підключитися",
   "modal__unable_to_connect_desc": "Ваш поточний пристрій не підтримує NFC, замініть його на пристрій із підтримкою NFC та повторіть спробу",
   "modal__unlock_vault": "Розблокувати сховище",
+  "modal__update_resource_launch_app_as_administrator": "Запустіть програму від імені адміністратора",
   "modal__update_resources": "Ресурси оновлення",
   "modal__update_resources_failed": "Помилка оновлення, повторіть спробу",
   "modal__update_resources_restart_device": "Перезапустіть пристрій, щоб встановити мікропрограму",

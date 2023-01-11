@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Hindi maka konekta",
   "modal__unable_to_connect_desc": "Ang iyong kasalukuyang device ay hindi sumusuporta sa NFC, palitan ito ng isang NFC-enabled na device at subukang muli",
   "modal__unlock_vault": "I-unlock ang Vault",
+  "modal__update_resource_launch_app_as_administrator": "Mangyaring ilunsad ang application bilang administrator",
   "modal__update_resources": "I-update ang Mga Mapagkukunan",
   "modal__update_resources_failed": "Nabigo ang pag-update, pakisubukang muli",
   "modal__update_resources_restart_device": "I-restart ang Device para Mag-install ng Firmware",

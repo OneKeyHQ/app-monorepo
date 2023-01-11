@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "সংযোগ স্থাপন করতে ব্যর্থ",
   "modal__unable_to_connect_desc": "আপনার বর্তমান ডিভাইসটি NFC সমর্থন করে না, এটিকে একটি NFC-সক্ষম ডিভাইস দিয়ে প্রতিস্থাপন করুন এবং আবার চেষ্টা করুন",
   "modal__unlock_vault": "ভল্ট আনলক করুন",
+  "modal__update_resource_launch_app_as_administrator": "প্রশাসক হিসাবে অ্যাপ্লিকেশন চালু করুন",
   "modal__update_resources": "রিসোর্স আপডেট করুন",
   "modal__update_resources_failed": "আপডেট ব্যর্থ হয়েছে, আবার চেষ্টা করুন",
   "modal__update_resources_restart_device": "ফার্মওয়্যার ইনস্টল করতে ডিভাইস পুনরায় চালু করুন",

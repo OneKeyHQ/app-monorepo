@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Unable to connect",
   "modal__unable_to_connect_desc": "Your current device does not support NFC, replace it with an NFC-enabled device and try again",
   "modal__unlock_vault": "Unlock Vault",
+  "modal__update_resource_launch_app_as_administrator": "Please launch the application as administrator",
   "modal__update_resources": "Update Resources",
   "modal__update_resources_failed": "Update failed, please retry",
   "modal__update_resources_restart_device": "Restart Device to Install Firmware",

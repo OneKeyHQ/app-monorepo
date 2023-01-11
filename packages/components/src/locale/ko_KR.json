@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "연결할 수 없습니다",
   "modal__unable_to_connect_desc": "현재 장치가 NFC를 지원하지 않습니다. NFC 지원 장치로 교체하고 다시 시도하십시오.",
   "modal__unlock_vault": "볼트 잠금 해제",
+  "modal__update_resource_launch_app_as_administrator": "관리자로 응용 프로그램을 시작하십시오",
   "modal__update_resources": "리소스 업데이트",
   "modal__update_resources_failed": "업데이트하지 못했습니다. 다시 시도하세요.",
   "modal__update_resources_restart_device": "펌웨어를 설치하려면 장치를 다시 시작하십시오.",

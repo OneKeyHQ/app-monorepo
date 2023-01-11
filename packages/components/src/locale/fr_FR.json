@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "Impossible de se connecter",
   "modal__unable_to_connect_desc": "Votre appareil actuel ne prend pas en charge la technologie NFC. Remplacez-le par un appareil compatible NFC et réessayez.",
   "modal__unlock_vault": "Déverrouiller le coffre-fort",
+  "modal__update_resource_launch_app_as_administrator": "Veuillez lancer l'application en tant qu'administrateur",
   "modal__update_resources": "Mettre à jour les ressources",
   "modal__update_resources_failed": "Échec de la mise à jour, veuillez réessayer",
   "modal__update_resources_restart_device": "Redémarrez l'appareil pour installer le micrologiciel",

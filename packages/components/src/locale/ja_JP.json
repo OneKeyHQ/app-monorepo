@@ -1414,6 +1414,7 @@
   "modal__unable_to_connect": "接続できない",
   "modal__unable_to_connect_desc": "現在お使いのデバイスがNFCに対応していないため、NFC対応のデバイスに交換してから、もう一回お試しください。",
   "modal__unlock_vault": "ボールトのロックを解除します",
+  "modal__update_resource_launch_app_as_administrator": "管理者としてアプリケーションを起動してください",
   "modal__update_resources": "リソースの更新",
   "modal__update_resources_failed": "更新に失敗しました。再試行してください",
   "modal__update_resources_restart_device": "デバイスを再起動してファームウェアをインストールする",

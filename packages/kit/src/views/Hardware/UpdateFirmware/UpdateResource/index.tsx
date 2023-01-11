@@ -258,7 +258,9 @@ const UpdateWarningModal: FC = () => {
   const renderSubTitle = useMemo(() => {
     if (shouldRetry) {
       if (platformEnv.isDesktopWin && isDiskPermissionDenied) {
-        return '请以管理员的身份运行';
+        return intl.formatMessage({
+          id: 'modal__update_resource_launch_app_as_administrator',
+        });
       }
       return undefined;
     }
