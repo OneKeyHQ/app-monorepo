@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useLayoutEffect, useMemo } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -8,6 +8,7 @@ import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Layout from '../../../Layout';
+import { httpServerEnable } from '../util';
 
 import SecondaryContent from './SecondaryContent';
 
@@ -39,7 +40,9 @@ const DescriptionListItem: FC<{ step: any; description: any } & IBoxProps> = ({
   </Box>
 );
 
-const MigrationDescription = () => {
+const MigrationDescription: FC<{
+  selectRange: number;
+}> = ({ selectRange }) => {
   const intl = useIntl();
 
   const DESCRIPTIONS = [
@@ -91,6 +94,13 @@ const Migration = () => {
 
   const navigation = useNavigation();
 
+  const [selectRange, setSelectedRange] = useState(() => {
+    if (!httpServerEnable()) {
+      return 1;
+    }
+    return 0;
+  });
+
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
@@ -98,17 +108,24 @@ const Migration = () => {
 
   const leftCompoment = useMemo(() => {
     if (isVerticalLayout) {
-      return <SecondaryContent />;
+      return (
+        <SecondaryContent
+          selectRange={selectRange}
+          onChange={setSelectedRange}
+        />
+      );
     }
-    return <MigrationDescription />;
-  }, [isVerticalLayout]);
+    return <MigrationDescription selectRange={selectRange} />;
+  }, [isVerticalLayout, selectRange]);
 
   const rightCompoment = useMemo(() => {
     if (isVerticalLayout) {
-      return <MigrationDescription />;
+      return <MigrationDescription selectRange={selectRange} />;
     }
-    return <SecondaryContent />;
-  }, [isVerticalLayout]);
+    return (
+      <SecondaryContent selectRange={selectRange} onChange={setSelectedRange} />
+    );
+  }, [isVerticalLayout, selectRange]);
 
   return (
     <Layout

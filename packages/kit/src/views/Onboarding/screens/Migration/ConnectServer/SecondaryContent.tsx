@@ -245,15 +245,11 @@ const EnterLinkView: FC = () => {
   );
 };
 
-const SecondaryContent: FC = () => {
+const SecondaryContent: FC<{
+  selectRange: number;
+  onChange: (index: number) => void;
+}> = ({ selectRange, onChange }) => {
   const intl = useIntl();
-
-  const [selectRange, setSelectedRange] = useState(() => {
-    if (!httpServerEnable()) {
-      return 1;
-    }
-    return 0;
-  });
 
   return (
     <>
@@ -261,7 +257,7 @@ const SecondaryContent: FC = () => {
         <Center mb="16px">
           <SegmentedControl
             selectedIndex={selectRange}
-            onChange={setSelectedRange}
+            onChange={onChange}
             values={[
               intl.formatMessage({ id: 'content__qr_code' }),
               intl.formatMessage({ id: 'content__enter_link' }),

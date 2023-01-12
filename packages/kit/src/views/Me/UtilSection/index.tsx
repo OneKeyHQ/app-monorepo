@@ -212,33 +212,6 @@ export const UtilSection = () => {
           </Box>
         </Pressable>
         <Divider />
-        <Pressable
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          py={4}
-          px={{ base: 4, md: 6 }}
-          onPress={() => {
-            navigation.navigate(RootRoutes.Onboarding, {
-              screen: EOnboardingRoutes.Migration,
-              params: undefined,
-            });
-          }}
-        >
-          <Icon name="ArrowPathOutline" />
-          <Text
-            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-            flex="1"
-            numberOfLines={1}
-            mx={3}
-          >
-            Migration
-          </Text>
-          <Box>
-            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-          </Box>
-        </Pressable>
       </Box>
     </Box>
   );

@@ -14,6 +14,7 @@ import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -25,7 +26,7 @@ type NavigationProps = NativeStackNavigationProp<
 export const DefaultSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const addNavigation = useAppNavigation();
+  const appNavigation = useAppNavigation();
   const { themeVariant } = useTheme();
 
   return (
@@ -36,6 +37,33 @@ export const DefaultSection = () => {
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() => {
+            appNavigation.navigate(RootRoutes.Onboarding, {
+              screen: EOnboardingRoutes.Migration,
+              params: undefined,
+            });
+          }}
+        >
+          <Icon name="ArrowPathOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex="1"
+            numberOfLines={1}
+            mx={3}
+          >
+            Migration
+          </Text>
+          <Box>
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+          </Box>
+        </Pressable>
         {supportedNFC && (
           <>
             <Pressable
@@ -75,7 +103,7 @@ export const DefaultSection = () => {
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => {
-            addNavigation.navigate(RootRoutes.Root, {
+            appNavigation.navigate(RootRoutes.Root, {
               screen: HomeRoutes.KeyTag,
             });
           }}
