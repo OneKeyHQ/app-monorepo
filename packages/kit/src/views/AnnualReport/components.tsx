@@ -1,16 +1,9 @@
 import type { ComponentProps, FC } from 'react';
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
 import { useFonts } from 'expo-font';
 import { useIntl } from 'react-intl';
-import { Animated, ImageBackground, StatusBar } from 'react-native';
+import { ImageBackground, StatusBar } from 'react-native';
 
 import {
   Center,
@@ -72,12 +65,7 @@ export const Header: FC<{ showHeaderLogo?: boolean }> = ({
         {showHeaderLogo ? (
           <HStack alignItems="center">
             <Image borderRadius="14px" source={logo} w={8} h={8} />
-            <Text
-              fontSize="24px"
-              color="text-on-primary"
-              ml="1"
-              fontWeight="800"
-            >
+            <Text fontSize="24px" color="#fff" ml="1" fontWeight="800">
               OneKey
             </Text>
           </HStack>
@@ -120,7 +108,7 @@ export const Footer: FC<{
       <VStack ml="3" flex="1">
         <Text
           textTransform="uppercase"
-          color="text-on-primary"
+          color="#fff"
           lineHeight="20px"
           fontSize="16"
           fontWeight="800"
@@ -207,8 +195,15 @@ export const BgButton: FC<{
 export const Container: FC<{
   bg: ImageSourcePropType;
   shareMode?: boolean;
+  showHeaderLogo?: boolean;
   containerProps?: ComponentProps<typeof VStack>;
-}> = ({ bg, children, shareMode = false, containerProps = {} }) => {
+}> = ({
+  bg,
+  children,
+  shareMode = false,
+  containerProps = {},
+  showHeaderLogo,
+}) => {
   const { top, bottom } = useSafeAreaInsets();
 
   return (
@@ -229,7 +224,7 @@ export const Container: FC<{
         position="relative"
         w="full"
       >
-        {shareMode ? null : <Header />}
+        {shareMode ? null : <Header showHeaderLogo={showHeaderLogo} />}
         <VStack flex="1" px="6" overflowY="scroll" {...containerProps}>
           {children}
         </VStack>
@@ -250,7 +245,7 @@ export const WText: FC<
   return (
     <Text
       fontFamily={loaded && useCustomFont ? 'Montserrat' : undefined}
-      color="text-on-primary"
+      color="#fff"
       fontSize="16"
       fontWeight="800"
       {...props}

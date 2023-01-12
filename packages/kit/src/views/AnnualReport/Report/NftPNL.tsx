@@ -10,18 +10,16 @@ import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import down from '@onekeyhq/kit/assets/annual/down.png';
 import up from '@onekeyhq/kit/assets/annual/up.png';
 
-import { useActiveWalletAccount } from '../../../hooks';
-import { PriceString } from '../../NFTMarket/PriceText';
+import { PriceString, floorPriceSymbolMap } from '../../NFTMarket/PriceText';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { WText } from '../components';
 
 import type { PageProps } from '../types';
 
-const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
+const NftPNL: FC<PageProps> = ({ params: { pnls, networkId } }) => {
   const { data, assets } = pnls ?? {};
   const intl = useIntl();
   const { height } = useWindowDimensions();
-  const { networkId } = useActiveWalletAccount();
 
   const total = useMemo(() => {
     let totalValue = '0';
@@ -31,7 +29,11 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
         data?.totalProfit?.toNumber() >= 0 ? '+' : ''
       }${totalValue}`;
     }
-    return PriceString({ price: totalValue, networkId });
+    return PriceString({
+      price: totalValue,
+      networkId,
+      symbol: `\n${floorPriceSymbolMap[networkId ?? '']}`,
+    });
   }, [data, networkId]);
 
   const items = useMemo(() => {
@@ -115,8 +117,9 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
             useCustomFont
           >
             {PriceString({
-              price: data?.spend?.decimalPlaces(3).toString() ?? '',
               networkId,
+              price: data?.spend?.decimalPlaces(3).toString() ?? '',
+              symbol: `\n${floorPriceSymbolMap[networkId ?? '']}`,
             })}
           </WText>
         </VStack>

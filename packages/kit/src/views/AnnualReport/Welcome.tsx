@@ -177,6 +177,9 @@ const AnnualLoading: FC = () => {
   }, [ens, account?.address]);
 
   const button = useMemo(() => {
+    if (!account) {
+      return null;
+    }
     if (!isDone) {
       return (
         <BgButton w={134} h={32} bg={bgLoading}>
@@ -212,6 +215,8 @@ const AnnualLoading: FC = () => {
               tokens,
               nfts,
               pnls,
+              account,
+              networkId,
             },
           });
         }}
@@ -221,7 +226,18 @@ const AnnualLoading: FC = () => {
         </WText>
       </BgButton>
     );
-  }, [intl, loading, isDone, navigation, tokens, nfts, pnls, name]);
+  }, [
+    networkId,
+    account,
+    intl,
+    loading,
+    isDone,
+    navigation,
+    tokens,
+    nfts,
+    pnls,
+    name,
+  ]);
 
   if (!name) {
     return (
@@ -253,7 +269,7 @@ const AnnualLoading: FC = () => {
   }
 
   return (
-    <Container bg={bg1}>
+    <Container bg={bg1} showHeaderLogo>
       <VStack flex="1" flexDirection="column-reverse">
         <WText fontSize="48" useCustomFont>
           {intl.formatMessage({ id: 'title__my_on_chain_journey_uppercase' })}
@@ -302,7 +318,7 @@ const AnnualLoading: FC = () => {
       </Center>
       <WText
         fontSize="10"
-        color="text-subdued"
+        color="#8C8CA1"
         fontWeight="400"
         textTransform="none"
         textAlign="center"
