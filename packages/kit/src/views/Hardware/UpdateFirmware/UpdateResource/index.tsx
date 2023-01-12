@@ -43,6 +43,7 @@ const ERRORS = {
   NOT_FOUND_DISK_PATH: 'NOT_FOUND_DISK_PATH',
   MAS_DISK_PATH_PERMISSION_DENIED: 'MAS_DISK_PATH_PERMISSION_DENIED',
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
+  DOWNLOAD_FAILED: 'DOWNLOAD_FAILED',
 };
 
 const { isMas } = platformEnv;
@@ -206,6 +207,11 @@ const UpdateWarningModal: FC = () => {
                   id: 'msg__unable_to_access_disk_onekey_data',
                 });
                 return;
+              case ERRORS.DOWNLOAD_FAILED:
+                message = intl.formatMessage({
+                  id: 'modal__download_failed_desc',
+                });
+                break;
               default:
                 message = error.message;
                 break;

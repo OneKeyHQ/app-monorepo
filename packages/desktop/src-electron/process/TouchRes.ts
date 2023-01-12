@@ -19,6 +19,7 @@ const ERRORS = {
   NOT_FOUND_DISK_PATH: 'NOT_FOUND_DISK_PATH',
   MAS_DISK_PATH_PERMISSION_DENIED: 'MAS_DISK_PATH_PERMISSION_DENIED',
   DISK_ACCESS_ERROR: 'DISK_ACCESS_ERROR',
+  DOWNLOAD_FAILED: 'DOWNLOAD_FAILED',
 };
 
 const MacVolumesPath = '/Volumes';
@@ -244,6 +245,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       })
       .catch((e) => {
         logger.info('download resource file error: ', e);
+        throw new Error(ERRORS.DOWNLOAD_FAILED);
       });
   };
 
@@ -318,9 +320,6 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
     ) => {
       logger.info('will update Touch resource file, params: ', params);
       try {
-        // mock mas
-        // const platform = getPlatform();
-        // if (process.mas || platform === 'mac') {
         if (process.mas) {
           const result = dialog.showOpenDialogSync(mainWindow, {
             buttonLabel: params.buttonLabel,
