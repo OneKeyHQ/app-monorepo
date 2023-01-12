@@ -67,9 +67,9 @@ class ServiceNetwork extends ServiceBase {
       );
       const firstAccount = accounts && accounts[0];
       // TODO cache last active account of network, NOT hardcode to firstAccount
-      if (firstAccount) {
+      if (firstAccount || forceRefreshAccount) {
         await serviceAccount.changeActiveAccount({
-          accountId: firstAccount.id,
+          accountId: firstAccount?.id ?? null,
           walletId: activeWalletId,
           extraActions: [changeActiveNetworkAction], // dispatch batch actions
           // as reloadAccountsByWalletIdNetworkId() has been called before

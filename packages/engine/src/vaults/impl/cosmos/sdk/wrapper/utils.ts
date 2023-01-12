@@ -1,4 +1,4 @@
-import { bytesToHex } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { BigNumber } from 'bignumber.js';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
@@ -137,59 +137,88 @@ export function setFee(signDoc: TransactionWrapper, fee: StdFee) {
 }
 
 export function setSendAmount(tx: TransactionWrapper, amount: string) {
-  if (tx.mode === 'amino') {
-    const aminoSignDoc = getAminoSignDoc(tx);
+  const newTx = tx;
+
+  const [aminoMsg] = newTx.msg?.aminoMsgs ?? [];
+  let aminoMsgValue;
+  if (aminoMsg) {
+    aminoMsgValue = [
+      {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        denom: get(aminoMsg.value.amount, '[0].denom'),
+        amount: new BigNumber(amount).toFixed(),
+      },
+    ];
+
+    if (newTx?.msg?.aminoMsgs[0]) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      newTx.msg.aminoMsgs[0].value.amount = aminoMsgValue;
+    }
+  }
+
+  const [protoMsg] = newTx.msg?.protoMsgs ?? [];
+  let protoMsgValue;
+  if (protoMsg) {
+    if (protoMsg.typeUrl !== MessageType.SEND) {
+      throw new Error('Invalid message type');
+    }
+
+    const sendMsg = MsgSend.decode(hexToBytes(protoMsg.value));
+    protoMsgValue = MsgSend.encode({
+      ...sendMsg,
+      amount: [
+        {
+          denom: sendMsg.amount[0].denom,
+          amount: new BigNumber(amount).toFixed(),
+        },
+      ],
+    }).finish();
+
+    if (newTx?.msg?.protoMsgs[0]) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      newTx.msg.protoMsgs[0].value = bytesToHex(protoMsgValue);
+    }
+  }
+
+  if (newTx.mode === 'amino') {
+    const aminoSignDoc = getAminoSignDoc(newTx);
     const msg = aminoSignDoc.msgs[0];
     if (msg.type !== defaultAminoMsgOpts.send.native.type) {
       throw new Error('Unexpected error');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    msg.value.amount = [
-      {
-        denom: get(msg, 'amount[0].denom'),
-        amount: new BigNumber(amount).toFixed(),
-      },
-    ];
+    msg.value.amount = aminoMsgValue;
 
     // @ts-expect-error
-    tx.signDoc.msgs = aminoSignDoc.msgs;
+    newTx.signDoc.msgs = aminoSignDoc.msgs;
     // // @ts-expect-error
     // tx.msg?.aminoMsgs[0].value = msg.value;
     // // @ts-expect-error
     // tx.msg?.protoMsgs[0].value = msg.value;
-    return tx;
+    return newTx;
   }
 
-  const directSignDoc = getDirectSignDoc(tx);
+  const directSignDoc = getDirectSignDoc(newTx);
   const msg = directSignDoc.txMsgs[0];
   if (msg.typeUrl !== MessageType.SEND) {
     throw new Error('Invalid message type');
   }
-  const sendMsg = MsgSend.decode(msg.value);
   directSignDoc.txBody = {
     ...directSignDoc.txBody,
     messages: [
       {
         typeUrl: MessageType.SEND,
-        value: MsgSend.encode({
-          ...sendMsg,
-          amount: [
-            {
-              denom: sendMsg.amount[0].denom,
-              amount: new BigNumber(amount).toFixed(),
-            },
-          ],
-        }).finish(),
+        value: protoMsgValue ?? new Uint8Array(),
       },
     ],
   };
 
   // @ts-expect-error
-  tx.signDoc.bodyBytes = bytesToHex(
+  newTx.signDoc.bodyBytes = bytesToHex(
     TxBody.encode(directSignDoc.txBody).finish(),
   );
-  return tx;
+  return newTx;
 }
 
 export function getGas(signDoc: TransactionWrapper): number {
