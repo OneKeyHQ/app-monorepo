@@ -21,7 +21,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.png';
+import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.jpg';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
