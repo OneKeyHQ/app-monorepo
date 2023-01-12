@@ -42,8 +42,6 @@ import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import PNLDetailScreen from '../../views/NFTMarket/PNL/PNLDetail';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
-import Migration from '../../views/Onboarding/screens/Migration/ConnectServer';
-import PreviewImportData from '../../views/Onboarding/screens/Migration/PreviewImportData';
 import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
 
