@@ -124,7 +124,7 @@ const ToolsPage: FC = () => {
       allItems = data.filter((d) => d.key !== 'explorer');
     }
     if (network?.impl !== IMPL_EVM) {
-      allItems = allItems.filter((n) => n.key !== 'revoke');
+      allItems = allItems.filter((n) => n.key !== 'revoke' && n.key !== 'pnl');
     }
     if (
       !annualReportEntryEnabled ||
