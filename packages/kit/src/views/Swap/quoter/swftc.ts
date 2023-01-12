@@ -182,6 +182,15 @@ export class SwftcQuoter implements Quoter {
     return true;
   }
 
+  async modifyTxId(orderId: string, depositTxid: string) {
+    const baseURL = await this.getBaseUrl();
+    const url = `${baseURL}/modifyTxId`;
+    const res = await this.client.post(url, { orderId, depositTxid });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const result = res.data.data as string;
+    return result
+  }
+
   async getGroupedCoins() {
     const coins = await this.getCoins();
     return this.groupCoinsByChainId(coins);

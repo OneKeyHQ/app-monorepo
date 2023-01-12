@@ -458,4 +458,8 @@ export class SwapQuoter {
     }
     return undefined;
   }
+
+  async swftModifyTxId(orderId: string, depositTxid: string) {
+    return this.swftc.modifyTxId(orderId, depositTxid)
+  }
 }
