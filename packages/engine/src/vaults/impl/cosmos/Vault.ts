@@ -191,6 +191,14 @@ export default class Vault extends VaultBase {
     };
   }
 
+  normalIBCAddress(tokenAddress: string) {
+    if (this.isIbcToken(tokenAddress)) {
+      const [prefix, address] = tokenAddress.split('/');
+      return `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+    }
+    return undefined;
+  }
+
   override async validateAddress(address: string) {
     const chainInfo = await this.getChainInfo();
 
@@ -212,8 +220,8 @@ export default class Vault extends VaultBase {
     const chainInfo = await this.getChainInfo();
 
     if (this.isIbcToken(tokenAddress)) {
-      const [prefix, address] = tokenAddress.split('/');
-      const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+      const normalizationAddress =
+        this.normalIBCAddress(tokenAddress) ?? tokenAddress;
       const query = new MintScanQuery();
       const results = await query.fetchAssertInfos(this.networkId);
       if (!results) {
@@ -221,7 +229,10 @@ export default class Vault extends VaultBase {
       }
 
       const token = results.find((item) => {
-        if (item.type === Type.Ibc && item.denom === normalizationAddress) {
+        if (
+          item.type === Type.Ibc &&
+          this.normalIBCAddress(item.denom) === normalizationAddress
+        ) {
           return true;
         }
         return false;
@@ -293,7 +304,11 @@ export default class Vault extends VaultBase {
               return new BigNumber(balance?.amount ?? '0');
             }
             if (isIBCToken) {
-              const balance = balances.find((b) => b.denom === tokenAddress);
+              const balance = balances.find(
+                (b) =>
+                  this.normalIBCAddress(b.denom) ===
+                  this.normalIBCAddress(tokenAddress),
+              );
               return new BigNumber(balance?.amount ?? '0');
             }
           }
@@ -322,9 +337,8 @@ export default class Vault extends VaultBase {
     const ibcTokenAddresses = tokenAddresses
       .filter((tokenAddress) => this.isIbcToken(tokenAddress))
       .reduce((acc, tokenAddress) => {
-        const [prefix, address] = tokenAddress.split('/');
-        const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
-        acc.add(normalizationAddress);
+        const normalizationAddress = this.normalIBCAddress(tokenAddress);
+        if (normalizationAddress) acc.add(normalizationAddress);
         return acc;
       }, new Set<string>());
 
@@ -338,18 +352,15 @@ export default class Vault extends VaultBase {
       }
 
       const ibcTokens = results.reduce((acc, item) => {
-        let normalizationAddress = item.denom;
-        if (item.denom.indexOf('/') !== -1) {
-          const [prefix, address] = item.denom.split('/');
-          normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
-        }
+        const normalizationAddress =
+          this.normalIBCAddress(item.denom) ?? item.denom;
 
         if (
           item.type === Type.Ibc &&
           ibcTokenAddresses.has(normalizationAddress)
         ) {
           acc.push({
-            name: `${item.dp_denom}(${item.channel ?? ''})`,
+            name: `${item.dp_denom}(${item.channel?.toUpperCase() ?? ''})`,
             symbol: item.dp_denom,
             decimals: item.decimal,
           });
