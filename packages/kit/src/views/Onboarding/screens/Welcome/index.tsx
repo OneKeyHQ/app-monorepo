@@ -26,11 +26,19 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../../../hooks';
+import {
+  useActiveWalletAccount,
+  useNavigationActions,
+} from '../../../../hooks';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { RootRoutes } from '../../../../routes/routesEnum';
+import {
+  CreateWalletModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/routesEnum';
 import { setOnBoardingLoadingBehindModal } from '../../../../store/reducers/runtime';
 import Layout from '../../Layout';
+import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
 
 import PressableListItem from './PressableListItem';
@@ -58,6 +66,12 @@ const Welcome = () => {
 
   const route = useRoute<RouteProps>();
   const disableAnimation = !!route?.params?.disableAnimation;
+
+  const { network: activeNetwork } = useActiveWalletAccount();
+  const hardwareDisabled = !activeNetwork?.settings?.hardwareAccountEnabled;
+
+  const context = useOnboardingContext();
+  const forceVisibleUnfocused = context?.forceVisibleUnfocused;
 
   useEffect(() => {
     (async function () {
@@ -105,14 +119,25 @@ const Welcome = () => {
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.ImportWallet);
   }, [navigation]);
-  const onPressConnectWallet = useCallback(() => {
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.ConnectWallet);
-  }, [navigation]);
   const onPressRestoreFromCloud = useCallback(() => {
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
   }, [navigation]);
+
+  const onPressHardwareWallet = useCallback(() => {
+    if (hardwareDisabled) return;
+    forceVisibleUnfocused?.();
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+    navigation.navigate(
+      RootRoutes.Modal as any,
+      {
+        screen: ModalRoutes.CreateWallet,
+        params: {
+          screen: CreateWalletModalRoutes.ConnectHardwareModal,
+        },
+      } as any,
+    );
+  }, [hardwareDisabled, forceVisibleUnfocused, navigation]);
 
   const logos = [LogoMetaMask, LogoTrustWallet, LogoRainbow, LogoWalletconnect];
 
@@ -177,7 +202,7 @@ const Welcome = () => {
                   id: 'action__connect_hardware_wallet',
                 })}
                 description="Support OneKey hardware wallet"
-                onPress={onPressConnectWallet}
+                onPress={onPressHardwareWallet}
                 overflow="hidden"
               >
                 <Hidden till="sm">

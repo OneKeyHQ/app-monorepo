@@ -39,6 +39,7 @@ export type IOnboardingRoutesParams = {
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;
 
   [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
+  [EOnboardingRoutes.RecoveryWallet]: undefined;
 
   [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams | undefined;
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;
