@@ -6,7 +6,6 @@ import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 import Long from 'long';
 import memoizee from 'memoizee';
-import protobufjs from 'protobufjs';
 
 import {
   InvalidAddress,
@@ -48,6 +47,7 @@ import {
   isValidContractAddress,
 } from './sdk/address';
 import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
+import { defaultAminoMsgOpts } from './sdk/amino/types';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
 import { MintScanQuery } from './sdk/query/MintScanQuery';
@@ -87,10 +87,6 @@ import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
-
-// see https://github.com/protobufjs/protobuf.js/issues/1745
-protobufjs.util.Long = Long;
-protobufjs.configure();
 
 const GAS_STEP_MULTIPLIER = 10000;
 const GAS_ADJUSTMENT: Record<string, string> = {
@@ -195,6 +191,14 @@ export default class Vault extends VaultBase {
     };
   }
 
+  normalIBCAddress(tokenAddress: string) {
+    if (this.isIbcToken(tokenAddress)) {
+      const [prefix, address] = tokenAddress.split('/');
+      return `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+    }
+    return undefined;
+  }
+
   override async validateAddress(address: string) {
     const chainInfo = await this.getChainInfo();
 
@@ -216,8 +220,8 @@ export default class Vault extends VaultBase {
     const chainInfo = await this.getChainInfo();
 
     if (this.isIbcToken(tokenAddress)) {
-      const [prefix, address] = tokenAddress.split('/');
-      const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+      const normalizationAddress =
+        this.normalIBCAddress(tokenAddress) ?? tokenAddress;
       const query = new MintScanQuery();
       const results = await query.fetchAssertInfos(this.networkId);
       if (!results) {
@@ -225,7 +229,10 @@ export default class Vault extends VaultBase {
       }
 
       const token = results.find((item) => {
-        if (item.type === Type.Ibc && item.denom === normalizationAddress) {
+        if (
+          item.type === Type.Ibc &&
+          this.normalIBCAddress(item.denom) === normalizationAddress
+        ) {
           return true;
         }
         return false;
@@ -281,8 +288,9 @@ export default class Vault extends VaultBase {
     const contractClient = await this.getContractClient();
 
     return Promise.all(
-      requests.map(async ({ address, tokenAddress }) => {
+      requests.map(async ({ address, tokenAddress: tokenId }) => {
         try {
+          const tokenAddress = tokenId?.trim() ?? undefined;
           const isNativeCoin = !tokenAddress;
           const isIBCToken = tokenAddress && this.isIbcToken(tokenAddress);
 
@@ -296,7 +304,11 @@ export default class Vault extends VaultBase {
               return new BigNumber(balance?.amount ?? '0');
             }
             if (isIBCToken) {
-              const balance = balances.find((b) => b.denom === tokenAddress);
+              const balance = balances.find(
+                (b) =>
+                  this.normalIBCAddress(b.denom) ===
+                  this.normalIBCAddress(tokenAddress),
+              );
               return new BigNumber(balance?.amount ?? '0');
             }
           }
@@ -325,9 +337,8 @@ export default class Vault extends VaultBase {
     const ibcTokenAddresses = tokenAddresses
       .filter((tokenAddress) => this.isIbcToken(tokenAddress))
       .reduce((acc, tokenAddress) => {
-        const [prefix, address] = tokenAddress.split('/');
-        const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
-        acc.add(normalizationAddress);
+        const normalizationAddress = this.normalIBCAddress(tokenAddress);
+        if (normalizationAddress) acc.add(normalizationAddress);
         return acc;
       }, new Set<string>());
 
@@ -341,9 +352,15 @@ export default class Vault extends VaultBase {
       }
 
       const ibcTokens = results.reduce((acc, item) => {
-        if (item.type === Type.Ibc && ibcTokenAddresses.has(item.denom)) {
+        const normalizationAddress =
+          this.normalIBCAddress(item.denom) ?? item.denom;
+
+        if (
+          item.type === Type.Ibc &&
+          ibcTokenAddresses.has(normalizationAddress)
+        ) {
           acc.push({
-            name: `${item.dp_denom}(${item.channel ?? ''})`,
+            name: `${item.dp_denom}(${item.channel?.toUpperCase() ?? ''})`,
             symbol: item.dp_denom,
             decimals: item.decimal,
           });
@@ -355,7 +372,7 @@ export default class Vault extends VaultBase {
 
     const contractClient = await this.getContractClient();
 
-    if (!contractClient) return [];
+    if (!contractClient) return tokens;
 
     const client = await this.getClient();
 
@@ -541,13 +558,26 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxCosmos> {
-    const { to, amount, token: tokenAddress } = transferInfo;
+    let { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
     const chainInfo = await this.getChainInfo();
     const { chainId } = parseNetworkId(this.networkId);
 
     if (!chainId) {
       throw new Error('Invalid networkId');
+    }
+
+    let memo: string = transferInfo.destinationTag ?? '';
+    // Slice destination tag from swap address
+    if (
+      !isValidAddress(to, chainInfo.implOptions.addressPrefix) &&
+      to.indexOf('#') > -1
+    ) {
+      const [address, tag] = to.split('#');
+      to = address;
+      memo = tag ?? '';
+
+      await this.validateAddress(address);
     }
 
     let message;
@@ -603,7 +633,7 @@ export default class Vault extends VaultBase {
     const pubkey = hexToBytes(stripHexPrefix(await this._getPublicKey()));
 
     return this.txBuilder.makeTxWrapper(message, {
-      memo: '',
+      memo,
       gasLimit: '0',
       feeAmount: '1',
       pubkey,
@@ -704,8 +734,9 @@ export default class Vault extends VaultBase {
 
       const msgSend = msgs.find(
         (item) =>
+          item?.typeUrl === defaultAminoMsgOpts.send.native.type ||
           // @ts-expect-error
-          item?.typeUrl === MessageType.SEND || item?.type === MessageType.SEND,
+          item?.type === MessageType.SEND,
       );
 
       if (msgSend) {
@@ -787,7 +818,7 @@ export default class Vault extends VaultBase {
     if (
       options.type === IEncodedTxUpdateType.transfer &&
       msgs.length > 0 &&
-      msgs[0].typeUrl === MessageType.SEND
+      msgs[0].typeUrl === defaultAminoMsgOpts.send.native.type
     ) {
       const network = await this.getNetwork();
 

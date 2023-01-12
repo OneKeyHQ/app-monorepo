@@ -12,6 +12,8 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
+
+  minTransferAmount: '0.0000001',
 });
 
 export default settings;
