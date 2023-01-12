@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import JPush from 'jpush-react-native';
 import { pick } from 'lodash';
+import memoizee from 'memoizee';
 import { Dimensions } from 'react-native';
 
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
@@ -12,6 +13,7 @@ import type {
 } from '@onekeyhq/engine/src/managers/notification';
 import {
   addAccountDynamic,
+  addAccountDynamicBatch,
   addPriceAlertConfig,
   queryAccountDynamic,
   queryPriceAlertList,
@@ -39,6 +41,8 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { SocketEvents } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
@@ -149,6 +153,13 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async addAccountDynamic(...args: Parameters<typeof addAccountDynamic>) {
     return addAccountDynamic(...args);
+  }
+
+  @backgroundMethod()
+  async addAccountDynamicBatch(
+    ...args: Parameters<typeof addAccountDynamicBatch>
+  ) {
+    return addAccountDynamicBatch(...args);
   }
 
   @backgroundMethod()
@@ -424,4 +435,53 @@ export default class ServiceNotification extends ServiceBase {
       },
     );
   }
+
+  @backgroundMethod()
+  async filterContractAddresses(
+    ...params: Parameters<ServiceNotification['_filterContractAddresses']>
+  ) {
+    return this._filterContractAddresses(params[0], params[1]);
+  }
+
+  _filterContractAddresses = memoizee(
+    async (
+      addresses: string[],
+      chains: string[] = [
+        OnekeyNetwork.eth,
+        OnekeyNetwork.polygon,
+        OnekeyNetwork.arbitrum,
+        OnekeyNetwork.optimism,
+      ],
+    ) => {
+      if (!addresses.length) {
+        return [];
+      }
+      const result = await fetchData<{ address: string; code?: string }[]>(
+        '/notification/validate-account-address',
+        {
+          data: chains
+            .map((n) =>
+              addresses.map((address) => ({
+                networkId: n,
+                address,
+              })),
+            )
+            .flat(),
+        },
+        [],
+        'POST',
+      );
+      return addresses.filter(
+        (a) =>
+          !result.some((n) => n.address === a && n.code && n.code !== '0x'),
+      );
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 200,
+      maxAge: getTimeDurationMs({ hour: 1 }),
+      normalizer: (args) => JSON.stringify(args),
+    },
+  );
 }
