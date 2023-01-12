@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useAsync } from 'react-async-hook';
@@ -14,6 +14,7 @@ import {
   Pressable,
   VStack,
 } from '@onekeyhq/components';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import bg1 from '@onekeyhq/kit/assets/annual/1.jpg';
@@ -23,10 +24,12 @@ import empty from '@onekeyhq/kit/assets/annual/empty.png';
 import emptyBg from '@onekeyhq/kit/assets/annual/empty_bg.jpg';
 import { parsePNLData } from '@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation, useNavigationActions } from '../../hooks';
 import { HomeRoutes, RootRoutes } from '../../routes/types';
+import { appSelector } from '../../store';
 
 import {
   BgButton,
@@ -53,14 +56,24 @@ const AnnualLoading: FC = () => {
   const account = useEvmAccount();
   const networkId = OnekeyNetwork.eth;
 
-  const { result: ens, loading: ensLoading } = useAsync(async () => {
+  const {
+    result: ens,
+    loading: ensLoading,
+    error: ensError,
+    execute: ensRetry,
+  } = useAsync(async () => {
     if (account?.address) {
       return backgroundApiProxy.serviceRevoke.lookupEnsName(account.address);
     }
     return '';
   }, [account?.address]);
 
-  const { result: tokens, loading: tokensLoading } = useAsync(async () => {
+  const {
+    result: tokens,
+    loading: tokensLoading,
+    execute: tokenRetry,
+    error: tokenError,
+  } = useAsync(async () => {
     if (!account?.id) {
       return [];
     }
@@ -79,10 +92,10 @@ const AnnualLoading: FC = () => {
       tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
       vsCurrency: 'usd',
     });
-    const balances = await serviceToken.fetchTokenBalance({
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
-    });
+
+    const balances = appSelector(
+      (s) => s.tokens?.accountTokensBalance?.[networkId]?.[account.id] ?? {},
+    );
 
     return accountTokens
       .map((t) => {
@@ -106,23 +119,35 @@ const AnnualLoading: FC = () => {
       .filter((t) => t.value.isGreaterThan(0));
   }, [networkId, account?.id]);
 
-  const { result: nfts, loading: nftLoading } = useAsync(async () => {
+  const {
+    result: nfts,
+    loading: nftLoading,
+    error: nftError,
+    execute: nftRetry,
+  } = useAsync(async () => {
     if (!account?.address) {
       return [];
     }
     return backgroundApiProxy.serviceNFT.fetchNFT({
       accountId: account.address,
       networkId,
+      ignoreError: false,
     });
   }, [account?.address, networkId]);
 
-  const { result: pnls, loading: pnlLoading } = useAsync(async () => {
+  const {
+    result: pnls,
+    loading: pnlLoading,
+    error: pnlError,
+    execute: pnlRetry,
+  } = useAsync(async () => {
     const { serviceNFT } = backgroundApiProxy;
     if (!account?.address) {
       return;
     }
     const data = await serviceNFT.getPNLData({
       address: account?.address,
+      ignoreError: false,
     });
     const parsed = parsePNLData(data ?? []);
     const top5 =
@@ -133,6 +158,7 @@ const AnnualLoading: FC = () => {
     if (top5.length) {
       assets =
         (await serviceNFT.batchAsset({
+          ignoreError: false,
           chain: networkId,
           items: top5.map((item) => ({
             contract_address: item.contractAddress,
@@ -168,6 +194,66 @@ const AnnualLoading: FC = () => {
   }, [ensLoading, tokensLoading, nftLoading, pnlLoading]);
 
   const isDone = useMemo(() => loading >= 100, [loading]);
+
+  const loadingTips = useMemo(() => {
+    if (ensLoading) {
+      return 'loading__loading_address_information';
+    }
+    if (pnlLoading) {
+      return 'loading__loading_nft_details';
+    }
+    if (nftLoading) {
+      return 'loading__loading_nft_profit_data';
+    }
+    if (tokensLoading) {
+      return 'loading__loading_token_price_data';
+    }
+  }, [ensLoading, tokensLoading, nftLoading, pnlLoading]);
+
+  const errorTips = useMemo(() => {
+    if (ensError) {
+      return 'loading__address_information_loading_failed_please_try_again';
+    }
+    if (tokenError) {
+      return 'loading__token_price_data_loading_failed_please_try_again';
+    }
+    if (pnlError) {
+      return 'loading__nft_profit_data_loading_failed_please_try_again';
+    }
+    if (nftError) {
+      return 'loading__nft_detailed_data_loading_failed_please_try_again';
+    }
+  }, [ensError, tokenError, nftError, pnlError]);
+
+  const retryFunc = useCallback(() => {
+    debugLogger.http.error('AnnualReport retry', {
+      ensError,
+      tokenError,
+      nftError,
+      pnlError,
+    });
+    if (ensError) {
+      ensRetry?.();
+    }
+    if (tokenError) {
+      tokenRetry?.();
+    }
+    if (nftError) {
+      nftRetry?.();
+    }
+    if (pnlError) {
+      pnlRetry?.();
+    }
+  }, [
+    ensRetry,
+    tokenRetry,
+    nftRetry,
+    pnlRetry,
+    ensError,
+    tokenError,
+    nftError,
+    pnlError,
+  ]);
 
   const name = useMemo(() => {
     if (ens) {
@@ -205,6 +291,9 @@ const AnnualLoading: FC = () => {
         h={50}
         bg={bgStart}
         onPress={() => {
+          if (errorTips) {
+            return retryFunc?.();
+          }
           if (navigation.canGoBack()) {
             navigation.goBack();
           }
@@ -221,12 +310,14 @@ const AnnualLoading: FC = () => {
           });
         }}
       >
-        <WText fontSize="16" fontWeight="600">
-          START
+        <WText fontSize="16" fontWeight="600" lineHeight="50px">
+          {errorTips ? intl.formatMessage({ id: 'action__retry' }) : 'START'}
         </WText>
       </BgButton>
     );
   }, [
+    errorTips,
+    retryFunc,
     networkId,
     account,
     intl,
@@ -305,9 +396,13 @@ const AnnualLoading: FC = () => {
               textTransform="none"
               fontWeight="400"
               w="full"
+              color={errorTips && !loadingTips ? '#FFCC00' : '#E2E2E8'}
             >
               {intl.formatMessage({
-                id: 'content__check_out_what_s_your_identity_on_the_blockchain',
+                id:
+                  loadingTips ||
+                  (errorTips as LocaleIds) ||
+                  'content__check_out_what_s_your_identity_on_the_blockchain',
               })}
             </WText>
           </Box>

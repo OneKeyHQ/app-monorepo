@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
 import type {
   Collection,
@@ -42,9 +43,11 @@ class ServiceNFT extends ServiceBase {
   async getUserNFTAssets({
     accountId,
     networkId,
+    ignoreError = true,
   }: {
     accountId: string;
     networkId: string;
+    ignoreError?: boolean;
   }) {
     const apiUrl = `${this.baseUrl}/v2/list?address=${accountId}&chain=${networkId}`;
     const { data, success } = await this.client
@@ -52,7 +55,10 @@ class ServiceNFT extends ServiceBase {
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: [] }));
     if (!success) {
-      return [];
+      if (ignoreError) {
+        return [];
+      }
+      throw new OneKeyInternalError('data load error');
     }
     return data;
   }
@@ -274,7 +280,11 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchAsset(params: {
+  async batchAsset({
+    ignoreError = true,
+    ...params
+  }: {
+    ignoreError?: boolean;
     chain: string;
     items: { contract_address?: string; token_id?: any }[];
   }) {
@@ -288,13 +298,22 @@ class ServiceNFT extends ServiceBase {
       }));
 
     if (!success) {
-      return undefined;
+      if (ignoreError) {
+        return undefined;
+      }
+      throw new OneKeyInternalError('data load error');
     }
     return data;
   }
 
   @backgroundMethod()
-  async getPNLData({ address }: { address: string }) {
+  async getPNLData({
+    address,
+    ignoreError = true,
+  }: {
+    address: string;
+    ignoreError?: boolean;
+  }) {
     const url = `${this.baseUrl}/account/pnl?&address=${address}`;
     const { data, success } = await this.client
       .get<NFTServiceResp<NFTPNL[]>>(url)
@@ -302,7 +321,10 @@ class ServiceNFT extends ServiceBase {
       .catch(() => ({ success: false, data: [] as NFTPNL[] }));
 
     if (!success) {
-      return [];
+      if (ignoreError) {
+        return [];
+      }
+      throw new OneKeyInternalError('data load error');
     }
     return data;
   }
@@ -380,11 +402,17 @@ class ServiceNFT extends ServiceBase {
   async fetchNFT({
     accountId,
     networkId,
+    ignoreError = true,
   }: {
     accountId: string;
     networkId: string;
+    ignoreError?: boolean;
   }) {
-    const collections = await this.getUserNFTAssets({ accountId, networkId });
+    const collections = await this.getUserNFTAssets({
+      accountId,
+      networkId,
+      ignoreError,
+    });
     const { dispatch } = this.backgroundApi;
 
     const floorPrice = 0;
