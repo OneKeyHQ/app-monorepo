@@ -34,15 +34,17 @@ const AnimatedSplashView = memo(
     });
 
     const logoImage = useMemo((): any => {
-      if (initDataReady) {
-        // return null;
+      if (initDataReady && platformEnv.isExtension) {
+        // do not show default splash logo in extension
+        return null;
       }
       return platformEnv.isRuntimeBrowser
         ? require('../../assets/splash.svg') // SVG in web env
         : require('../../assets/splash.png');
     }, [initDataReady]);
-    return (
-      <Box flex={1} bg={bgColor}>
+
+    const content = useMemo(
+      () => (
         <AnimatedSplash
           preload={false}
           disableAppScale={platformEnv.isExtension}
@@ -61,6 +63,12 @@ const AnimatedSplashView = memo(
         >
           {children}
         </AnimatedSplash>
+      ),
+      [bgColor, children, initDataReady, logoImage],
+    );
+    return (
+      <Box flex={1} bg={bgColor}>
+        {content}
       </Box>
     );
   },
@@ -108,7 +116,9 @@ const AppLoading: FC = ({ children }) => {
   useEffect(() => {
     if (initDataReady && platformEnv.isRuntimeBrowser) {
       const img = document.querySelector('.onekey-index-html-preload-image');
-      setTimeout(() => img?.remove(), 50);
+      // splash logo is disabled in extension, so we need more delay to wait home ui ready
+      const hideLogoDelay = platformEnv.isExtension ? 400 : 50;
+      setTimeout(() => img?.remove(), hideLogoDelay);
     }
   }, [initDataReady]);
 
