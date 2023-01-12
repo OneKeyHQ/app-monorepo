@@ -178,9 +178,13 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getRPCEndpointStatus(rpcURL: string, networkId: string) {
+  async getRPCEndpointStatus(
+    rpcURL: string,
+    networkId: string,
+    useCache = true,
+  ) {
     const { engine } = this.backgroundApi;
-    return engine.getRPCEndpointStatus(rpcURL, networkId);
+    return engine.getRPCEndpointStatus(rpcURL, networkId, useCache);
   }
 
   @backgroundMethod()

@@ -6,20 +6,20 @@ import { useIntl } from 'react-intl';
 
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
+import { useAppSelector } from '../../../hooks';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { WText } from '../components';
 
 import type { PageProps } from '../types';
 
-const TotalAsset: FC<PageProps> = ({ params: { tokens } }) => {
+const TotalAsset: FC<PageProps> = ({
+  params: { tokens, networkId, account },
+}) => {
   const intl = useIntl();
-
-  const { networkId, accountAddress } = useActiveWalletAccount();
 
   const nftValue = useNFTPrice({
     networkId,
-    accountId: accountAddress,
+    accountId: account.address,
   });
 
   const totalValue = useMemo(
