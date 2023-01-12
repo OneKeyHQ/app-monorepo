@@ -56,6 +56,16 @@ function httpServerEnable() {
   return false;
 }
 
+function migrateServerPort() {
+  if (platformEnv.isNativeIOS) {
+    return 20231;
+  }
+  if (platformEnv.isDesktop) {
+    return 20232;
+  }
+  return 20233;
+}
+
 function checkServerUrl(serverUrl: string) {
   try {
     const tempUrl = new URL(serverUrl);
@@ -164,7 +174,7 @@ class ServiceMigrate extends ServiceBase {
     if (!this.httpServerEnable) {
       return Promise.resolve('');
     }
-    const port = 20231;
+    const port = migrateServerPort();
     if (platformEnv.isNative) {
       return new Promise((resolve) => {
         HTTPServerManager.start(port, 'http_service', (data, success) => {

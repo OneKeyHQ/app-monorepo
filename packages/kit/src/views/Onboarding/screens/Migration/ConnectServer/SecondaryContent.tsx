@@ -42,6 +42,17 @@ import { httpServerEnable } from '../util';
 import { ExportResult, useConnectServer, useExportData } from './hook';
 import { showSendDataRequestModal } from './SendDataRequestModal';
 
+function hostWithURL(url: string) {
+  let res = url;
+  if (url.startsWith('http://')) {
+    res = res.replace('http://', '');
+  }
+  if (url.endsWith('/')) {
+    res = res.substring(0, res.length - 1);
+  }
+  return res;
+}
+
 const QRCodeView: FC = () => {
   const intl = useIntl();
   const { serviceMigrate } = backgroundApiProxy;
@@ -191,7 +202,7 @@ const QRCodeView: FC = () => {
         >
           <Icon name="LinkMini" size={20} color="icon-subdued" />
           <Text ml="8px" typography="Body1Strong">
-            {serverAddress}
+            {hostWithURL(serverAddress)}
           </Text>
         </Pressable>
       ) : (
@@ -217,7 +228,9 @@ const EnterLinkView: FC = () => {
             type="plain"
             onPress={() => {
               gotoScanQrcode((data) => {
-                console.log('data = ', data);
+                if (data.startsWith('migrate://')) {
+                  setValue(data.replace('migrate://', ''));
+                }
               });
             }}
           />
@@ -232,7 +245,6 @@ const EnterLinkView: FC = () => {
         onChangeText={setValue}
       />
       <Button
-        // isLoading={isLoading}
         type="primary"
         size="xl"
         w="full"

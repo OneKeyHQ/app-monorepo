@@ -77,7 +77,11 @@ RCT_EXPORT_METHOD(start:(NSInteger) port
       [weakSelf initResponseReceivedFor:weakSelf.webServer forType:@"GET"];
       [weakSelf.webServer startWithPort:port bonjourName:serviceName];
     }
-    callback(@[weakSelf.webServer.serverURL.absoluteString,@(true)]);
+    if (weakSelf.webServer.serverURL.absoluteString) {
+      callback(@[weakSelf.webServer.serverURL.absoluteString,@(true)]);
+    } else {
+      callback(@[[NSNull null],@(false)]);
+    }
   });
 }
 

@@ -67,8 +67,6 @@ const ScanQrcode: FC = () => {
       const scanResult = await handleScanResult(data);
       if (scanResult) {
         if (scanResult.type === ScanSubResultCategory.MIGRATE) {
-          console.log('scanResult = ', scanResult);
-
           navigation.goBack();
           setTimeout(() => {
             connectServer(data.replace('migrate://', ''));

@@ -211,7 +211,6 @@ export const UtilSection = () => {
             <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
-        <Divider />
       </Box>
     </Box>
   );

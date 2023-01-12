@@ -64,6 +64,7 @@ export const DefaultSection = () => {
             <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
+        <Divider />
         {supportedNFC && (
           <>
             <Pressable
