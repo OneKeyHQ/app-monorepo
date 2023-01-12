@@ -70,6 +70,7 @@ export type DesktopAPI = {
     dialogTitle: string;
     buttonLabel: string;
   }) => void;
+  openPrivacyPanel: () => void;
   clearAutoUpdateSettings: () => void;
   restore: () => void;
 };
@@ -183,6 +184,7 @@ const desktopApi = {
     dialogTitle: string;
     buttonLabel: string;
   }) => ipcRenderer.send('touch/res', params),
+  openPrivacyPanel: () => ipcRenderer.send('touch/openPrivacyPanel'),
 
   restore: () => {
     ipcRenderer.send('app/restoreMainWindow');
