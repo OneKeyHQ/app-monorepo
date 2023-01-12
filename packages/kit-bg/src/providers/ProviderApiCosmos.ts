@@ -152,7 +152,6 @@ class ProviderApiCosmos extends ProviderApiBase {
     })) as VaultCosmos;
 
     const account = await vault.getKey(networkId, accountId);
-    console.log('account', account);
     return Promise.resolve(account);
   }
 
@@ -197,6 +196,8 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     const [signerInfo] = txInfo.authInfo.signerInfos;
     const [signature] = txInfo.signatures;
+
+    console.log('=====>>>>> signDoc', signDoc);
 
     const pubKey = PubKey.decode(
       signerInfo?.publicKey?.value ?? new Uint8Array(),
@@ -317,6 +318,10 @@ class ProviderApiCosmos extends ProviderApiBase {
       networkId,
       accountId,
     })) as VaultCosmos;
+
+    console.log('=====>>>>> vault params:', params);
+    const tx = deserializeTx(hexToBytes(params.tx));
+    console.log('=====>>>>> vault tx:', tx);
 
     const res = await vault.broadcastTransaction({
       rawTx: Buffer.from(params.tx, 'hex').toString('base64'),

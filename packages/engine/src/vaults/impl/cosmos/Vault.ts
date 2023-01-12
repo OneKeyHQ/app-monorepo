@@ -2,6 +2,7 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { getCoinInfo } from '@onekeyfe/hd-core/src/api/btc/helpers/btcParamsUtils';
 import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 import Long from 'long';
@@ -136,6 +137,13 @@ export default class Vault extends VaultBase {
     return chainInfo;
   }
 
+  private async getChainImplInfo() {
+    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
+      this.networkId,
+    );
+    return chainInfo.implOptions as CosmosImplOptions;
+  }
+
   // Chain only methods
 
   override createClientFromURL(_url: string): BaseClient {
@@ -200,7 +208,6 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string) {
-    console.log('=====>>> validateAddress address:', address);
     const chainInfo = await this.getChainInfo();
 
     const valid = isValidAddress(address, chainInfo.implOptions.addressPrefix);
@@ -218,11 +225,6 @@ export default class Vault extends VaultBase {
   }
 
   override async validateTokenAddress(tokenAddress: string): Promise<string> {
-    console.log(
-      '=====>>> validateTokenAddress tokenAddress:',
-      tokenAddress,
-      this.networkId,
-    );
     const chainInfo = await this.getChainInfo();
 
     if (this.isIbcToken(tokenAddress)) {
@@ -230,12 +232,6 @@ export default class Vault extends VaultBase {
         this.normalIBCAddress(tokenAddress) ?? tokenAddress;
       const query = new MintScanQuery();
       const results = await query.fetchAssertInfos(this.networkId);
-
-      console.log(
-        '=====>>> validateTokenAddress normalizationAddress:',
-        normalizationAddress,
-      );
-      console.log('=====>>> validateTokenAddress fetchAssertInfos:', results);
 
       if (!results) {
         return Promise.reject(new InvalidTokenAddress());
@@ -347,8 +343,6 @@ export default class Vault extends VaultBase {
   override async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo>> {
-    console.log('=====>>> fetchTokenInfos tokenAddresses:', tokenAddresses);
-
     const ibcTokenAddresses = tokenAddresses
       .filter((tokenAddress) => this.isIbcToken(tokenAddress))
       .reduce((acc, tokenAddress) => {
@@ -358,11 +352,6 @@ export default class Vault extends VaultBase {
       }, new Set<string>());
 
     const tokens = [];
-
-    console.log(
-      '=====>>> fetchTokenInfos ibcTokenAddresses:',
-      ibcTokenAddresses,
-    );
 
     if (ibcTokenAddresses.size > 0) {
       const query = new MintScanQuery();
@@ -454,24 +443,33 @@ export default class Vault extends VaultBase {
 
     const fee = getFee(params.encodedTx);
 
+    let newAmount = [];
+    if (fee && fee.amount.length > 0) {
+      newAmount = [
+        {
+          denom: fee.amount[0].denom,
+          amount: txPrice,
+        },
+      ];
+    } else {
+      const implCoin = await this.getChainImplInfo();
+      newAmount = [
+        {
+          denom: implCoin.mainCoinDenom,
+          amount: txPrice,
+        },
+      ];
+    }
+
     const newFee: StdFee = {
-      amount:
-        fee && fee.amount.length > 0
-          ? [
-              {
-                denom: fee.amount[0].denom,
-                amount: txPrice,
-              },
-            ]
-          : [],
+      amount: newAmount,
       gas_limit: limit,
       payer: fee?.payer ?? '',
       granter: fee?.granter ?? '',
       feePayer: fee?.feePayer ?? '',
     };
 
-    setFee(params.encodedTx, newFee);
-    return params.encodedTx;
+    return setFee(params.encodedTx, newFee);
   }
 
   override decodedTxToLegacy(
