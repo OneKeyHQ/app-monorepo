@@ -11,6 +11,7 @@ import {
   Center,
   CustomSkeleton,
   Icon,
+  IconButton,
   Input,
   Pressable,
   QRCode,
@@ -208,19 +209,25 @@ const EnterLinkView: FC = () => {
   return (
     <>
       <Input
-        leftIconName="LinkOutline"
-        rightIconName="ViewfinderCircleMini"
+        leftIconName="LinkSolid"
+        rightCustomElement={
+          <IconButton
+            size="xl"
+            name="ViewfinderCircleOutline"
+            type="plain"
+            onPress={() => {
+              gotoScanQrcode((data) => {
+                console.log('data = ', data);
+              });
+            }}
+          />
+        }
         size="xl"
         w="full"
         type="text"
         value={value}
-        placeholder="Link"
+        placeholder={intl.formatMessage({ id: 'content__link' })}
         onChangeText={setValue}
-        onPressRightIcon={() => {
-          gotoScanQrcode((data) => {
-            console.log('data = ', data);
-          });
-        }}
       />
       <Button
         // isLoading={isLoading}
@@ -232,7 +239,7 @@ const EnterLinkView: FC = () => {
           await connectServer(value);
         }}
       >
-        Connect
+        {intl.formatMessage({ id: 'action__connect' })}
       </Button>
     </>
   );
@@ -255,7 +262,10 @@ const SecondaryContent: FC = () => {
           <SegmentedControl
             selectedIndex={selectRange}
             onChange={setSelectedRange}
-            values={['QR Code', 'Enter Link']}
+            values={[
+              intl.formatMessage({ id: 'content__qr_code' }),
+              intl.formatMessage({ id: 'content__enter_link' }),
+            ]}
             style={{ width: 192 }}
           />
         </Center>

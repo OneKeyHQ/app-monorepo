@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Layout from '../../../Layout';
 
@@ -12,9 +13,11 @@ import SecondaryContent from './SecondaryContent';
 
 import type { IBoxProps } from 'native-base';
 
-const DescriptionListItem: FC<
-  { step: any; description: string } & IBoxProps
-> = ({ step, description, ...rest }) => (
+const DescriptionListItem: FC<{ step: any; description: any } & IBoxProps> = ({
+  step,
+  description,
+  ...rest
+}) => (
   <Box flexDirection="row" {...rest}>
     <Center
       size="28px"
@@ -40,25 +43,42 @@ const MigrationDescription = () => {
   const intl = useIntl();
 
   const DESCRIPTIONS = [
-    'Keep devices on same local network',
-    'Open another OneKey',
+    intl.formatMessage({ id: 'content__migration_step_1' }),
+    intl.formatMessage(
+      { id: 'content__migration_step_2' },
+      {
+        addOn: (
+          <>
+            {!platformEnv.isNative ? (
+              <Text
+                typography={{ sm: 'Body2', md: 'Body1' }}
+                color="text-subdued"
+              >
+                {intl.formatMessage({ id: 'content__migration_step_2_add_on' })}
+              </Text>
+            ) : (
+              ''
+            )}
+          </>
+        ),
+      },
+    ),
     'Scan the QR Code. If you are using OneKey Extension, go to Migration, then paste the link below the QR Code to OneKey Extension',
   ];
 
   return (
     <Box>
-      {DESCRIPTIONS.map((description) => (
+      {DESCRIPTIONS.map((description, index) => (
         <DescriptionListItem
-          step={DESCRIPTIONS.indexOf(description) + 1}
+          key={index}
+          step={index + 1}
           description={description}
-          mt={DESCRIPTIONS.indexOf(description) === 0 ? undefined : '16px'}
+          mt={index === 0 ? undefined : '16px'}
         />
       ))}
 
       <Text typography="Body2" mt="24px" color="text-subdued">
-        Note: Your wallets is encrypted using your password. OneKey won't
-        migrate your hardware wallets; you should write down your phrase and
-        keep it safe.
+        {intl.formatMessage({ id: 'content__migration_note' })}
       </Text>
     </Box>
   );
@@ -93,8 +113,8 @@ const Migration = () => {
   return (
     <Layout
       disableAnimation
-      title="Migrate"
-      description="between OneKey"
+      title={intl.formatMessage({ id: 'title__migration' })}
+      description={intl.formatMessage({ id: 'title__migration_desc' })}
       secondaryContent={rightCompoment}
     >
       {leftCompoment}
