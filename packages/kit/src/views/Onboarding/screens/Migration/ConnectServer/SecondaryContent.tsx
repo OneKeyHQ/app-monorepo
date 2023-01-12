@@ -3,16 +3,19 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
+  Center,
   CustomSkeleton,
   Icon,
   Input,
   Pressable,
   QRCode,
   SegmentedControl,
+  Skeleton,
   Text,
   ToastManager,
 } from '@onekeyhq/components';
@@ -29,7 +32,6 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
@@ -150,26 +152,28 @@ const QRCodeView: FC = () => {
   }, [exportDataRequest, navigation, serviceMigrate]);
 
   return (
-    <Box alignItems="center" width="100%">
+    <>
       {serverAddress.length > 0 ? (
         <Box
-          borderRadius="15px"
+          borderRadius="24px"
           bgColor="#FFFFFF"
           padding="11px"
           size="192px"
-          shadow="depth.4"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="border-subdued"
+          shadow="depth.1"
         >
           <QRCode
             value={`migrate://${serverAddress}`}
             size={170}
             logo={qrcodeLogo}
-            logoSize={32}
+            logoSize={36}
             logoMargin={4}
             logoBackgroundColor="white"
           />
         </Box>
       ) : (
-        <CustomSkeleton borderRadius="15px" width={192} height={192} />
+        <CustomSkeleton borderRadius="12px" width={192} height={192} />
       )}
 
       {serverAddress.length > 0 ? (
@@ -184,15 +188,15 @@ const QRCodeView: FC = () => {
           mt="16px"
           alignItems="center"
         >
-          <Icon name="LinkOutline" size={20} color="icon-subdued" />
+          <Icon name="LinkMini" size={20} color="icon-subdued" />
           <Text ml="8px" typography="Body1Strong">
             {serverAddress}
           </Text>
         </Pressable>
       ) : (
-        <CustomSkeleton width={144} height="12px" mt="22px" />
+        <Skeleton shape="Body1" />
       )}
-    </Box>
+    </>
   );
 };
 
@@ -202,13 +206,13 @@ const EnterLinkView: FC = () => {
   const { connectServer } = useConnectServer();
 
   return (
-    <Box mt="74px" width="285px" height="100%">
+    <>
       <Input
         leftIconName="LinkOutline"
         rightIconName="ViewfinderCircleMini"
+        size="xl"
         w="full"
         type="text"
-        h="50px"
         value={value}
         placeholder="Link"
         onChangeText={setValue}
@@ -222,14 +226,15 @@ const EnterLinkView: FC = () => {
         // isLoading={isLoading}
         type="primary"
         size="xl"
-        mt="24px"
+        w="full"
+        mt="16px"
         onPromise={async () => {
           await connectServer(value);
         }}
       >
         Connect
       </Button>
-    </Box>
+    </>
   );
 };
 
@@ -244,20 +249,22 @@ const SecondaryContent: FC = () => {
   });
 
   return (
-    <Box alignItems="center">
-      {!platformEnv.isNative && httpServerEnable() ? (
-        <Box mb="24px">
+    <>
+      {httpServerEnable() ? (
+        <Center mb="16px">
           <SegmentedControl
             selectedIndex={selectRange}
             onChange={setSelectedRange}
             values={['QR Code', 'Enter Link']}
-            style={{ width: 192, height: 36 }}
+            style={{ width: 192 }}
           />
-        </Box>
+        </Center>
       ) : null}
 
-      {selectRange === 0 ? <QRCodeView /> : <EnterLinkView />}
-    </Box>
+      <Center flex={1}>
+        {selectRange === 0 ? <QRCodeView /> : <EnterLinkView />}
+      </Center>
+    </>
   );
 };
 
