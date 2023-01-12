@@ -14,7 +14,13 @@ const Safe: FC<PageProps> = () => {
 
   const formatChunk = useCallback(
     (chunk) => (
-      <WText fontWeight="500" fontSize="20px" color="text-success" px="10px">
+      <WText
+        fontWeight="500"
+        fontSize="20px"
+        color="text-success"
+        px="10px"
+        useCustomFont
+      >
         {chunk}
       </WText>
     ),

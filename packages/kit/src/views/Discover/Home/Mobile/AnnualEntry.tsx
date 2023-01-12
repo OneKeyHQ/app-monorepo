@@ -13,7 +13,7 @@ import {
   Text,
   VStack,
 } from '@onekeyhq/components';
-import bg1 from '@onekeyhq/kit/assets/annual/1.png';
+import bg1 from '@onekeyhq/kit/assets/annual/banner.jpg';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector, useNavigation } from '../../../../hooks';

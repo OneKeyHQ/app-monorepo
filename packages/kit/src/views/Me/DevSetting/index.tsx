@@ -24,6 +24,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setDevMode,
+  setEnableExternalAccountReport,
   setEnablePerfCheck,
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
@@ -86,6 +87,7 @@ export const DevSettingSection = () => {
     enableZeroNotificationThreshold,
     enablePerfCheck,
     hideDiscoverContent,
+    enableExternalAccountAnnualReport,
   } = devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -290,6 +292,22 @@ export const DevSettingSection = () => {
             isChecked={hideDiscoverContent}
             onToggle={() => {
               dispatch(setHideDiscoverContent(!hideDiscoverContent));
+            }}
+          />
+        </Container.Item>
+        <Container.Item
+          title="Enable Extenal Account Annual Report"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={enableExternalAccountAnnualReport}
+            onToggle={() => {
+              dispatch(
+                setEnableExternalAccountReport(
+                  !enableExternalAccountAnnualReport,
+                ),
+              );
             }}
           />
         </Container.Item>

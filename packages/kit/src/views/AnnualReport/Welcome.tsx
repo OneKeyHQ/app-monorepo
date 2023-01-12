@@ -16,17 +16,17 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import bg1 from '@onekeyhq/kit/assets/annual/1.png';
+import bg1 from '@onekeyhq/kit/assets/annual/1.jpg';
 import bgLoading from '@onekeyhq/kit/assets/annual/bg_loading.png';
 import bgStart from '@onekeyhq/kit/assets/annual/bg_start.png';
 import empty from '@onekeyhq/kit/assets/annual/empty.png';
-import emptyBg from '@onekeyhq/kit/assets/annual/empty_bg.png';
+import emptyBg from '@onekeyhq/kit/assets/annual/empty_bg.jpg';
 import { parsePNLData } from '@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation, useNavigationActions } from '../../hooks';
-import { HomeRoutes } from '../../routes/types';
+import { HomeRoutes, RootRoutes } from '../../routes/types';
 
 import {
   BgButton,
@@ -37,11 +37,7 @@ import {
 } from './components';
 import { useEvmAccount } from './hooks';
 
-import type {
-  HomeRoutesParams,
-  RootRoutes,
-  RootRoutesParams,
-} from '../../routes/types';
+import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -209,11 +205,14 @@ const AnnualLoading: FC = () => {
           if (navigation.canGoBack()) {
             navigation.goBack();
           }
-          navigation.navigate(HomeRoutes.AnnualReport, {
-            name,
-            tokens,
-            nfts,
-            pnls,
+          navigation.navigate(RootRoutes.Root, {
+            screen: HomeRoutes.AnnualReport,
+            params: {
+              name,
+              tokens,
+              nfts,
+              pnls,
+            },
           });
         }}
       >
@@ -234,7 +233,13 @@ const AnnualLoading: FC = () => {
           flexDirection: 'column',
         }}
       >
-        <WText fontWeight="600" fontSize="24px" lineHeight="34px" px="6">
+        <WText
+          useCustomFont
+          fontWeight="600"
+          fontSize="24px"
+          lineHeight="34px"
+          px="6"
+        >
           {intl.formatMessage({
             id: 'content__in_2022_you_dont_have_a_story_left_on_the_chain',
           })}
@@ -250,7 +255,7 @@ const AnnualLoading: FC = () => {
   return (
     <Container bg={bg1}>
       <VStack flex="1" flexDirection="column-reverse">
-        <WText fontSize="48">
+        <WText fontSize="48" useCustomFont>
           {intl.formatMessage({ id: 'title__my_on_chain_journey_uppercase' })}
         </WText>
       </VStack>
