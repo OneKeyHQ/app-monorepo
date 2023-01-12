@@ -123,6 +123,7 @@ const NestedTabView: FC<NestedTabViewProps> = ({
     <NativeNestedTabView
       defaultIndex={defaultIndex}
       onChange={onTabChange}
+      scrollEnabled={scrollEnabled}
       {...rest}
     >
       {renderHeader?.()}
