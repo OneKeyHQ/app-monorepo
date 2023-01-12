@@ -153,6 +153,7 @@
   "action__ok_im_done": "نعم. منتهي!",
   "action__open_finder": "افتح الباحث",
   "action__open_in_browser": "افتح في المتصفح",
+  "action__open_system_preference": "افتح تفضيلات النظام",
   "action__overwrite": "الكتابة فوق",
   "action__paste": "معجون",
   "action__pause": "يوقف",
@@ -391,6 +392,11 @@
   "content__downloading": "جارى التحميل",
   "content__downloading_str": "تحميل {0}",
   "content__duration": "مدة",
+  "content__enable_mac_permissions_for_oneKey": "قم بتمكين أذونات macOS لـ OneKey",
+  "content__enable_mac_permissions_for_oneKey_step_1": "انقر فوق الزر أدناه لفتح \"تفضيلات النظام\"",
+  "content__enable_mac_permissions_for_oneKey_step_2": "حدد \"الملفات والمجلدات\"",
+  "content__enable_mac_permissions_for_oneKey_step_3": "تمكين \"وحدات التخزين القابلة للإزالة\" أسفل OneKey",
+  "content__enable_mac_permissions_for_oneKey_step_4": "انقر على \"Quit & Reopen\" في مربع الحوار",
   "content__encrypting_your_data": "<a> تشفير </a> <b> بياناتك </b>",
   "content__enter": "يدخل",
   "content__enter_bootloader_mode": "ادخل إلى وضع Bootloader",
@@ -487,7 +493,7 @@
   "content__looking_back_at_your_on_chain_story_you_are_the": "إذا نظرنا إلى الوراء في قصتك على السلسلة ، فأنت ...",
   "content__losing_flips": "فقدان التقلبات",
   "content__luna_crash": "تحطم لونا",
-  "content__major_update_description": "يوفر الإصدار 3.5.0 تحسينات مهمة وترقيات أمنية. يرجى توصيل جهازك بـ OneKey Desktop للترقية إلى أحدث إصدار من البرنامج الثابت لأن التطبيق الحالي لا يدعم الترقيات. يرجى الذهاب إلى {url} لتنزيل العميل.",
+  "content__major_update_description": "يوفر الإصدار {v} تحسينات مهمة في الميزات وترقيات للأمان. يرجى توصيل جهازك بـ OneKey Desktop للترقية إلى أحدث إصدار من البرنامج الثابت لأن التطبيق الحالي لا يدعم الترقيات. يرجى الذهاب إلى {url} لتنزيل العميل.",
   "content__manage_your_token_allowances_and_protect_yourself_from_scams_on_30_chains": "إدارة مخصصات الرموز المميزة الخاصة بك وحماية نفسك من عمليات الاحتيال على أكثر من 30 سلسلة.",
   "content__market_cap": "القيمة السوقية",
   "content__max_fee": "الحد الأقصى للرسوم",
@@ -559,6 +565,8 @@
   "content__receive_description": "لا يمكن إرسال الأصول إلا داخل نفس الشبكة.",
   "content__receive_notifications_of_account_dynamics_and_asset_changes": "تلقي إخطارات ديناميكيات الحساب وتغييرات الأصول.",
   "content__recovery_phrase_restore": "إذا نسيت كلمة المرور الخاصة بك ، فيمكنك استخدام عبارة الاسترداد للعودة إلى محفظتك.",
+  "content__restart_device": "اعد تشغيل الجهاز",
+  "content__restart_device_to_exit_boardloader": "أعد تشغيل جهازك للهروب من وضع Boardloader ؛ سيتعين علينا تحديث البرامج الثابتة من البداية.",
   "content__rocket_fast": "🚀 سريع",
   "content__royalty_fees_are_excluded": "بعد رسوم الملكية",
   "content__running_official_firmware": "جهازك يقوم بتشغيل البرامج الثابتة الرسمية.",
@@ -1317,6 +1325,7 @@
   "modal__device_check_failed_desc": "فشل فحص الجهاز. حاول مرة اخرى.",
   "modal__device_name": "اسم الجهاز",
   "modal__device_status_check": "فحص حالة الجهاز",
+  "modal__device_status_check_restart_device_to_exit_boardloader": "إذا تحول جهازك إلى وضع Boardloader ، يرجى إعادة تشغيل جهازك",
   "modal__disconnected_during_installation": "قطع الاتصال أثناء التثبيت",
   "modal__disconnected_during_installation_desc": "يرجى إعادة الاتصال والمحاولة مرة أخرى.",
   "modal__disconnecting_device": "فصل الجهاز",
@@ -1325,6 +1334,7 @@
   "modal__download_failed": "التحميل فشل",
   "modal__download_failed_desc": "التحميل غير قادر على الاكتمال. يرجى المحاولة أجيان.",
   "modal__edit_wallet": "تحرير المحفظة",
+  "modal__enable_mac_permission_title": "فقط بضع خطوات أخرى",
   "modal__enjoying_onekey": "هل تستمتع بـ OneKey؟",
   "modal__enjoying_onekey_desc": "اضغط على النجوم لتقييمها في متجر التطبيقات.",
   "modal__enter_bootloader_mode": "أدخل وضع Bootloader",
@@ -1404,6 +1414,7 @@
   "modal__unable_to_connect": "غير قادر على الاتصال",
   "modal__unable_to_connect_desc": "جهازك الحالي لا يدعم NFC ، استبدله بجهاز مزود بتقنية NFC وحاول مرة أخرى",
   "modal__unlock_vault": "افتح Vault",
+  "modal__update_resource_launch_app_as_administrator": "يرجى تشغيل التطبيق كمسؤول",
   "modal__update_resources": "تحديث الموارد",
   "modal__update_resources_failed": "فشل التحديث ، يرجى إعادة المحاولة",
   "modal__update_resources_restart_device": "أعد تشغيل الجهاز لتثبيت البرنامج الثابت",
