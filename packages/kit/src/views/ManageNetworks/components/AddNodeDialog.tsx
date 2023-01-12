@@ -60,7 +60,7 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     setIsLoading(true);
     const { url } = values;
-    const res = await measureRpc(networkId, url);
+    const res = await measureRpc(networkId, url, false);
     if (!res.latestBlock) {
       setError(
         'url',
