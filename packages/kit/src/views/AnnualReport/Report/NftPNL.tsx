@@ -5,8 +5,10 @@ import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
-import { HStack, VStack } from '@onekeyhq/components';
+import { HStack, Image, VStack } from '@onekeyhq/components';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import down from '@onekeyhq/kit/assets/annual/down.png';
+import up from '@onekeyhq/kit/assets/annual/up.png';
 
 import { useActiveWalletAccount } from '../../../hooks';
 import { PriceString } from '../../NFTMarket/PriceText';
@@ -33,7 +35,7 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
   }, [data, networkId]);
 
   const items = useMemo(() => {
-    const list =
+    const list = (
       data?.content.map((n) => {
         const key = `${n.contractAddress as string}-${n.tokenId}`;
         return {
@@ -41,7 +43,8 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
           key,
           asset: assets?.[key],
         };
-      }) ?? [];
+      }) ?? []
+    ).filter((n) => !!n.asset);
 
     if (height > 800) {
       return list;
@@ -109,6 +112,7 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
             lineHeight="29px"
             color="#E2E2E8"
             mb="2"
+            useCustomFont
           >
             {PriceString({
               price: data?.spend?.decimalPlaces(3).toString() ?? '',
@@ -132,13 +136,14 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
             lineHeight="29px"
             color="#E2E2E8"
             mb="6"
+            useCustomFont
           >
             {total}
           </WText>
         </VStack>
       </HStack>
-      {items.slice(0, 3).map((item) => (
-        <HStack alignItems="center" mb="6">
+      {items.map((item) => (
+        <HStack alignItems="center" mb="6px" key={item.key}>
           <NFTListImage asset={item.asset || ({} as NFTAsset)} size={80} />
           <VStack ml="6" flex="1">
             <WText
@@ -146,26 +151,30 @@ const NftPNL: FC<PageProps> = ({ params: { pnls } }) => {
               fontSize="20px"
               lineHeight="28px"
               color="#E2E2E8"
-              mb="2"
-              flex="1"
               numberOfLines={1}
+              mb="10px"
             >
               {`${item.contractName ?? ''}  #${item.tokenId ?? ''}`}
             </WText>
-            <WText
-              fontWeight="600"
-              fontSize="20px"
-              lineHeight="28px"
-              color="text-success"
-              flex="1"
-              numberOfLines={1}
-            >
-              {PriceString({
-                price:
-                  new B(item?.profit || 0).decimalPlaces(3).toString() ?? '',
-                networkId,
-              })}
-            </WText>
+            <HStack alignItems="center">
+              <Image w="10px" h="6px" source={item.profit < 0 ? down : up} />
+              <WText
+                fontWeight="600"
+                fontSize="20px"
+                lineHeight="28px"
+                color={item.profit < 0 ? '#FF6259' : '#34C759'}
+                flex="1"
+                numberOfLines={1}
+                useCustomFont
+                ml="1"
+              >
+                {PriceString({
+                  price:
+                    new B(item?.profit || 0).decimalPlaces(3).toString() ?? '',
+                  networkId,
+                })}
+              </WText>
+            </HStack>
           </VStack>
         </HStack>
       ))}

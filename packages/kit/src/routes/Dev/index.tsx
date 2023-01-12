@@ -27,6 +27,7 @@ import ListGallery from '@onekeyhq/kit/src/views/Components/stories/List';
 import LoggerGallery from '@onekeyhq/kit/src/views/Components/stories/Logger';
 import MarkdownGallery from '@onekeyhq/kit/src/views/Components/stories/Markdown';
 import MenuGallery from '@onekeyhq/kit/src/views/Components/stories/Menu';
+import MnemonicCardGallery from '@onekeyhq/kit/src/views/Components/stories/MnemonicCard';
 import ModalGallery from '@onekeyhq/kit/src/views/Components/stories/Modal';
 import NftCardGallery from '@onekeyhq/kit/src/views/Components/stories/NftCard';
 import NFTImageGallery from '@onekeyhq/kit/src/views/Components/stories/NFTImage';
@@ -122,6 +123,7 @@ export enum StackRoutes {
   ComponentDotMap = 'component/DotMap',
   ComponentBottomSheetModal = 'component/BottomSheetModal',
   ComponentNavHeaderGallery = 'component/NavHeader',
+  ComponentMnemonicCardGallery = 'component/MnemonicCard',
 }
 
 export type StackBasicRoutesParams = {
@@ -186,6 +188,7 @@ export type StackBasicRoutesParams = {
   [StackRoutes.ComponentDotMap]: undefined;
   [StackRoutes.ComponentBottomSheetModal]: undefined;
   [StackRoutes.ComponentNavHeaderGallery]: undefined;
+  [StackRoutes.ComponentMnemonicCardGallery]: undefined;
 };
 
 export const stackScreenList = [
@@ -281,6 +284,10 @@ export const stackScreenList = [
     component: BottomSheetModalGallery,
   },
   { name: StackRoutes.ComponentNavHeaderGallery, component: NavHeaderGallery },
+  {
+    name: StackRoutes.ComponentMnemonicCardGallery,
+    component: MnemonicCardGallery,
+  },
 ];
 
 const DevStack = createNativeStackNavigator();

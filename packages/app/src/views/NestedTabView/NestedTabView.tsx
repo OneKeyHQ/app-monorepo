@@ -27,6 +27,7 @@ const NestedTabView: FC<NestedTabViewProps> = ({
   onChange,
   defaultIndex,
   canOpenDrawer,
+  scrollEnabled,
   ...rest
 }) => {
   // const { width: screenWidth } = useWindowDimensions();
@@ -38,11 +39,7 @@ const NestedTabView: FC<NestedTabViewProps> = ({
   const startY = useSharedValue(0);
 
   const onEnd = useCallback(
-    ({
-      translationX,
-      translationY,
-      velocityX,
-    }: PanGestureHandlerEventPayload) => {
+    ({ translationX, translationY }: PanGestureHandlerEventPayload) => {
       if (
         canOpenDrawer &&
         tabIndex.value === 0 &&
@@ -50,7 +47,7 @@ const NestedTabView: FC<NestedTabViewProps> = ({
         translationY < failOffsetY
       ) {
         nestedTabTransX.value = withSpring(0, {
-          velocity: velocityX,
+          velocity: 50,
           stiffness: 1000,
           damping: 500,
           mass: 3,
@@ -122,7 +119,17 @@ const NestedTabView: FC<NestedTabViewProps> = ({
     },
     [onChange, tabIndex],
   );
-  return (
+  const content = (
+    <NativeNestedTabView
+      defaultIndex={defaultIndex}
+      onChange={onTabChange}
+      {...rest}
+    >
+      {renderHeader?.()}
+      {children}
+    </NativeNestedTabView>
+  );
+  return scrollEnabled ? (
     <GestureDetector
       gesture={
         platformEnv.isNativeAndroid
@@ -130,15 +137,10 @@ const NestedTabView: FC<NestedTabViewProps> = ({
           : Gesture.Simultaneous(pan, native)
       }
     >
-      <NativeNestedTabView
-        defaultIndex={defaultIndex}
-        onChange={onTabChange}
-        {...rest}
-      >
-        {renderHeader?.()}
-        {children}
-      </NativeNestedTabView>
+      {content}
     </GestureDetector>
+  ) : (
+    content
   );
 };
 
