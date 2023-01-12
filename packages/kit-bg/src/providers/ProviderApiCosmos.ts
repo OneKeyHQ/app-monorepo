@@ -81,7 +81,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     const { accountId } = getActiveWalletAccount();
 
     const vault = (await this.backgroundApi.engine.getVault({
-      networkId: this.convertCosmosChainId(networkId),
+      networkId: this.convertCosmosChainId(networkId) ?? '',
       accountId,
     })) as VaultCosmos;
 
@@ -111,7 +111,8 @@ class ProviderApiCosmos extends ProviderApiBase {
     debugLogger.providerApi.info('aptos disconnect', origin);
   }
 
-  private convertCosmosChainId(networkId: string) {
+  private convertCosmosChainId(networkId: string | undefined | null) {
+    if (!networkId) return undefined;
     return `cosmos--${networkId.toLowerCase()}`;
   }
 
@@ -139,6 +140,8 @@ class ProviderApiCosmos extends ProviderApiBase {
     const { networkImpl, accountId } = getActiveWalletAccount();
 
     const networkId = this.convertCosmosChainId(params);
+    if (!networkId) throw new Error('Invalid chainId');
+
     if (networkImpl !== IMPL_COSMOS) {
       return undefined;
     }
@@ -175,11 +178,13 @@ class ProviderApiCosmos extends ProviderApiBase {
     debugLogger.providerApi.info('cosmos signAmino', params);
 
     const encodeTx = params.signDoc;
+    const networkId = this.convertCosmosChainId(encodeTx.chain_id);
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 
@@ -233,6 +238,8 @@ class ProviderApiCosmos extends ProviderApiBase {
   ): Promise<any> {
     debugLogger.providerApi.info('cosmos signDirect', params);
 
+    const networkId = this.convertCosmosChainId(params.signDoc.chainId);
+
     const encodeTx = params.signDoc;
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
@@ -247,6 +254,7 @@ class ProviderApiCosmos extends ProviderApiBase {
           undefined,
         ),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 
@@ -303,6 +311,8 @@ class ProviderApiCosmos extends ProviderApiBase {
     debugLogger.providerApi.info('cosmos sendTx', params);
     const { accountId } = getActiveWalletAccount();
     const networkId = this.convertCosmosChainId(params.chainId);
+    if (!networkId) throw new Error('Invalid chainId');
+
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
@@ -328,11 +338,12 @@ class ProviderApiCosmos extends ProviderApiBase {
       data: string;
     },
   ): Promise<any> {
-    debugLogger.providerApi.info('cosmos signAmino', params);
+    debugLogger.providerApi.info('cosmos signArbitrary', params);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [data, isADR36WithString] = getDataForADR36(params.data);
     const unsignDoc = getADR36SignDoc(params.signer, data);
+    const networkId = this.convertCosmosChainId(params.chainId);
 
     const encodeTx = unsignDoc;
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
@@ -340,6 +351,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 
@@ -380,11 +392,13 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
     },
   ): Promise<any> {
-    debugLogger.providerApi.info('cosmos signAmino', params);
+    debugLogger.providerApi.info('cosmos verifyArbitrary', params);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [data, isADR36WithString] = getDataForADR36(params.data);
     const unsignDoc = getADR36SignDoc(params.signer, data);
+
+    const networkId = this.convertCosmosChainId(params.chainId);
 
     const encodeTx = unsignDoc;
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
@@ -392,6 +406,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 
