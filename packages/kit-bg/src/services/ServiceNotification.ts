@@ -481,7 +481,7 @@ export default class ServiceNotification extends ServiceBase {
       primitive: true,
       max: 200,
       maxAge: getTimeDurationMs({ hour: 1 }),
-      normalizer: (args) => JSON.stringify(args),
+      normalizer: (...args) => JSON.stringify(args),
     },
   );
 }
