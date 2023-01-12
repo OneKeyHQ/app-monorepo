@@ -188,7 +188,7 @@ export class SwftcQuoter implements Quoter {
     const res = await this.client.post(url, { orderId, depositTxid });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const result = res.data.data as string;
-    return result
+    return result;
   }
 
   async getGroupedCoins() {

@@ -252,7 +252,7 @@ const ExchangeButton = () => {
         );
       }
       if (res.result?.quoter === 'swftc' && res.attachment?.swftcOrderId) {
-        SwapQuoter.client.swftModifyTxId(res.attachment?.swftcOrderId, hash)
+        SwapQuoter.client.swftModifyTxId(res.attachment?.swftcOrderId, hash);
       }
       const show = await canShowAppReview();
       if (show) {

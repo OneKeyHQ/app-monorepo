@@ -460,6 +460,6 @@ export class SwapQuoter {
   }
 
   async swftModifyTxId(orderId: string, depositTxid: string) {
-    return this.swftc.modifyTxId(orderId, depositTxid)
+    return this.swftc.modifyTxId(orderId, depositTxid);
   }
 }
