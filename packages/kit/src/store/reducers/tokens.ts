@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { merge } from 'lodash';
+import { merge, uniqBy } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -159,7 +159,10 @@ export const tokensSlice = createSlice({
       if (!state.accountTokens[activeNetworkId]) {
         state.accountTokens[activeNetworkId] = {};
       }
-      state.accountTokens[activeNetworkId][activeAccountId] = tokens;
+      state.accountTokens[activeNetworkId][activeAccountId] = uniqBy(
+        tokens,
+        (t) => t.tokenIdOnNetwork,
+      );
     },
     addAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {
       const { activeAccountId, activeNetworkId, tokens } = action.payload;

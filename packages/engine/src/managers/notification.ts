@@ -185,6 +185,16 @@ export const addAccountDynamic = async (
     'post',
   );
 
+export const addAccountDynamicBatch = async (body: {
+  data: Omit<AccountDynamicItem, 'instanceId'>[];
+}) =>
+  fetchData<AccountDynamicItem | null>(
+    '/notification/account-dynamic-batch',
+    body,
+    null,
+    'post',
+  );
+
 export const removeAccountDynamic = async (
   body: Omit<
     AccountDynamicItem,
