@@ -10,7 +10,6 @@ import {
   Hidden,
   Icon,
   Image,
-  PresenceTransition,
   Text,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -30,7 +29,6 @@ import {
   useActiveWalletAccount,
   useNavigationActions,
 } from '../../../../hooks';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,
@@ -105,11 +103,6 @@ const Welcome = () => {
   const isSmallHeight = useUserDevice().screenHeight <= 667;
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
-  const { result: hasPreviousBackups } = usePromiseResult<boolean>(async () => {
-    const status =
-      await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
-    return status.hasPreviousBackups;
-  });
 
   const onPressCreateWallet = useCallback(() => {
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
@@ -118,10 +111,6 @@ const Welcome = () => {
   const onPressImportWallet = useCallback(() => {
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.ImportWallet);
-  }, [navigation]);
-  const onPressRestoreFromCloud = useCallback(() => {
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
   }, [navigation]);
 
   const onPressHardwareWallet = useCallback(() => {
@@ -164,10 +153,7 @@ const Welcome = () => {
           mt={{ base: isSmallHeight ? 8 : 16, sm: 20 }}
           mx={-2}
         >
-          <Box
-            flexDirection={{ sm: 'row' }}
-            w={{ sm: hasPreviousBackups ? '100%' : '2/3' }}
-          >
+          <Box flexDirection={{ sm: 'row' }} w={{ sm: '100%' }}>
             <PressableListItem
               icon="PlusCircleOutline"
               label={intl.formatMessage({
@@ -188,62 +174,30 @@ const Welcome = () => {
               roundedTop={{ base: 0, sm: 'xl' }}
               onPress={onPressImportWallet}
             />
-          </Box>
-          <Box
-            flexDirection={{ sm: 'row' }}
-            w={{ sm: hasPreviousBackups ? '100%' : '1/3' }}
-            mt={{ sm: hasPreviousBackups ? 4 : undefined }}
-          >
-            <Box flex={1}>
-              <PressableListItem
-                // TODO: replace usb icon
-                icon="LinkOutline"
-                label={intl.formatMessage({
-                  id: 'action__connect_hardware_wallet',
-                })}
-                description="Support OneKey hardware wallet"
-                onPress={onPressHardwareWallet}
-                overflow="hidden"
-              >
-                <Hidden till="sm">
-                  <Box
-                    position={{ sm: 'absolute' }}
-                    right={{ sm: 0 }}
-                    bottom={{ sm: '-40px' }}
-                  >
-                    <Image
-                      source={ContentHardwareImage}
-                      size={247}
-                      rounded="sm"
-                    />
-                  </Box>
-                </Hidden>
-              </PressableListItem>
-            </Box>
-            {hasPreviousBackups ? (
-              <PresenceTransition
-                as={Box}
-                visible={hasPreviousBackups}
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{
-                  scale: 1,
-                  opacity: 1,
-                  transition: { duration: 150 },
-                }}
-                // @ts-expect-error
-                mt={{ base: '24px', sm: '0' }}
-                flex={1}
-              >
-                <PressableListItem
-                  icon="CloudOutline"
-                  label={intl.formatMessage({
-                    id: 'action__restore_from_icloud',
-                  })}
-                  description=""
-                  onPress={onPressRestoreFromCloud}
-                />
-              </PresenceTransition>
-            ) : undefined}
+            <PressableListItem
+              // TODO: replace usb icon
+              icon="LinkOutline"
+              label={intl.formatMessage({
+                id: 'action__connect_hardware_wallet',
+              })}
+              description="Support OneKey hardware wallet"
+              onPress={onPressHardwareWallet}
+              overflow="hidden"
+            >
+              <Hidden till="sm">
+                <Box
+                  position={{ sm: 'absolute' }}
+                  right={{ sm: 0 }}
+                  bottom={{ sm: '-40px' }}
+                >
+                  <Image
+                    source={ContentHardwareImage}
+                    size={247}
+                    rounded="sm"
+                  />
+                </Box>
+              </Hidden>
+            </PressableListItem>
           </Box>
         </Box>
         <Hidden till="sm">

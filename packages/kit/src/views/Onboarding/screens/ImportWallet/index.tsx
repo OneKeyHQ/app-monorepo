@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Box, Icon, Text } from '@onekeyhq/components';
+import { Box, Icon, PresenceTransition, Text } from '@onekeyhq/components';
 import type { IconProps } from '@onekeyhq/components/src/Icon';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
@@ -130,6 +130,13 @@ const ImportWallet = () => {
   const onPressKeyTag = useCallback(() => {
     appNavigation.navigate(RootRoutes.Root, {
       screen: HomeRoutes.KeyTag,
+      params: {
+        onPressBackButton: () => {
+          if (appNavigation?.canGoBack?.()) {
+            appNavigation.goBack();
+          }
+        },
+      },
     });
   }, [appNavigation]);
 
@@ -189,13 +196,15 @@ const ImportWallet = () => {
           <Box />
         </ImportItem>
         {hasPreviousBackups && (
-          <ImportItem
-            title="Restore From iCloud"
-            icon="CloudOutline"
-            onPress={onPressRestoreFromCloud}
-          >
-            <Box />
-          </ImportItem>
+          <PresenceTransition>
+            <ImportItem
+              title="Restore From iCloud"
+              icon="CloudOutline"
+              onPress={onPressRestoreFromCloud}
+            >
+              <Box />
+            </ImportItem>
+          </PresenceTransition>
         )}
       </Box>
     </Layout>
