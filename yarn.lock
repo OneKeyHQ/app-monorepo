@@ -5765,6 +5765,7 @@ __metadata:
     swr: ^1.1.2
     url-parse: ^1.5.10
     vision-camera-code-scanner: ^0.2.0
+    xlsx: "https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz"
     zbar.wasm: ^2.1.1
   languageName: unknown
   linkType: soft
@@ -33601,6 +33602,15 @@ optjs@latest:
     parse-headers: ^2.0.0
     xtend: ^4.0.0
   checksum: a1db277e37737caf3ed363d2a33ce4b4ea5b5fc190b663a6f70bc252799185b840ccaa166eaeeea4841c9c60b87741f0a24e29cbcf6708dd425986d4df186d2f
+  languageName: node
+  linkType: hard
+
+"xlsx@https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz":
+  version: 0.19.1
+  resolution: "xlsx@https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz"
+  bin:
+    xlsx: ./bin/xlsx.njs
+  checksum: a7fa1b95dfc9a6923458e19f0dcd0c64d70ce49a5959c8f38c219fd232a4fdfd48d70115dbe01b0e58e80f336ce872495dcc3d12943c4d19b041c87f8eeb69c8
   languageName: node
   linkType: hard
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
+import { read, utils } from 'xlsx';
 
 import {
   Box,
@@ -12,19 +13,24 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 
-function ReceiverUploader() {
+import { ReceiverEnum } from '../types';
+
+import type { TokenReceiver } from '../types';
+
+interface Props {
+  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function ReceiverUploader(props: Props) {
+  const { setReceiver, setIsUploadMode } = props;
   const [uploaderBg, uploaderBorderColor, uploaderActiveBorderColor] =
     useThemeValue(['surface-default', 'border-default', 'interactive-default']);
 
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const {
-    acceptedFiles,
-    isDragActive,
-    isFocused,
-    getRootProps,
-    getInputProps,
-  } = useDropzone({
+  const { isDragAccept, getRootProps, getInputProps } = useDropzone({
+    multiple: false,
     accept: {
       'text/csv': ['.csv'],
       'text/plain': ['.txt'],
@@ -33,9 +39,29 @@ function ReceiverUploader() {
         '.xlsx',
       ],
     },
+    onDropAccepted: async (files) => {
+      try {
+        const file = await files[0].arrayBuffer();
+        const wb = read(file, { raw: true });
+        const data = utils.sheet_to_json<TokenReceiver>(
+          wb.Sheets[wb.SheetNames[0]],
+          { header: [ReceiverEnum.Address, ReceiverEnum.Amount] },
+        );
+        if (data && data[0] && data[0].Address && data[0].Amount) {
+          setReceiver(
+            data.filter(
+              (item) =>
+                item.Address !== ReceiverEnum.Address &&
+                item.Amount !== ReceiverEnum.Amount,
+            ),
+          );
+          setIsUploadMode(false);
+        }
+      } catch {
+        // pass
+      }
+    },
   });
-
-  console.log(isDragActive);
 
   return (
     <>
@@ -48,7 +74,7 @@ function ReceiverUploader() {
           borderStyle: 'solid',
           borderRadius: '12px',
           height: '148px',
-          borderColor: isDragActive
+          borderColor: isDragAccept
             ? uploaderActiveBorderColor
             : uploaderBorderColor,
         }}
@@ -63,11 +89,6 @@ function ReceiverUploader() {
       </div>
       <Text fontSize={14} color="text-subdued" mt={isVertical ? 4 : 3}>
         {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-      </Text>
-      <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
-        {intl.formatMessage({
-          id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',
-        })}
       </Text>
     </>
   );

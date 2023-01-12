@@ -3,20 +3,25 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
-  Center,
   HStack,
   Icon,
   Pressable,
   Text,
-  Textarea,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import { ReceiverEditor } from '../ReceiverEditor';
 import { ReceiverUploader } from '../ReceiverUploader';
 
-function ReceiverInput() {
+import type { TokenReceiver } from '../types';
+
+interface Props {
+  receiver: TokenReceiver[];
+  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+}
+
+function ReceiverInput(props: Props) {
+  const { receiver, setReceiver } = props;
   const [isUploadMode, setIsUploadMode] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
@@ -29,7 +34,7 @@ function ReceiverInput() {
         mb={isVertical ? 7 : 8}
       >
         <Text fontSize={18} typography="Heading">
-          {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
+          {intl.formatMessage({ id: 'form__receiver_address_amount' })}
         </Text>
         <Pressable
           _hover={{
@@ -57,8 +62,20 @@ function ReceiverInput() {
           )}
         </Pressable>
       </HStack>
-      {isUploadMode && <ReceiverUploader />}
-      {!isUploadMode && <ReceiverEditor />}
+      {isUploadMode && (
+        <ReceiverUploader
+          setReceiver={setReceiver}
+          setIsUploadMode={setIsUploadMode}
+        />
+      )}
+      {!isUploadMode && (
+        <ReceiverEditor receiver={receiver} setReceiver={setReceiver} />
+      )}
+      <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
+        {intl.formatMessage({
+          id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',
+        })}
+      </Text>
     </>
   );
 }

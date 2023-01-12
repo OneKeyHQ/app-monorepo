@@ -25,6 +25,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes } from './types';
 
+import type { TokenReceiver } from './types';
+
 interface Props {
   accountId: string;
   networkId: string;
@@ -34,6 +36,7 @@ interface Props {
 function TokenOutbox(props: Props) {
   const { accountId, networkId, isNative } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  const [receiver, setReceiver] = useState<TokenReceiver[]>([]);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -174,7 +177,7 @@ function TokenOutbox(props: Props) {
         </HStack>
       </Pressable.Item>
       <Box mt={6}>
-        <ReceiverInput />
+        <ReceiverInput receiver={receiver} setReceiver={setReceiver} />
       </Box>
     </Box>
   );

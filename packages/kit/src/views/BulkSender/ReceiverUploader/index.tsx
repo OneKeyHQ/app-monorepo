@@ -2,9 +2,15 @@ import { useIntl } from 'react-intl';
 
 import { Box, Center, Icon, Text } from '@onekeyhq/components';
 
-function ReceiverUploader() {
-  const intl = useIntl();
+import type { TokenReceiver } from '../types';
 
+interface Props {
+  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function ReceiverUploader(props: Props) {
+  const intl = useIntl();
   return (
     <>
       <Box

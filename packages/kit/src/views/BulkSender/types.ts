@@ -6,6 +6,11 @@ export enum BulkSenderTabEnum {
   NFT = 'NFT',
 }
 
+export enum ReceiverEnum {
+  Address = 'Address',
+  Amount = 'Amount',
+}
+
 export enum BulkSenderRoutes {
   TokenSelector = 'TokenSelectorModal',
 }
@@ -18,4 +23,9 @@ export type BulkSenderRoutesParams = {
     balances: Record<string, string | undefined>;
     onTokenSelected: (token: Token) => void;
   };
+};
+
+export type TokenReceiver = {
+  Address: string;
+  Amount: string;
 };

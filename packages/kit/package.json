@@ -46,6 +46,7 @@
     "swr": "^1.1.2",
     "url-parse": "^1.5.10",
     "vision-camera-code-scanner": "^0.2.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz",
     "zbar.wasm": "^2.1.1"
   },
   "scripts": {
