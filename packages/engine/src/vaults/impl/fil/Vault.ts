@@ -49,6 +49,8 @@ import type {
 import type { CID, IEncodedTxFil, IOnChainHistoryTx } from './types';
 import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
+let suggestedGasPremium = '0';
+
 // @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -177,6 +179,8 @@ export default class Vault extends VaultBase {
       [],
     );
 
+    suggestedGasPremium = encodedTxWithFeeInfo.GasPremium;
+
     const limit = BigNumber.max(
       encodedTx.GasLimit,
       encodedTxWithFeeInfo.GasLimit,
@@ -204,16 +208,12 @@ export default class Vault extends VaultBase {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxFil> {
     const network = await this.getNetwork();
-    const client = await this.getClient();
     const { encodedTx, feeInfoValue } = params;
     const { limit, price } = feeInfoValue;
 
-    const encodedTxWithFeeInfo: IEncodedTxFil = await client.request(
-      'GasEstimateMessageGas',
-      encodedTx,
-      {},
-      [],
-    );
+    const encodedTxWithFeeInfo: IEncodedTxFil = {
+      ...encodedTx,
+    };
 
     if (!isNil(limit)) {
       encodedTxWithFeeInfo.GasLimit = new BigNumber(limit).toNumber();
@@ -225,6 +225,10 @@ export default class Vault extends VaultBase {
       )
         .shiftedBy(network.feeDecimals)
         .toFixed();
+    }
+
+    if (!isNil(suggestedGasPremium)) {
+      encodedTxWithFeeInfo.GasPremium = suggestedGasPremium;
     }
 
     return Promise.resolve(encodedTxWithFeeInfo);
