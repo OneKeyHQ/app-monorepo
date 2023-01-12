@@ -72,7 +72,7 @@ const ScanQrcode: FC = () => {
           navigation.goBack();
           setTimeout(() => {
             connectServer(data.replace('migrate://', ''));
-          }, 1000);
+          }, 150);
           return;
         }
         // @ts-expect-error type missing

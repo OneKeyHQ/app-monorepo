@@ -16,12 +16,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Header from '../Modal/Container/Header/Header';
 
+import type { HeaderProps } from '../Modal/Container/Header/type';
 import type { ModalizeProps } from 'react-native-modalize';
 
 interface BottomSheetModalProps {
   closeOverlay: () => void;
-  title: string;
-  headerRight?: ReactNode;
+  title: HeaderProps['header'];
+  headerDescription?: HeaderProps['headerDescription'];
+  headerRight?: HeaderProps['rightContent'];
   modalLizeProps?: ModalizeProps;
 }
 
@@ -32,6 +34,7 @@ const Mobile: FC<BottomSheetModalProps> = ({
   children,
   modalLizeProps,
   title,
+  headerDescription,
   headerRight,
 }) => {
   const modalizeRef = useRef<Modalize>(null);
@@ -60,6 +63,7 @@ const Mobile: FC<BottomSheetModalProps> = ({
       <Box pb={`${bottom}px`}>
         <Header
           header={title}
+          headerDescription={headerDescription}
           hideBackButton
           onPressCloseButton={closeOverlay}
           closeable

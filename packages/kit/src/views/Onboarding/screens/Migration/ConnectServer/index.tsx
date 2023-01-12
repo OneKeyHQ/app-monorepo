@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Layout from '../../../Layout';
 import { httpServerEnable } from '../util';
@@ -47,26 +46,22 @@ const MigrationDescription: FC<{
 
   const DESCRIPTIONS = [
     intl.formatMessage({ id: 'content__migration_step_1' }),
-    intl.formatMessage(
-      { id: 'content__migration_step_2' },
-      {
-        addOn: (
-          <>
-            {!platformEnv.isNative ? (
+    intl.formatMessage({ id: 'content__migration_step_2' }),
+    selectRange === 0
+      ? intl.formatMessage(
+          { id: 'content__migration_step_3' },
+          {
+            addOn: (
               <Text
                 typography={{ sm: 'Body2', md: 'Body1' }}
                 color="text-subdued"
               >
-                {intl.formatMessage({ id: 'content__migration_step_2_add_on' })}
+                {intl.formatMessage({ id: 'content__migration_step_3_add_on' })}
               </Text>
-            ) : (
-              ''
-            )}
-          </>
-        ),
-      },
-    ),
-    'Scan the QR Code. If you are using OneKey Extension, go to Migration, then paste the link below the QR Code to OneKey Extension',
+            ),
+          },
+        )
+      : intl.formatMessage({ id: 'content__migration_step_3_connect_by_link' }),
   ];
 
   return (
@@ -80,7 +75,7 @@ const MigrationDescription: FC<{
         />
       ))}
 
-      <Text typography="Body2" mt="24px" color="text-subdued">
+      <Text typography="Body2" mt="24px" color="text-disabled">
         {intl.formatMessage({ id: 'content__migration_note' })}
       </Text>
     </Box>

@@ -226,7 +226,9 @@ const EnterLinkView: FC = () => {
         w="full"
         type="text"
         value={value}
-        placeholder={intl.formatMessage({ id: 'content__link' })}
+        placeholder={`${intl.formatMessage({
+          id: 'content__example_shortcut',
+        })} 192.168.5.178:2997`}
         onChangeText={setValue}
       />
       <Button

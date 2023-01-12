@@ -125,7 +125,15 @@ const Content: FC<Props> = ({
   }, [closeOverlay, getDataAction, isSend, sendAction]);
 
   return (
-    <BottomSheetModal title="Migrate Data" closeOverlay={closeOverlay}>
+    <BottomSheetModal
+      title="Migrate Data"
+      headerDescription={
+        <Text typography="Caption" color="text-success">
+          Apps Connected
+        </Text>
+      }
+      closeOverlay={closeOverlay}
+    >
       <Box
         bgColor="surface-default"
         borderRadius="12px"
