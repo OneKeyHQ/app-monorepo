@@ -2225,13 +2225,18 @@ class Engine {
   async getRPCEndpointStatus(
     rpcURL: string,
     networkId: string,
+    useCache = true,
   ): Promise<{ responseTime: number; latestBlock: number }> {
     if (rpcURL.length === 0) {
       throw new OneKeyInternalError('Empty RPC URL.');
     }
-    return {
-      ...(await this._getRPCEndpointStatus(rpcURL, networkId)),
-    };
+    if (useCache) {
+      return {
+        ...(await this._getRPCEndpointStatus(rpcURL, networkId)),
+      };
+    }
+    const vault = await this.getChainOnlyVault(networkId);
+    return vault.getClientEndpointStatus(rpcURL);
   }
 
   _getRPCEndpointStatus = memoizee(

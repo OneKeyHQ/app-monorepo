@@ -174,7 +174,7 @@ export const ManageNetworkRPCNode: FC = () => {
 
       const startMeasure = (rpc: string) => {
         queueCount += 1;
-        measureRpc(networkId, rpc)
+        measureRpc(networkId, rpc, false)
           .then((res) => {
             setMeasureMap((prev) => ({
               ...prev,
