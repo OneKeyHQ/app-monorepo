@@ -15,7 +15,6 @@ import {
   Image,
   Markdown,
   Modal,
-  Pressable,
   Spinner,
   Text,
   ToastManager,
@@ -100,7 +99,9 @@ const UpdateInfoModal: FC = () => {
               {
                 url: (
                   // TODO click event
-                  <Pressable
+                  <Text
+                    typography="Body2Underline"
+                    color="interactive-default"
                     onPress={() => {
                       openUrlExternal(
                         'https://onekey.so/zh_CN/download/?client=desktop',
@@ -108,13 +109,8 @@ const UpdateInfoModal: FC = () => {
                       closeOverlay(close);
                     }}
                   >
-                    <Text
-                      typography="Body2Underline"
-                      color="interactive-default"
-                    >
-                      https://onekey.so/download
-                    </Text>
-                  </Pressable>
+                    https://onekey.so/download
+                  </Text>
                 ),
                 v: resourceRef.current?.limitVersion ?? '',
               },
