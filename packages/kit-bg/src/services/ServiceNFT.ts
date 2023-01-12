@@ -406,7 +406,7 @@ class ServiceNFT extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-    ignoreError: boolean;
+    ignoreError?: boolean;
   }) {
     const collections = await this.getUserNFTAssets({
       accountId,
