@@ -5423,7 +5423,7 @@ __metadata:
     memoizee: ^0.4.15
     metro-minify-terser: ^0.72.3
     node-notifier: ^10.0.0
-    patch-package: ^6.5.0
+    patch-package: ^6.5.1
     prettier: ^2.8.1
     react-native: 0.68.3
     react-refresh: ^0.14.0
@@ -18060,7 +18060,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"fs-extra@npm:^7.0.0, fs-extra@npm:^7.0.1":
+"fs-extra@npm:^7.0.0":
   version: 7.0.1
   resolution: "fs-extra@npm:7.0.1"
   dependencies:
@@ -25441,15 +25441,15 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"patch-package@npm:^6.2.2, patch-package@npm:^6.5.0":
-  version: 6.5.0
-  resolution: "patch-package@npm:6.5.0"
+"patch-package@npm:^6.2.2, patch-package@npm:^6.5.0, patch-package@npm:^6.5.1":
+  version: 6.5.1
+  resolution: "patch-package@npm:6.5.1"
   dependencies:
     "@yarnpkg/lockfile": ^1.1.0
     chalk: ^4.1.2
     cross-spawn: ^6.0.5
     find-yarn-workspace-root: ^2.0.0
-    fs-extra: ^7.0.1
+    fs-extra: ^9.0.0
     is-ci: ^2.0.0
     klaw-sync: ^6.0.0
     minimist: ^1.2.6
@@ -25461,7 +25461,7 @@ optjs@latest:
     yaml: ^1.10.2
   bin:
     patch-package: index.js
-  checksum: d300e87617e3fb990d1f78fd5be205b5a5e65dfdf197b1e7f76f3b3dfe1551a03d276cb5ee6b82ab4d57e78f54ddc22bde803eec1b0896560262b276d0b2c4ab
+  checksum: 8530ffa30f11136b527c6eddf6da48fa12856ee510a47edb1f9cdf8a025636adb82968f5fae778b5e04ce8c87915ebdf5911422b54add59a5a42e372a8f30eb2
   languageName: node
   linkType: hard
 

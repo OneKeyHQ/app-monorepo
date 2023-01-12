@@ -6,12 +6,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   MnemonicCard,
   Modal,
   Text,
   ToastManager,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
