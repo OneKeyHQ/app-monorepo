@@ -58,6 +58,7 @@ export type SettingsState = {
     enableZeroNotificationThreshold?: boolean;
     enablePerfCheck?: boolean;
     hideDiscoverContent?: boolean;
+    enableExternalAccountAnnualReport?: boolean;
   };
   pushNotification?: {
     registrationId?: string;
@@ -86,6 +87,7 @@ export type SettingsState = {
   customNetworkRpcMap?: {
     [networkId: string]: string[];
   };
+  annualReportEntryEnabled?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -143,6 +145,7 @@ const initialState: SettingsState = {
   },
   disableSwapExactApproveAmount: false,
   customNetworkRpcMap: {},
+  annualReportEntryEnabled: false,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -260,6 +263,15 @@ export const settingsSlice = createSlice({
     },
     setHideDiscoverContent(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, hideDiscoverContent: action.payload };
+    },
+    setEnableExternalAccountReport(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        enableExternalAccountAnnualReport: action.payload,
+      };
+    },
+    setAnnualReportEntryEnabled(state, action: PayloadAction<boolean>) {
+      state.annualReportEntryEnabled = action.payload;
     },
     setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
       state.devMode = {
@@ -444,6 +456,8 @@ export const {
   toggleDisableExt,
   disableExtSwitchTips,
   setHideDiscoverContent,
+  setAnnualReportEntryEnabled,
+  setEnableExternalAccountReport,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

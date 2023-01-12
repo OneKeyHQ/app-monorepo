@@ -676,6 +676,8 @@
   "content__you_can_use_it_as_a_new_onekey_lite": "Вы можете использовать его как новый OneKey Lite",
   "content__you_don_t_have_a_str_account": "У вас нет учетной записи {0} .",
   "content__you_dont_have_any_nft_in_your_wallet": "У вас нет NFT в кошельке",
+  "content__you_have_not_made_any_nft_transactions": "Вы не совершали транзакций NFT.",
+  "content__you_have_not_made_any_nft_transactions_desc": "Это приносит хорошие новости,\n У вас нет потерь.\n (*´∀`)~ ♥",
   "content__you_may_receive_multiple_signing_requests_on_the_hardware_wallet": "Вы можете получить несколько запросов на подпись в аппаратном кошельке.",
   "content__you_who_love_nft_the_most_have_also_gained_a_lot_this_year": "У тех, кто любит NFT больше всего, тоже есть много новых достижений.",
   "content__your_biological_data_is_encrypted": "1. Ваши биологические данные зашифрованы.",
