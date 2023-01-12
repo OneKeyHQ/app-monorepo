@@ -180,7 +180,7 @@ const QRCodeView: FC = () => {
             size={170}
             logo={qrcodeLogo}
             logoSize={36}
-            logoMargin={4}
+            logoMargin={5}
             logoBackgroundColor="white"
           />
         </Box>

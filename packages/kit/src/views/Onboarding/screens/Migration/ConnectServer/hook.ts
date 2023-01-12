@@ -76,8 +76,6 @@ export function useConnectServer() {
   const connectServer = useCallback(
     async (serverAddress: string) => {
       const serverInfo = await serviceMigrate.connectServer(serverAddress);
-      console.log('serverInfo = ', serverInfo);
-
       if (serverInfo) {
         showMigrateDataModal({
           serverInfo,
