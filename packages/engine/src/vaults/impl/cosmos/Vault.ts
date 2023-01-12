@@ -200,6 +200,7 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string) {
+    console.log('=====>>> validateAddress address:', address);
     const chainInfo = await this.getChainInfo();
 
     const valid = isValidAddress(address, chainInfo.implOptions.addressPrefix);
@@ -217,6 +218,11 @@ export default class Vault extends VaultBase {
   }
 
   override async validateTokenAddress(tokenAddress: string): Promise<string> {
+    console.log(
+      '=====>>> validateTokenAddress tokenAddress:',
+      tokenAddress,
+      this.networkId,
+    );
     const chainInfo = await this.getChainInfo();
 
     if (this.isIbcToken(tokenAddress)) {
@@ -224,6 +230,13 @@ export default class Vault extends VaultBase {
         this.normalIBCAddress(tokenAddress) ?? tokenAddress;
       const query = new MintScanQuery();
       const results = await query.fetchAssertInfos(this.networkId);
+
+      console.log(
+        '=====>>> validateTokenAddress normalizationAddress:',
+        normalizationAddress,
+      );
+      console.log('=====>>> validateTokenAddress fetchAssertInfos:', results);
+
       if (!results) {
         return Promise.reject(new InvalidTokenAddress());
       }
@@ -334,15 +347,22 @@ export default class Vault extends VaultBase {
   override async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo>> {
+    console.log('=====>>> fetchTokenInfos tokenAddresses:', tokenAddresses);
+
     const ibcTokenAddresses = tokenAddresses
       .filter((tokenAddress) => this.isIbcToken(tokenAddress))
       .reduce((acc, tokenAddress) => {
-        const normalizationAddress = this.normalIBCAddress(tokenAddress);
-        if (normalizationAddress) acc.add(normalizationAddress);
+        const normalAddress = this.normalIBCAddress(tokenAddress);
+        if (normalAddress) acc.add(normalAddress);
         return acc;
       }, new Set<string>());
 
     const tokens = [];
+
+    console.log(
+      '=====>>> fetchTokenInfos ibcTokenAddresses:',
+      ibcTokenAddresses,
+    );
 
     if (ibcTokenAddresses.size > 0) {
       const query = new MintScanQuery();
@@ -370,35 +390,41 @@ export default class Vault extends VaultBase {
       tokens.push(...ibcTokens);
     }
 
-    const contractClient = await this.getContractClient();
+    if (tokens.length === tokenAddresses.length) return tokens;
 
-    if (!contractClient) return tokens;
+    try {
+      const contractClient = await this.getContractClient();
 
-    const client = await this.getClient();
+      if (!contractClient) return tokens;
 
-    const cw20TokenAddress = tokenAddresses.filter(
-      (tokenAddress) => !this.isIbcToken(tokenAddress),
-    );
+      const client = await this.getClient();
 
-    await contractClient
-      .queryCw20TokenInfo(
-        {
-          networkId: this.networkId,
-          axios: client.axios,
-        },
-        cw20TokenAddress,
-      )
-      .then((cw20Tokens) =>
-        cw20Tokens.map((token) => ({
-          name: token.name,
-          symbol: token.symbol,
-          decimals: token.decimals,
-        })),
-      )
-      .then((cw20Tokens) => {
-        tokens.push(...cw20Tokens);
-      })
-      .catch(() => {});
+      const cw20TokenAddress = tokenAddresses.filter(
+        (tokenAddress) => !this.isIbcToken(tokenAddress),
+      );
+
+      await contractClient
+        .queryCw20TokenInfo(
+          {
+            networkId: this.networkId,
+            axios: client.axios,
+          },
+          cw20TokenAddress,
+        )
+        .then((cw20Tokens) =>
+          cw20Tokens.map((token) => ({
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+          })),
+        )
+        .then((cw20Tokens) => {
+          tokens.push(...cw20Tokens);
+        })
+        .catch(() => {});
+    } catch (error) {
+      // ignore error
+    }
 
     return tokens;
   }
