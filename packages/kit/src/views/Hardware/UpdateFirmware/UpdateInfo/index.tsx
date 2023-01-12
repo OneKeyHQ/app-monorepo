@@ -36,6 +36,7 @@ import type {
   IResourceUpdateInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../../utils/hardware';
@@ -171,9 +172,10 @@ const UpdateInfoModal: FC = () => {
         );
         resourceRef.current = resourceInfo;
         if (resourceInfo.error === 'USE_DESKTOP') {
+          const delay = platformEnv.isExtensionUiExpandTab ? 500 : 150;
           setTimeout(() => {
             showUpdateOnDesktopModal();
-          }, 150);
+          }, delay);
           if (!isSmallScreen) {
             navigation.goBack();
           }
