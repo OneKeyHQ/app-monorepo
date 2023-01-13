@@ -14,7 +14,6 @@ import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import {
   CreateWalletModalRoutes,
-  HomeRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../../../routes/routesEnum';
@@ -128,17 +127,8 @@ const ImportWallet = () => {
   }, [appNavigation, forceVisibleUnfocused]);
 
   const onPressKeyTag = useCallback(() => {
-    appNavigation.navigate(RootRoutes.Root, {
-      screen: HomeRoutes.KeyTag,
-      params: {
-        onPressBackButton: () => {
-          if (appNavigation?.canGoBack?.()) {
-            appNavigation.goBack();
-          }
-        },
-      },
-    });
-  }, [appNavigation]);
+    navigation.navigate(EOnboardingRoutes.KeyTag);
+  }, [navigation]);
 
   const onPressRestoreFromCloud = useCallback(() => {
     navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
@@ -152,6 +142,7 @@ const ImportWallet = () => {
       <Text
         typography={{ sm: 'DisplayLarge', md: 'DisplayXLarge' }}
         color={{ base: 'text-subdued' }}
+        mt={{ base: -6, sm: -12 }}
       >
         Choose how you would like to import your wallet.
       </Text>

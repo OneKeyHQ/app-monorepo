@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 
-import type { NavigationButtonProps } from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -154,9 +153,7 @@ export type HomeRoutesParams = {
     title?: string;
   };
   [HomeRoutes.RevokeRedirect]: undefined;
-  [HomeRoutes.KeyTag]: {
-    onPressBackButton: NavigationButtonProps['onPress'];
-  };
+  [HomeRoutes.KeyTag]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;
   [HomeRoutes.AnnualLoading]: undefined;
   [HomeRoutes.AnnualReport]: {

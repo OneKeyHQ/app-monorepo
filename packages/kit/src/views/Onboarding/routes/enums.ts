@@ -18,4 +18,7 @@ export enum EOnboardingRoutes {
   // Restore from cloud backup
   RestoreFromCloud = 'RestoreFromCloud',
   CloudBackupDetails = 'CloudBackupDetails',
+
+  // KeyTag
+  KeyTag = 'KeyTag',
 }

@@ -3,6 +3,8 @@ import { useEffect, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import { RouteKeytag } from '@onekeyhq/kit/src/views/KeyTag/Routes/RouteKeytag';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import ConnectWallet from '../screens/ConnectWallet';
@@ -64,6 +66,10 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.CloudBackupDetails,
     component: BackupDetails,
+  },
+  {
+    name: EOnboardingRoutes.KeyTag,
+    component: RouteKeytag,
   },
 ];
 

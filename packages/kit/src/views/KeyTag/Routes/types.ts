@@ -1,4 +1,3 @@
-import type { NavigationButtonProps } from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 
 import type { HomeRoutes } from '../../../routes/routesEnum';
@@ -12,9 +11,7 @@ export type IkeyTagShowDotMapParams = {
 };
 
 export type IKeytagRoutesParams = {
-  [KeyTagRoutes.StartedKeytag]: {
-    onPressBackButton?: NavigationButtonProps['onPress'];
-  };
+  [KeyTagRoutes.StartedKeytag]: undefined;
   [KeyTagRoutes.ImportKeytag]: undefined;
   [KeyTagRoutes.IntroduceKeyTag]: undefined;
   [KeyTagRoutes.KeyTagBackUpWallet]: undefined;

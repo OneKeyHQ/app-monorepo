@@ -1,4 +1,3 @@
-import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -24,12 +23,9 @@ import { KeyTagRoutes } from '../Routes/enums';
 import { keyTagShoppingUrl } from '../utils';
 
 import type { IKeytagRoutesParams } from '../Routes/types';
-import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<IKeytagRoutesParams>;
-
-type RouteProps = RouteProp<IKeytagRoutesParams, KeyTagRoutes.StartedKeytag>;
 
 const Started = () => {
   const navigation = useNavigation<NavigationProps>();
@@ -38,14 +34,11 @@ const Started = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const { imageWidth, imageHeight, imageBoxWidth, imageBoxHeight } =
     useStartedKeyTagImage();
-  const route = useRoute<RouteProps>();
-  const onPressBackButton = route?.params?.onPressBackButton;
 
   return (
     <LayoutContainer
       backButton
       title={intl.formatMessage({ id: 'title__get_started_with_keytag' })}
-      onPressBackButton={onPressBackButton}
     >
       <Box flex="1" flexDirection={isVerticalLayout ? 'column' : 'row'}>
         <Pressable

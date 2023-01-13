@@ -55,4 +55,5 @@ export type IOnboardingRoutesParams = {
     numOfWatchingAccounts: number;
     numOfContacts: number;
   };
+  [EOnboardingRoutes.KeyTag]: undefined;
 };
