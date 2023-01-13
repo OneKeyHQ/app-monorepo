@@ -12,7 +12,6 @@ import {
   Box,
   Button,
   Center,
-  Divider,
   Icon,
   IconButton,
   Text,
@@ -85,11 +84,11 @@ const Content: FC<Props> = ({
     }
     if (status === ExportResult.EMPTY) {
       ToastManager.show({
-        title: 'No sendable data',
+        title: intl.formatMessage({ id: 'msg__no_data_available' }),
       });
     }
     return false;
-  }, [exportDataRequest, serverAddress, serviceMigrate]);
+  }, [exportDataRequest, intl, serverAddress, serviceMigrate]);
 
   const getDataAction = useCallback(async () => {
     const data = await serviceMigrate.getDataFromServer({
@@ -98,7 +97,7 @@ const Content: FC<Props> = ({
     if (data) {
       if (isEmptyData(JSON.parse(data.public))) {
         ToastManager.show({
-          title: 'No Data',
+          title: intl.formatMessage({ id: 'msg__no_data_available' }),
         });
         return false;
       }
@@ -110,28 +109,34 @@ const Content: FC<Props> = ({
       return true;
     }
     return false;
-  }, [closeOverlay, navigation, serverAddress, serviceMigrate]);
+  }, [closeOverlay, intl, navigation, serverAddress, serviceMigrate]);
 
   const migrateAction = useCallback(async () => {
     if (isSend) {
       const success = await sendAction();
       if (success) {
         ToastManager.show({
-          title: 'Data sent. Complete the import on OneKey Extension',
+          title: `🧙 ${intl.formatMessage(
+            {
+              id: 'msg__data_sent_to_platform',
+            },
+            // TODO: change the variable `platform` dynamically
+            { platform: 'Desktop' },
+          )}`,
         });
         closeOverlay();
       }
     } else {
       await getDataAction();
     }
-  }, [closeOverlay, getDataAction, isSend, sendAction]);
+  }, [closeOverlay, getDataAction, intl, isSend, sendAction]);
 
   return (
     <BottomSheetModal
-      title="Migrating Data"
+      title={intl.formatMessage({ id: 'modal__migrating_data' })}
       headerDescription={
         <Text typography="Caption" color="text-success">
-          🎉 Apps Connected
+          🎉 {intl.formatMessage({ id: 'modal__migrating_data_desc' })}
         </Text>
       }
       closeOverlay={closeOverlay}

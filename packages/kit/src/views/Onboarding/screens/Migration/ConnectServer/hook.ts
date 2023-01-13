@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { isEmpty } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
 import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
@@ -72,6 +73,7 @@ export function useExportData() {
 
 export function useConnectServer() {
   const { serviceMigrate } = backgroundApiProxy;
+  const intl = useIntl();
 
   const connectServer = useCallback(
     async (serverAddress: string) => {
@@ -83,10 +85,17 @@ export function useConnectServer() {
           clientInfo: deviceInfo(),
         });
       } else {
-        ToastManager.show({ title: 'Connect Failed' }, { type: 'error' });
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__invalid_link_or_network_error',
+            }),
+          },
+          { type: 'error' },
+        );
       }
     },
-    [serviceMigrate],
+    [intl, serviceMigrate],
   );
 
   return { connectServer };

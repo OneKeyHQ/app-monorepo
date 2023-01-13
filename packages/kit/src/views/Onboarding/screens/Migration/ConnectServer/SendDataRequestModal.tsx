@@ -33,34 +33,34 @@ const Content: FC<Props> = ({ deviceInfo, confirmPress, closeOverlay }) => {
   }, [closeOverlay, confirmPress]);
 
   return (
-    <BottomSheetModal title="Send Data Request" closeOverlay={closeOverlay}>
+    <BottomSheetModal
+      title={intl.formatMessage({ id: 'modal__send_data_request' })}
+      closeOverlay={closeOverlay}
+    >
       <Text typography="Body2" color="text-subdued">
-        Your data will be encrypted and transferred. Only proceed if you are
-        migrating between OneKey.
+        {intl.formatMessage({ id: 'modal__send_data_request_desc' })}
       </Text>
       <Box
-        height="92px"
         bgColor="surface-default"
         borderRadius="12px"
         borderColor="border-subdued"
         borderWidth={1}
+        py="16px"
         mt="24px"
       >
-        <Text typography="Body2" color="text-subdued" mt="16px" ml="16px">
+        <Text typography="Body2" color="text-subdued" ml="16px">
           {intl.formatMessage({ id: 'content__to' })}
         </Text>
-        <Box
-          paddingX="16px"
-          flexDirection="row"
-          justifyContent="space-between"
-          mt="12px"
-        >
-          <Text typography="Body1Strong">{parseData.name}</Text>
-          <Icon name="PlaySolid" size={28} />
+        <Box paddingX="16px" flexDirection="row" mt="12px">
+          {/* TODO: icon name and platform name */}
+          <Icon name="DevicePhoneMobileSolid" size={24} color="icon-subdued" />
+          <Text ml="8px" typography="Body1Strong">
+            {parseData.name}
+          </Text>
         </Box>
       </Box>
       <Button mt="24px" size="xl" type="primary" onPromise={confirmAction}>
-        Confirm
+        {intl.formatMessage({ id: 'action__confirm' })}
       </Button>
     </BottomSheetModal>
   );

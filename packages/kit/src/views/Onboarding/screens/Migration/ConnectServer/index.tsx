@@ -76,7 +76,10 @@ const MigrationDescription: FC<{
       ))}
 
       <Text typography="Body2" mt="24px" color="text-disabled">
-        {intl.formatMessage({ id: 'content__migration_note' })}
+        {intl.formatMessage({ id: 'content__migration_note_encrypted' })}
+      </Text>
+      <Text typography="Body2" color="text-disabled">
+        {intl.formatMessage({ id: 'content__migration_note_hardware_wallet' })}
       </Text>
     </Box>
   );

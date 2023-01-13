@@ -12,6 +12,8 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Center,
+  Icon,
   ScrollView,
   Text,
   ToastManager,
@@ -157,6 +159,7 @@ const PreviewImportData = () => {
       .getBackupDetailsWithRemoteData(JSON.parse(data.public))
       .then((backupDetails) => {
         setBackupData(backupDetails);
+        // TODO: Is setHasLocalData necessary?
         setHasLocalData(
           Object.values(backupDetails.alreadyOnDevice).some(
             (o) => Object.keys(o).length > 0,
@@ -170,14 +173,6 @@ const PreviewImportData = () => {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceCloudBackup]);
-  const [contentHeight, setContentHeight] = useState<number>(0);
-
-  const maxHeight = useMemo(() => {
-    if (isVerticalLayout) {
-      return contentHeight;
-    }
-    return 320;
-  }, [contentHeight, isVerticalLayout]);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -186,54 +181,41 @@ const PreviewImportData = () => {
   const children = useMemo(
     () => (
       <>
-        <Box
-          onLayout={(e) => {
-            if (contentHeight !== e.nativeEvent.layout.height) {
-              setContentHeight(e.nativeEvent.layout.height);
-            }
-          }}
-          flex={1}
-          flexDirection="column"
-          mx={-12}
-        >
-          {maxHeight > 0 && (
-            <ScrollView
-              flex={1}
-              maxHeight={`${maxHeight}px`}
-              minHeight={isVerticalLayout ? undefined : '320px'}
-            >
-              {hasLocalData ? (
-                <GroupedBackupDetails
-                  onDevice
-                  publicBackupData={backupData.alreadyOnDevice}
-                />
-              ) : undefined}
-              {hasRemoteData ? (
+        <Box flex={1} flexDirection="column">
+          <ScrollView
+            flex={1}
+            mb="24px"
+            minHeight="160px"
+            maxHeight={{ base: undefined, sm: '320px' }}
+          >
+            {hasRemoteData ? (
+              <Box mx="-48px" my="-16px">
                 <GroupedBackupDetails
                   onDevice={false}
                   publicBackupData={backupData.notOnDevice}
+                  showTitle={false}
                 />
-              ) : undefined}
-            </ScrollView>
-          )}
+              </Box>
+            ) : undefined}
+          </ScrollView>
         </Box>
         {hasRemoteData ? (
-          <Button type="primary" size="xl" onPress={importAction}>
+          <Button
+            type="primary"
+            size={isVerticalLayout ? 'xl' : 'lg'}
+            onPress={importAction}
+          >
             {intl.formatMessage({ id: 'action__import' })}
           </Button>
         ) : null}
       </>
     ),
     [
-      backupData.alreadyOnDevice,
       backupData.notOnDevice,
-      contentHeight,
-      hasLocalData,
       hasRemoteData,
       importAction,
       intl,
       isVerticalLayout,
-      maxHeight,
     ],
   );
 
@@ -243,19 +225,30 @@ const PreviewImportData = () => {
     }
     return (
       <Box width="286px">
-        <Box size="48px" bgColor="red.100" />
+        <Center
+          size="48px"
+          bgColor="decorative-surface-two"
+          borderRadius="9999"
+        >
+          <Icon
+            name="EllipsisHorizontalCircleOutline"
+            size={24}
+            color="decorative-icon-two"
+          />
+        </Center>
         <Text typography="Body2" mt="26px">
-          Hardware wallets will not be synced; you should write down your phrase
-          and keep it safe.
+          {intl.formatMessage({
+            id: 'content__migration_note_hardware_wallet',
+          })}
         </Text>
       </Box>
     );
-  }, [isVerticalLayout]);
+  }, [intl, isVerticalLayout]);
 
   return (
     <Layout
       disableAnimation
-      title="Preview"
+      title={intl.formatMessage({ id: 'action__preview' })}
       fullHeight
       secondaryContent={secondaryContent}
     >
