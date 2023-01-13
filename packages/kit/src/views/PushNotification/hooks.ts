@@ -16,7 +16,6 @@ import {
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -26,17 +25,38 @@ export type WalletData = Omit<Wallet, 'accounts'> & {
   accounts: Account[];
 };
 
-export const useWalletsAndAccounts = () => {
+const isBurnAddress = (address: string) =>
+  [ADDRESS_ZERO, DUMMY_ADDRESS, DUMMY_ADDRESS_2, DUMMY_ADDRESS_3].includes(
+    address,
+  );
+
+export const useEvmWalletsAndAccounts = () => {
   const { engine } = backgroundApiProxy;
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const { wallets: walletsWithoutAccount } = useRuntime();
 
   const getWalletsAndAccounts = useCallback(async () => {
     const data = await Promise.all(
-      walletsWithoutAccount.map(async (w) => ({
-        ...w,
-        accounts: await engine.getAccounts(w.accounts),
-      })),
+      walletsWithoutAccount.map(async (w) => {
+        const accounts = await engine.getAccounts(w.accounts);
+        return {
+          ...w,
+          accounts:
+            accounts?.filter((account) => {
+              if (!account) {
+                return false;
+              }
+              const { address, coinType } = account || {};
+              if (isBurnAddress(address)) {
+                return false;
+              }
+              if (!isCoinTypeCompatibleWithImpl(coinType, IMPL_EVM)) {
+                return false;
+              }
+              return true;
+            }) ?? [],
+        };
+      }),
     );
     setWallets(data);
     return data;
@@ -55,7 +75,7 @@ export const useWalletsAndAccounts = () => {
 export const useEnabledAccountDynamicAccounts = () => {
   const [loading, setLoading] = useState(false);
   const { serviceNotification } = backgroundApiProxy;
-  const { wallets, getWalletsAndAccounts } = useWalletsAndAccounts();
+  const { wallets, getWalletsAndAccounts } = useEvmWalletsAndAccounts();
   const [enabledAccounts, setEnabledAccounts] = useState<AccountDynamicItem[]>(
     [],
   );
@@ -114,12 +134,10 @@ export const usePriceAlertlist = () => {
   };
 };
 
-const isBurnAddress = (address: string) =>
-  [ADDRESS_ZERO, DUMMY_ADDRESS, DUMMY_ADDRESS_2, DUMMY_ADDRESS_3].includes(
-    address,
-  );
-
-export const checkAccountCanSubscribe = async (account: Account | null) => {
+export const checkAccountCanSubscribe = async (
+  account: Account | null,
+  networkId: string,
+) => {
   if (!account) {
     return false;
   }
@@ -130,27 +148,21 @@ export const checkAccountCanSubscribe = async (account: Account | null) => {
   if (!isCoinTypeCompatibleWithImpl(coinType, IMPL_EVM)) {
     return false;
   }
-  const isContractArray = await makeTimeoutPromise({
+  const isContract = await makeTimeoutPromise({
     asyncFunc: async () =>
-      Promise.all(
-        [
-          OnekeyNetwork.eth,
-          OnekeyNetwork.polygon,
-          OnekeyNetwork.arbitrum,
-          OnekeyNetwork.optimism,
-        ].map((networkId) =>
-          backgroundApiProxy.validator.isContractAddress(networkId, address),
-        ),
-      ),
+      backgroundApiProxy.validator.isContractAddress(networkId, address),
     timeout: 6000,
-    timeoutResult: [],
+    timeoutResult: false,
   });
-  return isContractArray.every((n) => n !== true);
+  return !isContract;
 };
 
-export const useAddressCanSubscribe = (account: Account | null) => {
+export const useAddressCanSubscribe = (
+  account: Account | null,
+  networkId: string,
+) => {
   const { result } = useAsync(
-    async () => checkAccountCanSubscribe(account),
+    async () => checkAccountCanSubscribe(account, networkId),
     [account],
   );
   return result ?? false;

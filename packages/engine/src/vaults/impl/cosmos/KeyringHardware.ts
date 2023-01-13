@@ -107,7 +107,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { path, publicKey } = addressInfo;
       const pubkey = hexToBytes(publicKey);
       const address = pubkeyToBaseAddress(curve, pubkey);
-      const name = (names || [])[index] || `Cosmos #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `COSMOS #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,

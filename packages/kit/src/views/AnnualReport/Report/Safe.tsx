@@ -17,7 +17,7 @@ const Safe: FC<PageProps> = () => {
       <WText
         fontWeight="500"
         fontSize="20px"
-        color="text-success"
+        color="#34C759"
         px="10px"
         useCustomFont
       >

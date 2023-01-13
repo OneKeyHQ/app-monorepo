@@ -102,7 +102,6 @@ const Container: FC<CollapsibleContainerProps> = ({
           fontWeight: '500',
           fontSize: 14,
           lineHeight: 20,
-          fontFamily: 'BlinkMacSystemFont',
         },
       };
       return (

@@ -107,19 +107,20 @@ export function getFee(signDoc: TransactionWrapper): StdFee {
 }
 
 export function setFee(signDoc: TransactionWrapper, fee: StdFee) {
-  if (signDoc.mode === 'amino') {
-    const aminoSignDoc = getAminoSignDoc(signDoc);
+  const newSignDoc = signDoc;
+  if (newSignDoc.mode === 'amino') {
+    const aminoSignDoc = getAminoSignDoc(newSignDoc);
     aminoSignDoc.fee = {
       amount: fee.amount,
       gas: fee.gas_limit,
     };
 
     // @ts-expect-error
-    signDoc.signDoc.fee = aminoSignDoc.fee;
-    return;
+    newSignDoc.signDoc.fee = aminoSignDoc.fee;
+    return newSignDoc;
   }
 
-  const directSignDoc = getDirectSignDoc(signDoc);
+  const directSignDoc = getDirectSignDoc(newSignDoc);
   directSignDoc.authInfo = {
     ...directSignDoc.authInfo,
     fee: {
@@ -131,9 +132,10 @@ export function setFee(signDoc: TransactionWrapper, fee: StdFee) {
   };
 
   // @ts-expect-error
-  signDoc.authInfoBytes = bytesToHex(
+  newSignDoc.authInfoBytes = bytesToHex(
     AuthInfo.encode(directSignDoc.authInfo).finish(),
   );
+  return newSignDoc;
 }
 
 export function setSendAmount(tx: TransactionWrapper, amount: string) {

@@ -23,10 +23,7 @@ import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { setGuideToPushFistTime } from '../../store/reducers/status';
 import { wait } from '../../utils/helper';
 
-import {
-  checkAccountCanSubscribe,
-  useEnabledAccountDynamicAccounts,
-} from './hooks';
+import { useEvmWalletsAndAccounts } from './hooks';
 import { PushNotificationRoutes } from './types';
 
 export function GuideToPushFirstTimeCheck() {
@@ -62,32 +59,39 @@ const GuideToPushFirstTime: FC = () => {
   const intl = useIntl();
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
-  const { wallets } = useEnabledAccountDynamicAccounts();
+  const { wallets } = useEvmWalletsAndAccounts();
 
   useEffect(() => {
     dispatch(setGuideToPushFistTime(true));
   }, [dispatch]);
 
   const addAccountDynamics = useCallback(async () => {
-    let count = 0;
-    for (const w of wallets) {
-      for (const a of w.accounts) {
-        if (count >= 50) {
-          return;
-        }
-        const accountCanSubscribe = await checkAccountCanSubscribe(a);
-        if (accountCanSubscribe) {
-          await serviceNotification.addAccountDynamic({
-            // @ts-ignore
-            passphrase: isPassphraseWallet(w),
-            accountId: a.id,
-            address: a.address,
-            name: a.name,
-          });
-          count += 1;
-        }
-      }
-    }
+    const accounts = wallets
+      .map((w) =>
+        w.accounts.map((a) => ({
+          ...a,
+          // @ts-ignore
+          passphrase: isPassphraseWallet(w),
+        })),
+      )
+      .flat()
+      .slice(0, 50);
+
+    const filteredAccountAddress =
+      await serviceNotification.filterContractAddresses(
+        accounts.map((a) => a.address),
+      );
+
+    await serviceNotification.addAccountDynamicBatch({
+      data: accounts
+        .filter((a) => filteredAccountAddress.some((f) => f === a.address))
+        .map((a) => ({
+          passphrase: a.passphrase,
+          accountId: a.id,
+          address: a.address,
+          name: a.name,
+        })),
+    });
   }, [wallets, serviceNotification]);
 
   const onPrimaryActionPress = useCallback(
