@@ -289,9 +289,10 @@ const ExchangeButton = () => {
           token: inputAmount.token.tokenIdOnNetwork,
           amount: disableSwapExactApproveAmount
             ? 'unlimited'
-            : getTokenAmountValue(inputAmount.token, newQuote.sellAmount)
-                .multipliedBy(1.5)
-                .toFixed(),
+            : getTokenAmountValue(
+                inputAmount.token,
+                newQuote.sellAmount,
+              ).toFixed(),
         })) as IEncodedTxEvm;
 
       const password = await backgroundApiProxy.servicePassword.getPassword();
