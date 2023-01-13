@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   BottomSheetModal,
   Box,
   Button,
@@ -145,14 +146,25 @@ const Content: FC<Props> = ({
           <Text typography="Body2" color="text-subdued" ml="16px">
             {intl.formatMessage({ id: 'content__from' })}
           </Text>
-          <Box
-            paddingX="16px"
-            flexDirection="row"
-            justifyContent="space-between"
-            mt="12px"
-          >
-            <Text typography="Body1Strong">{parseFromData.name}</Text>
-            <Icon name="PlaySolid" size={28} />
+          <Box paddingX="16px" flexDirection="row" mt="12px">
+            {/* TODO
+              label and icon name:
+              - Mobile, DevicePhoneMobileSolid (iOS, Android)
+              - Tablet, DeviceTabletSolid (iPadOS, Android tablet)
+              - Desktop, ComputerDesktopSolid (macOS, Windows, Linux)
+              - Extension, PuzzlePieceSolid (Chrome Extension, Firefox Extension, Safari Extension, Edge Extension, Brave Extension)
+              - Web, GlobeAltSolid (Web)
+            */}
+            <Icon
+              name="DevicePhoneMobileSolid"
+              size={24}
+              color="icon-subdued"
+            />
+            <Text typography="Body1Strong" flex={1} ml="8px">
+              {parseFromData.name}
+            </Text>
+            {/* TODO */}
+            <Badge size="sm" type="info" title="Current" />
           </Box>
         </Box>
         <Box
@@ -170,8 +182,10 @@ const Content: FC<Props> = ({
             justifyContent="space-between"
             mt="12px"
           >
-            <Text typography="Body1Strong">{parseToData.name}</Text>
-            <Icon name="PlaySolid" size={28} />
+            <Icon name="ComputerDesktopSolid" size={24} color="icon-subdued" />
+            <Text typography="Body1Strong" flex={1} ml="8px">
+              {parseToData.name}
+            </Text>
           </Box>
         </Box>
         <Center position="absolute" width="full" height="full">
