@@ -27,7 +27,7 @@ const DotSpace: FC<DotSpaceProps> = ({
     <Pressable
       size={`${size * 4}px`}
       borderWidth="1px"
-      borderColor="divider"
+      borderColor="border-default"
       disabled={disabled}
       onPress={() => {
         setOpenLight((pre) => !pre);
@@ -47,7 +47,15 @@ const DotSpace: FC<DotSpaceProps> = ({
           }
         >
           {openLight ? (
-            <Box size={size / 2} bgColor={lightColor} borderRadius="9999px" />
+            <Box
+              size={
+                Math.floor(size / 2) > 10
+                  ? `${Math.floor(size / 2) * 4}px`
+                  : Math.floor(size / 2)
+              }
+              bgColor={lightColor}
+              borderRadius="9999px"
+            />
           ) : null}
         </Center>
       )}
