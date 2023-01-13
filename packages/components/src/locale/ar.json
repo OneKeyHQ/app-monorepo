@@ -145,6 +145,7 @@
   "action__manage_address": "إدارة العنوان",
   "action__max": "الأعلى",
   "action__merge": "دمج",
+  "action__migrate": "يهاجر",
   "action__more": "أكثر",
   "action__move_to_top": "انتقل إلى الأعلى",
   "action__next": "التالي",
@@ -373,6 +374,7 @@
   "content__creating_your_wallet": "<a> إنشاء </a> <b> محفظتك </b>",
   "content__creator_fee": "رسوم المنشئ",
   "content__currency": "عملة",
+  "content__current": "حاضِر",
   "content__current_price_str": "السعر الحالي: {0}",
   "content__custom": "مخصص",
   "content__data_for_this_token_is_not_included_yet": "لم يتم تضمين البيانات لهذا الرمز المميز حتى الآن.",
@@ -1388,6 +1390,8 @@
   "modal__looking_for_devices": "أبحث عن الأجهزة",
   "modal__looking_for_devices_desc": "يرجى التأكد من تمكين البلوتوث الخاص بك.",
   "modal__looking_for_devices_result": "وجدنا هذه الأجهزة",
+  "modal__migrating_data": "ترحيل البيانات",
+  "modal__migrating_data_desc": "التطبيقات متصلة",
   "modal__need_install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "بدء تشغيل سطح مكتب OneKey قبل استخدام الجهاز. يمكنك أيضًا تثبيت OneKey Brigde لتعزيز استقرار النقل. المضي قدما والتحميل؟",
   "modal__no_device_found": "لم يتم العثور على جهاز",
@@ -1477,6 +1481,7 @@
   "msg__contract_executed": "🤖 تنفيذ العقد",
   "msg__copied": "نسخ!",
   "msg__current_token_balance_is_insufficient": "رصيد الرمز الحالي غير كاف.",
+  "msg__data_sent_to_platform": "تم إرسال البيانات إلى {platform}",
   "msg__deleted_str": "تم حذف \" {0} \"",
   "msg__disk_access_is_denied": "تم رفض الوصول إلى القرص",
   "msg__engine__account_already_exists": "الحساب موجود بالفعل.",
@@ -1560,6 +1565,7 @@
   "msg__network_request_failed": "فشل طلب الشبكة",
   "msg__network_reset": "إعادة تعيين الشبكة",
   "msg__nfc_reader_usage_description": "استخدم NFC لإجراء نسخ احتياطي باستخدام OneKey Lite.",
+  "msg__no_data_available": "لا تتوافر بيانات",
   "msg__not_support_passphrase_need_upgrade": "استخدم عبارة المرور ، تحتاج إلى ترقية البرامج الثابتة إلى {0} أو أحدث.",
   "msg__not_the_same_wallet": "ليست نفس المحفظة.",
   "msg__ns_bluetooth_always_usage_description": "استخدم البلوتوث لتوصيل أجهزة OneKey.",
@@ -1661,6 +1667,10 @@
   "onboarding__landing_welcome_desc": "مكان واحد لكل ما تبذلونه من العملات المشفرة.",
   "onboarding__landing_welcome_title": "مرحبًا بك في OneKey!",
   "option__all": "الجميع",
+  "platform__desktop": "سطح المكتب",
+  "platform__extension": "امتداد",
+  "platform__mobile": "متحرك",
+  "platform__tablet": "لوح",
   "reward__history_empty_desc": "سيظهر سجل المكافأة هنا.",
   "select__options": "خيارات",
   "tag__adventurist_uppercase": "# مبتدئ",
