@@ -10,6 +10,7 @@ import {
   Hidden,
   Icon,
   Image,
+  Pressable,
   Text,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -128,6 +129,12 @@ const Welcome = () => {
     );
   }, [hardwareDisabled, forceVisibleUnfocused, navigation]);
 
+  const onPressThirdPartyWallet = useCallback(() => {
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+    navigation.navigate(EOnboardingRoutes.ThirdPartyWallet);
+    // navigation.navigate(EOnboardingRoutes.ConnectWallet);
+  }, [navigation]);
+
   const logos = [LogoMetaMask, LogoTrustWallet, LogoRainbow, LogoWalletconnect];
 
   return (
@@ -214,11 +221,16 @@ const Welcome = () => {
             <Divider flex={1} />
           </Box>
         </Hidden>
-        <Box
+        <Pressable
           flexDirection={{ base: 'row' }}
           alignItems={{ base: 'center' }}
           justifyContent={{ base: 'center' }}
           mt={{ base: 6, sm: 0 }}
+          py={{ base: 0 }}
+          bg="transparent"
+          _hover={{ bgColor: 'surface-hovered' }}
+          _pressed={{ bgColor: 'surface-pressed' }}
+          onPress={onPressThirdPartyWallet}
         >
           <Text
             typography={{ sm: 'Body2Strong', md: 'DisplaySmall' }}
@@ -245,7 +257,7 @@ const Welcome = () => {
           <Box py={0.5}>
             <Icon name="ChevronRightMini" size={16} color="icon-subdued" />
           </Box>
-        </Box>
+        </Pressable>
       </Layout>
       <TermsOfService />
     </>

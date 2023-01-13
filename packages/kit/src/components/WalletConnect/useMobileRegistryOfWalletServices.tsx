@@ -16,21 +16,22 @@ function buildEnabledWallets({
 }: {
   isVerticalLayout: boolean;
 }) {
-  let enabledWallets = [
+  const enabledWallets = [
     WALLET_CONNECT_WALLET_NAMES.MetaMask,
     WALLET_CONNECT_WALLET_NAMES['Trust Wallet'],
     WALLET_CONNECT_WALLET_NAMES.Rainbow,
     WALLET_CONNECT_WALLET_NAMES.imToken,
     WALLET_CONNECT_WALLET_NAMES.TokenPocket,
     WALLET_CONNECT_WALLET_NAMES.BitKeep,
-  ];
-  const enabledWalletsInVerticalOnly = [
-    //
     WALLET_CONNECT_WALLET_NAMES.Zerion,
   ];
-  if (isVerticalLayout) {
-    enabledWallets = enabledWallets.concat(enabledWalletsInVerticalOnly);
-  }
+  // const enabledWalletsInVerticalOnly = [
+  //
+  // WALLET_CONNECT_WALLET_NAMES.Zerion,
+  // ];
+  // if (isVerticalLayout) {
+  //   enabledWallets = enabledWallets.concat(enabledWalletsInVerticalOnly);
+  // }
   return enabledWallets;
 }
 

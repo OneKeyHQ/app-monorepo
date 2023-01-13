@@ -190,6 +190,8 @@ export function ConnectWalletListView({
     },
     [connectExternalWallet],
   );
+
+  console.log('walletServicesEnabled: ', walletServicesEnabled);
   const walletsList = useMemo(() => {
     if (platformEnv.isNativeAndroid) {
       return null;

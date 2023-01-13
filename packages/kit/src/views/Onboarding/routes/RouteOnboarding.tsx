@@ -16,6 +16,7 @@ import ImportWallet from '../screens/ImportWallet';
 import RecoveryWallet from '../screens/ImportWallet/RecoveryWallet';
 import BackupDetails from '../screens/RestoreFromCloud/BackupDetails';
 import BackupsList from '../screens/RestoreFromCloud/BackupsList';
+import ThirdPartyWallet from '../screens/ThirdPartyWallet';
 import Welcome from '../screens/Welcome';
 
 import { EOnboardingRoutes } from './enums';
@@ -34,6 +35,10 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.ConnectHardwareModal,
     component: ConnectHardware,
+  },
+  {
+    name: EOnboardingRoutes.ThirdPartyWallet,
+    component: ThirdPartyWallet,
   },
   {
     name: EOnboardingRoutes.ImportWallet,

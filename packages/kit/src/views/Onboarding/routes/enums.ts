@@ -14,6 +14,7 @@ export enum EOnboardingRoutes {
   RecoveryPhrase = 'RecoveryPhrase', // RecoveryPhrase tips
   ShowRecoveryPhrase = 'ShowRecoveryPhrase', // RecoveryPhrase 12/24 words
   BehindTheScene = 'BehindTheScene', // Auto-typing
+  ThirdPartyWallet = 'ThirdPartyWallet',
 
   // Restore from cloud backup
   RestoreFromCloud = 'RestoreFromCloud',
