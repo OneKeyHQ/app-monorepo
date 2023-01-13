@@ -94,43 +94,53 @@ export function ConnectWalletListItem({
     );
   }, [available, intl, isLoading]);
   return (
-    <Pressable
+    <Box
       key={label}
       flexDir={{ base: 'row', sm: 'column' }}
-      w={{ sm: '1/3' }}
-      alignItems="center"
-      my={{ base: 1, sm: '18px' }}
-      px={2}
-      py={{ base: 3, sm: 2 }}
-      _hover={{ bgColor: 'surface-hovered' }}
-      _pressed={{ bgColor: 'surface-pressed' }}
-      rounded="xl"
-      disabled={!available || isLoading}
-      onPress={onPress}
+      w={{ base: '100%', sm: '1/5' }}
+      my={{ base: 1 }}
+      alignItems={{ base: 'center', sm: 'stretch' }}
     >
-      {isLoading ? (
-        <Skeleton shape="Avatar" size={32} />
-      ) : (
-        <Image
-          source={imgSource}
-          size={8}
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="border-subdued"
-          rounded="xl"
-        />
-      )}
-
-      <Text
+      <Pressable
+        bg={{ base: undefined, sm: 'action-secondary-default' }}
         flex={1}
-        mx={{ base: 3, sm: 0 }}
-        mt={{ sm: 2 }}
-        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-        isTruncated
+        alignItems="center"
+        flexDir={{ base: 'row', sm: 'column' }}
+        mx={{ base: 0, sm: 1 }}
+        px={2}
+        py={{ base: 3, sm: 4 }}
+        borderWidth={{ base: 0, sm: StyleSheet.hairlineWidth }}
+        borderColor="border-default"
+        _hover={{ bgColor: 'surface-hovered' }}
+        _pressed={{ bgColor: 'surface-pressed' }}
+        rounded="xl"
+        disabled={!available || isLoading}
+        onPress={onPress}
       >
-        {label}
-      </Text>
-      {extraIcon}
-    </Pressable>
+        {isLoading ? (
+          <Skeleton shape="Avatar" size={32} />
+        ) : (
+          <Image
+            source={imgSource}
+            size={8}
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-subdued"
+            rounded="xl"
+          />
+        )}
+
+        <Text
+          flex={1}
+          mx={{ base: 3, sm: 0 }}
+          mt={{ base: 0, sm: 3 }}
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          isTruncated
+        >
+          {label}
+        </Text>
+        {extraIcon}
+      </Pressable>
+    </Box>
   );
 }
 
