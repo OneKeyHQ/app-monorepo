@@ -96,17 +96,7 @@ const Switch: FC<SwitchProps> = ({
         {...props}
         isChecked={isChecked}
         isDisabled={isDisabled}
-        onToggle={
-          onToggle
-            ? () => {
-                if (platformEnv.isNative) {
-                  setTimeout(onToggle);
-                } else {
-                  onToggle();
-                }
-              }
-            : undefined
-        }
+        onToggle={onToggle}
       />
     </Box>
   );
