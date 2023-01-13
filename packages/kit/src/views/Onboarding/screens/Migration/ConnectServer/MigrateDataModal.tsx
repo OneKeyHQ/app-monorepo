@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   BottomSheetModal,
@@ -126,10 +127,10 @@ const Content: FC<Props> = ({
 
   return (
     <BottomSheetModal
-      title="Migrate Data"
+      title="Migrating Data"
       headerDescription={
         <Text typography="Caption" color="text-success">
-          Apps Connected
+          🎉 Apps Connected
         </Text>
       }
       closeOverlay={closeOverlay}
@@ -138,10 +139,10 @@ const Content: FC<Props> = ({
         bgColor="surface-default"
         borderRadius="12px"
         borderColor="border-subdued"
-        borderWidth={1}
+        borderWidth={StyleSheet.hairlineWidth}
       >
-        <Box height="92px">
-          <Text typography="Body2" color="text-subdued" mt="16px" ml="16px">
+        <Box py="16px">
+          <Text typography="Body2" color="text-subdued" ml="16px">
             {intl.formatMessage({ id: 'content__from' })}
           </Text>
           <Box
@@ -154,10 +155,13 @@ const Content: FC<Props> = ({
             <Icon name="PlaySolid" size={28} />
           </Box>
         </Box>
-        <Divider />
+        <Box
+          borderBottomWidth={StyleSheet.hairlineWidth}
+          borderColor="border-subdued"
+        />
 
-        <Box height="92px">
-          <Text typography="Body2" color="text-subdued" mt="16px" ml="16px">
+        <Box py="16px">
+          <Text typography="Body2" color="text-subdued" ml="16px">
             {intl.formatMessage({ id: 'content__to' })}
           </Text>
           <Box
@@ -184,7 +188,7 @@ const Content: FC<Props> = ({
         </Center>
       </Box>
       <Button mt="24px" size="xl" type="primary" onPromise={migrateAction}>
-        Migrate
+        {intl.formatMessage({ id: 'action__migrate' })}
       </Button>
     </BottomSheetModal>
   );
