@@ -27,7 +27,7 @@ const DotSpace: FC<DotSpaceProps> = ({
     <Pressable
       size={`${size * 4}px`}
       borderWidth="1px"
-      borderColor="divider"
+      borderColor="border-default"
       disabled={disabled}
       onPress={() => {
         setOpenLight((pre) => !pre);
