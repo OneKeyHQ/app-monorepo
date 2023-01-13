@@ -3,7 +3,10 @@ import { cloneDeep, debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import type { IDappSignAndSendParams } from '@onekeyhq/kit/src/hooks/useDappParams';
+import type {
+  IDappConnectionParams,
+  IDappSignAndSendParams,
+} from '@onekeyhq/kit/src/hooks/useDappParams';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
@@ -202,13 +205,17 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async openConnectionModal(request: CommonRequestParams['request']) {
+  async openConnectionModal(
+    request: CommonRequestParams['request'],
+    params?: IDappConnectionParams,
+  ) {
     const result = await this.openModal({
       request,
       screens: [
         ModalRoutes.DappConnectionModal,
         DappConnectionModalRoutes.ConnectionModal,
       ],
+      params,
     });
     await wait(200);
     this.backgroundApi.serviceAccount.notifyAccountsChanged();

@@ -14,6 +14,11 @@ export type IDappSignAndSendParams = {
   networkId?: string;
 };
 
+export type IDappConnectionParams = {
+  networkId?: string;
+  accountIdentify?: string;
+};
+
 // TODO rename useDappQuery
 function useDappParams() {
   const route = useRoute();

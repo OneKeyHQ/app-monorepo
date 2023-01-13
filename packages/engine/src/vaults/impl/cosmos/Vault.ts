@@ -191,7 +191,7 @@ export default class Vault extends VaultBase {
 
     return {
       name: account.name,
-      algo: 'ed25519',
+      algo: 'secp251k1',
       pubKey: account.pub,
       address: account.address,
       bech32Address: address,
