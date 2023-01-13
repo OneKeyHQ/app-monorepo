@@ -23,6 +23,7 @@ import { wait } from '../../utils/helper';
 import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
 import { SendRoutes } from '../Send/types';
 
+import { reservedNetworkFee } from './config';
 import {
   useDerivedSwapState,
   useInputLimitsError,
@@ -136,6 +137,21 @@ const ExchangeButton = () => {
         title: intl.formatMessage({ id: 'msg__unknown_error' }),
       });
       return;
+    }
+
+    if (!params.tokenIn.tokenIdOnNetwork) {
+      const result = await backgroundApiProxy.serviceToken.fetchTokenBalance({
+        activeAccountId: sendingAccount.id,
+        activeNetworkId: targetNetwork.id,
+      });
+      const balance = new BigNumber(result.main ?? '0');
+      const reservedValue = reservedNetworkFee[targetNetwork.id] ?? 0.1;
+      if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        });
+        return;
+      }
     }
 
     const res = await SwapQuoter.client.buildTransaction(quote.type, {
