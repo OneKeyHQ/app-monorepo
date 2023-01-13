@@ -1,5 +1,5 @@
-import type { FC } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -120,8 +120,7 @@ const Content: FC<Props> = ({
             {
               id: 'msg__data_sent_to_platform',
             },
-            // TODO: change the variable `platform` dynamically
-            { platform: 'Desktop' },
+            { platform: parseToData.name },
           )}`,
         });
         closeOverlay();
@@ -129,7 +128,7 @@ const Content: FC<Props> = ({
     } else {
       await getDataAction();
     }
-  }, [closeOverlay, getDataAction, intl, isSend, sendAction]);
+  }, [closeOverlay, getDataAction, intl, isSend, parseToData.name, sendAction]);
 
   return (
     <BottomSheetModal
@@ -152,24 +151,11 @@ const Content: FC<Props> = ({
             {intl.formatMessage({ id: 'content__from' })}
           </Text>
           <Box paddingX="16px" flexDirection="row" mt="12px">
-            {/* TODO
-              label and icon name:
-              - Mobile, DevicePhoneMobileSolid (iOS, Android)
-              - Tablet, DeviceTabletSolid (iPadOS, Android tablet)
-              - Desktop, ComputerDesktopSolid (macOS, Windows, Linux)
-              - Extension, PuzzlePieceSolid (Chrome Extension, Firefox Extension, Safari Extension, Edge Extension, Brave Extension)
-              - Web, GlobeAltSolid (Web)
-            */}
-            <Icon
-              name="DevicePhoneMobileSolid"
-              size={24}
-              color="icon-subdued"
-            />
+            <Icon name={parseFromData.logo} size={24} color="icon-subdued" />
             <Text typography="Body1Strong" flex={1} ml="8px">
               {parseFromData.name}
             </Text>
-            {/* TODO */}
-            <Badge size="sm" type="info" title="Current" />
+            {isSend && <Badge size="sm" type="info" title="Current" />}
           </Box>
         </Box>
         <Box
@@ -187,10 +173,11 @@ const Content: FC<Props> = ({
             justifyContent="space-between"
             mt="12px"
           >
-            <Icon name="ComputerDesktopSolid" size={24} color="icon-subdued" />
+            <Icon name={parseToData.logo} size={24} color="icon-subdued" />
             <Text typography="Body1Strong" flex={1} ml="8px">
               {parseToData.name}
             </Text>
+            {!isSend && <Badge size="sm" type="info" title="Current" />}
           </Box>
         </Box>
         <Center position="absolute" width="full" height="full">

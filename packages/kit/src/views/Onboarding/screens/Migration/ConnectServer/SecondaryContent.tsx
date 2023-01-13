@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -217,6 +217,13 @@ const EnterLinkView: FC = () => {
   const [value, setValue] = useState('');
   const { connectServer } = useConnectServer();
 
+  const isDisabled = useMemo(() => {
+    if (value.replaceAll(' ', '').length === 0) {
+      return true;
+    }
+    return false;
+  }, [value]);
+
   return (
     <>
       <Input
@@ -248,6 +255,7 @@ const EnterLinkView: FC = () => {
         type="primary"
         size="xl"
         w="full"
+        isDisabled={isDisabled}
         mt="16px"
         onPromise={async () => {
           await connectServer(value);

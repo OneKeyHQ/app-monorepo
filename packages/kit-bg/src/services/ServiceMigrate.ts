@@ -66,20 +66,18 @@ function migrateServerPort() {
   return 20233;
 }
 
-function checkServerUrl(serverUrl: string) {
+export function checkServerUrl(serverUrl: string) {
   try {
-    const tempUrl = new URL(serverUrl);
+    const tempUrl = new URL(serverUrl.replaceAll(' ', ''));
     return tempUrl.origin;
   } catch (error) {
     return '';
   }
 }
 export function ServerUrl(serverUrl: string, path: string) {
-  let url;
-  if (!serverUrl.startsWith('http://')) {
-    url = `http://${serverUrl}`;
-  } else {
-    url = serverUrl;
+  let url = serverUrl.replaceAll(' ', '');
+  if (!url.startsWith('http://')) {
+    url = `http://${url}`;
   }
   url = checkServerUrl(url);
   if (url.length > 0) {

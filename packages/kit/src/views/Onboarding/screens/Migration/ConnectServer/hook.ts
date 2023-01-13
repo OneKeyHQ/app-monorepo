@@ -33,16 +33,11 @@ export enum ExportResult {
 export function useExportData() {
   const { showVerify } = useLocalAuthenticationModal();
   const { serviceCloudBackup } = backgroundApiProxy;
-
   const exportDataPasswordDone = useCallback(
     async (password: string) => {
       const data = await serviceCloudBackup.getDataForBackup(password);
-      if (isEmptyData(JSON.parse(data.public))) {
-        return { status: ExportResult.EMPTY };
-      }
       return { status: ExportResult.SUCCESS, data };
     },
-
     [serviceCloudBackup],
   );
 
@@ -52,20 +47,26 @@ export function useExportData() {
   }> = useCallback(
     async () =>
       new Promise((resolve) => {
-        showVerify(
-          (password) => {
-            exportDataPasswordDone(password).then((result) => {
-              resolve(result);
-            });
-          },
-          () => {
-            resolve({ status: ExportResult.CANCEL });
-          },
-          null,
-          ValidationFields.Secret,
-        );
+        serviceCloudBackup.getDataForBackup('').then((data) => {
+          if (isEmptyData(JSON.parse(data.public))) {
+            resolve({ status: ExportResult.EMPTY });
+          } else {
+            showVerify(
+              (password) => {
+                exportDataPasswordDone(password).then((result) => {
+                  resolve(result);
+                });
+              },
+              () => {
+                resolve({ status: ExportResult.CANCEL });
+              },
+              null,
+              ValidationFields.Secret,
+            );
+          }
+        });
       }),
-    [exportDataPasswordDone, showVerify],
+    [exportDataPasswordDone, serviceCloudBackup, showVerify],
   );
 
   return { exportDataRequest };

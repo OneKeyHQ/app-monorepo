@@ -1,5 +1,6 @@
 import * as Device from 'expo-device';
 
+import type { ICON_NAMES } from '@onekeyhq/components';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -11,39 +12,34 @@ function httpServerEnable() {
   return false;
 }
 
+// label and icon name:
+// - Mobile, DevicePhoneMobileSolid (iOS, Android)
+// - Tablet, DeviceTabletSolid (iPadOS, Android tablet)
+// - Desktop, ComputerDesktopSolid (macOS, Windows, Linux)
+// - Extension, PuzzlePieceSolid (Chrome Extension, Firefox Extension, Safari Extension, Edge Extension, Brave Extension)
+// - Web, GlobeAltSolid (Web)
 export function parseDeviceInfo(info: DeviceInfo) {
-  const { platform, deviceName, channel } = info;
-  let name = deviceName;
-  let logo = '????';
+  const { platform, channel } = info;
+  let name = 'unknow';
+  // TODO:unknow device icon
+  let logo: ICON_NAMES = 'MapSolid';
   if (platform === 'app') {
-    name = deviceName;
-    if (channel?.includes('ios')) {
-      logo = 'Apple';
-    } else if (channel?.includes('android')) {
-      logo = 'Android';
+    if (channel?.includes('native-ios-pad')) {
+      name = 'Tablet';
+      logo = 'DeviceTabletSolid';
+    } else {
+      name = 'Mobile';
+      logo = 'DevicePhoneMobileSolid';
     }
-  }
-  if (platform === 'web') {
+  } else if (platform === 'web') {
     name = 'Web';
-    logo = '????';
-  }
-  if (platform === 'desktop') {
+    logo = 'GlobeAltSolid';
+  } else if (platform === 'desktop') {
     name = 'Desktop';
-    if (channel?.includes('mac')) {
-      logo = 'Apple';
-    } else if (channel?.includes('win')) {
-      logo = 'Window';
-    } else if (channel?.includes('linux')) {
-      logo = 'linux';
-    }
-  }
-  if (platform === 'ext') {
+    logo = 'ComputerDesktopSolid';
+  } else if (platform === 'ext') {
     name = 'Extension';
-    if (channel === 'ext-chrome') {
-      logo = 'chrome';
-    } else if (channel === 'ext-firefox') {
-      logo = 'firefox';
-    }
+    logo = 'PuzzlePieceSolid';
   }
 
   return { name, logo };
@@ -51,7 +47,6 @@ export function parseDeviceInfo(info: DeviceInfo) {
 
 export function deviceInfo() {
   const { version, buildNumber } = store.getState().settings;
-
   return {
     deviceName: Device.deviceName ?? 'unknown',
     platform: process.env.ONEKEY_PLATFORM ?? 'unknown',
