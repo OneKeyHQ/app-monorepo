@@ -96,7 +96,8 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
   RootRoutes.Root
 > &
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.NFTPNLScreen> &
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Revoke>;
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
@@ -153,18 +154,14 @@ const ToolsPage: FC = () => {
           screen: HomeRoutes.AnnualLoading,
         });
       } else if (key === 'revoke') {
-        navigation.navigate(RootRoutes.Root, {
-          screen: HomeRoutes.Revoke,
-        });
+        navigation.navigate(HomeRoutes.Revoke);
       } else if (key === 'explorer') {
         openAddressDetails(
           accountAddress,
           intl.formatMessage({ id: 'title__blockchain_explorer' }),
         );
       } else if (key === 'pnl') {
-        navigation.navigate(RootRoutes.Root, {
-          screen: HomeRoutes.NFTPNLScreen,
-        });
+        navigation.navigate(HomeRoutes.NFTPNLScreen);
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {
