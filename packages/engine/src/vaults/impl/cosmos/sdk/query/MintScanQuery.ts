@@ -24,6 +24,7 @@ const NetworkIDMinScanMap: Record<string, string> = {
   [OnekeyNetwork.fetch]: 'fetchai',
   [OnekeyNetwork.juno]: 'juno',
   [OnekeyNetwork.osmosis]: 'osmosis',
+  [OnekeyNetwork.secretnetwork]: 'secret',
   // [OnekeyNetwork.injective]: 'injective',
 };
 
