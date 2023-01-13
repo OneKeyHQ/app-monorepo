@@ -2,6 +2,7 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { getCoinInfo } from '@onekeyfe/hd-core/src/api/btc/helpers/btcParamsUtils';
 import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 import Long from 'long';
@@ -136,6 +137,13 @@ export default class Vault extends VaultBase {
     return chainInfo;
   }
 
+  private async getChainImplInfo() {
+    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
+      this.networkId,
+    );
+    return chainInfo.implOptions as CosmosImplOptions;
+  }
+
   // Chain only methods
 
   override createClientFromURL(_url: string): BaseClient {
@@ -183,7 +191,7 @@ export default class Vault extends VaultBase {
 
     return {
       name: account.name,
-      algo: 'ed25519',
+      algo: 'secp251k1',
       pubKey: account.pub,
       address: account.address,
       bech32Address: address,
@@ -224,6 +232,7 @@ export default class Vault extends VaultBase {
         this.normalIBCAddress(tokenAddress) ?? tokenAddress;
       const query = new MintScanQuery();
       const results = await query.fetchAssertInfos(this.networkId);
+
       if (!results) {
         return Promise.reject(new InvalidTokenAddress());
       }
@@ -337,8 +346,8 @@ export default class Vault extends VaultBase {
     const ibcTokenAddresses = tokenAddresses
       .filter((tokenAddress) => this.isIbcToken(tokenAddress))
       .reduce((acc, tokenAddress) => {
-        const normalizationAddress = this.normalIBCAddress(tokenAddress);
-        if (normalizationAddress) acc.add(normalizationAddress);
+        const normalAddress = this.normalIBCAddress(tokenAddress);
+        if (normalAddress) acc.add(normalAddress);
         return acc;
       }, new Set<string>());
 
@@ -370,35 +379,41 @@ export default class Vault extends VaultBase {
       tokens.push(...ibcTokens);
     }
 
-    const contractClient = await this.getContractClient();
+    if (tokens.length === tokenAddresses.length) return tokens;
 
-    if (!contractClient) return tokens;
+    try {
+      const contractClient = await this.getContractClient();
 
-    const client = await this.getClient();
+      if (!contractClient) return tokens;
 
-    const cw20TokenAddress = tokenAddresses.filter(
-      (tokenAddress) => !this.isIbcToken(tokenAddress),
-    );
+      const client = await this.getClient();
 
-    await contractClient
-      .queryCw20TokenInfo(
-        {
-          networkId: this.networkId,
-          axios: client.axios,
-        },
-        cw20TokenAddress,
-      )
-      .then((cw20Tokens) =>
-        cw20Tokens.map((token) => ({
-          name: token.name,
-          symbol: token.symbol,
-          decimals: token.decimals,
-        })),
-      )
-      .then((cw20Tokens) => {
-        tokens.push(...cw20Tokens);
-      })
-      .catch(() => {});
+      const cw20TokenAddress = tokenAddresses.filter(
+        (tokenAddress) => !this.isIbcToken(tokenAddress),
+      );
+
+      await contractClient
+        .queryCw20TokenInfo(
+          {
+            networkId: this.networkId,
+            axios: client.axios,
+          },
+          cw20TokenAddress,
+        )
+        .then((cw20Tokens) =>
+          cw20Tokens.map((token) => ({
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+          })),
+        )
+        .then((cw20Tokens) => {
+          tokens.push(...cw20Tokens);
+        })
+        .catch(() => {});
+    } catch (error) {
+      // ignore error
+    }
 
     return tokens;
   }
@@ -428,24 +443,33 @@ export default class Vault extends VaultBase {
 
     const fee = getFee(params.encodedTx);
 
+    let newAmount = [];
+    if (fee && fee.amount.length > 0) {
+      newAmount = [
+        {
+          denom: fee.amount[0].denom,
+          amount: txPrice,
+        },
+      ];
+    } else {
+      const implCoin = await this.getChainImplInfo();
+      newAmount = [
+        {
+          denom: implCoin.mainCoinDenom,
+          amount: txPrice,
+        },
+      ];
+    }
+
     const newFee: StdFee = {
-      amount:
-        fee && fee.amount.length > 0
-          ? [
-              {
-                denom: fee.amount[0].denom,
-                amount: txPrice,
-              },
-            ]
-          : [],
+      amount: newAmount,
       gas_limit: limit,
       payer: fee?.payer ?? '',
       granter: fee?.granter ?? '',
       feePayer: fee?.feePayer ?? '',
     };
 
-    setFee(params.encodedTx, newFee);
-    return params.encodedTx;
+    return setFee(params.encodedTx, newFee);
   }
 
   override decodedTxToLegacy(

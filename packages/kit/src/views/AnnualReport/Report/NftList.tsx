@@ -121,7 +121,7 @@ const NftList: FC<PageProps> = ({ params: { nfts } }) => {
             >
               <NFTListImage size={106} asset={n} />
               <WText mt="1" numberOfLines={1} color="#1F1F38" fontSize="12">
-                {`${n.name ?? n.collection.contractName ?? ''}  #${
+                {`${n.collection.contractName ?? n.name ?? ''}  #${
                   n.tokenId ?? ''
                 }`}
               </WText>

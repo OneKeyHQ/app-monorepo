@@ -251,6 +251,9 @@ const ExchangeButton = () => {
           outputAmount.token.tokenIdOnNetwork,
         );
       }
+      if (res.result?.quoter === 'swftc' && res.attachment?.swftcOrderId) {
+        SwapQuoter.client.swftModifyTxId(res.attachment?.swftcOrderId, hash);
+      }
       const show = await canShowAppReview();
       if (show) {
         await wait(2000);

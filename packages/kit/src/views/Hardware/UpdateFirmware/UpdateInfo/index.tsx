@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
@@ -15,7 +15,6 @@ import {
   Image,
   Markdown,
   Modal,
-  Pressable,
   Spinner,
   Text,
   ToastManager,
@@ -36,6 +35,7 @@ import type {
   IResourceUpdateInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { deviceUtils } from '../../../../utils/hardware';
@@ -99,7 +99,9 @@ const UpdateInfoModal: FC = () => {
               {
                 url: (
                   // TODO click event
-                  <Pressable
+                  <Text
+                    typography="Body2Underline"
+                    color="interactive-default"
                     onPress={() => {
                       openUrlExternal(
                         'https://onekey.so/zh_CN/download/?client=desktop',
@@ -107,13 +109,8 @@ const UpdateInfoModal: FC = () => {
                       closeOverlay(close);
                     }}
                   >
-                    <Text
-                      typography="Body2Underline"
-                      color="interactive-default"
-                    >
-                      https://onekey.so/download
-                    </Text>
-                  </Pressable>
+                    https://onekey.so/download
+                  </Text>
                 ),
                 v: resourceRef.current?.limitVersion ?? '',
               },
@@ -171,9 +168,10 @@ const UpdateInfoModal: FC = () => {
         );
         resourceRef.current = resourceInfo;
         if (resourceInfo.error === 'USE_DESKTOP') {
+          const delay = platformEnv.isExtensionUiExpandTab ? 500 : 150;
           setTimeout(() => {
             showUpdateOnDesktopModal();
-          }, 150);
+          }, delay);
           if (!isSmallScreen) {
             navigation.goBack();
           }
@@ -205,6 +203,11 @@ const UpdateInfoModal: FC = () => {
     isSmallScreen,
   ]);
 
+  const buttonEnable = useMemo(() => {
+    if (device?.deviceType !== 'touch') return true;
+    return !!features;
+  }, [device, features]);
+
   return (
     <Modal
       maxHeight={560}
@@ -220,6 +223,10 @@ const UpdateInfoModal: FC = () => {
             resourceUpdateInfo,
           },
         );
+      }}
+      primaryActionProps={{
+        isDisabled: !buttonEnable,
+        isLoading: !buttonEnable,
       }}
       scrollViewProps={{
         children: (

@@ -8,6 +8,7 @@ import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -22,6 +23,11 @@ const UpdateWarningModal: FC = () => {
   const intl = useIntl();
   const { device, resourceUpdateInfo, onSuccess } =
     useRoute<RouteProps>().params;
+
+  debugLogger.hardwareSDK.info(
+    'UpdateWarningModal, resourceUpdateInfo: ',
+    resourceUpdateInfo,
+  );
 
   return (
     <Modal
