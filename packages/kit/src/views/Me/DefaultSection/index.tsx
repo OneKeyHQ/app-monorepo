@@ -25,7 +25,7 @@ type NavigationProps = NativeStackNavigationProp<
 export const DefaultSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
-  const addNavigation = useAppNavigation();
+  const appNavigation = useAppNavigation();
   const { themeVariant } = useTheme();
 
   return (
@@ -75,7 +75,7 @@ export const DefaultSection = () => {
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => {
-            addNavigation.navigate(RootRoutes.Root, {
+            appNavigation.navigate(RootRoutes.Root, {
               screen: HomeRoutes.KeyTag,
             });
           }}

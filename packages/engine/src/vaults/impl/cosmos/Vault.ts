@@ -4,6 +4,7 @@ import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { getCoinInfo } from '@onekeyfe/hd-core/src/api/btc/helpers/btcParamsUtils';
 import BigNumber from 'bignumber.js';
+import { getTime } from 'date-fns';
 import { get } from 'lodash';
 import Long from 'long';
 import memoizee from 'memoizee';
@@ -63,7 +64,10 @@ import {
   setSendAmount,
 } from './sdk/wrapper/utils';
 import settings from './settings';
-import { getTransactionTypeByProtoMessage } from './utils';
+import {
+  getTransactionTypeByMessage,
+  getTransactionTypeByProtoMessage,
+} from './utils';
 
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -875,6 +879,7 @@ export default class Vault extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { localHistory = [], tokenIdOnNetwork } = options;
+
     if (tokenIdOnNetwork) {
       // No token support now.
       return Promise.resolve([]);
@@ -883,104 +888,144 @@ export default class Vault extends VaultBase {
     const { getTimeStamp } = await CoreSDKLoader();
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const chainInfo = await this.getChainInfo();
-    let token: Token | undefined = await this.engine.getNativeTokenInfo(
-      this.networkId,
-    );
 
-    const promises = localHistory.map(async (item) => {
+    const mintScanQuery = new MintScanQuery();
+    const explorerTxs =
+      (await mintScanQuery.fetchAccountTxs(
+        this.networkId,
+        dbAccount.address,
+      )) ?? [];
+
+    const promises = explorerTxs.map(async (tx) => {
+      const historyTxToMerge = localHistory.find(
+        (item) =>
+          item.decodedTx.txid.toUpperCase() === tx.data.txhash.toUpperCase(),
+      );
+
+      if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        // No need to update.
+        return Promise.resolve(undefined);
+      }
       try {
-        const encodedTx = item.decodedTx.encodedTx as
-          | IEncodedTxCosmos
-          | undefined;
-        if (encodedTx) {
-          const msgs = getMsgs(encodedTx);
-          const fee = getFee(encodedTx);
-          const sequence = getSequence(encodedTx);
+        let token: Token | undefined = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
 
-          const actions = [];
-          for (const msg of msgs) {
-            let action: IDecodedTxAction | null = null;
-            const actionType = getTransactionTypeByProtoMessage(
-              msg,
-              chainInfo?.implOptions?.mainCoinDenom,
-            );
-
-            if (
-              actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
-              actionType === IDecodedTxActionType.TOKEN_TRANSFER
-            ) {
-              let actionKey = 'nativeTransfer';
-              const { amount, fromAddress, toAddress }: MsgSend =
-                'unpacked' in msg ? msg.unpacked : msg.value;
-
-              const amountNumber = amount[0].amount;
-              const amountDenom = amount[0].denom;
-
-              if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
-                actionKey = 'tokenTransfer';
-                token = await this.engine.ensureTokenInDB(
-                  this.networkId,
-                  amountDenom,
-                );
-              }
-
-              if (!token) {
-                throw new Error('Invalid token address');
-              }
-
-              const transferAction: IDecodedTxActionTokenTransfer = {
-                tokenInfo: token,
-                to: toAddress,
-                from: fromAddress,
-                amount: new BigNumber(amountNumber)
-                  .shiftedBy(-token.decimals)
-                  .toFixed(),
-                amountValue: amountNumber,
-                extraInfo: null,
-              };
-              action = {
-                type: actionType,
-                [actionKey]: transferAction,
-              };
-            } else {
-              action = {
-                type: IDecodedTxActionType.UNKNOWN,
-                direction: IDecodedTxDirection.OTHER,
-                unknownAction: {
-                  extraInfo: {},
-                },
-              };
-            }
-            if (action) actions.push(action);
-          }
-
-          const feeValue = new BigNumber(fee?.amount[0]?.amount ?? '0');
-
-          const decodedTx: IDecodedTx = {
-            txid: item.decodedTx?.txid,
-            owner: dbAccount.address,
-            signer: item.decodedTx?.signer,
-            nonce: sequence.toNumber(),
-            actions,
-            status: item.decodedTx?.status,
-            networkId: this.networkId,
-            accountId: this.accountId,
-            encodedTx,
-            extraInfo: null,
-            totalFeeInNative: new BigNumber(feeValue)
-              .shiftedBy(-(token?.decimals ?? 6))
-              .toFixed(),
-          };
-          decodedTx.updatedAt = getTimeStamp();
-          decodedTx.createdAt =
-            item?.decodedTx.createdAt ?? decodedTx.updatedAt;
-          decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-          return await this.buildHistoryTx({
-            decodedTx,
-            historyTxToMerge: item,
-          });
+        const error = tx.data.code;
+        let status = IDecodedTxStatus.Pending;
+        if (error) {
+          status = IDecodedTxStatus.Failed;
+        } else if (new BigNumber(tx.data.height).gt(0)) {
+          status = IDecodedTxStatus.Confirmed;
         }
-      } catch (error) {
+
+        const msgs = tx.data.tx.body.messages;
+        const { fee } = tx.data.tx.auth_info;
+        const { sequence } = tx.data.tx.auth_info.signer_infos[0];
+
+        let from = '';
+        let to = '';
+
+        const actions = [];
+        for (const msg of msgs) {
+          let action: IDecodedTxAction | null = null;
+          const actionType = getTransactionTypeByMessage(
+            msg,
+            chainInfo?.implOptions?.mainCoinDenom,
+          );
+
+          if (
+            actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
+            actionType === IDecodedTxActionType.TOKEN_TRANSFER
+          ) {
+            let actionKey = 'nativeTransfer';
+
+            // @ts-expect-error
+            const {
+              amount,
+              // @ts-expect-error
+              from_address: fromAddress,
+              // @ts-expect-error
+              to_address: toAddress,
+            }: MsgSend = msg;
+
+            from = fromAddress;
+            to = toAddress;
+
+            const amountNumber = amount[0].amount;
+            const amountDenom = amount[0].denom;
+
+            if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
+              actionKey = 'tokenTransfer';
+              token = await this.engine.ensureTokenInDB(
+                this.networkId,
+                amountDenom,
+              );
+            }
+
+            if (!token) {
+              throw new Error('Invalid token address');
+            }
+
+            const transferAction: IDecodedTxActionTokenTransfer = {
+              tokenInfo: token,
+              to: toAddress,
+              from: fromAddress,
+              amount: new BigNumber(amountNumber)
+                .shiftedBy(-token.decimals)
+                .toFixed(),
+              amountValue: amountNumber,
+              extraInfo: null,
+            };
+            action = {
+              type: actionType,
+              [actionKey]: transferAction,
+            };
+          } else {
+            action = {
+              type: IDecodedTxActionType.UNKNOWN,
+              direction: IDecodedTxDirection.OTHER,
+              unknownAction: {
+                extraInfo: {},
+              },
+            };
+          }
+          if (action) actions.push(action);
+        }
+
+        const encodedTx = {
+          from,
+          to,
+          value: '',
+        };
+
+        const feeValue = new BigNumber(fee?.amount[0]?.amount ?? '0');
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.data.txhash,
+          owner: dbAccount.address,
+          signer: from,
+          nonce: parseInt(sequence),
+          actions,
+          status,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          encodedTx,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(feeValue)
+            .shiftedBy(-(token?.decimals ?? 6))
+            .toFixed(),
+        };
+        decodedTx.updatedAt = getTimeStamp();
+
+        decodedTx.createdAt = getTime(tx.data.timestamp) ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+
+        return await this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
         return undefined;
       }
     });
