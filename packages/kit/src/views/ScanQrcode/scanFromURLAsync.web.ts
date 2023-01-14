@@ -7,8 +7,8 @@ async function getImageData(dataUrl: string): Promise<ImageData> {
     img.crossOrigin = 'anonymous';
 
     img.onload = function () {
-      const { width } = img;
-      const { height } = img;
+      const width = img.width || img.naturalWidth || 150;
+      const height = img.height || img.naturalHeight || 150;
       const actualWidth = Math.min(960, width);
       const actualHeight = height * (actualWidth / width);
 
