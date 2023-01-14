@@ -79,18 +79,13 @@ const NetworkStatusObserver = () => {
   const prevResponseTime = usePrevious(responseTime);
 
   useEffect(() => {
-    async function main() {
-      if (
-        prevResponseTime === undefined &&
-        networkStatus.status?.responseTime
-      ) {
-        const error = await backgroundApiProxy.serviceSwap.getSwapError();
+    if (prevResponseTime === undefined && networkStatus.status?.responseTime) {
+      backgroundApiProxy.serviceSwap.getSwapError().then((error) => {
         if (error === SwapError.QuoteFailed) {
           appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
         }
-      }
+      });
     }
-    main();
   }, [networkStatus.status?.responseTime, prevResponseTime, responseTime]);
   return null;
 };

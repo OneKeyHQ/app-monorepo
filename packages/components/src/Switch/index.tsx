@@ -2,8 +2,6 @@ import type { ComponentProps, FC } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import Box from '../Box';
 import Typography from '../Typography';
 

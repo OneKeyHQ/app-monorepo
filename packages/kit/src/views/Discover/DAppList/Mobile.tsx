@@ -57,30 +57,23 @@ export const Mobile: FC<DAppListProps> = ({ ...rest }) => {
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
       <Pressable
+        w="full"
+        mb="5"
+        flexDirection="row"
+        flex={1}
+        alignItems="center"
         onPress={() => {
           onItemSelect?.(item);
         }}
       >
-        <Box width="full" mb="5">
-          <Box flexDirection="row" flex={1} alignItems="center">
-            <DAppIcon
-              size={48}
-              url={item.logoURL}
-              networkIds={item.networkIds}
-            />
-            <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body2Strong flex="1" numberOfLines={1}>
-                {item.name}
-              </Typography.Body2Strong>
-              <Typography.Caption
-                color="text-subdued"
-                mt="4px"
-                numberOfLines={1}
-              >
-                {t(item._subtitle) ?? item.subtitle}
-              </Typography.Caption>
-            </Box>
-          </Box>
+        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+        <Box flexDirection="column" ml="12px" flex={1}>
+          <Typography.Body2Strong flex="1" numberOfLines={1}>
+            {item.name}
+          </Typography.Body2Strong>
+          <Typography.Caption color="text-subdued" mt="4px" numberOfLines={1}>
+            {t(item._subtitle) ?? item.subtitle}
+          </Typography.Caption>
         </Box>
       </Pressable>
     ),
