@@ -1,9 +1,15 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { useFonts } from 'expo-font';
 import { useIntl } from 'react-intl';
-import { ImageBackground, StatusBar } from 'react-native';
+import { Animated, ImageBackground, StatusBar } from 'react-native';
 
 import {
   Center,
@@ -87,6 +93,31 @@ export const Footer: FC<{
   showIndicator?: boolean;
 }> = ({ onShare, showIndicator }) => {
   const intl = useIntl();
+
+  const offset = useRef(new Animated.Value(0)).current;
+
+  const startAnimation = useCallback(() => {
+    const slide = Animated.sequence([
+      Animated.timing(offset, {
+        toValue: 10,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(offset, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]);
+    Animated.loop(slide).start();
+  }, [offset]);
+
+  useEffect(() => {
+    if (showIndicator) {
+      startAnimation();
+    }
+  }, [startAnimation, showIndicator]);
+
   return (
     <HStack
       position="absolute"
@@ -101,7 +132,15 @@ export const Footer: FC<{
     >
       {showIndicator ? (
         <Center w="full" px="6" position="absolute" bottom="82px" left="24px">
-          <Image borderRadius="14px" source={down} w={34.5} h={18} />
+          <Animated.Image
+            borderRadius={14}
+            source={down}
+            style={{
+              transform: [{ translateY: offset }],
+              width: 34.5,
+              height: 18,
+            }}
+          />
         </Center>
       ) : null}
       <Image borderRadius="14px" source={logo} w={8} h={8} />
