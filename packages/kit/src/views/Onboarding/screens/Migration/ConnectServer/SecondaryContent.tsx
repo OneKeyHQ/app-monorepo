@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -82,8 +82,10 @@ const QRCodeView: FC = () => {
     };
   }, [serverAddress.length, serviceMigrate, startHttpServer]);
 
-  useEffect(() => {
-    const httpServerRequest = (request: MigrateNotificationData) => {
+  const showModal = useRef<boolean>(false);
+
+  const httpServerRequest = useCallback(
+    (request: MigrateNotificationData) => {
       const { type, data } = request;
       if (type === MigrateNotificationNames.ReceiveDataFromClient) {
         const { postData, requestId } = data;
@@ -130,11 +132,13 @@ const QRCodeView: FC = () => {
         const url = new URL(urlPath, 'http://example.com');
         const { searchParams } = url;
         const clientInfo = searchParams.get('deviceInfo');
-        if (typeof clientInfo === 'string') {
+        if (typeof clientInfo === 'string' && showModal.current === false) {
           const json = JSON.parse(clientInfo) as DeviceInfo;
+          showModal.current = true;
           showSendDataRequestModal({
             deviceInfo: json,
             confirmPress: async (isConfirm) => {
+              showModal.current = false;
               if (isConfirm) {
                 const { status, data: exportData } = await exportDataRequest();
                 if (status === ExportResult.SUCCESS && data) {
@@ -168,15 +172,16 @@ const QRCodeView: FC = () => {
           });
         }
       }
-    };
+    },
+    [exportDataRequest, intl, navigation, serviceMigrate],
+  );
+
+  useEffect(() => {
     appEventBus.on(AppEventBusNames.HttpServerRequest, httpServerRequest);
     return () => {
-      appEventBus.removeListener(
-        AppEventBusNames.HttpServerRequest,
-        httpServerRequest,
-      );
+      appEventBus.removeAllListeners(AppEventBusNames.HttpServerRequest);
     };
-  }, [exportDataRequest, intl, navigation, serviceMigrate]);
+  }, [httpServerRequest]);
 
   return (
     <>
