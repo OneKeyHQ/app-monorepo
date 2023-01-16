@@ -1016,9 +1016,9 @@ export default class Vault extends VaultBase {
             .shiftedBy(-(token?.decimals ?? 6))
             .toFixed(),
         };
-        decodedTx.updatedAt = getTimeStamp();
-
-        decodedTx.createdAt = getTime(tx.data.timestamp) ?? decodedTx.updatedAt;
+        decodedTx.updatedAt =
+          getTime(new Date(tx.data.timestamp)) ?? getTimeStamp();
+        decodedTx.createdAt = decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
 
         return await this.buildHistoryTx({
