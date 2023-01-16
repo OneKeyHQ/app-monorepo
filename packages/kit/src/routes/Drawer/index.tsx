@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
@@ -15,13 +15,13 @@ import type { StyleProp, ViewStyle } from 'react-native';
 const DrawerStack = createDrawerNavigator();
 
 const DrawerStackNavigator = () => {
-  const isWeb = !platformEnv.isNative;
   const drawerStyle: Partial<StyleProp<ViewStyle>> = {
+    // must sync with nestedtabview
     width: '85%',
     maxWidth: 400,
     backgroundColor: useThemeValue('background-default'),
   };
-  if (isWeb) {
+  if (platformEnv.isRuntimeBrowser) {
     drawerStyle.opacity = 1;
   }
   const [key, setKey] = useState('');
@@ -30,23 +30,26 @@ const DrawerStackNavigator = () => {
     // no idea why it works
     setTimeout(() => setKey('drawer'), 10);
   }, []);
+  const drawerContent = useCallback(
+    (props) => <WalletSelectorMobile {...props} />,
+    [],
+  );
 
   return (
     <DrawerStack.Navigator
-      useLegacyImplementation
       key={key}
+      useLegacyImplementation
       screenOptions={{
         headerShown: false,
         /**
          * fix drawer every render blink issue: https://github.com/react-navigation/react-navigation/issues/7515
          */
         drawerType: 'back',
-        swipeEdgeWidth: 390,
         drawerStyle,
         swipeEnabled: !platformEnv.isNativeIOSPad,
+        swipeEdgeWidth: 390,
       }}
-      // drawerContent={(props) => <AccountSelectorMobile {...props} />}
-      drawerContent={(props) => <WalletSelectorMobile {...props} />}
+      drawerContent={drawerContent}
     >
       <DrawerStack.Screen
         name={RootRoutes.Tab}

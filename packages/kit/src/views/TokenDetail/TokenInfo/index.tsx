@@ -16,8 +16,7 @@ import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import {
   useActiveWalletAccount,
-  useFiatPay,
-  useMoonpayPayCurrency,
+  useMoonpaySell,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
@@ -32,10 +31,7 @@ import type { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useAccountTokensBalance,
-  useTokenBalance,
-} from '../../../hooks/useTokens';
+
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
@@ -54,34 +50,10 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const isVertical = useIsVerticalLayout();
   const { wallet, network, networkId, accountId } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
-
-  const balances = useAccountTokensBalance(networkId, accountId);
-  const currencies = useFiatPay(network?.id ?? '');
-  let cryptoCurrency = currencies.find((item) => {
-    if (!token?.tokenIdOnNetwork) {
-      return item.contract === '';
-    }
-    return item.contract === token?.tokenIdOnNetwork;
-  });
-
-  const amount = useTokenBalance({
-    networkId,
-    accountId,
-    token: {
-      ...token,
-      sendAddress,
-    },
-    fallback: '0',
-  });
-
-  if (cryptoCurrency) {
-    cryptoCurrency = { ...cryptoCurrency, balance: amount };
-  }
-  const moonpayCurrency = useMoonpayPayCurrency(
-    cryptoCurrency?.provider.moonpay,
+  const { sellEnable, balances, cryptoCurrency, amount } = useMoonpaySell(
+    network?.id,
+    token,
   );
-
-  const sellEnable = cryptoCurrency && moonpayCurrency?.isSellSupported;
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -272,7 +244,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                       params: {
                         screen: FiatPayRoutes.AmountInputModal,
                         params: {
-                          token: cryptoCurrency as CurrencyType,
+                          token: cryptoCurrency,
                           type: 'Buy',
                         },
                       },

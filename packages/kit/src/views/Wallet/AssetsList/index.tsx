@@ -1,4 +1,3 @@
-import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
@@ -11,6 +10,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { useManageTokensOfAccount } from '@onekeyhq/kit/src/hooks/useManageTokens';
@@ -33,7 +33,6 @@ import TokenCell from './TokenCell';
 
 import type { SimplifiedToken } from '../../../store/reducers/tokens';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { FlatListProps } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -41,14 +40,8 @@ type NavigationProps = NativeStackNavigationProp<
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
-export type IAssetsListProps = Omit<
-  ComponentProps<typeof Tabs.FlatList>,
-  'data' | 'renderItem'
-> & {
-  onTokenPress?:
-    | null
-    | ((event: { token: SimplifiedToken }) => void)
-    | undefined;
+export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
+  onTokenPress?: null | ((event: { token: SimplifiedToken }) => void) | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;

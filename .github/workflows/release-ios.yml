@@ -40,7 +40,7 @@ jobs:
         uses: OneKeyHQ/actions/expo-server@main
         with:
           expo-version: 5.x
-          eas-version: 0.53.x
+          eas-version: 3.1.x
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Setup ENV BUILD_NUMBER to 1
@@ -100,7 +100,7 @@ jobs:
         if: ${{ github.event.workflow_run }}
         run: |
           cd packages/app
-          eas build --profile=production --platform ios --non-interactive --no-wait
+          # eas build --profile=production --platform ios --non-interactive --no-wait
           # replace APP STORE provision
           echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
           eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit

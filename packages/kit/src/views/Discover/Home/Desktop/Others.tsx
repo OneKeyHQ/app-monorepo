@@ -22,7 +22,7 @@ import {
 } from '@onekeyhq/components';
 
 import dappColourPNG from '../../../../../assets/dapp_colour.png';
-import { useAppSelector } from '../../../../hooks';
+import { useAppSelector, useTranslation } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../DAppIcon';
 import { useCategoryDapps } from '../../hooks';
@@ -105,6 +105,7 @@ const ChainsSelector: FC<{ networkIds: string[] }> = ({ networkIds }) => {
     <FlatList
       data={data}
       renderItem={renderItem}
+      showsVerticalScrollIndicator={false}
       keyExtractor={(item) => item.networkId}
     />
   );
@@ -118,6 +119,7 @@ const ListEmptyComponent = () => <EmptySkeletonContent offset={-120} />;
 
 const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
   const { selectedNetworkId } = useContext(SelectedNetworkContext);
+  const t = useTranslation();
 
   const { onItemSelect } = useContext(DiscoverContext);
   const { width } = useWindowDimensions();
@@ -173,12 +175,12 @@ const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
             textAlign="left"
             color="text-subdued"
           >
-            {item.subtitle}
+            {t(item._subtitle) ?? item.subtitle}
           </Typography.Caption>
         </Pressable>
       </Box>
     ),
-    [cardWidth, onItemSelect],
+    [cardWidth, onItemSelect, t],
   );
 
   const data = useMemo(() => {
@@ -195,6 +197,7 @@ const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
       data={data}
       removeClippedSubviews
       windowSize={5}
+      showsHorizontalScrollIndicator={false}
       renderItem={renderItem}
       numColumns={numColumns}
       key={`key${numColumns}`}

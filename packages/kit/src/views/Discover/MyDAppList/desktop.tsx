@@ -22,11 +22,12 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
+import { useTranslation } from '../../../hooks';
 import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
 import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
 import { Chains } from '../Chains';
 import DAppIcon from '../DAppIcon';
-import { useDiscoverFavorites, useDiscoverHistory } from '../hooks';
+import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';
 
@@ -58,16 +59,13 @@ const HistoryListEmptyComponent = () => {
 
 type RenderItemProps = {
   item: MatchDAppItemType;
+  cardWidth: number;
   callback: ShowMenuProps;
 };
-const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
+const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
   const ref = useRef();
-  const { width } = useWindowDimensions();
+  const t = useTranslation();
   const { onItemSelect } = useContext(MyDAppListContext);
-  const screenWidth = width - 64 - 256;
-  const minWidth = 250;
-  const numColumns = Math.floor(screenWidth / minWidth);
-  const cardWidth = screenWidth / numColumns;
 
   const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
   const name = item.dapp?.name ?? item.webSite?.title ?? 'Unknown';
@@ -75,7 +73,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
   const networkIds = item.dapp?.networkIds;
   let description = 'Unknown';
   if (item.dapp) {
-    description = item.dapp.subtitle;
+    description = t(item.dapp._subtitle) ?? item.dapp.subtitle;
   } else if (url) {
     description = new URL(url).host;
   }
@@ -141,12 +139,19 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
 const Favorites = () => {
   const data = useDiscoverFavorites();
   const { width } = useWindowDimensions();
-  const screenWidth = width - 64 - 256;
+  const screenWidth = width - 64 - 224;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
+  const cardWidth = screenWidth / numColumns;
 
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem item={item} callback={showFavoriteMenu} />,
+    ({ item }) => (
+      <RenderItem
+        cardWidth={cardWidth}
+        item={item}
+        callback={showFavoriteMenu}
+      />
+    ),
     [],
   );
 
@@ -166,13 +171,22 @@ const Favorites = () => {
 
 const History = () => {
   const { width } = useWindowDimensions();
-  const data = useDiscoverHistory();
-  const screenWidth = width - 48 - 256;
+  const data = useUserBrowserHistories();
+  const screenWidth = width - 64 - 224;
+
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
+  const cardWidth = screenWidth / numColumns;
+
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem item={item} callback={showHistoryMenu} />,
-    [],
+    ({ item }) => (
+      <RenderItem
+        cardWidth={cardWidth}
+        item={item}
+        callback={showHistoryMenu}
+      />
+    ),
+    [cardWidth],
   );
 
   return (

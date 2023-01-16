@@ -9,7 +9,6 @@ import {
   Box,
   Button,
   Empty,
-  Image,
   Pressable,
   ScrollView,
   Typography,
@@ -23,8 +22,8 @@ import { HomeRoutes, ModalRoutes, RootRoutes } from '../../../../routes/types';
 import DAppIcon from '../../DAppIcon';
 import {
   useDiscoverFavorites,
-  useDiscoverHistory,
   useTaggedDapps,
+  useUserBrowserHistories,
 } from '../../hooks';
 import { DiscoverModalRoutes } from '../../type';
 import CardView from '../CardView';
@@ -106,7 +105,7 @@ const ListHeaderFavorites = () => {
 
 const ListHeaderHistories = () => {
   const { onItemSelectHistory } = useContext(DiscoverContext);
-  const histories = useDiscoverHistory();
+  const histories = useUserBrowserHistories();
 
   const children = useMemo(
     () =>
@@ -123,7 +122,7 @@ const ListHeaderHistories = () => {
             alignItems="center"
             onPress={() => onItemSelectHistory(item)}
           >
-            <Image w="10" h="10" src={logoURL} borderRadius={12} mb="1.5" />
+            <DAppIcon size={48} url={logoURL} borderRadius={12} mb="1.5" />
             <Typography.Caption w="12" numberOfLines={1} textAlign="center">
               {name ?? 'Unknown'}
             </Typography.Caption>
@@ -243,6 +242,7 @@ export const Mine: FC = () => {
         title: item.label,
         data: item.items,
         tagId: item.id,
+        _title: item._label,
       })),
     [dapps],
   );

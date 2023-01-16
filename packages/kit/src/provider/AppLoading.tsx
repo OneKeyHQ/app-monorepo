@@ -1,6 +1,6 @@
 /* eslint-disable global-require */
-import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import type { FC, ReactNode } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import * as SplashScreen from 'expo-splash-screen';
 // TODO: add .d.ts for react-native-animated-splash-screen
@@ -15,6 +15,66 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
+const AnimatedSplashView = memo(
+  ({
+    bgColor,
+    initDataReady,
+    children,
+  }: {
+    bgColor?: string;
+    children?: ReactNode | undefined;
+    initDataReady: boolean;
+  }) => {
+    global.$$onekeyPerfTrace?.log({
+      name: `AppLoading SplashScreen render`,
+      payload: {
+        initDataReady,
+        bgColor,
+      },
+    });
+
+    const logoImage = useMemo((): any => {
+      if (initDataReady && platformEnv.isExtension) {
+        // do not show default splash logo in extension
+        return null;
+      }
+      return platformEnv.isRuntimeBrowser
+        ? require('../../assets/splash.svg') // SVG in web env
+        : require('../../assets/splash.png');
+    }, [initDataReady]);
+
+    const content = useMemo(
+      () => (
+        <AnimatedSplash
+          preload={false}
+          disableAppScale={platformEnv.isExtension}
+          disableImageBackgroundAnimation={platformEnv.isExtension}
+          // imageBackgroundSource
+          translucent={!platformEnv.isNativeAndroid}
+          isLoaded={initDataReady}
+          // isLoaded={false}
+          logoImage={logoImage}
+          backgroundColor={bgColor}
+          // backgroundColor={platformEnv.isExtension ? 'rbga(0,0,0,0)' : bgColor}
+          // same size to onekey-index-html-preload-image at index.html.ejs
+          //      background img not working
+          logoHeight={platformEnv.isRuntimeBrowser ? '80px' : '100%'}
+          logoWidth={platformEnv.isRuntimeBrowser ? '80px' : '100%'}
+        >
+          {children}
+        </AnimatedSplash>
+      ),
+      [bgColor, children, initDataReady, logoImage],
+    );
+    return (
+      <Box flex={1} bg={bgColor}>
+        {content}
+      </Box>
+    );
+  },
+);
+AnimatedSplashView.displayName = 'AnimatedSplashView';
+
 const AppLoading: FC = ({ children }) => {
   const [initDataReady, setInitDataReady] = useState(false);
   useSWR(
@@ -25,7 +85,10 @@ const AppLoading: FC = ({ children }) => {
     },
   );
 
-  const bgColor = useThemeValue('background-default');
+  let bgColor: string | undefined = useThemeValue('background-default');
+  if (platformEnv.isRuntimeBrowser) {
+    bgColor = undefined;
+  }
 
   useEffect(() => {
     function main() {
@@ -50,45 +113,19 @@ const AppLoading: FC = ({ children }) => {
     main();
   }, []);
 
-  const bg = useThemeValue('background-default');
   useEffect(() => {
     if (initDataReady && platformEnv.isRuntimeBrowser) {
       const img = document.querySelector('.onekey-index-html-preload-image');
-      setTimeout(() => img?.remove(), 10);
+      // splash logo is disabled in extension, so we need more delay to wait home ui ready
+      const hideLogoDelay = platformEnv.isExtension ? 400 : 50;
+      setTimeout(() => img?.remove(), hideLogoDelay);
     }
   }, [initDataReady]);
 
-  global.$$onekeyPerfTrace?.log({
-    name: `AppLoading SplashScreen render: ${JSON.stringify({
-      initDataReady,
-    })}`,
-  });
-
   return (
-    <Box flex={1} bg={bg}>
-      <AnimatedSplash
-        preload={false}
-        disableAppScale={platformEnv.isExtension}
-        disableImageBackgroundAnimation={platformEnv.isExtension}
-        // imageBackgroundSource
-        translucent={!platformEnv.isNativeAndroid}
-        isLoaded={initDataReady}
-        // isLoaded={false}
-        logoImage={
-          platformEnv.isRuntimeBrowser
-            ? require('../../assets/splash.svg')
-            : require('../../assets/splash.png')
-        }
-        backgroundColor={bgColor}
-        // backgroundColor={platformEnv.isExtension ? 'rbga(0,0,0,0)' : bgColor}
-        // same size to onekey-index-html-preload-image at index.html.ejs
-        //      background img not working
-        logoHeight={platformEnv.isRuntimeBrowser ? '80px' : '100%'}
-        logoWidth={platformEnv.isRuntimeBrowser ? '80px' : '100%'}
-      >
-        {children}
-      </AnimatedSplash>
-    </Box>
+    <AnimatedSplashView initDataReady={initDataReady} bgColor={bgColor}>
+      {children}
+    </AnimatedSplashView>
   );
 };
 

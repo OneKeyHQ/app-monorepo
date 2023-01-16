@@ -25,10 +25,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setDevMode,
+  setEnableExternalAccountReport,
   setEnablePerfCheck,
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
   setOverviewDefiBuildByService,
+  setHideDiscoverContent,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceRes,
@@ -87,6 +89,8 @@ export const DevSettingSection = () => {
     enableZeroNotificationThreshold,
     enablePerfCheck,
     defiBuildService,
+    hideDiscoverContent,
+    enableExternalAccountAnnualReport,
   } = devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -283,7 +287,7 @@ export const DevSettingSection = () => {
           }
         />
         <Container.Item
-          title="All-Chain Send"
+          title="Overview build by service"
           titleColor="text-critical"
           subDescribeCustom={
             <Select
@@ -306,6 +310,34 @@ export const DevSettingSection = () => {
             />
           }
         />
+        <Container.Item
+          title="Hidden Discover Content"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={hideDiscoverContent}
+            onToggle={() => {
+              dispatch(setHideDiscoverContent(!hideDiscoverContent));
+            }}
+          />
+        </Container.Item>
+        <Container.Item
+          title="Enable Extenal Account Annual Report"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={enableExternalAccountAnnualReport}
+            onToggle={() => {
+              dispatch(
+                setEnableExternalAccountReport(
+                  !enableExternalAccountAnnualReport,
+                ),
+              );
+            }}
+          />
+        </Container.Item>
       </Container.Box>
     </Box>
   );

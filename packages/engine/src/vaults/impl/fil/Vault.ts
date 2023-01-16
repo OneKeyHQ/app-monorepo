@@ -9,7 +9,7 @@ import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
-import { isObject } from 'lodash';
+import { isNil, isObject } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -49,6 +49,8 @@ import type {
 import type { CID, IEncodedTxFil, IOnChainHistoryTx } from './types';
 import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
+let suggestedGasPremium = '0';
+
 // @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -81,7 +83,7 @@ export default class Vault extends VaultBase {
   async getScanClient() {
     const { isTestnet } = await this.engine.getNetwork(this.networkId);
     const rpcURL = isTestnet
-      ? 'https://wallaby.filscan.io:8890/rpc/v1'
+      ? 'https://calibration.filscan.io:8700/rpc/v1'
       : 'https://api.filscan.io:8700/rpc/v1';
     return this.getClientCache(rpcURL, 'filscan');
   }
@@ -177,6 +179,8 @@ export default class Vault extends VaultBase {
       [],
     );
 
+    suggestedGasPremium = encodedTxWithFeeInfo.GasPremium;
+
     const limit = BigNumber.max(
       encodedTx.GasLimit,
       encodedTxWithFeeInfo.GasLimit,
@@ -203,15 +207,29 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxFil;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxFil> {
-    const { encodedTx } = params;
-    const client = await this.getClient();
+    const network = await this.getNetwork();
+    const { encodedTx, feeInfoValue } = params;
+    const { limit, price } = feeInfoValue;
 
-    const encodedTxWithFeeInfo: IEncodedTxFil = await client.request(
-      'GasEstimateMessageGas',
-      encodedTx,
-      {},
-      [],
-    );
+    const encodedTxWithFeeInfo: IEncodedTxFil = {
+      ...encodedTx,
+    };
+
+    if (!isNil(limit)) {
+      encodedTxWithFeeInfo.GasLimit = new BigNumber(limit).toNumber();
+    }
+
+    if (!isNil(price)) {
+      encodedTxWithFeeInfo.GasFeeCap = new BigNumber(
+        (price as string) || '0.000000001',
+      )
+        .shiftedBy(network.feeDecimals)
+        .toFixed();
+    }
+
+    if (!isNil(suggestedGasPremium)) {
+      encodedTxWithFeeInfo.GasPremium = suggestedGasPremium;
+    }
 
     return Promise.resolve(encodedTxWithFeeInfo);
   }
@@ -398,19 +416,23 @@ export default class Vault extends VaultBase {
       address: dbAccount.addresses?.[this.networkId] || '',
     };
     if (ret.address.length === 0) {
-      const network = await this.getNetwork();
-      const addressObj = decode(dbAccount.address);
-      const address = encode(
-        network.isTestnet ? CoinType.TEST : CoinType.MAIN,
-        addressObj,
-      );
+      try {
+        const network = await this.getNetwork();
+        const addressObj = decode(dbAccount.address);
+        const address = encode(
+          network.isTestnet ? CoinType.TEST : CoinType.MAIN,
+          addressObj,
+        );
 
-      await this.engine.dbApi.addAccountAddress(
-        dbAccount.id,
-        this.networkId,
-        address,
-      );
-      ret.address = address;
+        await this.engine.dbApi.addAccountAddress(
+          dbAccount.id,
+          this.networkId,
+          address,
+        );
+        ret.address = address;
+      } catch {
+        // pass
+      }
     }
     return ret;
   }
@@ -482,7 +504,6 @@ export default class Vault extends VaultBase {
     let result: CID;
     try {
       result = await client.request('MpoolPush', JSON.parse(signedTx.rawTx));
-      console.log(result);
     } catch (err) {
       debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
       throw err;

@@ -34,12 +34,13 @@ declare global {
   var $$wcTransports: any;
   var $$onekeyPerfTrace:
     | {
-        log: (options: { name: string }) => void;
+        log: (options: { name: string; payload?: any }) => void;
         timeline: Array<{
           time: string;
           elapsed: number;
           lag: number;
           name: string;
+          payload?: any;
         }>;
       }
     | undefined;

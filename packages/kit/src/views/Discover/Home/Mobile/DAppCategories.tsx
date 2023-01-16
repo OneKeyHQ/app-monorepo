@@ -1,19 +1,29 @@
 import { useCallback, useContext, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Box, ToggleButtonGroup } from '@onekeyhq/components';
 
+import { useTranslation } from '../../../../hooks';
 import { useCategories } from '../../hooks';
 import { DiscoverContext } from '../context';
 
+import type { CatagoryType } from '../../type';
+
 export const DAppCategories = () => {
+  const intl = useIntl();
   const { categoryId, setCategoryId } = useContext(DiscoverContext);
   const categories = useCategories();
+  const t = useTranslation();
+
   const data = useMemo(() => {
     if (!categories) {
       return [];
     }
-    return [{ name: 'Mine', _id: '' }].concat(categories);
-  }, [categories]);
+    return [{ name: intl.formatMessage({ id: 'msg__mine' }), _id: '' }].concat(
+      categories,
+    ) as CatagoryType[];
+  }, [categories, intl]);
 
   const [selectedIndex, setSelectedIndex] = useState(() =>
     data.findIndex((item) => item._id === categoryId),
@@ -29,8 +39,8 @@ export const DAppCategories = () => {
   );
 
   const buttons = useMemo(
-    () => data.map((item) => ({ text: item.name }), []),
-    [data],
+    () => data.map((item) => ({ text: t(item._name) ?? item.name }), []),
+    [data, t],
   );
 
   if (!data.length) {

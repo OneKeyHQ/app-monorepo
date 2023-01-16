@@ -8,6 +8,8 @@ import { useThemeValue } from '@onekeyhq/components';
 import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
+import AnnualReport from '@onekeyhq/kit/src/views/AnnualReport/Report';
+import AnnualLoading from '@onekeyhq/kit/src/views/AnnualReport/Welcome';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
@@ -96,6 +98,14 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.OverviewDefiListScreen,
         component: OverviewDefiListScreen,
+      },
+      {
+        name: HomeRoutes.AnnualLoading,
+        component: AnnualLoading,
+      },
+      {
+        name: HomeRoutes.AnnualReport,
+        component: AnnualReport,
       },
     ],
   },

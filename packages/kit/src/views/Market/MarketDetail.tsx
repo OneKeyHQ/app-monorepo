@@ -14,11 +14,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount, useManageTokens } from '../../hooks';
-import { useFiatPay } from '../../hooks/redux';
+import { useActiveWalletAccount } from '../../hooks';
+import { useMoonpaySell } from '../../hooks/redux';
 import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/types';
@@ -231,21 +230,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     token?.networkId,
     token?.tokenIdOnNetwork,
   );
-  const currencies = useFiatPay(network?.id ?? '');
-  let crypotoCurrency = currencies.find((item) => {
-    if (!token?.tokenIdOnNetwork) {
-      return item.contract === '' && item.networkId === token?.networkId;
-    }
-    return (
-      item.networkId === token?.networkId &&
-      item.contract === token?.tokenIdOnNetwork
-    );
-  });
-  const { balances } = useManageTokens();
-  const amount = balances[getBalanceKey(token)] ?? '0';
-  if (crypotoCurrency) {
-    crypotoCurrency = { ...crypotoCurrency, balance: amount };
-  }
+  const { cryptoCurrency } = useMoonpaySell(network?.id, token);
 
   if (isVertical) {
     return children ?? null;
@@ -296,7 +281,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {crypotoCurrency ? (
+              {cryptoCurrency ? (
                 <PurchaseButton
                   onPress={() => {
                     navigation.navigate(RootRoutes.Modal, {
@@ -304,7 +289,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                       params: {
                         screen: FiatPayRoutes.AmountInputModal,
                         params: {
-                          token: crypotoCurrency as CurrencyType,
+                          token: cryptoCurrency,
                           type: 'Buy',
                         },
                       },

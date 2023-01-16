@@ -48,7 +48,10 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
   } = props;
-  global.$$onekeyPerfTrace?.log({ name: 'KitProvider render' });
+  global.$$onekeyPerfTrace?.log({
+    name: 'KitProvider render',
+    payload: props,
+  });
   return (
     <SWRConfig value={swrConfig}>
       <ReduxProvider store={store}>

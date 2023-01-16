@@ -33,3 +33,4 @@ export type { RevokeRoutesParams } from './Revoke';
 // eslint-disable-next-line import/no-cycle
 export type { NFTMarketRoutesParams } from './NFTMarket';
 export type { OverviewModalRoutesParams } from './Overview';
+export type { AnnualReportModalParams } from './AnnualReport';

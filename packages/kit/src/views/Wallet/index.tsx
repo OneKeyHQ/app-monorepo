@@ -3,12 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  useIsVerticalLayout,
-  useThemeValue,
-  useUserDevice,
-} from '@onekeyhq/components';
+import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import {
   useActiveWalletAccount,
@@ -34,17 +29,14 @@ import AssetsList from './AssetsList';
 import BackupToast from './BackupToast';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
-import { WalletHomeTabEnum } from './type';
+import { HomeTabOrder, WalletHomeTabEnum } from './type';
+
+const AccountHeader = () => <AccountInfo />;
 
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network, accountId, networkId } =
     useActiveWalletAccount();
@@ -73,8 +65,7 @@ const WalletTabs: FC = () => {
   return (
     <>
       <Tabs.Container
-        initialTabName={homeTabName}
-        // @ts-ignore fix type when remove react-native-collapsible-tab-view
+        canOpenDrawer
         refreshing={refreshing}
         onRefresh={async () => {
           setRefreshing(true);
@@ -94,12 +85,10 @@ const WalletTabs: FC = () => {
           }
           setTimeout(() => setRefreshing(false), 10);
         }}
-        onTabChange={({ tabName }) => {
-          backgroundApiProxy.dispatch(setHomeTabName(tabName));
+        onIndexChange={(index) => {
+          backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[index]));
         }}
-        renderHeader={() => <AccountInfo />}
-        width={isVerticalLayout ? screenWidth : screenWidth - 224} // reduce the width on iPad, sidebar's width is 244
-        pagerProps={{ scrollEnabled: false }}
+        renderHeader={AccountHeader}
         headerHeight={
           isVerticalLayout
             ? FIXED_VERTICAL_HEADER_HEIGHT
@@ -107,18 +96,11 @@ const WalletTabs: FC = () => {
         }
         containerStyle={{
           maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-          width: '100%',
+          // reduce the width on iPad, sidebar's width is 244
+          width: isVerticalLayout ? screenWidth : screenWidth - 224,
           marginHorizontal: 'auto', // Center align vertically
-          backgroundColor: tabbarBgColor,
           alignSelf: 'center',
           flex: 1,
-        }}
-        headerContainerStyle={{
-          shadowOffset: { width: 0, height: 0 },
-          shadowColor: 'transparent',
-          elevation: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: borderDefault,
         }}
       >
         <Tabs.Tab

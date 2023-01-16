@@ -1,11 +1,7 @@
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  useIsVerticalLayout,
-  useThemeValue,
-  useUserDevice,
-} from '@onekeyhq/components';
+import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -32,10 +28,6 @@ const Screen = () => {
 
   const context = useCollectionDetailContext()?.context;
   const setContext = useCollectionDetailContext()?.setContext;
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
 
   let headerHeight = isVerticalLayout ? 296 : 216;
   if (platformEnv.isNativeIOSPad) {
@@ -43,7 +35,6 @@ const Screen = () => {
   }
   return (
     <Tabs.Container
-      // @ts-ignore
       refreshing={context?.refreshing}
       onRefresh={() => {
         if (setContext) {
@@ -58,7 +49,6 @@ const Screen = () => {
           bgColor="background-default"
         />
       )}
-      pagerProps={{ scrollEnabled: false }}
       onIndexChange={(index) => {
         if (setContext) {
           setContext((ctx) => ({ ...ctx, selectedIndex: index }));
@@ -66,17 +56,8 @@ const Screen = () => {
       }}
       headerHeight={headerHeight}
       containerStyle={{
-        // width: '100%',
-        backgroundColor: tabbarBgColor,
         alignSelf: 'center',
         flex: 1,
-      }}
-      headerContainerStyle={{
-        shadowOffset: { width: 0, height: 0 },
-        shadowColor: 'transparent',
-        elevation: 0,
-        borderBottomWidth: 1,
-        borderBottomColor: borderDefault,
       }}
     >
       <Tabs.Tab

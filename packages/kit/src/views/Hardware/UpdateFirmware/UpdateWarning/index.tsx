@@ -8,6 +8,7 @@ import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -20,7 +21,13 @@ type RouteProps = RouteProp<
 const UpdateWarningModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const intl = useIntl();
-  const { device, onSuccess } = useRoute<RouteProps>().params;
+  const { device, resourceUpdateInfo, onSuccess } =
+    useRoute<RouteProps>().params;
+
+  debugLogger.hardwareSDK.info(
+    'UpdateWarningModal, resourceUpdateInfo: ',
+    resourceUpdateInfo,
+  );
 
   return (
     <Modal
@@ -29,10 +36,21 @@ const UpdateWarningModal: FC = () => {
       primaryActionTranslationId="action__yes_i_have"
       onPrimaryActionPress={() => {
         navigation.popToTop();
-        navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
-          device,
-          onSuccess,
-        });
+        if (resourceUpdateInfo?.needUpdate) {
+          navigation.replace(
+            HardwareUpdateModalRoutes.HardwareUpdateResourceModal,
+            {
+              device,
+              resourceUpdateInfo,
+              onSuccess,
+            },
+          );
+        } else {
+          navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
+            device,
+            onSuccess,
+          });
+        }
       }}
     >
       <Center flex={1} paddingX={4}>
@@ -42,7 +60,7 @@ const UpdateWarningModal: FC = () => {
           <Typography.DisplayMedium mt={8}>
             {intl.formatMessage({ id: 'modal__do_you_have_your_phrase' })}
           </Typography.DisplayMedium>
-          <Typography.Body1 color="text-subdued" mt={3}>
+          <Typography.Body1 color="text-subdued" mt={3} textAlign="center">
             {intl.formatMessage({
               id: 'modal__do_you_have_your_phrase_desc',
             })}

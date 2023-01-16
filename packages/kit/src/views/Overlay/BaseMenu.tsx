@@ -12,6 +12,7 @@ import type { MessageDescriptor } from 'react-intl';
 type IMenuOptions = (
   | {
       id: MessageDescriptor['id'];
+      intlValues?: Record<string, string>;
       onPress: () => void;
       icon: ICON_NAMES;
     }
@@ -40,13 +41,18 @@ const BaseMenu: FC<IBaseMenu> = ({
       }
       {...rest}
     >
-      {options.filter(Boolean).map(({ onPress, icon, id }) => (
-        <Menu.CustomItem icon={icon} onPress={onPress}>
-          {intl.formatMessage({
-            id,
-          })}
-        </Menu.CustomItem>
-      ))}
+      {options
+        .filter(Boolean)
+        .map(({ onPress, icon, id, intlValues }, index) => (
+          <Menu.CustomItem key={index} icon={icon} onPress={onPress}>
+            {intl.formatMessage(
+              {
+                id,
+              },
+              intlValues,
+            )}
+          </Menu.CustomItem>
+        ))}
     </Menu>
   );
 };

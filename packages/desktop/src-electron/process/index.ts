@@ -3,6 +3,7 @@ import logger from 'electron-log';
 
 import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
+import updateTouchResInit from './TouchRes';
 
 import type { LocalStore } from '../libs/store';
 import type { BrowserWindow } from 'electron';
@@ -39,10 +40,12 @@ export const restartBridge = async () => {
 };
 
 const init = async ({ mainWindow, store }: Dependencies) => {
+  logger.info('Electron main process log path: ', logger.transports.file.file);
   await launchBridge();
   if (!process.mas) {
     autoUpdateInit({ mainWindow, store });
   }
+  updateTouchResInit({ mainWindow });
 };
 
 export default init;

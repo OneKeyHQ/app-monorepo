@@ -70,7 +70,7 @@ export type PNLData = {
   content: NFTPNL[];
 };
 
-function parsePNLData(items: NFTPNL[]): PNLData {
+export function parsePNLData(items: NFTPNL[]): PNLData {
   let totalProfit: BigNumber = new BigNumber(0);
   let totalWinProfit: BigNumber = new BigNumber(0);
   let totalLoseProfit: BigNumber = new BigNumber(0);
@@ -96,6 +96,7 @@ function parsePNLData(items: NFTPNL[]): PNLData {
       totalLoseProfit = totalLoseProfit.plus(profit);
     }
     item.profit = profit.toNumber();
+    item.spend = spend.toNumber();
     totalProfit = totalProfit.plus(profit);
     totalSpend = totalSpend.plus(spend);
   });

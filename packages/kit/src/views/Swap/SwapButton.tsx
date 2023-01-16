@@ -30,6 +30,7 @@ import {
   useSwapQuoteRequestParams,
 } from './hooks/useSwap';
 import { SwapQuoter } from './quoter';
+import { dangerRefs } from './refs';
 import { SwapError, SwapRoutes } from './typings';
 import {
   formatAmount,
@@ -165,10 +166,10 @@ const ExchangeButton = () => {
 
     let encodedTx: IEncodedTx | undefined;
     if (typeof res?.data === 'object') {
+      // @ts-expect-error
       encodedTx = {
         ...res?.data,
         // SUI Transaction: error TS2322
-        // @ts-expect-error
         from: sendingAccount.address,
       };
     } else {
@@ -249,6 +250,9 @@ const ExchangeButton = () => {
           sendingAccount.id,
           outputAmount.token.tokenIdOnNetwork,
         );
+      }
+      if (res.result?.quoter === 'swftc' && res.attachment?.swftcOrderId) {
+        SwapQuoter.client.swftModifyTxId(res.attachment?.swftcOrderId, hash);
       }
       const show = await canShowAppReview();
       if (show) {
@@ -513,9 +517,11 @@ const ExchangeButton = () => {
     setLoading(true);
     ref.current = true;
     try {
+      dangerRefs.submited = true;
       await onSubmit();
     } finally {
       ref.current = false;
+      dangerRefs.submited = false;
       setLoading(false);
     }
   }, [onSubmit]);

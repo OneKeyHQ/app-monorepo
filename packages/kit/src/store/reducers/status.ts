@@ -8,7 +8,7 @@ type StatusState = {
   webviewGlobalKey: number;
   authenticationType?: 'FINGERPRINT' | 'FACIAL';
   hideAddressBookAttention?: boolean;
-  homeTabName?: string | number;
+  homeTabName?: string;
   swapPopoverShown?: boolean;
   guideToPushFirstTime?: boolean;
   firstTimeShowCheckRPCNodeTooltip?: boolean;
@@ -33,7 +33,7 @@ export const slice = createSlice({
   name: 'status',
   initialState,
   reducers: {
-    setHomeTabName(state, action: PayloadAction<string | number>) {
+    setHomeTabName(state, action: PayloadAction<string>) {
       state.homeTabName = action.payload;
     },
     setBoardingCompleted: (state) => {

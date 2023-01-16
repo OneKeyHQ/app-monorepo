@@ -10,7 +10,7 @@ import type {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 import type { IEncodedTxADA } from './impl/ada/types';
-import type { IEncodedTxAlgo } from './impl/algo/types';
+import type { IDecodedTxExtraAlgo, IEncodedTxAlgo } from './impl/algo/types';
 import type { IEncodedTxAptos } from './impl/apt/types';
 import type {
   IDecodedTxExtraBtc,
@@ -91,7 +91,7 @@ export type ITransferInfo = {
   isNFT?: boolean;
   tokenId?: string; // NFT token id
   type?: string; // NFT standard: erc721/erc1155
-  destinationTag?: string; // Ripple chain destination tag
+  destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -455,7 +455,11 @@ export type IDecodedTx = {
   interactInfo?: IDecodedTxInteractInfo;
 
   // TODO use nativeTx & decodedTx in frontend UI render
-  extraInfo: IDecodedTxExtraNear | IDecodedTxExtraBtc | null;
+  extraInfo:
+    | IDecodedTxExtraNear
+    | IDecodedTxExtraBtc
+    | IDecodedTxExtraAlgo
+    | null;
 
   encodedTx?: IEncodedTx;
   encodedTxEncrypted?: string;

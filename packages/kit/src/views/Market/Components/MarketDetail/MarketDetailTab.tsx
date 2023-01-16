@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   useIsVerticalLayout,
-  useThemeValue,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -105,70 +104,79 @@ enum MarketDetailTabName {
 const MARKET_DETAIL_TAB_HEADER_H_VERTICAL = 440;
 const MARKET_DETAIL_TAB_HEADER_H = 392;
 
+const nullComponent = () => null;
+
 const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
   marketTokenId,
   tokenDetail,
 }) => {
-  const [tabbarBgColor, borderDefault] = useThemeValue([
-    'background-default',
-    'border-subdued',
-  ]);
-  const [detailTabName, setDetailTabName] = useState<string | number>(
-    () => MarketDetailTabName.Info,
-  );
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
-  const contentPendding = isVerticalLayout ? '16px' : '0px';
+  const contentPadding = isVerticalLayout ? '16px' : '0px';
+
+  const infoContent = useCallback(
+    () => (
+      <MarketInfoContent
+        low24h={tokenDetail?.stats?.low24h}
+        high24h={tokenDetail?.stats?.high24h}
+        marketCapDominance={tokenDetail?.stats?.marketCapDominance}
+        marketCapRank={tokenDetail?.stats?.marketCapRank}
+        marketCap={tokenDetail?.stats?.marketCap}
+        volume24h={tokenDetail?.stats?.volume24h}
+        news={tokenDetail?.news}
+        expolorers={tokenDetail?.explorers}
+        about={tokenDetail?.about}
+        links={tokenDetail?.links}
+        px={contentPadding}
+      />
+    ),
+    [tokenDetail, contentPadding],
+  );
+
+  const statsContent = useCallback(
+    () => <MarketStatsContent px={contentPadding} {...tokenDetail?.stats} />,
+    [contentPadding, tokenDetail?.stats],
+  );
+  const header = useCallback(
+    () => (
+      <Box
+        w="100%"
+        p={contentPadding}
+        flexDirection="column"
+        bg="background-default"
+        h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL}
+      >
+        {isVerticalLayout ? (
+          <>
+            <MarketPriceChart coingeckoId={marketTokenId} />
+            <MarketDetailActionButton marketTokenId={marketTokenId} />
+          </>
+        ) : (
+          <MarketPriceChart coingeckoId={marketTokenId} />
+        )}
+      </Box>
+    ),
+    [contentPadding, isVerticalLayout, marketTokenId],
+  );
   return (
     <Tabs.Container
-      // @ts-ignore fix type when remove react-native-collapsible-tab-view
       refreshing={refreshing}
       onRefresh={async () => {
         setRefreshing(true);
         await backgroundApiProxy.serviceMarket.fetchMarketDetail(marketTokenId);
         setRefreshing(false);
       }}
-      initialTabName={detailTabName}
-      onTabChange={({ tabName }) => {
-        setDetailTabName(tabName);
-      }}
-      width={isVerticalLayout ? screenWidth : screenWidth - 224}
-      pagerProps={{ scrollEnabled: false }}
+      initialTabName={MarketDetailTabName.Info}
       containerStyle={{
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        width: '100%',
+        width: isVerticalLayout ? screenWidth : screenWidth - 224,
         marginHorizontal: 'auto', // Center align vertically
-        backgroundColor: tabbarBgColor,
         alignSelf: 'center',
         flex: 1,
       }}
-      headerContainerStyle={{
-        shadowOffset: { width: 0, height: 0 },
-        shadowColor: 'transparent',
-        elevation: 0,
-        borderBottomWidth: 1,
-        borderBottomColor: borderDefault,
-      }}
-      renderHeader={() => (
-        <Box
-          w="100%"
-          p={contentPendding}
-          flexDirection="column"
-          bgColor={tabbarBgColor}
-          h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL}
-        >
-          {isVerticalLayout ? (
-            <>
-              <MarketPriceChart coingeckoId={marketTokenId} />
-              <MarketDetailActionButton marketTokenId={marketTokenId} />
-            </>
-          ) : (
-            <MarketPriceChart coingeckoId={marketTokenId} />
-          )}
-        </Box>
-      )}
+      renderHeader={header}
       headerHeight={
         isVerticalLayout
           ? MARKET_DETAIL_TAB_HEADER_H_VERTICAL
@@ -182,22 +190,8 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         <Tabs.FlatList
           data={null}
           showsVerticalScrollIndicator={false}
-          renderItem={() => <Box />}
-          ListEmptyComponent={() => (
-            <MarketInfoContent
-              low24h={tokenDetail?.stats?.low24h}
-              high24h={tokenDetail?.stats?.high24h}
-              marketCapDominance={tokenDetail?.stats?.marketCapDominance}
-              marketCapRank={tokenDetail?.stats?.marketCapRank}
-              marketCap={tokenDetail?.stats?.marketCap}
-              volume24h={tokenDetail?.stats?.volume24h}
-              news={tokenDetail?.news}
-              expolorers={tokenDetail?.explorers}
-              about={tokenDetail?.about}
-              links={tokenDetail?.links}
-              px={contentPendding}
-            />
-          )}
+          renderItem={nullComponent}
+          ListEmptyComponent={infoContent}
         />
       </Tabs.Tab>
       <Tabs.Tab
@@ -207,10 +201,8 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
         <Tabs.FlatList
           data={null}
           showsVerticalScrollIndicator={false}
-          renderItem={() => <Box />}
-          ListEmptyComponent={() => (
-            <MarketStatsContent px={contentPendding} {...tokenDetail?.stats} />
-          )}
+          renderItem={nullComponent}
+          ListEmptyComponent={statsContent}
         />
       </Tabs.Tab>
     </Tabs.Container>

@@ -38,7 +38,7 @@ const ExplorerMobile: FC = () => {
   useEffect(() => {
     if (isFocusedInDiscoverTab) {
       if (incomingUrl) {
-        gotoSite({ url: incomingUrl, isNewWindow: true });
+        gotoSite({ url: incomingUrl, isNewWindow: true, userTriggered: true });
         clearIncomingUrl();
       }
       if (!showContent) {
@@ -75,7 +75,11 @@ const ExplorerMobile: FC = () => {
             url: defaultUrl,
             onSelectorItem: (item: MatchDAppItemType | string) => {
               if (typeof item === 'string') {
-                return gotoSite({ url: item, isNewWindow });
+                return gotoSite({
+                  url: item,
+                  isNewWindow,
+                  userTriggered: true,
+                });
               }
               openMatchDApp({ ...item, isNewWindow });
             },

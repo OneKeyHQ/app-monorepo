@@ -74,6 +74,7 @@ const UpdateFeatureModal = createLazyComponent(() => import('./UpdateFeature'));
 const WebviewModal = createLazyComponent(() => import('./WebView'));
 
 const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
+const AnnualReportModal = createLazyComponent(() => import('./AnnualReport'));
 
 const OverviewModal = createLazyComponent(() => import('./Overview'));
 
@@ -219,6 +220,10 @@ const modalStackScreenList = [
     name: ModalRoutes.Overview,
     component: OverviewModal,
   },
+  {
+    name: ModalRoutes.AnnualReport,
+    component: AnnualReportModal,
+  }
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
