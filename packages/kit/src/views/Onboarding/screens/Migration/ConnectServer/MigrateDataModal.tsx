@@ -1,5 +1,5 @@
-import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -122,7 +122,9 @@ const Content: FC<Props> = ({
     return false;
   }, [closeOverlay, intl, navigation, serverAddress, serviceMigrate]);
 
+  const [isLoading, setLoading] = useState(false);
   const migrateAction = useCallback(async () => {
+    setLoading(true);
     if (isSend) {
       const success = await sendAction();
       if (success) {
@@ -139,6 +141,7 @@ const Content: FC<Props> = ({
     } else {
       await getDataAction();
     }
+    setLoading(false);
   }, [closeOverlay, getDataAction, intl, isSend, parseToData.name, sendAction]);
 
   return (
@@ -228,7 +231,14 @@ const Content: FC<Props> = ({
           />
         </Center>
       </Box>
-      <Button mt="24px" size="xl" type="primary" onPromise={migrateAction}>
+      {isLoading && <Text typography="Body1">Awaiting Confirmation</Text>};
+      <Button
+        mt="24px"
+        size="xl"
+        type="primary"
+        onPress={migrateAction}
+        isLoading={isLoading}
+      >
         {intl.formatMessage({ id: 'action__migrate' })}
       </Button>
     </BottomSheetModal>

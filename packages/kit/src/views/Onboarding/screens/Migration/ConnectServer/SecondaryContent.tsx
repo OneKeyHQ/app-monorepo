@@ -37,7 +37,7 @@ import {
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import { httpServerEnable } from '../util';
+import { httpServerEnable, parseDeviceInfo } from '../util';
 
 import { ExportResult, useConnectServer, useExportData } from './hook';
 import { showSendDataRequestModal } from './SendDataRequestModal';
@@ -134,21 +134,36 @@ const QRCodeView: FC = () => {
           const json = JSON.parse(clientInfo) as DeviceInfo;
           showSendDataRequestModal({
             deviceInfo: json,
-            confirmPress: async () => {
-              const { status, data: exportData } = await exportDataRequest();
-              if (status === ExportResult.SUCCESS && data) {
-                serviceMigrate.serverRespond({
-                  requestId,
-                  respondData: { success: true, data: exportData },
-                });
-                return true;
+            confirmPress: async (isConfirm) => {
+              if (isConfirm) {
+                const { status, data: exportData } = await exportDataRequest();
+                if (status === ExportResult.SUCCESS && data) {
+                  serviceMigrate.serverRespond({
+                    requestId,
+                    respondData: { success: true, data: exportData },
+                  });
+                  ToastManager.show({
+                    title: `🧙 ${intl.formatMessage(
+                      {
+                        id: 'msg__data_sent_to_platform',
+                      },
+                      { platform: parseDeviceInfo(json).name },
+                    )}`,
+                  });
+                  return true;
+                }
+                if (status === ExportResult.EMPTY) {
+                  ToastManager.show({
+                    title: 'No sendable data',
+                  });
+                }
+                return false;
               }
-              if (status === ExportResult.EMPTY) {
-                ToastManager.show({
-                  title: 'No sendable data',
-                });
-              }
-              return false;
+              serviceMigrate.serverRespond({
+                requestId,
+                respondData: { success: false },
+              });
+              return true;
             },
           });
         }

@@ -6,7 +6,7 @@ import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function httpServerEnable() {
-  if (platformEnv.isDesktop || platformEnv.isNative) {
+  if (platformEnv.isDesktop || platformEnv.isNativeIOS) {
     return true;
   }
   return false;
@@ -20,9 +20,8 @@ function httpServerEnable() {
 // - Web, GlobeAltSolid (Web)
 export function parseDeviceInfo(info: DeviceInfo) {
   const { platform, channel } = info;
-  let name = 'unknow';
-  // TODO:unknow device icon
-  let logo: ICON_NAMES = 'MapSolid';
+  let name = 'Unknow';
+  let logo: ICON_NAMES = 'QuestionMarkOutline';
   if (platform === 'app') {
     if (channel?.includes('native-ios-pad')) {
       name = 'Tablet';

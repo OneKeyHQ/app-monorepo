@@ -17,7 +17,7 @@ import { parseDeviceInfo } from '../util';
 
 type Props = {
   deviceInfo: DeviceInfo;
-  confirmPress: () => Promise<boolean>;
+  confirmPress: (confirm: boolean) => Promise<boolean>;
   closeOverlay: () => void;
 };
 
@@ -26,16 +26,21 @@ const Content: FC<Props> = ({ deviceInfo, confirmPress, closeOverlay }) => {
   const parseData = parseDeviceInfo(deviceInfo);
 
   const confirmAction = useCallback(async () => {
-    const close = await confirmPress?.();
+    const close = await confirmPress?.(true);
     if (close) {
       closeOverlay();
     }
   }, [closeOverlay, confirmPress]);
 
+  const cancelAction = useCallback(() => {
+    confirmPress?.(false);
+    closeOverlay();
+  }, [closeOverlay, confirmPress]);
+
   return (
     <BottomSheetModal
       title={intl.formatMessage({ id: 'modal__send_data_request' })}
-      closeOverlay={closeOverlay}
+      closeOverlay={cancelAction}
     >
       <Text typography="Body2" color="text-subdued">
         {intl.formatMessage({ id: 'modal__send_data_request_desc' })}
@@ -52,8 +57,7 @@ const Content: FC<Props> = ({ deviceInfo, confirmPress, closeOverlay }) => {
           {intl.formatMessage({ id: 'content__to' })}
         </Text>
         <Box paddingX="16px" flexDirection="row" mt="12px">
-          {/* TODO: icon name and platform name */}
-          <Icon name="DevicePhoneMobileSolid" size={24} color="icon-subdued" />
+          <Icon name={parseData.logo} size={24} color="icon-subdued" />
           <Text ml="8px" typography="Body1Strong">
             {parseData.name}
           </Text>

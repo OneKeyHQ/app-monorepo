@@ -31,6 +31,7 @@ import useImportBackupPasswordModal from '../../../../../hooks/useImportBackupPa
 import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
 import { GroupedBackupDetails } from '../../../../Me/SecuritySection/CloudBackup/BackupDetails';
+import { useOnboardingClose } from '../../../hooks';
 import Layout from '../../../Layout';
 
 import type { EOnboardingRoutes } from '../../../routes/enums';
@@ -60,10 +61,10 @@ const PreviewImportData = () => {
   const { isPasswordSet } = useData();
   const { showVerify } = useLocalAuthenticationModal();
   const onboardingDone = useOnboardingDone();
+  const { onboardingGoBack } = useOnboardingClose();
 
   const { requestBackupPassword } = useImportBackupPasswordModal();
 
-  const [hasLocalData, setHasLocalData] = useState(false);
   const [hasRemoteData, setHasRemoteData] = useState(false);
   const [backupData, setBackupData] = useState({
     alreadyOnDevice: {
@@ -94,61 +95,86 @@ const PreviewImportData = () => {
     navigation.goBack();
   }, [intl, navigation]);
 
-  const importAction = useCallback(() => {
-    if (isPasswordSet) {
-      showVerify(
-        (localPassword) => {
-          serviceCloudBackup
-            .restoreFromPrivateBackup({
-              privateBackupData: data.private,
-              notOnDevice: backupData.notOnDevice,
-              localPassword,
-            })
-            .then((r) => {
-              if (r === RestoreResult.SUCCESS) {
-                onImportDone();
-              } else if (r === RestoreResult.WRONG_PASSWORD) {
-                requestBackupPassword(
-                  (remotePassword) =>
-                    serviceCloudBackup.restoreFromPrivateBackup({
-                      privateBackupData: data.private,
-                      notOnDevice: backupData.notOnDevice,
-                      localPassword,
-                      remotePassword,
-                    }),
-                  onImportDone,
-                  onImportError,
-                );
-              } else {
-                onImportError();
-              }
-            });
-        },
-        () => {},
-      );
-    } else {
-      requestBackupPassword(
-        (remotePassword) =>
-          serviceCloudBackup.restoreFromPrivateBackup({
-            privateBackupData: data.private,
-            notOnDevice: backupData.notOnDevice,
-            localPassword: remotePassword,
-            remotePassword,
-          }),
-        onImportDone,
-        onImportError,
-      );
-    }
+  const importAction = useCallback(
+    async () =>
+      new Promise<boolean>((resolve) => {
+        if (isPasswordSet) {
+          showVerify(
+            (localPassword) => {
+              serviceCloudBackup
+                .restoreFromPrivateBackup({
+                  privateBackupData: data.private,
+                  notOnDevice: backupData.notOnDevice,
+                  localPassword,
+                })
+                .then((r) => {
+                  if (r === RestoreResult.SUCCESS) {
+                    onImportDone().then(() => {
+                      resolve(true);
+                    });
+                  } else if (r === RestoreResult.WRONG_PASSWORD) {
+                    requestBackupPassword(
+                      (remotePassword) =>
+                        serviceCloudBackup.restoreFromPrivateBackup({
+                          privateBackupData: data.private,
+                          notOnDevice: backupData.notOnDevice,
+                          localPassword,
+                          remotePassword,
+                        }),
+                      async () => {
+                        await onImportDone();
+                        resolve(true);
+                      },
+                      () => {
+                        onImportError();
+                        resolve(false);
+                      },
+                      () => {
+                        resolve(false);
+                      },
+                    );
+                  } else {
+                    onImportError();
+                    resolve(false);
+                  }
+                });
+            },
+            () => {
+              resolve(false);
+            },
+          );
+        } else {
+          requestBackupPassword(
+            (remotePassword) =>
+              serviceCloudBackup.restoreFromPrivateBackup({
+                privateBackupData: data.private,
+                notOnDevice: backupData.notOnDevice,
+                localPassword: remotePassword,
+                remotePassword,
+              }),
+            async () => {
+              await onImportDone();
+              resolve(true);
+            },
+            onImportError,
+            () => {
+              resolve(false);
+            },
+          );
+        }
+      }),
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    backupData.notOnDevice,
-    isPasswordSet,
-    onImportDone,
-    onImportError,
-    requestBackupPassword,
-    serviceCloudBackup,
-    showVerify,
-  ]);
+    [
+      backupData.notOnDevice,
+      isPasswordSet,
+      onImportDone,
+      onImportError,
+      requestBackupPassword,
+      serviceCloudBackup,
+      showVerify,
+    ],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -159,12 +185,6 @@ const PreviewImportData = () => {
       .getBackupDetailsWithRemoteData(JSON.parse(data.public))
       .then((backupDetails) => {
         setBackupData(backupDetails);
-        // TODO: Is setHasLocalData necessary?
-        setHasLocalData(
-          Object.values(backupDetails.alreadyOnDevice).some(
-            (o) => Object.keys(o).length > 0,
-          ),
-        );
         setHasRemoteData(
           Object.values(backupDetails.notOnDevice).some(
             (o) => Object.keys(o).length > 0,
@@ -209,14 +229,16 @@ const PreviewImportData = () => {
           <Button
             type="primary"
             size={isVerticalLayout ? 'xl' : 'lg'}
-            onPress={importAction}
+            onPromise={importAction}
           >
             {intl.formatMessage({ id: 'action__import' })}
           </Button>
         ) : (
           <Button
             size={isVerticalLayout ? 'xl' : 'lg'}
-            /* TODO: add click event to exit onboarding */
+            onPress={() => {
+              onboardingGoBack();
+            }}
           >
             {intl.formatMessage({ id: 'action__close' })}
           </Button>
@@ -224,6 +246,7 @@ const PreviewImportData = () => {
       </>
     ),
     [
+      onboardingGoBack,
       backupData.notOnDevice,
       hasRemoteData,
       importAction,
