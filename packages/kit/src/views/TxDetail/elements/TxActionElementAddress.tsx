@@ -78,27 +78,44 @@ export function TxActionElementAddress(
   const showScamAlert = useCallback(
     (addressToCopy: string) => {
       showOverlay((close) => (
-        <BottomSheetModal
-          title={intl.formatMessage({
-            id: 'title__beware_of_address_poisoning_scams',
-          })}
-          closeOverlay={close}
-        >
-          <Center>
+        <BottomSheetModal title="" closeOverlay={close} showCloseButton={false}>
+          <Center mt={-10}>
             <Icon name="DialogIconTypeDangerMini" size={48} />
           </Center>
-          <Box textAlign="center">
-            <Text typography="Body2" color="text-subdued" mt={5} fontSize={14}>
+          <Box>
+            <Text
+              textAlign="center"
+              typography="DisplayMedium"
+              fontSize={20}
+              mt={5}
+            >
+              {intl.formatMessage({
+                id: 'title__beware_of_address_poisoning_scams',
+              })}
+            </Text>
+            <Text
+              textAlign="center"
+              typography="Body2"
+              color="text-subdued"
+              mt={2}
+              fontSize={14}
+            >
               {intl.formatMessage({
                 id: 'title__beware_of_address_poisoning_scams_desc',
               })}
             </Text>
-            <Text typography="Body2" color="text-subdued" mt={5} fontSize={14}>
+            <Text
+              textAlign="center"
+              typography="Body2"
+              color="text-subdued"
+              mt={5}
+              fontSize={14}
+            >
               {addressToCopy}
             </Text>
           </Box>
-          <HStack space={3} mt={6}>
-            <Button size="xl" flex={1}>
+          <HStack space={3} mt={6} pb={5}>
+            <Button size="xl" flex={1} onPress={() => close()}>
               {intl.formatMessage({ id: 'action__cancel' })}
             </Button>
             <Button
