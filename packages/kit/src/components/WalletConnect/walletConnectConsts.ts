@@ -90,3 +90,15 @@ export const WALLET_CONNECT_INSTITUTION_WALLET_NAMES = {
   'Cobo Wallet': 'Cobo Wallet',
   'Jade Wallet': 'Jade Wallet',
 };
+
+// Institutional wallets that are not on the walletconnect authentication list
+export const WalletServiceWithoutVerify = [
+  {
+    id: 'Amber',
+    name: 'Amber',
+  },
+  {
+    id: 'CoboWallet',
+    name: 'Cobo Wallet',
+  },
+];
