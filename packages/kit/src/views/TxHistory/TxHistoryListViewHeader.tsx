@@ -2,8 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, IconButton, Typography } from '@onekeyhq/components';
 
-import { useActiveWalletAccount } from '../../hooks';
-import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
+import { showAccountValueSettings } from '../Overlay/AccountHistorySettings';
 
 import { useTxHistoryContext } from './TxHistoryContext';
 
@@ -15,8 +14,6 @@ export function TxHistoryListViewHeaderBar({
   refresh?: () => void;
 }) {
   const intl = useIntl();
-  const { network, account } = useActiveWalletAccount();
-  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
   return (
     <Box
       flexDirection="row"
@@ -39,19 +36,15 @@ export function TxHistoryListViewHeaderBar({
           type="plain"
           circle
         />
-        {hasAvailable ? (
-          <IconButton
-            onPress={() => {
-              openAddressDetails(account?.address);
-            }}
-            ml={3}
-            p={2}
-            size="sm"
-            name="ArrowTopRightOnSquareMini"
-            type="plain"
-            circle
-          />
-        ) : null}
+        <IconButton
+          onPress={showAccountValueSettings}
+          ml={3}
+          p={2}
+          size="sm"
+          name="Cog6ToothOutline"
+          type="plain"
+          circle
+        />
       </Box>
     </Box>
   );

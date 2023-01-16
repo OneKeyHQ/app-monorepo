@@ -77,6 +77,7 @@ export type SettingsState = {
   };
   hideSmallBalance?: boolean;
   hideRiskTokens?: boolean;
+  hide0ScamHistory?: boolean;
   includeNFTsInTotal?: boolean;
   hideBalance?: boolean;
   updateSetting?: {
@@ -136,6 +137,7 @@ const initialState: SettingsState = {
   },
   hideSmallBalance: false,
   hideRiskTokens: true,
+  hide0ScamHistory: true,
   includeNFTsInTotal: true,
   hideBalance: false,
   updateSetting: {
@@ -345,6 +347,9 @@ export const settingsSlice = createSlice({
     setHideSmallBalance(state, action: PayloadAction<boolean>) {
       state.hideSmallBalance = action.payload;
     },
+    setHide0ScamHistory(state, action: PayloadAction<boolean>) {
+      state.hide0ScamHistory = action.payload;
+    },
     setHideRiskTokens(state, action: PayloadAction<boolean>) {
       state.hideRiskTokens = action.payload;
     },
@@ -458,6 +463,7 @@ export const {
   setHideDiscoverContent,
   setAnnualReportEntryEnabled,
   setEnableExternalAccountReport,
+  setHide0ScamHistory,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
