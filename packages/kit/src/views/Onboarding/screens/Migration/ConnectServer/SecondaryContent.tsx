@@ -176,7 +176,7 @@ const QRCodeView: FC = () => {
         httpServerRequest,
       );
     };
-  }, [exportDataRequest, navigation, serviceMigrate]);
+  }, [exportDataRequest, intl, navigation, serviceMigrate]);
 
   return (
     <>
