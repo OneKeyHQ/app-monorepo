@@ -38,6 +38,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
+import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { getTimeDurationMs } from '../../../utils/helper';
@@ -84,6 +85,8 @@ const AccountAmountInfo: FC = () => {
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
 
   const { copyAddress } = useCopyAddress({ wallet });
+
+  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
   const [summedValue, summedValueComp] = useMemo(() => {
     const displayValue = getSummedValues({
@@ -180,7 +183,7 @@ const AccountAmountInfo: FC = () => {
 
   return (
     <Box alignItems="flex-start">
-      <Box mx="-8px" my="-4px">
+      <Box mx="-8px" my="-4px" flexDir="row">
         <Pressable
           flexDirection="row"
           alignItems="center"
@@ -202,6 +205,23 @@ const AccountAmountInfo: FC = () => {
           </Text>
           <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
         </Pressable>
+        {hasAvailable ? (
+          <Pressable
+            flexDirection="row"
+            alignItems="center"
+            p={1}
+            rounded="full"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            onPress={() => openAddressDetails(account?.address)}
+          >
+            <Icon
+              name="ArrowTopRightOnSquareOutline"
+              color="icon-subdued"
+              size={16}
+            />
+          </Pressable>
+        ) : null}
       </Box>
       <Box flexDirection="row" alignItems="center" mt={1}>
         {summedValueComp}
