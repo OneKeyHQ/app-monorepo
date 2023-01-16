@@ -156,20 +156,24 @@ export type IConnectWalletListViewProps = {
     uri?: string,
   ) => Promise<void>;
   uri?: string;
+  isInstitutionWallet?: boolean;
   onConnectResult?: (result: IConnectToWalletResult) => void;
 };
 export function ConnectWalletListView({
   connectToWalletService, // open app directly
   uri,
   onConnectResult,
+  isInstitutionWallet,
 }: IConnectWalletListViewProps) {
-  const { data: walletServicesEnabled } = useMobileRegistryOfWalletServices();
+  const { data: walletServicesEnabled, institutionData } =
+    useMobileRegistryOfWalletServices();
   const [loadingId, setLoadingId] = useState('');
   const loadingTimerRef = useRef<any>();
   const { connectExternalWallet } = useConnectExternalWallet({
     connectToWalletService,
     uri,
     onConnectResult,
+    isInstitutionWallet,
   });
 
   const doConnect = useCallback(
@@ -206,7 +210,10 @@ export function ConnectWalletListView({
     if (platformEnv.isNativeAndroid) {
       return null;
     }
-    return walletServicesEnabled.map((item) => {
+    const walletServiceData = isInstitutionWallet
+      ? institutionData
+      : walletServicesEnabled;
+    return walletServiceData.map((item) => {
       const imgUri =
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -231,12 +238,19 @@ export function ConnectWalletListView({
         />
       );
     });
-  }, [doConnect, loadingId, walletServicesEnabled]);
+  }, [
+    doConnect,
+    loadingId,
+    walletServicesEnabled,
+    institutionData,
+    isInstitutionWallet,
+  ]);
   return (
     <>
       {walletsList}
 
-      {!platformEnv.isNative || platformEnv.isNativeAndroid ? (
+      {(!platformEnv.isNative || platformEnv.isNativeAndroid) &&
+      !isInstitutionWallet ? (
         <ConnectWalletListItem
           available
           label="WalletConnect"

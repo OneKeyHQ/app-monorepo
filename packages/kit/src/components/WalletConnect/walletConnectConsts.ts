@@ -83,3 +83,10 @@ export const WALLET_CONNECT_WALLET_NAMES = {
   'BitKeep': 'BitKeep',
   'Zerion': 'Zerion',
 };
+
+export const WALLET_CONNECT_INSTITUTION_WALLET_NAMES = {
+  'Fireblocks': 'Fireblocks',
+  'Amber': 'Amber',
+  'Cobo Wallet': 'Cobo Wallet',
+  'Jade Wallet': 'Jade Wallet',
+};

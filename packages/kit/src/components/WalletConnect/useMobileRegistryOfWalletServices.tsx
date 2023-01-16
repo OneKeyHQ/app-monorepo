@@ -6,7 +6,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-import { WALLET_CONNECT_WALLET_NAMES } from './walletConnectConsts';
+import {
+  WALLET_CONNECT_INSTITUTION_WALLET_NAMES,
+  WALLET_CONNECT_WALLET_NAMES,
+} from './walletConnectConsts';
 
 import type { WalletService } from './types';
 
@@ -33,6 +36,10 @@ function buildEnabledWallets({
   //   enabledWallets = enabledWallets.concat(enabledWalletsInVerticalOnly);
   // }
   return enabledWallets;
+}
+
+function buildInstitutionalEnabledWallets() {
+  return Object.keys(WALLET_CONNECT_INSTITUTION_WALLET_NAMES);
 }
 
 const defaultState: {
@@ -104,5 +111,22 @@ export function useMobileRegistryOfWalletServices() {
     [enabledWallets, walletServices],
   );
 
-  return { data: walletServicesEnabled, allData: walletServices, error };
+  const institutionWallets = useMemo(
+    () => buildInstitutionalEnabledWallets(),
+    [],
+  );
+  const institutionWalletServicesEnabled = useMemo(
+    () =>
+      institutionWallets
+        .map((name) => walletServices.find((item) => item.name === name))
+        .filter(Boolean),
+    [institutionWallets, walletServices],
+  );
+
+  return {
+    data: walletServicesEnabled,
+    institutionData: institutionWalletServicesEnabled,
+    allData: walletServices,
+    error,
+  };
 }
