@@ -1,11 +1,22 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { Divider, HStack, Icon, Text, VStack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  BottomSheetModal,
+  Button,
+  Divider,
+  HStack,
+  Icon,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useClipboard } from '../../../hooks/useClipboard';
+import { showOverlay } from '../../../utils/overlayUtils';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
 
@@ -35,6 +46,7 @@ export function TxActionElementAddress(
     flex?: number;
     checkSecurity?: boolean;
     networkId?: string;
+    amount?: string;
   } & ComponentProps<typeof Text>,
 ) {
   const {
@@ -45,8 +57,10 @@ export function TxActionElementAddress(
     checkSecurity = false,
     networkId,
     flex,
+    amount,
     ...others
   } = props;
+  const intl = useIntl();
   const shouldCheckSecurity = checkSecurity && networkId;
   const { loading, data: securityInfo } = useAddressSecurityInfo(
     networkId ?? '',
@@ -59,13 +73,53 @@ export function TxActionElementAddress(
     text = `${label}(${address.slice(-4)})`;
   }
 
+  const showScamAlert = useCallback(
+    (addressToCopy: string) => {
+      showOverlay((close) => (
+        <BottomSheetModal title="text" closeOverlay={close}>
+          hello
+          <Text typography="Body2" color="text-subdued">
+            {intl.formatMessage({
+              id: 'title__beware_of_address_poisoning_scams_desc',
+            })}
+          </Text>
+          <Text typography="Body2" color="text-subdued" mt={5}>
+            {addressToCopy}
+          </Text>
+          <Button>{intl.formatMessage({ id: 'action__cancel' })}</Button>
+          <Button
+            type="destructive"
+            onPress={() => {
+              copyText(addressToCopy);
+              close();
+            }}
+          >
+            {intl.formatMessage({ id: 'action__copy_address' })}
+          </Button>
+        </BottomSheetModal>
+      ));
+    },
+    [copyText, intl],
+  );
+
+  const handleCopyText = useCallback(
+    (addressToCopy: string) => {
+      if (amount === '0') {
+        showScamAlert(address);
+      } else {
+        copyText(addressToCopy);
+      }
+    },
+    [address, amount, copyText, showScamAlert],
+  );
+
   return (
     <VStack flex={flex}>
       <TxActionElementPressable
         onPress={
           isCopy
             ? () => {
-                copyText(address);
+                handleCopyText(address);
               }
             : undefined
         }
@@ -113,9 +167,11 @@ export function getTxActionElementAddressWithSecurityInfo({
   networkId,
   withSecurityInfo = false,
   typography = 'Body2Strong',
+  amount,
 }: {
   address: string;
   withSecurityInfo: boolean;
+  amount?: string;
   networkId?: string;
   typography?: ComponentProps<typeof Text>['typography'];
 }) {
@@ -126,8 +182,15 @@ export function getTxActionElementAddressWithSecurityInfo({
         address={address}
         networkId={networkId}
         typography={typography}
+        amount={amount}
       />
     );
   }
-  return <TxActionElementAddress typography={typography} address={address} />;
+  return (
+    <TxActionElementAddress
+      typography={typography}
+      address={address}
+      amount={amount}
+    />
+  );
 }

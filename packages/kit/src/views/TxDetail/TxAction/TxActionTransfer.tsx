@@ -91,6 +91,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
         address: from,
         networkId: network?.id,
         withSecurityInfo: !isOut,
+        amount,
       }),
     },
     {
@@ -99,6 +100,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
         address: to,
         networkId: network?.id,
         withSecurityInfo: isOut,
+        amount,
       }),
     },
   ];
