@@ -23,6 +23,7 @@ interface BottomSheetModalProps {
   title: string;
   headerRight?: ReactNode;
   modalLizeProps?: ModalizeProps;
+  showCloseButton?: boolean;
 }
 
 const isFlatStyle = !platformEnv.isNativeIOS;
@@ -33,6 +34,7 @@ const Mobile: FC<BottomSheetModalProps> = ({
   modalLizeProps,
   title,
   headerRight,
+  showCloseButton = true,
 }) => {
   const modalizeRef = useRef<Modalize>(null);
 
@@ -62,7 +64,7 @@ const Mobile: FC<BottomSheetModalProps> = ({
           header={title}
           hideBackButton
           onPressCloseButton={closeOverlay}
-          closeable
+          closeable={showCloseButton}
           rightContent={headerRight}
         />
         <Box p={4}>{children}</Box>
@@ -76,6 +78,7 @@ const Desktop: FC<BottomSheetModalProps> = ({
   children,
   title,
   headerRight,
+  showCloseButton = true,
 }) => (
   <Center position="absolute" w="full" h="full" zIndex={999}>
     <CloseBackDrop
@@ -94,7 +97,7 @@ const Desktop: FC<BottomSheetModalProps> = ({
         header={title}
         hideBackButton
         onPressCloseButton={closeOverlay}
-        closeable
+        closeable={showCloseButton}
         rightContent={headerRight}
       />
       <Box p={6}>{children}</Box>
