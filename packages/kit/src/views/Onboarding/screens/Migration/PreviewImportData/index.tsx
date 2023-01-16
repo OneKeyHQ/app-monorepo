@@ -196,7 +196,13 @@ const PreviewImportData = () => {
                   showTitle={false}
                 />
               </Box>
-            ) : undefined}
+            ) : (
+              <Text typography="Body1">
+                {intl.formatMessage({
+                  id: 'empty__migrated_data_already_exists',
+                })}
+              </Text>
+            )}
           </ScrollView>
         </Box>
         {hasRemoteData ? (
@@ -207,7 +213,14 @@ const PreviewImportData = () => {
           >
             {intl.formatMessage({ id: 'action__import' })}
           </Button>
-        ) : null}
+        ) : (
+          <Button
+            size={isVerticalLayout ? 'xl' : 'lg'}
+            /* TODO: add click event to exit onboarding */
+          >
+            {intl.formatMessage({ id: 'action__close' })}
+          </Button>
+        )}
       </>
     ),
     [

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -83,9 +84,14 @@ const Content: FC<Props> = ({
       return success;
     }
     if (status === ExportResult.EMPTY) {
-      ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__no_data_available' }),
-      });
+      ToastManager.show(
+        {
+          title: intl.formatMessage({
+            id: 'msg__no_data_available',
+          }),
+        },
+        { type: 'default' },
+      );
     }
     return false;
   }, [exportDataRequest, intl, serverAddress, serviceMigrate]);
@@ -96,9 +102,14 @@ const Content: FC<Props> = ({
     });
     if (data) {
       if (isEmptyData(JSON.parse(data.public))) {
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__no_data_available' }),
-        });
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__no_data_available',
+            }),
+          },
+          { type: 'default' },
+        );
         return false;
       }
       closeOverlay();
@@ -155,7 +166,19 @@ const Content: FC<Props> = ({
             <Text typography="Body1Strong" flex={1} ml="8px">
               {parseFromData.name}
             </Text>
-            {isSend && <Badge size="sm" type="info" title="Current" />}
+            {isSend && (
+              <MotiView
+                from={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'timing' }}
+              >
+                <Badge
+                  size="sm"
+                  type="info"
+                  title={intl.formatMessage({ id: 'content__current' })}
+                />
+              </MotiView>
+            )}
           </Box>
         </Box>
         <Box
@@ -177,7 +200,19 @@ const Content: FC<Props> = ({
             <Text typography="Body1Strong" flex={1} ml="8px">
               {parseToData.name}
             </Text>
-            {!isSend && <Badge size="sm" type="info" title="Current" />}
+            {!isSend && (
+              <MotiView
+                from={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'timing' }}
+              >
+                <Badge
+                  size="sm"
+                  type="info"
+                  title={intl.formatMessage({ id: 'content__current' })}
+                />
+              </MotiView>
+            )}
           </Box>
         </Box>
         <Center position="absolute" width="full" height="full">
