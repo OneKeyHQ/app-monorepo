@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl';
 
 import {
   BottomSheetModal,
+  Box,
   Button,
+  Center,
   Divider,
   HStack,
   Icon,
@@ -76,26 +78,41 @@ export function TxActionElementAddress(
   const showScamAlert = useCallback(
     (addressToCopy: string) => {
       showOverlay((close) => (
-        <BottomSheetModal title="text" closeOverlay={close}>
-          hello
-          <Text typography="Body2" color="text-subdued">
-            {intl.formatMessage({
-              id: 'title__beware_of_address_poisoning_scams_desc',
-            })}
-          </Text>
-          <Text typography="Body2" color="text-subdued" mt={5}>
-            {addressToCopy}
-          </Text>
-          <Button>{intl.formatMessage({ id: 'action__cancel' })}</Button>
-          <Button
-            type="destructive"
-            onPress={() => {
-              copyText(addressToCopy);
-              close();
-            }}
-          >
-            {intl.formatMessage({ id: 'action__copy_address' })}
-          </Button>
+        <BottomSheetModal
+          title={intl.formatMessage({
+            id: 'title__beware_of_address_poisoning_scams',
+          })}
+          closeOverlay={close}
+        >
+          <Center>
+            <Icon name="DialogIconTypeDangerMini" size={48} />
+          </Center>
+          <Box textAlign="center">
+            <Text typography="Body2" color="text-subdued" mt={5} fontSize={14}>
+              {intl.formatMessage({
+                id: 'title__beware_of_address_poisoning_scams_desc',
+              })}
+            </Text>
+            <Text typography="Body2" color="text-subdued" mt={5} fontSize={14}>
+              {addressToCopy}
+            </Text>
+          </Box>
+          <HStack space={3} mt={6}>
+            <Button size="xl" flex={1}>
+              {intl.formatMessage({ id: 'action__cancel' })}
+            </Button>
+            <Button
+              flex={1}
+              size="xl"
+              type="destructive"
+              onPress={() => {
+                copyText(addressToCopy);
+                close();
+              }}
+            >
+              {intl.formatMessage({ id: 'action__copy_address' })}
+            </Button>
+          </HStack>
         </BottomSheetModal>
       ));
     },
