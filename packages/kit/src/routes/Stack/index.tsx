@@ -246,7 +246,7 @@ export const stackScreenList = [
   {
     name: HomeRoutes.AnnualLoading,
     component: AnnualLoading,
-  }
+  },
   {
     name: HomeRoutes.AnnualReport,
     component: AnnualReport,

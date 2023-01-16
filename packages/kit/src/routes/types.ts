@@ -161,6 +161,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.OverviewDefiListScreen]: {
     networkId: string;
     address: string;
+  };
   [HomeRoutes.AnnualLoading]: undefined;
   [HomeRoutes.AnnualReport]: {
     account: Account;
