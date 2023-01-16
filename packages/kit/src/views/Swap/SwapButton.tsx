@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -148,7 +149,10 @@ const ExchangeButton = () => {
       const reservedValue = reservedNetworkFee[targetNetwork.id] ?? 0.1;
       if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
         ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+          title: intl.formatMessage(
+            { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
+            { '0': `${reservedValue} ${params.tokenIn.symbol.toUpperCase()}` },
+          ),
         });
         return;
       }
@@ -321,7 +325,7 @@ const ExchangeButton = () => {
             encodedTx: encodedApproveTx,
           });
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, 'msg__unknown_error');
+          deviceUtils.showErrorToast(e, e.message);
           return;
         }
 
@@ -367,7 +371,7 @@ const ExchangeButton = () => {
           }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, 'msg__unknown_error');
+          deviceUtils.showErrorToast(e, e.message);
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         }
         return;
@@ -445,7 +449,7 @@ const ExchangeButton = () => {
         });
         addSwapTransaction(result.txid, decodedTx.nonce);
       } catch (e: any) {
-        deviceUtils.showErrorToast(e, 'msg__unknown_error');
+        deviceUtils.showErrorToast(e, e.message);
       }
     } else {
       const password = await backgroundApiProxy.servicePassword.getPassword();
@@ -477,7 +481,7 @@ const ExchangeButton = () => {
             addSwapTransaction(result.txid, decodedTx.nonce);
           }, 100);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, 'msg__unknown_error');
+          deviceUtils.showErrorToast(e, e.message);
         }
       } else {
         navigation.navigate(RootRoutes.Modal, {

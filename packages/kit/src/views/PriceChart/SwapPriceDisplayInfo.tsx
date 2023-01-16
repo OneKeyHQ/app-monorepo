@@ -4,9 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Icon, Typography } from '@onekeyhq/components';
 
-import { FormatCurrencyNumber } from '../../components/Format';
 import { calculateGains } from '../../utils/priceUtils';
-import { formatDecimalZero } from '../Market/utils';
 
 type SwapPriceLabelProps = {
   price: number | null;

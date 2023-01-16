@@ -6,7 +6,6 @@ import { Box, Icon, Typography } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
 import { calculateGains } from '../../utils/priceUtils';
-import { formatDecimalZero } from '../Market/utils';
 
 type PriceLabelProps = {
   price: number | null;
