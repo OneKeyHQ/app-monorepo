@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,7 +12,6 @@ import {
   List,
   ListItem,
   Modal,
-  Pressable,
   Searchbar,
   Switch,
   Token,
@@ -21,8 +20,8 @@ import {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useManageNetworks } from '../../../hooks';
-import { useActiveWalletAccount } from '../../../hooks/redux';
+import { getActiveWalletAccount } from '../../../hooks/redux';
+import { getManageNetworks } from '../../../hooks/useManageNetworks';
 import { ManageNetworkRoutes } from '../../../routes/Modal/ManageNetwork';
 
 import type { ManageNetworkRoutesParams } from '../../../routes/Modal/ManageNetwork';
@@ -32,21 +31,81 @@ type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
   ManageNetworkRoutes.Listing
 >;
+const NetworkItem: FC<{
+  item: Network;
+  onLabelPress?: () => void;
+  isDisabled?: boolean;
+}> = ({ item, onLabelPress, isDisabled }) => {
+  const [checked, setChecked] = useState(item.enabled);
+  const checking = useRef(false);
+  const handleToggle = useCallback(
+    (network: Network) => {
+      setChecked(!checked);
+      const { allNetworks } = getManageNetworks();
+      const networkStatus: [string, boolean][] = allNetworks.map(
+        ({ id, enabled }) => {
+          if (id !== network.id) {
+            return [id, enabled];
+          }
+          return [id, !enabled];
+        },
+      );
+
+      backgroundApiProxy.serviceNetwork.updateNetworks(networkStatus);
+    },
+    [checked],
+  );
+  return (
+    <ListItem flex={1} onPress={onLabelPress}>
+      <ListItem.Column>
+        <Token
+          size={8}
+          token={{
+            logoURI: item.logoURI,
+            name: item.name,
+            symbol: item.name,
+          }}
+        />
+      </ListItem.Column>
+      <ListItem.Column
+        text={{
+          label: item.name,
+        }}
+        flex={1}
+      />
+      <ListItem.Column
+        text={{
+          label: <Badge size="sm" title={item.impl.toUpperCase()} />,
+        }}
+      />
+      <ListItem.Column
+        text={{
+          label: (
+            <Switch
+              isDisabled={isDisabled}
+              isChecked={checked}
+              labelType="false"
+              onToggle={() => handleToggle(item)}
+            />
+          ),
+        }}
+        alignItems="flex-end"
+      />
+    </ListItem>
+  );
+};
 
 export const Listing: FC = () => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
-  const { allNetworks } = useManageNetworks();
+  const [allNetworks, setAllNetworks] = useState(
+    getManageNetworks().allNetworks,
+  );
   const [search, setSearch] = useState('');
   const navigation = useNavigation<NavigationProps>();
-  const { network: activeNetwork } = useActiveWalletAccount();
-
-  const timerRef = useRef<any>();
-  const networkStatusRef = useRef<[string, boolean][]>([]);
-
-  useEffect(() => {
-    networkStatusRef.current = allNetworks.map((n) => [n.id, n.enabled]);
-  }, [allNetworks]);
+  const [activeNetwork, setActiveNetwork] = useState(
+    getActiveWalletAccount().network,
+  );
 
   const data = useMemo(
     () =>
@@ -65,31 +124,38 @@ export const Listing: FC = () => {
     [navigation],
   );
 
-  const handleToggle = useCallback((network: Network) => {
-    networkStatusRef.current = networkStatusRef.current.map(([id, enabled]) => {
-      if (id !== network.id) {
-        return [id, enabled];
-      }
-      return [id, !enabled];
-    });
-
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-
-    timerRef.current = setTimeout(() => {
-      backgroundApiProxy.serviceNetwork
-        .updateNetworks(networkStatusRef.current)
-        .finally(() => {
-          timerRef.current = undefined;
-        });
-    }, 10);
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       setSearch('');
+      setAllNetworks(getManageNetworks().allNetworks);
+      setActiveNetwork(getActiveWalletAccount().network);
     }, []),
+  );
+
+  const emptyComponent = useCallback(
+    () => (
+      <Center h="full">
+        <Empty
+          emoji="🔍"
+          title={intl.formatMessage({
+            id: 'content__no_results',
+            defaultMessage: 'No Result',
+          })}
+        />
+      </Center>
+    ),
+    [intl],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: Network }) => (
+      <NetworkItem
+        onLabelPress={item.preset ? undefined : () => onPress(item, 'edit')}
+        item={item}
+        isDisabled={item.id === activeNetwork?.id}
+      />
+    ),
+    [activeNetwork, onPress],
   );
 
   return (
@@ -112,70 +178,12 @@ export const Listing: FC = () => {
         placeholder={intl.formatMessage({ id: 'content__search' })}
         onClear={() => setSearch('')}
       />
-      {data.length > 0 ? (
-        <List
-          data={data}
-          renderItem={({ item }) => {
-            const enabled =
-              networkStatusRef.current.find(([id]) => id === item.id)?.[1] ??
-              item.enabled;
-            return (
-              <ListItem
-                flex={1}
-                onPress={item.preset ? undefined : () => onPress(item, 'edit')}
-              >
-                <ListItem.Column>
-                  <Token
-                    size={8}
-                    token={{
-                      logoURI: item.logoURI,
-                      name: item.name,
-                      symbol: item.name,
-                    }}
-                  />
-                </ListItem.Column>
-                <ListItem.Column
-                  text={{
-                    label: item.name,
-                  }}
-                  flex={1}
-                />
-                <ListItem.Column
-                  text={{
-                    label: <Badge size="sm" title={item.impl.toUpperCase()} />,
-                  }}
-                />
-                <ListItem.Column
-                  text={{
-                    label: (
-                      <Pressable>
-                        <Switch
-                          isDisabled={item.id === activeNetwork?.id}
-                          isChecked={enabled}
-                          labelType="false"
-                          onToggle={() => handleToggle(item)}
-                        />
-                      </Pressable>
-                    ),
-                  }}
-                  alignItems="flex-end"
-                />
-              </ListItem>
-            );
-          }}
-          keyExtractor={(item) => item.id}
-        />
-      ) : (
-        <Center h="full">
-          <Empty
-            emoji="🔍"
-            title={intl.formatMessage({
-              id: 'content__no_results',
-              defaultMessage: 'No Result',
-            })}
-          />
-        </Center>
-      )}
+      <List
+        data={data}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={emptyComponent}
+      />
     </Modal>
   );
 };

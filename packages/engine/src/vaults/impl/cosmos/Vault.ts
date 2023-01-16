@@ -2,7 +2,9 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { getCoinInfo } from '@onekeyfe/hd-core/src/api/btc/helpers/btcParamsUtils';
 import BigNumber from 'bignumber.js';
+import { getTime } from 'date-fns';
 import { get } from 'lodash';
 import Long from 'long';
 import memoizee from 'memoizee';
@@ -62,7 +64,10 @@ import {
   setSendAmount,
 } from './sdk/wrapper/utils';
 import settings from './settings';
-import { getTransactionTypeByProtoMessage } from './utils';
+import {
+  getTransactionTypeByMessage,
+  getTransactionTypeByProtoMessage,
+} from './utils';
 
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -136,6 +141,13 @@ export default class Vault extends VaultBase {
     return chainInfo;
   }
 
+  private async getChainImplInfo() {
+    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
+      this.networkId,
+    );
+    return chainInfo.implOptions as CosmosImplOptions;
+  }
+
   // Chain only methods
 
   override createClientFromURL(_url: string): BaseClient {
@@ -183,7 +195,7 @@ export default class Vault extends VaultBase {
 
     return {
       name: account.name,
-      algo: 'ed25519',
+      algo: 'secp251k1',
       pubKey: account.pub,
       address: account.address,
       bech32Address: address,
@@ -224,6 +236,7 @@ export default class Vault extends VaultBase {
         this.normalIBCAddress(tokenAddress) ?? tokenAddress;
       const query = new MintScanQuery();
       const results = await query.fetchAssertInfos(this.networkId);
+
       if (!results) {
         return Promise.reject(new InvalidTokenAddress());
       }
@@ -337,8 +350,8 @@ export default class Vault extends VaultBase {
     const ibcTokenAddresses = tokenAddresses
       .filter((tokenAddress) => this.isIbcToken(tokenAddress))
       .reduce((acc, tokenAddress) => {
-        const normalizationAddress = this.normalIBCAddress(tokenAddress);
-        if (normalizationAddress) acc.add(normalizationAddress);
+        const normalAddress = this.normalIBCAddress(tokenAddress);
+        if (normalAddress) acc.add(normalAddress);
         return acc;
       }, new Set<string>());
 
@@ -370,35 +383,41 @@ export default class Vault extends VaultBase {
       tokens.push(...ibcTokens);
     }
 
-    const contractClient = await this.getContractClient();
+    if (tokens.length === tokenAddresses.length) return tokens;
 
-    if (!contractClient) return tokens;
+    try {
+      const contractClient = await this.getContractClient();
 
-    const client = await this.getClient();
+      if (!contractClient) return tokens;
 
-    const cw20TokenAddress = tokenAddresses.filter(
-      (tokenAddress) => !this.isIbcToken(tokenAddress),
-    );
+      const client = await this.getClient();
 
-    await contractClient
-      .queryCw20TokenInfo(
-        {
-          networkId: this.networkId,
-          axios: client.axios,
-        },
-        cw20TokenAddress,
-      )
-      .then((cw20Tokens) =>
-        cw20Tokens.map((token) => ({
-          name: token.name,
-          symbol: token.symbol,
-          decimals: token.decimals,
-        })),
-      )
-      .then((cw20Tokens) => {
-        tokens.push(...cw20Tokens);
-      })
-      .catch(() => {});
+      const cw20TokenAddress = tokenAddresses.filter(
+        (tokenAddress) => !this.isIbcToken(tokenAddress),
+      );
+
+      await contractClient
+        .queryCw20TokenInfo(
+          {
+            networkId: this.networkId,
+            axios: client.axios,
+          },
+          cw20TokenAddress,
+        )
+        .then((cw20Tokens) =>
+          cw20Tokens.map((token) => ({
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+          })),
+        )
+        .then((cw20Tokens) => {
+          tokens.push(...cw20Tokens);
+        })
+        .catch(() => {});
+    } catch (error) {
+      // ignore error
+    }
 
     return tokens;
   }
@@ -428,24 +447,33 @@ export default class Vault extends VaultBase {
 
     const fee = getFee(params.encodedTx);
 
+    let newAmount = [];
+    if (fee && fee.amount.length > 0) {
+      newAmount = [
+        {
+          denom: fee.amount[0].denom,
+          amount: txPrice,
+        },
+      ];
+    } else {
+      const implCoin = await this.getChainImplInfo();
+      newAmount = [
+        {
+          denom: implCoin.mainCoinDenom,
+          amount: txPrice,
+        },
+      ];
+    }
+
     const newFee: StdFee = {
-      amount:
-        fee && fee.amount.length > 0
-          ? [
-              {
-                denom: fee.amount[0].denom,
-                amount: txPrice,
-              },
-            ]
-          : [],
+      amount: newAmount,
       gas_limit: limit,
       payer: fee?.payer ?? '',
       granter: fee?.granter ?? '',
       feePayer: fee?.feePayer ?? '',
     };
 
-    setFee(params.encodedTx, newFee);
-    return params.encodedTx;
+    return setFee(params.encodedTx, newFee);
   }
 
   override decodedTxToLegacy(
@@ -851,6 +879,7 @@ export default class Vault extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { localHistory = [], tokenIdOnNetwork } = options;
+
     if (tokenIdOnNetwork) {
       // No token support now.
       return Promise.resolve([]);
@@ -859,104 +888,144 @@ export default class Vault extends VaultBase {
     const { getTimeStamp } = await CoreSDKLoader();
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const chainInfo = await this.getChainInfo();
-    let token: Token | undefined = await this.engine.getNativeTokenInfo(
-      this.networkId,
-    );
 
-    const promises = localHistory.map(async (item) => {
+    const mintScanQuery = new MintScanQuery();
+    const explorerTxs =
+      (await mintScanQuery.fetchAccountTxs(
+        this.networkId,
+        dbAccount.address,
+      )) ?? [];
+
+    const promises = explorerTxs.map(async (tx) => {
+      const historyTxToMerge = localHistory.find(
+        (item) =>
+          item.decodedTx.txid.toUpperCase() === tx.data.txhash.toUpperCase(),
+      );
+
+      if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        // No need to update.
+        return Promise.resolve(undefined);
+      }
       try {
-        const encodedTx = item.decodedTx.encodedTx as
-          | IEncodedTxCosmos
-          | undefined;
-        if (encodedTx) {
-          const msgs = getMsgs(encodedTx);
-          const fee = getFee(encodedTx);
-          const sequence = getSequence(encodedTx);
+        let token: Token | undefined = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
 
-          const actions = [];
-          for (const msg of msgs) {
-            let action: IDecodedTxAction | null = null;
-            const actionType = getTransactionTypeByProtoMessage(
-              msg,
-              chainInfo?.implOptions?.mainCoinDenom,
-            );
-
-            if (
-              actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
-              actionType === IDecodedTxActionType.TOKEN_TRANSFER
-            ) {
-              let actionKey = 'nativeTransfer';
-              const { amount, fromAddress, toAddress }: MsgSend =
-                'unpacked' in msg ? msg.unpacked : msg.value;
-
-              const amountNumber = amount[0].amount;
-              const amountDenom = amount[0].denom;
-
-              if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
-                actionKey = 'tokenTransfer';
-                token = await this.engine.ensureTokenInDB(
-                  this.networkId,
-                  amountDenom,
-                );
-              }
-
-              if (!token) {
-                throw new Error('Invalid token address');
-              }
-
-              const transferAction: IDecodedTxActionTokenTransfer = {
-                tokenInfo: token,
-                to: toAddress,
-                from: fromAddress,
-                amount: new BigNumber(amountNumber)
-                  .shiftedBy(-token.decimals)
-                  .toFixed(),
-                amountValue: amountNumber,
-                extraInfo: null,
-              };
-              action = {
-                type: actionType,
-                [actionKey]: transferAction,
-              };
-            } else {
-              action = {
-                type: IDecodedTxActionType.UNKNOWN,
-                direction: IDecodedTxDirection.OTHER,
-                unknownAction: {
-                  extraInfo: {},
-                },
-              };
-            }
-            if (action) actions.push(action);
-          }
-
-          const feeValue = new BigNumber(fee?.amount[0]?.amount ?? '0');
-
-          const decodedTx: IDecodedTx = {
-            txid: item.decodedTx?.txid,
-            owner: dbAccount.address,
-            signer: item.decodedTx?.signer,
-            nonce: sequence.toNumber(),
-            actions,
-            status: item.decodedTx?.status,
-            networkId: this.networkId,
-            accountId: this.accountId,
-            encodedTx,
-            extraInfo: null,
-            totalFeeInNative: new BigNumber(feeValue)
-              .shiftedBy(-(token?.decimals ?? 6))
-              .toFixed(),
-          };
-          decodedTx.updatedAt = getTimeStamp();
-          decodedTx.createdAt =
-            item?.decodedTx.createdAt ?? decodedTx.updatedAt;
-          decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-          return await this.buildHistoryTx({
-            decodedTx,
-            historyTxToMerge: item,
-          });
+        const error = tx.data.code;
+        let status = IDecodedTxStatus.Pending;
+        if (error) {
+          status = IDecodedTxStatus.Failed;
+        } else if (new BigNumber(tx.data.height).gt(0)) {
+          status = IDecodedTxStatus.Confirmed;
         }
-      } catch (error) {
+
+        const msgs = tx.data.tx.body.messages;
+        const { fee } = tx.data.tx.auth_info;
+        const { sequence } = tx.data.tx.auth_info.signer_infos[0];
+
+        let from = '';
+        let to = '';
+
+        const actions = [];
+        for (const msg of msgs) {
+          let action: IDecodedTxAction | null = null;
+          const actionType = getTransactionTypeByMessage(
+            msg,
+            chainInfo?.implOptions?.mainCoinDenom,
+          );
+
+          if (
+            actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
+            actionType === IDecodedTxActionType.TOKEN_TRANSFER
+          ) {
+            let actionKey = 'nativeTransfer';
+
+            // @ts-expect-error
+            const {
+              amount,
+              // @ts-expect-error
+              from_address: fromAddress,
+              // @ts-expect-error
+              to_address: toAddress,
+            }: MsgSend = msg;
+
+            from = fromAddress;
+            to = toAddress;
+
+            const amountNumber = amount[0].amount;
+            const amountDenom = amount[0].denom;
+
+            if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
+              actionKey = 'tokenTransfer';
+              token = await this.engine.ensureTokenInDB(
+                this.networkId,
+                amountDenom,
+              );
+            }
+
+            if (!token) {
+              throw new Error('Invalid token address');
+            }
+
+            const transferAction: IDecodedTxActionTokenTransfer = {
+              tokenInfo: token,
+              to: toAddress,
+              from: fromAddress,
+              amount: new BigNumber(amountNumber)
+                .shiftedBy(-token.decimals)
+                .toFixed(),
+              amountValue: amountNumber,
+              extraInfo: null,
+            };
+            action = {
+              type: actionType,
+              [actionKey]: transferAction,
+            };
+          } else {
+            action = {
+              type: IDecodedTxActionType.UNKNOWN,
+              direction: IDecodedTxDirection.OTHER,
+              unknownAction: {
+                extraInfo: {},
+              },
+            };
+          }
+          if (action) actions.push(action);
+        }
+
+        const encodedTx = {
+          from,
+          to,
+          value: '',
+        };
+
+        const feeValue = new BigNumber(fee?.amount[0]?.amount ?? '0');
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.data.txhash,
+          owner: dbAccount.address,
+          signer: from,
+          nonce: parseInt(sequence),
+          actions,
+          status,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          encodedTx,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(feeValue)
+            .shiftedBy(-(token?.decimals ?? 6))
+            .toFixed(),
+        };
+        decodedTx.updatedAt = getTimeStamp();
+
+        decodedTx.createdAt = getTime(tx.data.timestamp) ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+
+        return await this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
         return undefined;
       }
     });

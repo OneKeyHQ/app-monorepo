@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
@@ -157,6 +158,8 @@ export type HomeRoutesParams = {
   [HomeRoutes.NFTPNLScreen]: undefined;
   [HomeRoutes.AnnualLoading]: undefined;
   [HomeRoutes.AnnualReport]: {
+    account: Account;
+    networkId: string;
     name: string;
     tokens?: (Token & {
       value: B;

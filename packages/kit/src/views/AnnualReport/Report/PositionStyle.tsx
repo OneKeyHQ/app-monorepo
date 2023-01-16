@@ -70,7 +70,7 @@ const PositionStyle: FC<PageProps> = ({ params: { tokens } }) => {
     const [token0, token1, token2] = processTokens.map((t) =>
       t ? (
         <WText
-          color="text-success"
+          color="#34C759"
           fontWeight="600"
           fontSize="24px"
           lineHeight="34px"
