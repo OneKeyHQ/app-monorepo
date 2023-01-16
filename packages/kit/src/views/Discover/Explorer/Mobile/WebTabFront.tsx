@@ -28,12 +28,7 @@ const WebTabFront = memo(() => {
     () =>
       tabs.slice(1).map((t) => (
         <Freeze key={t.id} freeze={!t.isCurrent}>
-          <WebContent
-            {...t}
-            androidLayerType={
-              platformEnv.isNativeAndroid && t.isCurrent ? 'hardware' : 'none'
-            }
-          />
+          <WebContent {...t} />
         </Freeze>
       )),
     [tabs],
