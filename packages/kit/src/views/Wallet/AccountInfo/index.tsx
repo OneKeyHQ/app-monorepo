@@ -11,6 +11,7 @@ import {
   Pressable,
   Skeleton,
   Text,
+  Tooltip,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -184,43 +185,57 @@ const AccountAmountInfo: FC = () => {
   return (
     <Box alignItems="flex-start">
       <Box mx="-8px" my="-4px" flexDir="row">
-        <Pressable
-          flexDirection="row"
-          alignItems="center"
-          py="4px"
-          px="8px"
-          rounded="12px"
-          _hover={{ bg: 'surface-hovered' }}
-          _pressed={{ bg: 'surface-pressed' }}
-          onPress={() => {
-            copyAddress(account?.displayAddress ?? account?.address);
-          }}
+        <Tooltip
+          hasArrow
+          placement="top"
+          label={intl.formatMessage({ id: 'action__copy_address' })}
         >
-          <Text
-            typography={{ sm: 'Body2', md: 'CaptionStrong' }}
-            mr={2}
-            color="text-subdued"
-          >
-            {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
-          </Text>
-          <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
-        </Pressable>
-        {hasAvailable ? (
           <Pressable
             flexDirection="row"
             alignItems="center"
-            p={1}
-            rounded="full"
+            py="4px"
+            px="8px"
+            rounded="12px"
             _hover={{ bg: 'surface-hovered' }}
             _pressed={{ bg: 'surface-pressed' }}
-            onPress={() => openAddressDetails(account?.address)}
+            onPress={() => {
+              copyAddress(account?.displayAddress ?? account?.address);
+            }}
           >
-            <Icon
-              name="ArrowTopRightOnSquareOutline"
-              color="icon-subdued"
-              size={16}
-            />
+            <Text
+              typography={{ sm: 'Body2', md: 'CaptionStrong' }}
+              mr={2}
+              color="text-subdued"
+            >
+              {shortenAddress(
+                account?.displayAddress ?? account?.address ?? '',
+              )}
+            </Text>
+            <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
           </Pressable>
+        </Tooltip>
+        {hasAvailable ? (
+          <Tooltip
+            hasArrow
+            placement="top"
+            label={intl.formatMessage({ id: 'form__blockchain_browser' })}
+          >
+            <Pressable
+              flexDirection="row"
+              alignItems="center"
+              p={1}
+              rounded="full"
+              _hover={{ bg: 'surface-hovered' }}
+              _pressed={{ bg: 'surface-pressed' }}
+              onPress={() => openAddressDetails(account?.address)}
+            >
+              <Icon
+                name="ArrowTopRightOnSquareOutline"
+                color="icon-subdued"
+                size={16}
+              />
+            </Pressable>
+          </Tooltip>
         ) : null}
       </Box>
       <Box flexDirection="row" alignItems="center" mt={1}>
