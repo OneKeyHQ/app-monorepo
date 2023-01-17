@@ -510,6 +510,11 @@ PODS:
     - React-Core
   - react-native-flipper (0.162.0):
     - React-Core
+  - react-native-flipper-performance-plugin (0.3.1):
+    - React-Core
+    - react-native-flipper-performance-plugin/FBDefines (= 0.3.1)
+  - react-native-flipper-performance-plugin/FBDefines (0.3.1):
+    - React-Core
   - react-native-get-random-values (1.8.0):
     - React-Core
   - react-native-in-app-review (4.2.1):
@@ -656,9 +661,9 @@ PODS:
     - Firebase/Performance (= 8.15.0)
     - React-Core
     - RNFBApp
-  - RNGestureHandler (2.8.0):
+  - RNGestureHandler (2.9.0):
     - React-Core
-  - RNReanimated (2.13.0):
+  - RNReanimated (2.14.1):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -690,7 +695,7 @@ PODS:
     - React-RCTImage
   - RNShare (7.6.6):
     - React-Core
-  - RNSVG (12.3.0):
+  - RNSVG (13.7.0):
     - React-Core
   - SDWebImage (5.11.1):
     - SDWebImage/Core (= 5.11.1)
@@ -793,6 +798,7 @@ DEPENDENCIES:
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - react-native-flipper (from `../../../node_modules/react-native-flipper`)
+  - react-native-flipper-performance-plugin (from `../../../node_modules/react-native-flipper-performance-plugin`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - react-native-in-app-review (from `../../../node_modules/react-native-in-app-review`)
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
@@ -985,6 +991,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-config"
   react-native-flipper:
     :path: "../../../node_modules/react-native-flipper"
+  react-native-flipper-performance-plugin:
+    :path: "../../../node_modules/react-native-flipper-performance-plugin"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-in-app-review:
@@ -1156,6 +1164,7 @@ SPEC CHECKSUMS:
   react-native-cloud-fs: 1e883ec82ff418d320c128f61971dd971b128ca0
   react-native-config: bcafda5b4c51491ee1b0e1d0c4e3905bc7b56c1b
   react-native-flipper: 7eeb9b59b667dd0619372c7349cf7c78032d1de2
+  react-native-flipper-performance-plugin: 2b873b68da3e368afeaf29c9c7a8c2b0ff908c4f
   react-native-get-random-values: a6ea6a8a65dc93e96e24a11105b1a9c8cfe1d72a
   react-native-in-app-review: a073f67c5f3392af6ea7fb383217cdb1aa2aa726
   react-native-pager-view: 54bed894cecebe28cede54c01038d9d1e122de43
@@ -1186,11 +1195,11 @@ SPEC CHECKSUMS:
   RNFBApp: e4439717c23252458da2b41b81b4b475c86f90c4
   RNFBCrashlytics: 94e1f78e2a9aa9e02edbfb0d3f1f0921ce00094b
   RNFBPerf: b85b621a4d15905847e8627a6aa67ad894e8e166
-  RNGestureHandler: 62232ba8f562f7dea5ba1b3383494eb5bf97a4d3
-  RNReanimated: d21eb8685aaa2a58b51b87ec40fd543d8280dcbe
+  RNGestureHandler: 071d7a9ad81e8b83fe7663b303d132406a7d8f39
+  RNReanimated: 2e3aaece9a18c6fb0874db0902497d1cd8cd4511
   RNScreens: 0df01424e9e0ed7827200d6ed1087ddd06c493f9
   RNShare: d56424e3926cbc239db1cc1c168adcb051aad50b
-  RNSVG: 302bfc9905bd8122f08966dc2ce2d07b7b52b9f8
+  RNSVG: d787d64ca06b9158e763ad2638a8c4edce00782a
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SocketRocket: fccef3f9c5cedea1353a9ef6ada904fde10d6608
