@@ -4686,21 +4686,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.1.2":
-  version: 1.1.2
-  resolution: "@noble/hashes@npm:1.1.2"
-  checksum: 3c2a8cb7c2e053811032f242155d870c5eb98844d924d69702244d48804cb03b42d4a666c49c2b71164420d8229cb9a6f242b972d50d5bb2f1d673b98b041de2
-  languageName: node
-  linkType: hard
-
-"@noble/hashes@npm:1.1.3":
-  version: 1.1.3
-  resolution: "@noble/hashes@npm:1.1.3"
-  checksum: a6f9783d2a33fc528c8709532b1c26cc3f5866f79c66256e881b28c61a1585be3899b008aa4e5e2b4e01b95c713722f52591cbb18ec51aa0ec63e7eaece1b89c
-  languageName: node
-  linkType: hard
-
-"@noble/hashes@npm:^1.1.2, @noble/hashes@npm:^1.1.4, @noble/hashes@npm:~1.1.1, @noble/hashes@npm:~1.1.3":
+"@noble/hashes@npm:^1.1.0":
   version: 1.1.5
   resolution: "@noble/hashes@npm:1.1.5"
   checksum: de3f095a7ac1cbf5b4b3d09f193288d4f2eec35fbadf2ed9fd7e47d8a3042fef410052ba62dc0296a185f994c11192f5357fdb1bd9178c905efd82e946c53b00
@@ -5473,7 +5459,6 @@ __metadata:
     "@walletconnect/qrcode-modal": ^1.8.0
     "@walletconnect/react-native-dapp": ^1.8.0
     asyncstorage-down: ^4.2.0
-    babel-plugin-module-resolver: ^4.1.0
     buffer: ^6.0.3
     expo: ^45.0.5
     expo-clipboard: ^3.0.1
@@ -5507,7 +5492,8 @@ __metadata:
     react-native-crypto: ^2.2.0
     react-native-fast-image: ^8.6.3
     react-native-flipper: 0.162.0
-    react-native-gesture-handler: ^2.8.0
+    react-native-flipper-performance-plugin: ^0.3.1
+    react-native-gesture-handler: ^2.9.0
     react-native-get-random-values: ^1.8.0
     react-native-in-app-review: ^4.2.1
     react-native-keyboard-manager: ^6.5.4-4
@@ -5515,12 +5501,12 @@ __metadata:
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
     react-native-pager-view: 6.1.2
     react-native-randombytes: ^3.6.1
-    react-native-reanimated: 2.13.0
+    react-native-reanimated: ^2.14.1
     react-native-restart: 0.0.24
     react-native-safe-area-context: 4.4.1
     react-native-screens: 3.17.0
     react-native-share: ^7.6.6
-    react-native-svg: ^12.3.0
+    react-native-svg: ^13.7.0
     react-native-tcp-socket: ^6.0.3
     react-native-toast-message: 2.1.5
     react-native-v8: ^1.6.0
@@ -5559,7 +5545,7 @@ __metadata:
     react-native-modalize: ^2.1.1
     react-native-progress: ^5.0.0
     react-native-root-siblings: ^4.1.1
-    react-native-svg: ^12.3.0
+    react-native-svg: ^13.7.0
     react-native-tab-view: ^3.3.0
     react-native-typewriter: ^0.7.0
     react-player: ^2.10.1
@@ -8189,13 +8175,6 @@ __metadata:
   dependencies:
     "@types/node": "*"
   checksum: 7a6746d00729b2a9fe9f9dd3453430b099931df879ec8f7a7b5f07b1795f6d99b0512640c45a67390b1e4bacb9401e36824952aeeaf089feba8627a063cf8e00
-  languageName: node
-  linkType: hard
-
-"@types/invariant@npm:^2.2.35":
-  version: 2.2.35
-  resolution: "@types/invariant@npm:2.2.35"
-  checksum: af1b624057c89789ed0917838fea3d42bb0c101cc22b829a24d8777c678be3bc79d6ae05992a13bdf607b94731262467a2e62a809602ea1f7eea5e8c2242660d
   languageName: node
   linkType: hard
 
@@ -11117,14 +11096,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"big-integer@npm:1.6.36":
-  version: 1.6.36
-  resolution: "big-integer@npm:1.6.36"
-  checksum: 8cb9366ab72975a94ace5a99f6f81e0624dc8a5d14349df1f331d75ceec405c9286ad04c2a1188bc4ec4aa65cbbf1f8065f5d6b529fdb4a9d9867bbdfa769306
-  languageName: node
-  linkType: hard
-
-"big-integer@npm:1.6.x, big-integer@npm:^1.6.44, big-integer@npm:^1.6.48":
+"big-integer@npm:^1.6.51":
   version: 1.6.51
   resolution: "big-integer@npm:1.6.51"
   checksum: 3d444173d1b2e20747e2c175568bedeebd8315b0637ea95d75fd27830d3b8e8ba36c6af40374f36bdaea7b5de376dcada1b07587cb2a79a928fccdb6e6e3c518
@@ -11385,13 +11357,6 @@ __metadata:
     blake2b-wasm: ^2.4.0
     nanoassert: ^2.0.0
   checksum: cd598c96d459017714b7f9cb8892ef2b0a94f362e26e6baa46b7b8b189af0006ce25ab1713e3ec1484eb18ce7ebe1eb24e07d01e42ab1147067de2419c7f6158
-  languageName: node
-  linkType: hard
-
-"blakejs@npm:1.1.0":
-  version: 1.1.0
-  resolution: "blakejs@npm:1.1.0"
-  checksum: 69df62aee27e30ff2af8d709dd4676e037f2e92ded09b0d1a8187d1a69edaf05f4e63f3f473a0e44576e517196e54193641eec345bcc505c8a221940ec491141
   languageName: node
   linkType: hard
 
@@ -13783,7 +13748,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"css-select@npm:^4.1.3, css-select@npm:^4.2.1":
+"css-select@npm:^4.1.3":
   version: 4.3.0
   resolution: "css-select@npm:4.3.0"
   dependencies:
@@ -13830,7 +13795,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"css-tree@npm:^1.0.0-alpha.39, css-tree@npm:^1.1.2":
+"css-tree@npm:^1.1.2, css-tree@npm:^1.1.3":
   version: 1.1.3
   resolution: "css-tree@npm:1.1.3"
   dependencies:
@@ -18446,15 +18411,15 @@ colour@latest:
   linkType: hard
 
 "glob@npm:^8.0.1":
-  version: 8.0.3
-  resolution: "glob@npm:8.0.3"
+  version: 8.1.0
+  resolution: "glob@npm:8.1.0"
   dependencies:
     fs.realpath: ^1.0.0
     inflight: ^1.0.4
     inherits: 2
     minimatch: ^5.0.1
     once: ^1.3.0
-  checksum: 50bcdea19d8e79d8de5f460b1939ffc2b3299eac28deb502093fdca22a78efebc03e66bf54f0abc3d3d07d8134d19a32850288b7440d77e072aa55f9d33b18c5
+  checksum: 92fbea3221a7d12075f26f0227abac435de868dd0736a17170663783296d0dd8d3d532a5672b4488a439bf5d7fb85cdd07c11185d6cd39184f0385cbdfb86a47
   languageName: node
   linkType: hard
 
@@ -21874,32 +21839,12 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"json5@npm:2.x, json5@npm:^2.1.0, json5@npm:^2.1.2, json5@npm:^2.2.0, json5@npm:^2.2.1":
-  version: 2.2.2
-  resolution: "json5@npm:2.2.2"
+"json5@npm:^2":
+  version: 2.2.3
+  resolution: "json5@npm:2.2.3"
   bin:
     json5: lib/cli.js
-  checksum: 9a878d66b72157b073cf0017f3e5d93ec209fa5943abcb38d37a54b208917c166bd473c26a24695e67a016ce65759aeb89946592991f8f9174fb96c8e2492683
-  languageName: node
-  linkType: hard
-
-"json5@npm:^0.5.1":
-  version: 0.5.1
-  resolution: "json5@npm:0.5.1"
-  bin:
-    json5: lib/cli.js
-  checksum: 9b85bf06955b23eaa4b7328aa8892e3887e81ca731dd27af04a5f5f1458fbc5e1de57a24442e3272f8a888dd1abe1cb68eb693324035f6b3aeba4fcab7667d62
-  languageName: node
-  linkType: hard
-
-"json5@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "json5@npm:1.0.1"
-  dependencies:
-    minimist: ^1.2.0
-  bin:
-    json5: lib/cli.js
-  checksum: e76ea23dbb8fc1348c143da628134a98adf4c5a4e8ea2adaa74a80c455fc2cdf0e2e13e6398ef819bfe92306b610ebb2002668ed9fc1af386d593691ef346fc3
+  checksum: 2a7436a93393830bce797d4626275152e37e877b265e94ca69c99e3d20c2b9dab021279146a39cdb700e71b2dd32a4cebd1514cd57cee102b1af906ce5040349
   languageName: node
   linkType: hard
 
@@ -23854,21 +23799,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"ms@npm:2.0.0":
-  version: 2.0.0
-  resolution: "ms@npm:2.0.0"
-  checksum: 0e6a22b8b746d2e0b65a430519934fefd41b6db0682e3477c10f60c76e947c4c0ad06f63ffdf1d78d335f83edee8c0aa928aa66a36c7cd95b69b26f468d527f4
-  languageName: node
-  linkType: hard
-
-"ms@npm:2.1.2":
-  version: 2.1.2
-  resolution: "ms@npm:2.1.2"
-  checksum: 673cdb2c3133eb050c745908d8ce632ed2c02d85640e2edb3ace856a2266a813b30c613569bf3354fdf4ea7d1a1494add3bfa95e2713baa27d0c2c71fc44f58f
-  languageName: node
-  linkType: hard
-
-"ms@npm:2.1.3, ms@npm:^2.0.0, ms@npm:^2.1.1, ms@npm:^2.1.3":
+"ms@npm:^2.1.3":
   version: 2.1.3
   resolution: "ms@npm:2.1.3"
   checksum: aa92de608021b242401676e35cfa5aa42dd70cbdc082b916da7fb925c542173e36bce97ea3e804923fe92c0ad991434e4a38327e15a1b5b5f945d66df615ae6d
@@ -27230,6 +27161,13 @@ optjs@latest:
   languageName: node
   linkType: hard
 
+"react-native-flipper-performance-plugin@npm:^0.3.1":
+  version: 0.3.1
+  resolution: "react-native-flipper-performance-plugin@npm:0.3.1"
+  checksum: 192d917abb5595365777c1bc34677097c3f3c705c4cb6d78e797e3542c29bd146296b358e81a218e5bd98b87cbb469513786ded99b8c0231fad7f14168330fd3
+  languageName: node
+  linkType: hard
+
 "react-native-flipper@npm:0.162.0":
   version: 0.162.0
   resolution: "react-native-flipper@npm:0.162.0"
@@ -27240,9 +27178,9 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:^2.5.0, react-native-gesture-handler@npm:^2.8.0":
-  version: 2.8.0
-  resolution: "react-native-gesture-handler@npm:2.8.0"
+"react-native-gesture-handler@npm:^2.5.0, react-native-gesture-handler@npm:^2.9.0":
+  version: 2.9.0
+  resolution: "react-native-gesture-handler@npm:2.9.0"
   dependencies:
     "@egjs/hammerjs": ^2.0.17
     hoist-non-react-statics: ^3.3.0
@@ -27252,7 +27190,7 @@ optjs@latest:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 3dc4ab5cf160e471b07cd644e24f6384bdc4fc777f259fb12dfb42a5c9a15f84f60043ce3a1cd737f8dc563892a52566c8ab33bed0b1635f2898ac8ba75c8668
+  checksum: 6bfdd9d23486193424dcfb0073dd821a216c2783dde746d73a3441e920602343f09efa10261c6f09fcbcb645d029a95305c86f61997053c01ad89751c8c6d236
   languageName: node
   linkType: hard
 
@@ -27422,13 +27360,13 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:2.13.0, react-native-reanimated@npm:^2.4.1":
-  version: 2.13.0
-  resolution: "react-native-reanimated@npm:2.13.0"
+"react-native-reanimated@npm:^2.14.1, react-native-reanimated@npm:^2.4.1":
+  version: 2.14.1
+  resolution: "react-native-reanimated@npm:2.14.1"
   dependencies:
     "@babel/plugin-transform-object-assign": ^7.16.7
     "@babel/preset-typescript": ^7.16.7
-    "@types/invariant": ^2.2.35
+    convert-source-map: ^1.7.0
     invariant: ^2.2.4
     lodash.isequal: ^4.5.0
     setimmediate: ^1.0.5
@@ -27437,7 +27375,7 @@ optjs@latest:
     "@babel/core": ^7.0.0-0
     react: "*"
     react-native: "*"
-  checksum: 260249012b2e9d19f700bf7817b349c2643f71717b2a50a9da6e37e44eeadbbeee2bc02403f32e6a31617555a8b3ad5aabcbbac72300962908b32e14babbe503
+  checksum: 279ece43aa71601b8b490a7fa4350660e8f9dfc7bb760213f24e1920ef0fe649a0e2675efab0cb4085a61c65c69bff9fcb7fd743a071333256ca861488b5169e
   languageName: node
   linkType: hard
 
@@ -27528,16 +27466,16 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-svg@npm:12.3.0":
-  version: 12.3.0
-  resolution: "react-native-svg@npm:12.3.0"
+"react-native-svg@npm:^13.7.0":
+  version: 13.7.0
+  resolution: "react-native-svg@npm:13.7.0"
   dependencies:
-    css-select: ^4.2.1
-    css-tree: ^1.0.0-alpha.39
+    css-select: ^5.1.0
+    css-tree: ^1.1.3
   peerDependencies:
     react: "*"
-    react-native: ">=0.50.0"
-  checksum: 9bed890d030819ed650fdc84ae8127f78f72a28d81a160dd574729b81f237c85be6a5ff4a0951b4dd28bd2836189f18afffef1fd6447fb3b6537c7ecd23f08c2
+    react-native: "*"
+  checksum: f3609dbb9d2614323914a8cc5ae11092aacb3a140e6d5ff57b255ddb6a9d2dc2efd5c28f65c6232e0b7228ec3231359540a7fa11ec92f944e6e98d570b147483
   languageName: node
   linkType: hard
 
@@ -28394,9 +28332,9 @@ optjs@latest:
   linkType: hard
 
 "reselect@npm:^4.0.0":
-  version: 4.1.5
-  resolution: "reselect@npm:4.1.5"
-  checksum: 54c13c1e795b2ea70cba8384138aebe78adda00cbea303cc94b64da0a70d74c896cc9a03115ae38b8bff990e7a60dcd6452ab68cbec01b0b38c1afda70714cf0
+  version: 4.1.7
+  resolution: "reselect@npm:4.1.7"
+  checksum: 738d8e2b8f0dca154ad29de6a209c9fbca2d70ae6788fd85df87f2c74b95a65bbf2d16d43a9e2faff39de34d17a29d706ba08a6b2ee5660c09589edbd19af7e1
   languageName: node
   linkType: hard
 
