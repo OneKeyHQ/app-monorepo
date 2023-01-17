@@ -152,7 +152,10 @@ const Content: FC<Props> = ({
           🎉 {intl.formatMessage({ id: 'modal__migrating_data_desc' })}
         </Text>
       }
-      closeOverlay={closeOverlay}
+      closeOverlay={() => {
+        serviceMigrate.disConnectServer(serverAddress);
+        closeOverlay();
+      }}
     >
       <Box
         bgColor="surface-default"

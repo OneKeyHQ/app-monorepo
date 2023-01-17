@@ -16,6 +16,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
@@ -24,6 +25,7 @@ import type { EmitterSubscription } from 'react-native';
 
 enum MigrateAPINames {
   Connect = '/connect',
+  DisConnect = '/disConnect',
   SendData = '/send',
   RequestData = '/data',
 }
@@ -88,12 +90,22 @@ export function ServerUrl(serverUrl: string, path: string) {
 
 @backgroundClass()
 class ServiceMigrate extends ServiceBase {
+  private backupUUID = '';
+
+  private connectUUID = '';
+
   private client = axios.create({
     timeout: 60 * 1000,
     // headers: {
     //   'Content-Type': 'application/json',
     // },
   });
+
+  private async ensureUUID() {
+    this.backupUUID =
+      this.backupUUID || (await this.backgroundApi.engine.getBackupUUID());
+    return this.backupUUID;
+  }
 
   httpServerEnable?: boolean;
 
@@ -111,6 +123,7 @@ class ServiceMigrate extends ServiceBase {
   async connectServer(ipAddress: string) {
     const urlParams = new URLSearchParams({
       deviceInfo: JSON.stringify(deviceInfo()),
+      uuid: await this.ensureUUID(),
     });
 
     const url = `${ServerUrl(
@@ -128,6 +141,23 @@ class ServiceMigrate extends ServiceBase {
   }
 
   @backgroundMethod()
+  async disConnectServer(ipAddress: string) {
+    const urlParams = new URLSearchParams({
+      uuid: await this.ensureUUID(),
+    });
+
+    const url = `${ServerUrl(
+      ipAddress,
+      MigrateAPINames.DisConnect,
+    )}?${urlParams.toString()}`;
+    const { success } = await this.client
+      .get<MigrateServiceResp<boolean>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false }));
+    return success;
+  }
+
+  @backgroundMethod()
   async sendDataToServer({
     ipAddress,
     data,
@@ -135,7 +165,13 @@ class ServiceMigrate extends ServiceBase {
     ipAddress: string;
     data: string;
   }) {
-    const url = ServerUrl(ipAddress, MigrateAPINames.SendData);
+    const urlParams = new URLSearchParams({
+      uuid: await this.ensureUUID(),
+    });
+    const url = `${ServerUrl(
+      ipAddress,
+      MigrateAPINames.SendData,
+    )}?${urlParams.toString()}`;
     const { success } = await this.client
       .post<MigrateServiceResp<boolean>>(url, data)
       .then((resp) => resp.data)
@@ -149,6 +185,7 @@ class ServiceMigrate extends ServiceBase {
   async getDataFromServer({ ipAddress }: { ipAddress: string }) {
     const urlParams = new URLSearchParams({
       deviceInfo: JSON.stringify(deviceInfo()),
+      uuid: await this.ensureUUID(),
     });
     const url = `${ServerUrl(
       ipAddress,
@@ -222,27 +259,75 @@ class ServiceMigrate extends ServiceBase {
   }
 
   @backgroundMethod()
+  isConnectedUUID(uuid: string) {
+    if (uuid.length === 0) {
+      return false;
+    }
+    if (this.connectUUID.length > 0 && uuid !== this.connectUUID) {
+      return false;
+    }
+    return true;
+  }
+
+  @backgroundMethod()
   receivedHttpRequest(content: RequestData) {
-    const { requestId, type, url: urlPath } = content;
+    const { requestId, url: urlPath } = content;
     // console.log('type = ', type);
     // console.log('urlPath = ', urlPath);
     // console.log('postData = ', postData);
 
     const url = new URL(urlPath, 'http://example.com');
+    const { pathname: apiName, searchParams } = url;
+    const uuid = searchParams.get('uuid') ?? '';
 
-    const { pathname } = url;
+    debugLogger.migrate.info('receivedHttpRequest = ', apiName, uuid);
 
-    if (type === 'GET' && pathname === MigrateAPINames.Connect) {
+    if (apiName === MigrateAPINames.Connect) {
+      if (!this.isConnectedUUID(uuid)) {
+        this.serverRespond({
+          requestId,
+          respondData: { success: false },
+        });
+        return;
+      }
+      this.connectUUID = uuid;
       this.serverRespond({
         requestId,
         respondData: { success: true, data: deviceInfo() },
       });
-    } else if (type === 'POST' && pathname === MigrateAPINames.SendData) {
+    } else if (apiName === MigrateAPINames.DisConnect) {
+      if (this.isConnectedUUID(uuid)) {
+        this.connectUUID = '';
+        this.serverRespond({
+          requestId,
+          respondData: { success: true },
+        });
+      } else {
+        this.serverRespond({
+          requestId,
+          respondData: { success: false },
+        });
+      }
+    } else if (apiName === MigrateAPINames.SendData) {
+      if (!this.isConnectedUUID(uuid)) {
+        this.serverRespond({
+          requestId,
+          respondData: { success: false },
+        });
+        return;
+      }
       appEventBus.emit(AppEventBusNames.HttpServerRequest, {
         type: MigrateNotificationNames.ReceiveDataFromClient,
         data: content,
       });
-    } else if (type === 'GET' && pathname === MigrateAPINames.RequestData) {
+    } else if (apiName === MigrateAPINames.RequestData) {
+      if (!this.isConnectedUUID(uuid)) {
+        this.serverRespond({
+          requestId,
+          respondData: { success: false },
+        });
+        return;
+      }
       appEventBus.emit(AppEventBusNames.HttpServerRequest, {
         type: MigrateNotificationNames.RequestDataFromClient,
         data: content,
@@ -285,6 +370,7 @@ class ServiceMigrate extends ServiceBase {
 
   @backgroundMethod()
   stopHttpServer() {
+    this.connectUUID = '';
     if (!this.httpServerEnable) {
       return;
     }

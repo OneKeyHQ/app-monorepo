@@ -33,6 +33,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
@@ -64,7 +65,8 @@ const QRCodeView: FC = () => {
   const startHttpServer = useCallback(async () => {
     const serverUrl = await serviceMigrate.startHttpServer();
     if (serverUrl) {
-      // console.log('serverUrl = ', serverUrl);
+      debugLogger.migrate.info('startHttpServer', serverUrl);
+
       updateServerAddress(serverUrl);
       return true;
     }
@@ -78,6 +80,7 @@ const QRCodeView: FC = () => {
     return () => {
       if (serverAddress.length > 0) {
         serviceMigrate.stopHttpServer();
+        debugLogger.migrate.info('stopHttpServer');
       }
     };
   }, [serverAddress.length, serviceMigrate, startHttpServer]);
@@ -158,7 +161,9 @@ const QRCodeView: FC = () => {
                 }
                 if (status === ExportResult.EMPTY) {
                   ToastManager.show({
-                    title: 'No sendable data',
+                    title: intl.formatMessage({
+                      id: 'msg__no_data_available',
+                    }),
                   });
                 }
                 return false;
