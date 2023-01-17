@@ -10,14 +10,9 @@ import {
   Hidden,
   Icon,
   Image,
-  Pressable,
   Text,
   useUserDevice,
 } from '@onekeyhq/components';
-import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
-import LogoRainbow from '@onekeyhq/kit/assets/onboarding/logo_rainbow.png';
-import LogoTrustWallet from '@onekeyhq/kit/assets/onboarding/logo_trustwallet.png';
-import LogoWalletconnect from '@onekeyhq/kit/assets/onboarding/logo_walletconnect.png';
 import ContentHardwareImage from '@onekeyhq/kit/assets/onboarding/welcome_hardware.png';
 import {
   AppUIEventBusNames,
@@ -40,6 +35,7 @@ import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
 
+import { ConnectThirdPartyWallet } from './ConnectThirdPartyWallet';
 import PressableListItem from './PressableListItem';
 import TermsOfService from './TermsOfService';
 
@@ -135,8 +131,6 @@ const Welcome = () => {
     // navigation.navigate(EOnboardingRoutes.ConnectWallet);
   }, [navigation]);
 
-  const logos = [LogoMetaMask, LogoTrustWallet, LogoRainbow, LogoWalletconnect];
-
   return (
     <>
       <Layout
@@ -221,43 +215,7 @@ const Welcome = () => {
             <Divider flex={1} />
           </Box>
         </Hidden>
-        <Pressable
-          flexDirection={{ base: 'row' }}
-          alignItems={{ base: 'center' }}
-          justifyContent={{ base: 'center' }}
-          mt={{ base: 6, sm: 0 }}
-          py={{ base: 0 }}
-          bg="transparent"
-          _hover={{ bgColor: 'surface-hovered' }}
-          _pressed={{ bgColor: 'surface-pressed' }}
-          onPress={onPressThirdPartyWallet}
-        >
-          <Text
-            typography={{ sm: 'Body2Strong', md: 'DisplaySmall' }}
-            color="text-default"
-          >
-            Connect 3rd-Party Wallet
-          </Text>
-          <Box
-            flexDirection={{ base: 'row' }}
-            alignItems={{ base: 'center' }}
-            mx={2}
-          >
-            {logos.map((logo, index) => (
-              <Image key={index} source={logo} size={4} mx={0.5} rounded="sm" />
-            ))}
-            <Box bg="surface-neutral-default" rounded="sm" mx={0.5}>
-              <Icon
-                name="EllipsisHorizontalMini"
-                size={16}
-                color="icon-default"
-              />
-            </Box>
-          </Box>
-          <Box py={0.5}>
-            <Icon name="ChevronRightMini" size={16} color="icon-subdued" />
-          </Box>
-        </Pressable>
+        <ConnectThirdPartyWallet onPress={onPressThirdPartyWallet} />
       </Layout>
       <TermsOfService />
     </>
