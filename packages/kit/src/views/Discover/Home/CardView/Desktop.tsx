@@ -117,7 +117,7 @@ export const Desktop: FC<SectionDataType> = ({
   const { width } = useWindowDimensions();
   const w = useDebounce(width, 1000);
   return (
-    <Box width="100%" mt="8">
+    <Box w="100%" mt="8">
       <SectionTitle
         title={title}
         _title={_title}

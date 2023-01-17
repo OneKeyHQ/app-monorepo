@@ -67,15 +67,15 @@ const OnekeyLiteDetail: FC = () => {
   }, [locale]);
 
   useEffect(() => {
-    async function main() {
-      if (!wallet) return;
-
-      const wallets = (await backgroundApiProxy.engine.getWallets()).filter(
-        (_wallet) => _wallet.type === 'hd',
-      );
-      setControlledWallets(wallets);
+    if (wallet) {
+      backgroundApiProxy.engine
+        .getWallets()
+        .then((wallets) =>
+          setControlledWallets(
+            wallets.filter((_wallet) => _wallet.type === 'hd'),
+          ),
+        );
     }
-    main();
   }, [wallet]);
 
   const menuOptionsMemo = useMemo(() => {
