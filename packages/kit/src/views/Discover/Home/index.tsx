@@ -11,13 +11,6 @@ import { DiscoverContext } from './context';
 import type { ItemSource } from './context';
 import type { DiscoverProps } from './type';
 
-const Updater = () => {
-  useEffect(() => {
-    backgroundApiProxy.serviceDiscover.fetchData();
-  }, []);
-  return null;
-};
-
 let Mobile: any;
 let Desktop: any;
 
@@ -31,6 +24,10 @@ const DiscoverPage: FC<DiscoverProps> = ({
   onItemSelect,
   onItemSelectHistory,
 }) => {
+  useEffect(() => {
+    backgroundApiProxy.serviceDiscover.fetchData();
+  }, []);
+
   const [categoryId, setCategoryId] = useState('');
   const isSmall = useIsVerticalLayout();
   if (isSmall && !Mobile) {
@@ -53,7 +50,6 @@ const DiscoverPage: FC<DiscoverProps> = ({
   return (
     <DiscoverContext.Provider value={contextValue}>
       {isSmall ? <Mobile /> : <Desktop />}
-      <Updater />
     </DiscoverContext.Provider>
   );
 };

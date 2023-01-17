@@ -33,7 +33,7 @@ const ListHeaderItemsEmptyComponent = () => {
   return (
     <Box>
       <Box
-        width="full"
+        w="full"
         h="20"
         borderRadius={12}
         bg="surface-subdued"
@@ -222,8 +222,7 @@ export const Beta: FC = () => {
     <Box flex="1" bg="background-default">
       <FlatList
         contentContainerStyle={{
-          paddingBottom: 12,
-          paddingTop: 12,
+          paddingVertical: 12,
         }}
         data={[]}
         renderItem={renderItem}

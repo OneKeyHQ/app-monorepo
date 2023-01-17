@@ -7,43 +7,47 @@ import DAppIcon from '../../DAppIcon';
 import { SectionTitle } from '../TitleView';
 
 import type { DAppItemType, SectionDataType } from '../../type';
+import type { ResponsiveValue } from 'native-base/lib/typescript/components/types';
 
 type DappTypeTuple = [DAppItemType | undefined, DAppItemType | undefined];
 
-type SimpleCardViewProps = {
+interface SimpleCardViewProps {
   item: DAppItemType;
   onItemSelect: SectionDataType['onItemSelect'];
-};
+  mt?: ResponsiveValue<string | number>;
+}
 
-const SimpleCardView: FC<SimpleCardViewProps> = ({ item, onItemSelect }) => {
+const SimpleCardView: FC<SimpleCardViewProps> = ({
+  item,
+  onItemSelect,
+  mt,
+}) => {
   const t = useTranslation();
   return (
     <Pressable
+      w="260px"
+      ml="4"
+      borderRadius="12px"
+      alignItems="center"
+      flexDirection="row"
       onPress={() => {
         onItemSelect?.(item);
       }}
+      mt={mt}
     >
-      <Box
-        width="260px"
-        ml="4"
-        borderRadius="12px"
-        alignItems="center"
-        flexDirection="row"
-      >
-        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
-        <Box flex={1} ml="2">
-          <Typography.Body2Strong numberOfLines={1}>
-            {item.name}
-          </Typography.Body2Strong>
-          <Typography.Caption
-            numberOfLines={1}
-            mt="1"
-            color="text-subdued"
-            overflow="hidden"
-          >
-            {t(item._subtitle) ?? item.subtitle}
-          </Typography.Caption>
-        </Box>
+      <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+      <Box flex={1} ml="2">
+        <Typography.Body2Strong numberOfLines={1}>
+          {item.name}
+        </Typography.Body2Strong>
+        <Typography.Caption
+          numberOfLines={1}
+          mt="1"
+          color="text-subdued"
+          overflow="hidden"
+        >
+          {t(item._subtitle) ?? item.subtitle}
+        </Typography.Caption>
       </Box>
     </Pressable>
   );
@@ -60,14 +64,10 @@ const PairCardView: FC<PairCardViewProps> = ({ items, onItemSelect }) => {
   return (
     <Box>
       {itemA ? (
-        <Box>
-          <SimpleCardView item={itemA} onItemSelect={onItemSelect} />
-        </Box>
+        <SimpleCardView item={itemA} onItemSelect={onItemSelect} />
       ) : null}
       {itemB ? (
-        <Box mt="5">
-          <SimpleCardView item={itemB} onItemSelect={onItemSelect} />
-        </Box>
+        <SimpleCardView item={itemB} onItemSelect={onItemSelect} mt="5" />
       ) : null}
     </Box>
   );
@@ -98,15 +98,13 @@ export const Mobile: FC<SectionDataType> = ({
         onItemSelect={onItemSelect}
       />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <Box flexDirection="row">
-          {sections.map((section) => (
-            <PairCardView
-              key={section[0]?._id ?? ''}
-              items={section}
-              onItemSelect={onItemSelect}
-            />
-          ))}
-        </Box>
+        {sections.map((section, index) => (
+          <PairCardView
+            key={index}
+            items={section}
+            onItemSelect={onItemSelect}
+          />
+        ))}
       </ScrollView>
     </Box>
   );

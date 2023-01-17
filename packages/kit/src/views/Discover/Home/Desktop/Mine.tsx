@@ -46,21 +46,19 @@ const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
   const { itemSource } = useContext(DiscoverContext);
   return (
-    <Box>
-      <Box
-        width="full"
-        h="20"
-        borderRadius={12}
-        bg="surface-subdued"
-        justifyContent="center"
-        alignItems="center"
-      >
-        <Typography.Body1 textAlign="center" color="text-subdued">
-          {itemSource === 'Favorites'
-            ? intl.formatMessage({ id: 'message__discover_favorite_is_empty' })
-            : intl.formatMessage({ id: 'message__discover_history_is_empty' })}
-        </Typography.Body1>
-      </Box>
+    <Box
+      w="full"
+      h="20"
+      borderRadius={12}
+      bg="surface-subdued"
+      justifyContent="center"
+      alignItems="center"
+    >
+      <Typography.Body1 textAlign="center" color="text-subdued">
+        {itemSource === 'Favorites'
+          ? intl.formatMessage({ id: 'message__discover_favorite_is_empty' })
+          : intl.formatMessage({ id: 'message__discover_history_is_empty' })}
+      </Typography.Body1>
     </Box>
   );
 };
@@ -218,10 +216,10 @@ const ListHeaderComponent = () => {
     return null;
   }
   return (
-    <Box>
+    <>
       <DAppCategories />
       {platformEnv.isWeb ? null : <ListHeaderItems />}
-    </Box>
+    </>
   );
 };
 
@@ -265,11 +263,9 @@ export const Mine: FC = () => {
     <Box flex="1" bg="background-default">
       <ScrollView contentContainerStyle={styles.container}>
         <ListHeaderComponent />
-        <Box>
-          {data.map((item) => (
-            <CardView key={item.title} {...item} onItemSelect={onItemSelect} />
-          ))}
-        </Box>
+        {data.map((item) => (
+          <CardView key={item.title} {...item} onItemSelect={onItemSelect} />
+        ))}
       </ScrollView>
     </Box>
   );

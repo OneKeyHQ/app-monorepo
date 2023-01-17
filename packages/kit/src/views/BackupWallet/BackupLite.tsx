@@ -31,26 +31,24 @@ type BackupDoneProps = {
 const BackupDone: FC<BackupDoneProps> = ({ password, walletId }) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   useEffect(() => {
-    async function main() {
-      const mnemonic = await backgroundApiProxy.engine.revealHDWalletMnemonic(
-        walletId,
-        password,
-      );
-      setTimeout(() => {
-        navigation.replace(RootRoutes.Modal, {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal,
+    backgroundApiProxy.engine
+      .revealHDWalletMnemonic(walletId, password)
+      .then((mnemonic) => {
+        setTimeout(() => {
+          navigation.replace(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateWallet,
             params: {
-              walletId,
-              backupData: mnemonic,
-              onSuccess: () => {},
+              screen:
+                CreateWalletModalRoutes.OnekeyLiteBackupPinCodeVerifyModal,
+              params: {
+                walletId,
+                backupData: mnemonic,
+                onSuccess: () => {},
+              },
             },
-          },
-        });
-      }, 500);
-    }
-    main();
+          });
+        }, 500);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
