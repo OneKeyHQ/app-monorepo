@@ -1,12 +1,12 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 import TronWeb from 'tronweb';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { toBigIntHex } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -51,7 +51,6 @@ import type {
   IOnChainHistoryTx,
   IRPCCallResponse,
 } from './types';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const FAKE_OWNER_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
@@ -72,6 +71,7 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
+  // client: axios
   private getTronWeb = memoizee(
     (rpcURL) => {
       const tronWeb = new TronWeb({ fullHost: rpcURL });
@@ -91,8 +91,7 @@ export default class Vault extends VaultBase {
   }
 
   getToken = memoizee(
-    async (tokenAddress) => {
-      const tronWeb = await this.getClient();
+    async (tokenAddress, tronWeb: TronWeb) => {
       const contract = await tronWeb.contract().at(tokenAddress);
       if (!contract.name && !contract.symbol && !contract.decimals) {
         return;
@@ -103,8 +102,8 @@ export default class Vault extends VaultBase {
   );
 
   getTokenInfo = memoizee(
-    async (tokenAddress) => {
-      const contract = await this.getToken(tokenAddress);
+    async (tokenAddress, tronWeb: TronWeb) => {
+      const contract = await this.getToken(tokenAddress, tronWeb);
       if (contract) {
         const [name, symbol, decimals] = await Promise.all([
           contract.name().call(),
@@ -154,11 +153,6 @@ export default class Vault extends VaultBase {
 
   // Chain only methods
 
-  override createClientFromURL(_url: string): BaseClient {
-    // This isn't needed.
-    throw new NotImplemented();
-  }
-
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
@@ -181,10 +175,12 @@ export default class Vault extends VaultBase {
   }
 
   override async fetchTokenInfos(tokenAddresses: string[]) {
+    const tronWeb = await this.getClient();
+
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          return await this.getTokenInfo(tokenAddress);
+          return await this.getTokenInfo(tokenAddress, tronWeb);
         } catch {
           // pass
         }
@@ -225,7 +221,7 @@ export default class Vault extends VaultBase {
           if (typeof tokenAddress === 'undefined') {
             return new BigNumber(await tronWeb.trx.getBalance(address));
           }
-          const contract = await this.getToken(tokenAddress);
+          const contract = await this.getToken(tokenAddress, tronWeb);
           if (contract) {
             const result = await contract.balanceOf(address).call();
             return new BigNumber(result.toString());

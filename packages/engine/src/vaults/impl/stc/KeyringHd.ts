@@ -1,8 +1,7 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';

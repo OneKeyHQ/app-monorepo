@@ -1,6 +1,6 @@
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-import * as sdk from 'algosdk';
-
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
+import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -8,6 +8,7 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
+import sdk from './sdkAlgo';
 import { signTransaction } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
@@ -16,11 +17,6 @@ import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 

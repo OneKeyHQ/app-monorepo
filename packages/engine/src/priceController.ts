@@ -1,9 +1,9 @@
 /* eslint-disable camelcase */
-import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import BigNumber from 'bignumber.js';
 import lru from 'tiny-lru';
 
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 
 import { getFiatEndpoint } from './endpoint';
 import { getPresetNetworks } from './presets';

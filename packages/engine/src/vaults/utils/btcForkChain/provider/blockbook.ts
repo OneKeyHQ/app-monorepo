@@ -214,7 +214,11 @@ class BlockBook {
   }
 }
 
-const getBlockBook = (chainInfo: ChainInfo) =>
-  Promise.resolve(new BlockBook(chainInfo.clients?.[0].args?.[0]));
+function getRpcUrlFromChainInfo(chainInfo: ChainInfo | undefined) {
+  return chainInfo?.clients?.[0].args?.[0];
+}
 
-export { BlockBook, getBlockBook };
+const getBlockBook = (chainInfo: ChainInfo) =>
+  Promise.resolve(new BlockBook(getRpcUrlFromChainInfo(chainInfo)));
+
+export { BlockBook, getBlockBook, getRpcUrlFromChainInfo };

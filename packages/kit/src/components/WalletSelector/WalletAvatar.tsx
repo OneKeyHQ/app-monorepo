@@ -9,9 +9,9 @@ import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
-import { defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { defaultAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { getDeviceTypeByDeviceId } from '../../utils/hardware';

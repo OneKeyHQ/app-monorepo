@@ -2,20 +2,20 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-import {
-  mnemonicFromEntropy,
-  revealableSeedFromMnemonic,
-} from '@onekeyfe/blockchain-libs/dist/secret';
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
+import {
+  mnemonicFromEntropy,
+  revealableSeedFromMnemonic,
+} from '@onekeyhq/engine/src/secret';
+import {
+  decrypt,
+  encrypt,
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   COINTYPE_BTC,
   IMPL_EVM,
@@ -33,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
@@ -2036,7 +2036,9 @@ class Engine {
   }
 
   async getVault(options: { networkId: string; accountId: string }) {
-    return this.vaultFactory.getVault(options);
+    const network = await this.getNetwork(options.networkId);
+    const { rpcURL } = network;
+    return this.vaultFactory.getVault({ ...options, rpcURL });
   }
 
   async getChainOnlyVault(networkId: string) {

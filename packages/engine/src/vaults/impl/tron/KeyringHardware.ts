@@ -2,6 +2,7 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import TronWeb from 'tronweb';
 
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_TRON as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -17,10 +18,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type { IEncodedTxTron } from './types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { TronTransactionContract } from '@onekeyfe/hd-core';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;

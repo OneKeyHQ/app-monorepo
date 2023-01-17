@@ -1,4 +1,4 @@
-import { batchGetPrivateKeys } from '@onekeyfe/blockchain-libs/dist/secret';
+import { batchGetPrivateKeys } from '@onekeyhq/engine/src/secret';
 
 import { OneKeyInternalError } from '../../errors';
 

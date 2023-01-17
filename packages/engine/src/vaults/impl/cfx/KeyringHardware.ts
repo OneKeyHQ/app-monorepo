@@ -1,21 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
-import { Transaction, address as confluxAddress } from 'js-conflux-sdk';
 import { omitBy } from 'lodash';
 
+import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { ETHMessageTypes } from '../../../types/message';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+
+import sdk from './sdkCfx';
 
 import type { DBVariantAccount } from '../../../types/account';
 import type { ETHMessage } from '../../../types/message';
@@ -26,7 +28,8 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxCfx } from './types';
-import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+
+const { Transaction, address: confluxAddress } = sdk;
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

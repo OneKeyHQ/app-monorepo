@@ -2,9 +2,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 
-import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 // @ts-expect-error
 import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
+
+import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
