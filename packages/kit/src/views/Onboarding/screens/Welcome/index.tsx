@@ -190,6 +190,7 @@ const Welcome = () => {
               })}
               onPress={onPressHardwareWallet}
               overflow="hidden"
+              isDisabled
             >
               <Hidden till="sm">
                 <Box position="absolute" zIndex={-1} right="0" top="0">

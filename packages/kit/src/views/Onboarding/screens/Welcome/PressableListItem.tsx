@@ -18,6 +18,7 @@ type PressableListItemProps = {
   icon: ICON_NAMES;
   label: string;
   description: string;
+  isDisabled?: boolean;
   onPress?: () => void;
 } & IBoxProps;
 
@@ -26,6 +27,7 @@ const PressableListItem: FC<PressableListItemProps> = ({
   label,
   description,
   onPress,
+  isDisabled,
   children,
   ...rest
 }) => {
@@ -46,19 +48,21 @@ const PressableListItem: FC<PressableListItemProps> = ({
       borderColor="border-default"
       rounded="xl"
       onPress={onPress}
+      disabled={isDisabled}
       {...rest}
     >
       <Box mr={3}>
         <Icon
           size={isVerticalLayout ? 24 : 28}
           name={icon}
-          color="interactive-default"
+          color={isDisabled ? 'icon-disabled' : 'interactive-default'}
         />
       </Box>
       <Text
         flex={{ sm: undefined, base: 1 }}
         mt={{ sm: 6 }}
         typography={{ sm: 'Body1Strong', md: 'DisplayMedium' }}
+        color={isDisabled ? 'text-disabled' : 'text-default'}
       >
         {label}
       </Text>
@@ -67,7 +71,7 @@ const PressableListItem: FC<PressableListItemProps> = ({
           flex={1}
           mt={{ sm: 2 }}
           typography={{ sm: 'Body2', md: 'Body2' }}
-          color="text-subdued"
+          color={isDisabled ? 'text-disabled' : 'text-subdued'}
         >
           {description}
         </Text>
@@ -75,7 +79,11 @@ const PressableListItem: FC<PressableListItemProps> = ({
       {children}
       <Hidden from="sm">
         <Box py={0.5}>
-          <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
+          <Icon
+            name="ChevronRightMini"
+            size={20}
+            color={isDisabled ? 'icon-disabled' : 'icon-subdued'}
+          />
         </Box>
       </Hidden>
     </Pressable>
