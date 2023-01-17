@@ -42,7 +42,6 @@ export interface HTTPServerManagerInterface extends NativeModule {
   ) => void;
   stop: () => void;
   respond: (id: string, code: number, type: string, body: string) => void;
-  getConstants: () => any;
 }
 
 export interface JPushManagerInterface extends NativeModule {

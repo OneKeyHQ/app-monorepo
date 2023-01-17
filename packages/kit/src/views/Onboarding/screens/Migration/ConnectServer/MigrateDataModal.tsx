@@ -112,6 +112,7 @@ const Content: FC<Props> = ({
         );
         return false;
       }
+      serviceMigrate.disConnectServer(serverAddress);
       closeOverlay();
       navigation.navigate(RootRoutes.Onboarding, {
         screen: EOnboardingRoutes.MigrationPreview,
@@ -136,13 +137,23 @@ const Content: FC<Props> = ({
             { platform: parseToData.name },
           )}`,
         });
+        serviceMigrate.disConnectServer(serverAddress);
         closeOverlay();
       }
     } else {
       await getDataAction();
     }
     setLoading(false);
-  }, [closeOverlay, getDataAction, intl, isSend, parseToData.name, sendAction]);
+  }, [
+    closeOverlay,
+    getDataAction,
+    intl,
+    isSend,
+    parseToData.name,
+    sendAction,
+    serverAddress,
+    serviceMigrate,
+  ]);
 
   return (
     <BottomSheetModal
