@@ -45,17 +45,11 @@ export const useSearchLocalDapp = (
   const showFullLayout = useShowBookmark();
 
   useEffect(() => {
-    async function main() {
-      if (terms) {
-        const item = await backgroundApiProxy.serviceDiscover.searchDapps(
-          terms,
-        );
-        setAllDapps(item);
-      } else {
-        setAllDapps([]);
-      }
+    if (terms) {
+      backgroundApiProxy.serviceDiscover.searchDapps(terms).then(setAllDapps);
+    } else {
+      setAllDapps([]);
     }
-    main();
   }, [terms, keyword]);
 
   const searchedDapps = useMemo(() => {
@@ -69,7 +63,10 @@ export const useSearchLocalDapp = (
       if (!showFullLayout) {
         items = [];
       }
-      return searchDapps(items, terms);
+      return searchDapps(items, terms).map((item) => ({
+        id: item._id,
+        dapp: item,
+      }));
     } finally {
       setLoading(false);
     }
@@ -77,6 +74,6 @@ export const useSearchLocalDapp = (
 
   return {
     loading,
-    searchedDapps: searchedDapps.map((item) => ({ id: item._id, dapp: item })),
+    searchedDapps,
   };
 };

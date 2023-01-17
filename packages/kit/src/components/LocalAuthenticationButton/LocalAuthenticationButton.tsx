@@ -16,7 +16,6 @@ import { IconButton, ToastManager } from '@onekeyhq/components';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../hooks';
 import { useAppSelector } from '../../hooks/redux';
-import { wait } from '../../utils/helper';
 
 import type { AppStateStatus } from 'react-native';
 
@@ -103,14 +102,9 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   }, [onChange]);
 
   useLayoutEffect(() => {
-    async function main() {
-      if (handOperatedLock) {
-        return;
-      }
-      await wait(500);
-      onLocalAuthenticate();
+    if (!handOperatedLock) {
+      setTimeout(onLocalAuthenticate, 500);
     }
-    main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

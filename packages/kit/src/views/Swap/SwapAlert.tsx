@@ -154,13 +154,9 @@ const ExchangeAddressAlert = () => {
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
   const recipient = useAppSelector((s) => s.swap.recipient);
   useEffect(() => {
-    async function main() {
-      const isUnknown = await backgroundApiProxy.serviceSwap.recipientIsUnknown(
-        recipient,
-      );
-      setRecipientUnknown(isUnknown);
-    }
-    main();
+    backgroundApiProxy.serviceSwap
+      .recipientIsUnknown(recipient)
+      .then(setRecipientUnknown);
   }, [recipient]);
   return recipientUnknown ? <ExchangeAddressAlertContent /> : null;
 };
