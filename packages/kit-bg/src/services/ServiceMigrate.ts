@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import RNUUID from 'react-native-uuid';
 
 import type {
   DeviceInfo,
@@ -90,21 +91,19 @@ export function ServerUrl(serverUrl: string, path: string) {
 
 @backgroundClass()
 class ServiceMigrate extends ServiceBase {
-  private backupUUID = '';
+  private randomUUID = '';
 
   private connectUUID = '';
 
   private client = axios.create({
     timeout: 60 * 1000,
-    // headers: {
-    //   'Content-Type': 'application/json',
-    // },
   });
 
-  private async ensureUUID() {
-    this.backupUUID =
-      this.backupUUID || (await this.backgroundApi.engine.getBackupUUID());
-    return this.backupUUID;
+  private ensureUUID({ reset }: { reset: boolean }) {
+    if (reset) {
+      this.randomUUID = RNUUID.v4() as string;
+    }
+    return this.randomUUID;
   }
 
   httpServerEnable?: boolean;
@@ -123,7 +122,7 @@ class ServiceMigrate extends ServiceBase {
   async connectServer(ipAddress: string) {
     const urlParams = new URLSearchParams({
       deviceInfo: JSON.stringify(deviceInfo()),
-      uuid: await this.ensureUUID(),
+      uuid: this.ensureUUID({ reset: true }),
     });
 
     const url = `${ServerUrl(
@@ -143,7 +142,7 @@ class ServiceMigrate extends ServiceBase {
   @backgroundMethod()
   async disConnectServer(ipAddress: string) {
     const urlParams = new URLSearchParams({
-      uuid: await this.ensureUUID(),
+      uuid: this.ensureUUID({ reset: false }),
     });
 
     const url = `${ServerUrl(
@@ -166,7 +165,7 @@ class ServiceMigrate extends ServiceBase {
     data: string;
   }) {
     const urlParams = new URLSearchParams({
-      uuid: await this.ensureUUID(),
+      uuid: this.ensureUUID({ reset: false }),
     });
     const url = `${ServerUrl(
       ipAddress,
@@ -185,7 +184,7 @@ class ServiceMigrate extends ServiceBase {
   async getDataFromServer({ ipAddress }: { ipAddress: string }) {
     const urlParams = new URLSearchParams({
       deviceInfo: JSON.stringify(deviceInfo()),
-      uuid: await this.ensureUUID(),
+      uuid: this.ensureUUID({ reset: false }),
     });
     const url = `${ServerUrl(
       ipAddress,
