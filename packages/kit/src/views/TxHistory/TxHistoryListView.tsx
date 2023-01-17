@@ -142,8 +142,9 @@ function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
 function TxHistoryListSectionList(props: {
   data: IHistoryTx[];
   SectionListComponent: typeof SectionList;
+  networkId: string;
 }) {
-  const { data: historyListData, SectionListComponent } = props;
+  const { data: historyListData, SectionListComponent, networkId } = props;
   const { size } = useUserDevice();
   const formatDate = useFormatDate();
   const responsivePadding = useMemo(() => {
@@ -198,7 +199,11 @@ function TxHistoryListSectionList(props: {
     },
     sections,
     ListHeaderComponent: (
-      <TxHistoryListViewHeader key="header" isEmpty={isEmpty} />
+      <TxHistoryListViewHeader
+        key="header"
+        isEmpty={isEmpty}
+        networkId={networkId}
+      />
     ),
     ListEmptyComponent: <TxHistoryListViewEmpty key="empty" />,
     ListFooterComponent: <Box key="footer" h="20px" />,
@@ -378,6 +383,7 @@ function TxHistoryListViewComponent({
     <TxHistoryListSectionsMemo
       data={filteredHistory}
       SectionListComponent={SectionListComponent}
+      networkId={networkId}
     />
   );
 }

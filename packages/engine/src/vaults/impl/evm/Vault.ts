@@ -1723,13 +1723,14 @@ export default class Vault extends VaultBase {
       const { encodedTx } = decodedTx;
       if (!encodedTx) return false;
 
-      const { to } = encodedTx as IEncodedTxEvm;
-      const token = await this.engine.ensureTokenInDB(this.networkId, to);
-      if (token) return false;
+      const { from, to } = encodedTx as IEncodedTxEvm;
+      const address = await this.getAccountAddress();
+      if (from === address || to === address) return false;
 
       const actions = decodedTx.outputActions || decodedTx.actions;
 
-      actions.forEach((action) => {
+      for (let i = 0; i < actions.length; i += 1) {
+        const action = actions[i];
         if (action.type !== IDecodedTxActionType.TOKEN_TRANSFER) return false;
         if (
           action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
@@ -1737,8 +1738,15 @@ export default class Vault extends VaultBase {
           action.tokenTransfer?.amount !== '0'
         )
           return false;
-      });
 
+        if (
+          action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
+          action.tokenTransfer?.amount &&
+          action.tokenTransfer?.amount === '0' &&
+          [action.tokenTransfer.from, action.tokenTransfer.to].includes(from)
+        )
+          return false;
+      }
       return true;
     } catch (e) {
       return false;
