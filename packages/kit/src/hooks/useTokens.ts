@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import B from 'bignumber.js';
+import { useAsync } from 'react-async-hook';
+
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -34,6 +37,46 @@ export function useAccountTokens(networkId?: string, accountId?: string) {
   return accountTokensOnChain;
 }
 
+export function useFilteredAccountTokens(networkId: string, accountId: string) {
+  const { hideSmallBalance, hideRiskTokens } = useAppSelector(
+    (s) => s.settings,
+  );
+  const accountTokens = useAccountTokens(networkId, accountId);
+  const balances = useAccountTokensBalance(networkId, accountId);
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+
+  const { result } = useAsync(
+    async () =>
+      Promise.all(
+        accountTokens.map(async (t) => {
+          const token = await backgroundApiProxy.engine.findToken({
+            networkId,
+            tokenIdOnNetwork: t.tokenIdOnNetwork,
+          });
+          if (!token) {
+            return;
+          }
+          if (token?.security && hideRiskTokens) {
+            return;
+          }
+          const price = prices[`${networkId}-${token?.address ?? ''}`];
+          if (
+            hideSmallBalance &&
+            new B(balances[getBalanceKey(token)] ?? 0)
+              .multipliedBy(price[vsCurrency] ?? 0)
+              .isLessThan(1)
+          ) {
+            return;
+          }
+          return token;
+        }),
+      ),
+    [accountTokens],
+  );
+  return (result ?? []).filter(Boolean);
+}
+
 export function useAccountTokenLoading(networkId: string, accountId: string) {
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
   return useMemo(
@@ -51,13 +94,13 @@ export const useNativeTokenBalance = (
 };
 
 export function useNetworkTokens(networkId?: string) {
-  const tokens = useAppSelector((s) => s.tokens.tokens);
-  return useMemo(() => {
-    if (!networkId) {
-      return [];
-    }
-    return tokens[networkId] ?? [];
-  }, [networkId, tokens]);
+  const { result: tokens } = useAsync(
+    async () =>
+      backgroundApiProxy.engine.getTopTokensOnNetwork(networkId ?? ''),
+    [networkId],
+  );
+
+  return tokens ?? [];
 }
 
 export const useNFTSymbolPrice = ({

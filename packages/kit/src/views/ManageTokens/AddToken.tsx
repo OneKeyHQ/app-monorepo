@@ -23,7 +23,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountTokens, useManageTokens } from '../../hooks';
+import { useAccountTokens, useAccountTokensBalance } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
@@ -92,7 +92,7 @@ const useRouteParams = () => {
 };
 
 function ViewTokenModal(props: IViewTokenModalProps) {
-  const { balances } = useManageTokens();
+  const balances = useAccountTokensBalance();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const intl = useIntl();

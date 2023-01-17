@@ -28,12 +28,12 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import {
   useAccountTokens,
-  useAccountTokensBalance,
   useActiveWalletAccount,
   useAppSelector,
   useDebounce,
   useNetworkTokens,
 } from '../../hooks';
+import { useSingleToken, useTokenBalance } from '../../hooks/useTokens';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
@@ -43,6 +43,7 @@ import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes } from './types';
 
+import type { SimplifiedToken } from '../../store/reducers/tokens';
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ListRenderItem } from 'react-native';
@@ -54,8 +55,75 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
+const HeaderTokenItem: FC<
+  SimplifiedToken & Pick<HeaderTokensProps, 'onDelete'>
+> = (item) => {
+  const { tokenIdOnNetwork, onDelete } = item;
+  const { networkId, accountId } = useActiveWalletAccount();
+  const token = useSingleToken(networkId, tokenIdOnNetwork);
+
+  const balance = useTokenBalance({
+    accountId,
+    networkId,
+    token,
+    fallback: '0',
+  });
+
+  const navigation = useNavigation<NavigationProps>();
+
+  const onDetail = useCallback(
+    (t: Token) => {
+      navigation.navigate(ManageTokenRoutes.ViewToken, {
+        ...t,
+        decimal: t.decimals,
+        source: t.source ?? [],
+        address: t.address ?? '',
+      });
+    },
+    [navigation],
+  );
+
+  if (!token) {
+    return null;
+  }
+
+  return (
+    <Pressable
+      onPress={() => onDetail(token)}
+      flexDirection="row"
+      justifyContent="space-between"
+      p="8px"
+      borderRadius="12px"
+      alignItems="center"
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
+    >
+      <TokenImage
+        size={8}
+        token={token}
+        showInfo
+        flex={1}
+        showExtra={false}
+        description={
+          <FormatBalance
+            balance={balance}
+            suffix={token.symbol}
+            formatOptions={{ fixed: 6 }}
+          />
+        }
+      />
+      <IconButton
+        name="TrashMini"
+        type="plain"
+        circle
+        onPress={() => onDelete?.(token)}
+      />
+    </Pressable>
+  );
+};
+
 type HeaderTokensProps = {
-  tokens: Token[];
+  tokens: SimplifiedToken[];
   showTopsLabel?: boolean;
   onDelete?: (token: Token) => void;
 };
@@ -66,27 +134,6 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
   onDelete,
 }) => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
-  const balances = useAccountTokensBalance(networkId, accountId);
-  const navigation = useNavigation<NavigationProps>();
-
-  const onDetail = useCallback(
-    (token: Token) => {
-      navigation.navigate(ManageTokenRoutes.ViewToken, {
-        name: token.name,
-        symbol: token.symbol,
-        address: token.tokenIdOnNetwork,
-        decimal: token.decimals,
-        logoURI: token.logoURI,
-        verified: token.verified,
-        security: token?.security,
-        source: token.source || [],
-        sendAddress: token.sendAddress,
-      });
-    },
-    [navigation],
-  );
-
   return (
     <Box>
       {tokens.length ? (
@@ -99,38 +146,11 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
           </Typography.Subheading>
           <Box mt="2" mb="6">
             {tokens.map((item) => (
-              <Pressable
-                onPress={() => onDetail(item)}
+              <HeaderTokenItem
+                {...item}
+                onDelete={onDelete}
                 key={item.tokenIdOnNetwork}
-                flexDirection="row"
-                justifyContent="space-between"
-                p="8px"
-                borderRadius="12px"
-                alignItems="center"
-                _hover={{ bgColor: 'surface-hovered' }}
-                _pressed={{ bgColor: 'surface-pressed' }}
-              >
-                <TokenImage
-                  size={8}
-                  token={item}
-                  showInfo
-                  flex={1}
-                  showExtra={false}
-                  description={
-                    <FormatBalance
-                      balance={balances[getBalanceKey(item)] ?? '0'}
-                      suffix={item.symbol}
-                      formatOptions={{ fixed: 6 }}
-                    />
-                  }
-                />
-                <IconButton
-                  name="TrashMini"
-                  type="plain"
-                  circle
-                  onPress={() => onDelete?.(item)}
-                />
-              </Pressable>
+              />
             ))}
           </Box>
         </Box>
@@ -149,7 +169,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 
 type HeaderProps = {
   showTopsLabel: boolean;
-  tokens: Token[];
+  tokens: SimplifiedToken[];
   keyword: string;
   onChange: (keyword: string) => void;
   onDelete?: (token: Token) => void;

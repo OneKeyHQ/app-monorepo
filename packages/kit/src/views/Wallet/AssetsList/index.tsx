@@ -41,7 +41,10 @@ type NavigationProps = NativeStackNavigationProp<
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
 export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
-  onTokenPress?: null | ((event: { token: SimplifiedToken }) => void) | undefined;
+  onTokenPress?:
+    | null
+    | ((event: { token: SimplifiedToken }) => void)
+    | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
