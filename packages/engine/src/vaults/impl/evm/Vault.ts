@@ -1717,9 +1717,9 @@ export default class Vault extends VaultBase {
     // TODO batchCall not supported chain, fallback parse covalentTxList to decodedTx
   }
 
-  override async checkIsScamHistory(history: IHistoryTx) {
+  override async checkIsScamHistoryTx(historyTx: IHistoryTx) {
     try {
-      const { decodedTx } = history;
+      const { decodedTx } = historyTx;
       const { encodedTx } = decodedTx;
       if (!encodedTx) return false;
 

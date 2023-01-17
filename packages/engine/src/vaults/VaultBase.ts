@@ -503,7 +503,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(historyTx);
   }
 
-  async checkIsScamHistory(history: IHistoryTx) {
+  async checkIsScamHistoryTx(historyTx: IHistoryTx) {
     return true;
   }
 

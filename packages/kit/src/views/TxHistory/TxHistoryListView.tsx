@@ -142,26 +142,39 @@ function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
 function TxHistoryListSectionList(props: {
   data: IHistoryTx[];
   SectionListComponent: typeof SectionList;
+  accountId: string;
   networkId: string;
 }) {
-  const { data: historyListData, SectionListComponent, networkId } = props;
+  const {
+    accountId,
+    networkId,
+    data: historyListData,
+    SectionListComponent,
+  } = props;
   const { size } = useUserDevice();
   const formatDate = useFormatDate();
   const responsivePadding = useMemo(() => {
     if (['NORMAL', 'LARGE'].includes(size)) return 32;
     return 16;
   }, [size]);
+
+  const { filteredHistory } = useFilterScamHistory({
+    accountId,
+    networkId,
+    history: historyListData,
+  });
+
   const sections = useMemo(
     () =>
       convertToSectionGroups({
-        items: historyListData,
+        items: filteredHistory,
         formatDate: (date: number) =>
           formatDate.formatDate(new Date(date), {
             hideTheYear: true,
             hideTimeForever: true,
           }),
       }),
-    [formatDate, historyListData],
+    [formatDate, filteredHistory],
   );
   const isEmpty = !sections || !sections.length;
 
@@ -320,12 +333,6 @@ function TxHistoryListViewComponent({
   );
   // const refresh = mutate;
 
-  const { filteredHistory } = useFilterScamHistory({
-    accountId,
-    networkId,
-    history: historyListData,
-  });
-
   useEffect(() => {
     txDetailContext?.setContext((value) => {
       if (
@@ -381,9 +388,10 @@ function TxHistoryListViewComponent({
 
   return (
     <TxHistoryListSectionsMemo
-      data={filteredHistory}
-      SectionListComponent={SectionListComponent}
+      accountId={accountId}
       networkId={networkId}
+      data={historyListData}
+      SectionListComponent={SectionListComponent}
     />
   );
 }

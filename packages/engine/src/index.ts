@@ -2806,21 +2806,21 @@ class Engine {
   }
 
   @backgroundMethod()
-  async checkIsScamHistory({
+  async checkIsScamHistoryTx({
     accountId,
     networkId,
-    history,
+    historyTx,
   }: {
     accountId: string;
     networkId: string;
-    history: IHistoryTx;
+    historyTx: IHistoryTx;
   }) {
     const vault = await this.getVault({
       accountId,
       networkId,
     });
 
-    return vault.checkIsScamHistory(history);
+    return vault.checkIsScamHistoryTx(historyTx);
   }
 
   _getFrozenBalance = memoizee(

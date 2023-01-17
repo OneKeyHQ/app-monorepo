@@ -27,10 +27,10 @@ export function useFilterScamHistory({
     (async () => {
       const result: IHistoryTx[] = [];
       for (let i = 0; i < history.length; i += 1) {
-        const isScam = await backgroundApiProxy.engine.checkIsScamHistory({
+        const isScam = await backgroundApiProxy.engine.checkIsScamHistoryTx({
           accountId,
           networkId,
-          history: history[i],
+          historyTx: history[i],
         });
         if (!isScam) {
           result.push(history[i]);
