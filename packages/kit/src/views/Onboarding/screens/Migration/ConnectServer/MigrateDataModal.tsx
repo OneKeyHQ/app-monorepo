@@ -231,7 +231,7 @@ const Content: FC<Props> = ({
           />
         </Center>
       </Box>
-      {isLoading && <Text typography="Body1">Awaiting Confirmation</Text>};
+      {/* {isLoading && <Text typography="Body1">Awaiting Confirmation</Text>}; */}
       <Button
         mt="24px"
         size="xl"
