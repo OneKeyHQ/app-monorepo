@@ -94,25 +94,20 @@ export function ConnectWalletListItem({
     );
   }, [available, intl, isLoading]);
   return (
-    <Box
-      key={label}
-      flexDir={{ base: 'row', sm: 'column' }}
-      w={{ base: '100%', sm: '1/5' }}
-      my={{ base: 1 }}
-      alignItems={{ base: 'center', sm: 'stretch' }}
-    >
+    <Box key={label} w={{ sm: '1/5' }}>
       <Pressable
-        bg={{ base: undefined, sm: 'action-secondary-default' }}
+        key={label}
+        bg={{ sm: 'action-secondary-default' }}
         flex={1}
         alignItems="center"
         flexDir={{ base: 'row', sm: 'column' }}
         mx={{ base: 0, sm: 1 }}
         px={2}
         py={{ base: 3, sm: 4 }}
-        borderWidth={{ base: 0, sm: StyleSheet.hairlineWidth }}
+        borderWidth={{ sm: StyleSheet.hairlineWidth }}
         borderColor="border-default"
-        _hover={{ bgColor: 'surface-hovered' }}
-        _pressed={{ bgColor: 'surface-pressed' }}
+        _hover={{ bgColor: 'action-secondary-hovered' }}
+        _pressed={{ bgColor: 'action-secondary-pressed' }}
         rounded="xl"
         disabled={!available || isLoading}
         onPress={onPress}

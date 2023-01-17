@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Center, Text } from '@onekeyhq/components';
+import { Box, Center, Text } from '@onekeyhq/components';
 
 import { ConnectWalletListView } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -30,22 +30,26 @@ const ThirdPartyWallet = () => {
           }}
         />
       </Center>
-      <Text>INSTITUTIONAL WALLETS</Text>
-      <Center
-        justifyContent="flex-start"
-        flexDir={{ sm: 'row' }}
-        flexWrap={{ sm: 'wrap' }}
-        alignSelf="stretch"
-        mx={-1}
-      >
-        <ConnectWalletListView
-          onConnectResult={async (result) => {
-            await addExternalAccount(result);
-            navigation?.goBack?.();
-          }}
-          isInstitutionWallet
-        />
-      </Center>
+      <Box mt="24px">
+        <Text typography="Subheading" color="text-subdued">
+          {intl.formatMessage({ id: 'content__institutional_wallets' })}
+        </Text>
+        <Center
+          justifyContent="flex-start"
+          flexDir={{ sm: 'row' }}
+          flexWrap={{ sm: 'wrap' }}
+          alignSelf="stretch"
+          mx={-1}
+        >
+          <ConnectWalletListView
+            onConnectResult={async (result) => {
+              await addExternalAccount(result);
+              navigation?.goBack?.();
+            }}
+            isInstitutionWallet
+          />
+        </Center>
+      </Box>
     </Layout>
   );
 };

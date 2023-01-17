@@ -2,12 +2,26 @@ import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Box, Icon, PresenceTransition, Text } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Icon,
+  Image,
+  Pressable,
+  Spinner,
+  Text,
+  useTheme,
+  useThemeValue,
+} from '@onekeyhq/components';
 import type { IconProps } from '@onekeyhq/components/src/Icon';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
+import KeyTagPNG from '@onekeyhq/kit/assets/onboarding/import_with_keytag.png';
+import OneKeyLitePNG from '@onekeyhq/kit/assets/onboarding/import_with_lite.png';
+import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -39,60 +53,120 @@ const ImportItem = ({
   icon,
   title,
   children,
+  isDisabled,
+  isLoading,
   onPress,
 }: {
   icon: IconProps['name'];
   title: string;
   children: React.ReactNode;
+  isDisabled?: boolean;
+  isLoading?: boolean;
   onPress: () => void;
-}) => (
-  <PressableItem
-    onPress={onPress}
-    my={2}
-    mx={2}
-    px={{ base: 4 }}
-    pt={{ base: 4 }}
-    width={{ base: 'auto', sm: 64 }}
-    minHeight={{ base: '192px' }}
-    pb={0}
-    bg={{ base: 'action-secondary-default' }}
-    borderWidth={StyleSheet.hairlineWidth}
-    borderColor={{ base: 'border-default' }}
-    flexDirection="column"
-    rounded={{ base: 'xl' }}
-  >
-    <Icon size={24} name={icon} color="interactive-default" />
-    <Text
-      my={{ base: 4 }}
-      typography={{ sm: 'Heading', md: 'Heading' }}
-      flex={1}
-    >
-      {title}
-    </Text>
-    <Box
-      position="absolute"
-      bottom={0}
-      left="16px"
-      right="16px"
-      h="64px"
-      bg="surface-default"
-      borderTopLeftRadius={3}
-      borderTopRightRadius={3}
-      style={{
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 2,
-          height: 2,
-        },
-        shadowOpacity: 0.5,
-        shadowRadius: 12,
-      }}
-    >
-      {children}
+}) => {
+  const { themeVariant } = useTheme();
+
+  return (
+    <Box p="8px" w={{ base: '100%', sm: '1/3' }}>
+      <Pressable
+        flex={1} // Implement equal height on the same row
+        onPress={onPress}
+        p="16px"
+        pb="80px"
+        bg="action-secondary-default"
+        _hover={{ bgColor: 'action-secondary-hovered' }}
+        _pressed={{ bgColor: 'action-secondary-pressed' }}
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="border-default"
+        borderRadius="12px"
+        overflow="hidden"
+        disabled={isDisabled}
+      >
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Icon
+            name={icon}
+            color={
+              isDisabled || isLoading ? 'icon-disabled' : 'interactive-default'
+            }
+          />
+          {isLoading && <Spinner />}
+        </Box>
+        <Text
+          mt={4}
+          typography={{ sm: 'Heading', md: 'Heading' }}
+          flex={1}
+          color={isDisabled || isLoading ? 'text-disabled' : 'text-default'}
+        >
+          {title}
+        </Text>
+        <Box
+          position="absolute"
+          bottom="-64px"
+          left="16px"
+          right="16px"
+          h="128px"
+          borderRadius="12px"
+          bg="surface-default"
+          overflow="hidden"
+        >
+          <LinearGradient
+            colors={['rgb(255, 255, 255)', 'rgba(255, 255, 255, 0)']}
+            style={{
+              position: 'absolute',
+              height: 64,
+              width: '100%',
+              opacity: 0.1,
+              zIndex: -1,
+            }}
+          />
+          {children}
+          <LinearGradient
+            colors={[
+              themeVariant === 'light'
+                ? 'rgba(255, 255, 255, 0)'
+                : 'rgba(30, 30, 42, 0)',
+              useThemeValue('surface-default'),
+            ]}
+            style={{
+              position: 'absolute',
+              height: '100%',
+              width: '100%',
+              bottom: 64,
+            }}
+          />
+        </Box>
+      </Pressable>
     </Box>
-    <Box h="64px" />
-  </PressableItem>
+  );
+};
+
+const IconToIconIllus = ({
+  leftIcon,
+  rightIcon,
+}: {
+  leftIcon: IconProps['name'];
+  rightIcon: IconProps['name'];
+}) => (
+  <Center h="64px" flexDirection="row" px="24px">
+    <Icon name={leftIcon} size={32} color="icon-default" />
+    <LinearGradient
+      colors={['transparent', useThemeValue('icon-subdued'), 'transparent']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={{
+        flex: 1,
+        height: 2,
+        marginHorizontal: 8,
+      }}
+    />
+    <Icon name={rightIcon} size={32} color="icon-default" />
+  </Center>
 );
+
 const defaultProps = {} as const;
 
 const ImportWallet = () => {
@@ -134,68 +208,81 @@ const ImportWallet = () => {
     navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
   }, [navigation]);
 
+  const FAKEPHRASE = ['shy', 'owner', 'almost', 'explain', 'movie', 'subway'];
+
   return (
     <Layout
       disableAnimation={disableAnimation}
       title={intl.formatMessage({ id: 'action__import_wallet' })}
+      description={intl.formatMessage({ id: 'onboarding__import_wallet_desc' })}
     >
-      <Text
-        typography={{ sm: 'DisplayLarge', md: 'DisplayXLarge' }}
-        color={{ base: 'text-subdued' }}
-        mt={{ base: -6, sm: -12 }}
-      >
-        Choose how you would like to import your wallet.
-      </Text>
-      <Box
-        mt={{ base: 6, sm: 12 }}
-        mx={-2}
-        flexDirection={{ base: 'column', sm: 'row' }}
-        flexWrap="wrap"
-      >
+      <Box m={-2} flexDirection={{ base: 'column', sm: 'row' }} flexWrap="wrap">
         <ImportItem
-          title="With Recovery Phrase, Private Key or Address"
-          icon="CloudOutline"
+          title={intl.formatMessage({
+            id: 'onboarding__import_wallet_with_recovery_phrase',
+          })}
+          icon="ClipboardDocumentListOutline"
           onPress={onPressRecoveryWallet}
         >
-          <Box />
+          <Box flexDirection="row" px="16px" h="64px" flexWrap="wrap" py="8px">
+            {FAKEPHRASE.map((phrase, index) => (
+              <Box flexDirection="row" w="1/3" py="4px" key={index}>
+                <Text typography="Caption" w="12px" color="text-subdued">
+                  {index + 1}
+                </Text>
+                <Text typography="Caption">{phrase}</Text>
+              </Box>
+            ))}
+          </Box>
         </ImportItem>
+        {supportedNFC && (
+          <ImportItem
+            title={intl.formatMessage({
+              id: 'onboarding__import_wallet_with_lite',
+            })}
+            icon="OnekeyLiteOutline"
+            onPress={onPressOneKeyLite}
+          >
+            <Center>
+              <Image source={OneKeyLitePNG} w="224px" h="64px" />
+            </Center>
+          </ImportItem>
+        )}
         <ImportItem
-          title="With OneKey Lite"
-          icon="CloudOutline"
-          onPress={onPressOneKeyLite}
-        >
-          <Box />
-        </ImportItem>
-        <ImportItem
-          title="With KeyTag"
-          icon="CloudOutline"
+          title={intl.formatMessage({
+            id: 'onboarding__import_wallet_with_keytag',
+          })}
+          icon="KeytagOutline"
           onPress={onPressKeyTag}
         >
-          <Box />
+          <Center>
+            <Image source={KeyTagPNG} w="224px" h="64px" />
+          </Center>
         </ImportItem>
-      </Box>
-      <Box
-        mx={-2}
-        flexDirection={{ base: 'column', sm: 'row' }}
-        flexWrap="wrap"
-      >
         <ImportItem
-          title="From another Device"
-          icon="CloudOutline"
+          title={intl.formatMessage({
+            id: 'onboarding__import_wallet_with_migrate',
+          })}
+          icon="ArrowPathRoundedSquareOutline"
           onPress={() => {}}
         >
-          <Box />
+          <IconToIconIllus
+            leftIcon="ComputerDesktopSolid"
+            rightIcon="DevicePhoneMobileSolid"
+          />
         </ImportItem>
-        {hasPreviousBackups && (
-          <PresenceTransition>
-            <ImportItem
-              title="Restore From iCloud"
-              icon="CloudOutline"
-              onPress={onPressRestoreFromCloud}
-            >
-              <Box />
-            </ImportItem>
-          </PresenceTransition>
+        {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
+          <ImportItem
+            title={intl.formatMessage({ id: 'action__restore_from_icloud' })}
+            icon="CloudOutline"
+            onPress={onPressRestoreFromCloud}
+            isDisabled={!hasPreviousBackups}
+          >
+            <IconToIconIllus
+              leftIcon="CloudSolid"
+              rightIcon="OnekeyLogoSolid"
+            />
+          </ImportItem>
         )}
       </Box>
     </Layout>

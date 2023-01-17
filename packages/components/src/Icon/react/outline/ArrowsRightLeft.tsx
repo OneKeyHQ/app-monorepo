@@ -6,6 +6,7 @@ const SvgArrowsRightLeft = (props: SvgProps) => (
     strokeWidth={1.5}
     stroke="currentColor"
     aria-hidden="true"
+    accessibilityRole="image"
     {...props}
   >
     <Path

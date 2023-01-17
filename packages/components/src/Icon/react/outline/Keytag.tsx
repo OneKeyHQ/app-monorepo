@@ -1,6 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgKeytag = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="none" {...props}>
+  <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
     <Path
       d="M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z"
       stroke="currentColor"

@@ -44,7 +44,7 @@ const ImportWallet = () => {
     <>
       <Layout
         disableAnimation={disableAnimation}
-        title={intl.formatMessage({ id: 'action__import_wallet' })}
+        title={intl.formatMessage({ id: 'onboarding__import_with_phrase' })}
         secondaryContent={
           <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
         }

@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -166,7 +167,9 @@ const Welcome = () => {
               label={intl.formatMessage({
                 id: 'action__create_wallet',
               })}
-              description="by generating a new recovery phrase on app"
+              description={intl.formatMessage({
+                id: 'content__create_wallet_desc',
+              })}
               roundedBottom={{ base: 0, sm: 'xl' }}
               onPress={onPressCreateWallet}
             />
@@ -175,7 +178,9 @@ const Welcome = () => {
               label={intl.formatMessage({
                 id: 'action__import_wallet',
               })}
-              description="with recovery phrase, private key, address, OneKey Lite, KeyTag and more..."
+              description={intl.formatMessage({
+                id: 'content__onboarding_import_wallet_desc',
+              })}
               mt="-1px"
               mb={{ base: 6, sm: 0 }}
               roundedTop={{ base: 0, sm: 'xl' }}
@@ -183,24 +188,23 @@ const Welcome = () => {
             />
             <PressableListItem
               // TODO: replace usb icon
-              icon="LinkOutline"
+              icon="UsbCableOutline"
               label={intl.formatMessage({
                 id: 'action__connect_hardware_wallet',
               })}
-              description="Support OneKey hardware wallet"
+              description={intl.formatMessage({
+                id: 'content__conenct_hardware_wallet_desc',
+              })}
               onPress={onPressHardwareWallet}
               overflow="hidden"
             >
               <Hidden till="sm">
-                <Box
-                  position={{ sm: 'absolute' }}
-                  right={{ sm: 0 }}
-                  bottom={{ sm: '-40px' }}
-                >
+                <Box position="absolute" zIndex={-1} right="0" top="0">
                   <Image
                     source={ContentHardwareImage}
-                    size={247}
-                    rounded="sm"
+                    w="256px"
+                    h="207px"
+                    opacity={0.75}
                   />
                 </Box>
               </Hidden>
@@ -208,26 +212,21 @@ const Welcome = () => {
           </Box>
         </Box>
         <Hidden till="sm">
-          <Box
-            flexDirection={{ sm: 'row' }}
-            alignItems={{ sm: 'center' }}
-            justifyContent={{ sm: 'center' }}
-            my={{ sm: 6 }}
-          >
+          <Box flexDirection="row" alignItems="center" mt="24px">
             <Divider flex={1} />
-            <Text mx={{ sm: 4 }} typography="Subheading" color="text-disabled">
-              OR
+            <Text mx="14px" typography="Subheading" color="text-disabled">
+              {intl.formatMessage({ id: 'content__or_lowercase' })}
             </Text>
             <Divider flex={1} />
           </Box>
         </Hidden>
         <Pressable
-          flexDirection={{ base: 'row' }}
-          alignItems={{ base: 'center' }}
-          justifyContent={{ base: 'center' }}
-          mt={{ base: 6, sm: 0 }}
-          py={{ base: 0 }}
-          bg="transparent"
+          flexDirection="row"
+          alignSelf="center"
+          alignItems="center"
+          p="8px"
+          mt={{ base: '24px', md: '12px' }}
+          borderRadius="12px"
           _hover={{ bgColor: 'surface-hovered' }}
           _pressed={{ bgColor: 'surface-pressed' }}
           onPress={onPressThirdPartyWallet}
@@ -236,27 +235,31 @@ const Welcome = () => {
             typography={{ sm: 'Body2Strong', md: 'DisplaySmall' }}
             color="text-default"
           >
-            Connect 3rd-Party Wallet
+            {intl.formatMessage({ id: 'action__connect_3rd_party_wallet' })}
           </Text>
-          <Box
-            flexDirection={{ base: 'row' }}
-            alignItems={{ base: 'center' }}
-            mx={2}
-          >
+          <Box flexDirection="row" alignItems="center" mx={1.5}>
             {logos.map((logo, index) => (
-              <Image key={index} source={logo} size={4} mx={0.5} rounded="sm" />
-            ))}
-            <Box bg="surface-neutral-default" rounded="sm" mx={0.5}>
-              <Icon
-                name="EllipsisHorizontalMini"
-                size={16}
-                color="icon-default"
+              <Image
+                key={index}
+                source={logo}
+                size={4}
+                mx={0.5}
+                rounded="sm"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="border-subdued"
               />
-            </Box>
+            ))}
+            {!platformEnv.isExtension && (
+              <Box bg="surface-neutral-default" borderRadius="6px" mx={0.5}>
+                <Icon
+                  name="EllipsisHorizontalMini"
+                  size={16}
+                  color="icon-default"
+                />
+              </Box>
+            )}
           </Box>
-          <Box py={0.5}>
-            <Icon name="ChevronRightMini" size={16} color="icon-subdued" />
-          </Box>
+          <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
         </Pressable>
       </Layout>
       <TermsOfService />

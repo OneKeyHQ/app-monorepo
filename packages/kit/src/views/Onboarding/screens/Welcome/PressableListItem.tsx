@@ -1,5 +1,7 @@
 import type { FC } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
@@ -37,11 +39,11 @@ const PressableListItem: FC<PressableListItemProps> = ({
       px={{ base: 3, sm: 6 }}
       py={{ base: 4, sm: 6 }}
       // @ts-expect-error
-      bgColor="surface-default"
-      _hover={{ bgColor: 'surface-hovered' }}
-      _pressed={{ bgColor: 'surface-pressed' }}
-      borderWidth={1}
-      borderColor="divider"
+      bgColor="action-secondary-default"
+      _hover={{ bgColor: 'action-secondary-hovered' }}
+      _pressed={{ bgColor: 'action-secondary-pressed' }}
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="border-default"
       rounded="xl"
       onPress={onPress}
       {...rest}

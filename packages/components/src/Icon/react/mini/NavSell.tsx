@@ -1,6 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgNavSell = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M10.695 9.848a1.92 1.92 0 0 1 .472-.222v1.415a1.92 1.92 0 0 1-.472-.222c-.304-.203-.361-.39-.361-.486 0-.095.057-.282.36-.485ZM12.834 14.374V12.96c.183.06.343.137.472.223.303.202.36.39.36.485 0 .095-.057.283-.36.485a1.92 1.92 0 0 1-.472.222Z" />
     <Path
       fillRule="evenodd"
