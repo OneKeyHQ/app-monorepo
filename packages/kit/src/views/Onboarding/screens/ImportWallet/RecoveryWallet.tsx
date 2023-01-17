@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
+import { Center, Spinner, Text, useThemeValue } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../../hooks';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
@@ -23,7 +23,7 @@ type RouteProps = RouteProp<
   EOnboardingRoutes.ImportWallet
 >;
 
-const ImportWallet = () => {
+const RecoveryWallet = () => {
   const intl = useIntl();
   const bgColor = useThemeValue('background-default');
   const onBoardingLoadingBehindModal = useAppSelector(
@@ -49,6 +49,13 @@ const ImportWallet = () => {
           <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
         }
       >
+        <Text
+          typography={{ sm: 'DisplayLarge', md: 'DisplayXLarge' }}
+          mt={{ base: -6, sm: -12 }}
+          mb={{ base: 3, sm: 9 }}
+        >
+          Private Key or Address
+        </Text>
         <OnboardingAddExistingWallet />
       </Layout>
       <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
@@ -56,6 +63,6 @@ const ImportWallet = () => {
   );
 };
 
-ImportWallet.defaultProps = defaultProps;
+RecoveryWallet.defaultProps = defaultProps;
 
-export default ImportWallet;
+export default RecoveryWallet;

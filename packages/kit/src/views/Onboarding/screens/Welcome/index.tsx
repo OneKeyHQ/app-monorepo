@@ -3,7 +3,6 @@ import { useCallback, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -11,14 +10,9 @@ import {
   Hidden,
   Icon,
   Image,
-  Pressable,
   Text,
   useUserDevice,
 } from '@onekeyhq/components';
-import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
-import LogoRainbow from '@onekeyhq/kit/assets/onboarding/logo_rainbow.png';
-import LogoTrustWallet from '@onekeyhq/kit/assets/onboarding/logo_trustwallet.png';
-import LogoWalletconnect from '@onekeyhq/kit/assets/onboarding/logo_walletconnect.png';
 import ContentHardwareImage from '@onekeyhq/kit/assets/onboarding/welcome_hardware.png';
 import {
   AppUIEventBusNames,
@@ -41,6 +35,7 @@ import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
 
+import { ConnectThirdPartyWallet } from './ConnectThirdPartyWallet';
 import PressableListItem from './PressableListItem';
 import TermsOfService from './TermsOfService';
 
@@ -136,8 +131,6 @@ const Welcome = () => {
     // navigation.navigate(EOnboardingRoutes.ConnectWallet);
   }, [navigation]);
 
-  const logos = [LogoMetaMask, LogoTrustWallet, LogoRainbow, LogoWalletconnect];
-
   return (
     <>
       <Layout
@@ -220,47 +213,7 @@ const Welcome = () => {
             <Divider flex={1} />
           </Box>
         </Hidden>
-        <Pressable
-          flexDirection="row"
-          alignSelf="center"
-          alignItems="center"
-          p="8px"
-          mt={{ base: '24px', md: '12px' }}
-          borderRadius="12px"
-          _hover={{ bgColor: 'surface-hovered' }}
-          _pressed={{ bgColor: 'surface-pressed' }}
-          onPress={onPressThirdPartyWallet}
-        >
-          <Text
-            typography={{ sm: 'Body2Strong', md: 'DisplaySmall' }}
-            color="text-default"
-          >
-            {intl.formatMessage({ id: 'action__connect_3rd_party_wallet' })}
-          </Text>
-          <Box flexDirection="row" alignItems="center" mx={1.5}>
-            {logos.map((logo, index) => (
-              <Image
-                key={index}
-                source={logo}
-                size={4}
-                mx={0.5}
-                rounded="sm"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="border-subdued"
-              />
-            ))}
-            {!platformEnv.isExtension && (
-              <Box bg="surface-neutral-default" borderRadius="6px" mx={0.5}>
-                <Icon
-                  name="EllipsisHorizontalMini"
-                  size={16}
-                  color="icon-default"
-                />
-              </Box>
-            )}
-          </Box>
-          <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
-        </Pressable>
+        <ConnectThirdPartyWallet onPress={onPressThirdPartyWallet} />
       </Layout>
       <TermsOfService />
     </>

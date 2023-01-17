@@ -37,7 +37,9 @@ export type IOnboardingRoutesParams = {
 
   [EOnboardingRoutes.ConnectWallet]: IOnboardingConnectWalletParams | undefined;
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;
-  [EOnboardingRoutes.ThirdPartyWallet]: undefined;
+  [EOnboardingRoutes.ThirdPartyWallet]:
+    | IOnboardingConnectWalletParams
+    | undefined;
 
   [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
   [EOnboardingRoutes.RecoveryWallet]: undefined;

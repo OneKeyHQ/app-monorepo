@@ -17,6 +17,8 @@ import {
   Text,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import LogoAmber from '@onekeyhq/kit/assets/onboarding/logo_amber.png';
+import LogoCoboWallet from '@onekeyhq/kit/assets/onboarding/logo_cobo_wallet.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -44,6 +46,11 @@ type RouteProps = RouteProp<
   CreateWalletRoutesParams,
   CreateWalletModalRoutes.WalletConnectQrcodeModal
 >;
+
+const LogoSources: Record<string, any> = {
+  Amber: LogoAmber,
+  CoboWallet: LogoCoboWallet,
+};
 
 export function ConnectWalletListItem({
   label,
@@ -200,7 +207,6 @@ export function ConnectWalletListView({
     [connectExternalWallet],
   );
 
-  console.log('walletServicesEnabled: ', walletServicesEnabled);
   const walletsList = useMemo(() => {
     if (platformEnv.isNativeAndroid) {
       return null;
@@ -220,12 +226,14 @@ export function ConnectWalletListView({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         item?.image_url?.lg ||
         '';
+      const logoSource = LogoSources[item.id] || undefined;
       return (
         <ConnectWalletListItem
           key={item.id}
           label={item.name}
           available
           logo={imgUri}
+          logoSource={logoSource}
           isLoading={loadingId === item.id}
           onPress={() =>
             doConnect({ walletService: item, itemLoadingId: item.id })
