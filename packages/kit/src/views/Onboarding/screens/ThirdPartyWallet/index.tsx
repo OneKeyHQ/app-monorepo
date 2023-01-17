@@ -1,7 +1,7 @@
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Hidden, Text, ToastManager } from '@onekeyhq/components';
+import { Box, Hidden, Text, ToastManager } from '@onekeyhq/components';
 
 import { ConnectWalletListView } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -33,13 +33,7 @@ const ThirdPartyWallet = () => {
 
   return (
     <Layout title={intl.formatMessage({ id: 'title__connect_with' })}>
-      <Center
-        justifyContent="flex-start"
-        flexDir={{ sm: 'row' }}
-        flexWrap={{ sm: 'wrap' }}
-        alignSelf="stretch"
-        mx={-1}
-      >
+      <Box flexDir="row" flexWrap="wrap" m="-4px">
         <ConnectWalletListView
           onConnectResult={async (result) => {
             await addExternalAccount(result);
@@ -57,19 +51,13 @@ const ThirdPartyWallet = () => {
             }
           }}
         />
-      </Center>
+      </Box>
       <Hidden till="sm">
         <>
           <Text mt={8} mb={3} typography="Subheading" color="text-subdued">
             {intl.formatMessage({ id: 'content__institutional_wallets' })}
           </Text>
-          <Center
-            justifyContent="flex-start"
-            flexDir={{ sm: 'row' }}
-            flexWrap={{ sm: 'wrap' }}
-            alignSelf="stretch"
-            mx={-1}
-          >
+          <Box flexDir="row" flexWrap="wrap" m="-4px">
             <ConnectWalletListView
               onConnectResult={async (result) => {
                 await addExternalAccount(result);
@@ -77,7 +65,7 @@ const ThirdPartyWallet = () => {
               }}
               isInstitutionWallet
             />
-          </Center>
+          </Box>
         </>
       </Hidden>
     </Layout>

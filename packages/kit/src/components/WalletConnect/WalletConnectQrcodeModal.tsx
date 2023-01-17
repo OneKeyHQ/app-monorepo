@@ -5,15 +5,11 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Badge,
   Box,
-  Hidden,
-  Icon,
   Image,
   Modal,
   Pressable,
   Skeleton,
-  Spinner,
   Text,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
@@ -67,51 +63,16 @@ export function ConnectWalletListItem({
   onPress: () => void;
   isLoading?: boolean;
 }) {
-  const intl = useIntl();
   const imgSource = logoSource ?? { uri: logo };
-  const extraIcon = useMemo(() => {
-    if (available) {
-      if (isLoading) {
-        return (
-          <Hidden from="sm">
-            <Spinner />
-          </Hidden>
-        );
-      }
-      return (
-        <Hidden from="sm">
-          <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
-        </Hidden>
-      );
-    }
-    return (
-      <>
-        <Hidden from="sm">
-          <Badge
-            size="sm"
-            title={intl.formatMessage({ id: 'badge__coming_soon' })}
-          />
-        </Hidden>
-        <Hidden till="sm">
-          <Text typography="Caption" color="text-subdued">
-            {intl.formatMessage({ id: 'badge__coming_soon' })}
-          </Text>
-        </Hidden>
-      </>
-    );
-  }, [available, intl, isLoading]);
   return (
-    <Box key={label} w={{ sm: '1/5' }}>
+    <Box key={label} w={{ base: '1/2', sm: '1/5' }} p="4px">
       <Pressable
         key={label}
-        bg={{ sm: 'action-secondary-default' }}
+        bg="action-secondary-default"
         flex={1}
         alignItems="center"
-        flexDir={{ base: 'row', sm: 'column' }}
-        mx={{ base: 0, sm: 1 }}
-        px={2}
-        py={{ base: 3, sm: 4 }}
-        borderWidth={{ sm: StyleSheet.hairlineWidth }}
+        py="16px"
+        borderWidth={StyleSheet.hairlineWidth}
         borderColor="border-default"
         _hover={{ bgColor: 'action-secondary-hovered' }}
         _pressed={{ bgColor: 'action-secondary-pressed' }}
@@ -130,17 +91,13 @@ export function ConnectWalletListItem({
             rounded="xl"
           />
         )}
-
         <Text
-          flex={1}
-          mx={{ base: 3, sm: 0 }}
-          mt={{ base: 0, sm: 3 }}
+          mt="12px"
           typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
           isTruncated
         >
           {label}
         </Text>
-        {extraIcon}
       </Pressable>
     </Box>
   );
@@ -294,19 +251,8 @@ export function WalletConnectQrcodeModal() {
 
       // TODO use flatListProps instead
       scrollViewProps={{
-        py: 0,
-        contentContainerStyle: {
-          paddingBottom: 0,
-          paddingTop: 0,
-        },
         children: (
-          <Box
-            flex={1}
-            {...(platformEnv.isNativeIOSPad && {
-              flexDir: { sm: 'row' },
-              flexWrap: { sm: 'wrap' },
-            })}
-          >
+          <Box flexDir="row" flexWrap="wrap" m="-4px">
             <ConnectWalletListView
               connectToWalletService={connectToWalletService}
               uri={uri}
