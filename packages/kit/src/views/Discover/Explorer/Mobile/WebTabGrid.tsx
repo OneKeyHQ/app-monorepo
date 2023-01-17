@@ -133,11 +133,13 @@ const WebTabCard: FC<
             }}
           />
         </Box>
-        <Image
-          style={styles.image}
-          resizeMode="cover"
-          source={{ uri: thumbnail }}
-        />
+        {!!thumbnail && (
+          <Image
+            style={styles.image}
+            resizeMode="cover"
+            source={{ uri: thumbnail }}
+          />
+        )}
       </Box>
     </Pressable>
   );
