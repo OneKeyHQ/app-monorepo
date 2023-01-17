@@ -62,7 +62,7 @@ export function normalizeCrossFetch({
   newFetch.isNormalizedByOneKey = true;
 
   // @ts-ignore
-  if (!global.fetch.isNormalizedByOneKey) {
+  if (global.fetch && !global.fetch.isNormalizedByOneKey) {
     // **** for global instance of fetch
     global.fetch = newFetch;
   }
