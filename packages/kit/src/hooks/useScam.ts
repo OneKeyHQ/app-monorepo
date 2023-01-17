@@ -5,6 +5,7 @@ import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useAppSelector } from './redux';
+import { useNetwork } from './useNetwork';
 
 export function useFilterScamHistory({
   accountId,
@@ -15,11 +16,18 @@ export function useFilterScamHistory({
   networkId: string | null | undefined;
   history: IHistoryTx[];
 }) {
-  const hideScamHistory = useAppSelector((s) => s.settings.hideScamHistory);
   const [filteredHistory, setFilteredHistory] = useState<IHistoryTx[]>([]);
 
+  const hideScamHistory = useAppSelector((s) => s.settings.hideScamHistory);
+  const { network } = useNetwork({ networkId });
+
   useEffect(() => {
-    if (!hideScamHistory || !accountId || !networkId) {
+    if (
+      !hideScamHistory ||
+      !accountId ||
+      !network ||
+      !network?.settings?.supportFilterScam
+    ) {
       setFilteredHistory(history);
       return;
     }
@@ -29,7 +37,7 @@ export function useFilterScamHistory({
       for (let i = 0; i < history.length; i += 1) {
         const isScam = await backgroundApiProxy.engine.checkIsScamHistoryTx({
           accountId,
-          networkId,
+          networkId: network.id,
           historyTx: history[i],
         });
         if (!isScam) {
@@ -38,7 +46,7 @@ export function useFilterScamHistory({
       }
       setFilteredHistory(result);
     })();
-  }, [accountId, networkId, history, hideScamHistory]);
+  }, [accountId, network, history, hideScamHistory]);
   return {
     filteredHistory,
   };

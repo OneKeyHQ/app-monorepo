@@ -504,7 +504,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async checkIsScamHistoryTx(historyTx: IHistoryTx) {
-    return true;
+    return false;
   }
 
   // TODO abstract method
