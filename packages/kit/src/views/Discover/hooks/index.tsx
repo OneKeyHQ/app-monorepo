@@ -9,9 +9,10 @@ import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { DAppItemType, WebSiteHistory } from '../type';
 
 export function useAllDapps(): DAppItemType[] {
-  const dapps = useAppSelector((s) => s.discover.dappItems);
-  return useMemo(() => dapps || [], [dapps]);
+  return useAppSelector((s) => s.discover.dappItems || []);
 }
+
+const getShortHost = (host: string) => host.split('.').slice(-2).join('.');
 
 export function useAllDappMap(): {
   idsMap: Record<string, DAppItemType>;
@@ -25,12 +26,13 @@ export function useAllDappMap(): {
     idsMap[item._id] = item;
     if (item.url) {
       const { host } = new URL(item.url);
-      const shortHost = host.split('.').slice(-2).join('.');
       if (host) {
         hostMap[host] = item;
-      }
-      if (shortHost) {
-        hostMap[shortHost] = item;
+      } else {
+        const shortHost = getShortHost(host);
+        if (shortHost) {
+          hostMap[shortHost] = item;
+        }
       }
     }
   }
@@ -40,19 +42,16 @@ export function useAllDappMap(): {
 export function useHistoryHostMap(): Record<string, WebSiteHistory> {
   const history = useAppSelector((s) => s.discover.history);
   return useMemo(() => {
-    const values = Object.values(history).filter((o) => o.webSite);
     const hostMap: Record<string, WebSiteHistory> = {};
-    for (let i = 0; i < values.length; i += 1) {
-      const item = values[i];
-      if (item?.webSite) {
-        const { webSite } = item;
+    Object.values(history).forEach(({ webSite }) => {
+      if (webSite) {
         const { url } = webSite;
         if (url) {
           const { host } = new URL(url);
           hostMap[host] = webSite;
         }
       }
-    }
+    });
     return hostMap;
   }, [history]);
 }
@@ -74,19 +73,18 @@ export function useUserBrowserHistories(): MatchDAppItemType[] {
   }, [userBrowserHistories]);
 
   useEffect(() => {
-    async function main() {
-      if (dappsIds && dappsIds.length) {
-        const itemDapps =
-          await backgroundApiProxy.serviceDiscover.getDappsByIds(dappsIds);
-        setDapps(
-          itemDapps.reduce((result, item) => {
-            result[item._id] = item;
-            return result;
-          }, {} as Record<string, DAppItemType>),
-        );
-      }
+    if (dappsIds && dappsIds.length) {
+      backgroundApiProxy.serviceDiscover
+        .getDappsByIds(dappsIds)
+        .then((itemDapps) => {
+          setDapps(
+            itemDapps.reduce((result, item) => {
+              result[item._id] = item;
+              return result;
+            }, {} as Record<string, DAppItemType>),
+          );
+        });
     }
-    main();
   }, [dappsIds]);
 
   return useMemo<MatchDAppItemType[]>(() => {
@@ -128,14 +126,13 @@ export function useDiscoverHistory(): MatchDAppItemType[] {
   }, [dappHistory]);
 
   useEffect(() => {
-    async function main() {
-      if (dappsIds) {
-        const itemDapps =
-          await backgroundApiProxy.serviceDiscover.getDappsByIds(dappsIds);
-        setItems(itemDapps.map((o) => ({ id: o._id, dapp: o })));
-      }
+    if (dappsIds) {
+      backgroundApiProxy.serviceDiscover
+        .getDappsByIds(dappsIds)
+        .then((itemDapps) => {
+          setItems(itemDapps.map((o) => ({ id: o._id, dapp: o })));
+        });
     }
-    main();
   }, [dappsIds]);
   return items;
 }
@@ -155,16 +152,11 @@ export function useFavoritesDapps() {
     });
   }, [dappFavorites]);
   useEffect(() => {
-    async function main() {
-      if (origins.length > 0) {
-        const data =
-          await backgroundApiProxy.serviceDiscover.searchDappsWithRegExp(
-            origins,
-          );
-        setDapps(data);
-      }
+    if (origins.length > 0) {
+      backgroundApiProxy.serviceDiscover
+        .searchDappsWithRegExp(origins)
+        .then(setDapps);
     }
-    main();
   }, [origins]);
   const dappsHostMap = useMemo(() => {
     const hostMap: Record<string, DAppItemType> = {};
@@ -172,12 +164,13 @@ export function useFavoritesDapps() {
       const item = dapps[i];
       if (item.url) {
         const { host } = new URL(item.url);
-        const shortHost = host.split('.').slice(-2).join('.');
         if (host) {
           hostMap[host] = item;
-        }
-        if (shortHost) {
-          hostMap[shortHost] = item;
+        } else {
+          const shortHost = getShortHost(host);
+          if (shortHost) {
+            hostMap[shortHost] = item;
+          }
         }
       }
     }
@@ -195,26 +188,23 @@ export function useDiscoverFavorites(): MatchDAppItemType[] {
     if (!dappFavorites) {
       return [];
     }
-    let items = dappFavorites.map((item) => {
+    const items: MatchDAppItemType[] = [];
+    for (const item of dappFavorites) {
       const url = new URL(item);
-      return { value: item, host: url.host };
-    });
-    items = items.filter((item) => item.host);
-    return items
-      .map((item) => {
-        const { host } = item;
-        const shortHost = host.split('.').slice(-2).join('.');
-        const dapp = dappsHostMap[host] ?? dappsHostMap[shortHost];
+      const { host } = url;
+      if (host) {
+        const dapp = dappsHostMap[host] ?? dappsHostMap[getShortHost(host)];
         if (dapp) {
-          return { id: item.value, dapp };
+          items.push({ id: item, dapp });
+        } else {
+          const webSite = webSiteHostMap[host];
+          if (webSite) {
+            items.push({ id: item, webSite });
+          }
         }
-        const webSite = webSiteHostMap[item.host];
-        if (webSite) {
-          return { id: item.value, webSite };
-        }
-        return undefined;
-      })
-      .filter(Boolean);
+      }
+    }
+    return items;
   }, [dappFavorites, dappsHostMap, webSiteHostMap]);
 }
 
@@ -231,15 +221,11 @@ export function useTaggedDapps() {
 export function useCategoryDapps(categoryId?: string): DAppItemType[] {
   const [categoryDapps, setCategoryDapps] = useState<DAppItemType[]>([]);
   useEffect(() => {
-    async function main() {
-      if (categoryId) {
-        const dapps = await backgroundApiProxy.serviceDiscover.getCategoryDapps(
-          categoryId,
-        );
-        setCategoryDapps(dapps);
-      }
+    if (categoryId) {
+      backgroundApiProxy.serviceDiscover
+        .getCategoryDapps(categoryId)
+        .then(setCategoryDapps);
     }
-    main();
   }, [categoryId]);
   return categoryDapps;
 }
@@ -247,15 +233,9 @@ export function useCategoryDapps(categoryId?: string): DAppItemType[] {
 export function useTagDapps(tagId: string) {
   const [tagDapps, setTagDapps] = useState<DAppItemType[]>([]);
   useEffect(() => {
-    async function main() {
-      if (tagId) {
-        const dapps = await backgroundApiProxy.serviceDiscover.getTagDapps(
-          tagId,
-        );
-        setTagDapps(dapps);
-      }
+    if (tagId) {
+      backgroundApiProxy.serviceDiscover.getTagDapps(tagId).then(setTagDapps);
     }
-    main();
   }, [tagId]);
   return tagDapps;
 }
