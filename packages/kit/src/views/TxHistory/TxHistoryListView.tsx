@@ -24,6 +24,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
+import { useFilterScamHistory } from '../../hooks/useScam';
 import { wait } from '../../utils/helper';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
@@ -314,6 +315,12 @@ function TxHistoryListViewComponent({
   );
   // const refresh = mutate;
 
+  const { filteredHistory } = useFilterScamHistory({
+    accountId,
+    networkId,
+    history: historyListData,
+  });
+
   useEffect(() => {
     txDetailContext?.setContext((value) => {
       if (
@@ -369,7 +376,7 @@ function TxHistoryListViewComponent({
 
   return (
     <TxHistoryListSectionsMemo
-      data={historyListData}
+      data={filteredHistory}
       SectionListComponent={SectionListComponent}
     />
   );

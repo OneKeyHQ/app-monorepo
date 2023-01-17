@@ -1717,6 +1717,34 @@ export default class Vault extends VaultBase {
     // TODO batchCall not supported chain, fallback parse covalentTxList to decodedTx
   }
 
+  override async checkIsScamHistory(history: IHistoryTx) {
+    try {
+      const { decodedTx } = history;
+      const { encodedTx } = decodedTx;
+      if (!encodedTx) return false;
+
+      const { to } = encodedTx as IEncodedTxEvm;
+      const token = await this.engine.ensureTokenInDB(this.networkId, to);
+      if (token) return false;
+
+      const actions = decodedTx.outputActions || decodedTx.actions;
+
+      actions.forEach((action) => {
+        if (action.type !== IDecodedTxActionType.TOKEN_TRANSFER) return false;
+        if (
+          action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
+          action.tokenTransfer?.amount &&
+          action.tokenTransfer?.amount !== '0'
+        )
+          return false;
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   override fixAddressCase(address: string) {
     // TODO replace `engineUtils.fixAddressCase`
     return Promise.resolve(toLower(address || ''));

@@ -4,7 +4,7 @@ import { BottomSheetModal, HStack, Switch, Text } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
-import { setHide0ScamHistory } from '../../store/reducers/settings';
+import { setHideScamHistory } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
 
 function AccountHistorySettingsBottomSheetModal({
@@ -13,7 +13,7 @@ function AccountHistorySettingsBottomSheetModal({
   closeOverlay: () => void;
 }) {
   const intl = useIntl();
-  const hide0ScamHistory = useAppSelector((s) => s.settings.hide0ScamHistory);
+  const hideScamHistory = useAppSelector((s) => s.settings.hideScamHistory);
 
   return (
     <BottomSheetModal
@@ -32,9 +32,9 @@ function AccountHistorySettingsBottomSheetModal({
         </Text>
         <Switch
           labelType="false"
-          isChecked={hide0ScamHistory}
+          isChecked={hideScamHistory}
           onToggle={() =>
-            backgroundApiProxy.dispatch(setHide0ScamHistory(!hide0ScamHistory))
+            backgroundApiProxy.dispatch(setHideScamHistory(!hideScamHistory))
           }
         />
       </HStack>

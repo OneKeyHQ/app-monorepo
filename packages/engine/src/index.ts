@@ -137,6 +137,7 @@ import type {
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
+  IHistoryTx,
   ISetApprovalForAll,
   ITransferInfo,
   IVaultSettings,
@@ -2802,6 +2803,24 @@ class Engine {
   }) {
     if (!networkId || !accountId) return 0;
     return this._getFrozenBalance(accountId, networkId);
+  }
+
+  @backgroundMethod()
+  async checkIsScamHistory({
+    accountId,
+    networkId,
+    history,
+  }: {
+    accountId: string;
+    networkId: string;
+    history: IHistoryTx;
+  }) {
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
+
+    return vault.checkIsScamHistory(history);
   }
 
   _getFrozenBalance = memoizee(

@@ -19,6 +19,8 @@ const settings: IVaultSettings = Object.freeze({
       isIntegerGasPrice: true,
     },
   },
+
+  supportFilterScam: true,
 });
 
 export default settings;
