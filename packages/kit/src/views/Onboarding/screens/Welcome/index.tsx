@@ -180,7 +180,6 @@ const Welcome = () => {
               onPress={onPressImportWallet}
             />
             <PressableListItem
-              // TODO: replace usb icon
               icon="UsbCableOutline"
               label={intl.formatMessage({
                 id: 'action__connect_hardware_wallet',
@@ -190,7 +189,7 @@ const Welcome = () => {
               })}
               onPress={onPressHardwareWallet}
               overflow="hidden"
-              isDisabled
+              isDisabled={hardwareDisabled}
             >
               <Hidden till="sm">
                 <Box position="absolute" zIndex={-1} right="0" top="0">

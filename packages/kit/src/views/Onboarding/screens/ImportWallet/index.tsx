@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
@@ -178,11 +178,15 @@ const ImportWallet = () => {
   const context = useOnboardingContext();
   const forceVisibleUnfocused = context?.forceVisibleUnfocused;
 
+  const [iCloudLoading, setICloudLoading] = useState(false);
+
   const disableAnimation = route?.params?.disableAnimation;
 
   const { result: hasPreviousBackups } = usePromiseResult<boolean>(async () => {
+    setICloudLoading(true);
     const status =
       await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
+    setICloudLoading(false);
     return status.hasPreviousBackups;
   });
 
@@ -277,6 +281,7 @@ const ImportWallet = () => {
             icon="CloudOutline"
             onPress={onPressRestoreFromCloud}
             isDisabled={!hasPreviousBackups}
+            isLoading={iCloudLoading}
           >
             <IconToIconIllus
               leftIcon="CloudSolid"
