@@ -2,11 +2,9 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { getCoinInfo } from '@onekeyfe/hd-core/src/api/btc/helpers/btcParamsUtils';
 import BigNumber from 'bignumber.js';
 import { getTime } from 'date-fns';
 import { get } from 'lodash';
-import Long from 'long';
 import memoizee from 'memoizee';
 
 import {
@@ -16,27 +14,43 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
-import type {
-  DBSimpleAccount,
-  DBVariantAccount,
-} from '@onekeyhq/engine/src/types/account';
+import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
+import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
   IEncodedTxUpdateType,
-} from '../../types';
+} from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IApproveInfo,
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionTokenTransfer,
+  IDecodedTxLegacy,
+  IEncodedTx,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTxPro,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
 import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
-} from '../../utils/feeInfoUtils';
-import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
-import { VaultBase } from '../../VaultBase';
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import {
+  addHexPrefix,
+  stripHexPrefix,
+} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -69,23 +83,6 @@ import {
   getTransactionTypeByProtoMessage,
 } from './utils';
 
-import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import type {
-  IApproveInfo,
-  IDecodedTx,
-  IDecodedTxAction,
-  IDecodedTxActionTokenTransfer,
-  IDecodedTxLegacy,
-  IEncodedTx,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ISignedTxPro,
-  ITransferInfo,
-  IUnsignedTxPro,
-} from '../../types';
 import type { TxBuilder } from './sdk/txBuilder';
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
 import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
@@ -193,13 +190,15 @@ export default class Vault extends VaultBase {
       account.address,
     );
 
+    const wallet = await this.engine.getWalletSafe(this.walletId);
+
     return {
       name: account.name,
       algo: 'secp251k1',
       pubKey: account.pub,
       address: account.address,
       bech32Address: address,
-      isNanoLedger: false,
+      isNanoLedger: wallet?.type === WALLET_TYPE_HW,
     };
   }
 
