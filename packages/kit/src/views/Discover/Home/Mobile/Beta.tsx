@@ -29,21 +29,20 @@ const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
   const { itemSource } = useContext(DiscoverContext);
   return (
-    <Box px="4">
-      <Box
-        width="full"
-        h="20"
-        borderRadius={12}
-        bg="surface-subdued"
-        justifyContent="center"
-        alignItems="center"
-      >
-        <Typography.Body2 textAlign="center" color="text-subdued">
-          {itemSource === 'Favorites'
-            ? intl.formatMessage({ id: 'message__discover_favorite_is_empty' })
-            : intl.formatMessage({ id: 'message__discover_history_is_empty' })}
-        </Typography.Body2>
-      </Box>
+    <Box
+      px="4"
+      w="full"
+      h="20"
+      borderRadius={12}
+      bg="surface-subdued"
+      justifyContent="center"
+      alignItems="center"
+    >
+      <Typography.Body2 textAlign="center" color="text-subdued">
+        {itemSource === 'Favorites'
+          ? intl.formatMessage({ id: 'message__discover_favorite_is_empty' })
+          : intl.formatMessage({ id: 'message__discover_history_is_empty' })}
+      </Typography.Body2>
     </Box>
   );
 };
@@ -71,7 +70,7 @@ const ListHeaderFavorites = () => {
       </Pressable>
     );
   };
-  return favorites.length ? (
+  return (
     <FlatList
       horizontal
       data={favorites}
@@ -80,8 +79,6 @@ const ListHeaderFavorites = () => {
       keyExtractor={(item, i) => `${item.id}${i}`}
       ListEmptyComponent={ListHeaderItemsEmptyComponent}
     />
-  ) : (
-    <ListHeaderItemsEmptyComponent />
   );
 };
 
@@ -108,7 +105,7 @@ const ListHeaderHistories = () => {
       </Pressable>
     );
   };
-  return histories.length ? (
+  return (
     <FlatList
       horizontal
       data={histories}
@@ -117,8 +114,6 @@ const ListHeaderHistories = () => {
       keyExtractor={(item) => `${item.id}`}
       ListEmptyComponent={ListHeaderItemsEmptyComponent}
     />
-  ) : (
-    <ListHeaderItemsEmptyComponent />
   );
 };
 

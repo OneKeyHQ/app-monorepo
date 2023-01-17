@@ -10,6 +10,7 @@ import {
   Empty,
   FlatList,
   Pressable,
+  ScrollView,
   Typography,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -48,7 +49,7 @@ const ListHeaderItemsEmptyComponent = () => {
   return (
     <Box px="4">
       <Box
-        width="full"
+        w="full"
         h="20"
         borderRadius={12}
         bg="surface-subdued"
@@ -107,12 +108,14 @@ const ListHeaderFavorites = () => {
 const ListHeaderHistories = () => {
   const { onItemSelectHistory } = useContext(DiscoverContext);
   const histories = useUserBrowserHistories();
+  const items = useMemo(() => histories.slice(0, 8), [histories]);
 
-  const renderItem: ListRenderItem<MatchDAppItemType> = ({ item }) => {
+  const renderItem = (item: MatchDAppItemType) => {
     const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
     const name = item.dapp?.name ?? item.webSite?.title;
     return (
       <Pressable
+        key={item.id}
         py="2"
         px="3"
         borderRadius={12}
@@ -127,17 +130,10 @@ const ListHeaderHistories = () => {
       </Pressable>
     );
   };
-  return histories.length ? (
-    <FlatList
-      horizontal
-      data={histories.slice(0, 8)}
-      removeClippedSubviews
-      windowSize={5}
-      renderItem={renderItem}
-      showsHorizontalScrollIndicator={false}
-      keyExtractor={(item) => `${item.id}`}
-      ListEmptyComponent={ListHeaderItemsEmptyComponent}
-    />
+  return items.length > 0 ? (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      {items.map(renderItem)}
+    </ScrollView>
   ) : (
     <ListHeaderItemsEmptyComponent />
   );

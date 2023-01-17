@@ -8,7 +8,7 @@ import { useAppSelector } from '../../../hooks/redux';
 import type { TransactionDetails } from '../typings';
 
 export function isTransactionRecent(tx: TransactionDetails): boolean {
-  return new Date().getTime() - tx.addedTime < 86400000;
+  return Date.now() - tx.addedTime < 86400000;
 }
 
 export function useAllTransactions(): TransactionDetails[] {
@@ -60,10 +60,9 @@ export function useWalletsSwapTransactions() {
     () => walletsAccounts.map((item) => item.accountId),
     [walletsAccounts],
   );
-  const accountIdsSet = new Set(accountIds);
-  const networkIdsSet = new Set(networkIds);
   return swapTransations.filter(
-    (tx) => accountIdsSet.has(tx.accountId) && networkIdsSet.has(tx.networkId),
+    (tx) =>
+      accountIds.includes(tx.accountId) && networkIds.includes(tx.networkId),
   );
 }
 
@@ -76,20 +75,18 @@ export function useTransactionsAccount(accountId: string) {
   );
 
   useEffect(() => {
-    async function main() {
-      const walletAccount = walletAccounts.find(
-        (item) => item.accountId === accountId,
-      );
-      if (walletAccount) {
-        const [item] = await backgroundApiProxy.engine.getAccounts([
-          walletAccount.accountId,
-        ]);
-        if (item) {
-          setAccount(item);
-        }
-      }
+    const walletAccount = walletAccounts.find(
+      (item) => item.accountId === accountId,
+    );
+    if (walletAccount) {
+      backgroundApiProxy.engine
+        .getAccounts([walletAccount.accountId])
+        .then(([item]) => {
+          if (item) {
+            setAccount(item);
+          }
+        });
     }
-    main();
   }, [walletAccounts, accountId]);
   return account;
 }

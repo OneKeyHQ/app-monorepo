@@ -103,34 +103,32 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
           onItemSelect?.(item);
         }}
       >
-        <>
-          <Box position="absolute" top="0" right={0} ref={ref} zIndex="1">
-            <IconButton
-              type="plain"
-              name="DotsHorizontalMini"
-              onPress={() => callback({ triggerEle: ref.current, dapp: item })}
-            />
-          </Box>
-          <Box>
-            <Box flexDirection="row">
-              <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
-              <Box ml="3" flex="1">
-                <Typography.Body2Strong flex={1} numberOfLines={1} mb="1">
-                  {name}
-                </Typography.Body2Strong>
-                {networkIds ? <Chains networkIds={networkIds} /> : null}
-              </Box>
+        <Box position="absolute" top="0" right={0} ref={ref} zIndex="1">
+          <IconButton
+            type="plain"
+            name="DotsHorizontalMini"
+            onPress={() => callback({ triggerEle: ref.current, dapp: item })}
+          />
+        </Box>
+        <Box>
+          <Box flexDirection="row">
+            <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
+            <Box ml="3" flex="1">
+              <Typography.Body2Strong flex={1} numberOfLines={1} mb="1">
+                {name}
+              </Typography.Body2Strong>
+              {networkIds ? <Chains networkIds={networkIds} /> : null}
             </Box>
-            <Typography.Caption
-              mt="3"
-              numberOfLines={2}
-              textAlign="left"
-              color="text-subdued"
-            >
-              {description}
-            </Typography.Caption>
           </Box>
-        </>
+          <Typography.Caption
+            mt="3"
+            numberOfLines={2}
+            textAlign="left"
+            color="text-subdued"
+          >
+            {description}
+          </Typography.Caption>
+        </Box>
       </Pressable>
     </Box>
   );
@@ -219,7 +217,7 @@ const Desktop = () => {
   const favorates = useMemo(() => <Favorites />, []);
   const history = useMemo(() => <History />, []);
   return (
-    <Box width="full" height="full" mb="4" px="8">
+    <Box w="full" h="full" mb="4" px="8">
       <Box
         flexDirection="row"
         justifyContent="space-between"

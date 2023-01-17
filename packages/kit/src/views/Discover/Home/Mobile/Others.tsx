@@ -182,9 +182,7 @@ export function Container() {
 
   return (
     <Box flex="1" bg="background-default" pt="3">
-      <Box h="9">
-        <DAppCategories />
-      </Box>
+      <DAppCategories />
       <Box flex="1" flexDirection="row" mt="4">
         <Box w="56px">
           <ChainsSelector networkIds={networkIds} />
