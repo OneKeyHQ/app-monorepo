@@ -1,13 +1,14 @@
 import type { FC } from 'react';
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import { httpServerEnable } from '@onekeyhq/kit-bg/src/services/ServiceHTTP';
 
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import Layout from '../../../Layout';
-import { httpServerEnable } from '../util';
 
 import SecondaryContent from './SecondaryContent';
 
@@ -91,6 +92,7 @@ const Migration = () => {
   const intl = useIntl();
 
   const navigation = useNavigation();
+  const { serviceHTTP, serviceMigrate } = backgroundApiProxy;
 
   const [selectRange, setSelectedRange] = useState(() => {
     if (!httpServerEnable()) {
@@ -124,6 +126,13 @@ const Migration = () => {
       <SecondaryContent selectRange={selectRange} onChange={setSelectedRange} />
     );
   }, [isVerticalLayout, selectRange]);
+
+  useEffect(() => {
+    serviceMigrate.initServiceMigrate();
+    return () => {
+      serviceHTTP.stopHttpServer();
+    };
+  }, [serviceHTTP, serviceMigrate]);
 
   return (
     <Layout

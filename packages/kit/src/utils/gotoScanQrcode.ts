@@ -4,6 +4,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
+import { OneKeyMigrateQRCodePrefix } from '../views/Onboarding/screens/Migration/util';
 import {
   ScanQrcodeRoutes,
   ScanSubResultCategory,
@@ -15,7 +16,7 @@ export const handleScanResult = async (data: string) => {
   const scanResult: ScanResult = { type: ScanSubResultCategory.TEXT, data };
   if (data.startsWith('https://') || data.startsWith('http://')) {
     scanResult.type = ScanSubResultCategory.URL;
-  } else if (data.startsWith('migrate://')) {
+  } else if (data.startsWith(OneKeyMigrateQRCodePrefix)) {
     scanResult.type = ScanSubResultCategory.MIGRATE;
   } else if (/^wc:.+@.+\?.+/.test(data)) {
     // wc:{topic...}@{version...}?bridge={url...}&key={key...}
