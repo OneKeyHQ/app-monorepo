@@ -271,7 +271,7 @@ const NFTDetailModal: FC = () => {
       <VStack space="24px" mb="50px">
         {/* Asset name and collection name */}
         <Box>
-          <HStack alignItems="center" justifyContent="space-between">
+          <HStack alignItems="stretch" justifyContent="space-between">
             <Text
               typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
               fontWeight="700"
@@ -284,12 +284,14 @@ const NFTDetailModal: FC = () => {
               <NFTDetailMenu>
                 <IconButton
                   name="EllipsisVerticalOutline"
-                  size="sm"
+                  size={isSmallScreen ? 'sm' : 'xs'}
                   type="basic"
                   circle
                   borderWidth={StyleSheet.hairlineWidth}
                   borderColor="border-default"
-                  h={34}
+                  h={{ base: 34, sm: 30 }}
+                  ml={3}
+                  mr={{ base: 0, sm: 10 }}
                 />
               </NFTDetailMenu>
             )}
