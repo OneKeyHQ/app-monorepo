@@ -55,7 +55,6 @@ function getOrCreateClient() {
 
 export function useWalletConnectQrcodeModal() {
   const { serviceWalletConnect } = backgroundApiProxy;
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [state, setState] =
     useState<IWalletConnectQrcodeModalState>(defaultState);

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import bs58check from 'bs58check';
 
+import type { Provider } from '@onekeyhq/blockchain-libs/src/provider/chains/btc/provider';
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -15,7 +16,6 @@ import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IPrepareSoftwareAccountsParams } from '../../types';
 import type BTCVault from './Vault';
-import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 
 const DEFAULT_PURPOSE = 49;
 

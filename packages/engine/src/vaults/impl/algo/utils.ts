@@ -1,11 +1,13 @@
-import * as sdk from 'algosdk';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+
+import sdk from './sdkAlgo';
 
 import type { Signer } from '../../../proxy';
-import type { IEncodedTxAlgo } from './types';
 import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
+  ISdkAlgoEncodedTransaction,
+  ISdkAlgoTransaction,
+} from './sdkAlgo';
+import type { IEncodedTxAlgo } from './types';
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,
@@ -13,7 +15,9 @@ export async function signTransaction(
 ): Promise<SignedTx> {
   const { encodedTx } = unsignedTx.payload as { encodedTx: IEncodedTxAlgo };
   const transaction = sdk.Transaction.from_obj_for_encoding(
-    sdk.decodeObj(Buffer.from(encodedTx, 'base64')) as sdk.EncodedTransaction,
+    sdk.decodeObj(
+      Buffer.from(encodedTx, 'base64'),
+    ) as ISdkAlgoEncodedTransaction,
   );
   const [signature] = await signer.sign(transaction.bytesToSign());
 
@@ -28,6 +32,6 @@ export async function signTransaction(
   };
 }
 
-export function encodeTransaction(tx: sdk.Transaction) {
+export function encodeTransaction(tx: ISdkAlgoTransaction) {
   return Buffer.from(tx.toByte()).toString('base64');
 }

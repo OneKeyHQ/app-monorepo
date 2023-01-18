@@ -22,4 +22,8 @@ export enum EOnboardingRoutes {
 
   // KeyTag
   KeyTag = 'KeyTag',
+
+  // Migration
+  Migration = 'Migration',
+  MigrationPreview = 'MigrationPreview',
 }

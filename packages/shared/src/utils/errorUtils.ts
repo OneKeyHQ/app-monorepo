@@ -1,4 +1,4 @@
-import platformEnv from './platformEnv';
+import platformEnv from '../platformEnv';
 
 export function toPlainErrorObject(error: {
   // js native Error

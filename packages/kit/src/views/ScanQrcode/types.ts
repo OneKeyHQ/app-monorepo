@@ -7,6 +7,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 export enum ScanSubResultCategory {
   URL = 'url',
   TEXT = 'text',
+  MIGRATE = 'migrate',
 }
 
 export type ScanResultCategory = UserInputCategory | ScanSubResultCategory;

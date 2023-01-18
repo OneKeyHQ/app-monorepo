@@ -1,5 +1,4 @@
 // safe import
-import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { toLower } from 'lodash';
 
 import type { WalletSchema } from '@onekeyhq/engine/src/dbs/realms/schemas';
@@ -11,6 +10,7 @@ import {
 } from '@onekeyhq/engine/src/types/wallet';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { addDisplayPassphraseWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { IMPL_EVM } from './engineConsts';
 

@@ -112,10 +112,14 @@ export class VaultContext extends VaultContextBase {
 
   _network!: Network;
 
-  async getNetwork() {
-    if (!this._network || this._network.id !== this.networkId) {
+  async getNetwork({ cached }: { cached?: boolean } = {}) {
+    if (!cached || !this._network || this._network.id !== this.networkId) {
       this._network = await this.engine.getNetwork(this.networkId);
     }
     return this._network;
+  }
+
+  async getRpcUrl() {
+    return (await this.getNetwork({ cached: false })).rpcURL;
   }
 }

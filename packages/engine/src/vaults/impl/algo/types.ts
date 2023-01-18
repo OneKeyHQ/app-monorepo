@@ -1,4 +1,4 @@
-import type * as sdk from 'algosdk';
+import type { ISdkAlgoTransactionType } from './sdkAlgo';
 
 export type IEncodedTxAlgo = string; // Base64 encoded string
 
@@ -23,7 +23,7 @@ export type IClientError = { status: number };
 type AccountTransaction = {
   id: string;
   sender: string;
-  'tx-type': sdk.TransactionType;
+  'tx-type': ISdkAlgoTransactionType;
   'round-time': number;
   fee: number;
   'payment-transaction'?: {

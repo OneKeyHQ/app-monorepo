@@ -1,7 +1,3 @@
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import * as Device from 'expo-device';
 import * as FileSystem from 'expo-file-system';
 import { debounce } from 'lodash';
@@ -9,6 +5,10 @@ import memoizee from 'memoizee';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import {
+  decrypt,
+  encrypt,
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import {
   incrBackupRequests,
   setDisabled,
@@ -91,7 +91,8 @@ class ServiceCloudBackup extends ServiceBase {
     return this.backupUUID;
   }
 
-  private async getDataForBackup(password: string) {
+  @backgroundMethod()
+  async getDataForBackup(password: string) {
     const publicBackupData: PublicBackupData = {
       contacts: {},
       importedAccounts: {},
@@ -234,6 +235,8 @@ class ServiceCloudBackup extends ServiceBase {
       (tmpUUID) => tmpUUID !== currentUUID,
     )) {
       try {
+        const cloudData = JSON.parse(await this.getDataFromCloud(backupUUID));
+
         const {
           backupTime,
           deviceInfo,
@@ -242,7 +245,7 @@ class ServiceCloudBackup extends ServiceBase {
           backupTime: number;
           deviceInfo: { osName: string; deviceName: string };
           public: string;
-        } = JSON.parse(await this.getDataFromCloud(backupUUID));
+        } = cloudData;
         const {
           contacts = {},
           HDWallets = {},
@@ -275,7 +278,7 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBackupDetails(backupUUID: string) {
+  async getBackupDetailsWithRemoteData(remoteData: PublicBackupData) {
     const alreadyOnDevice: PublicBackupData = {
       contacts: {},
       importedAccounts: {},
@@ -290,10 +293,6 @@ class ServiceCloudBackup extends ServiceBase {
     };
 
     try {
-      const { public: publicBackupData } = JSON.parse(
-        await this.getDataFromCloud(backupUUID),
-      );
-      const remoteData = JSON.parse(publicBackupData) as PublicBackupData;
       const localData = JSON.parse(
         (await this.getDataForBackup('')).public,
       ) as PublicBackupData;
@@ -360,13 +359,22 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
-  async restoreFromBackup({
-    backupUUID,
+  async getBackupDetails(backupUUID: string) {
+    const { public: publicBackupData } = JSON.parse(
+      await this.getDataFromCloud(backupUUID),
+    );
+    const remoteData = JSON.parse(publicBackupData) as PublicBackupData;
+    return this.getBackupDetailsWithRemoteData(remoteData);
+  }
+
+  @backgroundMethod()
+  async restoreFromPrivateBackup({
+    privateBackupData,
     notOnDevice,
     localPassword,
     remotePassword,
   }: {
-    backupUUID: string;
+    privateBackupData: any;
     notOnDevice: PublicBackupData;
     localPassword: string;
     remotePassword?: string;
@@ -381,9 +389,6 @@ class ServiceCloudBackup extends ServiceBase {
     } = this.backgroundApi;
     const { isPasswordSet } = appSelector((s) => s.data);
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
-    const { private: privateBackupData } = JSON.parse(
-      await this.getDataFromCloud(backupUUID),
-    );
 
     let data = '';
     try {
@@ -448,6 +453,29 @@ class ServiceCloudBackup extends ServiceBase {
     }
 
     return RestoreResult.SUCCESS;
+  }
+
+  @backgroundMethod()
+  async restoreFromBackup({
+    backupUUID,
+    notOnDevice,
+    localPassword,
+    remotePassword,
+  }: {
+    backupUUID: string;
+    notOnDevice: PublicBackupData;
+    localPassword: string;
+    remotePassword?: string;
+  }): Promise<RestoreResult> {
+    const { private: privateBackupData } = JSON.parse(
+      await this.getDataFromCloud(backupUUID),
+    );
+    return this.restoreFromPrivateBackup({
+      privateBackupData,
+      notOnDevice,
+      localPassword,
+      remotePassword,
+    });
   }
 
   @backgroundMethod()

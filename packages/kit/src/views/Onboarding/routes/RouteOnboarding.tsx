@@ -14,6 +14,8 @@ import SetPassword from '../screens/CreateWallet/SetPassword';
 import ShowRecoveryPhrase from '../screens/CreateWallet/ShowRecoveryPhrase';
 import ImportWallet from '../screens/ImportWallet';
 import RecoveryWallet from '../screens/ImportWallet/RecoveryWallet';
+import Migration from '../screens/Migration/ConnectServer';
+import PreviewImportData from '../screens/Migration/PreviewImportData';
 import BackupDetails from '../screens/RestoreFromCloud/BackupDetails';
 import BackupsList from '../screens/RestoreFromCloud/BackupsList';
 import ThirdPartyWallet from '../screens/ThirdPartyWallet';
@@ -75,6 +77,14 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.KeyTag,
     component: RouteKeytag,
+  },
+  {
+    name: EOnboardingRoutes.Migration,
+    component: Migration,
+  },
+  {
+    name: EOnboardingRoutes.MigrationPreview,
+    component: PreviewImportData,
   },
 ];
 

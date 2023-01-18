@@ -73,6 +73,26 @@ export type DesktopAPI = {
   openPrivacyPanel: () => void;
   clearAutoUpdateSettings: () => void;
   restore: () => void;
+  // startServer: (port: number) => Promise<{ success: boolean; error?: string }>;
+  startServer: (
+    port: number,
+    cb: (data: string, success: boolean) => void,
+  ) => void;
+  serverListener: (
+    cb: (request: {
+      requestId: string;
+      postData: any;
+      type: string;
+      url: string;
+    }) => void,
+  ) => void;
+  serverRespond: (
+    requestId: string,
+    code: number,
+    type: string,
+    body: string,
+  ) => void;
+  stopServer: () => void;
 };
 declare global {
   interface Window {
@@ -188,6 +208,41 @@ const desktopApi = {
 
   restore: () => {
     ipcRenderer.send('app/restoreMainWindow');
+  },
+
+  startServer: (port: number, cb: (data: string, success: boolean) => void) => {
+    ipcRenderer.on('server/start/res', (_, arg) => {
+      const { data, success } = arg;
+      cb(data, success);
+    });
+    ipcRenderer.send('server/start', port);
+  },
+
+  stopServer: () => {
+    ipcRenderer.send('server/stop');
+    ipcRenderer.removeAllListeners('server/start/res');
+    ipcRenderer.removeAllListeners('server/listener');
+  },
+  serverListener: (
+    cb: (request: {
+      requestId: string;
+      postData: any;
+      type: string;
+      url: string;
+    }) => void,
+  ) => {
+    ipcRenderer.on('server/listener', (_, arg) => {
+      const { requestId, type, url, postData } = arg;
+      cb({ requestId, postData, type, url });
+    });
+  },
+  serverRespond: (
+    requestId: string,
+    code: number,
+    type: string,
+    body: string,
+  ) => {
+    ipcRenderer.send('server/respond', { requestId, code, type, body });
   },
 };
 

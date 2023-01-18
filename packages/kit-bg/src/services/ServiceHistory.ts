@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { cloneDeep, isEmpty, isNil, isNumber } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   IFeeInfoUnit,
   IHistoryTx,

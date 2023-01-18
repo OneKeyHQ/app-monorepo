@@ -1,6 +1,7 @@
-import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import { PublicKey } from '@solana/web3.js';
 
+import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -15,10 +16,6 @@ import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(

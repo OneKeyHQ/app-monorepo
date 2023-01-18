@@ -40,8 +40,6 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
-import { randomAvatar } from '@onekeyhq/shared/src/emojiUtils';
 import {
   COINTYPE_ETH,
   IMPL_CFX,
@@ -54,6 +52,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
+import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';

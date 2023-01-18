@@ -1,4 +1,4 @@
-import AddressEncodings from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/sdk/addressEncodings';
+import AddressEncodings from '@onekeyhq/blockchain-libs/src/provider/chains/btc/sdk/addressEncodings';
 
 import { NotImplemented } from '../../../errors';
 

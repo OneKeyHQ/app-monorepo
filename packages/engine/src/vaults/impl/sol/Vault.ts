@@ -1,11 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-member-access */
 import {
-  Solana,
-  Provider as SolanaProvider,
-} from '@onekeyfe/blockchain-libs/dist/provider/chains/sol';
-import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   TokenInstruction,
@@ -29,6 +23,9 @@ import bs58 from 'bs58';
 import { isArray, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
+import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -45,6 +42,7 @@ import { extractResponseError } from '../../../proxy';
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
+import { ClientSol } from './ClientSol';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -75,7 +73,6 @@ import type {
   INativeTxSol,
   ParsedAccountInfo,
 } from './types';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 export default class Vault extends VaultBase {
@@ -95,15 +92,15 @@ export default class Vault extends VaultBase {
     maxAge: getTimeDurationMs({ minute: 3 }),
   });
 
+  // client: axios
   getApiExplorer() {
     const baseURL = 'https://public-api.solscan.io/';
     return this.getApiExplorerCache(baseURL);
   }
 
-  private async getClient(): Promise<Solana> {
-    return (await this.engine.providerManager.getClient(
-      this.networkId,
-    )) as Solana;
+  private async getClient(): Promise<ClientSol> {
+    const rpcURL = await this.getRpcUrl();
+    return this.createClientFromURL(rpcURL);
   }
 
   private getAssociatedAccountInfo = memoizee(
@@ -256,9 +253,24 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override createClientFromURL(url: string): Solana {
-    return new Solana(url);
+  override async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ): Promise<(BigNumber | undefined)[]> {
+    const requestsNew = requests.map(({ address, tokenAddress }) => ({
+      address,
+      coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
+    }));
+    const client = await this.getClient();
+    return client.getBalances(requestsNew);
   }
+
+  override createClientFromURL = memoizee(
+    (rpcURL: string) => new ClientSol(rpcURL),
+    {
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   override fetchTokenInfos(
     tokenAddresses: string[],
