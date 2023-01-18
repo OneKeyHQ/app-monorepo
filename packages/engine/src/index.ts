@@ -137,6 +137,7 @@ import type {
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
+  IHistoryTx,
   ISetApprovalForAll,
   ITransferInfo,
   IVaultSettings,

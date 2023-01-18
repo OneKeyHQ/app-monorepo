@@ -64,6 +64,8 @@ export type IVaultSettings = {
   subNetworkSettings?: {
     [networkId: string]: IVaultSubNetworkSettings;
   };
+
+  supportFilterScam?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

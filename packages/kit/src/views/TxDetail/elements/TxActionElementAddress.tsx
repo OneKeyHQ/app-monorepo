@@ -1,26 +1,14 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import {
-  BottomSheetModal,
-  Box,
-  Button,
-  Center,
-  Divider,
-  HStack,
-  Icon,
-  Text,
-  VStack,
-} from '@onekeyhq/components';
+import { Divider, HStack, Icon, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useClipboard } from '../../../hooks/useClipboard';
-import { showOverlay } from '../../../utils/overlayUtils';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
+import { showAddressPoisoningScamAlert } from '../../Overlay/AddressPoisoningScamAlert';
 
 import { TxActionElementPressable } from './TxActionElementPressable';
 
@@ -62,7 +50,6 @@ export function TxActionElementAddress(
     amount,
     ...others
   } = props;
-  const intl = useIntl();
   const shouldCheckSecurity = checkSecurity && networkId;
   const { loading, data: securityInfo } = useAddressSecurityInfo(
     networkId ?? '',
@@ -75,76 +62,15 @@ export function TxActionElementAddress(
     text = `${label}(${address.slice(-4)})`;
   }
 
-  const showScamAlert = useCallback(
-    (addressToCopy: string) => {
-      showOverlay((close) => (
-        <BottomSheetModal title="" closeOverlay={close} showCloseButton={false}>
-          <Center mt={-10}>
-            <Icon name="DialogIconTypeDangerMini" size={48} />
-          </Center>
-          <Box>
-            <Text
-              textAlign="center"
-              typography="DisplayMedium"
-              fontSize={20}
-              mt={5}
-            >
-              {intl.formatMessage({
-                id: 'title__beware_of_address_poisoning_scams',
-              })}
-            </Text>
-            <Text
-              textAlign="center"
-              typography="Body2"
-              color="text-subdued"
-              mt={2}
-              fontSize={14}
-            >
-              {intl.formatMessage({
-                id: 'title__beware_of_address_poisoning_scams_desc',
-              })}
-            </Text>
-            <Text
-              textAlign="center"
-              typography="Body2"
-              color="text-subdued"
-              mt={5}
-              fontSize={14}
-            >
-              {addressToCopy}
-            </Text>
-          </Box>
-          <HStack space={3} mt={6} pb={5}>
-            <Button size="xl" flex={1} onPress={() => close()}>
-              {intl.formatMessage({ id: 'action__cancel' })}
-            </Button>
-            <Button
-              flex={1}
-              size="xl"
-              type="destructive"
-              onPress={() => {
-                copyText(addressToCopy);
-                close();
-              }}
-            >
-              {intl.formatMessage({ id: 'action__copy_address' })}
-            </Button>
-          </HStack>
-        </BottomSheetModal>
-      ));
-    },
-    [copyText, intl],
-  );
-
   const handleCopyText = useCallback(
     (addressToCopy: string) => {
       if (amount === '0') {
-        showScamAlert(address);
+        showAddressPoisoningScamAlert(address);
       } else {
         copyText(addressToCopy);
       }
     },
-    [address, amount, copyText, showScamAlert],
+    [address, amount, copyText],
   );
 
   return (
