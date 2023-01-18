@@ -4,12 +4,13 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import { arrayify } from '@ethersproject/bytes';
+import { starcoin_types, utils } from '@starcoin/starcoin';
+
 import {
   buildSignedTx,
   buildUnsignedRawTx,
-} from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/provider';
-import { starcoin_types, utils } from '@starcoin/starcoin';
-
+} from '@onekeyhq/blockchain-libs/src/provider/chains/stc/provider';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -24,10 +25,6 @@ import type {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 

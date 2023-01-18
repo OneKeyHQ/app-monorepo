@@ -1,5 +1,4 @@
-import * as sdk from 'algosdk';
-
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -8,16 +7,15 @@ import { NotImplemented, OneKeyHardwareError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
+import sdk from './sdkAlgo';
+
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
 } from '../../types';
+import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IEncodedTxAlgo } from './types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
@@ -30,7 +28,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { encodedTx } = unsignedTx.payload as { encodedTx: IEncodedTxAlgo };
 
     const transaction = sdk.Transaction.from_obj_for_encoding(
-      sdk.decodeObj(Buffer.from(encodedTx, 'base64')) as sdk.EncodedTransaction,
+      sdk.decodeObj(
+        Buffer.from(encodedTx, 'base64'),
+      ) as ISdkAlgoEncodedTransaction,
     );
 
     const response = await HardwareSDK.algoSignTransaction(

@@ -1,12 +1,12 @@
 import type { FC } from 'react';
 
-import { ethers } from '@onekeyfe/blockchain-libs';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Container } from '@onekeyhq/components';
 import type { ContentItemProps } from '@onekeyhq/components/src/Container/ContentBasisItem';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
+import { ethers } from '@onekeyhq/engine/src/vaults/impl/evm/sdk/ethers';
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 export type TotalFeeProps = {

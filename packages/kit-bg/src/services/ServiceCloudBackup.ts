@@ -1,7 +1,3 @@
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import * as Device from 'expo-device';
 import * as FileSystem from 'expo-file-system';
 import { debounce } from 'lodash';
@@ -9,6 +5,10 @@ import memoizee from 'memoizee';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import {
+  decrypt,
+  encrypt,
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import {
   incrBackupRequests,
   setDisabled,

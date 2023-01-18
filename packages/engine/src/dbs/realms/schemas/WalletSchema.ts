@@ -1,6 +1,6 @@
 import Realm from 'realm';
 
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { AccountSchema, DeviceSchema } from '.';
 import type { Wallet, WalletType } from '../../../types/wallet';

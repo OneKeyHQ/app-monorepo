@@ -1,4 +1,4 @@
-import { ethers } from '@onekeyfe/blockchain-libs';
+import { ethers } from '../sdk/ethers';
 
 import { EVMTxDecoder, InfiniteAmountText } from './decoder';
 import { parseGasInfo } from './gasParser';

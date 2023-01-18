@@ -1,6 +1,7 @@
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import bs58check from 'bs58check';
 
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
@@ -21,10 +22,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type BTCForkVault from './VaultBtcFork';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringHd extends KeyringHdBase {
   override async signTransaction(

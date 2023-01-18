@@ -1,5 +1,4 @@
-import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
