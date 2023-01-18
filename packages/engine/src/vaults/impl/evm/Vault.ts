@@ -1723,8 +1723,9 @@ export default class Vault extends VaultBase {
       const { encodedTx } = decodedTx;
       if (!encodedTx) return false;
 
-      const { from, to } = encodedTx as IEncodedTxEvm;
-      const address = await this.getAccountAddress();
+      const from = (encodedTx as IEncodedTxEvm).from.toLowerCase();
+      const to = (encodedTx as IEncodedTxEvm).to.toLowerCase();
+      const address = (await this.getAccountAddress()).toLocaleLowerCase();
       if (from === address || to === address) return false;
 
       const actions = decodedTx.outputActions || decodedTx.actions;
@@ -1732,18 +1733,22 @@ export default class Vault extends VaultBase {
       for (let i = 0; i < actions.length; i += 1) {
         const action = actions[i];
         if (action.type !== IDecodedTxActionType.TOKEN_TRANSFER) return false;
+
         if (
           action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
           action.tokenTransfer?.amount &&
-          action.tokenTransfer?.amount !== '0'
+          !new BigNumber(action.tokenTransfer?.amount).isZero()
         )
           return false;
 
         if (
           action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
           action.tokenTransfer?.amount &&
-          action.tokenTransfer?.amount === '0' &&
-          [action.tokenTransfer.from, action.tokenTransfer.to].includes(from)
+          new BigNumber(action.tokenTransfer?.amount).isZero() &&
+          [
+            action.tokenTransfer.from.toLocaleLowerCase(),
+            action.tokenTransfer.to.toLocaleLowerCase(),
+          ].includes(from)
         )
           return false;
       }

@@ -30,7 +30,20 @@ function AddressPoisoningScamAlertBottomSheetModal({
       showCloseButton={false}
     >
       <Center mt={-10}>
-        <Icon name="DialogIconTypeDangerMini" size={48} />
+        <Box
+          width={12}
+          height={12}
+          borderRadius="full"
+          alignItems="center"
+          justifyContent="center"
+          bgColor="surface-critical-default"
+        >
+          <Icon
+            name="ExclamationTriangleOutline"
+            size={24}
+            color="icon-critical"
+          />
+        </Box>
       </Center>
       <Box>
         <Text
