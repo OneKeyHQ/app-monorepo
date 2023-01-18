@@ -17,9 +17,9 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';

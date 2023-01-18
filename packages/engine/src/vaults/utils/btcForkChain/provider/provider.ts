@@ -1,9 +1,9 @@
-import { CKDPub, verify } from '@onekeyfe/blockchain-libs/dist/secret';
 import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 import memoziee from 'memoizee';
 
+import { CKDPub, verify } from '@onekeyhq/engine/src/secret';
 import type {
   AddressValidation,
   ChainInfo,
@@ -79,6 +79,7 @@ class Provider {
   }
 
   get blockbook() {
+    // client: axios
     return getBlockBook(this.chainInfo);
   }
 

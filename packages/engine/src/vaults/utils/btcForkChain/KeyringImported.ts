@@ -1,11 +1,14 @@
-import { BaseBip32KeyDeriver } from '@onekeyfe/blockchain-libs/dist/secret/bip32';
-import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
+import bs58check from 'bs58check';
+
+import type { ExtendedKey } from '@onekeyhq/engine/src/secret';
+import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
+import type { Bip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import {
   decrypt,
   encrypt,
-} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import bs58check from 'bs58check';
-
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -19,12 +22,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type BTCForkVault from './VaultBtcFork';
-import type { ExtendedKey } from '@onekeyfe/blockchain-libs/dist/secret';
-import type { Bip32KeyDeriver } from '@onekeyfe/blockchain-libs/dist/secret/bip32';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const deriver = new BaseBip32KeyDeriver(
   Buffer.from('Bitcoin seed'),

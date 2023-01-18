@@ -4,21 +4,30 @@
 
 import { Buffer } from 'buffer';
 
-import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
-import { ProviderController as BaseProviderController } from '@onekeyfe/blockchain-libs/dist/provider';
-import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import BigNumber from 'bignumber.js';
+
+import { ProviderController as BaseProviderController } from '@onekeyhq/blockchain-libs/src/provider';
+import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
+import type {
+  BaseClient,
+  BaseProvider,
+  ClientFilter,
+} from '@onekeyhq/engine/src/client/BaseClient';
 import {
   N,
   sign,
   uncompressPublicKey,
   verify,
-} from '@onekeyfe/blockchain-libs/dist/secret';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import BigNumber from 'bignumber.js';
-
-import bufferUitls from '@onekeyhq/shared/src/bufferUitls';
+} from '@onekeyhq/engine/src/secret';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { ChainInfo } from '@onekeyhq/engine/src/types/chain';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type {
+  Signer as ISigner,
+  Verifier as IVerifier,
+} from '@onekeyhq/engine/src/types/secret';
 import {
   IMPL_ALGO,
   IMPL_BCH,
@@ -28,25 +37,17 @@ import {
   IMPL_TBTC,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
+import bufferUitls from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { OneKeyInternalError } from './errors';
 import { getCurveByImpl } from './managers/impl';
 import { getPresetNetworks } from './presets';
 import { IMPL_MAPPINGS, fillUnsignedTx, fillUnsignedTxObj } from './proxyUtils';
 import { HistoryEntryStatus } from './types/history';
+import { getRpcUrlFromChainInfo } from './vaults/utils/btcForkChain/provider/blockbook';
 
 import type { DBNetwork, EIP1559Fee } from './types/network';
-import type {
-  BaseClient,
-  BaseProvider,
-  ClientFilter,
-} from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { ChainInfo } from '@onekeyfe/blockchain-libs/dist/types/chain';
-import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import type {
-  Signer as ISigner,
-  Verifier as IVerifier,
-} from '@onekeyfe/blockchain-libs/dist/types/secret';
 
 type Curve = 'secp256k1' | 'ed25519';
 
@@ -244,22 +245,26 @@ class ProviderController extends BaseProviderController {
   }
   // TODO: set client api to support change.
 
+  // TODO legacy getRpcClient
   override async getClient(
     networkId: string,
     filter?: ClientFilter,
   ): Promise<BaseClient> {
     const filterClient = filter || (() => true);
+    const chainInfo = await this.getChainInfoByNetworkId(networkId);
 
-    if (typeof this.clients[networkId] === 'undefined') {
-      const chainInfo = await this.getChainInfoByNetworkId(networkId);
+    if (
+      !this.clients[networkId] ||
+      getRpcUrlFromChainInfo(this.clients[networkId].chainInfo) !==
+        getRpcUrlFromChainInfo(chainInfo)
+    ) {
       const module = this.requireChainImpl(chainInfo.impl);
       const { name, args } = chainInfo.clients[0];
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (typeof module[name] !== 'undefined') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        this.clients[networkId] = new module[name](...args);
-        this.clients[networkId].setChainInfo(chainInfo);
-      }
+      const ClientClass = module[name] || module.Client;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      this.clients[networkId] = new ClientClass(...args);
+      this.clients[networkId].setChainInfo(chainInfo);
     }
 
     const client = this.clients[networkId];
@@ -271,8 +276,13 @@ class ProviderController extends BaseProviderController {
   }
 
   override async getProvider(networkId: string): Promise<BaseProvider> {
-    if (typeof this.providers[networkId] === 'undefined') {
-      const chainInfo = await this.getChainInfoByNetworkId(networkId);
+    const chainInfo = await this.getChainInfoByNetworkId(networkId);
+
+    if (
+      !this.providers[networkId] ||
+      getRpcUrlFromChainInfo(this.providers[networkId].chainInfo) !==
+        getRpcUrlFromChainInfo(chainInfo)
+    ) {
       const { Provider } = this.requireChainImpl(chainInfo.impl);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call

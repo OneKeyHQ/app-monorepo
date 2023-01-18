@@ -1,0 +1,22 @@
+{
+  "name": "@onekeyhq/blockchain-libs",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "postinstall": "npx patch-package",
+    "build": "run-s clean build:main",
+    "build:main": "tsc -p tsconfig.json",
+    "fix": "run-s fix:*",
+    "fix:prettier": "prettier --write .",
+    "fix:lint": "eslint src --ext .ts --fix",
+    "test": "run-s test:*",
+    "test:lint": "eslint src --ext .ts",
+    "test:prettier": "prettier --check .",
+    "unittest": "jest --coverage --silent",
+    "prepack": "npm run build",
+    "clean": "rimraf dist tsconfig.tsbuildinfo onekeyfe-blockchain-libs-v*.tgz",
+    "lint-staged": "lint-staged",
+    "prepare": "husky install",
+    "version": "conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md"
+  }
+}

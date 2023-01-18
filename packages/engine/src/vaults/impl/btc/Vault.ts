@@ -1,7 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { BlockBook } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/blockbook';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 // @ts-ignore
@@ -9,6 +6,15 @@ import coinSelect from 'coinselect';
 // @ts-ignore
 import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
+
+import { BlockBook } from '@onekeyhq/blockchain-libs/src/provider/chains/btc/blockbook';
+import type { Provider } from '@onekeyhq/blockchain-libs/src/provider/chains/btc/provider';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type {
+  PartialTokenInfo,
+  TxInput,
+} from '@onekeyhq/engine/src/types/provider';
 
 import {
   InsufficientBalance,
@@ -51,11 +57,6 @@ import type {
 import type { IBlockBookTransaction } from '../../utils/btcForkChain/types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IBtcUTXO, IEncodedTxBtc } from './types';
-import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
-import type {
-  PartialTokenInfo,
-  TxInput,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const DEFAULT_BLOCK_NUMS = [5, 2, 1];
 const DEFAULT_BLOCK_TIME = 600; // Average block time is 10 minutes.
@@ -697,7 +698,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve(ret);
   }
 
-  createClientFromURL(url: string): BlockBook {
+  override createClientFromURL(url: string): BlockBook {
     return new BlockBook(url);
   }
 

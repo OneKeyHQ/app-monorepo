@@ -4,16 +4,17 @@
 import { splitSignature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { serialize } from '@ethersproject/transactions';
-import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { BigNumber } from 'bignumber.js';
 import { TypedDataUtils } from 'eth-sig-util';
 
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { IPrepareHardwareAccountsParams } from '@onekeyhq/engine/src/vaults/types';
 import { isHexString } from '@onekeyhq/kit/src/utils/helper';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import {
   NotImplemented,
@@ -25,10 +26,6 @@ import { ETHMessageTypes } from './types/message';
 import type { IUnsignedMessageEvm } from './vaults/impl/evm/Vault';
 import type { WalletPassphraseState } from './vaults/keyring/KeyringHardwareBase';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type {
   CoreApi,
   EVMTransaction,

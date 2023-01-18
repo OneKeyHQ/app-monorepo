@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -28,7 +29,7 @@ import {
   generateExportedCredential,
 } from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
-import Client from './helper/client';
+import ClientAda from './helper/ClientAda';
 import { ensureSDKReady, getCardanoApi } from './helper/sdk';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -60,7 +61,6 @@ import type {
   IEncodeOutput,
   IEncodedTxADA,
 } from './types';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -75,11 +75,12 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   async getClient() {
-    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const rpcURL = await this.getRpcUrl();
     return this.getClientCache(rpcURL);
   }
 
-  private getClientCache = memoizee((rpcUrl: string) => new Client(rpcUrl), {
+  // client: axios
+  private getClientCache = memoizee((rpcUrl: string) => new ClientAda(rpcUrl), {
     maxAge: 60 * 1000 * 3,
   });
 

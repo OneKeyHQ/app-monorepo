@@ -11,8 +11,8 @@ import {
 import { stringify } from 'circular-json';
 
 import platformEnv from '../platformEnv';
-import { toPlainErrorObject } from '../sharedUtils';
 import appStorage from '../storage/appStorage';
+import { toPlainErrorObject } from '../utils/errorUtils';
 
 type IConsoleFuncProps = {
   msg: any;

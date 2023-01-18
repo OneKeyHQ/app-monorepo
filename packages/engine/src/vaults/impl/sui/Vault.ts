@@ -26,12 +26,13 @@ import {
   isValidSuiAddress,
 } from '@mysten/sui.js';
 import { hexToBytes } from '@noble/hashes/utils';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { groupBy, isArray, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/kit/src/store/typings';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -101,8 +102,6 @@ import type {
   SuiTransactionResponse,
   UnserializedSignableTransaction,
 } from '@mysten/sui.js';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -128,6 +127,7 @@ export default class Vault extends VaultBase {
   }
 
   getSuiClient(url: string) {
+    // client: jayson > cross-fetch
     return new QueryJsonRpcProvider(url, {
       faucetURL: 'https://faucet.testnet.sui.io/gas',
     });
@@ -135,15 +135,10 @@ export default class Vault extends VaultBase {
 
   // Chain only methods
 
-  override createClientFromURL(_url: string): BaseClient {
-    // This isn't needed.
-    throw new NotImplemented();
-  }
-
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const client = this.getSuiClient(url);
+    const client = await this.getClientCache(url);
 
     const start = performance.now();
     const latestBlock = await client.getTotalTransactionNumber();

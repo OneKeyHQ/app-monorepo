@@ -418,8 +418,9 @@ function createMainWindow() {
     if (isMac) {
       event.preventDefault();
       if (!browserWindow.isDestroyed()) {
-        browserWindow.hide();
-        // browserWindow.minimize();
+        browserWindow.blur();
+        browserWindow.hide(); // hide window only
+        // browserWindow.minimize(); // hide window and minimize to Docker
       }
     }
   });

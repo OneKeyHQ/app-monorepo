@@ -1,5 +1,5 @@
-import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_TRON as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -14,10 +14,6 @@ import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {

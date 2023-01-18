@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// import * as transactions from '@onekeyfe/blockchain-libs/dist/provider/chains/near/sdk/transaction';
 import BN from 'bn.js';
 import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';

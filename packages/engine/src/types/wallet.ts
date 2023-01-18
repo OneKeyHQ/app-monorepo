@@ -1,5 +1,5 @@
 // safe import
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { HasName } from './base';
 

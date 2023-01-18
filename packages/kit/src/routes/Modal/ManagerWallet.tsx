@@ -4,7 +4,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import ManagerWalletLocalValidationView from '@onekeyhq/kit/src/views/ManagerWallet/LocalValidationModal';
 import ModifyWalletEmojiView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWallet/emoji';
 import ModifyWalletNameView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWallet/name';
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 
