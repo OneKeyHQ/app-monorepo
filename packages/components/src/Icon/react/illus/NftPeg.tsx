@@ -1,6 +1,6 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgNftPeg = (props: SvgProps) => (
-  <Svg viewBox="0 0 53 60" fill="none" {...props}>
+  <Svg viewBox="0 0 53 60" fill="none" accessibilityRole="image" {...props}>
     <Path
       fillRule="evenodd"
       clipRule="evenodd"

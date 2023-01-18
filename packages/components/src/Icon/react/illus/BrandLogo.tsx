@@ -1,6 +1,6 @@
 import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
 const SvgBrandLogo = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 27 27" {...props}>
+  <Svg fill="none" viewBox="0 0 27 27" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">
       <Path
         d="M26.918 13.459c0 9.291-4.168 13.459-13.46 13.459C4.169 26.918 0 22.75 0 13.458 0 4.169 4.167 0 13.459 0c9.291 0 13.459 4.167 13.459 13.459Z"

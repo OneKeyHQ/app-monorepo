@@ -34,6 +34,7 @@ const Started = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const { imageWidth, imageHeight, imageBoxWidth, imageBoxHeight } =
     useStartedKeyTagImage();
+
   return (
     <LayoutContainer
       backButton

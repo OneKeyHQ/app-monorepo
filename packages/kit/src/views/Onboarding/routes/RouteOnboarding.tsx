@@ -3,6 +3,8 @@ import { useEffect, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import { RouteKeytag } from '@onekeyhq/kit/src/views/KeyTag/Routes/RouteKeytag';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
 import ConnectWallet from '../screens/ConnectWallet';
@@ -11,10 +13,12 @@ import RecoveryPhrase from '../screens/CreateWallet/RecoveryPhrase';
 import SetPassword from '../screens/CreateWallet/SetPassword';
 import ShowRecoveryPhrase from '../screens/CreateWallet/ShowRecoveryPhrase';
 import ImportWallet from '../screens/ImportWallet';
+import RecoveryWallet from '../screens/ImportWallet/RecoveryWallet';
 import Migration from '../screens/Migration/ConnectServer';
 import PreviewImportData from '../screens/Migration/PreviewImportData';
 import BackupDetails from '../screens/RestoreFromCloud/BackupDetails';
 import BackupsList from '../screens/RestoreFromCloud/BackupsList';
+import ThirdPartyWallet from '../screens/ThirdPartyWallet';
 import Welcome from '../screens/Welcome';
 
 import { EOnboardingRoutes } from './enums';
@@ -35,8 +39,16 @@ export const stackScreenList = [
     component: ConnectHardware,
   },
   {
+    name: EOnboardingRoutes.ThirdPartyWallet,
+    component: ThirdPartyWallet,
+  },
+  {
     name: EOnboardingRoutes.ImportWallet,
     component: ImportWallet,
+  },
+  {
+    name: EOnboardingRoutes.RecoveryWallet,
+    component: RecoveryWallet,
   },
   {
     name: EOnboardingRoutes.SetPassword,
@@ -61,6 +73,10 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.CloudBackupDetails,
     component: BackupDetails,
+  },
+  {
+    name: EOnboardingRoutes.KeyTag,
+    component: RouteKeytag,
   },
   {
     name: EOnboardingRoutes.Migration,

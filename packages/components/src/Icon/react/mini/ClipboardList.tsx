@@ -1,6 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgClipboardList = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M9 2a1 1 0 0 0 0 2h2a1 1 0 1 0 0-2H9z" />
     <Path
       fillRule="evenodd"
