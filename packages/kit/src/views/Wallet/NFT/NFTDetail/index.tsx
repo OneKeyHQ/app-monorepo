@@ -13,6 +13,7 @@ import {
   CustomSkeleton,
   HStack,
   Icon,
+  IconButton,
   Modal,
   Pressable,
   ScrollView,
@@ -41,6 +42,7 @@ import type {
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import NFTDetailMenu from '@onekeyhq/kit/src/views/Overlay/NFTDetailMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -169,6 +171,20 @@ const NFTDetailModal: FC = () => {
 
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
+  const [showMenu, setShowMenu] = useState(false);
+  useEffect(() => {
+    (async function () {
+      if (!wallet || wallet.type !== 'hw') {
+        setShowMenu(false);
+        return;
+      }
+      const device = await backgroundApiProxy.engine.getHWDeviceByWalletId(
+        wallet.id,
+      );
+      setShowMenu(device?.deviceType === 'touch');
+    })();
+  }, [wallet]);
+
   const goToCollectionDetail = useCollectionDetail();
   const sendAction = () => {
     const { accountId, networkId } = getActiveWalletAccount();
@@ -255,11 +271,29 @@ const NFTDetailModal: FC = () => {
       <VStack space="24px" mb="50px">
         {/* Asset name and collection name */}
         <Box>
-          <Typography.DisplayLarge fontWeight="700">
-            {asset.name && asset.name.length > 0
-              ? asset.name
-              : `#${asset.tokenId as string}`}
-          </Typography.DisplayLarge>
+          <HStack alignItems="center" justifyContent="space-between">
+            <Text
+              typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
+              fontWeight="700"
+            >
+              {asset.name && asset.name.length > 0
+                ? asset.name
+                : `#${asset.tokenId as string}`}
+            </Text>
+            {showMenu && (
+              <NFTDetailMenu>
+                <IconButton
+                  name="EllipsisVerticalOutline"
+                  size="sm"
+                  type="basic"
+                  circle
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="border-default"
+                  h={34}
+                />
+              </NFTDetailMenu>
+            )}
+          </HStack>
           <HStack space="8px" mt="4px">
             <Text typography="Body1" color="text-subdued">
               {intl.formatMessage({ id: 'content__last_sale' })}
