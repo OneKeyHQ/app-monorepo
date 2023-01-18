@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ethers } from '@onekeyfe/blockchain-libs';
-
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   COINTYPE_ETH as COIN_TYPE,
@@ -14,6 +13,8 @@ import * as OneKeyHardware from '../../../hardware';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
+import { ethers } from './sdk/ethers';
+
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IGetAddressParams,
@@ -21,10 +22,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type { IUnsignedMessageEvm } from './Vault';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

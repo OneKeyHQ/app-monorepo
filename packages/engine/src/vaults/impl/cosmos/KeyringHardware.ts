@@ -3,6 +3,7 @@ import { HardwareError } from '@onekeyfe/hd-shared';
 
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -19,10 +20,6 @@ import type {
   IPrepareHardwareAccountsParams,
 } from '../../types';
 import type { IEncodedTxCosmos } from './type';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 // @ts-ignore

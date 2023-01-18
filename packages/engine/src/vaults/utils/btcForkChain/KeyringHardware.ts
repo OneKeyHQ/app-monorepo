@@ -1,5 +1,6 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   CoreSDKLoader,
@@ -27,10 +28,6 @@ import type {
 } from '../../types';
 import type { TxInput, TxOutput, UTXO } from './types';
 import type BTCForkVault from './VaultBtcFork';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { RefTransaction } from '@onekeyfe/hd-core';
 import type { Messages } from '@onekeyfe/hd-transport';
 

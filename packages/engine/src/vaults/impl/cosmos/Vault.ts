@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { hexToBytes } from '@noble/hashes/utils';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { getTime } from 'date-fns';
 import { get } from 'lodash';
@@ -14,7 +12,10 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
@@ -85,8 +86,6 @@ import {
 
 import type { TxBuilder } from './sdk/txBuilder';
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
@@ -123,6 +122,7 @@ export default class Vault extends VaultBase {
   }
 
   getNodeClient(url: string) {
+    // client: axios
     return new CosmosNodeClient(url);
   }
 
@@ -146,11 +146,6 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only methods
-
-  override createClientFromURL(_url: string): BaseClient {
-    // This isn't needed.
-    throw new NotImplemented();
-  }
 
   override async getClientEndpointStatus(
     url: string,

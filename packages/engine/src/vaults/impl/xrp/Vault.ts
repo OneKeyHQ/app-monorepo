@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 import * as XRPL from 'xrpl';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -43,7 +44,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxXrp, IXrpTransaction } from './types';
-import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 let clientInstance: XRPL.Client | null = null;
 
@@ -66,8 +66,17 @@ export default class Vault extends VaultBase {
 
   private getClientCache = memoizee(
     async (rpcUrl) => {
-      if (!clientInstance) {
+      // TODO performance
+      if (
+        !clientInstance ||
+        clientInstance?.connection?.getUrl?.() !== rpcUrl
+      ) {
+        // disconnect previous connection
+        if (clientInstance) {
+          await this.disconnect();
+        }
         // WebSocket wss ws client of xrp sdk
+        // client: ws
         clientInstance = new XRPL.Client(rpcUrl);
       }
       if (!clientInstance.isConnected()) {
@@ -82,20 +91,21 @@ export default class Vault extends VaultBase {
     },
   );
 
-  private disconnect = memoizee(
-    () => {
-      if (clientInstance && clientInstance.isConnected()) {
-        clientInstance.disconnect();
+  private disconnect = async () => {
+    if (clientInstance && clientInstance.isConnected()) {
+      try {
+        await clientInstance.disconnect();
+        clientInstance = null;
+      } catch (error) {
+        debugLogger.common.error(error);
       }
-    },
-    {
-      max: 1,
-    },
-  );
+    }
+  };
 
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
+    // TODO performance
     const client = new XRPL.Client(url);
     if (!client.isConnected()) {
       await client.connect();

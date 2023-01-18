@@ -1,5 +1,4 @@
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';

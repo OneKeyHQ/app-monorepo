@@ -15,8 +15,8 @@ import type {
   ManagerWalletModalRoutes,
   ManagerWalletRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import type { EmojiTypes } from '@onekeyhq/shared/src/emojiUtils';
-import { colors, emojiList } from '@onekeyhq/shared/src/emojiUtils';
+import type { EmojiTypes } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { colors, emojiList } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 

@@ -1,3 +1,5 @@
+import type { CurveName } from '@onekeyhq/engine/src/secret';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
@@ -33,11 +35,6 @@ import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
-import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {

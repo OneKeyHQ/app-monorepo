@@ -18,7 +18,7 @@ import type {
 } from '../types';
 import type { AxiosInstance } from 'axios';
 
-class Client {
+class ClientAda {
   readonly request: AxiosInstance;
 
   readonly backendRequest: AxiosInstance;
@@ -185,4 +185,4 @@ class Client {
   }
 }
 
-export default Client;
+export default ClientAda;
