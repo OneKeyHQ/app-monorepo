@@ -566,4 +566,23 @@ export default class ServiceToken extends ServiceBase {
 
     return [balances, autodetectedTokens];
   }
+
+  @backgroundMethod()
+  async getMinDepositAmount({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    if (!networkId || !accountId) return 0;
+
+    const { engine } = this.backgroundApi;
+
+    const vault = await engine.getVault({
+      accountId,
+      networkId,
+    });
+    return vault.getMinDepositAmount();
+  }
 }

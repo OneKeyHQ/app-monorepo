@@ -6,14 +6,15 @@ import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
+import { KeyringImportedBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringImportedBase';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
 } from '@onekeyhq/engine/src/vaults/types';
+import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { COINTYPE_DOT as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 import { accountIdToAddress } from './sdk/address';
 import { TYPE_PREFIX } from './Vault';
@@ -24,6 +25,7 @@ import type {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
+
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {
   private async getChainInfo() {
@@ -99,7 +101,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const vault = this.vault as Vault;
 
-    const message = await vault.serializeUnsignedTransaction(
+    const { hash: message } = await vault.serializeUnsignedTransaction(
       unsignedTx.payload.encodedTx,
     );
 
@@ -125,6 +127,31 @@ export class KeyringImported extends KeyringImportedBase {
     return Promise.resolve({
       txid: '',
       rawTx: tx,
+      signature: addHexPrefix(bytesToHex(txSignature)),
     });
+  }
+
+  override async signMessage(
+    messages: CommonMessage[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = await this.getDbAccount();
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+    const vault = this.vault as Vault;
+
+    return Promise.all(
+      messages.map(async (message) => {
+        const wrapMessage = await vault.serializeMessage(message.message);
+        const [signature] = await signer.sign(wrapMessage);
+        const txSignature = u8aConcat(
+          TYPE_PREFIX.ed25519,
+          bufferToU8a(signature),
+        );
+        return addHexPrefix(bytesToHex(txSignature));
+      }),
+    );
   }
 }

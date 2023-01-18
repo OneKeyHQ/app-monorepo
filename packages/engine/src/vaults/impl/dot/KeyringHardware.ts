@@ -1,7 +1,17 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { u8aConcat } from '@polkadot/util';
 
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
+import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
+import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
+import type {
+  IHardwareGetAddressParams,
+  IPrepareHardwareAccountsParams,
+  ISignCredentialOptions,
+} from '@onekeyhq/engine/src/vaults/types';
+import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   IMPL_DOT as COIN_IMPL,
@@ -9,19 +19,9 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError } from '../../../errors';
-import { AccountType } from '../../../types/account';
-import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
-
 import { accountIdToAddress } from './sdk/address';
 import { TYPE_PREFIX } from './Vault';
 
-import type { DBSimpleAccount } from '../../../types/account';
-import type {
-  IHardwareGetAddressParams,
-  IPrepareHardwareAccountsParams,
-  ISignCredentialOptions,
-} from '../../types';
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';
 import type {
@@ -128,7 +128,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const vault = this.vault as Vault;
 
-    const message = await vault.serializeUnsignedTransaction(
+    const { rawTx: message } = await vault.serializeUnsignedTransaction(
       unsignedTx.payload.encodedTx,
     );
 
@@ -160,6 +160,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       return Promise.resolve({
         txid: '',
         rawTx: tx,
+        signature: addHexPrefix(bytesToHex(txSignature)),
       });
     }
 

@@ -62,6 +62,12 @@ export type IVaultSettings = {
 
   cannotSendToSelf?: boolean;
 
+  /**
+   * Deposit in account.
+   * e.g. Polkadot https://wiki.polkadot.network/docs/build-protocol-info#existential-deposit
+   */
+  existDeposit?: boolean;
+
   subNetworkSettings?: {
     [networkId: string]: IVaultSubNetworkSettings;
   };
@@ -92,6 +98,7 @@ export type ITransferInfo = {
   tokenId?: string; // NFT token id
   type?: string; // NFT standard: erc721/erc1155
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
 };
 export type IApproveInfo = {
   from: string; // token owner

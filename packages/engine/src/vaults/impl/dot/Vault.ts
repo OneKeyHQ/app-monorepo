@@ -1,10 +1,9 @@
-import { bytesToHex } from '@noble/hashes/utils';
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { ApiPromise, HttpProvider } from '@polkadot/api';
 import { EXTRINSIC_VERSION } from '@polkadot/types/extrinsic/v4/Extrinsic';
-import { u8aToU8a, u8aWrapBytes } from '@polkadot/util';
+import { hexToU8a, u8aToHex, u8aToU8a, u8aWrapBytes } from '@polkadot/util';
 import {
   construct,
   createMetadata,
@@ -23,12 +22,14 @@ import {
 } from '@onekeyhq/engine/src/errors';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
 import type {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionTokenTransfer,
   IDecodedTxLegacy,
   IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -58,13 +59,12 @@ import settings from './settings';
 import { SubScanClient } from './substrate/query/subscan';
 import { getTransactionType, getTransactionTypeFromTxInfo } from './utils';
 
-import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type { ExtrinsicParam } from './substrate/query/subscan/type';
 import type { DotImplOptions, IEncodedTxDot } from './types';
 import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { Metadata } from '@polkadot/types';
 import type { BlockHash, RuntimeVersion } from '@polkadot/types/interfaces';
-import type { TxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
+import type { TypeRegistry } from '@substrate/txwrapper-polkadot';
 
 const SIG_TYPE_NONE = new Uint8Array();
 export const TYPE_PREFIX = {
@@ -83,6 +83,8 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringWatching,
   };
+
+  cache: Record<string, any> = {};
 
   settings = settings;
 
@@ -324,25 +326,48 @@ export default class Vault extends VaultBase {
       }
 
       amountValue = new BigNumber(amount).shiftedBy(token.decimals).toFixed();
-      unsigned = methods.assets.transferKeepAlive(
-        {
-          id: parseInt(tokenAddress),
-          target: to,
-          amount: amountValue,
-        },
-        info,
-        option,
-      );
+      if (transferInfo?.keepAlive) {
+        unsigned = methods.assets.transferKeepAlive(
+          {
+            id: parseInt(tokenAddress),
+            target: to,
+            amount: amountValue,
+          },
+          info,
+          option,
+        );
+      } else {
+        unsigned = methods.assets.transfer(
+          {
+            id: parseInt(tokenAddress),
+            target: to,
+            amount: amountValue,
+          },
+          info,
+          option,
+        );
+      }
     } else {
       amountValue = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
-      unsigned = methods.balances.transferKeepAlive(
-        {
-          value: amountValue,
-          dest: to,
-        },
-        info,
-        option,
-      );
+      if (transferInfo?.keepAlive) {
+        unsigned = methods.balances.transferKeepAlive(
+          {
+            value: amountValue,
+            dest: to,
+          },
+          info,
+          option,
+        );
+      } else {
+        unsigned = methods.balances.transfer(
+          {
+            value: amountValue,
+            dest: to,
+          },
+          info,
+          option,
+        );
+      }
     }
 
     // const decodedUnsigned = decode(unsigned, {
@@ -485,23 +510,30 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const client = await this.getClient();
 
-    const signedTransaction = await this.encodeUnsignedTransaction(encodedTx);
+    const res = await client.derive.tx.signingInfo(
+      encodedTx.address,
+      encodedTx.nonce,
+      parseInt(encodedTx.era),
+    );
+    const FAKE_SIGNATURE = new Uint8Array(256).fill(1);
+    const signedTransaction = await this.serializeSignedTransaction(
+      encodedTx,
+      u8aToHex(FAKE_SIGNATURE),
+    );
+    const signedTransactionU8a = hexToU8a(signedTransaction);
 
-    // const queryFeeDetails = await client.rpc.system.dryRun(signedTransaction);
-    // const queryFeeDetails = await client.rpc.payment.queryFeeDetails(
-    //   signedTransaction,
-    // );
-    // const queryFeeDetails = await client.call.transactionPaymentApi.queryFeeDetails(
-    //   signedTransaction,
-    //   signedTransaction.length,
-    // );
+    const queryInfo = await client.call.transactionPaymentApi.queryInfo(
+      signedTransactionU8a,
+      signedTransactionU8a.length,
+    );
 
-    const queryInfo = await client.rpc.payment.queryInfo(signedTransaction);
+    const queryInfoJson = queryInfo.toJSON();
 
-    const limit = new BigNumber(queryInfo.weight.toString())
-      .multipliedBy(1.2)
-      .toFixed(0)
-      .toString();
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    const weight = queryInfoJson.partialFee.toString();
+
+    const limit = new BigNumber(weight).toFixed(0).toString();
 
     return {
       disableEditFee: true,
@@ -531,7 +563,7 @@ export default class Vault extends VaultBase {
 
   override async updateEncodedTx(
     encodedTx: IEncodedTxDot,
-    payload: any,
+    payload: IEncodedTxUpdatePayloadTransfer,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTxDot> {
     // max native token transfer update
@@ -580,6 +612,31 @@ export default class Vault extends VaultBase {
           metadataRpc: metadataRpc.toHex(),
           registry,
         };
+
+        const network = await this.getNetwork();
+        const amountValue = new BigNumber(payload.amount)
+          .shiftedBy(network.decimals)
+          .toFixed();
+
+        if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
+          return methods.balances.transferKeepAlive(
+            {
+              value: amountValue,
+              dest: toAddress,
+            },
+            info,
+            option,
+          );
+        }
+        // return methods.balances.transfer(
+        //   {
+        //     value: amountValue,
+        //     dest: toAddress,
+        //   },
+        //   info,
+        //   option,
+        // );
+
         return methods.balances.transferAll(
           {
             dest: toAddress,
@@ -868,16 +925,6 @@ export default class Vault extends VaultBase {
   async decodeUnsignedTx(unsigned: IEncodedTxDot) {
     const registry = await this.getRegistryCache();
 
-    // IEncodedTxDot is SignerPayloadRaw
-    if ('data' in unsigned) {
-      const metadataRpcCache = await this.getMetadataRpcCache();
-      return decode(unsigned.data, {
-        metadataRpc: metadataRpcCache.toHex(),
-        registry,
-      });
-    }
-
-    // IEncodedTxDot is UnsignedTransaction
     const { metadataRpc } = unsigned;
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
@@ -887,15 +934,10 @@ export default class Vault extends VaultBase {
     return decodedUnsigned;
   }
 
-  async serializeUnsignedTransaction(
-    encodedTx: IEncodedTxDot,
-  ): Promise<Uint8Array> {
-    // IEncodedTxDot is SignerPayloadRaw
-    if ('data' in encodedTx) {
-      return u8aWrapBytes(encodedTx.data);
-    }
-
-    // IEncodedTxDot is UnsignedTransaction
+  async serializeUnsignedTransaction(encodedTx: IEncodedTxDot): Promise<{
+    rawTx: Uint8Array;
+    hash: Uint8Array;
+  }> {
     const unsigned = encodedTx;
     const { metadataRpc } = unsigned;
 
@@ -917,19 +959,21 @@ export default class Vault extends VaultBase {
     });
     const encoded = u8a.length > 256 ? registry.hash(u8a) : u8a;
 
-    return u8aToU8a(encoded);
+    return {
+      rawTx: u8a,
+      hash: u8aToU8a(encoded),
+    };
+  }
+
+  async serializeMessage(message: string): Promise<Buffer> {
+    const encoded = u8aWrapBytes(message);
+    return Buffer.from(u8aToU8a(encoded));
   }
 
   async serializeSignedTransaction(
     encodedTx: IEncodedTxDot,
     signature: string,
   ) {
-    // IEncodedTxDot is SignerPayloadRaw
-    if ('data' in encodedTx) {
-      return bytesToHex(u8aWrapBytes(encodedTx.data));
-    }
-
-    // IEncodedTxDot is UnsignedTransaction
     const { metadataRpc } = encodedTx;
 
     const registry = await this.getRegistryCache();
@@ -947,12 +991,6 @@ export default class Vault extends VaultBase {
   }
 
   async encodeUnsignedTransaction(encodedTx: IEncodedTxDot) {
-    // IEncodedTxDot is SignerPayloadRaw
-    if ('data' in encodedTx) {
-      return encodedTx.data;
-    }
-
-    // IEncodedTxDot is UnsignedTransaction
     const registry = await this.getRegistryCache();
 
     const tx = construct.encodeUnsignedTransaction(encodedTx, {
@@ -960,5 +998,23 @@ export default class Vault extends VaultBase {
     });
 
     return tx;
+  }
+
+  override async getMinDepositAmount(): Promise<BigNumber.Value> {
+    const key = `${this.networkId}-existentialDeposit`;
+    if (this.cache[key]) {
+      return this.cache[key] as string;
+    }
+
+    const client = await this.getClient();
+    const codec = client.consts.balances.existentialDeposit;
+
+    const existentialDeposit = codec.toString();
+
+    if (new BigNumber(existentialDeposit).isGreaterThanOrEqualTo('0')) {
+      this.cache[key] = existentialDeposit;
+    }
+
+    return existentialDeposit;
   }
 }

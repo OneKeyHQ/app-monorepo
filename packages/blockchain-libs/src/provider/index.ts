@@ -122,6 +122,7 @@ const IMPLS: { [key: string]: any } = {
   nmc: mockProvider,
   vtc: mockProvider,
   dash: mockProvider,
+  dot: mockProvider,
   sui: mockProvider,
   apt: mockProvider,
 };

@@ -69,7 +69,11 @@ import type {
   HistoryEntry,
   HistoryEntryTransaction,
 } from '../../../types/history';
-import type { AptosMessage, ETHMessage } from '../../../types/message';
+import type {
+  AptosMessage,
+  CommonMessage,
+  ETHMessage,
+} from '../../../types/message';
 import type { EIP1559Fee } from '../../../types/network';
 import type { NFTTransaction } from '../../../types/nft';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
@@ -105,7 +109,11 @@ const OPTIMISM_NETWORKS: string[] = [
   OnekeyNetwork.toptimism,
 ];
 
-export type IUnsignedMessageEvm = (AptosMessage | ETHMessage) & {
+export type IUnsignedMessageEvm = (
+  | AptosMessage
+  | ETHMessage
+  | CommonMessage
+) & {
   payload?: any;
 };
 

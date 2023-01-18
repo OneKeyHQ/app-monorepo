@@ -1,7 +1,6 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 import { bufferToU8a, u8aConcat } from '@polkadot/util';
-import { hdLedger } from '@polkadot/util-crypto';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import { encrypt } from '@onekeyhq/engine/src/dbs/base';
@@ -10,12 +9,14 @@ import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { Signer } from '@onekeyhq/engine/src/proxy';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
 import { KeyringHdBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHdBase';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
+import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import {
   IMPL_DOT as COIN_IMPL,
   COINTYPE_DOT as COIN_TYPE,
@@ -23,6 +24,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { accountIdToAddress } from './sdk/address';
+import { derivationHdLedger } from './utils';
 import { TYPE_PREFIX } from './Vault';
 
 import type { DotImplOptions } from './types';
@@ -71,7 +73,7 @@ export class KeyringHd extends KeyringHdBase {
     const keys = usedRelativePaths.map((relPath) => {
       const path = `${basePath}/${relPath}`;
 
-      const keyPair = hdLedger(mnemonic, path);
+      const keyPair = derivationHdLedger(mnemonic, path);
       return {
         path,
         key: encrypt(password, Buffer.from(keyPair.secretKey.slice(0, 32))),
@@ -116,7 +118,7 @@ export class KeyringHd extends KeyringHdBase {
 
     const publicKeys = indexes.map((index) => {
       const path = `${HARDEN_PATH_PREFIX}/${index}'/0'/0'`;
-      const keyPair = hdLedger(mnemonic, path);
+      const keyPair = derivationHdLedger(mnemonic, path);
       return {
         path,
         pubkey: keyPair.publicKey,
@@ -159,7 +161,7 @@ export class KeyringHd extends KeyringHdBase {
 
     const vault = this.vault as Vault;
 
-    const message = await vault.serializeUnsignedTransaction(
+    const { hash: message } = await vault.serializeUnsignedTransaction(
       unsignedTx.payload.encodedTx,
     );
 
@@ -185,7 +187,31 @@ export class KeyringHd extends KeyringHdBase {
     return Promise.resolve({
       txid: '',
       rawTx: tx,
-      signature: bytesToHex(txSignature),
+      signature: addHexPrefix(bytesToHex(txSignature)),
     });
+  }
+
+  override async signMessage(
+    messages: CommonMessage[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = await this.getDbAccount();
+    const signers = await this.getSigners(options.password || '', [
+      dbAccount.address,
+    ]);
+    const signer = signers[dbAccount.address];
+    const vault = this.vault as Vault;
+
+    return Promise.all(
+      messages.map(async (message) => {
+        const wrapMessage = await vault.serializeMessage(message.message);
+        const [signature] = await signer.sign(wrapMessage);
+        const txSignature = u8aConcat(
+          TYPE_PREFIX.ed25519,
+          bufferToU8a(signature),
+        );
+        return addHexPrefix(bytesToHex(txSignature));
+      }),
+    );
   }
 }

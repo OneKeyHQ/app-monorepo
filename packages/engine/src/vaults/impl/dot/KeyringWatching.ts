@@ -1,10 +1,9 @@
 import { InvalidAddress } from '@onekeyhq/engine/src/errors';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
+import { KeyringWatchingBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringWatchingBase';
 import type { IPrepareWatchingAccountsParams } from '@onekeyhq/engine/src/vaults/types';
 import { COINTYPE_DOT as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
 // @ts-ignore
 export class KeyringWatching extends KeyringWatchingBase {

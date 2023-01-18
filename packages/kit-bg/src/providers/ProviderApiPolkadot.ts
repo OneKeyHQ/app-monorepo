@@ -1,10 +1,15 @@
+import { bytesToHex } from '@noble/hashes/utils';
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Injected, Unsubcall } from '@polkadot/extension-inject/types';
+import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 import { th } from 'date-fns/locale';
 
+import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
+import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { IEncodedTxDot } from '@onekeyhq/engine/src/vaults/impl/dot/types';
 import type VaultDot from '@onekeyhq/engine/src/vaults/impl/dot/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
@@ -208,6 +213,15 @@ class ProviderApiPolkadot extends ProviderApiBase {
       if (account.address === address) {
         return account;
       }
+
+      const normalAddress =
+        account.address.length === 42
+          ? account.address
+          : encodeAddress(decodeAddress(account.address));
+
+      if (normalAddress === address) {
+        return account;
+      }
       return undefined;
     });
 
@@ -287,19 +301,23 @@ class ProviderApiPolkadot extends ProviderApiBase {
       });
     }
 
-    const encodedTx: IEncodedTxDot = params;
+    const unsignedMessage: CommonMessage = {
+      type: CommonMessageTypes.SIGN_MESSAGE,
+      message: params.data,
+      secure: true,
+    };
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       {
-        encodedTx,
+        unsignedMessage,
         signOnly: true,
       },
-    )) as ISignedTxPro;
+    )) as string;
 
     return Promise.resolve({
       id: request.id ?? 0,
-      signature: result.signature ?? '',
+      signature: result ?? '',
     });
   }
 }

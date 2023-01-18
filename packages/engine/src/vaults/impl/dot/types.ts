@@ -1,4 +1,3 @@
-import type { SignerPayloadRaw } from '@polkadot/types/types';
 import type { UnsignedTransaction } from '@substrate/txwrapper-polkadot';
 
 export interface DotImplOptions {
@@ -10,4 +9,4 @@ export interface DotImplOptions {
 //   signingPayload?: string;
 // };
 
-export type IEncodedTxDot = UnsignedTransaction | SignerPayloadRaw;
+export type IEncodedTxDot = UnsignedTransaction;
