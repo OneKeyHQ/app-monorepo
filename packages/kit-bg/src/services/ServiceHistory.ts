@@ -469,6 +469,21 @@ class ServiceHistory extends ServiceBase {
     }
     return 'failed';
   }
+
+  @backgroundMethod()
+  async checkIsScamHistoryTx({
+    accountId,
+    networkId,
+    historyTx,
+  }: {
+    accountId: string;
+    networkId: string;
+    historyTx: IHistoryTx;
+  }) {
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getVault({ networkId, accountId });
+    return vault.checkIsScamHistoryTx(historyTx);
+  }
 }
 
 export default ServiceHistory;

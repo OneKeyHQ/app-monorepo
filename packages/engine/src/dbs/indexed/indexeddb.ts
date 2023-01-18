@@ -3,6 +3,8 @@
 
 import { Buffer } from 'buffer';
 
+import RNUUID from 'react-native-uuid';
+
 import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
@@ -104,6 +106,7 @@ function initDb(db: IDBDatabase) {
         id: MAIN_CONTEXT,
         nextHD: 1,
         verifyString: DEFAULT_VERIFY_STRING,
+        backupUUID: RNUUID.v4() as string,
       });
     db.transaction([WALLET_STORE_NAME], 'readwrite')
       .objectStore(WALLET_STORE_NAME)
@@ -357,11 +360,51 @@ class IndexedDBApi implements DBAPI {
   }
 
   getBackupUUID(): Promise<string> {
-    throw new NotImplemented();
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [CONTEXT_STORE_NAME],
+            'readwrite',
+          );
+          const contextStore = transaction.objectStore(CONTEXT_STORE_NAME);
+          const getMainContextRequest = contextStore.get(MAIN_CONTEXT);
+          getMainContextRequest.onsuccess = (_event) => {
+            const context = getMainContextRequest.result as OneKeyContext;
+            const { backupUUID } = context;
+            if (typeof backupUUID !== 'undefined') {
+              resolve(backupUUID);
+            } else {
+              context.backupUUID = RNUUID.v4() as string;
+              contextStore.put(context);
+              resolve(backupUUID);
+            }
+          };
+        }),
+    );
   }
 
   dumpCredentials(_password: string): Promise<Record<string, string>> {
-    throw new NotImplemented();
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request = db
+            .transaction([CREDENTIAL_STORE_NAME])
+            .objectStore(CREDENTIAL_STORE_NAME)
+            .getAll();
+          request.onsuccess = (_event) => {
+            const credentials: Array<{ id: string; credential: string }> =
+              request.result;
+
+            const ret = credentials.reduce(
+              (mapping, { id, credential }) =>
+                Object.assign(mapping, { [id]: credential }),
+              {},
+            );
+            resolve(ret);
+          };
+        }),
+    );
   }
 
   listNetworks(): Promise<Array<DBNetwork>> {

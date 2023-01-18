@@ -6,7 +6,11 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-import { WALLET_CONNECT_WALLET_NAMES } from './walletConnectConsts';
+import {
+  WALLET_CONNECT_INSTITUTION_WALLET_NAMES,
+  WALLET_CONNECT_WALLET_NAMES,
+  WalletServiceWithoutVerify,
+} from './walletConnectConsts';
 
 import type { WalletService } from './types';
 
@@ -23,15 +27,19 @@ function buildEnabledWallets({
     WALLET_CONNECT_WALLET_NAMES.imToken,
     WALLET_CONNECT_WALLET_NAMES.TokenPocket,
     WALLET_CONNECT_WALLET_NAMES.BitKeep,
+    WALLET_CONNECT_WALLET_NAMES.Zerion,
   ];
   const enabledWalletsInVerticalOnly = [
-    //
-    WALLET_CONNECT_WALLET_NAMES.Zerion,
+    ...Object.values(WALLET_CONNECT_INSTITUTION_WALLET_NAMES),
   ];
   if (isVerticalLayout) {
     enabledWallets = enabledWallets.concat(enabledWalletsInVerticalOnly);
   }
   return enabledWallets;
+}
+
+function buildInstitutionalEnabledWallets() {
+  return Object.keys(WALLET_CONNECT_INSTITUTION_WALLET_NAMES);
 }
 
 const defaultState: {
@@ -82,13 +90,15 @@ export function useMobileRegistryOfWalletServices() {
     }
   }, [serviceWalletConnect, walletServicesRemote]);
 
-  const walletServices = useMemo(
-    () =>
+  const walletServices = useMemo(() => {
+    const walletServiceData =
       walletServicesLocal && walletServicesLocal.length
         ? walletServicesLocal
-        : walletServicesRemote,
-    [walletServicesLocal, walletServicesRemote],
-  );
+        : walletServicesRemote;
+    return walletServiceData.concat(
+      WalletServiceWithoutVerify as unknown as WalletService[],
+    );
+  }, [walletServicesLocal, walletServicesRemote]);
 
   const enabledWallets = useMemo(
     () => buildEnabledWallets({ isVerticalLayout }),
@@ -103,5 +113,22 @@ export function useMobileRegistryOfWalletServices() {
     [enabledWallets, walletServices],
   );
 
-  return { data: walletServicesEnabled, allData: walletServices, error };
+  const institutionWallets = useMemo(
+    () => buildInstitutionalEnabledWallets(),
+    [],
+  );
+  const institutionWalletServicesEnabled = useMemo(
+    () =>
+      institutionWallets
+        .map((name) => walletServices.find((item) => item.name === name))
+        .filter(Boolean),
+    [institutionWallets, walletServices],
+  );
+
+  return {
+    data: walletServicesEnabled,
+    institutionData: institutionWalletServicesEnabled,
+    allData: walletServices,
+    error,
+  };
 }

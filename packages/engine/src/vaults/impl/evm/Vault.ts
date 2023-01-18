@@ -1717,6 +1717,47 @@ export default class Vault extends VaultBase {
     // TODO batchCall not supported chain, fallback parse covalentTxList to decodedTx
   }
 
+  override async checkIsScamHistoryTx(historyTx: IHistoryTx) {
+    try {
+      const { decodedTx } = historyTx;
+      const { encodedTx } = decodedTx;
+      if (!encodedTx) return false;
+
+      const from = (encodedTx as IEncodedTxEvm).from.toLowerCase();
+      const to = (encodedTx as IEncodedTxEvm).to.toLowerCase();
+      const address = (await this.getAccountAddress()).toLocaleLowerCase();
+      if (from === address || to === address) return false;
+
+      const actions = decodedTx.outputActions || decodedTx.actions;
+
+      for (let i = 0; i < actions.length; i += 1) {
+        const action = actions[i];
+        if (action.type !== IDecodedTxActionType.TOKEN_TRANSFER) return false;
+
+        if (
+          action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
+          action.tokenTransfer?.amount &&
+          !new BigNumber(action.tokenTransfer?.amount).isZero()
+        )
+          return false;
+
+        if (
+          action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
+          action.tokenTransfer?.amount &&
+          new BigNumber(action.tokenTransfer?.amount).isZero() &&
+          [
+            action.tokenTransfer.from.toLocaleLowerCase(),
+            action.tokenTransfer.to.toLocaleLowerCase(),
+          ].includes(from)
+        )
+          return false;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   override fixAddressCase(address: string) {
     // TODO replace `engineUtils.fixAddressCase`
     return Promise.resolve(toLower(address || ''));

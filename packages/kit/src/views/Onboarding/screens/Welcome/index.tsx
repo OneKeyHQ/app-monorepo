@@ -3,22 +3,17 @@ import { useCallback, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  Divider,
   Hidden,
   Icon,
   Image,
-  PresenceTransition,
   Text,
   useUserDevice,
 } from '@onekeyhq/components';
-import LogoLedger from '@onekeyhq/kit/assets/onboarding/logo_ledger.png';
-import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
-import LogoOneKey from '@onekeyhq/kit/assets/onboarding/logo_onekey.png';
-import LogoTokenPocket from '@onekeyhq/kit/assets/onboarding/logo_tokenpocket.png';
-import LogoTrezor from '@onekeyhq/kit/assets/onboarding/logo_trezor.png';
+import ContentHardwareImage from '@onekeyhq/kit/assets/onboarding/welcome_hardware.png';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -26,13 +21,21 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../../../hooks';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { RootRoutes } from '../../../../routes/routesEnum';
+import {
+  useActiveWalletAccount,
+  useNavigationActions,
+} from '../../../../hooks';
+import {
+  CreateWalletModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/routesEnum';
 import { setOnBoardingLoadingBehindModal } from '../../../../store/reducers/runtime';
 import Layout from '../../Layout';
+import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
 
+import { ConnectThirdPartyWallet } from './ConnectThirdPartyWallet';
 import PressableListItem from './PressableListItem';
 import TermsOfService from './TermsOfService';
 
@@ -58,6 +61,12 @@ const Welcome = () => {
 
   const route = useRoute<RouteProps>();
   const disableAnimation = !!route?.params?.disableAnimation;
+
+  const { network: activeNetwork } = useActiveWalletAccount();
+  const hardwareDisabled = !activeNetwork?.settings?.hardwareAccountEnabled;
+
+  const context = useOnboardingContext();
+  const forceVisibleUnfocused = context?.forceVisibleUnfocused;
 
   useEffect(() => {
     (async function () {
@@ -91,11 +100,6 @@ const Welcome = () => {
   const isSmallHeight = useUserDevice().screenHeight <= 667;
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
-  const { result: hasPreviousBackups } = usePromiseResult<boolean>(async () => {
-    const status =
-      await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
-    return status.hasPreviousBackups;
-  });
 
   const onPressCreateWallet = useCallback(() => {
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
@@ -105,22 +109,27 @@ const Welcome = () => {
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.ImportWallet);
   }, [navigation]);
-  const onPressConnectWallet = useCallback(() => {
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.ConnectWallet);
-  }, [navigation]);
-  const onPressRestoreFromCloud = useCallback(() => {
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
-  }, [navigation]);
 
-  const logos = [
-    LogoOneKey,
-    LogoTrezor,
-    LogoLedger,
-    LogoMetaMask,
-    LogoTokenPocket,
-  ];
+  const onPressHardwareWallet = useCallback(() => {
+    if (hardwareDisabled) return;
+    forceVisibleUnfocused?.();
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+    navigation.navigate(
+      RootRoutes.Modal as any,
+      {
+        screen: ModalRoutes.CreateWallet,
+        params: {
+          screen: CreateWalletModalRoutes.ConnectHardwareModal,
+        },
+      } as any,
+    );
+  }, [hardwareDisabled, forceVisibleUnfocused, navigation]);
+
+  const onPressThirdPartyWallet = useCallback(() => {
+    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+    navigation.navigate(EOnboardingRoutes.ThirdPartyWallet);
+    // navigation.navigate(EOnboardingRoutes.ConnectWallet);
+  }, [navigation]);
 
   return (
     <>
@@ -145,93 +154,66 @@ const Welcome = () => {
           mt={{ base: isSmallHeight ? 8 : 16, sm: 20 }}
           mx={-2}
         >
-          <Box
-            flexDirection={{ sm: 'row' }}
-            w={{ sm: hasPreviousBackups ? '100%' : '2/3' }}
-          >
+          <Box flexDirection={{ sm: 'row' }} w={{ sm: '100%' }}>
             <PressableListItem
               icon="PlusCircleOutline"
               label={intl.formatMessage({
                 id: 'action__create_wallet',
               })}
+              description={intl.formatMessage({
+                id: 'content__create_wallet_desc',
+              })}
               roundedBottom={{ base: 0, sm: 'xl' }}
               onPress={onPressCreateWallet}
             />
             <PressableListItem
-              icon="InboxArrowDownOutline"
+              icon="ArrowDownCircleOutline"
               label={intl.formatMessage({
                 id: 'action__import_wallet',
+              })}
+              description={intl.formatMessage({
+                id: 'content__onboarding_import_wallet_desc',
               })}
               mt="-1px"
               mb={{ base: 6, sm: 0 }}
               roundedTop={{ base: 0, sm: 'xl' }}
               onPress={onPressImportWallet}
             />
-          </Box>
-          <Box
-            flexDirection={{ sm: 'row' }}
-            w={{ sm: hasPreviousBackups ? '100%' : '1/3' }}
-            mt={{ sm: hasPreviousBackups ? 4 : undefined }}
-          >
-            <Box flex={1}>
-              <PressableListItem
-                icon="LinkOutline"
-                label={intl.formatMessage({
-                  id: 'action__connect_wallet',
-                })}
-                onPress={onPressConnectWallet}
-              >
-                <Box
-                  flexDir="row"
-                  position={{ sm: 'absolute' }}
-                  top={{ base: 1, sm: 33 }}
-                  right={{ sm: 25 }}
-                  ml={2}
-                >
-                  {logos.map((logo, index) => (
-                    <Image
-                      key={index}
-                      source={logo}
-                      size={4}
-                      mx={0.5}
-                      borderWidth={StyleSheet.hairlineWidth}
-                      borderColor="border-subdued"
-                      rounded="sm"
-                    />
-                  ))}
+            <PressableListItem
+              icon="UsbCableOutline"
+              label={intl.formatMessage({
+                id: 'action__connect_hardware_wallet',
+              })}
+              description={intl.formatMessage({
+                id: 'content__conenct_hardware_wallet_desc',
+              })}
+              onPress={onPressHardwareWallet}
+              overflow="hidden"
+              isDisabled={hardwareDisabled}
+            >
+              <Hidden till="sm">
+                <Box position="absolute" zIndex={-1} right="0" top="0">
+                  <Image
+                    source={ContentHardwareImage}
+                    w="256px"
+                    h="207px"
+                    opacity={0.75}
+                  />
                 </Box>
-              </PressableListItem>
-              <Hidden from="sm">
-                <Text mt={3} mx={2} color="text-subdued" typography="Body2">
-                  {intl.formatMessage({ id: 'content__supported_wallets' })}
-                </Text>
               </Hidden>
-            </Box>
-            {hasPreviousBackups ? (
-              <PresenceTransition
-                as={Box}
-                visible={hasPreviousBackups}
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{
-                  scale: 1,
-                  opacity: 1,
-                  transition: { duration: 150 },
-                }}
-                // @ts-expect-error
-                mt={{ base: '24px', sm: '0' }}
-                flex={1}
-              >
-                <PressableListItem
-                  icon="CloudOutline"
-                  label={intl.formatMessage({
-                    id: 'action__restore_from_icloud',
-                  })}
-                  onPress={onPressRestoreFromCloud}
-                />
-              </PresenceTransition>
-            ) : undefined}
+            </PressableListItem>
           </Box>
         </Box>
+        <Hidden till="sm">
+          <Box flexDirection="row" alignItems="center" mt="24px">
+            <Divider flex={1} />
+            <Text mx="14px" typography="Subheading" color="text-disabled">
+              {intl.formatMessage({ id: 'content__or_lowercase' })}
+            </Text>
+            <Divider flex={1} />
+          </Box>
+        </Hidden>
+        <ConnectThirdPartyWallet onPress={onPressThirdPartyWallet} />
       </Layout>
       <TermsOfService />
     </>

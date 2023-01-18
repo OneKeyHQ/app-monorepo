@@ -133,10 +133,12 @@ const GenericBackupItem = ({
   );
 };
 
-const GroupedBackupDetails = ({
+export const GroupedBackupDetails = ({
   onDevice,
+  showTitle = true,
   publicBackupData,
 }: {
+  showTitle?: boolean;
   onDevice: boolean;
   publicBackupData: PublicBackupData;
 }) => {
@@ -156,14 +158,16 @@ const GroupedBackupDetails = ({
     .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
 
   return (
-    <Box flex="1" my={4} mx={12}>
-      <Text typography="Heading" pb="4">
-        {intl.formatMessage({
-          id: onDevice
-            ? 'content__active_on_this_device'
-            : 'content__not_on_this_device',
-        })}
-      </Text>
+    <Box my={4} mx={12}>
+      {showTitle && (
+        <Text typography="Heading" pb="4">
+          {intl.formatMessage({
+            id: onDevice
+              ? 'content__active_on_this_device'
+              : 'content__not_on_this_device',
+          })}
+        </Text>
+      )}
       {walletsData.map(({ uuid, name, avatar, accountUUIDs }) => (
         <WalletBackupItem
           name={name}

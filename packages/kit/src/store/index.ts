@@ -36,6 +36,7 @@ import discoverReducer from './reducers/discover';
 import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
 import hardwareReducer from './reducers/hardware'; // 62.86 MB **** +40 Mb engine/background code
+import httpServerReducer from './reducers/httpServer';
 import marketReducer from './reducers/market';
 import nftReducer from './reducers/nft';
 import reducerAccountSelector from './reducers/reducerAccountSelector';
@@ -79,6 +80,7 @@ const allReducers = combineReducers({
   swapTransactions: swapTransactionsReducer,
   tokens: tokensReducer,
   webTabs: webTabsReducer,
+  httpServer: httpServerReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {
