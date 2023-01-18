@@ -5,18 +5,16 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Badge,
   Box,
-  Hidden,
-  Icon,
   Image,
   Modal,
   Pressable,
   Skeleton,
-  Spinner,
   Text,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import LogoAmber from '@onekeyhq/kit/assets/onboarding/logo_amber.png';
+import LogoCoboWallet from '@onekeyhq/kit/assets/onboarding/logo_cobo_wallet.png';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -45,6 +43,11 @@ type RouteProps = RouteProp<
   CreateWalletModalRoutes.WalletConnectQrcodeModal
 >;
 
+const LogoSources: Record<string, any> = {
+  Amber: LogoAmber,
+  CoboWallet: LogoCoboWallet,
+};
+
 export function ConnectWalletListItem({
   label,
   available,
@@ -60,77 +63,43 @@ export function ConnectWalletListItem({
   onPress: () => void;
   isLoading?: boolean;
 }) {
-  const intl = useIntl();
   const imgSource = logoSource ?? { uri: logo };
-  const extraIcon = useMemo(() => {
-    if (available) {
-      if (isLoading) {
-        return (
-          <Hidden from="sm">
-            <Spinner />
-          </Hidden>
-        );
-      }
-      return (
-        <Hidden from="sm">
-          <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
-        </Hidden>
-      );
-    }
-    return (
-      <>
-        <Hidden from="sm">
-          <Badge
-            size="sm"
-            title={intl.formatMessage({ id: 'badge__coming_soon' })}
-          />
-        </Hidden>
-        <Hidden till="sm">
-          <Text typography="Caption" color="text-subdued">
-            {intl.formatMessage({ id: 'badge__coming_soon' })}
-          </Text>
-        </Hidden>
-      </>
-    );
-  }, [available, intl, isLoading]);
   return (
-    <Pressable
-      key={label}
-      flexDir={{ base: 'row', sm: 'column' }}
-      w={{ sm: '1/3' }}
-      alignItems="center"
-      my={{ base: 1, sm: '18px' }}
-      px={2}
-      py={{ base: 3, sm: 2 }}
-      _hover={{ bgColor: 'surface-hovered' }}
-      _pressed={{ bgColor: 'surface-pressed' }}
-      rounded="xl"
-      disabled={!available || isLoading}
-      onPress={onPress}
-    >
-      {isLoading ? (
-        <Skeleton shape="Avatar" size={32} />
-      ) : (
-        <Image
-          source={imgSource}
-          size={8}
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="border-subdued"
-          rounded="xl"
-        />
-      )}
-
-      <Text
+    <Box key={label} w={{ base: '1/2', sm: '1/5' }} p="4px">
+      <Pressable
+        key={label}
+        bg="action-secondary-default"
         flex={1}
-        mx={{ base: 3, sm: 0 }}
-        mt={{ sm: 2 }}
-        typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-        isTruncated
+        alignItems="center"
+        py="16px"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="border-default"
+        _hover={{ bgColor: 'action-secondary-hovered' }}
+        _pressed={{ bgColor: 'action-secondary-pressed' }}
+        rounded="xl"
+        disabled={!available || isLoading}
+        onPress={onPress}
       >
-        {label}
-      </Text>
-      {extraIcon}
-    </Pressable>
+        {isLoading ? (
+          <Skeleton shape="Avatar" size={32} />
+        ) : (
+          <Image
+            source={imgSource}
+            size={8}
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-subdued"
+            rounded="xl"
+          />
+        )}
+        <Text
+          mt="12px"
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          isTruncated
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </Box>
   );
 }
 
@@ -146,20 +115,24 @@ export type IConnectWalletListViewProps = {
     uri?: string,
   ) => Promise<void>;
   uri?: string;
+  isInstitutionWallet?: boolean;
   onConnectResult?: (result: IConnectToWalletResult) => void;
 };
 export function ConnectWalletListView({
   connectToWalletService, // open app directly
   uri,
   onConnectResult,
+  isInstitutionWallet,
 }: IConnectWalletListViewProps) {
-  const { data: walletServicesEnabled } = useMobileRegistryOfWalletServices();
+  const { data: walletServicesEnabled, institutionData } =
+    useMobileRegistryOfWalletServices();
   const [loadingId, setLoadingId] = useState('');
   const loadingTimerRef = useRef<any>();
   const { connectExternalWallet } = useConnectExternalWallet({
     connectToWalletService,
     uri,
     onConnectResult,
+    isInstitutionWallet,
   });
 
   const doConnect = useCallback(
@@ -190,11 +163,15 @@ export function ConnectWalletListView({
     },
     [connectExternalWallet],
   );
+
   const walletsList = useMemo(() => {
     if (platformEnv.isNativeAndroid) {
       return null;
     }
-    return walletServicesEnabled.map((item) => {
+    const walletServiceData = isInstitutionWallet
+      ? institutionData
+      : walletServicesEnabled;
+    return walletServiceData.map((item) => {
       const imgUri =
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -206,12 +183,14 @@ export function ConnectWalletListView({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         item?.image_url?.lg ||
         '';
+      const logoSource = LogoSources[item.id] || undefined;
       return (
         <ConnectWalletListItem
           key={item.id}
           label={item.name}
           available
           logo={imgUri}
+          logoSource={logoSource}
           isLoading={loadingId === item.id}
           onPress={() =>
             doConnect({ walletService: item, itemLoadingId: item.id })
@@ -219,12 +198,19 @@ export function ConnectWalletListView({
         />
       );
     });
-  }, [doConnect, loadingId, walletServicesEnabled]);
+  }, [
+    doConnect,
+    loadingId,
+    walletServicesEnabled,
+    institutionData,
+    isInstitutionWallet,
+  ]);
   return (
     <>
       {walletsList}
 
-      {!platformEnv.isNative || platformEnv.isNativeAndroid ? (
+      {(!platformEnv.isNative || platformEnv.isNativeAndroid) &&
+      !isInstitutionWallet ? (
         <ConnectWalletListItem
           available
           label="WalletConnect"
@@ -265,19 +251,8 @@ export function WalletConnectQrcodeModal() {
 
       // TODO use flatListProps instead
       scrollViewProps={{
-        py: 0,
-        contentContainerStyle: {
-          paddingBottom: 0,
-          paddingTop: 0,
-        },
         children: (
-          <Box
-            flex={1}
-            {...(platformEnv.isNativeIOSPad && {
-              flexDir: { sm: 'row' },
-              flexWrap: { sm: 'wrap' },
-            })}
-          >
+          <Box flexDir="row" flexWrap="wrap" m="-4px">
             <ConnectWalletListView
               connectToWalletService={connectToWalletService}
               uri={uri}
