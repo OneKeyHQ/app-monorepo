@@ -13,14 +13,22 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutesParams,
+  ModalScreenProps,
+} from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { gotoScanQrcode } from '../../../utils/gotoScanQrcode';
 import { ManageConnectedSitesRoutes } from '../../ManageConnectedSites/types';
+import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 
 import { showEnableExtTipsSheet } from './enableExtSheet';
 
@@ -170,41 +178,39 @@ export const UtilSection = () => {
             <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
-        <>
-          <Divider />
-          <Pressable
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            py={4}
-            px={{ base: 4, md: 6 }}
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageConnectedSites,
-                params: {
-                  screen: ManageConnectedSitesRoutes.ManageConnectedSitesModel,
-                },
-              });
-            }}
+        <Divider />
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageConnectedSites,
+              params: {
+                screen: ManageConnectedSitesRoutes.ManageConnectedSitesModel,
+              },
+            });
+          }}
+        >
+          <Icon name="LinkOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex="1"
+            numberOfLines={1}
+            mx={3}
           >
-            <Icon name="LinkOutline" />
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              flex="1"
-              numberOfLines={1}
-              mx={3}
-            >
-              {intl.formatMessage({
-                id: 'action__connected_sites',
-                defaultMessage: 'Connected Sites',
-              })}
-            </Text>
-            <Box>
-              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-            </Box>
-          </Pressable>
-        </>
+            {intl.formatMessage({
+              id: 'action__connected_sites',
+              defaultMessage: 'Connected Sites',
+            })}
+          </Text>
+          <Box>
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+          </Box>
+        </Pressable>
       </Box>
     </Box>
   );

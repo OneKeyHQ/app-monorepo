@@ -14,6 +14,7 @@ enum AppEventBusNames {
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   Unlocked = 'Unlocked',
   WebTabThumbnailUpdated = 'WebTabThumbnailUpdated',
+  HttpServerRequest = 'HttpServerRequest',
 }
 
 if (isExtensionUi) {

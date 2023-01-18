@@ -15,6 +15,8 @@ export const handleScanResult = async (data: string) => {
   const scanResult: ScanResult = { type: ScanSubResultCategory.TEXT, data };
   if (data.startsWith('https://') || data.startsWith('http://')) {
     scanResult.type = ScanSubResultCategory.URL;
+  } else if (data.startsWith('migrate://')) {
+    scanResult.type = ScanSubResultCategory.MIGRATE;
   } else if (/^wc:.+@.+\?.+/.test(data)) {
     // wc:{topic...}@{version...}?bridge={url...}&key={key...}
     // https://docs.walletconnect.com/tech-spec

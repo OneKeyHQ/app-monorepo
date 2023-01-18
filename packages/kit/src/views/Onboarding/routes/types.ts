@@ -1,3 +1,4 @@
+import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -53,5 +54,9 @@ export type IOnboardingRoutesParams = {
     numOfImportedAccounts: number;
     numOfWatchingAccounts: number;
     numOfContacts: number;
+  };
+  [EOnboardingRoutes.Migration]: undefined;
+  [EOnboardingRoutes.MigrationPreview]: {
+    data: MigrateData;
   };
 };

@@ -42,6 +42,7 @@
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		F44507EC289DDCE100F70EB6 /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = F44507EB289DDCE100F70EB6 /* web-embed */; };
 		F46D18DA290A577F0018E04D /* Minimizer.m in Sources */ = {isa = PBXBuildFile; fileRef = F46D18D8290A577F0018E04D /* Minimizer.m */; };
+		F483AEE0290A81C500423430 /* HTTPServerManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F483AEDF290A81C500423430 /* HTTPServerManager.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -125,6 +126,8 @@
 		F44507EB289DDCE100F70EB6 /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		F46D18D8290A577F0018E04D /* Minimizer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Minimizer.m; sourceTree = "<group>"; };
 		F46D18D9290A577F0018E04D /* Minimizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Minimizer.h; sourceTree = "<group>"; };
+		F483AEDE290A81C500423430 /* HTTPServerManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HTTPServerManager.h; sourceTree = "<group>"; };
+		F483AEDF290A81C500423430 /* HTTPServerManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HTTPServerManager.m; sourceTree = "<group>"; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -273,6 +276,8 @@
 				F46D18D8290A577F0018E04D /* Minimizer.m */,
 				A24B8A7327422EF300E321A9 /* OKLiteManager.h */,
 				A24B8A7227422EF300E321A9 /* OKLiteManager.m */,
+				F483AEDE290A81C500423430 /* HTTPServerManager.h */,
+				F483AEDF290A81C500423430 /* HTTPServerManager.m */,
 				A2A3376828ADF8BC00053A5C /* JPushManager.h */,
 				A2A3376928ADF8BC00053A5C /* JPushManager.m */,
 				A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */,
@@ -562,6 +567,7 @@
 				A24B8A7427422EF300E321A9 /* OKNFCBridge.mm in Sources */,
 				A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */,
 				A2A3376A28ADF8BC00053A5C /* JPushManager.m in Sources */,
+				F483AEE0290A81C500423430 /* HTTPServerManager.m in Sources */,
 				1625CE96A62F41B0B52FF2B4 /* noop-file.swift in Sources */,
 				A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */,
 				A284EFC427CE238D0070F4EA /* OKTools.m in Sources */,

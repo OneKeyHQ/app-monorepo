@@ -22,10 +22,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
 import useNavigation from '../../hooks/useNavigation';
 import { handleScanResult } from '../../utils/gotoScanQrcode';
+import { useConnectServer } from '../Onboarding/screens/Migration/ConnectServer/hook';
 
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
-import { ScanQrcodeRoutes } from './types';
+import { ScanQrcodeRoutes, ScanSubResultCategory } from './types';
 
 import type { ScanQrcodeRoutesParams } from './types';
 import type { NavigationProp, RouteProp } from '@react-navigation/core';
@@ -47,7 +48,7 @@ const ScanQrcode: FC = () => {
   const scanned = useRef(false);
   const isFocused = useIsFocused();
   const isVerticalLayout = useIsVerticalLayout();
-
+  const { connectServer } = useConnectServer();
   const navigation = useNavigation<ScanQrcodeNavProp>();
   const route = useRoute<ScanQrcodeRouteProp>();
   const onScanCompleted = route.params?.onScanCompleted;
@@ -65,6 +66,13 @@ const ScanQrcode: FC = () => {
       }
       const scanResult = await handleScanResult(data);
       if (scanResult) {
+        if (scanResult.type === ScanSubResultCategory.MIGRATE) {
+          navigation.goBack();
+          setTimeout(() => {
+            connectServer(data.replace('migrate://', ''));
+          }, 150);
+          return;
+        }
         // @ts-expect-error type missing
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         navigation.replace(ScanQrcodeRoutes.ScanQrcodeResult, scanResult);
@@ -72,7 +80,7 @@ const ScanQrcode: FC = () => {
         navigation.goBack();
       }
     },
-    [navigation, onScanCompleted],
+    [connectServer, navigation, onScanCompleted],
   );
 
   const pickImage = useCallback(async () => {

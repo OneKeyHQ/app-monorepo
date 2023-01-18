@@ -7,7 +7,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSString *)SHA256;
 - (BOOL)ok_match:(NSString *)regex;
-
++ (NSString *)generateRequestId;
 @end
 
 

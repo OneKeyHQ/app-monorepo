@@ -20,6 +20,7 @@ import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceMarket from './services/ServiceMarket';
+import type ServiceMigrate from './services/ServiceMigrate';
 import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNotification from './services/ServiceNotification';
@@ -95,4 +96,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSwap: ServiceSwap;
   serviceTranslation: ServiceTranslation;
   serviceDiscover: ServiceDiscover;
+  serviceMigrate: ServiceMigrate;
 }

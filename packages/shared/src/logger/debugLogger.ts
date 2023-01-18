@@ -126,6 +126,7 @@ export enum LoggerNames {
   providerApi = 'providerApi',
   notification = 'notification',
   autoUpdate = 'autoUpdate',
+  migrate = 'migrate',
 }
 
 export type LoggerEntity = {
@@ -177,6 +178,7 @@ const debugLogger: Record<
   [LoggerNames.providerApi]: Cache.createLogger(LoggerNames.providerApi),
   [LoggerNames.notification]: Cache.createLogger(LoggerNames.notification),
   [LoggerNames.autoUpdate]: Cache.createLogger(LoggerNames.autoUpdate),
+  [LoggerNames.migrate]: Cache.createLogger(LoggerNames.migrate),
 };
 
 if (platformEnv.isDev) {

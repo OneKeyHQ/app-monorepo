@@ -49,7 +49,7 @@ const ManagerWalletLocalValidationView: FC = () => {
   return (
     <Modal
       footer={null}
-      onClose={() => {
+      onModalClose={() => {
         if (!inputPwd) onCancel?.();
       }}
     >
