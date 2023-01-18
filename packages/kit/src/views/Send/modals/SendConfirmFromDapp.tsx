@@ -25,6 +25,7 @@ export function SendConfirmFromDapp() {
     signOnly = false,
     // eslint-disable-next-line @typescript-eslint/naming-convention
     _$t = undefined,
+    networkId: dappNetworkId,
   } = useDappParams();
   useEffect(() => {
     let action: any;
@@ -33,7 +34,7 @@ export function SendConfirmFromDapp() {
     // TODO providerName
     if (encodedTx) {
       const params: SendConfirmParams = {
-        networkId,
+        networkId: dappNetworkId ?? networkId,
         accountId,
         sourceInfo,
         encodedTx,
@@ -49,7 +50,7 @@ export function SendConfirmFromDapp() {
     }
     if (unsignedMessage) {
       const params: SignMessageConfirmParams = {
-        networkId,
+        networkId: dappNetworkId ?? networkId,
         accountId,
         sourceInfo,
         unsignedMessage,
@@ -62,7 +63,15 @@ export function SendConfirmFromDapp() {
     if (action) {
       setTimeout(() => navigation.dispatch(action));
     }
-  }, [_$t, encodedTx, navigation, sourceInfo, unsignedMessage, signOnly]);
+  }, [
+    _$t,
+    encodedTx,
+    navigation,
+    sourceInfo,
+    unsignedMessage,
+    signOnly,
+    dappNetworkId,
+  ]);
 
   return null;
 }

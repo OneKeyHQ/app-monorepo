@@ -70,7 +70,7 @@ const PositionStyle: FC<PageProps> = ({ params: { tokens } }) => {
     const [token0, token1, token2] = processTokens.map((t) =>
       t ? (
         <WText
-          color="text-success"
+          color="#34C759"
           fontWeight="600"
           fontSize="24px"
           lineHeight="34px"
@@ -85,7 +85,13 @@ const PositionStyle: FC<PageProps> = ({ params: { tokens } }) => {
         return null;
       case 1:
         return (
-          <WText fontWeight="600" fontSize="24px" lineHeight="34px" pr="16px">
+          <WText
+            fontWeight="600"
+            fontSize="24px"
+            lineHeight="34px"
+            pr="16px"
+            useCustomFont
+          >
             {intl.formatMessage(
               { id: 'content__str_is_your_favorite_onlyone' },
               {
@@ -96,7 +102,13 @@ const PositionStyle: FC<PageProps> = ({ params: { tokens } }) => {
         );
       case 2:
         return (
-          <WText fontWeight="600" fontSize="24px" lineHeight="34px" pr="16px">
+          <WText
+            fontWeight="600"
+            fontSize="24px"
+            lineHeight="34px"
+            pr="16px"
+            useCustomFont
+          >
             {intl.formatMessage(
               { id: 'content__str_is_your_favorite_onlytwo' },
               {
@@ -109,7 +121,13 @@ const PositionStyle: FC<PageProps> = ({ params: { tokens } }) => {
 
       default: {
         return (
-          <WText fontWeight="600" fontSize="24px" lineHeight="34px" pr="16px">
+          <WText
+            fontWeight="600"
+            fontSize="24px"
+            lineHeight="34px"
+            pr="16px"
+            useCustomFont
+          >
             {intl.formatMessage(
               { id: 'content__str_is_your_favorite' },
               {

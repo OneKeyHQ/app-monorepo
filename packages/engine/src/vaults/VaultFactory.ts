@@ -21,11 +21,15 @@ export class VaultFactory {
     networkId,
     accountId,
     walletId,
-  }: IVaultFactoryOptions): Promise<VaultBase> => {
+    rpcURL,
+  }: IVaultFactoryOptions & {
+    rpcURL?: string;
+  }): Promise<VaultBase> => {
     const options = {
       networkId,
       accountId,
       walletId,
+      rpcURL,
       engine: this.engine,
     };
     const vault: VaultBase = await createVaultInstance(options);
@@ -36,8 +40,11 @@ export class VaultFactory {
     async ({
       networkId,
       accountId,
-    }: Omit<IVaultFactoryOptions, 'walletId'>): Promise<VaultBase> =>
-      this._getVaultWithoutCache({ networkId, accountId }),
+      rpcURL,
+    }: Omit<IVaultFactoryOptions, 'walletId'> & {
+      rpcURL?: string;
+    }): Promise<VaultBase> =>
+      this._getVaultWithoutCache({ networkId, accountId, rpcURL }),
     {
       promise: true,
       primitive: true,
@@ -54,7 +61,6 @@ export class VaultFactory {
     {
       promise: true,
       primitive: true,
-      normalizer: (args) => `${args[0]}`,
       max: 1,
       maxAge: 1000 * 60 * 15,
     },
@@ -71,7 +77,6 @@ export class VaultFactory {
     {
       promise: true,
       primitive: true,
-      normalizer: (args) => `${args[0]}:${args[1]}`,
       max: 1,
       maxAge: 1000 * 60 * 15,
     },

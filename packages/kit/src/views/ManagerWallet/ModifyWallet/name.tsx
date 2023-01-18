@@ -25,8 +25,8 @@ import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/M
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
-import { defaultAvatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { defaultAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 

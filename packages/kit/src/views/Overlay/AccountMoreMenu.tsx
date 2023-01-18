@@ -56,7 +56,10 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     [enabledAccounts, account],
   );
 
-  const addressCanSubscribe = useAddressCanSubscribe(account);
+  const addressCanSubscribe = useAddressCanSubscribe(
+    account,
+    network?.id ?? '',
+  );
 
   useEffect(() => {
     (async () => {

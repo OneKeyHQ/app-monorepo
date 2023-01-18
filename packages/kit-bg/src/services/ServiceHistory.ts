@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { cloneDeep, isEmpty, isNil, isNumber } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   IFeeInfoUnit,
   IHistoryTx,
@@ -468,6 +468,21 @@ class ServiceHistory extends ServiceBase {
       return 'sucesss';
     }
     return 'failed';
+  }
+
+  @backgroundMethod()
+  async checkIsScamHistoryTx({
+    accountId,
+    networkId,
+    historyTx,
+  }: {
+    accountId: string;
+    networkId: string;
+    historyTx: IHistoryTx;
+  }) {
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getVault({ networkId, accountId });
+    return vault.checkIsScamHistoryTx(historyTx);
   }
 }
 

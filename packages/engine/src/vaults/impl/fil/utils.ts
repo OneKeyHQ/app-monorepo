@@ -1,6 +1,8 @@
 import { FilecoinSigner } from '@blitslabs/filecoin-js-signer';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
+
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 
 import { IDecodedTxStatus } from '../../types';
 
@@ -9,7 +11,6 @@ import { ProtocolIndicator } from './types';
 import type { Signer } from '../../../proxy';
 import type { IUnsignedTxPro } from '../../types';
 import type { IEncodedTxFil } from './types';
-import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export async function signTransaction(
   unsignedTx: IUnsignedTxPro,

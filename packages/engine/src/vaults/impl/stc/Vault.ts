@@ -3,11 +3,13 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint-disable @typescript-eslint/require-await */
 
-import { StcClient } from '@onekeyfe/blockchain-libs/dist/provider/chains/stc/starcoin';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
 import Decimal from 'decimal.js';
+import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -29,6 +31,7 @@ import {
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
+import { ClientStc } from './ClientStc';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -60,7 +63,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxSTC } from './types';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const MAIN_TOKEN_ADDRESS = '0x00000000000000000000000000000001::STC::STC';
@@ -268,10 +270,28 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
-  private async getJsonRPCClient(): Promise<StcClient> {
-    return (await this.engine.providerManager.getClient(
-      this.networkId,
-    )) as StcClient;
+  private async getJsonRPCClient(): Promise<ClientStc> {
+    const rpcURL = await this.getRpcUrl();
+    return this.createClientFromURL(rpcURL);
+  }
+
+  override createClientFromURL = memoizee(
+    (rpcURL: string) => new ClientStc(rpcURL),
+    {
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  override async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ): Promise<(BigNumber | undefined)[]> {
+    const requestsNew = requests.map(({ address, tokenAddress }) => ({
+      address,
+      coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
+    }));
+    const client = await this.getJsonRPCClient();
+    return client.getBalances(requestsNew);
   }
 
   updateEncodedTxTokenApprove(
@@ -559,10 +579,6 @@ export default class Vault extends VaultBase {
     } catch (e) {
       throw extractResponseError(e);
     }
-  }
-
-  createClientFromURL(url: string): StcClient {
-    return new StcClient(url);
   }
 
   async fetchTokenInfos(

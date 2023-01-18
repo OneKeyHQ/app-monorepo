@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Divider, HStack, Icon, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -8,6 +8,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useClipboard } from '../../../hooks/useClipboard';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
+import { showAddressPoisoningScamAlert } from '../../Overlay/AddressPoisoningScamAlert';
 
 import { TxActionElementPressable } from './TxActionElementPressable';
 
@@ -35,6 +36,7 @@ export function TxActionElementAddress(
     flex?: number;
     checkSecurity?: boolean;
     networkId?: string;
+    amount?: string;
   } & ComponentProps<typeof Text>,
 ) {
   const {
@@ -45,6 +47,7 @@ export function TxActionElementAddress(
     checkSecurity = false,
     networkId,
     flex,
+    amount,
     ...others
   } = props;
   const shouldCheckSecurity = checkSecurity && networkId;
@@ -59,13 +62,24 @@ export function TxActionElementAddress(
     text = `${label}(${address.slice(-4)})`;
   }
 
+  const handleCopyText = useCallback(
+    (addressToCopy: string) => {
+      if (amount === '0') {
+        showAddressPoisoningScamAlert(address);
+      } else {
+        copyText(addressToCopy);
+      }
+    },
+    [address, amount, copyText],
+  );
+
   return (
     <VStack flex={flex}>
       <TxActionElementPressable
         onPress={
           isCopy
             ? () => {
-                copyText(address);
+                handleCopyText(address);
               }
             : undefined
         }
@@ -113,9 +127,11 @@ export function getTxActionElementAddressWithSecurityInfo({
   networkId,
   withSecurityInfo = false,
   typography = 'Body2Strong',
+  amount,
 }: {
   address: string;
   withSecurityInfo: boolean;
+  amount?: string;
   networkId?: string;
   typography?: ComponentProps<typeof Text>['typography'];
 }) {
@@ -126,8 +142,15 @@ export function getTxActionElementAddressWithSecurityInfo({
         address={address}
         networkId={networkId}
         typography={typography}
+        amount={amount}
       />
     );
   }
-  return <TxActionElementAddress typography={typography} address={address} />;
+  return (
+    <TxActionElementAddress
+      typography={typography}
+      address={address}
+      amount={amount}
+    />
+  );
 }

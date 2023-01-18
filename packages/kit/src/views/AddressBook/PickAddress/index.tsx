@@ -155,6 +155,7 @@ const MyWallet = () => {
   const { networkId, onSelected } = route.params ?? {};
   const [sections, setSections] = useState<WalletAccount[]>([]);
   useEffect(() => {
+    // TODO make it a hook and use promise.all (same logic in pickrecipient)
     async function main() {
       for (let i = 0; i < wallets.length; i += 1) {
         const wallet = wallets[i];

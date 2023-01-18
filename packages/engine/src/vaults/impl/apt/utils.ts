@@ -4,6 +4,8 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
 import { get } from 'lodash';
 
+import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+
 import {
   InvalidAccount,
   OneKeyError,
@@ -22,7 +24,6 @@ import type {
   SignMessageRequest,
   TxPayload,
 } from './types';
-import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { AptosClient, MaybeHexString, Types } from 'aptos';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';

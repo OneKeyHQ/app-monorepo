@@ -2,6 +2,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import type { TxInput, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import {
   IMPL_ALGO,
   IMPL_BTC,
@@ -15,10 +16,6 @@ import {
 import type { DBAccount, DBSimpleAccount } from './types/account';
 import type { Network } from './types/network';
 import type { Token } from './types/token';
-import type {
-  TxInput,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export function fillUnsignedTxObj({
   network,

@@ -1,6 +1,6 @@
 import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
-import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -11,12 +11,12 @@ import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 import { signTransaction } from './utils';
 
 import type { DBVariantAccount } from '../../../types/account';
+import type { SignedTx } from '../../../types/provider';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {

@@ -2,7 +2,7 @@ import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, ToggleButtonGroup } from '@onekeyhq/components';
+import { ToggleButtonGroup } from '@onekeyhq/components';
 
 import { useTranslation } from '../../../../hooks';
 import { useCategories } from '../../hooks';
@@ -47,13 +47,12 @@ export const DAppCategories = () => {
     return null;
   }
   return (
-    <Box px="4">
-      <ToggleButtonGroup
-        buttons={buttons}
-        selectedIndex={selectedIndex}
-        onButtonPress={onButtonPress}
-        bg="background-default"
-      />
-    </Box>
+    <ToggleButtonGroup
+      px="4"
+      buttons={buttons}
+      selectedIndex={selectedIndex}
+      onButtonPress={onButtonPress}
+      bg="background-default"
+    />
   );
 };

@@ -1,3 +1,4 @@
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -11,10 +12,6 @@ import type {
   IPrepareWatchingAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringWatching extends KeyringWatchingBase {
   // TODO remove

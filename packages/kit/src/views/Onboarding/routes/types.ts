@@ -1,3 +1,4 @@
+import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -37,8 +38,12 @@ export type IOnboardingRoutesParams = {
 
   [EOnboardingRoutes.ConnectWallet]: IOnboardingConnectWalletParams | undefined;
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;
+  [EOnboardingRoutes.ThirdPartyWallet]:
+    | IOnboardingConnectWalletParams
+    | undefined;
 
   [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
+  [EOnboardingRoutes.RecoveryWallet]: undefined;
 
   [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams | undefined;
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;
@@ -53,5 +58,10 @@ export type IOnboardingRoutesParams = {
     numOfImportedAccounts: number;
     numOfWatchingAccounts: number;
     numOfContacts: number;
+  };
+  [EOnboardingRoutes.KeyTag]: undefined;
+  [EOnboardingRoutes.Migration]: undefined;
+  [EOnboardingRoutes.MigrationPreview]: {
+    data: MigrateData;
   };
 };

@@ -1,8 +1,15 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
+import { useFonts } from 'expo-font';
 import { useIntl } from 'react-intl';
-import { ImageBackground, StatusBar } from 'react-native';
+import { Animated, ImageBackground, StatusBar } from 'react-native';
 
 import {
   Center,
@@ -14,12 +21,13 @@ import {
   VStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import bg1 from '@onekeyhq/kit/assets/annual/2.png';
-import bg2 from '@onekeyhq/kit/assets/annual/3.png';
-import bg3 from '@onekeyhq/kit/assets/annual/4.png';
-import bg4 from '@onekeyhq/kit/assets/annual/5.png';
-import bg5 from '@onekeyhq/kit/assets/annual/6.png';
-import bg6 from '@onekeyhq/kit/assets/annual/7.png';
+import bg1 from '@onekeyhq/kit/assets/annual/2.jpg';
+import bg2 from '@onekeyhq/kit/assets/annual/3.jpg';
+import bg3 from '@onekeyhq/kit/assets/annual/4.jpg';
+import bg4 from '@onekeyhq/kit/assets/annual/5.jpg';
+import bg5 from '@onekeyhq/kit/assets/annual/6.jpg';
+import bg6 from '@onekeyhq/kit/assets/annual/7.jpg';
+import bg7 from '@onekeyhq/kit/assets/annual/8.jpg';
 import qrcode from '@onekeyhq/kit/assets/annual/qrcode.png';
 import down from '@onekeyhq/kit/assets/annual/scrolldown.png';
 import logo from '@onekeyhq/kit/assets/qrcode_logo.png';
@@ -36,6 +44,7 @@ export const bgs = {
   bg4,
   bg5,
   bg6,
+  bg7,
 };
 
 export const useHeaderHide = () => {
@@ -62,12 +71,7 @@ export const Header: FC<{ showHeaderLogo?: boolean }> = ({
         {showHeaderLogo ? (
           <HStack alignItems="center">
             <Image borderRadius="14px" source={logo} w={8} h={8} />
-            <Text
-              fontSize="24px"
-              color="text-on-primary"
-              ml="1"
-              fontWeight="800"
-            >
+            <Text fontSize="24px" color="#fff" ml="1" fontWeight="800">
               OneKey
             </Text>
           </HStack>
@@ -89,6 +93,31 @@ export const Footer: FC<{
   showIndicator?: boolean;
 }> = ({ onShare, showIndicator }) => {
   const intl = useIntl();
+
+  const offset = useRef(new Animated.Value(0)).current;
+
+  const startAnimation = useCallback(() => {
+    const slide = Animated.sequence([
+      Animated.timing(offset, {
+        toValue: 10,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(offset, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]);
+    Animated.loop(slide).start();
+  }, [offset]);
+
+  useEffect(() => {
+    if (showIndicator) {
+      startAnimation();
+    }
+  }, [startAnimation, showIndicator]);
+
   return (
     <HStack
       position="absolute"
@@ -103,14 +132,22 @@ export const Footer: FC<{
     >
       {showIndicator ? (
         <Center w="full" px="6" position="absolute" bottom="82px" left="24px">
-          <Image borderRadius="14px" source={down} w={34.5} h={18} />
+          <Animated.Image
+            borderRadius={14}
+            source={down}
+            style={{
+              transform: [{ translateY: offset }],
+              width: 34.5,
+              height: 18,
+            }}
+          />
         </Center>
       ) : null}
       <Image borderRadius="14px" source={logo} w={8} h={8} />
       <VStack ml="3" flex="1">
         <Text
           textTransform="uppercase"
-          color="text-on-primary"
+          color="#fff"
           lineHeight="20px"
           fontSize="16"
           fontWeight="800"
@@ -129,39 +166,45 @@ export const Footer: FC<{
   );
 };
 
-export const ShareFooter: FC = () => (
-  <HStack
-    bg="rgba(0, 6, 17, 0.8)"
-    px="30px"
-    py="4"
-    justifyContent="space-between"
-    alignItems="center"
-    position="absolute"
-    bottom="0"
-    left="0"
-    w="full"
-    zIndex="99"
-  >
-    <VStack>
-      <HStack alignItems="center">
-        <Image borderRadius="14px" source={logo} w={8} h={8} />
-        <Text fontSize="24px" color="#44D62C" ml="1" fontWeight="800">
-          OneKey
+export const ShareFooter: FC = () => {
+  const intl = useIntl();
+  return (
+    <HStack
+      bg="rgba(0, 6, 17, 0.8)"
+      px="30px"
+      py="4"
+      justifyContent="space-between"
+      alignItems="center"
+      position="absolute"
+      bottom="0"
+      left="0"
+      w="full"
+      zIndex="99"
+    >
+      <VStack>
+        <HStack alignItems="center">
+          <Image borderRadius="14px" source={logo} w={8} h={8} />
+          <Text fontSize="24px" color="#44D62C" ml="1" fontWeight="800">
+            OneKey
+          </Text>
+        </HStack>
+        <Text
+          fontSize="14px"
+          textTransform="uppercase"
+          color="#fff"
+          opacity=".5"
+          fontWeight="500"
+        >
+          2022{' '}
+          {intl.formatMessage({
+            id: 'title__my_on_chain_journey',
+          })}
         </Text>
-      </HStack>
-      <Text
-        fontSize="14px"
-        textTransform="uppercase"
-        color="#fff"
-        opacity=".5"
-        fontWeight="500"
-      >
-        2022 My on-chain Journey.
-      </Text>
-    </VStack>
-    <Image mt="10px" borderRadius="6px" source={qrcode} w="60px" h="60px" />
-  </HStack>
-);
+      </VStack>
+      <Image mt="10px" borderRadius="6px" source={qrcode} w="60px" h="60px" />
+    </HStack>
+  );
+};
 
 export const BgButton: FC<{
   bg: ImageSourcePropType;
@@ -191,8 +234,15 @@ export const BgButton: FC<{
 export const Container: FC<{
   bg: ImageSourcePropType;
   shareMode?: boolean;
+  showHeaderLogo?: boolean;
   containerProps?: ComponentProps<typeof VStack>;
-}> = ({ bg, children, shareMode = false, containerProps = {} }) => {
+}> = ({
+  bg,
+  children,
+  shareMode = false,
+  containerProps = {},
+  showHeaderLogo,
+}) => {
   const { top, bottom } = useSafeAreaInsets();
 
   return (
@@ -213,7 +263,7 @@ export const Container: FC<{
         position="relative"
         w="full"
       >
-        {shareMode ? null : <Header />}
+        {shareMode ? null : <Header showHeaderLogo={showHeaderLogo} />}
         <VStack flex="1" px="6" overflowY="scroll" {...containerProps}>
           {children}
         </VStack>
@@ -223,11 +273,23 @@ export const Container: FC<{
   );
 };
 
-export const WText: FC<ComponentProps<typeof Text>> = ({
-  children,
-  ...props
-}) => (
-  <Text color="text-on-primary" fontSize="16" fontWeight="800" {...props}>
-    {children}
-  </Text>
-);
+export const WText: FC<
+  ComponentProps<typeof Text> & {
+    useCustomFont?: boolean;
+  }
+> = ({ children, useCustomFont = false, ...props }) => {
+  const [loaded] = useFonts({
+    Montserrat: require('../../../../components/src/Provider/fonts/HKGroteskWide-Black.otf'),
+  });
+  return (
+    <Text
+      fontFamily={loaded && useCustomFont ? 'Montserrat' : undefined}
+      color="#fff"
+      fontSize="16"
+      fontWeight="800"
+      {...props}
+    >
+      {children}
+    </Text>
+  );
+};

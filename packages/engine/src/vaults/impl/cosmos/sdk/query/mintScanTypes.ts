@@ -117,3 +117,83 @@ export enum Type {
   Ibc = 'ibc',
   Bridge = 'bridge',
 }
+
+export interface Transaction {
+  header: Header;
+  data: Data;
+}
+
+export interface Data {
+  height: string;
+  txhash: string;
+  codespace: string;
+  code: number;
+  data: string;
+  info: string;
+  gas_wanted: string;
+  gas_used: string;
+  tx: Tx;
+  timestamp: string;
+}
+
+export interface Tx {
+  '@type': string;
+  body: Body;
+  auth_info: AuthInfo;
+  signatures: string[];
+}
+
+export interface AuthInfo {
+  signer_infos: SignerInfo[];
+  fee: Fee;
+}
+
+export interface Fee {
+  amount: Amount[];
+  gas_limit: string;
+  payer: string;
+  granter: string;
+}
+
+export interface Amount {
+  denom: string;
+  amount: string;
+}
+
+export interface SignerInfo {
+  public_key: PublicKey;
+  mode_info: ModeInfo;
+  sequence: string;
+}
+
+export interface ModeInfo {
+  single: Single;
+}
+
+export interface Single {
+  mode: string;
+}
+
+export interface PublicKey {
+  '@type': string;
+  key: string;
+}
+
+export interface Body {
+  messages: Message[];
+  memo: string;
+  timeout_height: string;
+  extension_options: any[];
+  non_critical_extension_options: any[];
+}
+
+export interface Message {
+  '@type': string;
+}
+
+export interface Header {
+  id: number;
+  chain_id: string;
+  block_id: number;
+  timestamp: Date;
+}

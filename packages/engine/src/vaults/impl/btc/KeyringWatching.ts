@@ -1,3 +1,4 @@
+import type { Provider } from '@onekeyhq/blockchain-libs/src/provider/chains/btc/provider';
 import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { InvalidAddress } from '../../../errors';
@@ -6,7 +7,6 @@ import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../types';
-import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
 
 export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(

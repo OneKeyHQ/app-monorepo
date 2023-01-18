@@ -53,38 +53,30 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
 
   return (
     <Pressable
+      mb="5"
       onPress={() => {
         onItemSelect?.(item);
       }}
+      flexDirection="row"
+      flex={1}
+      alignItems="center"
+      justifyContent="space-between"
     >
-      <Box width="full" mb="5">
-        <Box
-          flexDirection="row"
-          flex={1}
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <Box flexDirection="row" flex={1} alignItems="center">
-            <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
-            <Box flexDirection="column" ml="12px" flex={1}>
-              <Typography.Body2Strong>{name}</Typography.Body2Strong>
-              <Typography.Caption
-                color="text-subdued"
-                mt="4px"
-                numberOfLines={1}
-              >
-                {description}
-              </Typography.Caption>
-            </Box>
-          </Box>
-          <Box ref={ref}>
-            <IconButton
-              type="plain"
-              name="DotsHorizontalMini"
-              onPress={() => callback({ triggerEle: ref.current, dapp: item })}
-            />
-          </Box>
+      <Box flexDirection="row" flex={1} alignItems="center">
+        <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
+        <Box flexDirection="column" ml="12px" flex={1}>
+          <Typography.Body2Strong>{name}</Typography.Body2Strong>
+          <Typography.Caption color="text-subdued" mt="4px" numberOfLines={1}>
+            {description}
+          </Typography.Caption>
         </Box>
+      </Box>
+      <Box ref={ref}>
+        <IconButton
+          type="plain"
+          name="DotsHorizontalMini"
+          onPress={() => callback({ triggerEle: ref.current, dapp: item })}
+        />
       </Box>
     </Pressable>
   );
@@ -112,7 +104,7 @@ const HistoryListEmptyComponent = () => {
   );
 };
 
-const Favorates = () => {
+const Favorites = () => {
   const data = useDiscoverFavorites();
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
     ({ item }) => <RenderItem item={item} callback={showFavoriteMenu} />,
@@ -120,7 +112,7 @@ const Favorates = () => {
   );
   return (
     <FlatList
-      contentContainerStyle={{ paddingTop: 24, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingVertical: 24 }}
       data={data}
       px="4"
       renderItem={renderItem}
@@ -138,7 +130,7 @@ const History = () => {
   );
   return (
     <FlatList
-      contentContainerStyle={{ paddingTop: 24, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingVertical: 24 }}
       data={data}
       px="4"
       renderItem={renderItem}
@@ -190,7 +182,7 @@ const Mobile = () => {
   const { defaultIndex } = useContext(MyDAppListContext);
   const [selectedIndex, setSelectedIndex] = useState<number>(defaultIndex ?? 0);
 
-  const favorates = useMemo(() => <Favorates />, []);
+  const favorites = useMemo(() => <Favorites />, []);
   const history = useMemo(() => <History />, []);
 
   useLayoutEffect(() => {
@@ -212,7 +204,7 @@ const Mobile = () => {
           onChange={setSelectedIndex}
         />
       </Box>
-      <Box flex="1">{selectedIndex === 0 ? favorates : history}</Box>
+      <Box flex="1">{selectedIndex === 0 ? favorites : history}</Box>
     </Box>
   );
 };

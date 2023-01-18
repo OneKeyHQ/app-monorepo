@@ -70,6 +70,7 @@ export type SettingsState = {
     enableZeroNotificationThreshold?: boolean;
     enablePerfCheck?: boolean;
     hideDiscoverContent?: boolean;
+    enableExternalAccountAnnualReport?: boolean;
   };
   pushNotification?: {
     registrationId?: string;
@@ -88,6 +89,7 @@ export type SettingsState = {
   };
   hideSmallBalance?: boolean;
   hideRiskTokens?: boolean;
+  hideScamHistory?: boolean;
   includeNFTsInTotal?: boolean;
   hideBalance?: boolean;
   updateSetting?: {
@@ -148,6 +150,7 @@ const initialState: SettingsState = {
   },
   hideSmallBalance: false,
   hideRiskTokens: true,
+  hideScamHistory: true,
   includeNFTsInTotal: true,
   hideBalance: false,
   updateSetting: {
@@ -276,6 +279,12 @@ export const settingsSlice = createSlice({
     setHideDiscoverContent(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, hideDiscoverContent: action.payload };
     },
+    setEnableExternalAccountReport(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        enableExternalAccountAnnualReport: action.payload,
+      };
+    },
     setAnnualReportEntryEnabled(state, action: PayloadAction<boolean>) {
       state.annualReportEntryEnabled = action.payload;
     },
@@ -350,6 +359,9 @@ export const settingsSlice = createSlice({
     },
     setHideSmallBalance(state, action: PayloadAction<boolean>) {
       state.hideSmallBalance = action.payload;
+    },
+    setHideScamHistory(state, action: PayloadAction<boolean>) {
+      state.hideScamHistory = action.payload;
     },
     setHideRiskTokens(state, action: PayloadAction<boolean>) {
       state.hideRiskTokens = action.payload;
@@ -486,6 +498,8 @@ export const {
   setWalletSwitch,
   toggleWalletSwitch,
   setAnnualReportEntryEnabled,
+  setEnableExternalAccountReport,
+  setHideScamHistory,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

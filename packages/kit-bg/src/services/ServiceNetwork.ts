@@ -67,9 +67,9 @@ class ServiceNetwork extends ServiceBase {
       );
       const firstAccount = accounts && accounts[0];
       // TODO cache last active account of network, NOT hardcode to firstAccount
-      if (firstAccount) {
+      if (firstAccount || forceRefreshAccount) {
         await serviceAccount.changeActiveAccount({
-          accountId: firstAccount.id,
+          accountId: firstAccount?.id ?? null,
           walletId: activeWalletId,
           extraActions: [changeActiveNetworkAction], // dispatch batch actions
           // as reloadAccountsByWalletIdNetworkId() has been called before
@@ -178,9 +178,13 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getRPCEndpointStatus(rpcURL: string, networkId: string) {
+  async getRPCEndpointStatus(
+    rpcURL: string,
+    networkId: string,
+    useCache = true,
+  ) {
     const { engine } = this.backgroundApi;
-    return engine.getRPCEndpointStatus(rpcURL, networkId);
+    return engine.getRPCEndpointStatus(rpcURL, networkId, useCache);
   }
 
   @backgroundMethod()

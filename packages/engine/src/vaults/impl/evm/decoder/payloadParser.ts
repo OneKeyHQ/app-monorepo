@@ -1,7 +1,7 @@
-import { ethers } from '@onekeyfe/blockchain-libs';
-
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import type { SwapQuoteTx } from '@onekeyhq/kit/src/views/Swap/typings';
+
+import { ethers } from '../sdk/ethers';
 
 import { EVMDecodedTxType } from './types';
 

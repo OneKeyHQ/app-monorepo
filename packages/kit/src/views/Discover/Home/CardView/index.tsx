@@ -14,8 +14,4 @@ if (platformEnv.isNative) {
   CardViewImpl = require('./Unknown').Unknown;
 }
 
-const CardView: FC<SectionDataType> = ({ ...rest }) => (
-  <CardViewImpl {...rest} />
-);
-
-export default CardView;
+export default CardViewImpl as FC<SectionDataType>;

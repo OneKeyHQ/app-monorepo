@@ -1,7 +1,7 @@
 import type { TxStatus } from '../../../../types/covalent';
 import type { Network } from '../../../../types/network';
 import type { Token } from '../../../../types/token';
-import type { ethers } from '@onekeyfe/blockchain-libs';
+import type { ethers } from '../sdk/ethers';
 
 enum EVMDecodedTxType {
   // Native currency transfer

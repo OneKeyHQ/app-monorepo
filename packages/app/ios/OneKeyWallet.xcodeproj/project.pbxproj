@@ -10,6 +10,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		1625CE96A62F41B0B52FF2B4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB5A55C2A16742BCB8148B6E /* noop-file.swift */; };
+		35F8423629752D6D0096FC7E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35F8423829752D6D0096FC7E /* InfoPlist.strings */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		96905EF65AED1B983A6B3ABC /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */; };
 		A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */ = {isa = PBXBuildFile; fileRef = A23573BA2880172400A9CA58 /* RCTRootView+Orientation.m */; };
@@ -41,6 +42,7 @@
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		F44507EC289DDCE100F70EB6 /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = F44507EB289DDCE100F70EB6 /* web-embed */; };
 		F46D18DA290A577F0018E04D /* Minimizer.m in Sources */ = {isa = PBXBuildFile; fileRef = F46D18D8290A577F0018E04D /* Minimizer.m */; };
+		F483AEE0290A81C500423430 /* HTTPServerManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F483AEDF290A81C500423430 /* HTTPServerManager.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -64,6 +66,11 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OneKeyWallet/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = OneKeyWallet/main.m; sourceTree = "<group>"; };
+		35F8423729752D6D0096FC7E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		35F8423929752D720096FC7E /* zh-HK */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-HK"; path = "zh-HK.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		35F8423A29752D730096FC7E /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		35F8423B297532F00096FC7E /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		35F8423C297533300096FC7E /* id */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = id; path = id.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C2E3173556A471DD304B334 /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
 		7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
@@ -119,6 +126,8 @@
 		F44507EB289DDCE100F70EB6 /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		F46D18D8290A577F0018E04D /* Minimizer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Minimizer.m; sourceTree = "<group>"; };
 		F46D18D9290A577F0018E04D /* Minimizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Minimizer.h; sourceTree = "<group>"; };
+		F483AEDE290A81C500423430 /* HTTPServerManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HTTPServerManager.h; sourceTree = "<group>"; };
+		F483AEDF290A81C500423430 /* HTTPServerManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HTTPServerManager.m; sourceTree = "<group>"; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -153,6 +162,7 @@
 				008F07F21AC5B25A0029DE68 /* main.jsbundle */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
+				35F8423829752D6D0096FC7E /* InfoPlist.strings */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				AB5A55C2A16742BCB8148B6E /* noop-file.swift */,
@@ -266,6 +276,8 @@
 				F46D18D8290A577F0018E04D /* Minimizer.m */,
 				A24B8A7327422EF300E321A9 /* OKLiteManager.h */,
 				A24B8A7227422EF300E321A9 /* OKLiteManager.m */,
+				F483AEDE290A81C500423430 /* HTTPServerManager.h */,
+				F483AEDF290A81C500423430 /* HTTPServerManager.m */,
 				A2A3376828ADF8BC00053A5C /* JPushManager.h */,
 				A2A3376928ADF8BC00053A5C /* JPushManager.m */,
 				A2F1BFF927A2D30900C4EE99 /* RNLiteCallBackManager.h */,
@@ -389,6 +401,10 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-HK",
+				"zh-Hans",
+				ja,
+				id,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
@@ -406,6 +422,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				35F8423629752D6D0096FC7E /* InfoPlist.strings in Resources */,
 				F44507EC289DDCE100F70EB6 /* web-embed in Resources */,
 				A276046A288F6E57002A82DC /* PlusJakartaSans-Medium.ttf in Resources */,
 				A2760468288F6E57002A82DC /* PlusJakartaSans-Bold.ttf in Resources */,
@@ -550,6 +567,7 @@
 				A24B8A7427422EF300E321A9 /* OKNFCBridge.mm in Sources */,
 				A2D02C042824EAF9005A45F0 /* SplashScreenManager.m in Sources */,
 				A2A3376A28ADF8BC00053A5C /* JPushManager.m in Sources */,
+				F483AEE0290A81C500423430 /* HTTPServerManager.m in Sources */,
 				1625CE96A62F41B0B52FF2B4 /* noop-file.swift in Sources */,
 				A2E5334D288515EA00063227 /* PagingViewContainer.m in Sources */,
 				A284EFC427CE238D0070F4EA /* OKTools.m in Sources */,
@@ -559,6 +577,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		35F8423829752D6D0096FC7E /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				35F8423729752D6D0096FC7E /* en */,
+				35F8423929752D720096FC7E /* zh-HK */,
+				35F8423A29752D730096FC7E /* zh-Hans */,
+				35F8423B297532F00096FC7E /* ja */,
+				35F8423C297533300096FC7E /* id */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {

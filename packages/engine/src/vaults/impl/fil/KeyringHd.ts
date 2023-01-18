@@ -1,7 +1,9 @@
 import { CoinType, newSecp256k1Address } from '@glif/filecoin-address';
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
+import type { CurveName } from '@onekeyhq/engine/src/secret';
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -18,8 +20,6 @@ import type {
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
-import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;

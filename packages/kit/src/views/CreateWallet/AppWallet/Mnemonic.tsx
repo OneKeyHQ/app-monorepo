@@ -2,21 +2,16 @@ import type { FC } from 'react';
 import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/native';
-import { chunk } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
+  MnemonicCard,
   Modal,
-  Pressable,
-  ScrollView,
   Text,
   ToastManager,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -48,110 +43,50 @@ export const Mnemonic: FC<MnemonicProps> = ({
   onPromise,
 }) => {
   const intl = useIntl();
-  const insets = useSafeAreaInsets();
 
-  const words = mnemonic.split(' ').filter(Boolean);
-  const halfWords = words.length / 2;
-
-  const copyMnemonicToClipboard = useCallback(
-    (text) => {
-      if (!text) return;
-      copyToClipboard(text);
-      ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
-    },
-    [intl],
-  );
   return (
-    <Modal footer={null}>
-      <Box flex={1} px={{ base: 2, md: 0 }}>
-        <Box mb={{ base: 12, md: 8 }} px={2}>
-          <Text
-            typography={{ sm: 'DisplayLarge', md: 'DisplayMedium' }}
-            mb="3"
-            textAlign="center"
-          >
-            👀 {intl.formatMessage({ id: 'modal__for_your_eyes_only' })}
-          </Text>
-          <Text
-            typography={{ sm: 'Body1', md: 'Body2' }}
-            color="text-subdued"
-            textAlign="center"
-            maxW={{ md: 276 }}
-            mx="auto"
-          >
-            {intl.formatMessage({ id: 'modal__for_your_eyes_only_desc' })}
-          </Text>
-        </Box>
-        <Text
-          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-          mb="4"
-          textAlign="center"
-        >
-          ↓ {intl.formatMessage({ id: 'content__click_below_to_copy' })} ↓
-        </Text>
-        <Box flex={1} mb={8}>
-          <Pressable
-            maxH="full"
-            px={4}
-            py={{ base: 2, md: 2.5 }}
-            bg="surface-default"
-            _hover={{ bg: 'surface-hovered' }}
-            _pressed={{ bg: 'surface-pressed' }}
-            shadow="depth.2"
-            borderRadius="12"
-            onPress={() => {
-              copyMnemonicToClipboard(mnemonic);
-            }}
-          >
-            <ScrollView>
-              <Box flexDirection="row">
-                {chunk(words, halfWords).map((wordsInChunk, chunkIndex) => (
-                  <Box
-                    key={chunkIndex}
-                    flex="1"
-                    mr={chunkIndex === 0 ? 6 : undefined}
-                  >
-                    {wordsInChunk.map((word, i) => (
-                      <Box key={i} flexDirection="row" my={1.5}>
-                        <Text
-                          typography={{
-                            sm: 'Body1Strong',
-                            md: 'Body2Strong',
-                          }}
-                          color="text-subdued"
-                          w="8"
-                        >
-                          {i + chunkIndex * halfWords + 1}.
-                        </Text>
-                        <Text
-                          typography={{
-                            sm: 'Body1Strong',
-                            md: 'Body2Strong',
-                          }}
-                          color="text-default"
-                        >
-                          {word}
-                        </Text>
-                      </Box>
-                    ))}
-                  </Box>
-                ))}
-              </Box>
-            </ScrollView>
-          </Pressable>
-        </Box>
-        <Button
-          size="xl"
-          type="primary"
-          mt="auto"
-          mb={`${insets.bottom}px`}
-          onPress={onPress}
-          onPromise={onPromise}
-        >
-          {intl.formatMessage({ id: 'action__i_have_saved_the_phrase' })}
-        </Button>
-      </Box>
-    </Modal>
+    <Modal
+      hideSecondaryAction
+      primaryActionProps={{
+        onPress,
+        onPromise,
+        children: intl.formatMessage({ id: 'action__i_have_saved_the_phrase' }),
+      }}
+      scrollViewProps={{
+        children: (
+          <Box flex={1} px={{ base: 2, md: 0 }}>
+            <Box mb={{ base: 12, md: 8 }} px={2}>
+              <Text
+                typography={{ sm: 'DisplayLarge', md: 'DisplayMedium' }}
+                mb="3"
+                textAlign="center"
+              >
+                👀 {intl.formatMessage({ id: 'modal__for_your_eyes_only' })}
+              </Text>
+              <Text
+                typography={{ sm: 'Body1', md: 'Body2' }}
+                color="text-subdued"
+                textAlign="center"
+                maxW={{ md: 276 }}
+                mx="auto"
+              >
+                {intl.formatMessage({ id: 'modal__for_your_eyes_only_desc' })}
+              </Text>
+            </Box>
+            <Text
+              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+              mb="4"
+              textAlign="center"
+            >
+              ↓ {intl.formatMessage({ id: 'content__click_below_to_copy' })} ↓
+            </Text>
+            <Box flex={1} mb={8}>
+              <MnemonicCard mnemonic={mnemonic} />
+            </Box>
+          </Box>
+        ),
+      }}
+    />
   );
 };
 

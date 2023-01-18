@@ -24,6 +24,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
   setDevMode,
+  setEnableExternalAccountReport,
   setEnablePerfCheck,
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
@@ -37,6 +38,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
+
+import {
+  requestsInterceptTest,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  requestsInterceptTest2,
+} from './requestsInterceptTest';
 
 interface IOneKeyPerfCheckPayload {
   testID?: string;
@@ -86,6 +93,7 @@ export const DevSettingSection = () => {
     enableZeroNotificationThreshold,
     enablePerfCheck,
     hideDiscoverContent,
+    enableExternalAccountAnnualReport,
   } = devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -292,6 +300,57 @@ export const DevSettingSection = () => {
               dispatch(setHideDiscoverContent(!hideDiscoverContent));
             }}
           />
+        </Container.Item>
+        <Container.Item
+          title="Enable Extenal Account Annual Report"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={enableExternalAccountAnnualReport}
+            onToggle={() => {
+              dispatch(
+                setEnableExternalAccountReport(
+                  !enableExternalAccountAnnualReport,
+                ),
+              );
+            }}
+          />
+        </Container.Item>
+
+        <Container.Item
+          title="Request intercept check"
+          titleColor="text-critical"
+        >
+          <Button
+            size="xs"
+            onPress={async () => {
+              const r = await requestsInterceptTest();
+
+              console.log(
+                'requestsInterceptTest stringify text >>>>>',
+                JSON.stringify(r, null, 2),
+              );
+              console.log('requestsInterceptTest result >>>> ', r);
+
+              if (r.failed.length) {
+                ToastManager.show(
+                  {
+                    title: 'failed, please check console log',
+                  },
+                  {
+                    type: 'error',
+                  },
+                );
+              } else {
+                ToastManager.show({
+                  title: 'success',
+                });
+              }
+            }}
+          >
+            Intercept Test
+          </Button>
         </Container.Item>
       </Container.Box>
     </Box>

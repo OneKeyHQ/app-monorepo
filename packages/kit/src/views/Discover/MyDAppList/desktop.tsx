@@ -59,17 +59,13 @@ const HistoryListEmptyComponent = () => {
 
 type RenderItemProps = {
   item: MatchDAppItemType;
+  cardWidth: number;
   callback: ShowMenuProps;
 };
-const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
+const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
   const ref = useRef();
-  const { width } = useWindowDimensions();
   const t = useTranslation();
   const { onItemSelect } = useContext(MyDAppListContext);
-  const screenWidth = width - 64 - 256;
-  const minWidth = 250;
-  const numColumns = Math.floor(screenWidth / minWidth);
-  const cardWidth = screenWidth / numColumns;
 
   const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
   const name = item.dapp?.name ?? item.webSite?.title ?? 'Unknown';
@@ -107,34 +103,32 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
           onItemSelect?.(item);
         }}
       >
-        <>
-          <Box position="absolute" top="0" right={0} ref={ref} zIndex="1">
-            <IconButton
-              type="plain"
-              name="DotsHorizontalMini"
-              onPress={() => callback({ triggerEle: ref.current, dapp: item })}
-            />
-          </Box>
-          <Box>
-            <Box flexDirection="row">
-              <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
-              <Box ml="3" flex="1">
-                <Typography.Body2Strong flex={1} numberOfLines={1} mb="1">
-                  {name}
-                </Typography.Body2Strong>
-                {networkIds ? <Chains networkIds={networkIds} /> : null}
-              </Box>
+        <Box position="absolute" top="0" right={0} ref={ref} zIndex="1">
+          <IconButton
+            type="plain"
+            name="DotsHorizontalMini"
+            onPress={() => callback({ triggerEle: ref.current, dapp: item })}
+          />
+        </Box>
+        <Box>
+          <Box flexDirection="row">
+            <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
+            <Box ml="3" flex="1">
+              <Typography.Body2Strong flex={1} numberOfLines={1} mb="1">
+                {name}
+              </Typography.Body2Strong>
+              {networkIds ? <Chains networkIds={networkIds} /> : null}
             </Box>
-            <Typography.Caption
-              mt="3"
-              numberOfLines={2}
-              textAlign="left"
-              color="text-subdued"
-            >
-              {description}
-            </Typography.Caption>
           </Box>
-        </>
+          <Typography.Caption
+            mt="3"
+            numberOfLines={2}
+            textAlign="left"
+            color="text-subdued"
+          >
+            {description}
+          </Typography.Caption>
+        </Box>
       </Pressable>
     </Box>
   );
@@ -143,12 +137,19 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
 const Favorites = () => {
   const data = useDiscoverFavorites();
   const { width } = useWindowDimensions();
-  const screenWidth = width - 64 - 256;
+  const screenWidth = width - 64 - 224;
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
+  const cardWidth = screenWidth / numColumns;
 
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem item={item} callback={showFavoriteMenu} />,
+    ({ item }) => (
+      <RenderItem
+        cardWidth={cardWidth}
+        item={item}
+        callback={showFavoriteMenu}
+      />
+    ),
     [],
   );
 
@@ -169,12 +170,21 @@ const Favorites = () => {
 const History = () => {
   const { width } = useWindowDimensions();
   const data = useUserBrowserHistories();
-  const screenWidth = width - 48 - 256;
+  const screenWidth = width - 64 - 224;
+
   const minWidth = 250;
   const numColumns = Math.floor(screenWidth / minWidth);
+  const cardWidth = screenWidth / numColumns;
+
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem item={item} callback={showHistoryMenu} />,
-    [],
+    ({ item }) => (
+      <RenderItem
+        cardWidth={cardWidth}
+        item={item}
+        callback={showHistoryMenu}
+      />
+    ),
+    [cardWidth],
   );
 
   return (
@@ -207,7 +217,7 @@ const Desktop = () => {
   const favorates = useMemo(() => <Favorites />, []);
   const history = useMemo(() => <History />, []);
   return (
-    <Box width="full" height="full" mb="4" px="8">
+    <Box w="full" h="full" mb="4" px="8">
       <Box
         flexDirection="row"
         justifyContent="space-between"

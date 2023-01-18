@@ -13,21 +13,20 @@ import {
   Icon,
   Image,
   Pressable,
-  ScrollView,
   Typography,
   VStack,
   useUserDevice,
 } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.png';
+import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.jpg';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
-  RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
+import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -97,7 +96,8 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
   RootRoutes.Root
 > &
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.NFTPNLScreen> &
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Revoke>;
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
@@ -112,12 +112,12 @@ const ToolsPage: FC = () => {
   );
   const tools = useTools(network?.id);
 
-  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
-
   const responsivePadding = useMemo(() => {
     if (['NORMAL', 'LARGE'].includes(size)) return 32;
     return 16;
   }, [size]);
+
+  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
   const items = useMemo(() => {
     let allItems = data;
@@ -125,7 +125,7 @@ const ToolsPage: FC = () => {
       allItems = data.filter((d) => d.key !== 'explorer');
     }
     if (network?.impl !== IMPL_EVM) {
-      allItems = allItems.filter((n) => n.key !== 'revoke');
+      allItems = allItems.filter((n) => n.key !== 'revoke' && n.key !== 'pnl');
     }
     if (
       !annualReportEntryEnabled ||
@@ -150,7 +150,9 @@ const ToolsPage: FC = () => {
   const handlePress = useCallback(
     (key: string) => {
       if (key === 'annual') {
-        navigation.navigate(HomeRoutes.AnnualLoading);
+        navigation.navigate(RootRoutes.Root, {
+          screen: HomeRoutes.AnnualLoading,
+        });
       } else if (key === 'revoke') {
         navigation.navigate(HomeRoutes.Revoke);
       } else if (key === 'explorer') {
@@ -202,75 +204,66 @@ const ToolsPage: FC = () => {
   }, []);
 
   return (
-    <ScrollView
+    <Tabs.FlatList
+      key={String(isVertical)}
+      data={items}
+      keyExtractor={(_item) => _item.key}
+      numColumns={isVertical ? undefined : 2}
       contentContainerStyle={{
         marginVertical: 24,
         paddingHorizontal: responsivePadding,
-        flexDirection: 'row',
       }}
-    >
-      <Box
-        m="-6px"
-        flexDirection={isVertical ? 'column' : 'row'}
-        flex={1}
-        flexWrap="wrap"
-      >
-        {items.map((item) => (
-          <Box key={item.key} p="6px" width={isVertical ? '100%' : '50%'}>
-            <Pressable
-              flexDirection="row"
-              p="16px"
-              bg="surface-default"
-              _hover={{ bg: 'surface-hovered' }}
-              _pressed={{ bg: 'surface-pressed' }}
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="border-default"
-              borderRadius="12px"
-              key={item.title}
-              onPress={() => {
-                handlePress(item.key);
-              }}
-            >
-              <Center
-                w="48px"
-                h="48px"
-                bgColor={item.iconBg}
-                borderRadius="12px"
-              >
-                {renderIcon(item.icon)}
-              </Center>
-              <VStack ml="4" flex="1">
-                <HStack alignItems="center" flex="1" pr="18px">
-                  <Typography.Body1Strong
-                    numberOfLines={1}
-                    isTruncated
-                    maxW="200px"
-                  >
-                    {intl.formatMessage({ id: item.title })}
-                  </Typography.Body1Strong>
-                  {item.tag ? (
-                    <Badge
-                      ml="1"
-                      size="sm"
-                      type="success"
-                      title={intl.formatMessage({ id: item.tag })}
-                    />
-                  ) : null}
-                </HStack>
-                <Typography.Body2
-                  mt="4px"
-                  numberOfLines={2}
+      renderItem={({ item }) => (
+        <Box key={item.key} p="6px" width={isVertical ? '100%' : '50%'}>
+          <Pressable
+            flexDirection="row"
+            p="16px"
+            bg="surface-default"
+            _hover={{ bg: 'surface-hovered' }}
+            _pressed={{ bg: 'surface-pressed' }}
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="border-default"
+            borderRadius="12px"
+            alignItems="center"
+            key={item.title}
+            onPress={() => {
+              handlePress(item.key);
+            }}
+          >
+            <Center w="48px" h="48px" bgColor={item.iconBg} borderRadius="12px">
+              {renderIcon(item.icon)}
+            </Center>
+            <VStack ml="4" flex="1">
+              <HStack alignItems="center" flex="1" pr="18px">
+                <Typography.Body1Strong
+                  numberOfLines={1}
                   isTruncated
-                  color="text-subdued"
+                  maxW="200px"
                 >
-                  {intl.formatMessage({ id: item.description })}
-                </Typography.Body2>
-              </VStack>
-            </Pressable>
-          </Box>
-        ))}
-      </Box>
-    </ScrollView>
+                  {intl.formatMessage({ id: item.title })}
+                </Typography.Body1Strong>
+                {item.tag ? (
+                  <Badge
+                    ml="1"
+                    size="sm"
+                    type="success"
+                    title={intl.formatMessage({ id: item.tag })}
+                  />
+                ) : null}
+              </HStack>
+              <Typography.Body2
+                mt="4px"
+                numberOfLines={2}
+                isTruncated
+                color="text-subdued"
+              >
+                {intl.formatMessage({ id: item.description })}
+              </Typography.Body2>
+            </VStack>
+          </Pressable>
+        </Box>
+      )}
+    />
   );
 };
 

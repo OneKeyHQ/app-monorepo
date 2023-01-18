@@ -1,6 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgBellAlert = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+  <Svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M5.85 3.5a.75.75 0 0 0-1.117-1 9.719 9.719 0 0 0-2.348 4.876.75.75 0 0 0 1.479.248A8.219 8.219 0 0 1 5.85 3.5zm13.417-1a.75.75 0 1 0-1.118 1 8.22 8.22 0 0 1 1.987 4.124.75.75 0 0 0 1.48-.248 9.72 9.72 0 0 0-2.35-4.876z" />
     <Path
       fillRule="evenodd"

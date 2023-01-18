@@ -1,6 +1,12 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgMagnifyingGlassPlus = (props: SvgProps) => (
-  <Svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
+  <Svg
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden="true"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path d="M9 6a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0v-1.5h-1.5a.75.75 0 0 1 0-1.5h1.5v-1.5A.75.75 0 0 1 9 6z" />
     <Path
       fillRule="evenodd"

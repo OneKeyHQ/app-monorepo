@@ -145,6 +145,7 @@
   "action__manage_address": "إدارة العنوان",
   "action__max": "الأعلى",
   "action__merge": "دمج",
+  "action__migrate": "يهاجر",
   "action__more": "أكثر",
   "action__move_to_top": "انتقل إلى الأعلى",
   "action__next": "التالي",
@@ -153,6 +154,7 @@
   "action__ok_im_done": "نعم. منتهي!",
   "action__open_finder": "افتح الباحث",
   "action__open_in_browser": "افتح في المتصفح",
+  "action__open_system_preference": "افتح تفضيلات النظام",
   "action__overwrite": "الكتابة فوق",
   "action__paste": "معجون",
   "action__pause": "يوقف",
@@ -261,7 +263,7 @@
   "alert_only_use_a_recovery_seed_from_device": "قم فقط بتدوين عبارات الاسترداد التي عرضها جهازك أثناء الإعداد.",
   "app__app_name": "OneKey",
   "app__hardware_name_onekey_lite": "OneKey Lite",
-  "asset__collectibles": "المقتنيات",
+  "asset__collectibles": "NFT",
   "asset__collectibles_empty_desc": "ستظهر NFTs هنا.",
   "asset__collectibles_empty_title": "لا مقتنيات",
   "asset__tokens": "الرموز",
@@ -359,6 +361,7 @@
   "content__click_here_to_switch_node": "انقر هنا لتبديل العقدة",
   "content__collection": "مجموعة",
   "content__completed_lowercase": "منجز",
+  "content__conenct_hardware_wallet_desc": "OneKey Touch أو Classic أو Mini",
   "content__confirmed": "مؤكد",
   "content__connect_3rd_party_wallet_desc": "MetaMask و Rainbow و Trust Wallet والمزيد ...",
   "content__connect_onekey_desktop_to_upgrade": "قم بتوصيل OneKey Desktop للترقية",
@@ -367,11 +370,13 @@
   "content__connected": "متصل",
   "content__connecting": "توصيل",
   "content__contract_address": "عنوان العقد",
+  "content__create_wallet_desc": "من خلال إنشاء عبارة استرداد جديدة",
   "content__created": "مخلوق",
   "content__creating_an_str_account_will_create_other_accounts": "سيؤدي إنشاء حساب {impl} إلى إنشاء حسابات أخرى للشبكة المتوافقة {impl} بشكل متزامن.",
   "content__creating_your_wallet": "<a> إنشاء </a> <b> محفظتك </b>",
   "content__creator_fee": "رسوم المنشئ",
   "content__currency": "عملة",
+  "content__current": "حاضِر",
   "content__current_price_str": "السعر الحالي: {0}",
   "content__custom": "مخصص",
   "content__data_for_this_token_is_not_included_yet": "لم يتم تضمين البيانات لهذا الرمز المميز حتى الآن.",
@@ -391,10 +396,16 @@
   "content__downloading": "جارى التحميل",
   "content__downloading_str": "تحميل {0}",
   "content__duration": "مدة",
+  "content__enable_mac_permissions_for_oneKey": "قم بتمكين أذونات macOS لـ OneKey",
+  "content__enable_mac_permissions_for_oneKey_step_1": "انقر فوق الزر أدناه لفتح \"تفضيلات النظام\"",
+  "content__enable_mac_permissions_for_oneKey_step_2": "حدد \"الملفات والمجلدات\"",
+  "content__enable_mac_permissions_for_oneKey_step_3": "تمكين \"وحدات التخزين القابلة للإزالة\" أسفل OneKey",
+  "content__enable_mac_permissions_for_oneKey_step_4": "انقر على \"Quit & Reopen\" في مربع الحوار",
   "content__encrypting_your_data": "<a> تشفير </a> <b> بياناتك </b>",
   "content__enter": "يدخل",
   "content__enter_bootloader_mode": "ادخل إلى وضع Bootloader",
   "content__enter_current_password_before_resetting_it": "أدخل كلمة المرور الحالية قبل إعادة تعيينها",
+  "content__enter_link": "أدخل الارتباط",
   "content__enter_onekey_lite_pin_to_continue": "أدخل رقم التعريف الشخصي OneKey Lite للمتابعة",
   "content__enter_pin_in_app": "أدخل رقم التعريف الشخصي في التطبيق",
   "content__enter_your_recovery_seed": "أدخل عبارة الاسترداد الخاصة بك",
@@ -405,6 +416,7 @@
   "content__ether_price": "سعر الأثير",
   "content__eventually_str_jpegs_are_still_in_your_wallet": "أخيرًا ، {0} صور JPEG لا تزال في محفظتك",
   "content__every_time_we_find_the_best_prices": "نجد دائمًا أفضل السيولة والأسعار من الموردين. يتضمن كل عرض أسعار 1٪ رسوم لمساعدة OneKey على تقديم خدمة أفضل لك.",
+  "content__example_shortcut": "على سبيل المثال",
   "content__exchange_any_tokens": "تبادل أي رموز",
   "content__existing": "موجود",
   "content__exit_value": "قيمة الخروج",
@@ -466,6 +478,7 @@
   "content__in_the_rare_event_staked_eth_will_be_lost_desc": "ينطوي التراص والتحقق من صحة شبكات إثبات الحصة مثل Ethereum على خفض المخاطر. OneKey / Kele Pool غير مسؤول عن عقوبات تخفيض المدقق.",
   "content__info": "معلومات",
   "content__installing_str": "تثبيت {0}",
+  "content__institutional_wallets": "محافظ مؤسسية",
   "content__int_contacts": "{0} جهات اتصال",
   "content__int_day_sales": "{0} مبيعات يومية",
   "content__int_day_volume": "{0} حجم اليوم",
@@ -473,6 +486,14 @@
   "content__int_hours_volume": "حجم ساعات {0}",
   "content__int_items": "{0} عناصر",
   "content__interact_with": "يتفاعل مع",
+  "content__ios_plist_bluetooth_peripheral_permission": "استخدم طرفي البلوتوث لتوصيل أجهزة OneKey",
+  "content__ios_plist_bluetooth_permission": "استخدم البلوتوث لتوصيل أجهزة OneKey",
+  "content__ios_plist_camera_permission": "استخدم الكاميرا لمسح رمز الاستجابة السريعة ضوئيًا\n",
+  "content__ios_plist_faceid_permission": "استخدم Face ID للمصادقة وفتح محفظتك",
+  "content__ios_plist_microphone_permission": "استخدم الميكروفون لتسجيل مقاطع الفيديو",
+  "content__ios_plist_nfc_permission": "استخدم NFC لقراءة رسائل NDEF في التطبيق",
+  "content__ios_plist_photo_library_add_permission": "استخدم مكتبة الصور لحفظ صور QR",
+  "content__ios_plist_photo_library_permission": "استخدم مكتبة الصور لقراءة صور QR",
   "content__it_cannot_move_funds_without_your_permission": "لا يمكن نقل الأموال دون إذنك.",
   "content__items": "العناصر",
   "content__just_a_moment": "لحظة واحدة",
@@ -482,17 +503,25 @@
   "content__last_sale": "آخر بيع",
   "content__likely_less_than_15s": "من المحتمل أن يكون عمره < من 15 ثانية",
   "content__limit_price_is_str_lower_than_the_market": "⚠️ السعر المحدد أقل من السوق {0} . سوف تبيع {0} بسعر رخيص للغاية.",
+  "content__link": "وصلة",
   "content__loading": "تحميل ... {0}",
   "content__log_in_icloud_to_enable_backup": "يرجى تسجيل الدخول إلى حساب Apple الخاص بك لتمكين النسخ الاحتياطي على iCloud.",
   "content__looking_back_at_your_on_chain_story_you_are_the": "إذا نظرنا إلى الوراء في قصتك على السلسلة ، فأنت ...",
   "content__losing_flips": "فقدان التقلبات",
   "content__luna_crash": "تحطم لونا",
-  "content__major_update_description": "يوفر الإصدار 3.5.0 تحسينات مهمة وترقيات أمنية. يرجى توصيل جهازك بـ OneKey Desktop للترقية إلى أحدث إصدار من البرنامج الثابت لأن التطبيق الحالي لا يدعم الترقيات. يرجى الذهاب إلى {url} لتنزيل العميل.",
+  "content__major_update_description": "يوفر الإصدار {v} تحسينات مهمة في الميزات وترقيات للأمان. يرجى توصيل جهازك بـ OneKey Desktop للترقية إلى أحدث إصدار من البرنامج الثابت لأن التطبيق الحالي لا يدعم الترقيات. يرجى الذهاب إلى {url} لتنزيل العميل.",
   "content__manage_your_token_allowances_and_protect_yourself_from_scams_on_30_chains": "إدارة مخصصات الرموز المميزة الخاصة بك وحماية نفسك من عمليات الاحتيال على أكثر من 30 سلسلة.",
   "content__market_cap": "القيمة السوقية",
   "content__max_fee": "الحد الأقصى للرسوم",
   "content__max_priority_fee": "رسوم الأولوية القصوى",
   "content__maybe_in_30s": "ربما في الثلاثينيات",
+  "content__migration_note_encrypted": "يتم تأمين محافظك بكلمة المرور الخاصة بك.",
+  "content__migration_note_hardware_wallet": "لن يقوم تطبيق OneKey بترحيل محافظ الأجهزة ، لذا تأكد من كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
+  "content__migration_step_1": "احتفظ بالأجهزة على نفس الشبكة المحلية",
+  "content__migration_step_2": "افتح تطبيق OneKey الآخر الخاص بك",
+  "content__migration_step_3": "انقر فوق علامة الحذف في الزاوية اليمنى العليا ، ثم \"امسح\" رمز الاستجابة السريعة في هذه الصفحة. {addOn}",
+  "content__migration_step_3_add_on": "أو بدلاً من ذلك ، انتقل إلى \"القائمة > الترحيل\" وانقر على \"إدخال الرابط\". ثم أدخل الرابط أسفل رمز الاستجابة السريعة",
+  "content__migration_step_3_connect_by_link": "انتقل إلى القائمة > الترحيل ، ستجد الرابط أسفل رمز الاستجابة السريعة ، ثم ارجع إلى الصفحة الحالية وأدخل الرابط",
   "content__min": "دقيقة",
   "content__mint": "نعناع",
   "content__minutes_lowercase": "الدقائق",
@@ -522,6 +551,7 @@
   "content__not_on_this_device": "ليس على هذا الجهاز",
   "content__not_synced": "غير متزامن",
   "content__notable_collections": "مجموعات بارزة",
+  "content__onboarding_import_wallet_desc": "مع عبارة الاسترداد والمفتاح الخاص والعنوان و OneKey Lite و KeyTag والمزيد ...",
   "content__onekey_still_has_conflicts_with_other_extensions": "لا يزال OneKey يتعارض مع الامتدادات الأخرى (مثل rabby). يرجى تعطيلهم وحاول مرة أخرى.",
   "content__only_transactions_from_the_same_account_are_supported": "يتم دعم المعاملات من نفس الحساب فقط من خلال المسار الحالي.",
   "content__or_lowercase": "أو",
@@ -553,12 +583,15 @@
   "content__price_uppercase": "سعر",
   "content__profit": "ربح",
   "content__purchase_crypto_with_cash": "شراء العملات المشفرة نقدًا",
+  "content__qr_code": "رمز الاستجابة السريعة",
   "content__ranking": "تصنيف",
   "content__rapid": "سريعون",
   "content__read_information_on_the_left": "يرجى قراءة المعلومات الموجودة على اليسار ، ثم النقر فوق الزر أدناه",
   "content__receive_description": "لا يمكن إرسال الأصول إلا داخل نفس الشبكة.",
   "content__receive_notifications_of_account_dynamics_and_asset_changes": "تلقي إخطارات ديناميكيات الحساب وتغييرات الأصول.",
   "content__recovery_phrase_restore": "إذا نسيت كلمة المرور الخاصة بك ، فيمكنك استخدام عبارة الاسترداد للعودة إلى محفظتك.",
+  "content__restart_device": "اعد تشغيل الجهاز",
+  "content__restart_device_to_exit_boardloader": "أعد تشغيل جهازك للهروب من وضع Boardloader ؛ سيتعين علينا تحديث البرامج الثابتة من البداية.",
   "content__rocket_fast": "🚀 سريع",
   "content__royalty_fees_are_excluded": "بعد رسوم الملكية",
   "content__running_official_firmware": "جهازك يقوم بتشغيل البرامج الثابتة الرسمية.",
@@ -737,6 +770,7 @@
   "emoji_type_symbols": "حرف او رمز",
   "emoji_type_travel_places": "السفر والأماكن",
   "empty__connection_failed_desc": "يُرجى تحديث رمز الاستجابة السريعة أو التحقق من اتصال الشبكة والمحاولة مرة أخرى.",
+  "empty__migrated_data_already_exists": "البيانات التي تم ترحيلها موجودة بالفعل.",
   "empty__no_account_desc": "لا يوجد حساب للشبكة المختارة.",
   "empty__no_account_title": "لا حسابات",
   "empty__no_connected_sites": "لا توجد مواقع متصلة",
@@ -835,6 +869,7 @@
   "form__blacklist_included": "وشملت القائمة السوداء",
   "form__blacklist_included_desc": "يمكن لمالك العقد إضافة أي عنوان إلى القائمة السوداء ، ولا يمكن لحاملي الرموز المدرجة في القائمة السوداء التداول. إساءة استخدام ميزة القائمة السوداء محفوفة بالمخاطر.",
   "form__ble_version": "إصدار BLE",
+  "form__blockchain_browser": "متصفح Blockchain",
   "form__blockchain_explorer_url": "URL مستكشف Blockchain",
   "form__blockchain_explorer_url_invalid": "يتطلب URL البادئة http أو https.",
   "form__borrowed_uppercase": "اقترضت، استعارت",
@@ -1253,6 +1288,7 @@
   "form__verified_tokens__uppercase": "الرموز التي تم التحقق منها",
   "form__version": "الإصدار",
   "form__vibrate": "تذبذب",
+  "form__view_in_blockchain_browser": "عرض في متصفح Blockchain",
   "form__view_in_explore": "عرض في استكشاف",
   "form__view_recovery_phrase_private_key": "عرض عبارة الاسترداد / المفتاح الخاص",
   "form__visit_str": "زيارة {0}",
@@ -1271,7 +1307,15 @@
   "form__your_reply": "ردك",
   "form__your_request": "طلبك",
   "history__queue": "طابور",
+  "loading__address_information_loading_failed_please_try_again": "😐 فشل تحميل معلومات العنوان. حاول مرة اخرى.",
   "loading__confirming": "التأكد",
+  "loading__loading_address_information": "تحميل معلومات العنوان ...",
+  "loading__loading_nft_details": "تحميل تفاصيل NFT ...",
+  "loading__loading_nft_profit_data": "جارٍ تحميل بيانات أرباح NFT ...",
+  "loading__loading_token_price_data": "جارٍ تحميل بيانات سعر الرمز المميز ...",
+  "loading__nft_detailed_data_loading_failed_please_try_again": "😐 فشل تحميل البيانات التفصيلية NFT ، يرجى المحاولة مرة أخرى.",
+  "loading__nft_profit_data_loading_failed_please_try_again": "😐 فشل تحميل بيانات أرباح NFT ، يرجى المحاولة مرة أخرى.",
+  "loading__token_price_data_loading_failed_please_try_again": "😐 فشل تحميل بيانات سعر الرمز المميز ، يرجى المحاولة مرة أخرى.",
   "message__choose_address": "اختر العنوان",
   "message__discover_favorite_is_empty": "ستظهر مفضلاتك هنا",
   "message__discover_history_is_empty": "سيظهر سجلك هنا",
@@ -1317,6 +1361,7 @@
   "modal__device_check_failed_desc": "فشل فحص الجهاز. حاول مرة اخرى.",
   "modal__device_name": "اسم الجهاز",
   "modal__device_status_check": "فحص حالة الجهاز",
+  "modal__device_status_check_restart_device_to_exit_boardloader": "إذا تحول جهازك إلى وضع Boardloader ، يرجى إعادة تشغيل جهازك",
   "modal__disconnected_during_installation": "قطع الاتصال أثناء التثبيت",
   "modal__disconnected_during_installation_desc": "يرجى إعادة الاتصال والمحاولة مرة أخرى.",
   "modal__disconnecting_device": "فصل الجهاز",
@@ -1325,6 +1370,7 @@
   "modal__download_failed": "التحميل فشل",
   "modal__download_failed_desc": "التحميل غير قادر على الاكتمال. يرجى المحاولة أجيان.",
   "modal__edit_wallet": "تحرير المحفظة",
+  "modal__enable_mac_permission_title": "فقط بضع خطوات أخرى",
   "modal__enjoying_onekey": "هل تستمتع بـ OneKey؟",
   "modal__enjoying_onekey_desc": "اضغط على النجوم لتقييمها في متجر التطبيقات.",
   "modal__enter_bootloader_mode": "أدخل وضع Bootloader",
@@ -1360,6 +1406,8 @@
   "modal__looking_for_devices": "أبحث عن الأجهزة",
   "modal__looking_for_devices_desc": "يرجى التأكد من تمكين البلوتوث الخاص بك.",
   "modal__looking_for_devices_result": "وجدنا هذه الأجهزة",
+  "modal__migrating_data": "ترحيل البيانات",
+  "modal__migrating_data_desc": "التطبيقات متصلة",
   "modal__need_install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "بدء تشغيل سطح مكتب OneKey قبل استخدام الجهاز. يمكنك أيضًا تثبيت OneKey Brigde لتعزيز استقرار النقل. المضي قدما والتحميل؟",
   "modal__no_device_found": "لم يتم العثور على جهاز",
@@ -1387,6 +1435,8 @@
   "modal__rug_warning": "تحذير البساط",
   "modal__rug_warning_desc": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال ، هل ما زلت تريد المتابعة؟",
   "modal__select_chain": "حدد سلسلة",
+  "modal__send_data_request": "إرسال طلب البيانات",
+  "modal__send_data_request_desc": "سيتم تشفير بياناتك ونقلها. تابع فقط إذا كنت تقوم بالترحيل بين تطبيقات OneKey.",
   "modal__send_to": "ارسل إلى",
   "modal__sending_str": "إرسال {0}",
   "modal__setup_complete": "الإعداد الكامل!",
@@ -1404,6 +1454,7 @@
   "modal__unable_to_connect": "غير قادر على الاتصال",
   "modal__unable_to_connect_desc": "جهازك الحالي لا يدعم NFC ، استبدله بجهاز مزود بتقنية NFC وحاول مرة أخرى",
   "modal__unlock_vault": "افتح Vault",
+  "modal__update_resource_launch_app_as_administrator": "يرجى تشغيل التطبيق كمسؤول",
   "modal__update_resources": "تحديث الموارد",
   "modal__update_resources_failed": "فشل التحديث ، يرجى إعادة المحاولة",
   "modal__update_resources_restart_device": "أعد تشغيل الجهاز لتثبيت البرنامج الثابت",
@@ -1448,6 +1499,7 @@
   "msg__contract_executed": "🤖 تنفيذ العقد",
   "msg__copied": "نسخ!",
   "msg__current_token_balance_is_insufficient": "رصيد الرمز الحالي غير كاف.",
+  "msg__data_sent_to_platform": "تم إرسال البيانات إلى {platform}",
   "msg__deleted_str": "تم حذف \" {0} \"",
   "msg__disk_access_is_denied": "تم رفض الوصول إلى القرص",
   "msg__engine__account_already_exists": "الحساب موجود بالفعل.",
@@ -1483,6 +1535,7 @@
   "msg__failed_to_add_token": "فشل إضافة الرمز المميز",
   "msg__failed_to_get_price": "فشل في الحصول على السعر",
   "msg__firmware_is_being_upgraded": "جاري ترقية البرنامج الثابت. يرجى اتباع تعليمات الجهاز.",
+  "msg__gas_fee_is_not_enough_please_keep_at_least_str": "رسوم الغاز ليست كافية ، يرجى الاحتفاظ بـ {0} على الأقل",
   "msg__hardware_bluetooth_need_turned_on_error": "يجب تشغيل Bluetooth.",
   "msg__hardware_bluetooth_not_paired_error": "لا يتم إقران جهاز Bluetooth.",
   "msg__hardware_bluetooth_requires_permission_error": "مطلوب إذن بلوتوث",
@@ -1521,6 +1574,7 @@
   "msg__image_saved": "تم حفظ الصورة",
   "msg__import_icloud_backup_failed_version": "فشل الاستيراد. يرجى التحديث إلى أحدث إصدار للمتابعة",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
+  "msg__invalid_link_or_network_error": "ارتباط غير صالح أو خطأ في الشبكة",
   "msg__link_copied": "تم نسخ الرابط",
   "msg__mine": "الخاص بي",
   "msg__minted": "💎 سكت {assets}",
@@ -1531,6 +1585,7 @@
   "msg__network_request_failed": "فشل طلب الشبكة",
   "msg__network_reset": "إعادة تعيين الشبكة",
   "msg__nfc_reader_usage_description": "استخدم NFC لإجراء نسخ احتياطي باستخدام OneKey Lite.",
+  "msg__no_data_available": "لا تتوافر بيانات",
   "msg__not_support_passphrase_need_upgrade": "استخدم عبارة المرور ، تحتاج إلى ترقية البرامج الثابتة إلى {0} أو أحدث.",
   "msg__not_the_same_wallet": "ليست نفس المحفظة.",
   "msg__ns_bluetooth_always_usage_description": "استخدم البلوتوث لتوصيل أجهزة OneKey.",
@@ -1625,6 +1680,12 @@
   "msg__your_transaction_may_fail": "قد تفشل معاملتك",
   "network__network": "شبكة",
   "network__networks": "الشبكات",
+  "onboarding__import_wallet_desc": "اختر كيف تريد استيراد محفظتك.",
+  "onboarding__import_wallet_with_keytag": "مع KeyTag",
+  "onboarding__import_wallet_with_lite": "مع OneKey Lite",
+  "onboarding__import_wallet_with_migrate": "الترحيل من تطبيق OneKey",
+  "onboarding__import_wallet_with_recovery_phrase": "باستخدام عبارة الاسترداد أو المفتاح الخاص أو العنوان",
+  "onboarding__import_with_phrase": "عبارة الاسترداد أو المفتاح الخاص أو العنوان",
   "onboarding__landing_encryption_desc": "يستخدم OneKey تقنية تشفير رائدة في الصناعة لتخزين معلوماتك محليًا. يمكنك فقط فك تشفير المعلومات.",
   "onboarding__landing_encryption_title": "التشفير التام بين الأطراف",
   "onboarding__landing_opensource_desc": "لن يقوم OneKey بتخزين مفتاحك الخاص أو عبارة الاسترداد ، وجميع الأجهزة والبرامج التي صنعناها مفتوحة المصدر.",
@@ -1632,6 +1693,10 @@
   "onboarding__landing_welcome_desc": "مكان واحد لكل ما تبذلونه من العملات المشفرة.",
   "onboarding__landing_welcome_title": "مرحبًا بك في OneKey!",
   "option__all": "الجميع",
+  "platform__desktop": "سطح المكتب",
+  "platform__extension": "امتداد",
+  "platform__mobile": "متحرك",
+  "platform__tablet": "لوح",
   "reward__history_empty_desc": "سيظهر سجل المكافأة هنا.",
   "select__options": "خيارات",
   "tag__adventurist_uppercase": "# مبتدئ",
@@ -1669,11 +1734,14 @@
   "title__backups": "النسخ الاحتياطية",
   "title__backups_desc": "لم يتم نسخ المحافظ التالية احتياطيًا بعد ، يرجى نسخ محافظك احتياطيًا أو المخاطرة بفقدان أصولك",
   "title__best_channel": "أفضل قناة",
+  "title__beware_of_address_poisoning_scams": "احذر من معالجة رسائل الغش المسمومة",
+  "title__beware_of_address_poisoning_scams_desc": "يمكن للمحتالين استخدام العناوين التي لها نفس البداية أو النهاية وانتحال عنوانك بتحويل مبلغ صفر.\n يرجى التحقق من العنوان بعناية قبل إجراء التحويلات.",
   "title__blockchain_explorer": "مستكشف Blockchain",
   "title__blockchain_explorer_desc": "ابحث عن عنوان أو عقد أو تجزئة txns أو الرموز المميزة.",
   "title__browser": "المستعرض",
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
   "title__buy_str": "شراء {0}",
+  "title__caution": "الحذر",
   "title__channel": "قناة",
   "title__chart_mode": "وضع الرسم البياني",
   "title__choose_a_wallet_to_back_up": "اختر المحفظة التي تريد نسخها احتياطيًا",
@@ -1733,6 +1801,8 @@
   "title__market": "سوق",
   "title__me": "أنا",
   "title__menu": "قائمة",
+  "title__migration": "يهاجر",
+  "title__migration_desc": "الترحيل بين تطبيق OneKey",
   "title__my_dapps": "مواقع الويب الخاصة بي",
   "title__my_on_chain_journey": "رحلتي على السلسلة",
   "title__my_on_chain_journey_desc": "تحقق مما حدث لك هذا العام.",
@@ -1831,6 +1901,7 @@
   "title__verify_new_pin": "تحقق من رقم التعريف الشخصي الجديد",
   "title__verify_new_pin_desc": "تحقق من رقم التعريف الشخصي الجديد لـ OneKey Lite",
   "title__wallets": "محافظ",
+  "title__warning": "تحذير",
   "title__welcome": "أهلا بك",
   "title__welcome_desc": "كل ما تحتاج لمعرفته حول استكشاف عالم Web3 الجديد من خلال OneKey",
   "title__welcome_to_onekey_swap": "مرحبًا بك في OneKey Swap!",

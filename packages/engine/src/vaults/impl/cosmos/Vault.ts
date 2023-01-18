@@ -1,12 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { hexToBytes } from '@noble/hashes/utils';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
+import { getTime } from 'date-fns';
 import { get } from 'lodash';
-import Long from 'long';
 import memoizee from 'memoizee';
-import protobufjs from 'protobufjs';
 
 import {
   InvalidAddress,
@@ -15,56 +12,19 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
-import type {
-  DBSimpleAccount,
-  DBVariantAccount,
-} from '@onekeyhq/engine/src/types/account';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
+import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
   IEncodedTxUpdateType,
-} from '../../types';
-import {
-  convertFeeGweiToValue,
-  convertFeeValueToGwei,
-} from '../../utils/feeInfoUtils';
-import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
-import { VaultBase } from '../../VaultBase';
-
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
-import { CosmosNodeClient } from './NodeClient';
-import {
-  baseAddressToAddress,
-  isValidAddress,
-  isValidContractAddress,
-} from './sdk/address';
-import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
-import { MessageType } from './sdk/message';
-import { queryRegistry } from './sdk/query/IQuery';
-import { MintScanQuery } from './sdk/query/MintScanQuery';
-import { Type } from './sdk/query/mintScanTypes';
-import { serializeSignedTx } from './sdk/txBuilder';
-import { TxMsgBuilder } from './sdk/txMsgBuilder';
-import {
-  getFee,
-  getMsgs,
-  getSequence,
-  setFee,
-  setSendAmount,
-} from './sdk/wrapper/utils';
-import settings from './settings';
-import { getTransactionTypeByProtoMessage } from './utils';
-
-import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
+} from '@onekeyhq/engine/src/vaults/types';
 import type {
   IApproveInfo,
   IDecodedTx,
@@ -80,17 +40,54 @@ import type {
   ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
-} from '../../types';
+} from '@onekeyhq/engine/src/vaults/types';
+import {
+  convertFeeGweiToValue,
+  convertFeeValueToGwei,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import {
+  addHexPrefix,
+  stripHexPrefix,
+} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
+import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { KeyringHardware } from './KeyringHardware';
+import { KeyringHd } from './KeyringHd';
+import { KeyringImported } from './KeyringImported';
+import { KeyringWatching } from './KeyringWatching';
+import { CosmosNodeClient } from './NodeClient';
+import {
+  baseAddressToAddress,
+  isValidAddress,
+  isValidContractAddress,
+} from './sdk/address';
+import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
+import { defaultAminoMsgOpts } from './sdk/amino/types';
+import { MessageType } from './sdk/message';
+import { queryRegistry } from './sdk/query/IQuery';
+import { MintScanQuery } from './sdk/query/MintScanQuery';
+import { Type } from './sdk/query/mintScanTypes';
+import { serializeSignedTx } from './sdk/txBuilder';
+import { TxMsgBuilder } from './sdk/txMsgBuilder';
+import {
+  getFee,
+  getMsgs,
+  getSequence,
+  setFee,
+  setSendAmount,
+} from './sdk/wrapper/utils';
+import settings from './settings';
+import {
+  getTransactionTypeByMessage,
+  getTransactionTypeByProtoMessage,
+} from './utils';
+
 import type { TxBuilder } from './sdk/txBuilder';
 import type { CosmosImplOptions, IEncodedTxCosmos, StdFee } from './type';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
-
-// see https://github.com/protobufjs/protobuf.js/issues/1745
-protobufjs.util.Long = Long;
-protobufjs.configure();
 
 const GAS_STEP_MULTIPLIER = 10000;
 const GAS_ADJUSTMENT: Record<string, string> = {
@@ -125,6 +122,7 @@ export default class Vault extends VaultBase {
   }
 
   getNodeClient(url: string) {
+    // client: axios
     return new CosmosNodeClient(url);
   }
 
@@ -140,12 +138,14 @@ export default class Vault extends VaultBase {
     return chainInfo;
   }
 
-  // Chain only methods
-
-  override createClientFromURL(_url: string): BaseClient {
-    // This isn't needed.
-    throw new NotImplemented();
+  private async getChainImplInfo() {
+    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
+      this.networkId,
+    );
+    return chainInfo.implOptions as CosmosImplOptions;
   }
+
+  // Chain only methods
 
   override async getClientEndpointStatus(
     url: string,
@@ -185,14 +185,24 @@ export default class Vault extends VaultBase {
       account.address,
     );
 
+    const wallet = await this.engine.getWalletSafe(this.walletId);
+
     return {
       name: account.name,
-      algo: 'ed25519',
+      algo: 'secp251k1',
       pubKey: account.pub,
       address: account.address,
       bech32Address: address,
-      isNanoLedger: false,
+      isNanoLedger: wallet?.type === WALLET_TYPE_HW,
     };
+  }
+
+  normalIBCAddress(tokenAddress: string) {
+    if (this.isIbcToken(tokenAddress)) {
+      const [prefix, address] = tokenAddress.split('/');
+      return `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+    }
+    return undefined;
   }
 
   override async validateAddress(address: string) {
@@ -216,16 +226,20 @@ export default class Vault extends VaultBase {
     const chainInfo = await this.getChainInfo();
 
     if (this.isIbcToken(tokenAddress)) {
-      const [prefix, address] = tokenAddress.split('/');
-      const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
+      const normalizationAddress =
+        this.normalIBCAddress(tokenAddress) ?? tokenAddress;
       const query = new MintScanQuery();
       const results = await query.fetchAssertInfos(this.networkId);
+
       if (!results) {
         return Promise.reject(new InvalidTokenAddress());
       }
 
       const token = results.find((item) => {
-        if (item.type === Type.Ibc && item.denom === normalizationAddress) {
+        if (
+          item.type === Type.Ibc &&
+          this.normalIBCAddress(item.denom) === normalizationAddress
+        ) {
           return true;
         }
         return false;
@@ -281,8 +295,9 @@ export default class Vault extends VaultBase {
     const contractClient = await this.getContractClient();
 
     return Promise.all(
-      requests.map(async ({ address, tokenAddress }) => {
+      requests.map(async ({ address, tokenAddress: tokenId }) => {
         try {
+          const tokenAddress = tokenId?.trim() ?? undefined;
           const isNativeCoin = !tokenAddress;
           const isIBCToken = tokenAddress && this.isIbcToken(tokenAddress);
 
@@ -296,7 +311,11 @@ export default class Vault extends VaultBase {
               return new BigNumber(balance?.amount ?? '0');
             }
             if (isIBCToken) {
-              const balance = balances.find((b) => b.denom === tokenAddress);
+              const balance = balances.find(
+                (b) =>
+                  this.normalIBCAddress(b.denom) ===
+                  this.normalIBCAddress(tokenAddress),
+              );
               return new BigNumber(balance?.amount ?? '0');
             }
           }
@@ -325,9 +344,8 @@ export default class Vault extends VaultBase {
     const ibcTokenAddresses = tokenAddresses
       .filter((tokenAddress) => this.isIbcToken(tokenAddress))
       .reduce((acc, tokenAddress) => {
-        const [prefix, address] = tokenAddress.split('/');
-        const normalizationAddress = `${prefix.toLowerCase()}/${address.toUpperCase()}`;
-        acc.add(normalizationAddress);
+        const normalAddress = this.normalIBCAddress(tokenAddress);
+        if (normalAddress) acc.add(normalAddress);
         return acc;
       }, new Set<string>());
 
@@ -341,9 +359,15 @@ export default class Vault extends VaultBase {
       }
 
       const ibcTokens = results.reduce((acc, item) => {
-        if (item.type === Type.Ibc && ibcTokenAddresses.has(item.denom)) {
+        const normalizationAddress =
+          this.normalIBCAddress(item.denom) ?? item.denom;
+
+        if (
+          item.type === Type.Ibc &&
+          ibcTokenAddresses.has(normalizationAddress)
+        ) {
           acc.push({
-            name: `${item.dp_denom}(${item.channel ?? ''})`,
+            name: `${item.dp_denom}(${item.channel?.toUpperCase() ?? ''})`,
             symbol: item.dp_denom,
             decimals: item.decimal,
           });
@@ -353,35 +377,41 @@ export default class Vault extends VaultBase {
       tokens.push(...ibcTokens);
     }
 
-    const contractClient = await this.getContractClient();
+    if (tokens.length === tokenAddresses.length) return tokens;
 
-    if (!contractClient) return [];
+    try {
+      const contractClient = await this.getContractClient();
 
-    const client = await this.getClient();
+      if (!contractClient) return tokens;
 
-    const cw20TokenAddress = tokenAddresses.filter(
-      (tokenAddress) => !this.isIbcToken(tokenAddress),
-    );
+      const client = await this.getClient();
 
-    await contractClient
-      .queryCw20TokenInfo(
-        {
-          networkId: this.networkId,
-          axios: client.axios,
-        },
-        cw20TokenAddress,
-      )
-      .then((cw20Tokens) =>
-        cw20Tokens.map((token) => ({
-          name: token.name,
-          symbol: token.symbol,
-          decimals: token.decimals,
-        })),
-      )
-      .then((cw20Tokens) => {
-        tokens.push(...cw20Tokens);
-      })
-      .catch(() => {});
+      const cw20TokenAddress = tokenAddresses.filter(
+        (tokenAddress) => !this.isIbcToken(tokenAddress),
+      );
+
+      await contractClient
+        .queryCw20TokenInfo(
+          {
+            networkId: this.networkId,
+            axios: client.axios,
+          },
+          cw20TokenAddress,
+        )
+        .then((cw20Tokens) =>
+          cw20Tokens.map((token) => ({
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+          })),
+        )
+        .then((cw20Tokens) => {
+          tokens.push(...cw20Tokens);
+        })
+        .catch(() => {});
+    } catch (error) {
+      // ignore error
+    }
 
     return tokens;
   }
@@ -411,24 +441,33 @@ export default class Vault extends VaultBase {
 
     const fee = getFee(params.encodedTx);
 
+    let newAmount = [];
+    if (fee && fee.amount.length > 0) {
+      newAmount = [
+        {
+          denom: fee.amount[0].denom,
+          amount: txPrice,
+        },
+      ];
+    } else {
+      const implCoin = await this.getChainImplInfo();
+      newAmount = [
+        {
+          denom: implCoin.mainCoinDenom,
+          amount: txPrice,
+        },
+      ];
+    }
+
     const newFee: StdFee = {
-      amount:
-        fee && fee.amount.length > 0
-          ? [
-              {
-                denom: fee.amount[0].denom,
-                amount: txPrice,
-              },
-            ]
-          : [],
+      amount: newAmount,
       gas_limit: limit,
       payer: fee?.payer ?? '',
       granter: fee?.granter ?? '',
       feePayer: fee?.feePayer ?? '',
     };
 
-    setFee(params.encodedTx, newFee);
-    return params.encodedTx;
+    return setFee(params.encodedTx, newFee);
   }
 
   override decodedTxToLegacy(
@@ -541,13 +580,26 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxCosmos> {
-    const { to, amount, token: tokenAddress } = transferInfo;
+    let { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
     const chainInfo = await this.getChainInfo();
     const { chainId } = parseNetworkId(this.networkId);
 
     if (!chainId) {
       throw new Error('Invalid networkId');
+    }
+
+    let memo: string = transferInfo.destinationTag ?? '';
+    // Slice destination tag from swap address
+    if (
+      !isValidAddress(to, chainInfo.implOptions.addressPrefix) &&
+      to.indexOf('#') > -1
+    ) {
+      const [address, tag] = to.split('#');
+      to = address;
+      memo = tag ?? '';
+
+      await this.validateAddress(address);
     }
 
     let message;
@@ -603,7 +655,7 @@ export default class Vault extends VaultBase {
     const pubkey = hexToBytes(stripHexPrefix(await this._getPublicKey()));
 
     return this.txBuilder.makeTxWrapper(message, {
-      memo: '',
+      memo,
       gasLimit: '0',
       feeAmount: '1',
       pubkey,
@@ -704,8 +756,9 @@ export default class Vault extends VaultBase {
 
       const msgSend = msgs.find(
         (item) =>
+          item?.typeUrl === defaultAminoMsgOpts.send.native.type ||
           // @ts-expect-error
-          item?.typeUrl === MessageType.SEND || item?.type === MessageType.SEND,
+          item?.type === MessageType.SEND,
       );
 
       if (msgSend) {
@@ -787,7 +840,7 @@ export default class Vault extends VaultBase {
     if (
       options.type === IEncodedTxUpdateType.transfer &&
       msgs.length > 0 &&
-      msgs[0].typeUrl === MessageType.SEND
+      msgs[0].typeUrl === defaultAminoMsgOpts.send.native.type
     ) {
       const network = await this.getNetwork();
 
@@ -820,6 +873,7 @@ export default class Vault extends VaultBase {
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const { localHistory = [], tokenIdOnNetwork } = options;
+
     if (tokenIdOnNetwork) {
       // No token support now.
       return Promise.resolve([]);
@@ -828,104 +882,144 @@ export default class Vault extends VaultBase {
     const { getTimeStamp } = await CoreSDKLoader();
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const chainInfo = await this.getChainInfo();
-    let token: Token | undefined = await this.engine.getNativeTokenInfo(
-      this.networkId,
-    );
 
-    const promises = localHistory.map(async (item) => {
+    const mintScanQuery = new MintScanQuery();
+    const explorerTxs =
+      (await mintScanQuery.fetchAccountTxs(
+        this.networkId,
+        dbAccount.address,
+      )) ?? [];
+
+    const promises = explorerTxs.map(async (tx) => {
+      const historyTxToMerge = localHistory.find(
+        (item) =>
+          item.decodedTx.txid.toUpperCase() === tx.data.txhash.toUpperCase(),
+      );
+
+      if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        // No need to update.
+        return Promise.resolve(undefined);
+      }
       try {
-        const encodedTx = item.decodedTx.encodedTx as
-          | IEncodedTxCosmos
-          | undefined;
-        if (encodedTx) {
-          const msgs = getMsgs(encodedTx);
-          const fee = getFee(encodedTx);
-          const sequence = getSequence(encodedTx);
+        let token: Token | undefined = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
 
-          const actions = [];
-          for (const msg of msgs) {
-            let action: IDecodedTxAction | null = null;
-            const actionType = getTransactionTypeByProtoMessage(
-              msg,
-              chainInfo?.implOptions?.mainCoinDenom,
-            );
-
-            if (
-              actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
-              actionType === IDecodedTxActionType.TOKEN_TRANSFER
-            ) {
-              let actionKey = 'nativeTransfer';
-              const { amount, fromAddress, toAddress }: MsgSend =
-                'unpacked' in msg ? msg.unpacked : msg.value;
-
-              const amountNumber = amount[0].amount;
-              const amountDenom = amount[0].denom;
-
-              if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
-                actionKey = 'tokenTransfer';
-                token = await this.engine.ensureTokenInDB(
-                  this.networkId,
-                  amountDenom,
-                );
-              }
-
-              if (!token) {
-                throw new Error('Invalid token address');
-              }
-
-              const transferAction: IDecodedTxActionTokenTransfer = {
-                tokenInfo: token,
-                to: toAddress,
-                from: fromAddress,
-                amount: new BigNumber(amountNumber)
-                  .shiftedBy(-token.decimals)
-                  .toFixed(),
-                amountValue: amountNumber,
-                extraInfo: null,
-              };
-              action = {
-                type: actionType,
-                [actionKey]: transferAction,
-              };
-            } else {
-              action = {
-                type: IDecodedTxActionType.UNKNOWN,
-                direction: IDecodedTxDirection.OTHER,
-                unknownAction: {
-                  extraInfo: {},
-                },
-              };
-            }
-            if (action) actions.push(action);
-          }
-
-          const feeValue = new BigNumber(fee?.amount[0]?.amount ?? '0');
-
-          const decodedTx: IDecodedTx = {
-            txid: item.decodedTx?.txid,
-            owner: dbAccount.address,
-            signer: item.decodedTx?.signer,
-            nonce: sequence.toNumber(),
-            actions,
-            status: item.decodedTx?.status,
-            networkId: this.networkId,
-            accountId: this.accountId,
-            encodedTx,
-            extraInfo: null,
-            totalFeeInNative: new BigNumber(feeValue)
-              .shiftedBy(-(token?.decimals ?? 6))
-              .toFixed(),
-          };
-          decodedTx.updatedAt = getTimeStamp();
-          decodedTx.createdAt =
-            item?.decodedTx.createdAt ?? decodedTx.updatedAt;
-          decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
-          return await this.buildHistoryTx({
-            decodedTx,
-            historyTxToMerge: item,
-          });
+        const error = tx.data.code;
+        let status = IDecodedTxStatus.Pending;
+        if (error) {
+          status = IDecodedTxStatus.Failed;
+        } else if (new BigNumber(tx.data.height).gt(0)) {
+          status = IDecodedTxStatus.Confirmed;
         }
-      } catch (error) {
+
+        const msgs = tx.data.tx.body.messages;
+        const { fee } = tx.data.tx.auth_info;
+        const { sequence } = tx.data.tx.auth_info.signer_infos[0];
+
+        let from = '';
+        let to = '';
+
+        const actions = [];
+        for (const msg of msgs) {
+          let action: IDecodedTxAction | null = null;
+          const actionType = getTransactionTypeByMessage(
+            msg,
+            chainInfo?.implOptions?.mainCoinDenom,
+          );
+
+          if (
+            actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
+            actionType === IDecodedTxActionType.TOKEN_TRANSFER
+          ) {
+            let actionKey = 'nativeTransfer';
+
+            // @ts-expect-error
+            const {
+              amount,
+              // @ts-expect-error
+              from_address: fromAddress,
+              // @ts-expect-error
+              to_address: toAddress,
+            }: MsgSend = msg;
+
+            from = fromAddress;
+            to = toAddress;
+
+            const amountNumber = amount[0].amount;
+            const amountDenom = amount[0].denom;
+
+            if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
+              actionKey = 'tokenTransfer';
+              token = await this.engine.ensureTokenInDB(
+                this.networkId,
+                amountDenom,
+              );
+            }
+
+            if (!token) {
+              throw new Error('Invalid token address');
+            }
+
+            const transferAction: IDecodedTxActionTokenTransfer = {
+              tokenInfo: token,
+              to: toAddress,
+              from: fromAddress,
+              amount: new BigNumber(amountNumber)
+                .shiftedBy(-token.decimals)
+                .toFixed(),
+              amountValue: amountNumber,
+              extraInfo: null,
+            };
+            action = {
+              type: actionType,
+              [actionKey]: transferAction,
+            };
+          } else {
+            action = {
+              type: IDecodedTxActionType.UNKNOWN,
+              direction: IDecodedTxDirection.OTHER,
+              unknownAction: {
+                extraInfo: {},
+              },
+            };
+          }
+          if (action) actions.push(action);
+        }
+
+        const encodedTx = {
+          from,
+          to,
+          value: '',
+        };
+
+        const feeValue = new BigNumber(fee?.amount[0]?.amount ?? '0');
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.data.txhash,
+          owner: dbAccount.address,
+          signer: from,
+          nonce: parseInt(sequence),
+          actions,
+          status,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          encodedTx,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(feeValue)
+            .shiftedBy(-(token?.decimals ?? 6))
+            .toFixed(),
+        };
+        decodedTx.updatedAt =
+          getTime(new Date(tx.data.timestamp)) ?? getTimeStamp();
+        decodedTx.createdAt = decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+
+        return await this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
         return undefined;
       }
     });

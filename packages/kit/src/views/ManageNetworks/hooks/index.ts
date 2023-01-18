@@ -44,12 +44,17 @@ const getRpcStatusByResponseTime = (speed?: number) => {
   return RpcSpeed.Slow;
 };
 
-export const measureRpc = async (networkId: string, url: string) => {
+export const measureRpc = async (
+  networkId: string,
+  url: string,
+  useCache = true,
+) => {
   try {
     const { responseTime, latestBlock } =
       await backgroundApiProxy.serviceNetwork.getRPCEndpointStatus(
         url,
         networkId,
+        useCache,
       );
 
     return {

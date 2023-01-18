@@ -212,6 +212,7 @@ export { default as Moon } from './Moon';
 export { default as MusicalNote } from './MusicalNote';
 export { default as Newspaper } from './Newspaper';
 export { default as NoSymbol } from './NoSymbol';
+export { default as OnekeyLogo } from './OnekeyLogo';
 export { default as PaintBrush } from './PaintBrush';
 export { default as PaperAirplane } from './PaperAirplane';
 export { default as PaperClip } from './PaperClip';

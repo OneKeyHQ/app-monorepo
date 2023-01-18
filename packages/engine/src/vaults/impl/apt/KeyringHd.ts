@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 import { AptosClient } from 'aptos';
 import * as SHA3 from 'js-sha3';
 
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_APTOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -25,10 +26,6 @@ import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

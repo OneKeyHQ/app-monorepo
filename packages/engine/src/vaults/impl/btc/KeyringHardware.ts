@@ -1,6 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import * as BitcoinJS from 'bitcoinjs-lib';
 
+import type { Provider } from '@onekeyhq/blockchain-libs/src/provider/chains/btc/provider';
+import type {
+  SignedTx,
+  TxInput,
+  TxOutput,
+  UTXO,
+  UnsignedTx,
+} from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -22,14 +30,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type BTCVault from './Vault';
-import type { Provider } from '@onekeyfe/blockchain-libs/dist/provider/chains/btc/provider';
-import type {
-  SignedTx,
-  TxInput,
-  TxOutput,
-  UTXO,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { RefTransaction } from '@onekeyfe/hd-core';
 import type { Messages } from '@onekeyfe/hd-transport';
 

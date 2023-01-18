@@ -4,16 +4,20 @@ import {
   decode as toEthAddress,
 } from '@conflux-dev/conflux-address-js';
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { Conflux, address as confluxAddress } from 'js-conflux-sdk';
 import { isEmpty, isNil, omitBy } from 'lodash';
 import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import {
+  fromBigIntHex,
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import {
   InvalidAddress,
@@ -39,6 +43,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import sdkCfx from './sdkCfx';
 import settings from './settings';
 import { IOnChainTransferType } from './types';
 import {
@@ -48,6 +53,7 @@ import {
 } from './utils';
 
 import type { Account, DBVariantAccount } from '../../../types/account';
+import type { CoinInfo } from '../../../types/chain';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -65,15 +71,16 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxCfx, ITxOnChainHistoryResp } from './types';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+
+const { Conflux, address: confluxAddress } = sdkCfx;
 
 const TOKEN_TRANSFER_FUNCTION_SIGNATURE = '0xa9059cbb';
 const TOKEN_APPROVE_FUNCTION_SIGNATURE = '0x095ea7b3';
 const INFINITE_AMOUNT_TEXT = 'Infinite';
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+const EPOCH_TAG = 'latest_state';
 // TODO extends evm/Vault
 export default class Vault extends VaultBase {
   settings = settings;
@@ -111,15 +118,74 @@ export default class Vault extends VaultBase {
   }
 
   async getClient(url?: string) {
-    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const rpcURL = await this.getRpcUrl();
     const chainId = await this.getNetworkChainId();
     return this.getClientCache(url ?? rpcURL, chainId);
   }
 
+  async getRpcClient(url?: string) {
+    const rpcURL = await this.getRpcUrl();
+    return this.getRpcClientCache(url ?? rpcURL);
+  }
+
+  getRpcClientCache = memoizee(
+    async (rpcURL: string) => new JsonRPCRequest(rpcURL),
+    {
+      promise: true,
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
   getConfluxClient(url: string, chainId: string) {
+    // client: superagent
     return new Conflux({
       url,
       networkId: Number(chainId),
+    });
+  }
+
+  override async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ): Promise<Array<BigNumber | undefined>> {
+    const requestsNew = requests.map(({ address, tokenAddress }) => ({
+      address,
+      coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
+    }));
+    const calls: Array<any> = requestsNew.map((i) =>
+      i.coin?.tokenAddress
+        ? [
+            'cfx_call',
+            [
+              {
+                to: i.coin.tokenAddress,
+                data: `0x70a08231000000000000000000000000${toEthAddress(
+                  i.address,
+                ).hexAddress.toString('hex')}`,
+              },
+              EPOCH_TAG,
+            ],
+          ]
+        : ['cfx_getBalance', [i.address, EPOCH_TAG]],
+    );
+    const rpc = await this.getRpcClient();
+    const resp: Array<string | undefined> = await rpc.batchCall(
+      calls,
+      undefined,
+      undefined,
+      true,
+    );
+    return resp.map((i) => {
+      let balance;
+
+      if (typeof i !== 'undefined') {
+        balance = fromBigIntHex(i.slice(0, 66));
+
+        if (balance.isNaN()) {
+          balance = undefined;
+        }
+      }
+      return balance;
     });
   }
 
@@ -716,10 +782,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(
       `0x${toEthAddress(address).hexAddress.toString('hex')}`,
     );
-  }
-
-  createClientFromURL(url: string): BaseClient {
-    throw new NotImplemented();
   }
 
   fetchTokenInfos(

@@ -1,4 +1,4 @@
-import type { Avatar } from '../../emojiUtils';
+import type { Avatar } from '../../utils/emojiUtils';
 
 export type PublicBackupData = {
   contacts: Record<string, { name: string; address: string }>;

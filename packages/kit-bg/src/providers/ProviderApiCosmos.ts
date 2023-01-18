@@ -5,6 +5,8 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
+import { get } from 'lodash';
+import memoizee from 'memoizee';
 
 import type { BroadcastMode } from '@onekeyhq/engine/src/vaults/impl/cosmos/NodeClient';
 import type { StdSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/amino/types';
@@ -74,25 +76,47 @@ class ProviderApiCosmos extends ProviderApiBase {
     throw web3Errors.rpc.methodNotSupported();
   }
 
+  private _enable = memoizee(
+    async (request: IJsBridgeMessagePayload, params: string[]) => {
+      const networkId = typeof params === 'string' ? params : params[0];
+
+      const appNetworkId = this.convertCosmosChainId(networkId);
+      if (!appNetworkId) throw new Error('Invalid chainId');
+
+      const network = await this.backgroundApi.engine.getNetwork(appNetworkId);
+      if (!network) return Promise.reject(new Error('Invalid networkId'));
+
+      const key = await this.getKey(request, networkId);
+
+      if (!this.hasPermissions(request, key.pubKey)) {
+        await this.backgroundApi.serviceDapp.openConnectionModal(request, {
+          networkId: appNetworkId,
+          accountIdentify: key.pubKey,
+        });
+      }
+
+      return true;
+    },
+    {
+      promise: true,
+      max: 1,
+      normalizer: (
+        args: [request: IJsBridgeMessagePayload, params: string[]],
+      ) => {
+        const type = get(args[0], 'data.method', '');
+        const method = get(args[0], 'type', '');
+        const scope = get(args[0], 'scope', '');
+
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        return `${args?.[0]?.origin ?? ''}--${scope}--${type}--${method}`;
+      },
+    },
+  );
+
   @providerApiMethod()
   public async enable(request: IJsBridgeMessagePayload, params: string[]) {
     debugLogger.providerApi.info('cosmos enable', request, params);
-    const networkId = typeof params === 'string' ? params : params[0];
-    const { accountId } = getActiveWalletAccount();
-
-    const vault = (await this.backgroundApi.engine.getVault({
-      networkId: this.convertCosmosChainId(networkId),
-      accountId,
-    })) as VaultCosmos;
-
-    const address = await vault.getAccountAddress();
-    if (!this.hasPermissions(request, address)) {
-      await this.backgroundApi.serviceDapp.openConnectionModal(request);
-    }
-
-    await this.getKey(request, networkId);
-
-    return true;
+    return this._enable(request, params);
   }
 
   @providerApiMethod()
@@ -111,7 +135,8 @@ class ProviderApiCosmos extends ProviderApiBase {
     debugLogger.providerApi.info('aptos disconnect', origin);
   }
 
-  private convertCosmosChainId(networkId: string) {
+  private convertCosmosChainId(networkId: string | undefined | null) {
+    if (!networkId) return undefined;
     return `cosmos--${networkId.toLowerCase()}`;
   }
 
@@ -121,6 +146,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         origin: request.origin as string,
         impl: IMPL_COSMOS,
       });
+
     if (!connectedAccounts) {
       return false;
     }
@@ -139,9 +165,14 @@ class ProviderApiCosmos extends ProviderApiBase {
     const { networkImpl, accountId } = getActiveWalletAccount();
 
     const networkId = this.convertCosmosChainId(params);
+    if (!networkId) throw new Error('Invalid chainId');
+
     if (networkImpl !== IMPL_COSMOS) {
-      return undefined;
+      return Promise.reject(new Error('Invalid networkId'));
     }
+
+    const network = await this.backgroundApi.engine.getNetwork(networkId);
+    if (!network) return Promise.reject(new Error('Invalid networkId'));
 
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
@@ -149,7 +180,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     })) as VaultCosmos;
 
     const account = await vault.getKey(networkId, accountId);
-    console.log('account', account);
+
     return Promise.resolve(account);
   }
 
@@ -159,7 +190,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     params: any,
   ) {
     debugLogger.providerApi.info('cosmos experimentalSuggestChain', params);
-    return Promise.resolve();
+    return Promise.resolve(new Error('Not implemented'));
   }
 
   @permissionRequired()
@@ -175,11 +206,13 @@ class ProviderApiCosmos extends ProviderApiBase {
     debugLogger.providerApi.info('cosmos signAmino', params);
 
     const encodeTx = params.signDoc;
+    const networkId = this.convertCosmosChainId(encodeTx.chain_id);
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 
@@ -233,6 +266,8 @@ class ProviderApiCosmos extends ProviderApiBase {
   ): Promise<any> {
     debugLogger.providerApi.info('cosmos signDirect', params);
 
+    const networkId = this.convertCosmosChainId(params.signDoc.chainId);
+
     const encodeTx = params.signDoc;
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
@@ -247,6 +282,7 @@ class ProviderApiCosmos extends ProviderApiBase {
           undefined,
         ),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 
@@ -303,6 +339,8 @@ class ProviderApiCosmos extends ProviderApiBase {
     debugLogger.providerApi.info('cosmos sendTx', params);
     const { accountId } = getActiveWalletAccount();
     const networkId = this.convertCosmosChainId(params.chainId);
+    if (!networkId) throw new Error('Invalid chainId');
+
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
@@ -328,11 +366,12 @@ class ProviderApiCosmos extends ProviderApiBase {
       data: string;
     },
   ): Promise<any> {
-    debugLogger.providerApi.info('cosmos signAmino', params);
+    debugLogger.providerApi.info('cosmos signArbitrary', params);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [data, isADR36WithString] = getDataForADR36(params.data);
     const unsignDoc = getADR36SignDoc(params.signer, data);
+    const networkId = this.convertCosmosChainId(params.chainId);
 
     const encodeTx = unsignDoc;
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
@@ -340,6 +379,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 
@@ -380,11 +420,13 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
     },
   ): Promise<any> {
-    debugLogger.providerApi.info('cosmos signAmino', params);
+    debugLogger.providerApi.info('cosmos verifyArbitrary', params);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [data, isADR36WithString] = getDataForADR36(params.data);
     const unsignDoc = getADR36SignDoc(params.signer, data);
+
+    const networkId = this.convertCosmosChainId(params.chainId);
 
     const encodeTx = unsignDoc;
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
@@ -392,6 +434,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       {
         encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
         signOnly: true,
+        networkId,
       },
     )) as ISignedTxPro;
 

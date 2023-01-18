@@ -75,22 +75,26 @@ export const ManageNetworkRPCNode: FC = () => {
 
   const selectRpc = useCallback(
     (url: string) => {
-      // restart required
-      DialogManager.show({
-        render: (
-          <RestartAppDialog
-            onConfirm={() => {
-              backgroundApiProxy.serviceNetwork
-                .updateNetwork(networkId, {
-                  rpcURL: url,
-                })
-                .then(() => {
-                  backgroundApiProxy.serviceApp.restartApp();
-                });
-            }}
-          />
-        ),
+      backgroundApiProxy.serviceNetwork.updateNetwork(networkId, {
+        rpcURL: url,
       });
+
+      // **** restart required
+      // DialogManager.show({
+      //   render: (
+      //     <RestartAppDialog
+      //       onConfirm={() => {
+      //         backgroundApiProxy.serviceNetwork
+      //           .updateNetwork(networkId, {
+      //             rpcURL: url,
+      //           })
+      //           .then(() => {
+      //             backgroundApiProxy.serviceApp.restartApp();
+      //           });
+      //       }}
+      //     />
+      //   ),
+      // });
     },
     [networkId],
   );
@@ -174,7 +178,7 @@ export const ManageNetworkRPCNode: FC = () => {
 
       const startMeasure = (rpc: string) => {
         queueCount += 1;
-        measureRpc(networkId, rpc)
+        measureRpc(networkId, rpc, false)
           .then((res) => {
             setMeasureMap((prev) => ({
               ...prev,

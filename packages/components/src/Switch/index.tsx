@@ -2,8 +2,6 @@ import type { ComponentProps, FC } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import Box from '../Box';
 import Typography from '../Typography';
 
@@ -96,17 +94,7 @@ const Switch: FC<SwitchProps> = ({
         {...props}
         isChecked={isChecked}
         isDisabled={isDisabled}
-        onToggle={
-          onToggle
-            ? () => {
-                if (platformEnv.isNative) {
-                  setTimeout(onToggle);
-                } else {
-                  onToggle();
-                }
-              }
-            : undefined
-        }
+        onToggle={onToggle}
       />
     </Box>
   );

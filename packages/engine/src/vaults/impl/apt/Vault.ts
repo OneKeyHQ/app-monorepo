@@ -3,13 +3,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { AptosClient, BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { get, groupBy, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/kit/src/store/typings';
 import {
   getTimeDurationMs,
@@ -84,8 +85,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxAptos } from './types';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -106,25 +105,21 @@ export default class Vault extends VaultBase {
   });
 
   async getClient() {
-    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const rpcURL = await this.getRpcUrl();
     return this.getClientCache(rpcURL);
   }
 
   getAptosClient(url: string) {
+    // client: axios
     return new AptosClient(url);
   }
 
   // Chain only methods
 
-  override createClientFromURL(_url: string): BaseClient {
-    // This isn't needed.
-    throw new NotImplemented();
-  }
-
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const client = this.getAptosClient(url);
+    const client = await this.getClientCache(url);
 
     const start = performance.now();
     const { block_height: blockNumber } = await client.getLedgerInfo();

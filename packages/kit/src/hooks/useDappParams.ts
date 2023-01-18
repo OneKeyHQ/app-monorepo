@@ -10,6 +10,14 @@ export type IDappSignAndSendParams = {
   encodedTx?: IEncodedTx;
   signOnly?: boolean;
   _$t?: number;
+  // Support cosmos dapp
+  networkId?: string;
+  accountIdentify?: string;
+};
+
+export type IDappConnectionParams = {
+  networkId?: string;
+  accountIdentify?: string;
 };
 
 // TODO rename useDappQuery

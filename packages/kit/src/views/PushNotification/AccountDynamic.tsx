@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
+import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,10 +28,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
 
 import { ListEmptyComponent } from './Empty';
-import {
-  useAddressCanSubscribe,
-  useEnabledAccountDynamicAccounts,
-} from './hooks';
+import { useEnabledAccountDynamicAccounts } from './hooks';
 
 import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import type { WalletData } from './hooks';
@@ -50,8 +48,6 @@ const Item: FC<{
 }> = ({ divider, account, onChange, checked, icon }) => {
   const [loading, setLoading] = useState(false);
 
-  const canSubscribe = useAddressCanSubscribe(account);
-
   const handleChange = (value: boolean) => {
     setLoading(true);
     onChange(value).finally(() =>
@@ -60,10 +56,6 @@ const Item: FC<{
       }, 200),
     );
   };
-
-  if (!canSubscribe) {
-    return null;
-  }
 
   return (
     <Box
@@ -222,14 +214,26 @@ const NotificationAccountDynamic = () => {
     useEnabledAccountDynamicAccounts();
   const navigation = useNavigation<NavigationProps>();
 
-  const supportedWallets = wallets
-    .map((w) => ({
-      ...w,
-      accounts: w.accounts.filter((a) =>
-        isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM),
+  const supportedWallets = useMemo(
+    () =>
+      wallets
+        .map((w) => ({
+          ...w,
+          accounts: w.accounts.filter((a) =>
+            isCoinTypeCompatibleWithImpl(a.coinType, IMPL_EVM),
+          ),
+        }))
+        .filter((w) => !!w.accounts.length),
+    [wallets],
+  );
+
+  const { result: filteredAddress, loading: filterLoading } = useAsync(
+    async () =>
+      backgroundApiProxy.serviceNotification.filterContractAddresses(
+        supportedWallets.map((w) => w.accounts.map((a) => a.address)).flat(),
       ),
-    }))
-    .filter((w) => !!w.accounts.length);
+    [supportedWallets],
+  );
 
   useLayoutEffect(() => {
     const title = intl.formatMessage({ id: 'title__manage_account_dynamic' });
@@ -241,7 +245,7 @@ const NotificationAccountDynamic = () => {
   if (!supportedWallets.length) {
     return (
       <ListEmptyComponent
-        isLoading={loading}
+        isLoading={loading || filterLoading}
         desc={intl.formatMessage({
           id: 'content__there_are_no_accounts_available_for_subscriptions',
         })}
@@ -262,6 +266,9 @@ const NotificationAccountDynamic = () => {
         <Section
           key={wallet.id}
           {...wallet}
+          accounts={wallet.accounts.filter((a) =>
+            filteredAddress?.includes(a.address),
+          )}
           refreash={refresh}
           enabledAccounts={enabledAccounts}
         />

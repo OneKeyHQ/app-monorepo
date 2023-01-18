@@ -14,6 +14,7 @@ import type {
   ContractsInfo,
   Cw20AssetInfo,
   RelayerPaths,
+  Transaction,
 } from './mintScanTypes';
 import type { AxiosInstance } from 'axios';
 
@@ -24,6 +25,7 @@ const NetworkIDMinScanMap: Record<string, string> = {
   [OnekeyNetwork.fetch]: 'fetchai',
   [OnekeyNetwork.juno]: 'juno',
   [OnekeyNetwork.osmosis]: 'osmosis',
+  [OnekeyNetwork.secretnetwork]: 'secret',
   // [OnekeyNetwork.injective]: 'injective',
 };
 
@@ -130,6 +132,26 @@ export class MintScanQuery implements IQuery {
         `/v1/relayer/${chain}/paths`,
       );
       return resp.data.sendable;
+    } catch (error) {
+      // ignore
+    }
+  }
+
+  // https://api.mintscan.io/v1/cosmos/account/cosmos16ds6gn6rlzlz09qm9an725kp4shklyrq7hm0le/txs?limit=50&from=0
+  async fetchAccountTxs(
+    networkId: string,
+    address: string,
+    limit = 50,
+    from = 0,
+  ) {
+    try {
+      const chain = NetworkIDMinScanMap[networkId];
+      if (!chain) return;
+
+      const resp = await this.axios.get<Transaction[]>(
+        `/v1/${chain}/account/${address}/txs?limit=${limit}&from=${from}`,
+      );
+      return resp.data;
     } catch (error) {
       // ignore
     }
