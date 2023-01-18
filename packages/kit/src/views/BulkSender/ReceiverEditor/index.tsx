@@ -1,36 +1,26 @@
 import { useEffect, useState } from 'react';
 
-import {
-  Box,
-  Center,
-  HStack,
-  Icon,
-  Pressable,
-  Text,
-  Textarea,
-} from '@onekeyhq/components';
+import { Textarea } from '@onekeyhq/components';
 
-import type { TokenReceiver } from '../types';
+import type { ReceiverInputParams } from '../types';
 
-interface Props {
-  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-  receiver: TokenReceiver[];
-}
+type Props = ReceiverInputParams;
+
 function ReceiverEditor(props: Props) {
-  const { receiver } = props;
+  const { receiverFromFile } = props;
 
   const [textAreaValue, setTextAreaValue] = useState('');
 
   useEffect(() => {
-    if (receiver.length > 0) {
+    if (receiverFromFile.length > 0) {
       setTextAreaValue(
-        receiver.reduce(
+        receiverFromFile.reduce(
           (acc, cur) => `${acc}${[cur.Address, cur.Amount].join(',')}\n`,
           '',
         ),
       );
     }
-  }, [receiver]);
+  }, [receiverFromFile]);
 
   return (
     <>

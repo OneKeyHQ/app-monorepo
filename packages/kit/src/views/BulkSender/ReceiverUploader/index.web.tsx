@@ -1,11 +1,8 @@
-import { useState } from 'react';
-
 import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 import { read, utils } from 'xlsx';
 
 import {
-  Box,
   Center,
   Icon,
   Text,
@@ -13,17 +10,17 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 
-import { ReceiverEnum } from '../types';
+import { TokenReceiverEnum } from '../types';
 
 import type { TokenReceiver } from '../types';
 
 interface Props {
-  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  setReceiverFromFile: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 function ReceiverUploader(props: Props) {
-  const { setReceiver, setIsUploadMode } = props;
+  const { setReceiverFromFile, setIsUploadMode } = props;
   const [uploaderBg, uploaderBorderColor, uploaderActiveBorderColor] =
     useThemeValue(['surface-default', 'border-default', 'interactive-default']);
 
@@ -45,14 +42,14 @@ function ReceiverUploader(props: Props) {
         const wb = read(file, { raw: true });
         const data = utils.sheet_to_json<TokenReceiver>(
           wb.Sheets[wb.SheetNames[0]],
-          { header: [ReceiverEnum.Address, ReceiverEnum.Amount] },
+          { header: [TokenReceiverEnum.Address, TokenReceiverEnum.Amount] },
         );
         if (data && data[0] && data[0].Address && data[0].Amount) {
-          setReceiver(
+          setReceiverFromFile(
             data.filter(
               (item) =>
-                item.Address !== ReceiverEnum.Address &&
-                item.Amount !== ReceiverEnum.Amount,
+                item.Address !== TokenReceiverEnum.Address &&
+                item.Amount !== TokenReceiverEnum.Amount,
             ),
           );
           setIsUploadMode(false);

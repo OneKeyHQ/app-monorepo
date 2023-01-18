@@ -13,15 +13,18 @@ import {
 import { ReceiverEditor } from '../ReceiverEditor';
 import { ReceiverUploader } from '../ReceiverUploader';
 
-import type { TokenReceiver } from '../types';
+import type { ReceiverInputParams } from '../types';
 
-interface Props {
-  receiver: TokenReceiver[];
-  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-}
-
-function ReceiverInput(props: Props) {
-  const { receiver, setReceiver } = props;
+function ReceiverInput(props: ReceiverInputParams) {
+  const {
+    accountId,
+    networkId,
+    receiverFromFile,
+    setReceiverFromFile,
+    setReceiver,
+    type,
+    receiverErrors,
+  } = props;
   const [isUploadMode, setIsUploadMode] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
@@ -64,12 +67,20 @@ function ReceiverInput(props: Props) {
       </HStack>
       {isUploadMode && (
         <ReceiverUploader
-          setReceiver={setReceiver}
+          setReceiverFromFile={setReceiverFromFile}
           setIsUploadMode={setIsUploadMode}
         />
       )}
       {!isUploadMode && (
-        <ReceiverEditor receiver={receiver} setReceiver={setReceiver} />
+        <ReceiverEditor
+          accountId={accountId}
+          networkId={networkId}
+          setReceiver={setReceiver}
+          receiverFromFile={receiverFromFile}
+          setReceiverFromFile={setReceiverFromFile}
+          type={type}
+          receiverErrors={receiverErrors}
+        />
       )}
       <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
         {intl.formatMessage({

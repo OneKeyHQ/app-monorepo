@@ -2,68 +2,68 @@ import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Center,
-  HStack,
-  Icon,
-  Text,
-  Textarea,
-} from '@onekeyhq/components';
+import { Box, Center, Icon, Text, Textarea } from '@onekeyhq/components';
 
+import { useDebounce } from '../../../hooks';
 import { useDropUpload } from '../hooks';
-import { ReceiverEnum } from '../types';
+import { TokenReceiverEnum } from '../types';
+import { decodeReceiver, encodeReceiver } from '../utils';
 
-import type { TokenReceiver } from '../types';
+import { ReceiverErrors } from './ReceiverErrors';
 
-interface Props {
-  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-  receiver: TokenReceiver[];
-}
+import type { ReceiverInputParams, TokenReceiver } from '../types';
+
+type Props = ReceiverInputParams;
+
 function ReceiverEditor(props: Props) {
-  const { receiver, setReceiver } = props;
+  const {
+    receiverFromFile,
+    setReceiverFromFile,
+    setReceiver,
+    type,
+    receiverErrors,
+  } = props;
 
   const intl = useIntl();
 
-  const [textAreaValue, setTextAreaValue] = useState('');
+  const [receiverString, setReceiverString] = useState('');
   const { isDragAccept, data, getRootProps } = useDropUpload<TokenReceiver>({
-    header: [ReceiverEnum.Address, ReceiverEnum.Amount],
+    header: [TokenReceiverEnum.Address, TokenReceiverEnum.Amount],
     noClick: true,
   });
 
+  const receiverStringDebounce = useDebounce(receiverString, 1000);
+
   useEffect(() => {
-    if (receiver.length > 0) {
-      setTextAreaValue(
-        receiver.reduce(
-          (acc, cur) => `${acc}${[cur.Address, cur.Amount].join(',')}\n`,
-          '',
-        ),
-      );
+    setReceiver(decodeReceiver(receiverStringDebounce, type));
+  }, [receiverStringDebounce, setReceiver, type]);
+
+  useEffect(() => {
+    if (receiverFromFile.length > 0) {
+      setReceiverString(encodeReceiver(receiverFromFile));
     }
-  }, [receiver, data]);
+  }, [receiverFromFile]);
 
   useEffect(() => {
     if (data && data[0] && data[0].Address && data[0].Amount) {
-      setReceiver(
+      setReceiverFromFile(
         data.filter(
           (item) =>
-            item.Address !== ReceiverEnum.Address &&
-            item.Amount !== ReceiverEnum.Amount,
+            item.Address !== TokenReceiverEnum.Address &&
+            item.Amount !== TokenReceiverEnum.Amount,
         ),
       );
     }
-  }, [data, setReceiver]);
+  }, [data, setReceiverFromFile]);
 
   return (
     <Box>
       <div style={{ width: '100%', height: '100%' }} {...getRootProps()}>
         <Textarea
-          bg="surface-default"
-          value={textAreaValue}
+          value={receiverString}
           h="240px"
           // @ts-ignore
-          onChange={(e) => setTextAreaValue(e.currentTarget.value)}
-          onChangeText={(text) => setTextAreaValue(text)}
+          onChange={(e) => setReceiverString(e.currentTarget.value)}
         />
         {isDragAccept && (
           <Center
@@ -95,6 +95,9 @@ function ReceiverEditor(props: Props) {
           </Center>
         )}
       </div>
+      <Box mt={3}>
+        <ReceiverErrors errors={receiverErrors} />
+      </Box>
     </Box>
   );
 }

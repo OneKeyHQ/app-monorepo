@@ -24,7 +24,7 @@ import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
 import { TokenOutbox } from './TokenOutbox';
-import { BulkSenderTabEnum } from './types';
+import { BulkSenderTypeEnum } from './types';
 
 function BulkSender() {
   const intl = useIntl();
@@ -95,7 +95,7 @@ function BulkSender() {
       <Center>
         <Box maxW="768px" w="100%">
           <Tabs.Container
-            initialTabName={BulkSenderTabEnum.NativeToken}
+            initialTabName={BulkSenderTypeEnum.NativeToken}
             containerStyle={{
               width: '100%',
               marginHorizontal: 'auto',
@@ -104,22 +104,27 @@ function BulkSender() {
               flex: 1,
             }}
             headerHeight={isVertical ? 0 : 30}
+            scrollEnabled={false}
           >
             <Tabs.Tab
-              name={BulkSenderTabEnum.NativeToken}
+              name={BulkSenderTypeEnum.NativeToken}
               label={nativeToken?.symbol ?? ''}
             >
               <TokenOutbox
                 accountId={accountId}
                 networkId={networkId}
-                isNative
+                type={BulkSenderTypeEnum.NativeToken}
               />
             </Tabs.Tab>
             <Tabs.Tab
-              name={BulkSenderTabEnum.Token}
+              name={BulkSenderTypeEnum.Token}
               label={intl.formatMessage({ id: 'form__token' })}
             >
-              <TokenOutbox accountId={accountId} networkId={networkId} />
+              <TokenOutbox
+                accountId={accountId}
+                networkId={networkId}
+                type={BulkSenderTypeEnum.Token}
+              />
             </Tabs.Tab>
           </Tabs.Container>
         </Box>

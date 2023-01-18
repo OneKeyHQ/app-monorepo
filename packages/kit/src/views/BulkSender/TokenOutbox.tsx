@@ -22,21 +22,23 @@ import { getTokenValues } from '@onekeyhq/kit/src/utils/priceUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
+import { useValidteReceiver } from './hooks';
 import { ReceiverInput } from './ReceiverInput';
-import { BulkSenderRoutes } from './types';
+import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
 
 import type { TokenReceiver } from './types';
 
 interface Props {
   accountId: string;
   networkId: string;
-  isNative?: boolean;
+  type: BulkSenderTypeEnum;
 }
 
 function TokenOutbox(props: Props) {
-  const { accountId, networkId, isNative } = props;
+  const { accountId, networkId, type } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [receiver, setReceiver] = useState<TokenReceiver[]>([]);
+  const [receiverFromFile, setReceiverFromFile] = useState<TokenReceiver[]>([]);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -89,6 +91,7 @@ function TokenOutbox(props: Props) {
     return sortedTokens;
   }, [accountTokens, networkId, prices, balances, vsCurrency]);
 
+  const isNative = type === BulkSenderTypeEnum.NativeToken;
   const initialToken = isNative ? nativeToken : valueSortedTokens[0];
   const formatedBalance = useMemo(
     () =>
@@ -104,6 +107,12 @@ function TokenOutbox(props: Props) {
       ),
     [balances, intl, initialToken, selectedToken],
   );
+
+  const { errors } = useValidteReceiver({
+    networkId,
+    receiver,
+    type,
+  });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
     setSelectedToken(token);
@@ -177,7 +186,15 @@ function TokenOutbox(props: Props) {
         </HStack>
       </Pressable.Item>
       <Box mt={6}>
-        <ReceiverInput receiver={receiver} setReceiver={setReceiver} />
+        <ReceiverInput
+          accountId={accountId}
+          networkId={networkId}
+          setReceiver={setReceiver}
+          receiverFromFile={receiverFromFile}
+          setReceiverFromFile={setReceiverFromFile}
+          receiverErrors={errors}
+          type={type}
+        />
       </Box>
     </Box>
   );
