@@ -11,6 +11,8 @@ import RecoveryPhrase from '../screens/CreateWallet/RecoveryPhrase';
 import SetPassword from '../screens/CreateWallet/SetPassword';
 import ShowRecoveryPhrase from '../screens/CreateWallet/ShowRecoveryPhrase';
 import ImportWallet from '../screens/ImportWallet';
+import Migration from '../screens/Migration/ConnectServer';
+import PreviewImportData from '../screens/Migration/PreviewImportData';
 import BackupDetails from '../screens/RestoreFromCloud/BackupDetails';
 import BackupsList from '../screens/RestoreFromCloud/BackupsList';
 import Welcome from '../screens/Welcome';
@@ -59,6 +61,14 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.CloudBackupDetails,
     component: BackupDetails,
+  },
+  {
+    name: EOnboardingRoutes.Migration,
+    component: Migration,
+  },
+  {
+    name: EOnboardingRoutes.MigrationPreview,
+    component: PreviewImportData,
   },
 ];
 
