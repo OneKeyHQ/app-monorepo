@@ -1735,7 +1735,7 @@
   "title__backups_desc": "次のウォレットはまだバックアップされていない。直ちにバックアップしなければ、資産を失ってしまう恐れがある。",
   "title__best_channel": "最適チャンネル",
   "title__beware_of_address_poisoning_scams": "アドレスポイズニング詐欺にご注意ください",
-  "title__beware_of_address_poisoning_scams_desc": "詐欺師は、先頭または末尾が同じアドレスを使用し、送金金額が 0 のアドレスになりすますことができます。\n振込先をよくご確認の上、お振込みください。",
+  "title__beware_of_address_poisoning_scams_desc": "詐欺師は、同じ先頭または末尾のアドレスを使用し、正しいアドレスを偽装して空送金で詐欺する。\nアドレスをよくご確認の上、お振込みください。",
   "title__blockchain_explorer": "ブロックチェーン エクスプローラー",
   "title__blockchain_explorer_desc": "アドレス、コントラクト、トランザクション ハッシュ、またはトークンを検索する。",
   "title__browser": "ブラウザ",

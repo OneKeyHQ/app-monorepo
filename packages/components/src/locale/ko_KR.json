@@ -263,7 +263,7 @@
   "alert_only_use_a_recovery_seed_from_device": "설정 중에 장치가 표시한 복구 문구만 기록하십시오.",
   "app__app_name": "OneKey",
   "app__hardware_name_onekey_lite": "OneKey Lite",
-  "asset__collectibles": "수집품",
+  "asset__collectibles": "NFT",
   "asset__collectibles_empty_desc": "NFT가 여기에 표시됩니다.",
   "asset__collectibles_empty_title": "수집품 없음",
   "asset__tokens": "토큰",

@@ -263,7 +263,7 @@
   "alert_only_use_a_recovery_seed_from_device": "Записывайте только фразы восстановления, которые отображало ваше устройство во время настройки.",
   "app__app_name": "OneKey",
   "app__hardware_name_onekey_lite": "OneKey Lite",
-  "asset__collectibles": "Коллекционные предметы",
+  "asset__collectibles": "NFT",
   "asset__collectibles_empty_desc": "Здесь будут отображаться NFT.",
   "asset__collectibles_empty_title": "Нет предметов коллекционирования",
   "asset__tokens": "Токены",

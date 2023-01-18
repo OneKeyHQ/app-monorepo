@@ -263,7 +263,7 @@
   "alert_only_use_a_recovery_seed_from_device": "আপনার ডিভাইস সেটআপের সময় যে পুনরুদ্ধারের বাক্যাংশগুলি প্রদর্শিত হয়েছিল শুধুমাত্র তা লিখুন৷",
   "app__app_name": "OneKey",
   "app__hardware_name_onekey_lite": "OneKey Lite",
-  "asset__collectibles": "সংগ্রহযোগ্য",
+  "asset__collectibles": "NFT",
   "asset__collectibles_empty_desc": "NFT এখানে দেখাবে।",
   "asset__collectibles_empty_title": "কোন সংগ্রহযোগ্য",
   "asset__tokens": "টোকেন",

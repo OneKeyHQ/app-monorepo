@@ -263,7 +263,7 @@
   "alert_only_use_a_recovery_seed_from_device": "Зөвхөн тохиргооны явцад таны төхөөрөмж харуулсан сэргээх хэллэгүүдийг бичнэ үү.",
   "app__app_name": "OneKey",
   "app__hardware_name_onekey_lite": "OneKey Lite",
-  "asset__collectibles": "Цуглуулга",
+  "asset__collectibles": "NFT",
   "asset__collectibles_empty_desc": "NFTs энд харагдах болно.",
   "asset__collectibles_empty_title": "Цуглуулга байхгүй",
   "asset__tokens": "Токенууд",

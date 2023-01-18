@@ -263,7 +263,7 @@
   "alert_only_use_a_recovery_seed_from_device": "จดเฉพาะวลีการกู้คืนที่อุปกรณ์ของคุณแสดงระหว่างการตั้งค่า",
   "app__app_name": "OneKey",
   "app__hardware_name_onekey_lite": "OneKey Lite",
-  "asset__collectibles": "ของสะสม",
+  "asset__collectibles": "NFT",
   "asset__collectibles_empty_desc": "NFT จะแสดงที่นี่",
   "asset__collectibles_empty_title": "ไม่มีของสะสม",
   "asset__tokens": "โทเค็น",
