@@ -194,6 +194,10 @@ const ImportWallet = () => {
     navigation.navigate(EOnboardingRoutes.RecoveryWallet);
   }, [navigation]);
 
+  const onPressMigration = useCallback(() => {
+    navigation.navigate(EOnboardingRoutes.Migration);
+  }, [navigation]);
+
   const onPressOneKeyLite = useCallback(() => {
     forceVisibleUnfocused?.();
     appNavigation.navigate(RootRoutes.Modal, {
@@ -268,7 +272,7 @@ const ImportWallet = () => {
             id: 'onboarding__import_wallet_with_migrate',
           })}
           icon="ArrowPathRoundedSquareOutline"
-          onPress={() => {}}
+          onPress={onPressMigration}
         >
           <IconToIconIllus
             leftIcon="ComputerDesktopSolid"
