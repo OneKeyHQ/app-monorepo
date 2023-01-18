@@ -4,8 +4,6 @@ import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { homeTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';

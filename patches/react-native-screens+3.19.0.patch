@@ -1,0 +1,26 @@
+diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+index 17a8be4..df988dc 100644
+--- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
++++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
+@@ -121,19 +121,8 @@
+ 
+ - (void)didMoveToWindow
+ {
+-  if (self.window == nil) {
+-    if (_container != nil) {
+-      [_container removeFromSuperview];
+-      [_touchHandler detachFromView:_container];
+-    }
+-  } else {
+-    if (_touchHandler == nil) {
+-#ifdef RN_FABRIC_ENABLED
+-      _touchHandler = [RCTSurfaceTouchHandler new];
+-#else
+-      _touchHandler = [[RCTTouchHandler alloc] initWithBridge:_bridge];
+-#endif
+-    }
++  if (self.window != nil && _touchHandler == nil) {
++    _touchHandler = [[RCTTouchHandler alloc] initWithBridge:_bridge];
+     [_touchHandler attachToView:_container];
+   }
+ }

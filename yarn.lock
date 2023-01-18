@@ -5509,10 +5509,10 @@ __metadata:
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
     react-native-pager-view: 6.1.2
     react-native-randombytes: ^3.6.1
-    react-native-reanimated: ^2.14.1
+    react-native-reanimated: ^2.14.2
     react-native-restart: 0.0.24
     react-native-safe-area-context: 4.4.1
-    react-native-screens: 3.17.0
+    react-native-screens: ^3.19.0
     react-native-share: ^7.6.6
     react-native-svg: ^13.7.0
     react-native-tcp-socket: ^6.0.3
@@ -27292,9 +27292,9 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:^2.14.1, react-native-reanimated@npm:^2.4.1":
-  version: 2.14.1
-  resolution: "react-native-reanimated@npm:2.14.1"
+"react-native-reanimated@npm:^2.14.2, react-native-reanimated@npm:^2.4.1":
+  version: 2.14.2
+  resolution: "react-native-reanimated@npm:2.14.2"
   dependencies:
     "@babel/plugin-transform-object-assign": ^7.16.7
     "@babel/preset-typescript": ^7.16.7
@@ -27307,7 +27307,7 @@ optjs@latest:
     "@babel/core": ^7.0.0-0
     react: "*"
     react-native: "*"
-  checksum: 279ece43aa71601b8b490a7fa4350660e8f9dfc7bb760213f24e1920ef0fe649a0e2675efab0cb4085a61c65c69bff9fcb7fd743a071333256ca861488b5169e
+  checksum: 5ffd139e474c7412775bd92a0d3b2c45ac0e9dc2d6df5a15a08be3e7fa5f2a5ce0a2434180221a1fb43284569de94bfa9b99b7bbde844cb5da9e5a25d3511aeb
   languageName: node
   linkType: hard
 
@@ -27365,16 +27365,16 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-screens@npm:3.17.0":
-  version: 3.17.0
-  resolution: "react-native-screens@npm:3.17.0"
+"react-native-screens@npm:^3.19.0":
+  version: 3.19.0
+  resolution: "react-native-screens@npm:3.19.0"
   dependencies:
     react-freeze: ^1.0.0
     warn-once: ^0.1.0
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: c3523d56113c182ac13e487d09c04f2991f8151578cbbea34cf0abc9c5fbe9ee19664cfcb84b9620607791ae38fc61efcd72870534513a4afbd5b5da9a248b48
+  checksum: 3a0116bf0628a735bdb87d7e4648f4bbac278152599a2bdd973e4dec92f87cb2c805dd7adb844d01236c7c92bab017ea8de59bea44d9f58397fddb6f9f3077c5
   languageName: node
   linkType: hard
 
