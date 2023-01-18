@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, camelcase, @typescript-eslint/naming-convention */
-import { NearCli } from '@onekeyfe/blockchain-libs/dist/provider/chains/near';
-import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
 import memoizee from 'memoizee';
 
+import { NearCli } from '@onekeyhq/blockchain-libs/src/provider/chains/near';
+import type { Provider as NearProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/near';
+import type { NearAccessKey } from '@onekeyhq/blockchain-libs/src/provider/chains/near/nearcli';
+import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -66,9 +69,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { INearAccountStorageBalance } from './types';
-import type { Provider as NearProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/near';
-import type { NearAccessKey } from '@onekeyfe/blockchain-libs/dist/provider/chains/near/nearcli';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 // TODO extends evm/Vault
@@ -83,6 +83,7 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
+  // client: axios
   helperApi = axios.create({
     // TODO testnet, mainnet in config
     baseURL: 'https://helper.mainnet.near.org',
@@ -98,6 +99,7 @@ export default class Vault extends VaultBase {
     async (rpcUrl: string, networkId: string) => {
       // TODO add timeout params
       // TODO replace in ProviderController.getClient()
+      // client: cross-fetch
       const nearCli = new NearCli(`${rpcUrl}`);
       const chainInfo =
         await this.engine.providerManager.getChainInfoByNetworkId(networkId);
@@ -676,10 +678,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(ret);
   }
 
-  createClientFromURL(url: string): any {
-    throw new Error('Method not implemented: createClientFromURL');
-  }
-
   // TODO batch rpc call not supports by near
   async fetchTokenInfos(
     tokenAddresses: string[],
@@ -698,6 +696,7 @@ export default class Vault extends VaultBase {
     requests: Array<{ address: string; tokenAddress?: string }>,
   ) {
     const cli = await this._getNearCli();
+    // TODO batch call? helperApi
     return cli.batchCall2SingleCall(
       requests,
       async ({ address, tokenAddress }) => {

@@ -1,4 +1,4 @@
-import { ethers } from '@onekeyfe/blockchain-libs';
+import { ethers } from '../sdk/ethers';
 
 import type { Transaction } from '../../../../types/covalent';
 import type { EVMDecodedItem, GasInfo } from './types';

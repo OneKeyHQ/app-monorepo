@@ -1,5 +1,7 @@
 /* eslint-disable import/order */
 import './shared-polyfill';
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/polyfill';
 
 import hotReload from '../ui/hotReload';
 import renderApp from '../ui/renderApp';

@@ -1,26 +1,28 @@
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
-import { Transaction } from 'js-conflux-sdk';
 import memoizee from 'memoizee';
+
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 
+import sdkCfx from './sdkCfx';
 import { IOnChainTransferType } from './types';
 
 import type { Signer } from '../../../proxy';
 import type { IUnsignedTxPro } from '../../types';
+import type { ISdkCfxContract, ISdkConflux } from './sdkCfx';
 import type { IEncodedTxCfx, ITxAbiDecodeResult } from './types';
-import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import type { Conflux, Contract } from 'js-conflux-sdk/dist/types/index';
 
+const { Transaction } = sdkCfx;
 const getCodeCache = memoizee(
-  async (to: string, client: Conflux) => client.getCode(to),
+  async (to: string, client: ISdkConflux) => client.getCode(to),
   { promise: true },
 );
 
 export async function isCfxNativeTransferType(
   options: { data: string; to: string },
-  client: Conflux,
+  client: ISdkConflux,
 ) {
   const { data, to } = options;
 
@@ -60,7 +62,7 @@ export async function signTransaction(
 
 export async function parseTransaction(
   encodedTx: IEncodedTxCfx,
-  client: Conflux,
+  client: ISdkConflux,
 ): Promise<{
   actionType: IDecodedTxActionType;
   abiDecodeResult: ITxAbiDecodeResult | null;
@@ -78,7 +80,7 @@ export async function parseTransaction(
   }
 
   try {
-    const crc20: Contract = client.CRC20(encodedTx.to);
+    const crc20: ISdkCfxContract = client.CRC20(encodedTx.to);
     let txType = IDecodedTxActionType.UNKNOWN;
     const abiDecodeResult = crc20.abi.decodeData(encodedTx.data);
     if (abiDecodeResult) {

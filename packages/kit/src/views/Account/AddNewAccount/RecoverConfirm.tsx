@@ -19,7 +19,7 @@ import type {
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
 import type { AdvancedValues, RecoverAccountType } from './types';
 import type { RouteProp } from '@react-navigation/native';

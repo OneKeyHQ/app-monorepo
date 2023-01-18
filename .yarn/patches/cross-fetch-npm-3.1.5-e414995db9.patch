@@ -1,0 +1,71 @@
+diff --git a/dist/browser-ponyfill.js b/dist/browser-ponyfill.js
+index f216aa35a9d32f86df5701c78cf7b039bc2cd47c..2f9db50fb1e1277c585bffb66b35afba24b171ce 100644
+--- a/dist/browser-ponyfill.js
++++ b/dist/browser-ponyfill.js
+@@ -1,7 +1,7 @@
+ var global = typeof self !== 'undefined' ? self : this;
+ var __self__ = (function () {
+ function F() {
+-this.fetch = false;
++this.fetch = global.fetch || false; // false not working in extension background (using XMLHttpRequest)
+ this.DOMException = global.DOMException
+ }
+ F.prototype = global;
+@@ -539,12 +539,19 @@ var irrelevant = (function (exports) {
+ 
+ })({});
+ })(__self__);
++
++
++__self__.fetch = require('@onekeyhq/shared/src/request/normalize/normalizeCrossFetch').normalizeCrossFetch({
++  fetch: __self__.fetch
++});
++
+ __self__.fetch.ponyfill = true;
+ // Remove "polyfill" property added by whatwg-fetch
+ delete __self__.fetch.polyfill;
+ // Choose between native implementation (global) or custom implementation (__self__)
+ // var ctx = global.fetch ? global : __self__;
+ var ctx = __self__; // this line disable service worker support temporarily
++
+ exports = ctx.fetch // To enable: import fetch from 'cross-fetch'
+ exports.default = ctx.fetch // For TypeScript consumers without esModuleInterop.
+ exports.fetch = ctx.fetch // To enable: import {fetch} from 'cross-fetch'
+diff --git a/dist/node-ponyfill.js b/dist/node-ponyfill.js
+index e8b153f97e48f48f46382f6657a8ae03c13f5c20..9744adb762a632ef18c35df2ebcdb85f2379f9de 100644
+--- a/dist/node-ponyfill.js
++++ b/dist/node-ponyfill.js
+@@ -1,7 +1,7 @@
+ const nodeFetch = require('node-fetch')
+ const realFetch = nodeFetch.default || nodeFetch
+ 
+-const fetch = function (url, options) {
++let fetch = function (url, options) {
+   // Support schemaless URIs on the server for parity with the browser.
+   // Ex: //github.com/ -> https://github.com/
+   if (/^\/\//.test(url)) {
+@@ -10,7 +10,12 @@ const fetch = function (url, options) {
+   return realFetch.call(this, url, options)
+ }
+ 
+-fetch.ponyfill = true
++
++fetch = require('@onekeyhq/shared/src/request/normalize/normalizeCrossFetch').normalizeCrossFetch({
++  fetch: fetch
++});
++
++fetch.ponyfill = true;
+ 
+ module.exports = exports = fetch
+ exports.fetch = fetch
+diff --git a/dist/react-native-ponyfill.js b/dist/react-native-ponyfill.js
+index 8e5baff483155c217bf5224c207795f0ec457822..ed3633ec37e7cc7f7ff3ce56ff54e38af9a2ea19 100644
+--- a/dist/react-native-ponyfill.js
++++ b/dist/react-native-ponyfill.js
+@@ -1,3 +1,6 @@
++global.fetch = require('@onekeyhq/shared/src/request/normalize/normalizeCrossFetch').normalizeCrossFetch({
++  fetch: global.fetch
++});
+ module.exports = global.fetch // To enable: import fetch from 'cross-fetch'
+ module.exports.default = global.fetch // For TypeScript consumers without esModuleInterop.
+ module.exports.fetch = global.fetch // To enable: import {fetch} from 'cross-fetch'

@@ -30,4 +30,11 @@
     return isMatch;
 }
 
++ (NSString *)generateRequestId {
+  long long milliseconds = (long long)([[NSDate date] timeIntervalSince1970] * 1000.0);
+  int r = arc4random_uniform(1000000);
+  return [NSString stringWithFormat:@"%lld:%d", milliseconds, r];
+}
+
+
 @end

@@ -34,7 +34,8 @@ type FieldValues = {
 
 const ImportBackupPasswordModal: FC = () => {
   const intl = useIntl();
-  const { withPassword, onSuccess, onError } = useRoute<RouteProps>().params;
+  const { withPassword, onSuccess, onError, onCancel } =
+    useRoute<RouteProps>().params;
   const [err, setError] = useState('');
 
   const {
@@ -69,7 +70,12 @@ const ImportBackupPasswordModal: FC = () => {
   );
 
   return (
-    <Modal footer={null}>
+    <Modal
+      footer={null}
+      onModalClose={() => {
+        onCancel?.();
+      }}
+    >
       <KeyboardDismissView px={{ base: 4, md: 0 }} alignItems="center">
         <Image source={CloudLock} w="64px" h="51.2px" m={4} />
         <Typography.DisplayLarge textAlign="center" mb={2}>

@@ -7,11 +7,12 @@ import {
 } from '@glif/filecoin-address';
 import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
 import { isNil, isObject } from 'lodash';
 import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -47,7 +48,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { CID, IEncodedTxFil, IOnChainHistoryTx } from './types';
-import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 let suggestedGasPremium = '0';
 
@@ -65,6 +65,7 @@ export default class Vault extends VaultBase {
 
   getClientCache = memoizee(
     async (rpcUrl: string, namespace: string) =>
+      // client: axios
       new LotusRpcEngine({
         apiAddress: rpcUrl,
         namespace,
@@ -82,6 +83,7 @@ export default class Vault extends VaultBase {
 
   async getScanClient() {
     const { isTestnet } = await this.engine.getNetwork(this.networkId);
+    // TODO move to network-list config?
     const rpcURL = isTestnet
       ? 'https://calibration.filscan.io:8700/rpc/v1'
       : 'https://api.filscan.io:8700/rpc/v1';

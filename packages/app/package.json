@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "eject": "expo eject",
+    "build:ios-js": "npx expo export --platform ios --public-url https://onekey.so",
     "postinstall": "expo-yarn-workspaces postinstall",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules && rimraf .expo && rimraf __generated__",

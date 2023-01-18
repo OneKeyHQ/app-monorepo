@@ -2,12 +2,12 @@
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import * as sdk from 'algosdk';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -31,6 +31,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import sdkAlgo from './sdkAlgo';
 import settings from './settings';
 import { encodeTransaction } from './utils';
 
@@ -50,6 +51,7 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type {
   IAccountInformation,
   IAccountTransactionsResp,
@@ -57,8 +59,6 @@ import type {
   IEncodedTxAlgo,
   IPendingTransactionInformation,
 } from './types';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { PartialTokenInfo } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const ASSET_ID_END_BOUNDARY = new BigNumber('0x10000000000000000');
 
@@ -66,6 +66,8 @@ const MINIMUM_BALANCE_REQUIRED_REG_EXP =
   /^.*account \w+ balance \d+ below min (\d+).*$/;
 const TARGET_ADDRESS_TOKEN_NOT_ACTIVE_REG_EXP =
   /^.*asset (\d+) missing from \w+$/;
+
+const sdk = sdkAlgo;
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -79,7 +81,9 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   private getAlgod = memoizee(
-    (token, serverURL, port) => new sdk.Algodv2(token, serverURL, port),
+    // client: superagent
+    (token: string, serverURL: string, port: number) =>
+      new sdk.Algodv2(token, serverURL, port),
     {
       primitive: true,
       maxAge: getTimeDurationMs({ minute: 3 }),
@@ -91,6 +95,7 @@ export default class Vault extends VaultBase {
     async () => {
       const { isTestnet = true } = await this.engine.getNetwork(this.networkId);
       const network = isTestnet ? 'testnet' : 'mainnet';
+      // client: superagent
       return new sdk.Indexer(
         '',
         `https://algosigner.api.purestake.io/${network}/indexer`,
@@ -105,7 +110,7 @@ export default class Vault extends VaultBase {
   );
 
   private async getClient() {
-    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    const rpcURL = await this.getRpcUrl();
     // TODO: token support
     return this.getAlgod('', rpcURL, 443);
   }
@@ -122,11 +127,6 @@ export default class Vault extends VaultBase {
   );
 
   // Chain only methods
-
-  override createClientFromURL(_url: string): BaseClient {
-    // This isn't needed.
-    throw new NotImplemented();
-  }
 
   override async getClientEndpointStatus(
     url: string,
@@ -320,7 +320,7 @@ export default class Vault extends VaultBase {
 
     const nativeTx = sdk.decodeObj(
       Buffer.from(encodedTx, 'base64'),
-    ) as sdk.EncodedTransaction;
+    ) as ISdkAlgoEncodedTransaction;
     const sender = sdk.encodeAddress(nativeTx.snd);
 
     if (nativeTx.type === sdk.TransactionType.pay) {
@@ -494,7 +494,7 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxAlgo> {
     const nativeTx = sdk.decodeObj(
       Buffer.from(encodedTx, 'base64'),
-    ) as sdk.EncodedTransaction;
+    ) as ISdkAlgoEncodedTransaction;
     if (
       options.type === IEncodedTxUpdateType.transfer &&
       nativeTx.type === sdk.TransactionType.pay
@@ -527,7 +527,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const { fee = 0 } = sdk.decodeObj(
       Buffer.from(encodedTx, 'base64'),
-    ) as sdk.EncodedTransaction;
+    ) as ISdkAlgoEncodedTransaction;
 
     return {
       nativeSymbol: network.symbol,

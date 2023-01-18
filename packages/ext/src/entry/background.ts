@@ -1,7 +1,12 @@
 // eslint-disable-next-line import/order
 import './shared-polyfill';
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/polyfill';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
+// @ts-ignore
+import axiosAdapter from '@vespaiach/axios-fetch-adapter';
+import axios from 'axios';
 import urlParse from 'url-parse';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,6 +15,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import serviceWorker from '../background/serviceWorker';
+
+if (platformEnv.isExtensionBackgroundServiceWorker) {
+  axios.defaults.adapter = axiosAdapter;
+}
 
 serviceWorker.disableCacheInBackground();
 

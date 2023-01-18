@@ -1,6 +1,7 @@
-import { secp256k1 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 import * as XRPL from 'xrpl';
 
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_XRP as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -16,10 +17,6 @@ import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(

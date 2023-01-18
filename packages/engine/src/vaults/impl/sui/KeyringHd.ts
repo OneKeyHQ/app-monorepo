@@ -3,9 +3,10 @@ import {
   Ed25519PublicKey,
   JsonRpcProvider,
 } from '@mysten/sui.js';
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
+import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -25,7 +26,6 @@ import type {
   ISignCredentialOptions,
   SignedTxResult,
 } from '../../types';
-import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

@@ -25,8 +25,10 @@ sourcemapServer.start();
 //    Module parse failed: Unexpected token (7:11)
 //    You may need an appropriate loader to handle this file type
 const transpileModules = [
+  '@onekeyhq/blockchain-libs',
   '@onekeyhq/components',
   '@onekeyhq/kit',
+  '@onekeyhq/kit-bg',
   '@onekeyhq/shared',
   '@onekeyhq/engine',
   '@onekeyhq/app',

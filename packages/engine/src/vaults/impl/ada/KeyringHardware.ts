@@ -1,3 +1,4 @@
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -27,10 +28,6 @@ import type {
 import type { IUnsignedMessageEvm } from '../evm/Vault';
 import type { IEncodedTxADA } from './types';
 import type AdaVault from './Vault';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { CardanoGetAddressMethodParams } from '@onekeyfe/hd-core';
 
 const PATH_PREFIX = `m/1852'/${COIN_TYPE}'`;

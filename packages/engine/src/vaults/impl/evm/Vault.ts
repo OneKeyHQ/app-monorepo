@@ -1,15 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, no-param-reassign */
 
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { ethers } from '@onekeyfe/blockchain-libs';
-import { toBigIntHex } from '@onekeyfe/blockchain-libs/dist/basic/bignumber-plus';
-import { Geth } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import BigNumber from 'bignumber.js';
 import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
 import memoizee from 'memoizee';
 
+import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
+import type { Provider as EthProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/provider';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type {
+  PartialTokenInfo,
+  UnsignedTx,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
   BatchSendConfirmPayloadInfo,
@@ -18,6 +21,7 @@ import type {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
@@ -56,6 +60,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ethers } from './sdk/ethers';
 import settings from './settings';
 
 import type { Account, DBAccount } from '../../../types/account';
@@ -93,11 +98,6 @@ import type {
   EVMDecodedItemERC20Transfer,
 } from './decoder/decoder';
 import type { IRpcTxEvm } from './types';
-import type { Provider as EthProvider } from '@onekeyfe/blockchain-libs/dist/provider/chains/eth/provider';
-import type {
-  PartialTokenInfo,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const OPTIMISM_NETWORKS: string[] = [
@@ -174,6 +174,8 @@ export default class Vault extends VaultBase {
   }
 
   async getJsonRPCClient(): Promise<Geth> {
+    // shared/src/request
+    // client: cross-fetch
     return (await this.engine.providerManager.getClient(
       this.networkId,
     )) as Geth;
@@ -993,7 +995,7 @@ export default class Vault extends VaultBase {
         //      client.isContract(toAddress)
         // RPC: eth_estimateGas
         //   with 10s memoizee
-        //      at node_modules/@onekeyfe/blockchain-libs/dist/provider/chains/eth/geth.js
+        //      at blockchain-libs/dist/provider/chains/eth/geth.js
         unsignedTx = await this.buildUnsignedTxFromEncodedTx({
           ...encodedTxWithFakePriceAndNonce,
           value: '0x0',
@@ -1327,7 +1329,7 @@ export default class Vault extends VaultBase {
     }
   }
 
-  createClientFromURL(url: string): Geth {
+  override createClientFromURL(url: string): Geth {
     return new Geth(url);
   }
 

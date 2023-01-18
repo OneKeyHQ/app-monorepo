@@ -1,6 +1,5 @@
-import { revealableSeedFromMnemonic } from '@onekeyfe/blockchain-libs/dist/secret';
-
-import bufferUitls from '@onekeyhq/shared/src/bufferUitls';
+import { revealableSeedFromMnemonic } from '@onekeyhq/engine/src/secret';
+import bufferUitls from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { getCurveByImpl } from '../src/managers/impl';
 import { fromDBNetworkToNetwork } from '../src/managers/network';
