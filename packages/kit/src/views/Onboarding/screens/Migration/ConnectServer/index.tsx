@@ -128,9 +128,10 @@ const Migration = () => {
   }, [isVerticalLayout, selectRange]);
 
   useEffect(() => {
-    serviceMigrate.initServiceMigrate();
+    serviceMigrate.registerHttpEvents();
     return () => {
       serviceHTTP.stopHttpServer();
+      serviceMigrate.unRegisterHttpEvents();
     };
   }, [serviceHTTP, serviceMigrate]);
 

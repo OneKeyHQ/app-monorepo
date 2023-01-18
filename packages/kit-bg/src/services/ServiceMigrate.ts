@@ -260,8 +260,16 @@ class ServiceMigrate extends ServiceBase {
   };
 
   @backgroundMethod()
-  initServiceMigrate() {
+  registerHttpEvents() {
     appEventBus.on(
+      AppEventBusNames.HttpServerRequest,
+      this.receivedHttpRequest,
+    );
+  }
+
+  @backgroundMethod()
+  unRegisterHttpEvents() {
+    appEventBus.removeListener(
       AppEventBusNames.HttpServerRequest,
       this.receivedHttpRequest,
     );
