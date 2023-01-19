@@ -16,6 +16,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
+import { HtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
@@ -152,6 +153,7 @@ export default function Wallet() {
   useOnboardingRequired(true);
   return (
     <>
+      <HtmlPreloadSplashLogoRemove />
       <IdentityAssertion>
         <WalletTabs />
       </IdentityAssertion>
