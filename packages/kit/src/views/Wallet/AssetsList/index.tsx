@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { omit } from 'lodash';
 
 import {
   Box,
@@ -13,17 +14,17 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import { useManageTokensOfAccount } from '@onekeyhq/kit/src/hooks/useManageTokens';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import type {
   HomeRoutesParams,
   RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../hooks';
+import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
+import { useAccountTokenLoading } from '../../../hooks/useTokens';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 
 import AssetsListHeader from './AssetsListHeader';
@@ -70,10 +71,8 @@ function AssetsList({
   renderDefiList,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
-  const { accountTokens, loading } = useManageTokensOfAccount({
-    accountId,
-    networkId,
-  });
+  const loading = useAccountTokenLoading(networkId, accountId);
+  const accountTokens = useAccountTokens(networkId, accountId, true);
 
   const { account, network } = useActiveSideAccount({
     accountId,
@@ -81,10 +80,6 @@ function AssetsList({
   });
 
   const navigation = useNavigation<NavigationProps>();
-  const valueSortedTokens = useMemo(
-    () => (limitSize ? accountTokens.slice(0, limitSize) : accountTokens),
-    [accountTokens, limitSize],
-  );
 
   const { size } = useUserDevice();
   const responsivePadding = () => {
@@ -143,40 +138,42 @@ function AssetsList({
       borderTopRadius={!flatStyle && showRoundTop && index === 0 ? '12px' : 0}
       borderRadius={
         // eslint-disable-next-line no-unsafe-optional-chaining
-        !flatStyle && index === valueSortedTokens?.length - 1 ? '12px' : '0px'
+        !flatStyle && index === accountTokens?.length - 1 ? '12px' : '0px'
       }
       borderTopWidth={!flatStyle && showRoundTop && index === 0 ? 1 : 0}
       // eslint-disable-next-line no-unsafe-optional-chaining
-      borderBottomWidth={index === valueSortedTokens?.length - 1 ? 1 : 0}
+      borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
       borderColor={flatStyle ? 'transparent' : 'border-subdued'}
       onPress={onTokenCellPress}
-      {...item}
+      {...omit(item, 'source')}
     />
   );
 
   const Container = singleton ? FlatList : Tabs.FlatList;
 
-  const footer = useMemo(() => {
-    console.log('rerender');
-    return (
+  const footer = useMemo(
+    () => (
       <Box>
         {ListFooterComponent}
         {renderDefiList ? (
           <OverviewDefiThumbnal
             networkId={networkId}
+            accountId={accountId}
             address={account?.address ?? ''}
             limitSize={limitSize}
           />
         ) : null}
       </Box>
-    );
-  }, [
-    ListFooterComponent,
-    networkId,
-    account?.address,
-    renderDefiList,
-    limitSize,
-  ]);
+    ),
+    [
+      ListFooterComponent,
+      networkId,
+      accountId,
+      account?.address,
+      renderDefiList,
+      limitSize,
+    ],
+  );
 
   return (
     <Container
@@ -193,7 +190,7 @@ function AssetsList({
         },
         contentContainerStyle,
       ]}
-      data={valueSortedTokens}
+      data={accountTokens}
       renderItem={renderListItem}
       ListHeaderComponent={
         loading
@@ -205,7 +202,7 @@ function AssetsList({
                 }
                 showTokenCount={limitSize !== undefined}
                 showOuterHeader={limitSize !== undefined}
-                showInnerHeader={valueSortedTokens.length > 0}
+                showInnerHeader={accountTokens.length > 0}
                 showInnerHeaderRoundTop={!flatStyle}
               />
             )

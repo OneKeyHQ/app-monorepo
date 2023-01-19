@@ -17,7 +17,6 @@ import { fetchCurrencies } from '../views/FiatPay/Service';
 import { useTransactionSendContext } from '../views/Send/utils/TransactionSendContext';
 
 import { useAppSelector } from './useAppSelector';
-import { useManageTokens } from './useManageTokens';
 import { useAccountTokensBalance } from './useTokens';
 
 export { useAppSelector };

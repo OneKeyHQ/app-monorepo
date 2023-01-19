@@ -5,15 +5,10 @@ import { set } from 'lodash';
 import type { OverviewDefiRes } from '../../views/Overview/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-type AssetType = 'tokens' | 'nfts' | 'defis';
-
-type TotalValues = Record<
-  AssetType,
-  {
-    value: string;
-    value24h: string;
-  }
->;
+type TotalValues = {
+  value: string;
+  value24h: string;
+};
 
 type InitialState = {
   // token: {
@@ -26,7 +21,7 @@ type InitialState = {
     // id = networkId + address
     [id: string]: OverviewDefiRes[];
   };
-  totalValues?: {
+  totalDefiValues?: {
     // id = networkId + address
     [id: string]: TotalValues;
   };
@@ -34,7 +29,7 @@ type InitialState = {
 
 const initialState: InitialState = {
   defi: {},
-  totalValues: {},
+  totalDefiValues: {},
 };
 
 type OverviewPayloadDefi = {
@@ -57,7 +52,7 @@ export const OverviewSlice = createSlice({
         {
           ...state.defi,
         },
-        `${id}`,
+        id,
         data,
       );
       let totalValue = new B(0);
@@ -66,44 +61,20 @@ export const OverviewSlice = createSlice({
         totalValue = totalValue.plus(d.protocolValue);
         totalValue24h = totalValue24h.plus(d.protocolValue24h);
       }
-      state.totalValues = set(
+      state.totalDefiValues = set(
         {
-          ...state.totalValues,
+          ...state.totalDefiValues,
         },
-        `${id}.defis`,
+        id,
         {
           value: totalValue.toString(),
           value24h: totalValue24h.toString(),
         },
       );
     },
-    setOverviewOnChainValue(
-      state,
-      action: PayloadAction<{
-        networkId: string;
-        address: string;
-        assetType: AssetType;
-        value: string;
-        value24h: string;
-      }>,
-    ) {
-      const { networkId, address, assetType, value, value24h } = action.payload;
-      const id = `${networkId}--${address}`;
-      state.totalValues = set(
-        {
-          ...state.totalValues,
-        },
-        `${id}.${assetType}`,
-        {
-          value,
-          value24h,
-        },
-      );
-    },
   },
 });
 
-export const { setOverviewPortfolioDefi, setOverviewOnChainValue } =
-  OverviewSlice.actions;
+export const { setOverviewPortfolioDefi } = OverviewSlice.actions;
 
 export default OverviewSlice.reducer;

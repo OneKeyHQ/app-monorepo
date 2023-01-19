@@ -142,7 +142,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       });
     }
     return data;
-  }, [name, symbol, address, decimal, balances, intl]);
+  }, [name, symbol, address, decimal, balances, intl, token]);
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {

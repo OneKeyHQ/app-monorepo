@@ -18,7 +18,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountAllValues, useAppSelector } from '../../../../hooks';
+import { useAccountValues, useAppSelector } from '../../../../hooks';
 import { useNavigationBack } from '../../../../hooks/useAppNavigation';
 
 import type {
@@ -39,9 +39,12 @@ const OverviewProtocolDetail: FC = () => {
     fallback: close,
   });
 
-  const { networkId, address, protocolId } = route.params;
+  const { networkId, address, protocolId, accountId } = route.params;
 
-  const accountAllValue = useAccountAllValues(networkId, address).value;
+  const accountAllValue = useAccountValues({
+    networkId,
+    accountId,
+  }).value;
 
   const protocol = useAppSelector((s) =>
     s.overview.defi?.[`${networkId}--${address}`]?.find(

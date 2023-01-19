@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
-import { debounce, pick, uniq } from 'lodash';
+import { debounce, uniq } from 'lodash';
 
-import { balanceSupprtedNetwork } from '@onekeyhq/engine/src/apiProxyUtils';
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
   checkSite,
@@ -19,6 +18,7 @@ import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   setAccountTokens,
   setAccountTokensBalances,
+  setTokenPriceMap,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -72,56 +72,42 @@ export default class ServiceToken extends ServiceBase {
   async fetchAccountTokens({
     activeAccountId,
     activeNetworkId,
-    withBalance,
-    wait,
     forceReloadTokens,
   }: IFetchAccountTokensParams) {
-    const options = {
-      withBalance,
-      wait,
-    };
-    const { engine, dispatch } = this.backgroundApi;
-    let tokens = await engine.getTokens(
+    const { engine, dispatch, servicePrice, appSelector } = this.backgroundApi;
+    const tokens = await engine.getTokens(
       activeNetworkId,
       activeAccountId,
       true,
       true,
       forceReloadTokens,
     );
-    let autodetectedTokens: Token[] = [];
+    const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
     const actions: any[] = [];
-    if (balanceSupprtedNetwork.includes(activeNetworkId)) {
-      Object.assign(options, {
-        withBalance: true,
-        wait: true,
-      });
-    }
-    const waitPromises: Promise<any>[] = [];
-    if (options.withBalance) {
-      waitPromises.push(
-        this.fetchTokenBalance({
-          activeAccountId,
-          activeNetworkId,
-          tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
-        }).then((res) => {
-          autodetectedTokens = res[1] ?? [];
-          tokens = tokens.filter(
-            (t) => !autodetectedTokens.some((a) => a.address === t.address),
-          );
-        }),
-      );
-    }
-    if (options.wait) {
-      await Promise.all(waitPromises);
-    }
+    const [balances, autodetectedTokens = []] = await this.fetchTokenBalance({
+      activeAccountId,
+      activeNetworkId,
+      tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+    });
     const accountTokens = tokens.concat(autodetectedTokens);
+    const prices = await servicePrice.fetchSimpleTokenPrice({
+      networkId: activeNetworkId,
+      accountId: activeAccountId,
+      tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
+    });
     actions.push(
+      setAccountTokensBalances({
+        activeAccountId,
+        activeNetworkId,
+        tokensBalance: balances,
+      }),
+      setTokenPriceMap({
+        prices,
+      }),
       setAccountTokens({
         activeAccountId,
         activeNetworkId,
-        tokens: accountTokens.map((t) =>
-          pick(t, 'tokenIdOnNetwork', 'sendAddress', 'autoDetected'),
-        ),
+        tokens: accountTokens,
       }),
     );
     dispatch(...actions);

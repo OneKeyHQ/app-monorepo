@@ -29,7 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
-import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks';
 import { useTokenInfo } from '../../../hooks/useTokenInfo';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
@@ -135,7 +135,10 @@ function PreSendAmount() {
   const tokenBalance = useTokenBalance({
     networkId,
     accountId,
-    token: tokenInfo,
+    token: {
+      ...tokenInfo,
+      sendAddress: transferInfo.sendAddress,
+    },
     fallback: '0',
   });
 
@@ -197,12 +200,11 @@ function PreSendAmount() {
         ...tokenInfo,
         sendAddress: transferInfo.sendAddress,
       });
-      const balance = balances?.[key] as string;
       await engine.validateSendAmount({
         accountId,
         networkId,
         amount,
-        tokenBalance: balance,
+        tokenBalance,
         to: transferInfo.to,
       });
       return { result: true, errorInfo: null };
@@ -220,7 +222,7 @@ function PreSendAmount() {
     engine,
     transferInfo,
     tokenInfo,
-    balances,
+    tokenBalance,
     minAmountValidationPassed,
   ]);
   useEffect(() => {

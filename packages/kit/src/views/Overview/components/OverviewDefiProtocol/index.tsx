@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountAllValues, useActiveWalletAccount } from '../../../../hooks';
+import { useAccountValues, useActiveWalletAccount } from '../../../../hooks';
 
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
@@ -54,9 +54,12 @@ export const OverviewDefiProtocol: FC<
 }) => {
   const intl = useIntl();
 
-  const { networkId, accountAddress } = useActiveWalletAccount();
+  const { networkId, accountId } = useActiveWalletAccount();
 
-  const accountAllValues = useAccountAllValues(networkId, accountAddress);
+  const accountAllValues = useAccountValues({
+    networkId,
+    accountId,
+  });
 
   const content = useMemo(
     () => (

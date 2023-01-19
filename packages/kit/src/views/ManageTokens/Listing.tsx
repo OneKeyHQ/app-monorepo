@@ -60,7 +60,7 @@ const HeaderTokenItem: FC<
 > = (item) => {
   const { tokenIdOnNetwork, onDelete } = item;
   const { networkId, accountId } = useActiveWalletAccount();
-  const token = useSingleToken(networkId, tokenIdOnNetwork);
+  const { token } = useSingleToken(networkId, tokenIdOnNetwork);
 
   const balance = useTokenBalance({
     accountId,
@@ -76,7 +76,7 @@ const HeaderTokenItem: FC<
       navigation.navigate(ManageTokenRoutes.ViewToken, {
         ...t,
         decimal: t.decimals,
-        source: t.source ?? [],
+        source: t.source ?? '',
         address: t.address ?? '',
       });
     },
@@ -382,7 +382,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       logoURI: item.logoURI,
       verified: item.verified,
       security: item?.security,
-      source: item.source || [],
+      source: item.source || '',
       sendAddress: item.sendAddress,
     });
   }, [navigation, item, isOwned]);

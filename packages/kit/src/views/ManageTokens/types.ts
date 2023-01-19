@@ -24,7 +24,7 @@ export type ManageTokenRoutesParams = {
         logoURI: string;
         verified?: boolean;
         security?: boolean;
-        source: string[];
+        source?: string;
         sendAddress?: string;
       }
     | { query: string };
@@ -43,7 +43,7 @@ export type ManageTokenRoutesParams = {
     decimal: number;
     logoURI: string;
     verified?: boolean;
-    source: string[];
+    source?: string;
     security?: boolean;
     sendAddress?: string;
   };

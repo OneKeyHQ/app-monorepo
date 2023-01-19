@@ -59,7 +59,7 @@ function getNetworkIdFromTokenId(tokenId: string): string {
 
 export const isValidTokenId = (tokenId: string) => tokenId?.includes(SEPERATOR);
 
-export const formatServerToken = (token: ServerToken) => {
+export const formatServerToken = (token: ServerToken): Token => {
   const { address = '', logoURI, isNative } = token;
   const { impl, chainId } = token;
   let tokenAddress = address;
@@ -76,6 +76,7 @@ export const formatServerToken = (token: ServerToken) => {
     logoURI: logoURI || '',
     tokenIdOnNetwork: tokenAddress,
     address: tokenAddress,
+    source: token.source?.join(',') ?? '',
   };
 };
 

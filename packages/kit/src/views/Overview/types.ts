@@ -232,5 +232,6 @@ export type OverviewModalRoutesParams = {
     networkId: string;
     address: string;
     protocolId: string;
+    accountId: string;
   };
 };

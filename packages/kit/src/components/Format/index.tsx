@@ -12,7 +12,6 @@ import {
   useActiveSideAccount,
   useActiveWalletAccount,
   useAppSelector,
-  useManageTokensOfAccount,
   useSettings,
 } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';

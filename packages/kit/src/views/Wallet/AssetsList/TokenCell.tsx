@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -54,7 +54,7 @@ const TokenCell: FC<TokenCellProps> = ({
   ...tokenItem
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const token = useSingleToken(networkId, tokenItem.tokenIdOnNetwork);
+  const { token } = useSingleToken(networkId, tokenItem.tokenIdOnNetwork);
   const balance = useTokenBalance({
     accountId,
     networkId,
@@ -62,7 +62,6 @@ const TokenCell: FC<TokenCellProps> = ({
     fallback: '0',
   });
   const { network } = useActiveSideAccount({ accountId, networkId });
-
   const tokenId = token?.tokenIdOnNetwork || 'main';
   const priceInfo = useSimpleTokenPriceInfo({
     contractAdress: token?.tokenIdOnNetwork,
@@ -185,4 +184,4 @@ const TokenCell: FC<TokenCellProps> = ({
 };
 TokenCell.displayName = 'TokenCell';
 
-export default TokenCell;
+export default memo(TokenCell);

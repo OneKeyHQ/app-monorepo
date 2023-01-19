@@ -28,9 +28,8 @@ export type SimplifiedToken = {
 };
 
 export type TokenInitialState = {
-  tokens: Record<NetworkId, Token[]>;
   tokenPriceMap: Record<PriceId, SimpleTokenPrices>;
-  accountTokens: Record<NetworkId, Record<TokenId, SimplifiedToken[]>>;
+  accountTokens: Record<NetworkId, Record<TokenId, Token[]>>;
   accountTokensBalance: Record<
     NetworkId,
     Record<AccountId, Record<TokenId, TokenBalanceValue>>
@@ -38,7 +37,6 @@ export type TokenInitialState = {
 };
 
 const initialState: TokenInitialState = {
-  tokens: {},
   tokenPriceMap: {},
   accountTokens: {},
   accountTokensBalance: {},
@@ -47,7 +45,7 @@ const initialState: TokenInitialState = {
 type TokenPayloadAction = {
   activeAccountId?: string | null;
   activeNetworkId?: string | null;
-  tokens: SimplifiedToken[];
+  tokens: Token[];
 };
 
 type TokenBalancePayloadAction = {

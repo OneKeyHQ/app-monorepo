@@ -32,7 +32,6 @@ import {
 } from '../../../components/Format';
 import {
   useActiveWalletAccount,
-  useManageTokens,
   useNetworkSimple,
 } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
@@ -130,7 +129,6 @@ function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [amountInputDecimals]);
 
-  // const { getTokenPrice } = useManageTokens();
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);

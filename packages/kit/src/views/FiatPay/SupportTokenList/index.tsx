@@ -18,8 +18,7 @@ import {
 import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import { useManageTokens } from '../../../hooks';
-import { useFiatPay } from '../../../hooks/redux';
+import { useActiveWalletAccount, useFiatPay } from '../../../hooks/redux';
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 
 import type { FiatPayModalRoutesParams } from '../../../routes/Modal/FiatPay';
@@ -27,6 +26,7 @@ import type { TokenBalanceValue } from '../../../store/reducers/tokens';
 import type { CurrencyType } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
+import { useAccountTokensBalance } from '../../../hooks';
 
 type RouteProps = RouteProp<
   FiatPayModalRoutesParams,
@@ -110,7 +110,8 @@ export const SupportTokenList: FC = () => {
   const route = useRoute<RouteProps>();
   const { networkId, type = 'Buy' } = route.params;
   const currenciesNobalance = useFiatPay(networkId);
-  const { balances } = useManageTokens();
+  const {accountId} = useActiveWalletAccount();
+  const balances = useAccountTokensBalance(networkId, accountId);
   const currencies = fetchBalance(currenciesNobalance, balances);
   const [searchResult, updateSearchResult] = useState<CurrencyType[]>([]);
   const [searchText, updateSearchText] = useState<string>('');

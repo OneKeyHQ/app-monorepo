@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -16,14 +16,11 @@ import {
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {
   getActiveWalletAccount,
   useActiveWalletAccount,
-  useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -38,20 +35,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
-import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
-import { useAccountTokensBalance, useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
-import { setOverviewOnChainValue } from '../../../store/reducers/overview';
-import { getTimeDurationMs } from '../../../utils/helper';
-import {
-  calculateGains,
-  getPreBaseValue,
-  getSummedValues,
-} from '../../../utils/priceUtils';
+import { calculateGains } from '../../../utils/priceUtils';
 import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
-
-import type { SimpleTokenPrices } from '../../../store/reducers/tokens';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -62,102 +49,14 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
 
-  const { hideSmallBalance, includeNFTsInTotal = true } = useAppSelector(
-    (s) => s.settings,
-  );
-
-  const { account, wallet, network, networkId, accountId } =
-    useActiveWalletAccount();
-
-  const balances = useAccountTokensBalance(networkId, accountId);
-
-  const nftValue = useNFTPrice({
-    accountId: account?.address,
-    networkId: network?.id,
-  });
-
-  const { accountTokens } = useManageTokens();
-
-  const { prices } = useManageTokenprices({
-    networkId,
-    accountId,
-    pollingInterval: getTimeDurationMs({ minute: 5 }),
-  });
-
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+  const { account, wallet, networkId, accountId } = useActiveWalletAccount();
 
   const { copyAddress } = useCopyAddress({ wallet });
 
-  const pricesMap24h = useMemo(() => {
-    const basePrices: Record<string, SimpleTokenPrices> = {};
-    accountTokens.forEach((token) => {
-      const priceId = token?.tokenIdOnNetwork
-        ? `${networkId}-${token.tokenIdOnNetwork}`
-        : networkId ?? '';
-      const balance = balances[getBalanceKey(token)];
-      const priceInfo = prices?.[priceId];
-      if (typeof balance !== 'undefined') {
-        basePrices[priceId] = getPreBaseValue({
-          priceInfo,
-          vsCurrency,
-        });
-      }
-    });
-    return basePrices;
-  }, [accountTokens, balances, prices, vsCurrency, networkId]);
-
-  const displayBaseValue = useMemo(
-    () =>
-      getSummedValues({
-        tokens: accountTokens,
-        balances,
-        prices: pricesMap24h,
-        vsCurrency,
-        hideSmallBalance,
-      }).toNumber(),
-    [pricesMap24h, accountTokens, balances, vsCurrency, hideSmallBalance],
-  );
-
-  const summedValue = useMemo(
-    () =>
-      getSummedValues({
-        tokens: accountTokens,
-        balances,
-        prices,
-        vsCurrency,
-        hideSmallBalance,
-      }),
-    [accountTokens, balances, hideSmallBalance, prices, vsCurrency],
-  );
-
   const accountAllValues = useAccountValues({
     networkId,
-    accountAddress: account?.address ?? '',
-    assetTypes: [
-      'tokens',
-      'defis',
-      includeNFTsInTotal ? 'nfts' : undefined,
-    ].filter((n) => !!n) as any[],
+    accountId,
   });
-
-  useEffect(() => {
-    backgroundApiProxy.dispatch(
-      setOverviewOnChainValue({
-        networkId,
-        address: account?.address ?? '',
-        assetType: 'tokens',
-        value: summedValue.toString(),
-        value24h: displayBaseValue.toString(),
-      }),
-      setOverviewOnChainValue({
-        networkId,
-        address: account?.address ?? '',
-        assetType: 'nfts',
-        value: nftValue.toString(),
-        value24h: nftValue.toString(),
-      }),
-    );
-  }, [networkId, summedValue, nftValue, displayBaseValue, account?.address]);
 
   const summedValueComp = useMemo(
     () =>
@@ -374,7 +273,7 @@ const AccountInfo = () => {
   }
   return (
     <>
-      <DesktopDragZoneAbsoluteBar h={8} />
+      <DesktopDragZoneAbsoluteBar />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
         py={8}

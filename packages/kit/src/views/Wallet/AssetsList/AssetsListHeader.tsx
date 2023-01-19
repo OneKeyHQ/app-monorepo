@@ -28,12 +28,12 @@ import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import {
-  useAccountAllValues,
+  useAccountTokens,
   useAccountValues,
-  useManageTokens,
   useNavigation,
 } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useAccountTokenValues } from '../../../hooks/useTokens';
 import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -63,7 +63,7 @@ const ListHeader: FC<{
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
 
-  const { accountTokens } = useManageTokens();
+  const accountTokens = useAccountTokens(networkId, account?.id, true);
 
   const tokenCountOrAddToken = useMemo(
     () =>
@@ -97,16 +97,15 @@ const ListHeader: FC<{
   );
   const Container = showTokenCount ? Pressable.Item : Box;
 
-  const accountTokensValue = useAccountValues({
+  const accountTokensValue = useAccountTokenValues(
     networkId,
-    accountAddress: account?.address ?? '',
-    assetTypes: ['tokens'],
-  }).value;
-
-  const accountAllValue = useAccountAllValues(
-    networkId,
-    account?.address ?? '',
+    account?.id ?? '',
   ).value;
+
+  const accountAllValue = useAccountValues({
+    networkId,
+    accountId: account?.id ?? '',
+  }).value;
 
   const rate = useMemo(
     () => accountTokensValue.div(accountAllValue).multipliedBy(100),

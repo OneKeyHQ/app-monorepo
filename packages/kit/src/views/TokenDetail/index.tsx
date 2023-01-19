@@ -43,7 +43,6 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const isVertical = useIsVerticalLayout();
-  // const { charts } = useManageTokens();
   const { accountId, networkId, tokenId, sendAddress } = route.params;
   const price = useSimpleTokenPriceValue({
     networkId,

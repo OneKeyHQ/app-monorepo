@@ -1477,7 +1477,7 @@ class Engine {
       impl,
       chainId,
       address: '',
-      source: [],
+      source: '',
       isNative: true,
     };
   }

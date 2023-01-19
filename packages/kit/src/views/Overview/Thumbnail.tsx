@@ -17,11 +17,7 @@ import {
 } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
-import {
-  useAccountAllValues,
-  useAppSelector,
-  useNavigation,
-} from '../../hooks';
+import { useAccountValues, useAppSelector, useNavigation } from '../../hooks';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { OverviewModalRoutes } from './types';
@@ -40,6 +36,7 @@ type NavigationProps = NativeStackNavigationProp<
 
 export type OverviewDefiListProps = {
   networkId: string;
+  accountId: string;
   address: string;
   limitSize?: number;
 };
@@ -143,7 +140,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
 };
 
 const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
-  const { networkId, address, limitSize } = props;
+  const { networkId, address, limitSize, accountId } = props;
 
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
@@ -159,7 +156,10 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
     [defis],
   );
 
-  const accountAllValue = useAccountAllValues(networkId, address).value;
+  const accountAllValue = useAccountValues({
+    networkId,
+    accountId,
+  }).value;
 
   const handlePressHeader = useCallback(() => {
     navigation.navigate(HomeRoutes.OverviewDefiListScreen, {
@@ -199,6 +199,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
                   protocolId: item._id.protocolId,
                   networkId,
                   address,
+                  accountId,
                 },
               },
             });

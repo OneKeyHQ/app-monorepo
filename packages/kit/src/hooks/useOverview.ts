@@ -1,36 +1,62 @@
+import { useMemo } from 'react';
+
+import { useAccount } from '.';
+
 import B from 'bignumber.js';
 
 import { useAppSelector } from './useAppSelector';
+import { useAccountTokenValues, useNFTPrice } from './useTokens';
 
 export type OverviewAssetType = 'defis' | 'tokens' | 'nfts';
 
 export const useAccountValues = (props: {
   networkId: string;
-  accountAddress: string;
-  assetTypes: OverviewAssetType[];
+  accountId: string;
 }) => {
-  const { networkId, accountAddress, assetTypes } = props;
-  return useAppSelector((s) =>
-    Object.entries(
-      s.overview.totalValues?.[`${networkId}--${accountAddress}`] ?? {},
-    )
-      .filter((n) => assetTypes.includes(n[0] as OverviewAssetType))
-      .reduce(
-        (sum, n) => ({
-          value: sum.value.plus(n[1].value),
-          value24h: sum.value.plus(n[1].value24h),
-        }),
-        {
-          value: new B(0),
-          value24h: new B(0),
-        },
-      ),
-  );
-};
-
-export const useAccountAllValues = (networkId: string, address: string) =>
-  useAccountValues({
+  const { networkId, accountId } = props;
+  const { includeNFTsInTotal } = useAppSelector((s) => s.settings);
+  const { account } = useAccount({
     networkId,
-    accountAddress: address,
-    assetTypes: ['defis', 'tokens', 'nfts'],
+    accountId,
   });
+  const defiValues = useAppSelector(
+    (s) =>
+      s.overview.totalDefiValues?.[`${networkId}--${account?.address ?? ''}`],
+  ) ?? {
+    value: new B(0),
+    value24h: new B('0'),
+  };
+
+  const tokenValues = useAccountTokenValues(networkId, accountId);
+
+  const nftValue = useNFTPrice({
+    accountId: account?.address,
+    networkId,
+  });
+
+  const nftValues = useMemo(() => {
+    if (includeNFTsInTotal) {
+      return {
+        value: nftValue,
+        value24h: 0,
+      };
+    }
+    return {
+      value: 0,
+      value24h: 0,
+    };
+  }, [nftValue, includeNFTsInTotal]);
+
+  let value = new B(0);
+  let value24h = new B(0);
+
+  for (const next of [defiValues, tokenValues, nftValues]) {
+    value = value.plus(next.value);
+    value24h = value24h.plus(next.value24h);
+  }
+
+  return {
+    value,
+    value24h,
+  };
+};

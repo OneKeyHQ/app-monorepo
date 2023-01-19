@@ -32,16 +32,18 @@ export default class ServicePrice extends ServiceBase {
     tokenIds,
     vsCurrency = 'usd',
   }: FetchSimpTokenPriceType) {
-    const { appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector((s) => s.tokens);
+    const { appSelector, dispatch, engine } = this.backgroundApi;
+    const accountTokens = appSelector(
+      (s) => s.tokens.accountTokens?.[networkId]?.[accountId ?? ''] ?? [],
+    );
     let tokenIdsOnNetwork: string[] = [];
     if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
     } else {
-      const ids1 = tokens[networkId] || [];
-      const ids2 = accountId ? accountTokens[networkId]?.[accountId] ?? [] : [];
-      tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
-      tokenIdsOnNetwork = uniq(tokenIdsOnNetwork);
+      const tokens = await engine.getTopTokensOnNetwork(networkId, 50);
+      tokenIdsOnNetwork = uniq(
+        tokens.concat(accountTokens).map((t) => t.tokenIdOnNetwork),
+      );
     }
     const params: PriceQueryParams = {
       vsCurrency,
