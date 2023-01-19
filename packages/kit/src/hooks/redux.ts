@@ -229,7 +229,9 @@ export const useMoonpaySell = (networkId?: string, token?: Token | null) => {
     );
   });
   const balances = useAccountTokensBalance(networkId, accountId);
-  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
+  const { balance: amount } = balances[token?.tokenIdOnNetwork || 'main'] ?? {
+    balance: '0',
+  };
   if (cryptoCurrency) {
     cryptoCurrency = { ...cryptoCurrency, balance: amount };
   }

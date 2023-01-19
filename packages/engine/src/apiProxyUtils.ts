@@ -47,6 +47,7 @@ export type TokenBalancesResponse = {
   name?: string;
   // for sol
   sendAddress: string;
+  blockHeight?: number;
 }[];
 
 const getBalances = async (

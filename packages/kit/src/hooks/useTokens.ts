@@ -39,7 +39,8 @@ export const useSingleToken = (networkId: string, address: string) => {
   };
 };
 export function useNativeToken(networkId?: string): Token | undefined {
-  return useSingleToken(networkId ?? '', '')?.token;
+  const { token } = useSingleToken(networkId ?? '', '');
+  return token;
 }
 
 export function useAccountTokensBalance(
@@ -79,13 +80,13 @@ export function useAccountTokens(
       const priceInfo =
         prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
       const price = priceInfo?.[selectedFiatMoneySymbol] ?? 0;
-      const balance = balances[getBalanceKey(t)] ?? '0';
+      const balance = balances[getBalanceKey(t)]?.balance ?? '0';
       const value = new B(price).multipliedBy(balance);
       const value24h = new B(balance).multipliedBy(
         getPreBaseValue({
           priceInfo,
           vsCurrency: selectedFiatMoneySymbol,
-        })[selectedFiatMoneySymbol],
+        })[selectedFiatMoneySymbol] ?? 0,
       );
       const info = {
         ...t,
@@ -167,7 +168,7 @@ export const useNativeTokenBalance = (
   accountId?: string,
 ) => {
   const balances = useAccountTokensBalance(networkId, accountId);
-  return useMemo(() => balances?.main, [balances]);
+  return useMemo(() => balances?.main?.balance || '0', [balances]);
 };
 
 export function useNetworkTokens(networkId?: string) {
@@ -244,7 +245,10 @@ export const useTokenBalance = ({
   fallback?: string;
 }) => {
   const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
-  return balances?.[networkId]?.[accountId]?.[getBalanceKey(token)] ?? fallback;
+  return (
+    balances?.[networkId]?.[accountId]?.[getBalanceKey(token)]?.balance ??
+    fallback
+  );
 };
 
 export const useTokenPrice = ({

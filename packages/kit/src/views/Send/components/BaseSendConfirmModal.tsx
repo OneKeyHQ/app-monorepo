@@ -12,6 +12,7 @@ import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
+import { useTokenBalance } from '../../../hooks/useTokens';
 
 import { BaseSendModal } from './BaseSendModal';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
@@ -19,7 +20,6 @@ import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 import type { ITxConfirmViewProps } from '../types';
-import { useTokenBalance } from '../../../hooks/useTokens';
 
 // TODO rename SendConfirmModalBase
 export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
@@ -40,7 +40,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     sourceInfo,
     ...others
   } = props;
-  const nativeToken = useNativeToken();
+  const nativeToken = useNativeToken(network?.id);
 
   const modalClose = useModalClose();
 
@@ -48,8 +48,8 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     networkId,
     accountId,
     token: nativeToken,
-    fallback: '0'
-  })
+    fallback: '0',
+  });
 
   // TODO move to validator
   const fee = feeInfoPayload?.current?.totalNative ?? '0';

@@ -5,7 +5,12 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-export type TokenBalanceValue = string | undefined;
+export type TokenBalanceValue =
+  | {
+      balance: string;
+      blockHeight?: number;
+    }
+  | undefined;
 export type TokenChartData = [number, number][];
 
 export type PriceLoading = undefined;
@@ -51,7 +56,7 @@ type TokenPayloadAction = {
 type TokenBalancePayloadAction = {
   activeAccountId?: string | null;
   activeNetworkId?: string | null;
-  tokensBalance: Record<string, string | undefined>;
+  tokensBalance: Record<string, TokenBalanceValue>;
 };
 
 type TokenPrivePayloadAction = {
@@ -98,7 +103,9 @@ export const tokensSlice = createSlice({
       const oldTokensBalance =
         state.accountTokensBalance[activeNetworkId][activeAccountId] || {};
       // native token balance defaults to 0
-      oldTokensBalance.main = oldTokensBalance.main ?? '0';
+      oldTokensBalance.main = oldTokensBalance.main ?? {
+        balance: '0',
+      };
 
       // use merge() to ignore undefined field updating in tokensBalance
       state.accountTokensBalance[activeNetworkId][activeAccountId] = merge(

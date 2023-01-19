@@ -30,13 +30,10 @@ import {
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useNetworkSimple,
-} from '../../../hooks';
+import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { useTokenInfo } from '../../../hooks/useTokenInfo';
+import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
@@ -44,7 +41,6 @@ import { StakingRoutes } from '../typing';
 
 import type { StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
-import { useTokenBalance } from '../../../hooks/useTokens';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
 
@@ -285,10 +281,10 @@ export default function StakingAmount() {
   const { account, accountId } = useActiveWalletAccount();
   const network = useNetworkSimple(networkId);
 
-  const tokenInfo = useTokenInfo({
+  const { token: tokenInfo } = useSingleToken(
     networkId,
-    tokenIdOnNetwork,
-  });
+    tokenIdOnNetwork ?? '',
+  );
 
   const tokenBalance = useTokenBalance({
     networkId,

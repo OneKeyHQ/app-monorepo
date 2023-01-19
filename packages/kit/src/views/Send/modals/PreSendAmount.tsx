@@ -24,13 +24,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
-import { useTokenInfo } from '../../../hooks/useTokenInfo';
+import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -41,7 +40,6 @@ import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MessageDescriptor } from 'react-intl';
-import { useTokenBalance } from '../../../hooks/useTokens';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
@@ -127,10 +125,10 @@ function PreSendAmount() {
   const { engine } = backgroundApiProxy;
 
   const tokenIdOnNetwork = transferInfo.token;
-  const tokenInfo = useTokenInfo({
+  const { token: tokenInfo } = useSingleToken(
     networkId,
-    tokenIdOnNetwork,
-  });
+    tokenIdOnNetwork ?? '',
+  );
 
   const tokenBalance = useTokenBalance({
     networkId,
@@ -196,10 +194,6 @@ function PreSendAmount() {
       };
     }
     try {
-      const key = getBalanceKey({
-        ...tokenInfo,
-        sendAddress: transferInfo.sendAddress,
-      });
       await engine.validateSendAmount({
         accountId,
         networkId,
@@ -221,7 +215,6 @@ function PreSendAmount() {
     amount,
     engine,
     transferInfo,
-    tokenInfo,
     tokenBalance,
     minAmountValidationPassed,
   ]);

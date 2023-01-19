@@ -9,9 +9,8 @@ import type {
 import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useActiveSideAccount,
-} from '../../../../hooks';
+import { useActiveSideAccount } from '../../../../hooks';
+import { useTokenBalance } from '../../../../hooks/useTokens';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
 
@@ -19,7 +18,6 @@ import type {
   ITxConfirmViewProps,
   TransferSendParamsPayload,
 } from '../../types';
-import { useTokenBalance } from '../../../../hooks/useTokens';
 
 // For native transfer only
 function SendConfirmTransfer(props: ITxConfirmViewProps) {
@@ -36,9 +34,9 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     accountId,
     token: {
       tokenIdOnNetwork: transferPayload?.token?.idOnNetwork,
-      sendAddress: transferPayload?.token?.sendAddress
-    }
-  })
+      sendAddress: transferPayload?.token?.sendAddress,
+    },
+  });
 
   const isNativeMaxSend = useMemo(() => {
     if (!transferPayload) {
@@ -46,9 +44,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     }
     if (isTransferNativeToken) {
       const amountBN = new BigNumber(transferPayload.value ?? 0);
-      const balanceBN = new BigNumber(
-        balance
-      );
+      const balanceBN = new BigNumber(balance);
       const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
       if (amountBN.plus(feeBN).gte(balanceBN)) {
         return true;
@@ -71,9 +67,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
         // Use this instead of depending the incorrect feeInfoPayload results.
         return nativeTransfer.amount;
       }
-      const balanceBN = new BigNumber(
-        balance
-      );
+      const balanceBN = new BigNumber(balance);
       const amountBN = new BigNumber(transferPayload.value ?? 0);
       const transferAmountBn = BigNumber.min(balanceBN, amountBN);
       const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
@@ -81,13 +75,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     }
 
     return transferPayload.value ?? '0';
-  }, [
-    decodedTx,
-    feeInfoPayload,
-    balance,
-    isNativeMaxSend,
-    transferPayload,
-  ]);
+  }, [decodedTx, feeInfoPayload, balance, isNativeMaxSend, transferPayload]);
 
   const isAmountNegative = useMemo(
     () => new BigNumber(transferAmount).lt(0),

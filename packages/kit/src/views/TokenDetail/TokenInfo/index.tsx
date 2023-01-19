@@ -31,7 +31,6 @@ import type { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 

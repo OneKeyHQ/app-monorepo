@@ -16,7 +16,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 
 import { useActiveWalletAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
-import { useTokenInfo } from '../../hooks/useTokenInfo';
+import { useSingleToken } from '../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { ManageTokenRoutes } from '../ManageTokens/types';
 import PriceChart from '../PriceChart/PriceChart';
@@ -48,7 +48,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     networkId,
     contractAdress: tokenId,
   });
-  const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
+  const { token } = useSingleToken(networkId, tokenId);
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
 

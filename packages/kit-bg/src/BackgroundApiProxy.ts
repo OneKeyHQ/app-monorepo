@@ -149,7 +149,7 @@ class BackgroundApiProxy
   serviceOverview = this._createProxyService(
     'serviceOverview',
   ) as ServiceOverview;
-  
+
   serviceTranslation = this._createProxyService(
     'serviceTranslation',
   ) as ServiceTranslation;

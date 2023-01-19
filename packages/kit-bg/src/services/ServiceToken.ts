@@ -15,6 +15,7 @@ import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
+import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   setAccountTokens,
   setAccountTokensBalances,
@@ -74,7 +75,7 @@ export default class ServiceToken extends ServiceBase {
     activeNetworkId,
     forceReloadTokens,
   }: IFetchAccountTokensParams) {
-    const { engine, dispatch, servicePrice, appSelector } = this.backgroundApi;
+    const { engine, dispatch, servicePrice } = this.backgroundApi;
     const tokens = await engine.getTokens(
       activeNetworkId,
       activeAccountId,
@@ -82,7 +83,6 @@ export default class ServiceToken extends ServiceBase {
       true,
       forceReloadTokens,
     );
-    const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
     const actions: any[] = [];
     const [balances, autodetectedTokens = []] = await this.fetchTokenBalance({
       activeAccountId,
@@ -123,7 +123,7 @@ export default class ServiceToken extends ServiceBase {
     activeNetworkId: string;
     activeAccountId: string;
     tokenIds?: string[];
-  }): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
+  }): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
     const top50tokens = await this.backgroundApi.engine.getTopTokensOnNetwork(
       activeNetworkId,
       50,
@@ -215,7 +215,11 @@ export default class ServiceToken extends ServiceBase {
           setAccountTokensBalances({
             activeAccountId: key,
             activeNetworkId: networkId,
-            tokensBalance: { 'main': value },
+            tokensBalance: {
+              'main': {
+                balance: value ?? '0',
+              },
+            },
           }),
         );
       }

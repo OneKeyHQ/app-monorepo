@@ -16,7 +16,10 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+import type {
+  TokenBalanceValue,
+  TokenChartData,
+} from '@onekeyhq/kit/src/store/reducers/tokens';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import {
@@ -138,7 +141,6 @@ import type {
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
-  IHistoryTx,
   ISetApprovalForAll,
   ITransferInfo,
   IVaultSettings,
@@ -784,7 +786,7 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
+  ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
     const [network, accountTokens] = await Promise.all([
       this.getNetwork(networkId),
       this.getTokens(networkId, accountId, withMain, true, false),
@@ -799,7 +801,7 @@ class Engine {
       return true;
     });
     const vault = await this.getVault({ networkId, accountId });
-    const ret: Record<string, string | undefined> = {};
+    const ret: Record<string, TokenBalanceValue> = {};
     if (balanceSupprtedNetwork.includes(networkId)) {
       try {
         const account = await this.getAccount(accountId, networkId);
@@ -812,7 +814,12 @@ class Engine {
           networkId,
         );
         const allAccountTokens: Token[] = [];
-        for (const { address, balance, sendAddress } of balancesFromApi.filter(
+        for (const {
+          address,
+          balance,
+          sendAddress,
+          blockHeight,
+        } of balancesFromApi.filter(
           (b) =>
             (+b.balance > 0 || !b.address) &&
             !removedTokens.includes(b.address),
@@ -834,8 +841,14 @@ class Engine {
                   address,
                   sendAddress,
                 })
-              ] = balance;
-              ret[tokenId] = balance;
+              ] = {
+                balance,
+                blockHeight,
+              };
+              ret[tokenId] = {
+                balance,
+                blockHeight,
+              };
               allAccountTokens.push({
                 ...token,
                 sendAddress,
@@ -859,12 +872,17 @@ class Engine {
         );
       }
     }
+    const client = await this.providerManager.getClient(networkId);
+    const { bestBlockNumber } = await client.getInfo();
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
-        ret.main = balances[0]
-          .div(new BigNumber(10).pow(network.decimals))
-          .toFixed();
+        ret.main = {
+          balance: balances[0]
+            .div(new BigNumber(10).pow(network.decimals))
+            .toFixed(),
+          blockHeight: bestBlockNumber,
+        };
       } else {
         ret.main = undefined;
       }
@@ -886,8 +904,14 @@ class Engine {
           getBalanceKey({
             address: tokenId1,
           })
-        ] = bal;
-        ret[tokenId1] = bal;
+        ] = {
+          balance: bal,
+          blockHeight: bestBlockNumber,
+        };
+        ret[tokenId1] = {
+          balance: bal,
+          blockHeight: bestBlockNumber,
+        };
       }
     });
     return [ret, undefined];

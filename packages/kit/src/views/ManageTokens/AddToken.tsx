@@ -131,7 +131,9 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       },
     ].filter(({ value }) => !!value);
 
-    const balance = balances[getBalanceKey(token)];
+    const { balance } = balances[getBalanceKey(token)] || {
+      balance: '0',
+    };
     if (balance) {
       data.push({
         label: intl.formatMessage({

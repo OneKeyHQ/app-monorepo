@@ -74,18 +74,7 @@ const OverviewProtocolDetail: FC = () => {
   const header = useMemo(() => {
     if (isVertical) {
       return (
-        <HStack>
-          <Token
-            token={{
-              logoURI: protocol?.protocolIcon,
-              name: protocol?.protocolName,
-            }}
-            size={5}
-          />
-          <Typography.Heading ml="3">
-            {protocol?.protocolName}
-          </Typography.Heading>
-        </HStack>
+        <Typography.Heading ml="3">{protocol?.protocolName}</Typography.Heading>
       );
     }
 

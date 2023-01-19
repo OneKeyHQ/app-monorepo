@@ -13,6 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
+import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useAccountValues, useActiveWalletAccount } from '../../../../hooks';
 
@@ -20,7 +21,6 @@ import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
 
 import type { OverviewDeFiPoolType, OverviewDefiRes } from '../../types';
-import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 
 const PoolName: FC<{
   poolType: OverviewDeFiPoolType;

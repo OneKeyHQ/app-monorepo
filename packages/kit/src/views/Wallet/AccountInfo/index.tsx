@@ -37,11 +37,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
+import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { calculateGains } from '../../../utils/priceUtils';
 import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
-import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -61,6 +61,7 @@ const AccountAmountInfo: FC = () => {
     networkId,
     accountId,
   });
+
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
   const summedValueComp = useMemo(

@@ -223,7 +223,7 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.AnnualReport,
     component: AnnualReportModal,
-  }
+  },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

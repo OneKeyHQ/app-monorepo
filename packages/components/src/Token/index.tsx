@@ -1,5 +1,11 @@
-import { ComponentProps, FC, memo } from 'react';
-import { createElement, isValidElement, useCallback, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
+import {
+  createElement,
+  isValidElement,
+  memo,
+  useCallback,
+  useMemo,
+} from 'react';
 
 import { Box, Center } from 'native-base';
 import { useIntl } from 'react-intl';
