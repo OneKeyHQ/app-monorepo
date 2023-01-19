@@ -10,36 +10,36 @@ import type { Middleware } from 'redux';
 //     return result as unknown;
 //   };
 
-const backgroundCheck: Middleware<unknown, unknown> =
-  () => (next) => (action) => {
-    if (
-      action &&
-      !action.$isDispatchFromBackground &&
-      action.type &&
-      // ignore redux-persist action
-      !(action.type as string).startsWith('persist/')
-    ) {
-      const msg =
-        'dispatch(action) ERROR: action should be dispatched from background.';
-      console.error(msg, action);
-      throw new Error(msg);
-    }
-    const result = next(action);
-    return result as unknown;
-  };
-
 const middlewares = [
   // simpleLogger,
   // logger,
-  backgroundCheck,
+  // backgroundCheck,
 ];
 
-// eslint-disable-next-line no-undef
 if (__DEV__) {
   // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
   const createDebugger = require('redux-flipper').default;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   middlewares.push(createDebugger());
+
+  const backgroundCheck: Middleware<unknown, unknown> =
+    () => (next) => (action) => {
+      if (
+        action &&
+        !action.$isDispatchFromBackground &&
+        action.type &&
+        // ignore redux-persist action
+        !(action.type as string).startsWith('persist/')
+      ) {
+        const msg =
+          'dispatch(action) ERROR: action should be dispatched from background.';
+        console.error(msg, action);
+        throw new Error(msg);
+      }
+      const result = next(action);
+      return result as unknown;
+    };
+  middlewares.push(backgroundCheck);
 }
 
 export default middlewares;

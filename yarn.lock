@@ -5681,7 +5681,6 @@ __metadata:
     "@reduxjs/toolkit": ^1.6.2
     "@types/d3-scale": ^4.0.2
     "@types/d3-shape": ^3.1.0
-    "@types/redux-logger": ^3.0.9
     "@types/socket.io-client": ^3.0.0
     "@types/url-parse": ^1.4.8
     "@unstoppabledomains/resolution": ^8.3.3
@@ -5706,7 +5705,6 @@ __metadata:
     "@types/d3-scale": ^4.0.2
     "@types/d3-shape": ^3.1.0
     "@types/react-native-snap-carousel": 3.8.5
-    "@types/redux-logger": ^3.0.9
     "@types/socket.io-client": ^3.0.0
     "@types/url-parse": ^1.4.8
     date-fns: ^2.27.0
@@ -5741,7 +5739,6 @@ __metadata:
     react-native-uuid: ^2.0.1
     react-native-vision-camera: ^2.15.2
     react-redux: ^7.2.6
-    redux-logger: ^3.0.6
     redux-persist: ^6.0.0
     rimraf: ^3.0.2
     semver: ^7.3.7
@@ -8519,15 +8516,6 @@ __metadata:
     "@types/scheduler": "*"
     csstype: ^3.0.2
   checksum: b5629dff7c2f3e9fcba95a19b2b3bfd78d7cacc33ba5fc26413dba653d34afcac3b93ddabe563e8062382688a1eac7db68e93739bb8e712d27637a03aaafbbb8
-  languageName: node
-  linkType: hard
-
-"@types/redux-logger@npm:^3.0.9":
-  version: 3.0.9
-  resolution: "@types/redux-logger@npm:3.0.9"
-  dependencies:
-    redux: ^4.0.0
-  checksum: c41fdc09198fae2d62ff7d6bd029ccae1fed655e6a7abd40614a8db5d6e01adbe565881b2c8d398789804a48259e3399af3939f994a532c11904ba2021799275
   languageName: node
   linkType: hard
 
@@ -14264,13 +14252,6 @@ colour@latest:
   version: 0.7.0
   resolution: "dedent@npm:0.7.0"
   checksum: 87de191050d9a40dd70cad01159a0bcf05ecb59750951242070b6abf9569088684880d00ba92a955b4058804f16eeaf91d604f283929b4f614d181cd7ae633d2
-  languageName: node
-  linkType: hard
-
-"deep-diff@npm:^0.3.5":
-  version: 0.3.8
-  resolution: "deep-diff@npm:0.3.8"
-  checksum: 8a0fb6cbe468e50211836f8daa1c14798b2d7436bfbcb7d8eb0902e0d61bf1dfd48d5b9edd46a10596182b90ad25f87461b8e55111ff9257b6067ad0676f79c9
   languageName: node
   linkType: hard
 
@@ -27964,15 +27945,6 @@ optjs@latest:
     react-native-flipper: ">=0.100.0"
     redux: ^4
   checksum: 6638e73f565d443bd8df3e65b0f6559b24aab9ccda747857238659c82e0978f0aa6f0fd9a554047f4824f0cf42c8d834f1efefbcf4295df466d7b9d7cda68a1c
-  languageName: node
-  linkType: hard
-
-"redux-logger@npm:^3.0.6":
-  version: 3.0.6
-  resolution: "redux-logger@npm:3.0.6"
-  dependencies:
-    deep-diff: ^0.3.5
-  checksum: c40f63c44c6475cf6374ae0eaa810d913f142614cb80692a0beacaf135c5dc3eb3e2cdd4296f01446ba48cb69b82e81363b84d829f1f6659382c991022a814ac
   languageName: node
   linkType: hard
 
