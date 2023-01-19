@@ -302,7 +302,6 @@ class ServiceApp extends ServiceBase {
     serviceCloudBackup.initCloudBackup();
     serviceTranslation.getTranslations();
     serviceDiscover.getCompactList();
-    serviceMigrate.initServiceMigrate();
     this._appInited = true;
   }
 
