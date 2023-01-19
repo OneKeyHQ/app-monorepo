@@ -38,8 +38,12 @@ export type IOnboardingRoutesParams = {
 
   [EOnboardingRoutes.ConnectWallet]: IOnboardingConnectWalletParams | undefined;
   [EOnboardingRoutes.ConnectHardwareModal]: undefined;
+  [EOnboardingRoutes.ThirdPartyWallet]:
+    | IOnboardingConnectWalletParams
+    | undefined;
 
   [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
+  [EOnboardingRoutes.RecoveryWallet]: undefined;
 
   [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams | undefined;
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;
@@ -55,6 +59,7 @@ export type IOnboardingRoutesParams = {
     numOfWatchingAccounts: number;
     numOfContacts: number;
   };
+  [EOnboardingRoutes.KeyTag]: undefined;
   [EOnboardingRoutes.Migration]: undefined;
   [EOnboardingRoutes.MigrationPreview]: {
     data: MigrateData;

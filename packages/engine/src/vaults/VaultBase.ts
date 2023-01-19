@@ -503,6 +503,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(historyTx);
   }
 
+  async checkIsScamHistoryTx(historyTx: IHistoryTx) {
+    return false;
+  }
+
   // TODO abstract method
   async fetchOnChainHistory(options: {
     // ""=NativeToken   "0x88836623"=Erc20Token    undefined=ALL

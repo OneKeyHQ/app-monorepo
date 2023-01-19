@@ -333,5 +333,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
     return value;
   }
+
+  get serviceHTTP() {
+    const ServiceHTTP =
+      require('./services/ServiceHTTP') as typeof import('./services/ServiceHTTP');
+    const value = new ServiceHTTP.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHTTP', { value });
+
+    return value;
+  }
 }
 export default BackgroundApi;

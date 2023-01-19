@@ -5,20 +5,13 @@ import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-function httpServerEnable() {
-  if (platformEnv.isDesktop || platformEnv.isNativeIOS) {
-    return true;
-  }
-  return false;
-}
-
 // label and icon name:
 // - Mobile, DevicePhoneMobileSolid (iOS, Android)
 // - Tablet, DeviceTabletSolid (iPadOS, Android tablet)
 // - Desktop, ComputerDesktopSolid (macOS, Windows, Linux)
 // - Extension, PuzzlePieceSolid (Chrome Extension, Firefox Extension, Safari Extension, Edge Extension, Brave Extension)
 // - Web, GlobeAltSolid (Web)
-export function parseDeviceInfo(info: DeviceInfo) {
+function parseDeviceInfo(info: DeviceInfo) {
   const { platform, channel } = info;
   let name = 'Unknow';
   let logo: ICON_NAMES = 'QuestionMarkOutline';
@@ -44,7 +37,7 @@ export function parseDeviceInfo(info: DeviceInfo) {
   return { name, logo };
 }
 
-export function deviceInfo() {
+function deviceInfo() {
   const { version, buildNumber } = store.getState().settings;
   return {
     deviceName: Device.deviceName ?? 'unknown',
@@ -54,4 +47,14 @@ export function deviceInfo() {
     buildNumber,
   };
 }
-export { httpServerEnable };
+
+const OneKeyMigrateQRCodePrefix = 'onekey-wallet://migrate';
+
+const MigrationEnable = !platformEnv.isWeb;
+
+export {
+  parseDeviceInfo,
+  deviceInfo,
+  OneKeyMigrateQRCodePrefix,
+  MigrationEnable,
+};
