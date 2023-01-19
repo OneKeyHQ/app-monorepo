@@ -234,7 +234,7 @@ export const compressHomescreen = async (
   };
 };
 
-function formatBytes(bytes: number, decimals = 2) {
+export function formatBytes(bytes: number, decimals = 2) {
   if (!+bytes) return '0 Bytes';
 
   const k = 1024;
