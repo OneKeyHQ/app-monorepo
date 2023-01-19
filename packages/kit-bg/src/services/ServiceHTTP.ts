@@ -37,7 +37,7 @@ export function httpServerEnable() {
   return false;
 }
 
-function migrateServerPort() {
+function serverPort() {
   if (platformEnv.isNativeIOS) {
     return 20231;
   }
@@ -60,7 +60,7 @@ class ServiceHTTP extends ServiceBase {
     if (!this.httpServerEnable) {
       return Promise.resolve('');
     }
-    const port = migrateServerPort();
+    const port = serverPort();
     if (platformEnv.isNative) {
       return new Promise((resolve) => {
         HTTPServerManager.start(port, 'http_service', (data, success) => {

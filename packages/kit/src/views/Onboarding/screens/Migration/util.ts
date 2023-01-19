@@ -50,4 +50,11 @@ function deviceInfo() {
 
 const OneKeyMigrateQRCodePrefix = 'onekey-wallet://migrate';
 
-export { parseDeviceInfo, deviceInfo, OneKeyMigrateQRCodePrefix };
+const MigrationEnable = !platformEnv.isWeb;
+
+export {
+  parseDeviceInfo,
+  deviceInfo,
+  OneKeyMigrateQRCodePrefix,
+  MigrationEnable,
+};
