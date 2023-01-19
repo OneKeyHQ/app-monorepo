@@ -20,6 +20,7 @@ import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
 
 import type { OverviewDeFiPoolType, OverviewDefiRes } from '../../types';
+import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 
 const PoolName: FC<{
   poolType: OverviewDeFiPoolType;
@@ -84,49 +85,53 @@ export const OverviewDefiProtocol: FC<
   );
 
   return (
-    <Collapse
-      borderRadius="12px"
-      bg="surface-default"
-      borderWidth="1px"
-      borderColor="border-subdued"
-      mb="6"
-      defaultCollapsed={false}
-      overflow="hidden"
-      renderCustomTrigger={(toggle, collapsed) =>
-        showHeader ? (
-          <OverviewDefiBoxHeader
-            name={protocolName}
-            rate={new B(protocolValue)
-              .div(accountAllValues.value)
-              .multipliedBy(100)}
-            desc={
-              <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
-                <FormatCurrencyNumber value={new B(protocolValue)} />
-              </Text>
-            }
-            extra={
-              +claimableValue > 0 ? (
-                <Text
-                  color="text-subdued"
-                  typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
-                >
-                  {intl.formatMessage(
-                    { id: 'form__claimable_str' },
-                    {
-                      0: <FormatCurrencyNumber value={new B(claimableValue)} />,
-                    },
-                  )}
+    <ErrorBoundary>
+      <Collapse
+        borderRadius="12px"
+        bg="surface-default"
+        borderWidth="1px"
+        borderColor="border-subdued"
+        mb="6"
+        defaultCollapsed={false}
+        overflow="hidden"
+        renderCustomTrigger={(toggle, collapsed) =>
+          showHeader ? (
+            <OverviewDefiBoxHeader
+              name={protocolName}
+              rate={new B(protocolValue)
+                .div(accountAllValues.value)
+                .multipliedBy(100)}
+              desc={
+                <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
+                  <FormatCurrencyNumber value={new B(protocolValue)} />
                 </Text>
-              ) : undefined
-            }
-            icon={protocolIcon}
-            toggle={toggle}
-            collapsed={collapsed}
-          />
-        ) : null
-      }
-    >
-      {content}
-    </Collapse>
+              }
+              extra={
+                +claimableValue > 0 ? (
+                  <Text
+                    color="text-subdued"
+                    typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
+                  >
+                    {intl.formatMessage(
+                      { id: 'form__claimable_str' },
+                      {
+                        0: (
+                          <FormatCurrencyNumber value={new B(claimableValue)} />
+                        ),
+                      },
+                    )}
+                  </Text>
+                ) : undefined
+              }
+              icon={protocolIcon}
+              toggle={toggle}
+              collapsed={collapsed}
+            />
+          ) : null
+        }
+      >
+        {content}
+      </Collapse>
+    </ErrorBoundary>
   );
 };

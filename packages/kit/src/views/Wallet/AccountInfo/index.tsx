@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  HStack,
   Icon,
   IconButton,
   Pressable,
@@ -51,7 +52,8 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
 
-  const { account, wallet, networkId, accountId, network } = useActiveWalletAccount();
+  const { account, wallet, networkId, accountId, network } =
+    useActiveWalletAccount();
 
   const { copyAddress } = useCopyAddress({ wallet });
 
@@ -66,8 +68,8 @@ const AccountAmountInfo: FC = () => {
       accountAllValues.value.isNaN() ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
-        <>
-          <Typography.Display2XLarge>
+        <HStack flex="1">
+          <Typography.Display2XLarge numberOfLines={2} isTruncated>
             <FormatCurrencyNumber decimals={2} value={accountAllValues.value} />
           </Typography.Display2XLarge>
           <IconButton
@@ -77,7 +79,7 @@ const AccountAmountInfo: FC = () => {
             circle
             ml={1}
           />
-        </>
+        </HStack>
       ),
     [accountAllValues],
   );
@@ -104,7 +106,7 @@ const AccountAmountInfo: FC = () => {
   }, [intl, accountAllValues]);
 
   return (
-    <Box alignItems="flex-start">
+    <Box alignItems="flex-start" flex="1">
       <Box mx="-8px" my="-4px" flexDir="row">
         <Tooltip
           hasArrow
@@ -159,7 +161,7 @@ const AccountAmountInfo: FC = () => {
           </Tooltip>
         ) : null}
       </Box>
-      <Box flexDirection="row" alignItems="center" mt={1}>
+      <Box flexDirection="row" alignItems="center" mt={1} w="full">
         {summedValueComp}
       </Box>
       <Box flexDirection="row" mt={1}>
@@ -318,9 +320,7 @@ const AccountInfo = () => {
         bgColor="background-default"
       >
         <AccountAmountInfo />
-        <Box>
-          <AccountOption isSmallView={isSmallView} />
-        </Box>
+        <AccountOption isSmallView={isSmallView} />
       </Box>
     </>
   );

@@ -216,17 +216,23 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
             flex="1"
             size={8}
             showInfo
+            infoBoxProps={{ flex: 1 }}
             token={{
               logoURI: item.protocolIcon,
               name: item.protocolName,
             }}
           />
           {isVertical ? null : (
-            <Typography.Body2Strong flex="1">
+            <Typography.Body2Strong flex="1" numberOfLines={2} isTruncated>
               <FormatCurrencyNumber value={+item.claimableValue} />
             </Typography.Body2Strong>
           )}
-          <Typography.Body2Strong flex="1" textAlign="right">
+          <Typography.Body2Strong
+            flex="1"
+            textAlign="right"
+            numberOfLines={2}
+            isTruncated
+          >
             <FormatCurrencyNumber value={+item.protocolValue} />
           </Typography.Body2Strong>
         </Pressable.Item>

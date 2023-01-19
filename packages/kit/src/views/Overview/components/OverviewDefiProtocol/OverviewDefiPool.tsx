@@ -196,18 +196,23 @@ export const OverviewDefiPool: FC<{
           borderBottomColor="border-subdued"
           mx="4"
         >
-          {columns.map((c, i) => (
-            <VStack mt={i === 0 ? 0 : '4'} key={c.header}>
-              <Typography.Subheading mb="4">
-                {intl.formatMessage({ id: c.header })}
-              </Typography.Subheading>
-              {c.dataIndex && !isEmpty(item[c.dataIndex])
-                ? c.render({
-                    pool: item,
-                  })
-                : null}
-            </VStack>
-          ))}
+          {columns.map((c, i) => {
+            if (c.dataIndex && isEmpty(item[c.dataIndex])) {
+              return null;
+            }
+            return (
+              <VStack mt={i === 0 ? 0 : '4'} key={c.header}>
+                <Typography.Subheading mb="4">
+                  {intl.formatMessage({ id: c.header })}
+                </Typography.Subheading>
+                {c.dataIndex && !isEmpty(item[c.dataIndex])
+                  ? c.render({
+                      pool: item,
+                    })
+                  : null}
+              </VStack>
+            );
+          })}
         </VStack>
       );
     },

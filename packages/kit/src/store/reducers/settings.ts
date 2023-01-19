@@ -140,11 +140,8 @@ const initialState: SettingsState = {
   },
   hideSmallBalance: false,
   hideRiskTokens: true,
-<<<<<<< HEAD
   putMainTokenOnTop: false,
-=======
   hideScamHistory: true,
->>>>>>> 03306e6ea6c5ed8f2678efa84c668196fd531905
   includeNFTsInTotal: true,
   hideBalance: false,
   updateSetting: {

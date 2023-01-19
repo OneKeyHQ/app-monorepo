@@ -136,14 +136,17 @@ const TokenCell: FC<TokenCellProps> = ({
       flexDirection="row"
       alignItems="center"
     >
-      <Token
-        flex={1}
-        size={8}
-        showInfo
-        token={token}
-        showExtra={false}
-        description={formatedBalance}
-      />
+      <Box flex={1}>
+        <Token
+          flex="1"
+          size={8}
+          showInfo
+          token={token}
+          showExtra={false}
+          description={formatedBalance}
+          infoBoxProps={{ flex: 1 }}
+        />
+      </Box>
       {!isVerticalLayout && !hidePriceInfo && (
         <Box flexDirection="column" flex={1} alignItems="flex-end">
           {price === undefined ? (
@@ -158,7 +161,7 @@ const TokenCell: FC<TokenCellProps> = ({
       <Box flexDirection="column" flex={1} alignItems="flex-end">
         {tokenValue !== undefined ? (
           <>
-            <Typography.Body2Strong>
+            <Typography.Body2Strong w="100%" textAlign="right">
               <FormatCurrencyNumber value={tokenValue} />
             </Typography.Body2Strong>
             <Box
