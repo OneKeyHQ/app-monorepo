@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { BlurView } from 'expo-blur';
@@ -30,6 +30,8 @@ import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/Na
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
+import type { Device } from '@onekeyhq/engine/src/types/device';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
@@ -42,9 +44,11 @@ import type {
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { generateUploadNFTParams } from '@onekeyhq/kit/src/utils/hardware/nftUtils';
 import NFTDetailMenu from '@onekeyhq/kit/src/views/Overlay/NFTDetailMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -54,6 +58,7 @@ import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
 
 import CollectibleContent from './CollectibleContent';
 
+import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
@@ -114,7 +119,7 @@ const NFTDetailModal: FC = () => {
   const { network, asset: outerAsset, isOwner } = route.params;
 
   const [asset, updateAsset] = useState(outerAsset);
-  const { serviceNFT } = backgroundApiProxy;
+  const { serviceNFT, serviceHardware } = backgroundApiProxy;
 
   let hasBlurViewBG = isImage(asset.contentType);
   if (asset.nftscanUri && asset.nftscanUri?.length > 0) {
@@ -172,18 +177,62 @@ const NFTDetailModal: FC = () => {
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
   const [showMenu, setShowMenu] = useState(false);
+  const [device, setDevice] = useState<Device | null>(null);
   useEffect(() => {
-    (async function () {
+    (async () => {
       if (!wallet || wallet.type !== 'hw') {
         setShowMenu(false);
         return;
       }
-      const device = await backgroundApiProxy.engine.getHWDeviceByWalletId(
+      const hwDevice = await backgroundApiProxy.engine.getHWDeviceByWalletId(
         wallet.id,
       );
-      setShowMenu(device?.deviceType === 'touch');
+      setShowMenu(hwDevice?.deviceType === 'touch');
+      setDevice(hwDevice);
     })();
   }, [wallet]);
+
+  const onCollectToTouch = useCallback(async () => {
+    let uri;
+    if (asset.nftscanUri && asset.nftscanUri.length > 0) {
+      uri = asset.nftscanUri;
+    } else {
+      uri = getContentWithAsset(asset);
+    }
+
+    if (!uri) return;
+
+    let uploadResParams: DeviceUploadResourceParams | undefined;
+    try {
+      uploadResParams = await generateUploadNFTParams(uri, {
+        header:
+          asset.name && asset.name.length > 0
+            ? asset.name
+            : `#${asset.tokenId as string}`,
+        subheader: asset.description ?? '',
+        network: network.name,
+        owner: asset.owner,
+      });
+      debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
+    } catch (e) {
+      console.log('image operate error: ', e);
+      ToastManager.show(
+        {
+          title: 'NFT图片处理失败, 请更换图片后重试',
+        },
+        {
+          type: 'error',
+        },
+      );
+      return;
+    }
+    if (uploadResParams) {
+      await serviceHardware.uploadResource(device?.mac ?? '', uploadResParams);
+    }
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__change_saved' }),
+    });
+  }, [asset, device, intl, serviceHardware, network]);
 
   const goToCollectionDetail = useCollectionDetail();
   const sendAction = () => {
@@ -281,7 +330,7 @@ const NFTDetailModal: FC = () => {
                 : `#${asset.tokenId as string}`}
             </Text>
             {showMenu && (
-              <NFTDetailMenu>
+              <NFTDetailMenu onCollectToTouch={onCollectToTouch}>
                 <IconButton
                   name="EllipsisVerticalOutline"
                   size={isSmallScreen ? 'sm' : 'xs'}

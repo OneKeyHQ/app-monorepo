@@ -8,7 +8,8 @@ import BaseMenu from './BaseMenu';
 import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
-const NFTDetailMenu: FC<IMenu> = (props) => {
+const NFTDetailMenu: FC<IMenu & { onCollectToTouch: () => void }> = (props) => {
+  const { onCollectToTouch } = props;
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -22,12 +23,12 @@ const NFTDetailMenu: FC<IMenu> = (props) => {
       {
         id: 'action__collect_to_touch',
         onPress: () => {
-          console.log('Collect To Touch');
+          onCollectToTouch();
         },
         icon: 'InboxArrowDownMini',
       },
     ],
-    [],
+    [onCollectToTouch],
   );
 
   return <BaseMenu options={options} {...props} />;
