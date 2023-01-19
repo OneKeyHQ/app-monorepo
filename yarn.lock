@@ -5509,7 +5509,7 @@ __metadata:
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
     react-native-pager-view: 6.1.2
     react-native-randombytes: ^3.6.1
-    react-native-reanimated: ^2.14.2
+    react-native-reanimated: ^2.14.4
     react-native-restart: 0.0.24
     react-native-safe-area-context: 4.4.1
     react-native-screens: ^3.19.0
@@ -27273,9 +27273,9 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:^2.14.2, react-native-reanimated@npm:^2.4.1":
-  version: 2.14.2
-  resolution: "react-native-reanimated@npm:2.14.2"
+"react-native-reanimated@npm:^2.14.4, react-native-reanimated@npm:^2.4.1":
+  version: 2.14.4
+  resolution: "react-native-reanimated@npm:2.14.4"
   dependencies:
     "@babel/plugin-transform-object-assign": ^7.16.7
     "@babel/preset-typescript": ^7.16.7
@@ -27288,7 +27288,7 @@ optjs@latest:
     "@babel/core": ^7.0.0-0
     react: "*"
     react-native: "*"
-  checksum: 5ffd139e474c7412775bd92a0d3b2c45ac0e9dc2d6df5a15a08be3e7fa5f2a5ce0a2434180221a1fb43284569de94bfa9b99b7bbde844cb5da9e5a25d3511aeb
+  checksum: ec24225a145a8636065b464660256bed99ba5f50c7f6c74899838f5563e59a342ea217c285a06be8bdd5549e2faaf1ebdac6986011a767ba814a4cf469ed9bdb
   languageName: node
   linkType: hard
 
