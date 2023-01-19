@@ -1,7 +1,7 @@
-import { RestfulRequest } from '@onekeyfe/blockchain-libs/dist/basic/request/restful';
 import memoizee from 'memoizee';
 
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 
 import { getFiatEndpoint } from './endpoint';
 

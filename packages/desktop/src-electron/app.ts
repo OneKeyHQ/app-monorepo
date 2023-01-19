@@ -18,6 +18,7 @@ import Config from 'electron-config';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 import * as store from './libs/store';
@@ -418,8 +419,9 @@ function createMainWindow() {
     if (isMac) {
       event.preventDefault();
       if (!browserWindow.isDestroyed()) {
-        browserWindow.hide();
-        // browserWindow.minimize();
+        browserWindow.blur();
+        browserWindow.hide(); // hide window only
+        // browserWindow.minimize(); // hide window and minimize to Docker
       }
     }
   });

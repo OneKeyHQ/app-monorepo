@@ -41,7 +41,7 @@ const BaseToast: FC<BaseToastProps & RNBaseToastProps> = ({
         height: 'auto',
         marginLeft: 0,
         backgroundColor: bgColor,
-        borderRadius: 9999,
+        borderRadius: 12,
         borderWidth: StyleSheet.hairlineWidth,
         borderLeftWidth: StyleSheet.hairlineWidth,
         borderColor,
@@ -69,6 +69,7 @@ const BaseToast: FC<BaseToastProps & RNBaseToastProps> = ({
         {
           ...Body1Props,
           color: textColor,
+          textAlign: 'center',
           marginBottom: 0,
         } as TextStyle
       }

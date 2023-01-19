@@ -4,6 +4,15 @@
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import type {
+  BaseClient,
+  BaseProvider,
+} from '@onekeyhq/engine/src/client/BaseClient';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+  UnsignedTx,
+} from '@onekeyhq/engine/src/types/provider';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,6 +32,7 @@ import { VaultContext } from './VaultContext';
 import type { Account, DBAccount } from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import type { WalletType } from '../types/wallet';
+import type { ethers } from './impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
 import type {
@@ -43,16 +53,6 @@ import type {
   IVaultSettings,
 } from './types';
 import type { VaultHelperBase } from './VaultHelperBase';
-import type { ethers } from '@onekeyfe/blockchain-libs';
-import type {
-  BaseClient,
-  BaseProvider,
-} from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type {
-  PartialTokenInfo,
-  TransactionStatus,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 export type IVaultInitConfig = {
@@ -87,7 +87,9 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
-  abstract createClientFromURL(url: string): BaseClient;
+  createClientFromURL(url: string): BaseClient {
+    throw new NotImplemented();
+  }
 
   async getEthersProvider(): Promise<ethers.providers.JsonRpcProvider> {
     throw new NotImplemented();
@@ -146,7 +148,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
-  ) {
+  ): Promise<Array<BigNumber | undefined>> {
     // Abstract requests
     const client = await this.engine.providerManager.getClient(this.networkId);
     return client.getBalances(
@@ -499,6 +501,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     // TODO update encodedTx nonce from signedTx.rawTx
     historyTx = await this.fixHistoryTx(historyTx);
     return Promise.resolve(historyTx);
+  }
+
+  async checkIsScamHistoryTx(historyTx: IHistoryTx) {
+    return false;
   }
 
   // TODO abstract method

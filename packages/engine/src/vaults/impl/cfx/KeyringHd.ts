@@ -1,5 +1,5 @@
-import { batchGetPublicKeys } from '@onekeyfe/blockchain-libs/dist/secret';
-
+import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
+import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -16,7 +16,6 @@ import type {
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-import type { SignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

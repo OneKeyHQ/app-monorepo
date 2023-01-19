@@ -170,41 +170,39 @@ export const UtilSection = () => {
             <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
           </Box>
         </Pressable>
-        <>
-          <Divider />
-          <Pressable
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            py={4}
-            px={{ base: 4, md: 6 }}
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageConnectedSites,
-                params: {
-                  screen: ManageConnectedSitesRoutes.ManageConnectedSitesModel,
-                },
-              });
-            }}
+        <Divider />
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManageConnectedSites,
+              params: {
+                screen: ManageConnectedSitesRoutes.ManageConnectedSitesModel,
+              },
+            });
+          }}
+        >
+          <Icon name="LinkOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex="1"
+            numberOfLines={1}
+            mx={3}
           >
-            <Icon name="LinkOutline" />
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-              flex="1"
-              numberOfLines={1}
-              mx={3}
-            >
-              {intl.formatMessage({
-                id: 'action__connected_sites',
-                defaultMessage: 'Connected Sites',
-              })}
-            </Text>
-            <Box>
-              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-            </Box>
-          </Pressable>
-        </>
+            {intl.formatMessage({
+              id: 'action__connected_sites',
+              defaultMessage: 'Connected Sites',
+            })}
+          </Text>
+          <Box>
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+          </Box>
+        </Pressable>
       </Box>
     </Box>
   );

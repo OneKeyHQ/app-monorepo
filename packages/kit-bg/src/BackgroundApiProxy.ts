@@ -21,7 +21,9 @@ import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
+import type ServiceHTTP from './services/ServiceHTTP';
 import type ServiceMarket from './services/ServiceMarket';
+import type ServiceMigrate from './services/ServiceMigrate';
 import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
@@ -151,6 +153,10 @@ class BackgroundApiProxy
   serviceTranslation = this._createProxyService(
     'serviceTranslation',
   ) as ServiceTranslation;
+
+  serviceMigrate = this._createProxyService('serviceMigrate') as ServiceMigrate;
+
+  serviceHTTP = this._createProxyService('serviceHTTP') as ServiceHTTP;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

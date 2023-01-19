@@ -133,7 +133,7 @@ export interface Data {
   gas_wanted: string;
   gas_used: string;
   tx: Tx;
-  timestamp: Date;
+  timestamp: string;
 }
 
 export interface Tx {

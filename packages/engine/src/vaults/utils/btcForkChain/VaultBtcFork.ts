@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
 // @ts-expect-error
@@ -9,6 +8,9 @@ import coinSelect from 'coinselect';
 import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
+import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   IBlockBookTransaction,
   IEncodedTxBtc,
@@ -35,7 +37,7 @@ import {
 import { VaultBase } from '../../VaultBase';
 
 import { Provider } from './provider';
-import { BlockBook } from './provider/blockbook';
+import { BlockBook, getRpcUrlFromChainInfo } from './provider/blockbook';
 import { getAccountDefaultByPurpose, getBIP44Path } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
@@ -58,8 +60,6 @@ import type {
   IVaultSettings,
 } from '../../types';
 import type { IKeyringMapKey } from '../../VaultBase';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
@@ -99,7 +99,12 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   async getProvider() {
-    if (!this.provider) {
+    const rpcURL = await this.getRpcUrl();
+    let currentProviderRpcUrl = '';
+    if (this.provider?.chainInfo) {
+      currentProviderRpcUrl = getRpcUrlFromChainInfo(this.provider?.chainInfo);
+    }
+    if (!this.provider || currentProviderRpcUrl !== rpcURL) {
       const chainInfo =
         await this.engine.providerManager.getChainInfoByNetworkId(
           this.networkId,
@@ -642,6 +647,7 @@ export default class VaultBtcFork extends VaultBase {
 
   private getFeeRate = memoizee(
     async () => {
+      // getRpcClient
       const client = await (await this.getProvider()).blockbook;
       const blockNums = this.getDefaultBlockNums();
       try {
@@ -671,7 +677,8 @@ export default class VaultBtcFork extends VaultBase {
     },
   );
 
-  createClientFromURL(url: string) {
+  override createClientFromURL(url: string) {
+    // TODO type mismatch
     return new BlockBook(url) as unknown as BaseClient;
   }
 

@@ -1,12 +1,12 @@
 import { Buffer } from 'buffer';
 
+import type { RevealableSeed } from '@onekeyhq/engine/src/secret';
 import {
   decrypt,
   encrypt,
-} from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import type { Avatar } from '@onekeyhq/shared/src/emojiUtils';
+import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { DBAccount } from '../types/account';
 import type { PrivateKeyCredential } from '../types/credential';
@@ -20,7 +20,6 @@ import type {
 import type { DBNetwork, UpdateNetworkParams } from '../types/network';
 import type { Token } from '../types/token';
 import type { Wallet } from '../types/wallet';
-import type { RevealableSeed } from '@onekeyfe/blockchain-libs/dist/secret';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type OneKeyContext = {

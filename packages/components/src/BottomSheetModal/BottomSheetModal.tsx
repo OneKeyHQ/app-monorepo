@@ -16,13 +16,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Header from '../Modal/Container/Header/Header';
 
+import type { HeaderProps } from '../Modal/Container/Header/type';
 import type { ModalizeProps } from 'react-native-modalize';
 
 interface BottomSheetModalProps {
   closeOverlay: () => void;
-  title: string;
-  headerRight?: ReactNode;
+  title: HeaderProps['header'];
+  headerDescription?: HeaderProps['headerDescription'];
+  headerRight?: HeaderProps['rightContent'];
   modalLizeProps?: ModalizeProps;
+  showCloseButton?: boolean;
 }
 
 const isFlatStyle = !platformEnv.isNativeIOS;
@@ -32,7 +35,9 @@ const Mobile: FC<BottomSheetModalProps> = ({
   children,
   modalLizeProps,
   title,
+  headerDescription,
   headerRight,
+  showCloseButton = true,
 }) => {
   const modalizeRef = useRef<Modalize>(null);
 
@@ -60,9 +65,10 @@ const Mobile: FC<BottomSheetModalProps> = ({
       <Box pb={`${bottom}px`}>
         <Header
           header={title}
+          headerDescription={headerDescription}
           hideBackButton
           onPressCloseButton={closeOverlay}
-          closeable
+          closeable={showCloseButton}
           rightContent={headerRight}
         />
         <Box p={4}>{children}</Box>
@@ -76,6 +82,7 @@ const Desktop: FC<BottomSheetModalProps> = ({
   children,
   title,
   headerRight,
+  showCloseButton = true,
 }) => (
   <Center position="absolute" w="full" h="full" zIndex={999}>
     <CloseBackDrop
@@ -94,7 +101,7 @@ const Desktop: FC<BottomSheetModalProps> = ({
         header={title}
         hideBackButton
         onPressCloseButton={closeOverlay}
-        closeable
+        closeable={showCloseButton}
         rightContent={headerRight}
       />
       <Box p={6}>{children}</Box>

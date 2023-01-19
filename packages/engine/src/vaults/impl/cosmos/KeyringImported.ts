@@ -1,13 +1,12 @@
 import { sha256 } from '@noble/hashes/sha256';
-import {
-  ed25519,
-  secp256k1,
-} from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
+import type { CurveName } from '@onekeyhq/engine/src/secret';
+import { ed25519, secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_COSMOS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -21,11 +20,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type { IEncodedTxCosmos } from './type';
-import type { CurveName } from '@onekeyfe/blockchain-libs/dist/secret';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {

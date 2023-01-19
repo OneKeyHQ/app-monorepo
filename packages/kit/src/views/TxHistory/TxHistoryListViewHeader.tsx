@@ -2,21 +2,22 @@ import { useIntl } from 'react-intl';
 
 import { Box, IconButton, Typography } from '@onekeyhq/components';
 
-import { useActiveWalletAccount } from '../../hooks';
-import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
+import { useNetwork } from '../../hooks';
+import { showAccountValueSettings } from '../Overlay/AccountHistorySettings';
 
 import { useTxHistoryContext } from './TxHistoryContext';
 
 export function TxHistoryListViewHeaderBar({
   isLoading,
   refresh,
+  networkId,
 }: {
   isLoading?: boolean;
   refresh?: () => void;
+  networkId: string;
 }) {
   const intl = useIntl();
-  const { network, account } = useActiveWalletAccount();
-  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+  const { network } = useNetwork({ networkId });
   return (
     <Box
       flexDirection="row"
@@ -39,19 +40,17 @@ export function TxHistoryListViewHeaderBar({
           type="plain"
           circle
         />
-        {hasAvailable ? (
+        {network?.settings?.supportFilterScam && (
           <IconButton
-            onPress={() => {
-              openAddressDetails(account?.address);
-            }}
+            onPress={showAccountValueSettings}
             ml={3}
             p={2}
             size="sm"
-            name="ArrowTopRightOnSquareMini"
+            name="Cog8ToothMini"
             type="plain"
             circle
           />
-        ) : null}
+        )}
       </Box>
     </Box>
   );
@@ -59,16 +58,18 @@ export function TxHistoryListViewHeaderBar({
 
 export function TxHistoryListViewHeader(props: {
   isEmpty: boolean;
+  networkId: string;
   refresh?: () => void;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isEmpty, refresh } = props;
+  const { isEmpty, refresh, networkId } = props;
   const txDetailContext = useTxHistoryContext();
 
   return (
     <Box key="header">
       {txDetailContext?.context?.headerView}
       <TxHistoryListViewHeaderBar
+        networkId={networkId}
         refresh={txDetailContext?.context.refresh ?? refresh}
         isLoading={txDetailContext?.context.isLoading}
       />

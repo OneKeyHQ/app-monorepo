@@ -41,6 +41,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
 import { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
 
+import {
+  requestsInterceptTest,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  requestsInterceptTest2,
+} from './requestsInterceptTest';
+
 interface IOneKeyPerfCheckPayload {
   testID?: string;
   componentName?: string;
@@ -337,6 +343,41 @@ export const DevSettingSection = () => {
               );
             }}
           />
+        </Container.Item>
+
+        <Container.Item
+          title="Request intercept check"
+          titleColor="text-critical"
+        >
+          <Button
+            size="xs"
+            onPress={async () => {
+              const r = await requestsInterceptTest();
+
+              console.log(
+                'requestsInterceptTest stringify text >>>>>',
+                JSON.stringify(r, null, 2),
+              );
+              console.log('requestsInterceptTest result >>>> ', r);
+
+              if (r.failed.length) {
+                ToastManager.show(
+                  {
+                    title: 'failed, please check console log',
+                  },
+                  {
+                    type: 'error',
+                  },
+                );
+              } else {
+                ToastManager.show({
+                  title: 'success',
+                });
+              }
+            }}
+          >
+            Intercept Test
+          </Button>
         </Container.Item>
       </Container.Box>
     </Box>

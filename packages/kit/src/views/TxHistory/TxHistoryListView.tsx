@@ -24,6 +24,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
+import { useFilterScamHistory } from '../../hooks/useScam';
 import { wait } from '../../utils/helper';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
@@ -141,25 +142,39 @@ function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
 function TxHistoryListSectionList(props: {
   data: IHistoryTx[];
   SectionListComponent: typeof SectionList;
+  accountId: string;
+  networkId: string;
 }) {
-  const { data: historyListData, SectionListComponent } = props;
+  const {
+    accountId,
+    networkId,
+    data: historyListData,
+    SectionListComponent,
+  } = props;
   const { size } = useUserDevice();
   const formatDate = useFormatDate();
   const responsivePadding = useMemo(() => {
     if (['NORMAL', 'LARGE'].includes(size)) return 32;
     return 16;
   }, [size]);
+
+  const { filteredHistory } = useFilterScamHistory({
+    accountId,
+    networkId,
+    history: historyListData,
+  });
+
   const sections = useMemo(
     () =>
       convertToSectionGroups({
-        items: historyListData,
+        items: filteredHistory,
         formatDate: (date: number) =>
           formatDate.formatDate(new Date(date), {
             hideTheYear: true,
             hideTimeForever: true,
           }),
       }),
-    [formatDate, historyListData],
+    [formatDate, filteredHistory],
   );
   const isEmpty = !sections || !sections.length;
 
@@ -197,7 +212,11 @@ function TxHistoryListSectionList(props: {
     },
     sections,
     ListHeaderComponent: (
-      <TxHistoryListViewHeader key="header" isEmpty={isEmpty} />
+      <TxHistoryListViewHeader
+        key="header"
+        isEmpty={isEmpty}
+        networkId={networkId}
+      />
     ),
     ListEmptyComponent: <TxHistoryListViewEmpty key="empty" />,
     ListFooterComponent: <Box key="footer" h="20px" />,
@@ -369,6 +388,8 @@ function TxHistoryListViewComponent({
 
   return (
     <TxHistoryListSectionsMemo
+      accountId={accountId}
+      networkId={networkId}
       data={historyListData}
       SectionListComponent={SectionListComponent}
     />

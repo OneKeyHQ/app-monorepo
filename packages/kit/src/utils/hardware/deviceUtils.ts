@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { toPlainErrorObject } from '@onekeyhq/shared/src/sharedUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import showHardwarePopup, {

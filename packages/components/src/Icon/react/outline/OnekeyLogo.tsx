@@ -1,6 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgOnekeyLogo = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+  <Svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       fillRule="evenodd"
       clipRule="evenodd"

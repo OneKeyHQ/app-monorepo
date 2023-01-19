@@ -1,8 +1,7 @@
-import { ethers } from '@onekeyfe/blockchain-libs';
-
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TxStatus } from '../../../../types/covalent';
+import { ethers } from '../sdk/ethers';
 
 import { ABI } from './abi';
 import { parseGasInfo, updateGasInfo } from './gasParser';

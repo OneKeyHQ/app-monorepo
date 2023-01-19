@@ -376,6 +376,7 @@ export { default as Truck } from './Truck';
 export { default as Tv } from './Tv';
 export { default as Twitter } from './Twitter';
 export { default as Upload } from './Upload';
+export { default as UsbCable } from './UsbCable';
 export { default as UserAdd } from './UserAdd';
 export { default as UserCircle } from './UserCircle';
 export { default as UserGroup } from './UserGroup';
