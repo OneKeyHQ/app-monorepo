@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { NativeEventEmitter, NativeModules } from 'react-native';
 import RNUUID from 'react-native-uuid';
 
 import type {
@@ -7,7 +6,6 @@ import type {
   MigrateData,
   MigrateServiceResp,
 } from '@onekeyhq/engine/src/types/migrate';
-import { setEnabled } from '@onekeyhq/kit/src/store/reducers/httpServer';
 import { deviceInfo } from '@onekeyhq/kit/src/views/Onboarding/screens/Migration/util';
 import {
   backgroundClass,
@@ -17,18 +15,22 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
+import { HTTPServiceNames } from './ServiceHTTP';
 
-import type { EmitterSubscription } from 'react-native';
+import type { RequestData } from './ServiceHTTP';
 
 enum MigrateAPINames {
-  Connect = '/connect',
-  DisConnect = '/disConnect',
-  SendData = '/send',
-  RequestData = '/data',
+  Connect = '/migrate/connect',
+  DisConnect = '/migrate/disConnect',
+  SendData = '/migrate/send',
+  RequestData = '/migrate/data',
 }
 
 export enum MigrateNotificationNames {
@@ -37,37 +39,10 @@ export enum MigrateNotificationNames {
   Other = 'Other',
 }
 
-type RequestData = {
-  requestId: string;
-  postData?: any; // body
-  type: string;
-  url: string;
-};
-
 export type MigrateNotificationData = {
   type: MigrateNotificationNames;
   data: RequestData;
 };
-
-const { HTTPServerManager } = NativeModules;
-const HttpServerManagerEmitter = new NativeEventEmitter(HTTPServerManager);
-
-function httpServerEnable() {
-  if (platformEnv.isDesktop || platformEnv.isNative) {
-    return true;
-  }
-  return false;
-}
-
-function migrateServerPort() {
-  if (platformEnv.isNativeIOS) {
-    return 20231;
-  }
-  if (platformEnv.isDesktop) {
-    return 20232;
-  }
-  return 20233;
-}
 
 export function checkServerUrl(serverUrl: string) {
   try {
@@ -106,17 +81,7 @@ class ServiceMigrate extends ServiceBase {
     return this.randomUUID;
   }
 
-  httpServerEnable?: boolean;
-
   serverUrl?: string;
-
-  @backgroundMethod()
-  initServiceMigrate() {
-    const { dispatch } = this.backgroundApi;
-    const enable = httpServerEnable();
-    this.httpServerEnable = enable;
-    dispatch(setEnabled(enable));
-  }
 
   @backgroundMethod()
   async connectServer(ipAddress: string) {
@@ -204,60 +169,6 @@ class ServiceMigrate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async startHttpServer(): Promise<string | undefined> {
-    if (!this.httpServerEnable) {
-      return Promise.resolve('');
-    }
-    const port = migrateServerPort();
-    if (platformEnv.isNative) {
-      return new Promise((resolve) => {
-        HTTPServerManager.start(port, 'http_service', (data, success) => {
-          if (success) {
-            this.listenHttpRequest();
-            this.serverUrl = data;
-            return resolve(data);
-          }
-          return resolve('');
-        });
-      });
-    }
-    if (platformEnv.isDesktop) {
-      return new Promise((resolve) => {
-        window.desktopApi.startServer(port, (data, success) => {
-          if (success) {
-            this.listenHttpRequest();
-            this.serverUrl = data;
-            return resolve(data);
-          }
-          return resolve('');
-        });
-      });
-    }
-  }
-
-  subscription?: EmitterSubscription;
-
-  @backgroundMethod()
-  listenHttpRequest() {
-    if (!this.httpServerEnable) {
-      return;
-    }
-    if (platformEnv.isNative) {
-      this.subscription = HttpServerManagerEmitter.addListener(
-        'httpServerResponseReceived',
-        (content) => {
-          this.receivedHttpRequest(content);
-        },
-      );
-    }
-    if (platformEnv.isDesktop) {
-      window.desktopApi.serverListener((content) => {
-        this.receivedHttpRequest(content);
-      });
-    }
-  }
-
-  @backgroundMethod()
   isConnectedUUID(uuid: string) {
     if (uuid.length === 0) {
       return false;
@@ -268,12 +179,21 @@ class ServiceMigrate extends ServiceBase {
     return true;
   }
 
-  @backgroundMethod()
-  receivedHttpRequest(content: RequestData) {
-    const { requestId, url: urlPath } = content;
+  receivedHttpRequest = ({
+    type,
+    data,
+  }: {
+    type: string;
+    data: RequestData;
+  }) => {
+    if (type !== HTTPServiceNames.Migrate) {
+      return;
+    }
+    const { requestId, url: urlPath } = data;
     // console.log('type = ', type);
     // console.log('urlPath = ', urlPath);
     // console.log('postData = ', postData);
+    const { serviceHTTP } = this.backgroundApi;
 
     const url = new URL(urlPath, 'http://example.com');
     const { pathname: apiName, searchParams } = url;
@@ -283,105 +203,76 @@ class ServiceMigrate extends ServiceBase {
 
     if (apiName === MigrateAPINames.Connect) {
       if (!this.isConnectedUUID(uuid)) {
-        this.serverRespond({
+        serviceHTTP.serverRespond({
           requestId,
           respondData: { success: false },
         });
         return;
       }
       this.connectUUID = uuid;
-      this.serverRespond({
+      serviceHTTP.serverRespond({
         requestId,
         respondData: { success: true, data: deviceInfo() },
       });
     } else if (apiName === MigrateAPINames.DisConnect) {
       if (this.isConnectedUUID(uuid)) {
         this.connectUUID = '';
-        this.serverRespond({
+        serviceHTTP.serverRespond({
           requestId,
           respondData: { success: true },
         });
       } else {
-        this.serverRespond({
+        serviceHTTP.serverRespond({
           requestId,
           respondData: { success: false },
         });
       }
     } else if (apiName === MigrateAPINames.SendData) {
       if (!this.isConnectedUUID(uuid)) {
-        this.serverRespond({
+        serviceHTTP.serverRespond({
           requestId,
           respondData: { success: false },
         });
         return;
       }
-      appEventBus.emit(AppEventBusNames.HttpServerRequest, {
+      appUIEventBus.emit(AppUIEventBusNames.Migrate, {
         type: MigrateNotificationNames.ReceiveDataFromClient,
-        data: content,
+        data,
       });
     } else if (apiName === MigrateAPINames.RequestData) {
       if (!this.isConnectedUUID(uuid)) {
-        this.serverRespond({
+        serviceHTTP.serverRespond({
           requestId,
           respondData: { success: false },
         });
         return;
       }
-      appEventBus.emit(AppEventBusNames.HttpServerRequest, {
+      appUIEventBus.emit(AppUIEventBusNames.Migrate, {
         type: MigrateNotificationNames.RequestDataFromClient,
-        data: content,
+        data,
       });
     } else {
-      appEventBus.emit(AppEventBusNames.HttpServerRequest, {
+      appUIEventBus.emit(AppUIEventBusNames.Migrate, {
         type: MigrateNotificationNames.Other,
-        data: content,
+        data,
       });
     }
+  };
+
+  @backgroundMethod()
+  registerHttpEvents() {
+    appEventBus.on(
+      AppEventBusNames.HttpServerRequest,
+      this.receivedHttpRequest,
+    );
   }
 
   @backgroundMethod()
-  serverRespond({
-    requestId,
-    respondData,
-  }: {
-    requestId: string;
-    respondData: MigrateServiceResp<any>;
-  }) {
-    if (!this.httpServerEnable) {
-      return;
-    }
-    if (platformEnv.isNative) {
-      HTTPServerManager.respond(
-        requestId,
-        200,
-        'application/json',
-        JSON.stringify(respondData),
-      );
-    } else if (platformEnv.isDesktop) {
-      window.desktopApi.serverRespond(
-        requestId,
-        200,
-        'application/json',
-        JSON.stringify(respondData),
-      );
-    }
-  }
-
-  @backgroundMethod()
-  stopHttpServer() {
-    this.connectUUID = '';
-    if (!this.httpServerEnable) {
-      return;
-    }
-    if (platformEnv.isNative) {
-      if (this.subscription) {
-        this.subscription.remove();
-      }
-
-      HTTPServerManager.stop();
-    } else if (platformEnv.isDesktop) {
-      window.desktopApi.stopServer();
-    }
+  unRegisterHttpEvents() {
+    appEventBus.removeListener(
+      AppEventBusNames.HttpServerRequest,
+      this.receivedHttpRequest,
+    );
   }
 }
 

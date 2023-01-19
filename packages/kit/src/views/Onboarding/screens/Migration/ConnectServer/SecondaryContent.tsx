@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -25,20 +25,21 @@ import type {
   DeviceInfo,
   MigrateData,
 } from '@onekeyhq/engine/src/types/migrate';
+import { httpServerEnable } from '@onekeyhq/kit-bg/src/services/ServiceHTTP';
 import { MigrateNotificationNames } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
 import type { MigrateNotificationData } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import { httpServerEnable, parseDeviceInfo } from '../util';
+import { OneKeyMigrateQRCodePrefix, parseDeviceInfo } from '../util';
 
 import { ExportResult, useConnectServer, useExportData } from './hook';
 import { showSendDataRequestModal } from './SendDataRequestModal';
@@ -54,36 +55,13 @@ function hostWithURL(url: string) {
   return res;
 }
 
-const QRCodeView: FC = () => {
+const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
   const intl = useIntl();
-  const { serviceMigrate } = backgroundApiProxy;
+  const { serviceHTTP } = backgroundApiProxy;
 
   const { exportDataRequest } = useExportData();
 
   const navigation = useNavigation();
-  const [serverAddress, updateServerAddress] = useState('');
-  const startHttpServer = useCallback(async () => {
-    const serverUrl = await serviceMigrate.startHttpServer();
-    if (serverUrl) {
-      debugLogger.migrate.info('startHttpServer', serverUrl);
-
-      updateServerAddress(serverUrl);
-      return true;
-    }
-    return false;
-  }, [serviceMigrate]);
-
-  useEffect(() => {
-    if (serverAddress.length === 0) {
-      startHttpServer();
-    }
-    return () => {
-      if (serverAddress.length > 0) {
-        serviceMigrate.stopHttpServer();
-        debugLogger.migrate.info('stopHttpServer');
-      }
-    };
-  }, [serverAddress.length, serviceMigrate, startHttpServer]);
 
   const showModal = useRef<boolean>(false);
 
@@ -103,12 +81,12 @@ const QRCodeView: FC = () => {
                 screen: EOnboardingRoutes.MigrationPreview,
                 params: { data: json },
               });
-              serviceMigrate.serverRespond({
+              serviceHTTP.serverRespond({
                 requestId,
                 respondData: { success: true },
               });
             } else {
-              serviceMigrate.serverRespond({
+              serviceHTTP.serverRespond({
                 requestId,
                 respondData: {
                   success: false,
@@ -118,7 +96,7 @@ const QRCodeView: FC = () => {
               throw new Error(`can not fount public/private.`);
             }
           } else {
-            serviceMigrate.serverRespond({
+            serviceHTTP.serverRespond({
               requestId,
               respondData: {
                 success: false,
@@ -145,7 +123,7 @@ const QRCodeView: FC = () => {
               if (isConfirm) {
                 const { status, data: exportData } = await exportDataRequest();
                 if (status === ExportResult.SUCCESS && data) {
-                  serviceMigrate.serverRespond({
+                  serviceHTTP.serverRespond({
                     requestId,
                     respondData: { success: true, data: exportData },
                   });
@@ -168,7 +146,7 @@ const QRCodeView: FC = () => {
                 }
                 return false;
               }
-              serviceMigrate.serverRespond({
+              serviceHTTP.serverRespond({
                 requestId,
                 respondData: { success: false },
               });
@@ -178,13 +156,13 @@ const QRCodeView: FC = () => {
         }
       }
     },
-    [exportDataRequest, intl, navigation, serviceMigrate],
+    [exportDataRequest, intl, navigation, serviceHTTP],
   );
 
   useEffect(() => {
-    appEventBus.on(AppEventBusNames.HttpServerRequest, httpServerRequest);
+    appUIEventBus.on(AppUIEventBusNames.Migrate, httpServerRequest);
     return () => {
-      appEventBus.removeAllListeners(AppEventBusNames.HttpServerRequest);
+      appUIEventBus.removeAllListeners(AppUIEventBusNames.Migrate);
     };
   }, [httpServerRequest]);
 
@@ -201,7 +179,7 @@ const QRCodeView: FC = () => {
           shadow="depth.1"
         >
           <QRCode
-            value={`migrate://${serverAddress}`}
+            value={`${OneKeyMigrateQRCodePrefix}${serverAddress}`}
             size={170}
             logo={qrcodeLogo}
             logoSize={36}
@@ -237,6 +215,8 @@ const QRCodeView: FC = () => {
   );
 };
 
+const MemoQRcodeView = memo(QRCodeView);
+
 const EnterLinkView: FC = () => {
   const intl = useIntl();
   const [value, setValue] = useState('');
@@ -260,8 +240,8 @@ const EnterLinkView: FC = () => {
             type="plain"
             onPress={() => {
               gotoScanQrcode((data) => {
-                if (data.startsWith('migrate://')) {
-                  setValue(data.replace('migrate://', ''));
+                if (data.startsWith(OneKeyMigrateQRCodePrefix)) {
+                  setValue(data.replace(OneKeyMigrateQRCodePrefix, ''));
                 }
               });
             }}
@@ -297,6 +277,28 @@ const SecondaryContent: FC<{
   onChange: (index: number) => void;
 }> = ({ selectRange, onChange }) => {
   const intl = useIntl();
+  const { serviceHTTP } = backgroundApiProxy;
+
+  const [serverAddress, updateServerAddress] = useState('');
+  const startHttpServer = useCallback(async () => {
+    const serverUrl = await serviceHTTP.startHttpServer();
+    if (serverUrl) {
+      debugLogger.migrate.info('startHttpServer', serverUrl);
+
+      updateServerAddress(serverUrl);
+      return true;
+    }
+    return false;
+  }, [serviceHTTP]);
+
+  useEffect(() => {
+    if (selectRange === 0) {
+      startHttpServer();
+    } else {
+      serviceHTTP.stopHttpServer();
+      updateServerAddress('');
+    }
+  }, [selectRange, serviceHTTP, startHttpServer]);
 
   return (
     <>
@@ -315,7 +317,11 @@ const SecondaryContent: FC<{
       ) : null}
 
       <Center flex={1}>
-        {selectRange === 0 ? <QRCodeView /> : <EnterLinkView />}
+        {selectRange === 0 ? (
+          <MemoQRcodeView serverAddress={serverAddress} />
+        ) : (
+          <EnterLinkView />
+        )}
       </Center>
     </>
   );
