@@ -31,7 +31,7 @@ const { HTTPServerManager } = NativeModules;
 const HttpServerManagerEmitter = new NativeEventEmitter(HTTPServerManager);
 
 export function httpServerEnable() {
-  if (platformEnv.isDesktop || platformEnv.isNativeIOS) {
+  if (platformEnv.isDesktop || platformEnv.isNative) {
     return true;
   }
   return false;
