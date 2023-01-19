@@ -195,7 +195,7 @@ const ImportWallet = () => {
   }, [navigation]);
 
   const onPressMigration = useCallback(() => {
-    navigation.navigate(EOnboardingRoutes.Migration);
+    navigation.navigate(EOnboardingRoutes.Migration, {});
   }, [navigation]);
 
   const onPressOneKeyLite = useCallback(() => {

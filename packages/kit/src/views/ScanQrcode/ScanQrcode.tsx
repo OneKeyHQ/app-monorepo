@@ -17,12 +17,14 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import PermissionDialog from '../../components/PermissionDialog/PermissionDialog';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import useNavigation from '../../hooks/useNavigation';
 import { handleScanResult } from '../../utils/gotoScanQrcode';
-import { useConnectServer } from '../Onboarding/screens/Migration/ConnectServer/hook';
+import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 import { OneKeyMigrateQRCodePrefix } from '../Onboarding/screens/Migration/util';
 
 import ScanCamera from './ScanCamera';
@@ -49,8 +51,8 @@ const ScanQrcode: FC = () => {
   const scanned = useRef(false);
   const isFocused = useIsFocused();
   const isVerticalLayout = useIsVerticalLayout();
-  const { connectServer } = useConnectServer();
   const navigation = useNavigation<ScanQrcodeNavProp>();
+  const appNavigation = useAppNavigation();
   const route = useRoute<ScanQrcodeRouteProp>();
   const onScanCompleted = route.params?.onScanCompleted;
 
@@ -70,7 +72,10 @@ const ScanQrcode: FC = () => {
         if (scanResult.type === ScanSubResultCategory.MIGRATE) {
           navigation.goBack();
           setTimeout(() => {
-            connectServer(data.replace(OneKeyMigrateQRCodePrefix, ''));
+            appNavigation.navigate(RootRoutes.Onboarding, {
+              screen: EOnboardingRoutes.Migration,
+              params: { scanText: data.replace(OneKeyMigrateQRCodePrefix, '') },
+            });
           }, 150);
           return;
         }
@@ -81,7 +86,7 @@ const ScanQrcode: FC = () => {
         navigation.goBack();
       }
     },
-    [connectServer, navigation, onScanCompleted],
+    [appNavigation, navigation, onScanCompleted],
   );
 
   const pickImage = useCallback(async () => {

@@ -60,7 +60,7 @@ export type IOnboardingRoutesParams = {
     numOfContacts: number;
   };
   [EOnboardingRoutes.KeyTag]: undefined;
-  [EOnboardingRoutes.Migration]: undefined;
+  [EOnboardingRoutes.Migration]: { scanText?: string };
   [EOnboardingRoutes.MigrationPreview]: {
     data: MigrateData;
   };

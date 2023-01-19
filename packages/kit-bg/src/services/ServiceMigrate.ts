@@ -71,7 +71,7 @@ class ServiceMigrate extends ServiceBase {
   private connectUUID = '';
 
   private client = axios.create({
-    timeout: 60 * 1000,
+    timeout: 5 * 1000,
   });
 
   private ensureUUID({ reset }: { reset: boolean }) {

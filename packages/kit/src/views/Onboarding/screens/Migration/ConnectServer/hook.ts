@@ -1,9 +1,7 @@
 import { useCallback } from 'react';
 
 import { isEmpty } from 'lodash';
-import { useIntl } from 'react-intl';
 
-import { ToastManager } from '@onekeyhq/components';
 import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
@@ -74,29 +72,25 @@ export function useExportData() {
 
 export function useConnectServer() {
   const { serviceMigrate } = backgroundApiProxy;
-  const intl = useIntl();
 
   const connectServer = useCallback(
     async (serverAddress: string) => {
+      console.log('connectServer');
+
       const serverInfo = await serviceMigrate.connectServer(serverAddress);
+      console.log('serverInfo = ', serverInfo);
+
       if (serverInfo) {
         showMigrateDataModal({
           serverInfo,
           serverAddress,
           clientInfo: deviceInfo(),
         });
-      } else {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({
-              id: 'msg__invalid_link_or_network_error',
-            }),
-          },
-          { type: 'error' },
-        );
+        return true;
       }
+      return false;
     },
-    [intl, serviceMigrate],
+    [serviceMigrate],
   );
 
   return { connectServer };
