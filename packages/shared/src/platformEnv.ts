@@ -22,6 +22,8 @@ const { NODE_ENV } = process.env;
 const { JEST_WORKER_ID } = process.env;
 
 export type IPlatformEnv = {
+  version: string | undefined;
+  buildNumber: string | undefined;
   NODE_ENV?: string;
   JEST_WORKER_ID?: string;
 
@@ -227,6 +229,9 @@ export const isManifestV3: boolean =
 export const canGetClipboard: boolean = !isWeb && !isExtension;
 
 const platformEnv: IPlatformEnv = {
+  version: process.env.VERSION,
+  buildNumber: process.env.BUILD_NUMBER,
+
   NODE_ENV,
   JEST_WORKER_ID,
 
