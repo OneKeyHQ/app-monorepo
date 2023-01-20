@@ -68,7 +68,7 @@ export const useManageTokensOfAccount = ({
         if (isFocused) {
           fetchAccountTokens();
         }
-      }, 3000);
+      }, pollingInterval);
     }
     return () => {
       clearInterval(timer);

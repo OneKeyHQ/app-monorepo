@@ -34,13 +34,13 @@ export const setThumbnailRatio = (ratio: number) => {
   thumbnailRatio = ratio;
 };
 const thumbnailWidth = 340;
-const getTabCellLayout = (tabId: string, callback?: () => void) => {
+const getTabCellLayout = (tabId: string, callback: () => void) => {
   tabGridRefs[tabId]?.measure((x, y, width, height, pageX, pageY) => {
     targetPreviewX.value = pageX;
     targetPreviewY.value = pageY;
     targetPreviewWidth.value = width;
     targetPreviewHeight.value = height;
-    callback?.();
+    callback();
   });
 };
 export const showTabGrid = () => {

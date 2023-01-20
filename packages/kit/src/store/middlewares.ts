@@ -10,7 +10,7 @@ import type { Middleware } from 'redux';
 //     return result as unknown;
 //   };
 
-const middlewares = [
+const middlewares: Middleware<unknown, unknown>[] = [
   // simpleLogger,
   // logger,
   // backgroundCheck,
