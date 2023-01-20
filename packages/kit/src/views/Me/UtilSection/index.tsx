@@ -12,8 +12,15 @@ import {
   useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutesParams,
+  ModalScreenProps,
+} from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
