@@ -23,6 +23,7 @@ import PermissionDialog from '../../components/PermissionDialog/PermissionDialog
 import useNavigation from '../../hooks/useNavigation';
 import { handleScanResult } from '../../utils/gotoScanQrcode';
 import { useConnectServer } from '../Onboarding/screens/Migration/ConnectServer/hook';
+import { OneKeyMigrateQRCodePrefix } from '../Onboarding/screens/Migration/util';
 
 import ScanCamera from './ScanCamera';
 import { scanFromURLAsync } from './scanFromURLAsync';
@@ -69,7 +70,7 @@ const ScanQrcode: FC = () => {
         if (scanResult.type === ScanSubResultCategory.MIGRATE) {
           navigation.goBack();
           setTimeout(() => {
-            connectServer(data.replace('migrate://', ''));
+            connectServer(data.replace(OneKeyMigrateQRCodePrefix, ''));
           }, 150);
           return;
         }

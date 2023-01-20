@@ -2,26 +2,21 @@
 import { createServer } from 'http';
 
 import { ipcMain } from 'electron';
+import RNUUID from 'react-native-uuid';
 
 import type { IncomingMessage, Server, ServerResponse } from 'http';
 
 const init = () => {
-  // Enable feature on FE once it's ready
-
   let server: Server;
 
-  const resMap: Record<string, ServerResponse> = {};
+  const resMap: Record<string, ServerResponse | null> = {};
   ipcMain.on('server/start', (event, port: number) => {
     try {
       if (!server) {
         server = createServer(
           { keepAlive: true },
           (request: IncomingMessage, response: ServerResponse) => {
-            const timestamp = Date.now();
-            const requestId = `${timestamp}:${Math.floor(
-              Math.random() * 1000000,
-            )}`;
-
+            const requestId = RNUUID.v4() as string;
             const { method, url } = request;
             if (method === 'GET') {
               event.reply('server/listener', {
@@ -82,6 +77,7 @@ const init = () => {
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       });
       res.end(body);
+      resMap[requestId] = null;
     }
   });
 
