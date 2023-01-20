@@ -6,6 +6,7 @@ import axios from 'axios';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { Image } from 'react-native';
 
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { formatBytes } from './homescreens';
@@ -38,11 +39,23 @@ const getImageSize: (
  * @param image
  */
 export const imageToBase64 = async (image: string) => {
-  const response = await axios.get(image, {
-    responseType: 'arraybuffer',
-  });
-  const buffer = Buffer.from(response.data, 'binary').toString('base64');
-  return `data:${response.headers['content-type']};base64,${buffer}`;
+  try {
+    const response = await axios.get(image, {
+      responseType: 'arraybuffer',
+      headers: {
+        accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;',
+      },
+    });
+    const buffer = Buffer.from(response.data, 'binary').toString('base64');
+    return `data:${response.headers['content-type']};base64,${buffer}`;
+  } catch {
+    // fallback to download image by backend service
+    return axios
+      .post<string>(`${getFiatEndpoint()}/image/img2base64`, {
+        url: image,
+      })
+      .then((i) => i.data);
+  }
 };
 
 function getOriginX(
