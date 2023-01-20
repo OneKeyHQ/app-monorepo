@@ -53,6 +53,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { SendRoutes } from '../../../../routes';
+import { deviceUtils } from '../../../../utils/hardware';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
 
@@ -187,10 +188,20 @@ const NFTDetailModal: FC = () => {
       const hwDevice = await backgroundApiProxy.engine.getHWDeviceByWalletId(
         wallet.id,
       );
-      setShowMenu(hwDevice?.deviceType === 'touch');
+      const supportContentType = [
+        'image/gif',
+        'image/svg',
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+      ];
+      const isSupportType = supportContentType.includes(
+        asset.contentType ?? '',
+      );
+      setShowMenu(hwDevice?.deviceType === 'touch' && isSupportType);
       setDevice(hwDevice);
     })();
-  }, [wallet]);
+  }, [wallet, asset]);
 
   const onCollectToTouch = useCallback(async () => {
     let uri;
@@ -227,11 +238,18 @@ const NFTDetailModal: FC = () => {
       return;
     }
     if (uploadResParams) {
-      await serviceHardware.uploadResource(device?.mac ?? '', uploadResParams);
+      try {
+        await serviceHardware.uploadResource(
+          device?.mac ?? '',
+          uploadResParams,
+        );
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__change_saved' }),
+        });
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+      }
     }
-    ToastManager.show({
-      title: intl.formatMessage({ id: 'msg__change_saved' }),
-    });
   }, [asset, device, intl, serviceHardware, network]);
 
   const goToCollectionDetail = useCollectionDetail();
