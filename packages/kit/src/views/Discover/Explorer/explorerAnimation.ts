@@ -45,7 +45,7 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
 };
 export const showTabGrid = () => {
   const { currentTabId } = appSelector((s) => s.webTabs);
-  if (platformEnv.isNative) {
+  if (platformEnv.isNative && tabViewShotRef.current) {
     captureRef(tabViewShotRef, {
       format: 'jpg',
       width: thumbnailWidth,

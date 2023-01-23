@@ -7,7 +7,7 @@ import ViewShot from 'react-native-view-shot';
 import { homeTab } from '../../../../store/reducers/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
-import { openMatchDApp } from '../Controller/gotoSite';
+import { onItemSelect, openMatchDApp } from '../Controller/gotoSite';
 import { useNotifyChanges } from '../Controller/useNotifyChanges';
 import { useWebTabs } from '../Controller/useWebTabs';
 import { setThumbnailRatio, tabViewShotRef } from '../explorerAnimation';
@@ -15,6 +15,10 @@ import { setThumbnailRatio, tabViewShotRef } from '../explorerAnimation';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  blankPage: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
 });
 const WebTabFront = memo(() => {
@@ -45,19 +49,14 @@ const WebTabFront = memo(() => {
   return (
     <ViewShot style={styles.container} ref={tabViewShotRef} onLayout={onLayout}>
       {content}
-      <View
-        style={{
-          ...StyleSheet.absoluteFillObject,
-          zIndex: showHome ? 1 : -1,
-        }}
-      >
-        <DiscoverHome
-          onItemSelect={(dapp) => {
-            openMatchDApp({ id: dapp._id, dapp });
-          }}
-          onItemSelectHistory={openMatchDApp}
-        />
-      </View>
+      <Freeze freeze={!showHome}>
+        <View style={styles.blankPage}>
+          <DiscoverHome
+            onItemSelect={onItemSelect}
+            onItemSelectHistory={openMatchDApp}
+          />
+        </View>
+      </Freeze>
     </ViewShot>
   );
 });
