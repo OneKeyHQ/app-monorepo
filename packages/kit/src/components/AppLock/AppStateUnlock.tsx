@@ -23,6 +23,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { HtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
 import { wait } from '../../utils/helper';
 import { showSplashScreen } from '../../views/Overlay/showSplashScreen';
 
@@ -137,6 +138,7 @@ export const AppStateUnlock = () => {
   return (
     <KeyboardDismissView>
       <Center testID="AppStateUnlock" w="full" h="full" bg="background-default">
+        <HtmlPreloadSplashLogoRemove />
         <Box
           maxW="96"
           p="8"
@@ -150,7 +152,9 @@ export const AppStateUnlock = () => {
         >
           <Box width="full" py={py}>
             <Box display="flex" flexDirection="column" alignItems="center">
-              <Icon name="BrandLogoIllus" size={50} />
+              <Box minH={50}>
+                <Icon name="BrandLogoIllus" size={50} />
+              </Box>
               <Typography.DisplayXLarge my="2">OneKey</Typography.DisplayXLarge>
               <Typography.Body1 color="text-subdued">
                 {intl.formatMessage({

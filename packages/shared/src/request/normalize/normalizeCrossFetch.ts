@@ -1,6 +1,11 @@
-import { isNil } from 'lodash';
+import { isNil, isString } from 'lodash';
 
 import platformEnv from '../../platformEnv';
+
+import {
+  RequestInterceptorBase,
+  RequestLibNames,
+} from './RequestInterceptorBase';
 /* patch node_modules/cross-fetch/dist/browser-ponyfill.js
 
 var ctx = __self__; // this line disable service worker support temporarily
@@ -9,7 +14,49 @@ ctx.fetch = require('@onekeyhq/shared/src/request/normalize/normalizeCrossFetch'
 });
 
  */
+
 type ICrossFetch = typeof import('cross-fetch');
+
+class RequestInterceptorFetch extends RequestInterceptorBase {
+  constructor(options: RequestInit) {
+    super();
+    this.options = options;
+  }
+
+  options: RequestInit;
+
+  requestLibName: RequestLibNames = RequestLibNames.fetch;
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setDefaultRetry(count: number): void {}
+
+  // TODO
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setDefaultTimeout(ms: number): void {
+    if (this.options.signal) {
+      if (!platformEnv.isNative) {
+        // console.log('cross-fetch with timeout signal >>>>>');
+      }
+    }
+  }
+
+  setHeader(key: string, val: string): void {
+    this.options.headers = this.options.headers || {};
+    // @ts-ignore
+    this.options.headers[key] = val;
+  }
+}
+
+function getUrlFromResource(resource: RequestInfo | URL | string) {
+  if (isString(resource)) {
+    return resource;
+  }
+  if (resource instanceof URL) {
+    return resource.href;
+  }
+  return resource.url;
+}
+
 export function normalizeCrossFetch({
   fetch,
 }: {
@@ -27,7 +74,7 @@ export function normalizeCrossFetch({
 
   const fetchOrigin = fetch;
   const newFetch = function (
-    resource: RequestInfo | URL,
+    resource: RequestInfo | URL | string,
     options?: RequestInit,
     ...others: any[]
   ) {
@@ -35,17 +82,12 @@ export function normalizeCrossFetch({
       // eslint-disable-next-line no-param-reassign
       options = {};
     }
-    options.headers = options.headers || {};
-    // @ts-ignore
-    options.headers['X-Request-By'] = 'OneKey/fetch';
-    if (options.signal) {
-      if (!platformEnv.isNative) {
-        // console.log('cross-fetch with timeout signal >>>>>');
-      }
-    }
+    const interceptor = new RequestInterceptorFetch(options);
+    const url = getUrlFromResource(resource);
+    interceptor.interceptRequest({ url });
 
     if (!platformEnv.isNative) {
-      // TODO native console cause cycle request, should ignore http://localhost:8081/logs
+      // TODO native console log cause cycle request, should ignore http://localhost:8081/logs
       // http://localhost:8081/logs
       // console.log(
       //   'cross-fetch intercept request 008 >>>> ',
