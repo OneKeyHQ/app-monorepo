@@ -140,7 +140,8 @@ export function warningIfNotRunInBackground({
         !err.stack.includes('backgroundApiInit') &&
         !err.stack.includes('BackgroundApiBase') &&
         !err.stack.includes('BackgroundApi') &&
-        !err.stack.includes('background.bundle.js')
+        !err.stack.includes('background.bundle.js') &&
+        !err.stack.includes('background.')
       ) {
         const msg = `${name} should run in background`;
 

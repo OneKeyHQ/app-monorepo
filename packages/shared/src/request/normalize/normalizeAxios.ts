@@ -2,14 +2,50 @@
 import axios from 'axios';
 import { isNil, isString } from 'lodash';
 
+import {
+  RequestInterceptorBase,
+  RequestLibNames,
+} from './RequestInterceptorBase';
+
+import type { Axios, AxiosRequestConfig } from 'axios';
+
+class RequestInterceptorAxios extends RequestInterceptorBase {
+  constructor(axiosConfig: AxiosRequestConfig) {
+    super();
+    this.axiosConfig = axiosConfig;
+  }
+
+  axiosConfig: AxiosRequestConfig;
+
+  requestLibName: RequestLibNames = RequestLibNames.axios;
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setDefaultRetry(count: number): void {}
+
+  setDefaultTimeout(ms: number): void {
+    if (isNil(this.axiosConfig.timeout)) {
+      this.axiosConfig.timeout = ms;
+    }
+  }
+
+  setHeader(key: string, val: string): void {
+    this.axiosConfig.headers = this.axiosConfig.headers || {};
+    this.axiosConfig.headers[key] = val;
+  }
+}
+
 function buildInterceptRequest({
   originRequest,
 }: {
   originRequest: typeof axios.Axios.prototype.request;
 }) {
-  // @ts-ignore
-  return function (configOrUrl, config) {
+  return function (
+    configOrUrl: AxiosRequestConfig | string | undefined,
+    config: AxiosRequestConfig | undefined,
+  ) {
     try {
+      // @ts-ignore
+      const self = this as Axios;
       let configObj = configOrUrl;
       if (isString(configObj)) {
         if (isNil(config)) {
@@ -19,9 +55,19 @@ function buildInterceptRequest({
         configObj = config;
       }
       if (configObj) {
-        configObj.headers = configObj.headers || {};
-        configObj.headers['X-Request-By'] = 'OneKey/axios';
-        // configObj.timeout = 10; // global timeout
+        const interceptor = new RequestInterceptorAxios(configObj);
+        let url =
+          configObj?.url || (isString(configOrUrl) ? configOrUrl : '') || '';
+
+        // **** baseURL support
+        if (
+          !url.startsWith('http://') &&
+          !url.startsWith('https://') &&
+          self.defaults.baseURL
+        ) {
+          url = self.defaults.baseURL;
+        }
+        interceptor.interceptRequest({ url });
       }
     } catch (error) {
       // const e = error as Error | undefined;
