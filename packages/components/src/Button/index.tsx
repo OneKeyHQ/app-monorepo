@@ -3,7 +3,7 @@ import type {
   ForwardRefExoticComponent,
   RefAttributes,
 } from 'react';
-import { forwardRef, useCallback, useEffect, useState } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -552,4 +552,4 @@ const OkButton = forwardRef<
 });
 OkButton.displayName = 'OkButton';
 
-export default OkButton;
+export default memo(OkButton);
