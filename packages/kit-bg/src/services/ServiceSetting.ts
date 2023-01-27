@@ -5,10 +5,13 @@ import semver from 'semver';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { setShowBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
+import type { WalletSwitchItem } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   disableExtSwitchTips,
+  setWalletSwitch,
   setAnnualReportEntryEnabled,
   toggleDisableExt,
+  toggleWalletSwitch,
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setSwapMaintain } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
@@ -120,5 +123,20 @@ export default class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   async disableExtSwitchTips() {
     return this.backgroundApi.dispatch(disableExtSwitchTips());
+  }
+
+  @backgroundMethod()
+  async setWalletSwitchConfig(config: Record<string, WalletSwitchItem>) {
+    return this.backgroundApi.dispatch(setWalletSwitch(config));
+  }
+
+  @backgroundMethod()
+  async toggleWalletSwitchConfig(walletId: string, enable: boolean) {
+    this.backgroundApi.dispatch(toggleWalletSwitch({ walletId, enable }));
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    privateProvider.notifyExtSwitchChanged({
+      send: this.backgroundApi.sendForProvider('$private'),
+    });
   }
 }
