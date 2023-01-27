@@ -34,8 +34,6 @@ function AmountEditor() {
   const { onAmountChanged } = route.params;
 
   useEffect(() => {
-    console.log(amount);
-
     if (amount === '') {
       setIsValid(true);
       return;

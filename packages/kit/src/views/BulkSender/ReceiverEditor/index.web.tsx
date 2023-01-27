@@ -17,8 +17,8 @@ type Props = ReceiverInputParams;
 
 function ReceiverEditor(props: Props) {
   const {
-    receiverFromFile,
-    setReceiverFromFile,
+    receiverFromOut,
+    setReceiverFromOut,
     setReceiver,
     type,
     receiverErrors,
@@ -39,14 +39,14 @@ function ReceiverEditor(props: Props) {
   }, [receiverStringDebounce, setReceiver, type]);
 
   useEffect(() => {
-    if (receiverFromFile.length > 0) {
-      setReceiverString(encodeReceiver(receiverFromFile));
+    if (receiverFromOut.length > 0) {
+      setReceiverString(encodeReceiver(receiverFromOut));
     }
-  }, [receiverFromFile]);
+  }, [receiverFromOut]);
 
   useEffect(() => {
     if (data && data[0] && data[0].Address && data[0].Amount) {
-      setReceiverFromFile(
+      setReceiverFromOut(
         data.filter(
           (item) =>
             item.Address !== TokenReceiverEnum.Address &&
@@ -54,7 +54,7 @@ function ReceiverEditor(props: Props) {
         ),
       );
     }
-  }, [data, setReceiverFromFile]);
+  }, [data, setReceiverFromOut]);
 
   return (
     <Box>

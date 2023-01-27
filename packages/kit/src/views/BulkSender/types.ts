@@ -47,8 +47,8 @@ export type ReceiverError = {
 export type ReceiverInputParams = {
   accountId: string;
   networkId: string;
-  receiverFromFile: TokenReceiver[];
-  setReceiverFromFile: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  receiverFromOut: TokenReceiver[];
+  setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   type: BulkSenderTypeEnum;
   receiverErrors: ReceiverError[];

@@ -15,12 +15,12 @@ import { TokenReceiverEnum } from '../types';
 import type { TokenReceiver } from '../types';
 
 interface Props {
-  setReceiverFromFile: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 function ReceiverUploader(props: Props) {
-  const { setReceiverFromFile, setIsUploadMode } = props;
+  const { setReceiverFromOut, setIsUploadMode } = props;
   const [uploaderBg, uploaderBorderColor, uploaderActiveBorderColor] =
     useThemeValue(['surface-default', 'border-default', 'interactive-default']);
 
@@ -45,7 +45,7 @@ function ReceiverUploader(props: Props) {
           { header: [TokenReceiverEnum.Address, TokenReceiverEnum.Amount] },
         );
         if (data && data[0] && data[0].Address && data[0].Amount) {
-          setReceiverFromFile(
+          setReceiverFromOut(
             data.filter(
               (item) =>
                 item.Address !== TokenReceiverEnum.Address &&

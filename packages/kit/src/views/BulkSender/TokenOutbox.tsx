@@ -41,7 +41,7 @@ function TokenOutbox(props: Props) {
   const { accountId, networkId, type } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [receiver, setReceiver] = useState<TokenReceiver[]>([]);
-  const [receiverFromFile, setReceiverFromFile] = useState<TokenReceiver[]>([]);
+  const [receiverFromOut, setReceiverFromOut] = useState<TokenReceiver[]>([]);
   const [isUploadMode, setIsUploadMode] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
@@ -122,7 +122,17 @@ function TokenOutbox(props: Props) {
     setSelectedToken(token);
   }, []);
 
-  const handleOnAmountChanged = useCallback((amount: string) => {}, []);
+  const handleOnAmountChanged = useCallback(
+    (amount: string) => {
+      const receiverWithChangedAmount = receiver.map((item) => ({
+        ...item,
+        Amount: amount,
+      }));
+
+      setReceiverFromOut(receiverWithChangedAmount);
+    },
+    [receiver, setReceiverFromOut],
+  );
 
   const handleOpenTokenSelector = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -208,8 +218,8 @@ function TokenOutbox(props: Props) {
           accountId={accountId}
           networkId={networkId}
           setReceiver={setReceiver}
-          receiverFromFile={receiverFromFile}
-          setReceiverFromFile={setReceiverFromFile}
+          receiverFromOut={receiverFromOut}
+          setReceiverFromOut={setReceiverFromOut}
           receiverErrors={errors}
           type={type}
           isUploadMode={isUploadMode}

@@ -5,7 +5,7 @@ import { Box, Center, Icon, Text } from '@onekeyhq/components';
 import type { TokenReceiver } from '../types';
 
 interface Props {
-  setReceiverFromFile: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 

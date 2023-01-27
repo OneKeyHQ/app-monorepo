@@ -19,8 +19,8 @@ function ReceiverInput(props: ReceiverInputParams) {
   const {
     accountId,
     networkId,
-    receiverFromFile,
-    setReceiverFromFile,
+    receiverFromOut,
+    setReceiverFromOut,
     setReceiver,
     type,
     receiverErrors,
@@ -68,7 +68,7 @@ function ReceiverInput(props: ReceiverInputParams) {
       </HStack>
       {isUploadMode && (
         <ReceiverUploader
-          setReceiverFromFile={setReceiverFromFile}
+          setReceiverFromOut={setReceiverFromOut}
           setIsUploadMode={setIsUploadMode}
         />
       )}
@@ -77,8 +77,8 @@ function ReceiverInput(props: ReceiverInputParams) {
           accountId={accountId}
           networkId={networkId}
           setReceiver={setReceiver}
-          receiverFromFile={receiverFromFile}
-          setReceiverFromFile={setReceiverFromFile}
+          receiverFromOut={receiverFromOut}
+          setReceiverFromOut={setReceiverFromOut}
           type={type}
           receiverErrors={receiverErrors}
         />

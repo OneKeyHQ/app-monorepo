@@ -7,20 +7,20 @@ import type { ReceiverInputParams } from '../types';
 type Props = Omit<ReceiverInputParams, 'isUploadMode' | 'setIsUploadMode'>;
 
 function ReceiverEditor(props: Props) {
-  const { receiverFromFile } = props;
+  const { receiverFromOut } = props;
 
   const [textAreaValue, setTextAreaValue] = useState('');
 
   useEffect(() => {
-    if (receiverFromFile.length > 0) {
+    if (receiverFromOut.length > 0) {
       setTextAreaValue(
-        receiverFromFile.reduce(
+        receiverFromOut.reduce(
           (acc, cur) => `${acc}${[cur.Address, cur.Amount].join(',')}\n`,
           '',
         ),
       );
     }
-  }, [receiverFromFile]);
+  }, [receiverFromOut]);
 
   return (
     <>
