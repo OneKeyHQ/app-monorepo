@@ -43,7 +43,7 @@ public class Server extends NanoHTTPD {
     Log.d(TAG, "Request received!");
 
     // 判断是否为跨域预请求
-    if(isPreflightRequest(session)){
+    if (isPreflightRequest(session)) {
       // 如果是则发送CORS响应告诉浏览HTTP服务支持的METHOD及HEADERS和请求源
       return responseCORS(session);
     }
@@ -71,7 +71,7 @@ public class Server extends NanoHTTPD {
     }
     Response response = responses.get(requestId);
     responses.remove(requestId);
-    return wrapResponse(session,response);
+    return wrapResponse(session, response);
   }
 
   public void respond(String requestId, int code, String type, String body) {
@@ -86,8 +86,15 @@ public class Server extends NanoHTTPD {
 
   private WritableMap fillRequestMap(IHTTPSession session, String requestId) throws Exception {
     Method method = session.getMethod();
+
+    String queryParam = session.getQueryParameterString();
+
     WritableMap request = Arguments.createMap();
-    request.putString("url", session.getUri());
+    if (method.name().equalsIgnoreCase("GET") && queryParam != null) {
+      request.putString("url", session.getUri() + "?" + queryParam);
+    } else {
+      request.putString("url", session.getUri());
+    }
     request.putString("type", method.name());
     request.putString("requestId", requestId);
 
