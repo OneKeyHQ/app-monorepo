@@ -7,9 +7,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   HStack,
   Icon,
   Pressable,
+  Switch,
+  Text,
   Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -39,6 +42,7 @@ function TokenOutbox(props: Props) {
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [receiver, setReceiver] = useState<TokenReceiver[]>([]);
   const [receiverFromFile, setReceiverFromFile] = useState<TokenReceiver[]>([]);
+  const [isUploadMode, setIsUploadMode] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -108,7 +112,7 @@ function TokenOutbox(props: Props) {
     [balances, intl, initialToken, selectedToken],
   );
 
-  const { errors } = useValidteReceiver({
+  const { isValid, validating, errors } = useValidteReceiver({
     networkId,
     receiver,
     type,
@@ -117,6 +121,8 @@ function TokenOutbox(props: Props) {
   const handleOnTokenSelected = useCallback((token: Token) => {
     setSelectedToken(token);
   }, []);
+
+  const handleOnAmountChanged = useCallback((amount: string) => {}, []);
 
   const handleOpenTokenSelector = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -140,6 +146,18 @@ function TokenOutbox(props: Props) {
     networkId,
     valueSortedTokens,
   ]);
+
+  const handleOpenAmountEditor = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.BulkSender,
+      params: {
+        screen: BulkSenderRoutes.AmountEditor,
+        params: {
+          onAmountChanged: handleOnAmountChanged,
+        },
+      },
+    });
+  }, [handleOnAmountChanged, navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -194,8 +212,35 @@ function TokenOutbox(props: Props) {
           setReceiverFromFile={setReceiverFromFile}
           receiverErrors={errors}
           type={type}
+          isUploadMode={isUploadMode}
+          setIsUploadMode={setIsUploadMode}
         />
       </Box>
+      <HStack mt={4} space={4}>
+        <Button
+          type="basic"
+          size="xs"
+          leftIconName="CurrencyDollarSolid"
+          onPress={handleOpenAmountEditor}
+        >
+          {intl.formatMessage({ id: 'action__edit_amount' })}
+        </Button>
+        <Switch />
+      </HStack>
+      <Box mt={4}>
+        <Button
+          isLoading={validating}
+          isDisabled={validating || !isValid || receiver.length === 0}
+          type="primary"
+          size="xl"
+          maxW={isVertical ? 'full' : '280px'}
+        >
+          {intl.formatMessage({ id: 'action__preview' })}
+        </Button>
+      </Box>
+      <Text fontSize={14} color="text-subdued" mt={4}>
+        {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
+      </Text>
     </Box>
   );
 }

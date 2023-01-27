@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import { AmountEditor } from '../../views/BulkSender/AmountEditor';
 import { TokenSelector } from '../../views/BulkSender/TokenSelector';
 import { BulkSenderRoutes } from '../../views/BulkSender/types';
 
@@ -13,6 +14,10 @@ const modalRoutes = [
   {
     name: BulkSenderRoutes.TokenSelector,
     component: TokenSelector,
+  },
+  {
+    name: BulkSenderRoutes.AmountEditor,
+    component: AmountEditor,
   },
 ];
 

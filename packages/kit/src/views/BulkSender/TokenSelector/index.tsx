@@ -15,9 +15,9 @@ import {
   Text,
   Token as TokenComponent,
 } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useDebounce, useNetwork } from '@onekeyhq/kit/src/hooks';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import type { BulkSenderRoutes, BulkSenderRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/native';

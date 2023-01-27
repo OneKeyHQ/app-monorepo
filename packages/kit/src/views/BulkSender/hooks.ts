@@ -59,8 +59,8 @@ export function useValidteReceiver({
   receiver: TokenReceiver[];
   type: BulkSenderTypeEnum;
 }) {
-  const [isValid, setIsValid] = useState(true);
-  const [validating, setValidating] = useState(false);
+  const [isValid, setIsValid] = useState(false);
+  const [validating, setValidating] = useState(true);
   const [errors, setErrors] = useState<ReceiverError[]>([]);
 
   useEffect(() => {

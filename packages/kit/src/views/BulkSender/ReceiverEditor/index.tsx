@@ -4,7 +4,7 @@ import { Textarea } from '@onekeyhq/components';
 
 import type { ReceiverInputParams } from '../types';
 
-type Props = ReceiverInputParams;
+type Props = Omit<ReceiverInputParams, 'isUploadMode' | 'setIsUploadMode'>;
 
 function ReceiverEditor(props: Props) {
   const { receiverFromFile } = props;

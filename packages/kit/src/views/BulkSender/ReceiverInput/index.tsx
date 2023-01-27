@@ -24,8 +24,9 @@ function ReceiverInput(props: ReceiverInputParams) {
     setReceiver,
     type,
     receiverErrors,
+    isUploadMode,
+    setIsUploadMode,
   } = props;
-  const [isUploadMode, setIsUploadMode] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
 

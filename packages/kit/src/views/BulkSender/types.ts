@@ -13,6 +13,7 @@ export enum TokenReceiverEnum {
 
 export enum BulkSenderRoutes {
   TokenSelector = 'TokenSelectorModal',
+  AmountEditor = 'AmountEditroModal',
 }
 
 export enum ReceiverErrorEnum {
@@ -27,6 +28,9 @@ export type BulkSenderRoutesParams = {
     tokens: Token[];
     balances: Record<string, string | undefined>;
     onTokenSelected: (token: Token) => void;
+  };
+  [BulkSenderRoutes.AmountEditor]: {
+    onAmountChanged: (amount: string) => void;
   };
 };
 
@@ -48,4 +52,6 @@ export type ReceiverInputParams = {
   setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   type: BulkSenderTypeEnum;
   receiverErrors: ReceiverError[];
+  isUploadMode: boolean;
+  setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
 };
