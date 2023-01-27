@@ -103,7 +103,10 @@ export const OverviewDefiProtocol: FC<
                 .multipliedBy(100)}
               desc={
                 <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
-                  <FormatCurrencyNumber value={new B(protocolValue)} />
+                  <FormatCurrencyNumber
+                    value={0}
+                    convertValue={new B(protocolValue)}
+                  />
                 </Text>
               }
               extra={
@@ -116,7 +119,10 @@ export const OverviewDefiProtocol: FC<
                       { id: 'form__claimable_str' },
                       {
                         0: (
-                          <FormatCurrencyNumber value={new B(claimableValue)} />
+                          <FormatCurrencyNumber
+                            value={0}
+                            convertValue={new B(claimableValue)}
+                          />
                         ),
                       },
                     )}

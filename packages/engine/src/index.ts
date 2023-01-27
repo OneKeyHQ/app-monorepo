@@ -818,7 +818,7 @@ class Engine {
           address,
           balance,
           sendAddress,
-          blockHeight,
+          bestBlockNumber: blockHeight,
         } of balancesFromApi.filter(
           (b) =>
             (+b.balance > 0 || !b.address) &&

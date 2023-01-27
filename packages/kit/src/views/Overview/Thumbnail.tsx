@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
 import B from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -56,6 +57,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
   accountAllValue,
   onPress,
 }) => {
+  const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const rate = useMemo(
     () => value.div(accountAllValue).multipliedBy(100),
@@ -76,7 +78,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
           />
         )}
         <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-          <FormatCurrencyNumber value={value} />
+          <FormatCurrencyNumber value={0} convertValue={value} />
         </Text>
       </>
     ),
@@ -121,17 +123,17 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
       {isVertical ? null : (
         <HStack mt="4" px="6">
           <Typography.Subheading flex="1" color="text-subdued">
-            PROTOCOLS
+            {intl.formatMessage({ id: 'form__protocols_uppercase' })}
           </Typography.Subheading>
           <Typography.Subheading flex="1" color="text-subdued">
-            CLAIMABLE
+            {intl.formatMessage({ id: 'form__claimable_uppercase' })}
           </Typography.Subheading>
           <Typography.Subheading
             flex="1"
             color="text-subdued"
             textAlign="right"
           >
-            VALUE
+            {intl.formatMessage({ id: 'form__value_uppercase' })}
           </Typography.Subheading>
         </HStack>
       )}
@@ -224,7 +226,10 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
           />
           {isVertical ? null : (
             <Typography.Body2Strong flex="1" numberOfLines={2} isTruncated>
-              <FormatCurrencyNumber value={+item.claimableValue} />
+              <FormatCurrencyNumber
+                value={0}
+                convertValue={+item.claimableValue}
+              />
             </Typography.Body2Strong>
           )}
           <Typography.Body2Strong
@@ -233,7 +238,10 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
             numberOfLines={2}
             isTruncated
           >
-            <FormatCurrencyNumber value={+item.protocolValue} />
+            <FormatCurrencyNumber
+              value={0}
+              convertValue={+item.claimableValue}
+            />
           </Typography.Body2Strong>
         </Pressable.Item>
       ))}

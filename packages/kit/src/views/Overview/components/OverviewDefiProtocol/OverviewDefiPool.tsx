@@ -86,7 +86,10 @@ const getValueColumn = (): ColumnItem => ({
   header: 'form__value_uppercase',
   render: ({ pool }) => (
     <Typography.Body2Strong>
-      <FormatCurrencyNumber value={new B(pool.poolValue ?? 0)} />
+      <FormatCurrencyNumber
+        value={0}
+        convertValue={new B(pool.poolValue ?? 0)}
+      />
     </Typography.Body2Strong>
   ),
   boxProps: {
@@ -101,7 +104,7 @@ const getPriceColumn = (tokenKey: TokenKey): ColumnItem => ({
     <VStack>
       {pool?.[tokenKey].map((t) => (
         <Typography.Body2Strong key={t.tokenAddress}>
-          <FormatCurrencyNumber value={new B(t.price ?? 0)} />
+          <FormatCurrencyNumber value={0} convertValue={new B(t.price ?? 0)} />
         </Typography.Body2Strong>
       ))}
     </VStack>

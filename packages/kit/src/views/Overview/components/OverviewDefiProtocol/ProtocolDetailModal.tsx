@@ -64,7 +64,10 @@ const OverviewProtocolDetail: FC = () => {
     if (isVertical) {
       return (
         <Typography.Caption>
-          <FormatCurrencyNumber value={new B(protocol?.protocolValue ?? 0)} />
+          <FormatCurrencyNumber
+            value={0}
+            convertValue={new B(protocol?.protocolValue ?? 0)}
+          />
         </Typography.Caption>
       );
     }
@@ -91,7 +94,10 @@ const OverviewProtocolDetail: FC = () => {
           bg="text-default"
         />
         <Typography.Heading>
-          <FormatCurrencyNumber value={new B(protocol?.protocolValue ?? 0)} />
+          <FormatCurrencyNumber
+            value={0}
+            convertValue={new B(protocol?.protocolValue ?? 0)}
+          />
         </Typography.Heading>
         {rate.isGreaterThan(0) ? (
           <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
