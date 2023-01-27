@@ -33,7 +33,7 @@ function BulkSender() {
   const isVertical = useIsVerticalLayout();
   const [tabbarBgColor] = useThemeValue(['background-default']);
 
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId, accountAddress } = useActiveWalletAccount();
 
   const nativeToken = useNativeToken(networkId, accountId);
 
@@ -113,6 +113,7 @@ function BulkSender() {
               <TokenOutbox
                 accountId={accountId}
                 networkId={networkId}
+                accountAddress={accountAddress}
                 type={BulkSenderTypeEnum.NativeToken}
               />
             </Tabs.Tab>
@@ -123,6 +124,7 @@ function BulkSender() {
               <TokenOutbox
                 accountId={accountId}
                 networkId={networkId}
+                accountAddress={accountAddress}
                 type={BulkSenderTypeEnum.Token}
               />
             </Tabs.Tab>

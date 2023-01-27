@@ -60,13 +60,13 @@ export function useValidteReceiver({
   type: BulkSenderTypeEnum;
 }) {
   const [isValid, setIsValid] = useState(false);
-  const [validating, setValidating] = useState(true);
+  const [isValidating, setIsValidating] = useState(true);
   const [errors, setErrors] = useState<ReceiverError[]>([]);
 
   useEffect(() => {
     (async () => {
       const validateErrors: ReceiverError[] = [];
-      setValidating(true);
+      setIsValidating(true);
       if (
         type === BulkSenderTypeEnum.NativeToken ||
         type === BulkSenderTypeEnum.Token
@@ -94,7 +94,7 @@ export function useValidteReceiver({
             }
           }
         }
-        setValidating(false);
+        setIsValidating(false);
         setIsValid(validateErrors.length === 0);
         setErrors(validateErrors);
       }
@@ -103,7 +103,7 @@ export function useValidteReceiver({
 
   return {
     isValid,
-    validating,
+    isValidating,
     errors,
   };
 }

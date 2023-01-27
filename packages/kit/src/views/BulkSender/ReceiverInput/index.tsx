@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   HStack,
   Icon,
   Pressable,
@@ -66,13 +67,13 @@ function ReceiverInput(props: ReceiverInputParams) {
           )}
         </Pressable>
       </HStack>
-      {isUploadMode && (
+      <Box display={isUploadMode ? 'flex' : 'none'}>
         <ReceiverUploader
           setReceiverFromOut={setReceiverFromOut}
           setIsUploadMode={setIsUploadMode}
         />
-      )}
-      {!isUploadMode && (
+      </Box>
+      <Box display={isUploadMode ? 'none' : 'flex'}>
         <ReceiverEditor
           accountId={accountId}
           networkId={networkId}
@@ -82,7 +83,7 @@ function ReceiverInput(props: ReceiverInputParams) {
           type={type}
           receiverErrors={receiverErrors}
         />
-      )}
+      </Box>
       <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
         {intl.formatMessage({
           id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',

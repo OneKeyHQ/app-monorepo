@@ -1,10 +1,13 @@
 import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
+import ERC20MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
 import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
+import BigNumber from 'bignumber.js';
 import { Contract } from 'ethers';
 import { groupBy, keys } from 'lodash';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
@@ -27,6 +30,7 @@ const REFRESH_PENDING_TXS_RETRY_MAX = 10;
 
 const ERC721 = ERC721MetadataArtifact.abi;
 const ERC1155 = ERC1155MetadataArtifact.abi;
+const ERC20 = ERC20MetadataArtifact.abi;
 
 @backgroundClass()
 export default class ServiceBatchTransfer extends ServiceBase {
@@ -73,7 +77,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     }
 
     const transferInfo = transferInfos[0];
-    const { tokenId, isNFT, type, amount } = transferInfo;
+    const { tokenId, isNFT, type } = transferInfo;
     const isTransferToken = Boolean(transferInfo.token);
 
     if (isTransferToken) {
@@ -111,15 +115,24 @@ export default class ServiceBatchTransfer extends ServiceBase {
         });
       } else {
         // one token to multiple addresses
-        encodedApproveTxs = [
-          await engine.buildEncodedTxFromApprove({
-            networkId,
-            accountId,
-            token: transferInfo.token as string,
-            amount,
-            spender: contract,
-          }),
-        ];
+        const isUnlimitedAllowance = await this.checkIsUnlimitedAllowance({
+          networkId,
+          owner: transferInfo.from,
+          spender: contract,
+          token: transferInfo.token as string,
+        });
+
+        if (!isUnlimitedAllowance) {
+          encodedApproveTxs = [
+            await engine.buildEncodedTxFromApprove({
+              networkId,
+              accountId,
+              token: transferInfo.token as string,
+              amount: InfiniteAmountText,
+              spender: contract,
+            }),
+          ];
+        }
       }
     }
     return Promise.resolve(encodedApproveTxs);
@@ -197,6 +210,31 @@ export default class ServiceBatchTransfer extends ServiceBase {
     }
 
     return engine.signAndSendEncodedTx(params);
+  }
+
+  @backgroundMethod()
+  async checkIsUnlimitedAllowance(params: {
+    networkId: string;
+    owner: string;
+    spender: string;
+    token: string;
+  }) {
+    const { networkId, owner, spender, token } = params;
+    try {
+      const readProvider = await this.getReadProvider(networkId);
+      const contract = new Contract(token, ERC20, readProvider);
+      const res: Promise<string>[] = await contract.functions.allowance(
+        owner,
+        spender,
+      );
+      const allowance = String(await res[0]);
+      const totalSupplyRes: any = await contract.functions.totalSupply();
+      // eslint-disable-next-line
+      const totalSupply = totalSupplyRes?.[0]?.toString?.();
+      return new BigNumber(allowance).gt(new BigNumber(totalSupply));
+    } catch (e) {
+      return false;
+    }
   }
 
   @backgroundMethod()
