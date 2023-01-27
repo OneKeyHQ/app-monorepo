@@ -15,6 +15,27 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const { serviceApp, serviceCronJob } = backgroundApiProxy;
 
+export function HtmlPreloadSplashLogoRemove({
+  isDelay = false,
+}: {
+  isDelay?: boolean;
+}) {
+  useEffect(() => {
+    if (platformEnv.isRuntimeBrowser) {
+      const img = document.querySelector('.onekey-index-html-preload-image');
+      if (isDelay) {
+        // splash logo is disabled in extension, so we need more delay to wait home ui ready
+        const hideLogoDelay = platformEnv.isExtension ? 400 : 50;
+        // const hideLogoDelay = 0;
+        setTimeout(() => img?.remove(), hideLogoDelay);
+      } else {
+        img?.remove();
+      }
+    }
+  }, [isDelay]);
+  return null;
+}
+
 const AnimatedSplashView = memo(
   ({
     bgColor,
@@ -112,15 +133,6 @@ const AppLoading: FC = ({ children }) => {
 
     main();
   }, []);
-
-  useEffect(() => {
-    if (initDataReady && platformEnv.isRuntimeBrowser) {
-      const img = document.querySelector('.onekey-index-html-preload-image');
-      // splash logo is disabled in extension, so we need more delay to wait home ui ready
-      const hideLogoDelay = platformEnv.isExtension ? 400 : 50;
-      setTimeout(() => img?.remove(), hideLogoDelay);
-    }
-  }, [initDataReady]);
 
   return (
     <AnimatedSplashView initDataReady={initDataReady} bgColor={bgColor}>
