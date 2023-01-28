@@ -1,4 +1,4 @@
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, memo, useCallback } from 'react';
 
 import { Button } from 'native-base';
 
@@ -26,4 +26,4 @@ const ButtonCapture = forwardRef<any, IButtonProps>(
 );
 ButtonCapture.displayName = 'ButtonCapture';
 
-export default ButtonCapture;
+export default memo(ButtonCapture);
