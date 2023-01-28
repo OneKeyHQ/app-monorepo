@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -17,6 +17,7 @@ const Input = () => {
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
     () => {
       const networkIds = (tokenList ?? []).map((item) => item.networkId);
@@ -41,9 +42,23 @@ const Input = () => {
       networkId: networkSelectorId,
       setNetworkId: onSelectNetworkId,
       selectedToken: outputToken,
+      accountId: sendingAccount?.id,
     }),
-    [outputToken, networkSelectorId, onSelectNetworkId, network?.impl],
+    [
+      outputToken,
+      networkSelectorId,
+      onSelectNetworkId,
+      network?.impl,
+      sendingAccount?.id,
+    ],
   );
+
+  useEffect(() => {
+    backgroundApiProxy.serviceSwap.fetchSwapTokenBalance({
+      accountId: sendingAccount?.id,
+      networkId: networkSelectorId,
+    });
+  }, [networkSelectorId, sendingAccount?.id]);
 
   return (
     <TokenSelectorContext.Provider value={value}>
