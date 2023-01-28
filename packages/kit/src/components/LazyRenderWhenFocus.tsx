@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
-import { Freeze } from 'react-freeze';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -9,6 +8,8 @@ import {
   getRootTabRouteState,
   isModalRouteExisting,
 } from '../utils/routeUtils';
+
+import DelayedFreeze from './DelayedFreeze';
 
 export interface ILazyRenderWhenFocusProps {
   unmountWhenBlur?: boolean;
@@ -66,9 +67,9 @@ export function LazyRenderWhenFocus({
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return (
-    <Freeze freeze={shouldFreeze}>
+    <DelayedFreeze freeze={shouldFreeze}>
       {isFocusedRef.current || isFocused ? children : null}
-    </Freeze>
+    </DelayedFreeze>
   );
 }
 export function toFocusedLazy(

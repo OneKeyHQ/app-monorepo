@@ -4,12 +4,14 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
+  useAccountTokens,
   useAccountTokensBalance,
   useAppSelector,
   useNetworkTokensPrice,
   useThrottle,
 } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { formatAmount } from '../utils';
 
 type TokenSearchRef = {
   keyword: string;
@@ -70,6 +72,16 @@ export const useCachedBalances = (networkId?: string, accountId?: string) => {
   return useThrottle(balances, 2000);
 };
 
+export const useTokenBalanceSimple = (token?: Token, accountId?: string) => {
+  const balances = useCachedBalances(token?.networkId, accountId);
+  return useMemo(() => {
+    if (!token) {
+      return undefined;
+    }
+    return balances[token?.tokenIdOnNetwork || 'main'];
+  }, [balances, token]);
+};
+
 export const useTokenBalance = (token?: Token, accountId?: string) => {
   const balances = useCachedBalances(token?.networkId, accountId);
   useEffect(() => {
@@ -116,4 +128,39 @@ export function useSwapTokenList(networkId?: string) {
     const data = tokenList.find((item) => item.networkId === activeNetworkId);
     return data?.tokens ?? [];
   }, [tokenList, networkId]);
+}
+
+export function useSwapAccountTokens(networkId?: string, accountId?: string) {
+  const presetTokens = useSwapTokenList(networkId);
+  const accountTokens = useAccountTokens(networkId, accountId);
+  const balances = useCachedBalances(networkId, accountId);
+
+  return useMemo(() => {
+    const tokens = [...presetTokens, ...accountTokens];
+    const set = new Set();
+    const getKey = (token: Token) =>
+      `${token.networkId}${token.tokenIdOnNetwork}`;
+    const items = tokens.filter((token) => {
+      if (set.has(getKey(token))) {
+        return false;
+      }
+      set.add(getKey(token));
+      return true;
+    });
+
+    const balanceIsOk = (address: string) => {
+      const key = address || 'main';
+      return Boolean(
+        balances[key] && Number(formatAmount(balances[key], 6)) > 0,
+      );
+    };
+
+    if (!balances) {
+      return items;
+    }
+    const a = items.filter((o) => balanceIsOk(o.tokenIdOnNetwork));
+    const b = items.filter((o) => !balanceIsOk(o.tokenIdOnNetwork));
+
+    return a.concat(b);
+  }, [presetTokens, accountTokens, balances]);
 }

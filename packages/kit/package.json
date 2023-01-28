@@ -6,7 +6,6 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@reduxjs/toolkit": "^1.6.2",
-    "@types/redux-logger": "^3.0.9",
     "@types/url-parse": "^1.4.8",
     "date-fns": "^2.27.0",
     "expo": "^45.0.5",
@@ -40,7 +39,6 @@
     "react-native-uuid": "^2.0.1",
     "react-native-vision-camera": "^2.15.2",
     "react-redux": "^7.2.6",
-    "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",
     "rimraf": "^3.0.2",
     "semver": "^7.3.7",
