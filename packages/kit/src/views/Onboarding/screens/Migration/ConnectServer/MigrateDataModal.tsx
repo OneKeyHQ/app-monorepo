@@ -8,6 +8,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Alert,
   Badge,
   BottomSheetModal,
   Box,
@@ -245,16 +246,32 @@ const Content: FC<Props> = ({
           />
         </Center>
       </Box>
-      {/* {isLoading && <Text typography="Body1">Awaiting Confirmation</Text>}; */}
-      <Button
-        mt="24px"
-        size="xl"
-        type="primary"
-        onPress={migrateAction}
-        isLoading={isLoading}
-      >
-        {intl.formatMessage({ id: 'action__migrate' })}
-      </Button>
+      <Box mt="24px">
+        {isLoading && (
+          <Alert
+            customIconName="CheckCircleMini"
+            title={intl.formatMessage(
+              {
+                id: 'modal__migrating_data_awaiting_confirmation',
+              },
+              {
+                from: parseFromData.name,
+              },
+            )}
+            alertType="success"
+            dismiss={false}
+          />
+        )}
+        <Button
+          mt="12px"
+          size="xl"
+          type="primary"
+          onPress={migrateAction}
+          isLoading={isLoading}
+        >
+          {intl.formatMessage({ id: 'action__migrate' })}
+        </Button>
+      </Box>
     </BottomSheetModal>
   );
 };
