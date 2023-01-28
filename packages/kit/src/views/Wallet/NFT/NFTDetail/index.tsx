@@ -674,8 +674,8 @@ const NFTDetailModal: FC = () => {
     >
       <NavigationButton
         position="absolute"
-        top={platformEnv.isExtension ? '8px' : '24px'}
-        right={platformEnv.isExtension ? '8px' : '24px'}
+        top={platformEnv.isExtensionUiPopup ? '8px' : '24px'}
+        right={platformEnv.isExtensionUiPopup ? '8px' : '24px'}
         zIndex={1}
         onPress={modalClose}
       />
