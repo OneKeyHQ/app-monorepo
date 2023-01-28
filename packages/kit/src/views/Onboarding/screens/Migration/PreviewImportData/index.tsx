@@ -194,10 +194,6 @@ const PreviewImportData = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceCloudBackup]);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
-
   const children = useMemo(
     () => (
       <>
@@ -207,6 +203,7 @@ const PreviewImportData = () => {
             mb="24px"
             minHeight="160px"
             maxHeight={{ base: undefined, sm: '320px' }}
+            showsVerticalScrollIndicator
           >
             {hasRemoteData ? (
               <Box mx="-48px" my="-16px">
@@ -229,7 +226,8 @@ const PreviewImportData = () => {
           <Button
             type="primary"
             size={isVerticalLayout ? 'xl' : 'lg'}
-            onPromise={importAction}
+            onPress={isVerticalLayout ? importAction : undefined}
+            onPromise={isVerticalLayout ? undefined : importAction} // crash on android when use onPromise
           >
             {intl.formatMessage({ id: 'action__import' })}
           </Button>
