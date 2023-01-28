@@ -8,7 +8,6 @@ import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceClou
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { ValidationFields } from '../../../../../components/Protected';
 import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
-import { deviceInfo } from '../util';
 
 import { showMigrateDataModal } from './MigrateDataModal';
 
@@ -81,7 +80,6 @@ export function useConnectServer() {
         showMigrateDataModal({
           serverInfo,
           serverAddress,
-          clientInfo: deviceInfo(),
         });
         return true;
       }

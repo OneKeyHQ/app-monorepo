@@ -67,6 +67,20 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
 
   const showModal = useRef<boolean>(false);
 
+  const copyAction = useCallback(() => {
+    let copyAddress = serverAddress;
+    if (copyAddress.startsWith('http://')) {
+      copyAddress = copyAddress.replace('http://', '');
+    }
+    if (copyAddress.endsWith('/')) {
+      copyAddress = copyAddress.slice(0, copyAddress.length - 1);
+    }
+    copyToClipboard(copyAddress);
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__copied' }),
+    });
+  }, [intl, serverAddress]);
+
   const httpServerRequest = useCallback(
     (request: MigrateNotificationData) => {
       const { type, data } = request;
@@ -195,12 +209,7 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
 
       {serverAddress.length > 0 ? (
         <Pressable
-          onPress={() => {
-            copyToClipboard(serverAddress);
-            ToastManager.show({
-              title: intl.formatMessage({ id: 'msg__copied' }),
-            });
-          }}
+          onPress={copyAction}
           flexDirection="row"
           mt="16px"
           alignItems="center"

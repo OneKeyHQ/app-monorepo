@@ -99,7 +99,7 @@ const Migration = () => {
   const intl = useIntl();
 
   const route = useRoute<RouteProps>();
-  const { scanText } = route.params;
+  const { scanText, disableAnimation = true } = route.params;
 
   const navigation = useNavigation();
   const { serviceHTTP, serviceMigrate } = backgroundApiProxy;
@@ -134,7 +134,7 @@ const Migration = () => {
   return (
     <MigrateContextProvider inputValue={scanText ?? ''}>
       <Layout
-        disableAnimation
+        disableAnimation={disableAnimation}
         title={intl.formatMessage({ id: 'title__migration' })}
         description={intl.formatMessage({ id: 'title__migration_desc' })}
         secondaryContent={rightCompoment}
