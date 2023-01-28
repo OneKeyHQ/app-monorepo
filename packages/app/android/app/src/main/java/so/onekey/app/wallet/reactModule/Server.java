@@ -90,7 +90,7 @@ public class Server extends NanoHTTPD {
     String queryParam = session.getQueryParameterString();
 
     WritableMap request = Arguments.createMap();
-    if (method.name().equalsIgnoreCase("GET") && queryParam != null) {
+    if (queryParam != null) {
       request.putString("url", session.getUri() + "?" + queryParam);
     } else {
       request.putString("url", session.getUri());

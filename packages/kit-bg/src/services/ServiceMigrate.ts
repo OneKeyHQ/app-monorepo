@@ -1,4 +1,5 @@
 import axios from 'axios';
+import fetch from 'cross-fetch';
 import RNUUID from 'react-native-uuid';
 
 import type {
@@ -71,7 +72,7 @@ class ServiceMigrate extends ServiceBase {
   private connectUUID = '';
 
   private client = axios.create({
-    timeout: 5 * 1000,
+    timeout: 60 * 1000,
   });
 
   private ensureUUID({ reset }: { reset: boolean }) {
@@ -95,7 +96,7 @@ class ServiceMigrate extends ServiceBase {
       MigrateAPINames.Connect,
     )}?${urlParams.toString()}`;
     const { success, data } = await this.client
-      .get<MigrateServiceResp<DeviceInfo>>(url)
+      .get<MigrateServiceResp<DeviceInfo>>(url, { timeout: 5 * 1000 })
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: undefined }));
     if (!success) {
@@ -136,9 +137,19 @@ class ServiceMigrate extends ServiceBase {
       ipAddress,
       MigrateAPINames.SendData,
     )}?${urlParams.toString()}`;
-    const { success } = await this.client
-      .post<MigrateServiceResp<boolean>>(url, data)
-      .then((resp) => resp.data)
+
+    const { success } = await fetch(url, {
+      method: 'POST',
+      body: data,
+    })
+      .then((result) => {
+        if (result.ok) {
+          return result.json() as MigrateServiceResp<boolean>;
+        }
+        return {
+          success: false,
+        };
+      })
       .catch(() => ({
         success: false,
       }));
@@ -191,6 +202,7 @@ class ServiceMigrate extends ServiceBase {
     }
     const { requestId, url: urlPath } = data;
     // console.log('type = ', type);
+    // console.log('requestId = ', requestId);
     // console.log('urlPath = ', urlPath);
     // console.log('postData = ', postData);
     const { serviceHTTP } = this.backgroundApi;
