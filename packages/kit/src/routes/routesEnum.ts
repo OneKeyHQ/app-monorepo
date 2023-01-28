@@ -93,6 +93,7 @@ export enum HomeRoutes {
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
   NFTPNLScreen = 'NFTPNLScreen',
   OverviewDefiListScreen = 'OverviewDefiListScreen',
+  WalletSwitch = 'WalletSwitch',
   AnnualLoading = 'AnnualLoading',
   AnnualReport = 'AnnualReport',
 }

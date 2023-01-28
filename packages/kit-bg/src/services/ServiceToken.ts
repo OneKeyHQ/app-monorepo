@@ -75,7 +75,7 @@ export default class ServiceToken extends ServiceBase {
     activeNetworkId,
     forceReloadTokens,
   }: IFetchAccountTokensParams) {
-    const { engine, dispatch, servicePrice } = this.backgroundApi;
+    const { engine, dispatch, servicePrice, appSelector } = this.backgroundApi;
     const tokens = await engine.getTokens(
       activeNetworkId,
       activeAccountId,
@@ -83,6 +83,7 @@ export default class ServiceToken extends ServiceBase {
       true,
       forceReloadTokens,
     );
+    const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
     const actions: any[] = [];
     const [balances, autodetectedTokens = []] = await this.fetchTokenBalance({
       activeAccountId,
@@ -94,6 +95,7 @@ export default class ServiceToken extends ServiceBase {
       networkId: activeNetworkId,
       accountId: activeAccountId,
       tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
+      vsCurrency: selectedFiatMoneySymbol,
     });
     actions.push(
       setAccountTokensBalances({

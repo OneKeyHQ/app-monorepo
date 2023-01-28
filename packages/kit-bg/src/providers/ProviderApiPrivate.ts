@@ -120,11 +120,34 @@ class ProviderApiPrivate extends ProviderApiBase {
     const disableExt = !!this.backgroundApi.appSelector(
       (s) => s.settings.disableExt,
     );
+    const walletSwitchData = this.backgroundApi.appSelector(
+      (s) => s.settings.walletSwitchData,
+    );
+    const walletSwitchConfig: Record<string, string[]> = {
+      enable: [],
+      disable: [],
+    };
+    if (walletSwitchData && Object.values(walletSwitchData).length) {
+      Object.values(walletSwitchData).forEach((item) => {
+        if (item.enable) {
+          walletSwitchConfig.enable = [
+            ...walletSwitchConfig.enable,
+            ...item.propertyKeys,
+          ];
+        } else {
+          walletSwitchConfig.disable = [
+            ...walletSwitchConfig.disable,
+            ...item.propertyKeys,
+          ];
+        }
+      });
+    }
     return {
       platform: process.env.ONEKEY_PLATFORM,
       version: process.env.VERSION,
       buildNumber: process.env.BUILD_NUMBER,
       disableExt,
+      walletSwitchConfig,
       isLegacy: false,
       platformEnv: {
         isRuntimeBrowser: platformEnv.isRuntimeBrowser,

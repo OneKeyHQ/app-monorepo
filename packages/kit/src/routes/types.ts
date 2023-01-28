@@ -162,6 +162,7 @@ export type HomeRoutesParams = {
     networkId: string;
     address: string;
   };
+  [HomeRoutes.WalletSwitch]: undefined;
   [HomeRoutes.AnnualLoading]: undefined;
   [HomeRoutes.AnnualReport]: {
     account: Account;
