@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -41,6 +42,7 @@ import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { OneKeyMigrateQRCodePrefix, parseDeviceInfo } from '../util';
 
+import { useMigrateContext } from './context';
 import { ExportResult, useConnectServer, useExportData } from './hook';
 import { showSendDataRequestModal } from './SendDataRequestModal';
 
@@ -64,6 +66,20 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
   const navigation = useNavigation();
 
   const showModal = useRef<boolean>(false);
+
+  const copyAction = useCallback(() => {
+    let copyAddress = serverAddress;
+    if (copyAddress.startsWith('http://')) {
+      copyAddress = copyAddress.replace('http://', '');
+    }
+    if (copyAddress.endsWith('/')) {
+      copyAddress = copyAddress.slice(0, copyAddress.length - 1);
+    }
+    copyToClipboard(copyAddress);
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__copied' }),
+    });
+  }, [intl, serverAddress]);
 
   const httpServerRequest = useCallback(
     (request: MigrateNotificationData) => {
@@ -193,12 +209,7 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
 
       {serverAddress.length > 0 ? (
         <Pressable
-          onPress={() => {
-            copyToClipboard(serverAddress);
-            ToastManager.show({
-              title: intl.formatMessage({ id: 'msg__copied' }),
-            });
-          }}
+          onPress={copyAction}
           flexDirection="row"
           mt="16px"
           alignItems="center"
@@ -219,15 +230,17 @@ const MemoQRcodeView = memo(QRCodeView);
 
 const EnterLinkView: FC = () => {
   const intl = useIntl();
-  const [value, setValue] = useState('');
   const { connectServer } = useConnectServer();
+  const context = useMigrateContext()?.context;
+  const setContext = useMigrateContext()?.setContext;
 
+  const isFocused = useIsFocused();
   const isDisabled = useMemo(() => {
-    if (value.replaceAll(' ', '').length === 0) {
+    if (context?.inputValue?.replaceAll(' ', '').length === 0) {
       return true;
     }
     return false;
-  }, [value]);
+  }, [context?.inputValue]);
 
   return (
     <>
@@ -241,7 +254,12 @@ const EnterLinkView: FC = () => {
             onPress={() => {
               gotoScanQrcode((data) => {
                 if (data.startsWith(OneKeyMigrateQRCodePrefix)) {
-                  setValue(data.replace(OneKeyMigrateQRCodePrefix, ''));
+                  if (setContext) {
+                    setContext((ctx) => ({
+                      ...ctx,
+                      inputValue: data.replace(OneKeyMigrateQRCodePrefix, ''),
+                    }));
+                  }
                 }
               });
             }}
@@ -250,11 +268,18 @@ const EnterLinkView: FC = () => {
         size="xl"
         w="full"
         type="text"
-        value={value}
+        value={context?.inputValue}
         placeholder={`${intl.formatMessage({
           id: 'content__example_shortcut',
         })} 192.168.5.178:2997`}
-        onChangeText={setValue}
+        onChangeText={(text) => {
+          if (setContext) {
+            setContext((ctx) => ({
+              ...ctx,
+              inputValue: text,
+            }));
+          }
+        }}
       />
       <Button
         type="primary"
@@ -263,7 +288,19 @@ const EnterLinkView: FC = () => {
         isDisabled={isDisabled}
         mt="16px"
         onPromise={async () => {
-          await connectServer(value);
+          if (context) {
+            const success = await connectServer(context.inputValue);
+            if (!success && isFocused) {
+              ToastManager.show(
+                {
+                  title: intl.formatMessage({
+                    id: 'msg__invalid_link_or_network_error',
+                  }),
+                },
+                { type: 'error' },
+              );
+            }
+          }
         }}
       >
         {intl.formatMessage({ id: 'action__connect' })}
@@ -272,12 +309,13 @@ const EnterLinkView: FC = () => {
   );
 };
 
-const SecondaryContent: FC<{
-  selectRange: number;
-  onChange: (index: number) => void;
-}> = ({ selectRange, onChange }) => {
+const MemoEnterLinkView = memo(EnterLinkView);
+
+const SecondaryContent: FC = () => {
   const intl = useIntl();
   const { serviceHTTP } = backgroundApiProxy;
+  const context = useMigrateContext()?.context;
+  const setContext = useMigrateContext()?.setContext;
 
   const [serverAddress, updateServerAddress] = useState('');
   const startHttpServer = useCallback(async () => {
@@ -292,21 +330,28 @@ const SecondaryContent: FC<{
   }, [serviceHTTP]);
 
   useEffect(() => {
-    if (selectRange === 0) {
+    if (context?.selectRange === 0) {
       startHttpServer();
     } else {
       serviceHTTP.stopHttpServer();
       updateServerAddress('');
     }
-  }, [selectRange, serviceHTTP, startHttpServer]);
+  }, [context?.selectRange, serviceHTTP, startHttpServer]);
 
   return (
     <>
       {httpServerEnable() ? (
         <Center mb="16px">
           <SegmentedControl
-            selectedIndex={selectRange}
-            onChange={onChange}
+            selectedIndex={context?.selectRange}
+            onChange={(index) => {
+              if (setContext) {
+                setContext((ctx) => ({
+                  ...ctx,
+                  selectRange: index,
+                }));
+              }
+            }}
             values={[
               intl.formatMessage({ id: 'content__qr_code' }),
               intl.formatMessage({ id: 'content__enter_link' }),
@@ -317,10 +362,10 @@ const SecondaryContent: FC<{
       ) : null}
 
       <Center flex={1}>
-        {selectRange === 0 ? (
+        {context?.selectRange === 0 ? (
           <MemoQRcodeView serverAddress={serverAddress} />
         ) : (
-          <EnterLinkView />
+          <MemoEnterLinkView />
         )}
       </Center>
     </>

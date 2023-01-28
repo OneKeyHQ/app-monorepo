@@ -1410,6 +1410,8 @@
   "modal__looking_for_devices_desc": "Будь ласка, переконайтеся, що ваш Bluetooth увімкнено.",
   "modal__looking_for_devices_result": "Ми знайшли ці пристрої",
   "modal__migrating_data": "Перенесення даних",
+  "modal__migrating_data_awaiting_confirmation": "Очікується підтвердження від {from}",
+  "modal__migrating_data_connection_failed_desc": "Переконайтеся, що всі пристрої підключено до однієї локальної мережі, і повторіть спробу",
   "modal__migrating_data_desc": "Програми підключено",
   "modal__need_install_onekey_bridge": "Потрібна установка OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "Запуск робочого столу OneKey перед використанням апаратного пристрою. Ви також можете встановити OneKey Bridge, щоб підвищити стабільність передачі. Завантажити?",

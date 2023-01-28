@@ -1410,6 +1410,8 @@
   "modal__looking_for_devices_desc": "يرجى التأكد من تمكين البلوتوث الخاص بك.",
   "modal__looking_for_devices_result": "وجدنا هذه الأجهزة",
   "modal__migrating_data": "ترحيل البيانات",
+  "modal__migrating_data_awaiting_confirmation": "في انتظار التأكيد من {from}",
+  "modal__migrating_data_connection_failed_desc": "يرجى التأكد من أن جميع الأجهزة متصلة بنفس الشبكة المحلية وحاول مرة أخرى",
   "modal__migrating_data_desc": "التطبيقات متصلة",
   "modal__need_install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "بدء تشغيل سطح مكتب OneKey قبل استخدام الجهاز. يمكنك أيضًا تثبيت OneKey Brigde لتعزيز استقرار النقل. المضي قدما والتحميل؟",
