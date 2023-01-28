@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -8,13 +8,16 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Alert,
   Badge,
   BottomSheetModal,
   Box,
   Button,
   Center,
+  Empty,
   Icon,
   IconButton,
+  Spinner,
   Text,
   ToastManager,
 } from '@onekeyhq/components';
@@ -25,13 +28,12 @@ import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceClou
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { showOverlay } from '../../../../../utils/overlayUtils';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import { parseDeviceInfo } from '../util';
+import { deviceInfo, parseDeviceInfo } from '../util';
 
 import { ExportResult, useExportData } from './hook';
 
 type Props = {
-  serverInfo: DeviceInfo;
-  clientInfo: DeviceInfo;
+  serverInfo?: DeviceInfo;
   serverAddress: string;
   closeOverlay: () => void;
 };
@@ -45,24 +47,59 @@ function isEmptyData(data: PublicBackupData) {
   });
   return empty;
 }
-const Content: FC<Props> = ({
-  serverAddress,
-  clientInfo,
-  serverInfo,
-  closeOverlay,
-}) => {
+
+enum ConnectStatus {
+  Success = 0,
+  Fail = 1,
+  Connecting = 2,
+}
+
+const clientInfo: DeviceInfo = deviceInfo();
+const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
+  const { serviceMigrate } = backgroundApiProxy;
+
+  const [connectStatus, updateConnectStatus] = useState<ConnectStatus>(() => {
+    if (serverInfo) {
+      return ConnectStatus.Success;
+    }
+    return ConnectStatus.Connecting;
+  });
+
   const [fromData, updateFromData] = useState(clientInfo);
   const [toData, updateToData] = useState(serverInfo);
-  const parseFromData = parseDeviceInfo(fromData);
-  const parseToData = parseDeviceInfo(toData);
+  const parseFromData = useMemo(() => parseDeviceInfo(fromData), [fromData]);
+  const parseToData = useMemo(() => {
+    if (toData) {
+      return parseDeviceInfo(toData);
+    }
+  }, [toData]);
+
   const [isSend, setIsSend] = useState(true);
   const intl = useIntl();
-  const { serviceMigrate } = backgroundApiProxy;
+
   const { exportDataRequest } = useExportData();
 
   const navigation = useNavigation();
 
   useEffect(() => {
+    if (connectStatus === ConnectStatus.Connecting) {
+      setTimeout(() => {
+        serviceMigrate.connectServer(serverAddress).then((data) => {
+          if (data) {
+            updateToData(data);
+            updateConnectStatus(ConnectStatus.Success);
+          } else {
+            updateConnectStatus(ConnectStatus.Fail);
+          }
+        });
+      }, 500);
+    }
+  }, [connectStatus, serverAddress, serviceMigrate]);
+
+  useEffect(() => {
+    if (connectStatus !== ConnectStatus.Success || serverInfo === undefined) {
+      return;
+    }
     if (isSend) {
       updateFromData(clientInfo);
       updateToData(serverInfo);
@@ -70,9 +107,7 @@ const Content: FC<Props> = ({
       updateFromData(serverInfo);
       updateToData(clientInfo);
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSend]);
+  }, [connectStatus, isSend, serverInfo]);
 
   const sendAction = useCallback(async () => {
     const { status, data } = await exportDataRequest();
@@ -128,7 +163,7 @@ const Content: FC<Props> = ({
     setLoading(true);
     if (isSend) {
       const success = await sendAction();
-      if (success) {
+      if (success && parseToData) {
         ToastManager.show({
           title: `🧙 ${intl.formatMessage(
             {
@@ -149,112 +184,182 @@ const Content: FC<Props> = ({
     getDataAction,
     intl,
     isSend,
-    parseToData.name,
+    parseToData,
     sendAction,
     serverAddress,
     serviceMigrate,
+  ]);
+
+  const children = useMemo(() => {
+    if (connectStatus === ConnectStatus.Connecting) {
+      return (
+        <Empty
+          title=""
+          subTitle={
+            <Box>
+              <Spinner size="lg" />
+              <Text mt="12px" typography="DisplayMedium">
+                {intl.formatMessage({ id: 'content__connecting' })}
+              </Text>
+            </Box>
+          }
+        />
+      );
+    }
+    if (connectStatus === ConnectStatus.Fail) {
+      return (
+        <Empty
+          emoji="🚫"
+          title={intl.formatMessage({ id: 'modal__failed_to_connect' })}
+          subTitle={intl.formatMessage({
+            id: 'modal__migrating_data_connection_failed_desc',
+          })}
+        />
+      );
+    }
+    if (
+      connectStatus === ConnectStatus.Success &&
+      parseToData &&
+      parseFromData
+    ) {
+      return (
+        <>
+          <Box
+            bgColor="surface-default"
+            borderRadius="12px"
+            borderColor="border-subdued"
+            borderWidth={StyleSheet.hairlineWidth}
+          >
+            <Box py="16px">
+              <Text typography="Body2" color="text-subdued" ml="16px">
+                {intl.formatMessage({ id: 'content__from' })}
+              </Text>
+              <Box paddingX="16px" flexDirection="row" mt="12px">
+                <Icon
+                  name={parseFromData.logo}
+                  size={24}
+                  color="icon-subdued"
+                />
+                <Text typography="Body1Strong" flex={1} ml="8px">
+                  {parseFromData.name}
+                </Text>
+                {isSend && (
+                  <MotiView
+                    from={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'timing' }}
+                  >
+                    <Badge
+                      size="sm"
+                      type="info"
+                      title={intl.formatMessage({ id: 'content__current' })}
+                    />
+                  </MotiView>
+                )}
+              </Box>
+            </Box>
+            <Box
+              borderBottomWidth={StyleSheet.hairlineWidth}
+              borderColor="border-subdued"
+            />
+
+            <Box py="16px">
+              <Text typography="Body2" color="text-subdued" ml="16px">
+                {intl.formatMessage({ id: 'content__to' })}
+              </Text>
+              <Box
+                paddingX="16px"
+                flexDirection="row"
+                justifyContent="space-between"
+                mt="12px"
+              >
+                <Icon name={parseToData.logo} size={24} color="icon-subdued" />
+                <Text typography="Body1Strong" flex={1} ml="8px">
+                  {parseToData.name}
+                </Text>
+                {!isSend && (
+                  <MotiView
+                    from={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'timing' }}
+                  >
+                    <Badge
+                      size="sm"
+                      type="info"
+                      title={intl.formatMessage({ id: 'content__current' })}
+                    />
+                  </MotiView>
+                )}
+              </Box>
+            </Box>
+            <Center position="absolute" width="full" height="full">
+              <IconButton
+                onPress={() => {
+                  setIsSend((prev) => !prev);
+                }}
+                name="SwitchVerticalOutline"
+                circle
+                type="basic"
+                size="base"
+                iconColor="icon-default"
+              />
+            </Center>
+          </Box>
+          <Box mt="24px">
+            {isLoading && !isSend && (
+              <Alert
+                customIconName="EllipsisHorizontalCircleMini"
+                title={intl.formatMessage(
+                  {
+                    id: 'modal__migrating_data_awaiting_confirmation',
+                  },
+                  {
+                    from: parseFromData.name,
+                  },
+                )}
+                alertType="success"
+                dismiss={false}
+              />
+            )}
+            <Button
+              mt="12px"
+              size="xl"
+              type="primary"
+              onPress={migrateAction}
+              isLoading={isLoading}
+            >
+              {intl.formatMessage({ id: 'action__migrate' })}
+            </Button>
+          </Box>
+        </>
+      );
+    }
+  }, [
+    connectStatus,
+    intl,
+    isLoading,
+    isSend,
+    migrateAction,
+    parseFromData,
+    parseToData,
   ]);
 
   return (
     <BottomSheetModal
       title={intl.formatMessage({ id: 'modal__migrating_data' })}
       headerDescription={
-        <Text typography="Caption" color="text-success">
-          🎉 {intl.formatMessage({ id: 'modal__migrating_data_desc' })}
-        </Text>
+        connectStatus === ConnectStatus.Success ? (
+          <Text typography="Caption" color="text-success">
+            🎉 {intl.formatMessage({ id: 'modal__migrating_data_desc' })}
+          </Text>
+        ) : null
       }
       closeOverlay={() => {
         serviceMigrate.disConnectServer(serverAddress);
         closeOverlay();
       }}
     >
-      <Box
-        bgColor="surface-default"
-        borderRadius="12px"
-        borderColor="border-subdued"
-        borderWidth={StyleSheet.hairlineWidth}
-      >
-        <Box py="16px">
-          <Text typography="Body2" color="text-subdued" ml="16px">
-            {intl.formatMessage({ id: 'content__from' })}
-          </Text>
-          <Box paddingX="16px" flexDirection="row" mt="12px">
-            <Icon name={parseFromData.logo} size={24} color="icon-subdued" />
-            <Text typography="Body1Strong" flex={1} ml="8px">
-              {parseFromData.name}
-            </Text>
-            {isSend && (
-              <MotiView
-                from={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'timing' }}
-              >
-                <Badge
-                  size="sm"
-                  type="info"
-                  title={intl.formatMessage({ id: 'content__current' })}
-                />
-              </MotiView>
-            )}
-          </Box>
-        </Box>
-        <Box
-          borderBottomWidth={StyleSheet.hairlineWidth}
-          borderColor="border-subdued"
-        />
-
-        <Box py="16px">
-          <Text typography="Body2" color="text-subdued" ml="16px">
-            {intl.formatMessage({ id: 'content__to' })}
-          </Text>
-          <Box
-            paddingX="16px"
-            flexDirection="row"
-            justifyContent="space-between"
-            mt="12px"
-          >
-            <Icon name={parseToData.logo} size={24} color="icon-subdued" />
-            <Text typography="Body1Strong" flex={1} ml="8px">
-              {parseToData.name}
-            </Text>
-            {!isSend && (
-              <MotiView
-                from={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'timing' }}
-              >
-                <Badge
-                  size="sm"
-                  type="info"
-                  title={intl.formatMessage({ id: 'content__current' })}
-                />
-              </MotiView>
-            )}
-          </Box>
-        </Box>
-        <Center position="absolute" width="full" height="full">
-          <IconButton
-            onPress={() => {
-              setIsSend((prev) => !prev);
-            }}
-            name="SwitchVerticalOutline"
-            circle
-            type="basic"
-            size="base"
-            iconColor="icon-default"
-          />
-        </Center>
-      </Box>
-      {/* {isLoading && <Text typography="Body1">Awaiting Confirmation</Text>}; */}
-      <Button
-        mt="24px"
-        size="xl"
-        type="primary"
-        onPress={migrateAction}
-        isLoading={isLoading}
-      >
-        {intl.formatMessage({ id: 'action__migrate' })}
-      </Button>
+      {children}
     </BottomSheetModal>
   );
 };

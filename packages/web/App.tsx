@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/order
+/* eslint-disable import/order */
 import '@onekeyhq/shared/src/polyfill';
 
 import { Provider } from '@onekeyhq/kit';

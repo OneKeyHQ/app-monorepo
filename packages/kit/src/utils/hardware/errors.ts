@@ -237,6 +237,12 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
   }
 }
 
+export class FileAlreadyExistError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.FileAlreadyExists;
+
+  override key: LocaleIds = 'msg__file_already_exists';
+}
+
 // 未知错误
 export class UnknownHardwareError extends OneKeyHardwareError {
   override data = { reconnect: true };

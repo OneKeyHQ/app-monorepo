@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -13,6 +13,8 @@ const Output = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  const recipient = useAppSelector((s) => s.swap.recipient);
+
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
     () => {
       const networkIds = (tokenList ?? []).map((item) => item.networkId);
@@ -36,9 +38,17 @@ const Output = () => {
       networkId: networkSelectorId,
       setNetworkId: onSelectNetworkId,
       selectedToken: inputToken,
+      accountId: recipient?.accountId,
     }),
-    [networkSelectorId, onSelectNetworkId, inputToken],
+    [networkSelectorId, onSelectNetworkId, inputToken, recipient?.accountId],
   );
+
+  useEffect(() => {
+    backgroundApiProxy.serviceSwap.fetchSwapTokenBalance({
+      accountId: recipient?.accountId,
+      networkId: networkSelectorId,
+    });
+  }, [networkSelectorId, recipient?.accountId]);
 
   return (
     <TokenSelectorContext.Provider value={value}>

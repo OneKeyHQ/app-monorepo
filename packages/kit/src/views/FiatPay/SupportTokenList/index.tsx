@@ -18,8 +18,8 @@ import {
 import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
-import { useManageTokens } from '../../../hooks';
-import { useFiatPay } from '../../../hooks/redux';
+import { useAccountTokensBalance } from '../../../hooks';
+import { useActiveWalletAccount, useFiatPay } from '../../../hooks/redux';
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
 
 import type { FiatPayModalRoutesParams } from '../../../routes/Modal/FiatPay';
@@ -95,14 +95,16 @@ function fetchBalance(
   balances: Record<string, TokenBalanceValue>,
 ): CurrencyType[] {
   return currencies.map((item) => {
-    let balance: TokenBalanceValue = '0';
+    let balance: TokenBalanceValue = {
+      balance: '0',
+    };
     const logoURI = buildUrl(item.networkName, item.contract);
     if (item.contract === '') {
       balance = balances.main;
     } else {
       balance = balances[item.contract];
     }
-    return { ...item, balance, logoURI };
+    return { ...item, balance: balance?.balance ?? '0', logoURI };
   });
 }
 export const SupportTokenList: FC = () => {
@@ -110,7 +112,8 @@ export const SupportTokenList: FC = () => {
   const route = useRoute<RouteProps>();
   const { networkId, type = 'Buy' } = route.params;
   const currenciesNobalance = useFiatPay(networkId);
-  const { balances } = useManageTokens();
+  const { accountId } = useActiveWalletAccount();
+  const balances = useAccountTokensBalance(networkId, accountId);
   const currencies = fetchBalance(currenciesNobalance, balances);
   const [searchResult, updateSearchResult] = useState<CurrencyType[]>([]);
   const [searchText, updateSearchText] = useState<string>('');

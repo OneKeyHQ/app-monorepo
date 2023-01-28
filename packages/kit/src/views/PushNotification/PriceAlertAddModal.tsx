@@ -55,7 +55,6 @@ export const PriceAlertAddModal: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
   const { pushNotification } = useSettings();
   const navigation = useNavigation<NavigationProps>();
-  // const { getTokenPrice } = useManageTokens();
   // const map = useAppSelector((s) => s.fiatMoney.map);
   const { selectedFiatMoneySymbol } = useSettings();
   // const fiat = map[selectedFiatMoneySymbol];

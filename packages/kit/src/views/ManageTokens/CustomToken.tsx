@@ -16,9 +16,9 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
+  useAccountTokens,
   useActiveWalletAccount,
   useDebounce,
-  useManageTokens,
   useNetworkSimple,
 } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
@@ -44,6 +44,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const networkId = route.params?.networkId;
   const intl = useIntl();
 
+  const accountTokens = useAccountTokens();
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
@@ -53,7 +54,6 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     network: defaultNetwork,
   } = useActiveWalletAccount();
   const activeNetwork = useNetworkSimple(networkId ?? null, defaultNetwork);
-  const { accountTokensMap } = useManageTokens();
   const isSmallScreen = useIsVerticalLayout();
 
   const helpTip = intl.formatMessage({
@@ -171,7 +171,9 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         );
 
       if (
-        !accountTokensMap.has(normalizeTokenAddress) &&
+        !accountTokens.some(
+          (t) => t.tokenIdOnNetwork === normalizeTokenAddress,
+        ) &&
         activeAccount &&
         normalizeTokenAddress
       ) {
@@ -238,7 +240,11 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
                     activeNetwork?.id,
                     value,
                   );
-                if (accountTokensMap.has(normalizeTokenAddress)) {
+                if (
+                  accountTokens.some(
+                    (t) => t.tokenIdOnNetwork === normalizeTokenAddress,
+                  )
+                ) {
                   return intl.formatMessage({
                     id: 'msg__token_already_existed',
                   });

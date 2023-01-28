@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Divider,
   Icon,
@@ -25,11 +26,15 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
-import { useManageTokens, useNavigation } from '../../../hooks';
+import { FormatCurrencyNumber } from '../../../components/Format';
+import {
+  useAccountTokens,
+  useAccountValues,
+  useNavigation,
+} from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
+import { useAccountTokenValues } from '../../../hooks/useTokens';
 import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
-
-import { AssetsSummedValues } from './AssetsSummedValues';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -53,12 +58,12 @@ const ListHeader: FC<{
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
   const isVerticalLayout = useIsVerticalLayout();
-  const { account, network, networkId, accountId } = useActiveWalletAccount();
+  const { account, network, networkId } = useActiveWalletAccount();
   const iconOuterWidth = isVerticalLayout ? '24px' : '32px';
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
 
-  const { accountTokens, balances } = useManageTokens();
+  const accountTokens = useAccountTokens(networkId, account?.id, true);
 
   const tokenCountOrAddToken = useMemo(
     () =>
@@ -92,6 +97,21 @@ const ListHeader: FC<{
   );
   const Container = showTokenCount ? Pressable.Item : Box;
 
+  const accountTokensValue = useAccountTokenValues(
+    networkId,
+    account?.id ?? '',
+  ).value;
+
+  const accountAllValue = useAccountValues({
+    networkId,
+    accountId: account?.id ?? '',
+  }).value;
+
+  const rate = useMemo(
+    () => accountTokensValue.div(accountAllValue).multipliedBy(100),
+    [accountAllValue, accountTokensValue],
+  );
+
   return (
     <Container
       p={4}
@@ -112,6 +132,7 @@ const ListHeader: FC<{
           : undefined
       }
       flexDirection="column"
+      bg="surface-subdued"
     >
       <Box
         flexDirection="row"
@@ -148,12 +169,16 @@ const ListHeader: FC<{
               borderRadius="2px"
               bg="text-default"
             />
-            <AssetsSummedValues
-              accountId={accountId}
-              networkId={networkId}
-              balances={balances}
-              accountTokens={accountTokens}
-            />
+            <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
+              {accountTokensValue.isNaN() ? (
+                ' '
+              ) : (
+                <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+              )}
+            </Text>
+            {rate.isNaN() ? null : (
+              <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
+            )}
           </Box>
         )}
         <Box ml="auto" flexDirection="row" alignItems="center">
@@ -162,12 +187,13 @@ const ListHeader: FC<{
       </Box>
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
         {isVerticalLayout ? (
-          <AssetsSummedValues
-            accountId={accountId}
-            networkId={networkId}
-            balances={balances}
-            accountTokens={accountTokens}
-          />
+          <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
+            {Number.isNaN(accountTokens) ? (
+              ' '
+            ) : (
+              <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+            )}
+          </Text>
         ) : (
           <Box flexDirection="row" w="full">
             <Typography.Subheading color="text-subdued" flex={1}>
@@ -178,6 +204,7 @@ const ListHeader: FC<{
               color="text-subdued"
               flex={1}
               textAlign="right"
+              pr="6"
             >
               {intl.formatMessage({ id: 'content__price_uppercase' })}
             </Typography.Subheading>

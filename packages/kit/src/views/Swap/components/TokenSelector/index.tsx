@@ -15,21 +15,27 @@ import {
   Spinner,
   ToggleButtonGroup,
   Token as TokenComponent,
+  Typography,
 } from '@onekeyhq/components';
 import type { ToggleButtonProps } from '@onekeyhq/components/src/ToggleButtonGroup/ToggleButtonGroup';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import { FormatCurrency } from '../../../../components/Format';
 import {
   useAppSelector,
   useDebounce,
   useNetworkSimple,
 } from '../../../../hooks';
+import { useTokenBalance } from '../../../../hooks/useTokens';
 import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import {
-  useSwapTokenList,
+  useSwapAccountTokens,
+  useTokenPrice,
   useTokenSearch,
 } from '../../hooks/useSwapTokenUtils';
+import { formatAmount } from '../../utils';
 
 import { TokenSelectorContext } from './context';
 import { EmptySkeleton } from './EmptySkeleton';
@@ -144,6 +150,46 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   ) : null;
 };
 
+type ExtraInfoProps = {
+  token?: Token;
+};
+
+const ExtraInfo: FC<ExtraInfoProps> = ({ token }) => {
+  const { accountId } = useContext(TokenSelectorContext);
+  const isCompatible = isAccountCompatibleWithNetwork(
+    accountId ?? '',
+    token?.networkId ?? '',
+  );
+
+  const balance = useTokenBalance({
+    networkId: token?.networkId ?? '',
+    accountId: accountId ?? '',
+    token,
+  });
+  const price = useTokenPrice(token);
+
+  if (isCompatible) {
+    return (
+      <Box alignItems="flex-end">
+        <Typography.Heading fontSize={16} lineHeight={24}>
+          {formatAmount(balance, 6)}
+        </Typography.Heading>
+        <Typography.Caption color="text-subdued" numberOfLines={2}>
+          <FormatCurrency
+            numbers={[price ?? 0, balance ?? 0]}
+            render={(ele) => (
+              <Typography.Caption ml={3} color="text-subdued">
+                {price ? ele : '-'}
+              </Typography.Caption>
+            )}
+          />
+        </Typography.Caption>
+      </Box>
+    );
+  }
+  return <Icon name="ChevronRightMini" size={20} color="icon-subdued" />;
+};
+
 type ListRenderTokenProps = {
   token: Token;
   onSelect?: (item: Token) => void;
@@ -201,7 +247,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         description={description}
         nameProps={{ numberOfLines: 2 }}
       />
-      <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
+      <ExtraInfo token={token} />
     </Pressable>
   );
 };
@@ -214,8 +260,9 @@ type TokenSelectorProps = {
 
 const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
   const intl = useIntl();
-  const { networkId: activeNetworkId } = useContext(TokenSelectorContext);
-  const listedTokens = useSwapTokenList(activeNetworkId);
+  const { networkId: activeNetworkId, accountId } =
+    useContext(TokenSelectorContext);
+  const listedTokens = useSwapAccountTokens(activeNetworkId, accountId);
 
   const [keyword, setKeyword] = useState<string>('');
   const searchQuery = useDebounce(keyword.trim(), 300);

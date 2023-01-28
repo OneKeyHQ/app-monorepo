@@ -14,7 +14,7 @@ import {
 import { openUrl } from '../../../../utils/openUrl';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
 
-import type { WebSiteHistory } from '../../type';
+import type { DAppItemType, WebSiteHistory } from '../../type';
 import type { MatchDAppItemType } from '../explorerUtils';
 
 export const gotoSite = ({
@@ -172,4 +172,8 @@ export const openMatchDApp = ({
       isNewWindow,
     });
   }
+};
+
+export const onItemSelect = (dapp: DAppItemType) => {
+  openMatchDApp({ id: dapp._id, dapp });
 };

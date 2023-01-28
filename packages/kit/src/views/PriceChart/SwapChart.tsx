@@ -7,7 +7,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useInterval } from '../../hooks';
 
 import { fetchChartData } from './chartService';
-import ChartWithLabel from './ChartWithLabel';
+import SwapChartWithLabel from './SwapChartWithLabel';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
 
 import type { MarketApiData } from './chartService';
@@ -146,13 +146,13 @@ const SwapChart: FC<SwapChartProps> = ({ fromToken, toToken, style }) => {
 
   return (
     <Box style={style}>
-      <ChartWithLabel isFetching={count !== 0} data={data} simpleMode>
+      <SwapChartWithLabel isFetching={count !== 0} data={data}>
         <TimeControl
           enabled={count === 0 && !!data}
           selectedIndex={selectedTimeIndex}
           onTimeChange={refreshDataOnTimeChange}
         />
-      </ChartWithLabel>
+      </SwapChartWithLabel>
     </Box>
   );
 };

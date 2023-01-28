@@ -34,17 +34,18 @@ export const setThumbnailRatio = (ratio: number) => {
   thumbnailRatio = ratio;
 };
 const thumbnailWidth = 340;
-const getTabCellLayout = (tabId: string) => {
+const getTabCellLayout = (tabId: string, callback: () => void) => {
   tabGridRefs[tabId]?.measure((x, y, width, height, pageX, pageY) => {
     targetPreviewX.value = pageX;
     targetPreviewY.value = pageY;
     targetPreviewWidth.value = width;
     targetPreviewHeight.value = height;
+    callback();
   });
 };
 export const showTabGrid = () => {
   const { currentTabId } = appSelector((s) => s.webTabs);
-  if (platformEnv.isNative) {
+  if (platformEnv.isNative && tabViewShotRef.current) {
     captureRef(tabViewShotRef, {
       format: 'jpg',
       width: thumbnailWidth,
@@ -58,14 +59,16 @@ export const showTabGrid = () => {
       );
     });
   }
-  getTabCellLayout(currentTabId);
-  setTimeout(() => (showTabGridAnim.value = withTiming(MAX_OR_SHOW)), 30);
+  getTabCellLayout(currentTabId, () => {
+    showTabGridAnim.value = withTiming(MAX_OR_SHOW);
+  });
 };
 
 export const hideTabGrid = (id?: string) => {
   const curId = id || appSelector((s) => s.webTabs.currentTabId);
-  getTabCellLayout(curId);
-  setTimeout(() => (showTabGridAnim.value = withTiming(MIN_OR_HIDE)), 30);
+  getTabCellLayout(curId, () => {
+    showTabGridAnim.value = withTiming(MIN_OR_HIDE);
+  });
 };
 
 interface ExpandAnimationEvents {

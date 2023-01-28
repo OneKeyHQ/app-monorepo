@@ -1,18 +1,26 @@
 import type { FC } from 'react';
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
-import { httpServerEnable } from '@onekeyhq/kit-bg/src/services/ServiceHTTP';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import Layout from '../../../Layout';
 
+import { MigrateContextProvider, useMigrateContext } from './context';
 import SecondaryContent from './SecondaryContent';
 
+import type { EOnboardingRoutes } from '../../../routes/enums';
+import type { IOnboardingRoutesParams } from '../../../routes/types';
+import type { RouteProp } from '@react-navigation/core';
 import type { IBoxProps } from 'native-base';
+
+type RouteProps = RouteProp<
+  IOnboardingRoutesParams,
+  EOnboardingRoutes.Migration
+>;
 
 const DescriptionListItem: FC<{ step: any; description: any } & IBoxProps> = ({
   step,
@@ -40,15 +48,14 @@ const DescriptionListItem: FC<{ step: any; description: any } & IBoxProps> = ({
   </Box>
 );
 
-const MigrationDescription: FC<{
-  selectRange: number;
-}> = ({ selectRange }) => {
+const MigrationDescription: FC = () => {
   const intl = useIntl();
+  const context = useMigrateContext()?.context;
 
   const DESCRIPTIONS = [
     intl.formatMessage({ id: 'content__migration_step_1' }),
     intl.formatMessage({ id: 'content__migration_step_2' }),
-    selectRange === 0
+    context?.selectRange === 0
       ? intl.formatMessage(
           { id: 'content__migration_step_3' },
           {
@@ -91,15 +98,11 @@ const defaultProps = {} as const;
 const Migration = () => {
   const intl = useIntl();
 
+  const route = useRoute<RouteProps>();
+  const { scanText, disableAnimation = true } = route.params;
+
   const navigation = useNavigation();
   const { serviceHTTP, serviceMigrate } = backgroundApiProxy;
-
-  const [selectRange, setSelectedRange] = useState(() => {
-    if (!httpServerEnable()) {
-      return 1;
-    }
-    return 0;
-  });
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -108,24 +111,17 @@ const Migration = () => {
 
   const leftCompoment = useMemo(() => {
     if (isVerticalLayout) {
-      return (
-        <SecondaryContent
-          selectRange={selectRange}
-          onChange={setSelectedRange}
-        />
-      );
+      return <SecondaryContent />;
     }
-    return <MigrationDescription selectRange={selectRange} />;
-  }, [isVerticalLayout, selectRange]);
+    return <MigrationDescription />;
+  }, [isVerticalLayout]);
 
   const rightCompoment = useMemo(() => {
     if (isVerticalLayout) {
-      return <MigrationDescription selectRange={selectRange} />;
+      return <MigrationDescription />;
     }
-    return (
-      <SecondaryContent selectRange={selectRange} onChange={setSelectedRange} />
-    );
-  }, [isVerticalLayout, selectRange]);
+    return <SecondaryContent />;
+  }, [isVerticalLayout]);
 
   useEffect(() => {
     serviceMigrate.registerHttpEvents();
@@ -136,14 +132,16 @@ const Migration = () => {
   }, [serviceHTTP, serviceMigrate]);
 
   return (
-    <Layout
-      disableAnimation
-      title={intl.formatMessage({ id: 'title__migration' })}
-      description={intl.formatMessage({ id: 'title__migration_desc' })}
-      secondaryContent={rightCompoment}
-    >
-      {leftCompoment}
-    </Layout>
+    <MigrateContextProvider inputValue={scanText ?? ''}>
+      <Layout
+        disableAnimation={disableAnimation}
+        title={intl.formatMessage({ id: 'title__migration' })}
+        description={intl.formatMessage({ id: 'title__migration_desc' })}
+        secondaryContent={rightCompoment}
+      >
+        {leftCompoment}
+      </Layout>
+    </MigrateContextProvider>
   );
 };
 

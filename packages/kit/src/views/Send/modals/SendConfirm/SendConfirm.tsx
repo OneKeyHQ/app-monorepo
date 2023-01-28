@@ -149,7 +149,6 @@ function SendConfirm({
         serviceToken.fetchAccountTokens({
           activeAccountId: accountId,
           activeNetworkId: networkId,
-          withBalance: true,
         });
         if (routeParams.signOnly) {
           if (

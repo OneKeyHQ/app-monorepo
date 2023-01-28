@@ -5,6 +5,8 @@ import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ONEKEY_APP_DEEP_LINK } from '../../../../components/WalletConnect/walletConnectConsts';
+
 // label and icon name:
 // - Mobile, DevicePhoneMobileSolid (iOS, Android)
 // - Tablet, DeviceTabletSolid (iPadOS, Android tablet)
@@ -48,9 +50,9 @@ function deviceInfo() {
   };
 }
 
-const OneKeyMigrateQRCodePrefix = 'onekey-wallet://migrate';
+const OneKeyMigrateQRCodePrefix = `${ONEKEY_APP_DEEP_LINK}migrate`;
 
-const MigrationEnable = !platformEnv.isWeb;
+const MigrationEnable = true;
 
 export {
   parseDeviceInfo,

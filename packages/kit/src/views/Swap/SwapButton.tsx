@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -23,6 +24,7 @@ import { wait } from '../../utils/helper';
 import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
 import { SendRoutes } from '../Send/types';
 
+import { reservedNetworkFee } from './config';
 import {
   useDerivedSwapState,
   useInputLimitsError,
@@ -136,6 +138,24 @@ const ExchangeButton = () => {
         title: intl.formatMessage({ id: 'msg__unknown_error' }),
       });
       return;
+    }
+
+    if (!params.tokenIn.tokenIdOnNetwork) {
+      const [result] = await backgroundApiProxy.serviceToken.fetchTokenBalance({
+        activeAccountId: sendingAccount.id,
+        activeNetworkId: targetNetwork.id,
+      });
+      const balance = new BigNumber(result?.main?.balance ?? '0');
+      const reservedValue = reservedNetworkFee[targetNetwork.id] ?? 0.1;
+      if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
+        ToastManager.show({
+          title: intl.formatMessage(
+            { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
+            { '0': `${reservedValue} ${params.tokenIn.symbol.toUpperCase()}` },
+          ),
+        });
+        return;
+      }
     }
 
     const res = await SwapQuoter.client.buildTransaction(quote.type, {
@@ -289,9 +309,10 @@ const ExchangeButton = () => {
           token: inputAmount.token.tokenIdOnNetwork,
           amount: disableSwapExactApproveAmount
             ? 'unlimited'
-            : getTokenAmountValue(inputAmount.token, newQuote.sellAmount)
-                .multipliedBy(1.5)
-                .toFixed(),
+            : getTokenAmountValue(
+                inputAmount.token,
+                newQuote.sellAmount,
+              ).toFixed(),
         })) as IEncodedTxEvm;
 
       const password = await backgroundApiProxy.servicePassword.getPassword();
@@ -304,7 +325,7 @@ const ExchangeButton = () => {
             encodedTx: encodedApproveTx,
           });
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, 'msg__unknown_error');
+          deviceUtils.showErrorToast(e, e.message);
           return;
         }
 
@@ -350,7 +371,7 @@ const ExchangeButton = () => {
           }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, 'msg__unknown_error');
+          deviceUtils.showErrorToast(e, e.message);
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         }
         return;
@@ -428,7 +449,7 @@ const ExchangeButton = () => {
         });
         addSwapTransaction(result.txid, decodedTx.nonce);
       } catch (e: any) {
-        deviceUtils.showErrorToast(e, 'msg__unknown_error');
+        deviceUtils.showErrorToast(e, e.message);
       }
     } else {
       const password = await backgroundApiProxy.servicePassword.getPassword();
@@ -460,7 +481,7 @@ const ExchangeButton = () => {
             addSwapTransaction(result.txid, decodedTx.nonce);
           }, 100);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, 'msg__unknown_error');
+          deviceUtils.showErrorToast(e, e.message);
         }
       } else {
         navigation.navigate(RootRoutes.Modal, {

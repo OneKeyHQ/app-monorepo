@@ -10,7 +10,11 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks';
+import {
+  useNativeToken,
+  useNativeTokenBalance,
+} from '../../../hooks/useTokens';
 
 import { BaseSendModal } from './BaseSendModal';
 import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
@@ -45,23 +49,13 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
   const { networkImpl, networkId, accountId, accountAddress } =
     useActiveSideAccount(props);
 
-  const { nativeToken, getTokenBalance } = useManageTokensOfAccount({
-    fetchTokensOnMount: true,
-    accountId,
-    networkId,
-  });
+  const nativeToken = useNativeToken(networkId);
 
-  const nativeBalance = useMemo(
-    () =>
-      getTokenBalance({
-        token: nativeToken,
-        defaultValue: '0',
-      }),
-    [getTokenBalance, nativeToken],
-  );
+  const nativeBalance = useNativeTokenBalance(networkId, accountId);
 
   const balanceInsufficient = useMemo(
-    () => new BigNumber(nativeBalance).lt(new BigNumber(totalFeeInNative)),
+    () =>
+      new BigNumber(nativeBalance ?? '0').lt(new BigNumber(totalFeeInNative)),
     [totalFeeInNative, nativeBalance],
   );
 
