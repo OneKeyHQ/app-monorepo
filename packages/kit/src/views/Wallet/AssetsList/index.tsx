@@ -71,7 +71,19 @@ function AssetsList({
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const loading = useAccountTokenLoading(networkId, accountId);
-  const accountTokens = useAccountTokens(networkId, accountId, true);
+  const accountTokensWithoutLimit = useAccountTokens(
+    networkId,
+    accountId,
+    true,
+  );
+
+  const accountTokens = useMemo(
+    () =>
+      limitSize
+        ? accountTokensWithoutLimit.slice(0, limitSize)
+        : accountTokensWithoutLimit,
+    [accountTokensWithoutLimit, limitSize],
+  );
 
   const { account, network } = useActiveSideAccount({
     accountId,
@@ -196,7 +208,7 @@ function AssetsList({
         },
         contentContainerStyle,
       ]}
-      data={accountTokens}
+      data={accountTokens.slice(0, limitSize)}
       renderItem={renderListItem}
       ListHeaderComponent={
         loading

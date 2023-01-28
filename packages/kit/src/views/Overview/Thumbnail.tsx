@@ -240,7 +240,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
           >
             <FormatCurrencyNumber
               value={0}
-              convertValue={+item.claimableValue}
+              convertValue={+item.protocolValue}
             />
           </Typography.Body2Strong>
         </Pressable.Item>
