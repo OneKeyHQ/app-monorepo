@@ -57,7 +57,9 @@ const DrawerStackNavigator = () => {
           const routeName = getFocusedRouteNameFromRoute(route);
           return {
             swipeEnabled:
-              routeName !== TabRoutes.Discover && routeName !== TabRoutes.NFT && !platformEnv.isNativeIOSPad,
+              routeName !== TabRoutes.Discover &&
+              routeName !== TabRoutes.NFT &&
+              !platformEnv.isNativeIOSPad,
           };
         }}
       />
