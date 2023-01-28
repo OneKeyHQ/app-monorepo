@@ -142,7 +142,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         serviceToken.fetchAccountTokens({
           activeAccountId: accountId,
           activeNetworkId: networkId,
-          withBalance: true,
         });
 
         if (routeParams.signOnly) {

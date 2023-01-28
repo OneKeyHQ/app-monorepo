@@ -76,6 +76,8 @@ const WebviewModal = createLazyComponent(() => import('./WebView'));
 const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
 const AnnualReportModal = createLazyComponent(() => import('./AnnualReport'));
 
+const OverviewModal = createLazyComponent(() => import('./Overview'));
+
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',
   SendNavigator = 'SendNavigator',
@@ -213,6 +215,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.NFTMarket,
     component: NFTMarket,
+  },
+  {
+    name: ModalRoutes.Overview,
+    component: OverviewModal,
   },
   {
     name: ModalRoutes.AnnualReport,

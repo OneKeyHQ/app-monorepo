@@ -28,8 +28,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
-import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
-import { useTokenInfo } from '../../../hooks/useTokenInfo';
+import { useActiveSideAccount } from '../../../hooks';
+import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -125,25 +125,20 @@ function PreSendAmount() {
   const { engine } = backgroundApiProxy;
 
   const tokenIdOnNetwork = transferInfo.token;
-  const tokenInfo = useTokenInfo({
+  const { token: tokenInfo } = useSingleToken(
     networkId,
-    tokenIdOnNetwork,
-  });
-
-  const { balances, getTokenBalance } = useManageTokensOfAccount({
-    fetchTokensOnMount: true,
-    accountId,
-    networkId,
-  });
-
-  const tokenBalance = useMemo(
-    () =>
-      getTokenBalance({
-        token: tokenInfo,
-        defaultValue: '0',
-      }),
-    [getTokenBalance, tokenInfo],
+    tokenIdOnNetwork ?? '',
   );
+
+  const tokenBalance = useTokenBalance({
+    networkId,
+    accountId,
+    token: {
+      ...tokenInfo,
+      sendAddress: transferInfo.sendAddress,
+    },
+    fallback: '0',
+  });
 
   const getAmountValidateError = useCallback(() => {
     if (!tokenInfo || !amount) {
@@ -199,13 +194,11 @@ function PreSendAmount() {
       };
     }
     try {
-      const key = tokenInfo?.tokenIdOnNetwork || 'main';
-      const balance = balances?.[key] as string;
       await engine.validateSendAmount({
         accountId,
         networkId,
         amount,
-        tokenBalance: balance,
+        tokenBalance,
         to: transferInfo.to,
       });
       return { result: true, errorInfo: null };
@@ -222,8 +215,7 @@ function PreSendAmount() {
     amount,
     engine,
     transferInfo,
-    tokenInfo,
-    balances,
+    tokenBalance,
     minAmountValidationPassed,
   ]);
   useEffect(() => {
@@ -326,6 +318,7 @@ function PreSendAmount() {
               network,
               token: {
                 ...tokenInfo,
+                sendAddress: transferInfo.sendAddress,
                 idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
               },
               to: transferInfo.to,
@@ -399,7 +392,12 @@ function PreSendAmount() {
                 <FormatBalanceTokenOfAccount
                   accountId={accountId}
                   networkId={networkId}
-                  token={tokenInfo}
+                  token={{
+                    id: tokenInfo?.id ?? '',
+                    name: tokenInfo?.name ?? '',
+                    ...(tokenInfo || {}),
+                    sendAddress: transferInfo.sendAddress,
+                  }}
                   render={(ele) => (
                     <Typography.Body1Strong
                       color={

@@ -1,5 +1,11 @@
 import type { ComponentProps, FC } from 'react';
-import { createElement, isValidElement, useCallback, useMemo } from 'react';
+import {
+  createElement,
+  isValidElement,
+  memo,
+  useCallback,
+  useMemo,
+} from 'react';
 
 import { Box, Center } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -151,15 +157,14 @@ const borderProps = {
   borderColor: 'surface-subdued',
 };
 
-const TokenIcon = ({
+export const TokenIcon = ({
   size,
   token,
   showNetworkIcon,
   showIconBorder,
-}: Pick<
-  TokenProps,
-  'size' | 'token' | 'showNetworkIcon' | 'showIconBorder'
->) => {
+  ...boxProps
+}: Pick<TokenProps, 'size' | 'token' | 'showNetworkIcon' | 'showIconBorder'> &
+  ComponentProps<typeof Box>) => {
   const { network } = useNetwork({ networkId: token?.networkId });
   const src = token?.logoURI;
   const letter = (token?.symbol || token?.name || '').slice(0, 4);
@@ -167,8 +172,8 @@ const TokenIcon = ({
     () =>
       letter ? (
         <Center
-          width={size}
-          height={size}
+          width="full"
+          height="full"
           borderRadius="full"
           bg="background-selected"
           overflow="hidden"
@@ -195,8 +200,8 @@ const TokenIcon = ({
         </Center>
       ) : (
         <Center
-          width={size}
-          height={size}
+          width="full"
+          height="full"
           borderRadius="full"
           bg="background-selected"
         >
@@ -236,6 +241,7 @@ const TokenIcon = ({
       height={size}
       position="relative"
       {...(showIconBorder ? borderProps : {})}
+      {...boxProps}
     >
       {src ? (
         <Image
@@ -372,4 +378,4 @@ const Token: FC<TokenProps> = ({
 
 Token.defaultProps = defaultProps;
 
-export default Token;
+export default memo(Token);

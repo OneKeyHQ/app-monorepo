@@ -16,14 +16,12 @@ type ChartWithLabelProps = {
   data: MarketApiData[] | null;
   children: ReactNode;
   isFetching: boolean;
-  simpleMode?: boolean;
 };
 
 const ChartWithLabel: FC<ChartWithLabelProps> = ({
   data,
   isFetching,
   children,
-  simpleMode,
 }) => {
   const { formatDate } = useFormatDate();
   const [price, setPrice] = useState<string | number | undefined>();
@@ -60,12 +58,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
     [formatDate],
   );
   const priceLabel = (
-    <PriceLabel
-      price={currentPrice}
-      time={time}
-      basePrice={basePrice}
-      simpleMode={simpleMode}
-    />
+    <PriceLabel price={currentPrice} time={time} basePrice={basePrice} />
   );
   const chartView = data ? (
     <ChartView

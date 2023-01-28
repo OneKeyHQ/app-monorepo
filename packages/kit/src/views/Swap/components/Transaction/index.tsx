@@ -443,12 +443,8 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
 
   const onPress = useCallback(() => {
     if (from && to && fromNetwork && toNetwork) {
-      backgroundApiProxy.serviceSwap.selectToken(
-        'INPUT',
-        fromNetwork,
-        from.token,
-      );
-      backgroundApiProxy.serviceSwap.selectToken('OUTPUT', toNetwork, to.token);
+      backgroundApiProxy.serviceSwap.setInputToken(from.token);
+      backgroundApiProxy.serviceSwap.setOutputToken(to.token);
 
       const parent = navigation.getParent() ?? navigation;
       parent.goBack();

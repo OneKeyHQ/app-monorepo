@@ -11,7 +11,8 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useActiveSideAccount, useManageTokensOfAccount } from '../../../hooks';
+import { useActiveSideAccount, useNativeToken } from '../../../hooks';
+import { useTokenBalance } from '../../../hooks/useTokens';
 
 import { BaseSendModal } from './BaseSendModal';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
@@ -39,21 +40,16 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     sourceInfo,
     ...others
   } = props;
-  const { nativeToken, getTokenBalance } = useManageTokensOfAccount({
-    fetchTokensOnMount: true,
-    accountId,
-    networkId,
-  });
+  const nativeToken = useNativeToken(network?.id);
+
   const modalClose = useModalClose();
 
-  const nativeBalance = useMemo(
-    () =>
-      getTokenBalance({
-        token: nativeToken,
-        defaultValue: '0',
-      }),
-    [getTokenBalance, nativeToken],
-  );
+  const nativeBalance = useTokenBalance({
+    networkId,
+    accountId,
+    token: nativeToken,
+    fallback: '0',
+  });
 
   // TODO move to validator
   const fee = feeInfoPayload?.current?.totalNative ?? '0';

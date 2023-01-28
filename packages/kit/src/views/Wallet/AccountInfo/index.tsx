@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  HStack,
   Icon,
   IconButton,
   Pressable,
@@ -21,9 +22,7 @@ import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {
   getActiveWalletAccount,
   useActiveWalletAccount,
-  useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { useManageTokens } from '@onekeyhq/kit/src/hooks/useManageTokens';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -36,22 +35,13 @@ import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigationActions } from '../../../hooks';
+import { useAccountValues, useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
-import { useManageTokenprices } from '../../../hooks/useManegeTokenPrice';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
-import { useNFTPrice } from '../../../hooks/useTokens';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
-import { getTimeDurationMs } from '../../../utils/helper';
-import {
-  calculateGains,
-  getPreBaseValue,
-  getSummedValues,
-} from '../../../utils/priceUtils';
+import { calculateGains } from '../../../utils/priceUtils';
 import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
-
-import type { SimpleTokenPrices } from '../../../store/reducers/tokens';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -62,54 +52,26 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
 
-  const { hideSmallBalance, includeNFTsInTotal = true } = useAppSelector(
-    (s) => s.settings,
-  );
-
-  const { account, wallet, network, networkId, accountId } =
+  const { account, wallet, networkId, accountId, network } =
     useActiveWalletAccount();
-  const nftPrice = useNFTPrice({
-    accountId: account?.address,
-    networkId: network?.id,
-  });
-
-  const { accountTokens, balances } = useManageTokens({
-    pollingInterval: 15000,
-  });
-
-  const { prices } = useManageTokenprices({
-    networkId,
-    accountId,
-    pollingInterval: getTimeDurationMs({ minute: 5 }),
-  });
-
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
 
   const { copyAddress } = useCopyAddress({ wallet });
 
+  const accountAllValues = useAccountValues({
+    networkId,
+    accountId,
+  });
+
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
-  const [summedValue, summedValueComp] = useMemo(() => {
-    const displayValue = getSummedValues({
-      tokens: accountTokens,
-      balances,
-      prices,
-      vsCurrency,
-      hideSmallBalance,
-    }).toNumber();
-
-    return [
-      displayValue,
-      Number.isNaN(displayValue) ? (
+  const summedValueComp = useMemo(
+    () =>
+      accountAllValues.value.isNaN() ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
-        <>
-          <Typography.Display2XLarge>
-            <FormatCurrencyNumber
-              decimals={2}
-              value={displayValue}
-              convertValue={includeNFTsInTotal ? nftPrice : null}
-            />
+        <HStack flex="1">
+          <Typography.Display2XLarge numberOfLines={2} isTruncated>
+            <FormatCurrencyNumber decimals={2} value={accountAllValues.value} />
           </Typography.Display2XLarge>
           <IconButton
             name="ChevronDownMini"
@@ -118,48 +80,18 @@ const AccountAmountInfo: FC = () => {
             circle
             ml={1}
           />
-        </>
+        </HStack>
       ),
-    ];
-  }, [
-    accountTokens,
-    balances,
-    hideSmallBalance,
-    includeNFTsInTotal,
-    nftPrice,
-    prices,
-    vsCurrency,
-  ]);
+    [accountAllValues],
+  );
 
   const changedValueComp = useMemo(() => {
-    const basePrices: Record<string, SimpleTokenPrices> = {};
-    accountTokens.forEach((token) => {
-      const tokenId = token?.tokenIdOnNetwork || 'main';
-      const priceId = token?.tokenIdOnNetwork
-        ? `${token?.networkId}-${token.tokenIdOnNetwork}`
-        : token?.networkId ?? '';
-      const balance = balances[tokenId];
-      const priceInfo = prices?.[priceId];
-      if (typeof balance !== 'undefined') {
-        basePrices[priceId] = getPreBaseValue({
-          priceInfo,
-          vsCurrency,
-        });
-      }
-    });
-    const displayBaseValue = getSummedValues({
-      tokens: accountTokens,
-      balances,
-      prices: basePrices,
-      vsCurrency,
-      hideSmallBalance,
-    }).toNumber();
     const { gain, percentageGain, gainTextColor } = calculateGains({
-      basePrice: displayBaseValue,
-      price: summedValue,
+      basePrice: accountAllValues.value24h.toNumber(),
+      price: accountAllValues.value.toNumber(),
     });
 
-    return Number.isNaN(summedValue) ? (
+    return accountAllValues.value.isNaN() ? (
       <Skeleton shape="Body1" />
     ) : (
       <>
@@ -172,18 +104,10 @@ const AccountAmountInfo: FC = () => {
         </Typography.Body1Strong>
       </>
     );
-  }, [
-    accountTokens,
-    balances,
-    hideSmallBalance,
-    intl,
-    prices,
-    summedValue,
-    vsCurrency,
-  ]);
+  }, [intl, accountAllValues]);
 
   return (
-    <Box alignItems="flex-start">
+    <Box alignItems="flex-start" flex="1">
       <Box mx="-8px" my="-4px" flexDir="row">
         <Tooltip
           hasArrow
@@ -238,7 +162,7 @@ const AccountAmountInfo: FC = () => {
           </Tooltip>
         ) : null}
       </Box>
-      <Box flexDirection="row" alignItems="center" mt={1}>
+      <Box flexDirection="row" alignItems="center" mt={1} w="full">
         {summedValueComp}
       </Box>
       <Box flexDirection="row" mt={1}>
@@ -386,7 +310,7 @@ const AccountInfo = () => {
   }
   return (
     <>
-      <DesktopDragZoneAbsoluteBar h={8} />
+      <DesktopDragZoneAbsoluteBar />
       <Box
         h={FIXED_HORIZONTAL_HEDER_HEIGHT}
         py={8}
@@ -397,9 +321,7 @@ const AccountInfo = () => {
         bgColor="background-default"
       >
         <AccountAmountInfo />
-        <Box>
-          <AccountOption isSmallView={isSmallView} />
-        </Box>
+        <AccountOption isSmallView={isSmallView} />
       </Box>
     </>
   );

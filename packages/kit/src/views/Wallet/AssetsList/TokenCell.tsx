@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -17,15 +17,12 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import {
-  useActiveSideAccount,
-  useAppSelector,
-  useManageTokensOfAccount,
-} from '../../../hooks';
+import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import {
   useSimpleTokenPriceInfo,
   useSimpleTokenPriceValue,
 } from '../../../hooks/useManegeTokenPrice';
+import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { calculateGains, getPreBaseValue } from '../../../utils/priceUtils';
 
 interface TokenCellProps {
@@ -34,12 +31,14 @@ interface TokenCellProps {
   borderTopWidth?: string | number;
   borderBottomWidth?: string | number;
   hidePriceInfo?: boolean;
-  onPress?: () => void;
-  token: TokenType;
+  onPress?: (token: TokenType) => void;
   bg?: string;
   borderColor?: string;
   accountId: string;
   networkId: string;
+  tokenIdOnNetwork: string;
+  sendAddress?: string;
+  autoDetected?: boolean;
 }
 const TokenCell: FC<TokenCellProps> = ({
   accountId,
@@ -50,28 +49,29 @@ const TokenCell: FC<TokenCellProps> = ({
   borderBottomWidth,
   borderTopWidth,
   onPress,
-  token,
   borderColor = 'border-subdued',
   bg = 'surface-default',
+  ...tokenItem
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { balances } = useManageTokensOfAccount({
+  const { token } = useSingleToken(networkId, tokenItem.tokenIdOnNetwork);
+  const balance = useTokenBalance({
     accountId,
     networkId,
+    token,
+    fallback: '0',
   });
   const { network } = useActiveSideAccount({ accountId, networkId });
-
-  const tokenId = token.tokenIdOnNetwork || 'main';
+  const tokenId = token?.tokenIdOnNetwork || 'main';
   const priceInfo = useSimpleTokenPriceInfo({
-    contractAdress: token.tokenIdOnNetwork,
+    contractAdress: token?.tokenIdOnNetwork,
     networkId,
   });
   const price = useSimpleTokenPriceValue({
-    contractAdress: token.tokenIdOnNetwork,
+    contractAdress: token?.tokenIdOnNetwork,
     networkId,
   });
   const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
-  const balance = balances[tokenId] || 0;
   const basePrice = getPreBaseValue({ priceInfo, vsCurrency });
 
   const { percentageGain, gainTextBg, gainTextColor } = calculateGains({
@@ -98,7 +98,7 @@ const TokenCell: FC<TokenCellProps> = ({
     return (
       <FormatBalance
         balance={balance}
-        suffix={token.symbol}
+        suffix={token?.symbol}
         formatOptions={{
           fixed: decimal ?? 4,
         }}
@@ -107,7 +107,18 @@ const TokenCell: FC<TokenCellProps> = ({
         )}
       />
     );
-  }, [balance, decimal, token.symbol]);
+  }, [balance, decimal, token?.symbol]);
+
+  const handlePress = useCallback(
+    (t: TokenType) => {
+      onPress?.(t);
+    },
+    [onPress],
+  );
+
+  if (!token) {
+    return null;
+  }
 
   return (
     <Pressable.Item
@@ -120,19 +131,22 @@ const TokenCell: FC<TokenCellProps> = ({
       borderColor={borderColor}
       borderTopWidth={borderTopWidth}
       borderBottomWidth={borderBottomWidth}
-      onPress={onPress}
+      onPress={() => handlePress(token)}
       w="100%"
       flexDirection="row"
       alignItems="center"
     >
-      <Token
-        flex={1}
-        size={8}
-        showInfo
-        token={token}
-        showExtra={false}
-        description={formatedBalance}
-      />
+      <Box flex={1}>
+        <Token
+          flex="1"
+          size={8}
+          showInfo
+          token={token}
+          showExtra={false}
+          description={formatedBalance}
+          infoBoxProps={{ flex: 1 }}
+        />
+      </Box>
       {!isVerticalLayout && !hidePriceInfo && (
         <Box flexDirection="column" flex={1} alignItems="flex-end">
           {price === undefined ? (
@@ -147,7 +161,7 @@ const TokenCell: FC<TokenCellProps> = ({
       <Box flexDirection="column" flex={1} alignItems="flex-end">
         {tokenValue !== undefined ? (
           <>
-            <Typography.Body2Strong>
+            <Typography.Body2Strong w="100%" textAlign="right">
               <FormatCurrencyNumber value={tokenValue} />
             </Typography.Body2Strong>
             <Box
@@ -173,4 +187,4 @@ const TokenCell: FC<TokenCellProps> = ({
 };
 TokenCell.displayName = 'TokenCell';
 
-export default TokenCell;
+export default memo(TokenCell);

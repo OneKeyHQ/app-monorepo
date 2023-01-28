@@ -1,6 +1,7 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
+import { getNetworkImpl } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
@@ -522,8 +523,8 @@ export class SwftcQuoter implements Quoter {
         return { destinationTransactionHash: receipt.transactionId };
       }
     }
-    const { networkId, accountId, nonce } = tx;
-    if (nonce) {
+    const { networkId, accountId, nonce, hash } = tx;
+    if (getNetworkImpl(networkId) === 'evm' && nonce !== undefined) {
       const status =
         await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
           networkId,
@@ -533,9 +534,22 @@ export class SwftcQuoter implements Quoter {
       if (status === 'canceled' || status === 'failed') {
         return { status };
       }
-    } else if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
+    } else if (getNetworkImpl(networkId) !== 'evm') {
+      const status =
+        await backgroundApiProxy.serviceHistory.queryTransactionByTxid({
+          networkId,
+          accountId,
+          txid: hash,
+        });
+      if (status === 'canceled' || status === 'failed') {
+        return { status };
+      }
+    }
+
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
       return { status: 'failed' };
     }
+
     return undefined;
   }
 }

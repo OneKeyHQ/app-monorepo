@@ -33,7 +33,7 @@ const Section = ({
 
   const networkId = `${alerts[0].impl}--${alerts[0].chainId}`;
 
-  const token = useSingleToken(networkId, alerts[0].address);
+  const { token } = useSingleToken(networkId, alerts[0].address);
 
   const handleRemove = useCallback(
     (price: string) => {
