@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
@@ -53,4 +53,4 @@ const PressableItem: FC<PressableItemProps> = ({
   );
 };
 
-export { PressableItem as default };
+export default memo(PressableItem);

@@ -3,7 +3,7 @@
 - browser: window.WebSocket
 - rn: global.WebSocket
 */
-import { usingBrowserWebSocket } from 'engine.io-client/build/esm/transports/websocket-constructor.js';
+// import { usingBrowserWebSocket } from 'engine.io-client/build/esm/transports/websocket-constructor.js';
 import ws from 'ws';
 
 /*

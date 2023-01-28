@@ -19,7 +19,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useNetwork } from '../../../hooks';
 import { updateCustomNetworkRpc } from '../../../store/reducers/settings';
 import AddNodeDialog from '../components/AddNodeDialog';
-import RestartAppDialog from '../components/RestartDialog';
+// import RestartAppDialog from '../components/RestartDialog';
 import { RPCItem } from '../components/RPCItem';
 import { measureRpc, useRPCUrls } from '../hooks';
 
