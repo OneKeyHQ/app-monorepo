@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, memo, useCallback } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
@@ -37,4 +37,4 @@ const PressableCapture = forwardRef<typeof NBPressable, PressableItemProps>(
 
 PressableCapture.displayName = 'Pressable';
 
-export default PressableCapture;
+export default memo(PressableCapture);

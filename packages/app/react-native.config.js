@@ -1,5 +1,9 @@
 module.exports = {
   dependencies: {
+    'react-native-flipper': {
+      // disable flipper in CI environment
+      platforms: process.env.CI ? { ios: null, android: null } : {},
+    },
     // disable frameprocessor and vision-camera-code-scanner
     // until reanimated v3 offcially supports v8
     'vision-camera-code-scanner': {

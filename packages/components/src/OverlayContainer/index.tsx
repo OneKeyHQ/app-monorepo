@@ -15,7 +15,7 @@ const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
       ? FullWindowOverlay
       : RootSiblingPortal;
   return (
-    <Container style={StyleSheet.absoluteFill}>
+    <Container>
       <View
         testID="OverlayContainer-View"
         pointerEvents="box-none"
