@@ -441,16 +441,23 @@ export default class Vault extends VaultBase {
 
     const fee = getFee(params.encodedTx);
 
+    const implCoin = await this.getChainImplInfo();
     let newAmount = [];
     if (fee && fee.amount.length > 0) {
+      if (fee.amount[0].denom !== implCoin.mainCoinDenom) {
+        debugLogger.engine.warn('Cosmos Invalid fee denom:', {
+          network,
+          transaction: params.encodedTx,
+        });
+      }
+
       newAmount = [
         {
-          denom: fee.amount[0].denom,
+          denom: implCoin.mainCoinDenom,
           amount: txPrice,
         },
       ];
     } else {
-      const implCoin = await this.getChainImplInfo();
       newAmount = [
         {
           denom: implCoin.mainCoinDenom,
@@ -709,12 +716,54 @@ export default class Vault extends VaultBase {
     ];
   }
 
+  async fixFeeAmount(encodedTx: IEncodedTxCosmos): Promise<IEncodedTxCosmos> {
+    const fee = getFee(encodedTx);
+
+    const implCoin = await this.getChainImplInfo();
+    let newAmount = [];
+    if (fee && fee.amount.length > 0) {
+      if (fee.amount[0].denom !== implCoin.mainCoinDenom) {
+        debugLogger.engine.warn('Cosmos Invalid fee denom:', {
+          network: this.networkId,
+          transaction: encodedTx,
+        });
+      }
+
+      newAmount = [
+        {
+          denom: implCoin.mainCoinDenom,
+          amount: fee.amount[0].amount,
+        },
+      ];
+    } else {
+      newAmount = [
+        {
+          denom: implCoin.mainCoinDenom,
+          amount: '100000',
+        },
+      ];
+    }
+
+    const newFee: StdFee = {
+      amount: newAmount,
+      gas_limit: fee.gas_limit,
+      payer: fee?.payer ?? '',
+      granter: fee?.granter ?? '',
+      feePayer: fee?.feePayer ?? '',
+    };
+
+    return setFee(encodedTx, newFee);
+  }
+
   async fetchFeeInfo(encodedTx: IEncodedTxCosmos): Promise<IFeeInfo> {
     const [network, unsignedTx] = await Promise.all([
       this.getNetwork(),
       this.buildUnsignedTxFromEncodedTx(encodedTx),
     ]);
-    const newEncodedTx = unsignedTx.encodedTx as IEncodedTxCosmos;
+
+    const newEncodedTx = await this.fixFeeAmount(
+      unsignedTx.encodedTx as IEncodedTxCosmos,
+    );
 
     let limit = getFee(newEncodedTx).gas_limit;
 
