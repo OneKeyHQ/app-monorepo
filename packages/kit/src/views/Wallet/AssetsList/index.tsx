@@ -53,7 +53,6 @@ export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   flatStyle?: boolean;
   accountId: string;
   networkId: string;
-  hideSmallBalance?: boolean;
   renderDefiList?: boolean;
 };
 function AssetsList({
@@ -89,20 +88,27 @@ function AssetsList({
 
   useFocusEffect(
     useCallback(() => {
+      const { serviceToken, serviceOverview } = backgroundApiProxy;
       if (account && network) {
-        backgroundApiProxy.serviceToken.fetchAccountTokens({
+        serviceToken.startRefreshAccountTokens();
+        serviceOverview.startQueryPendingTasks();
+        serviceToken.fetchAccountTokens({
           activeAccountId: account.id,
           activeNetworkId: network.id,
         });
       }
+      return () => {
+        serviceToken.stopRefreshAccountTokens();
+        serviceOverview.stopQueryPendingTasks();
+      };
     }, [account, network]),
   );
 
   useEffect(() => {
-    if (renderDefiList) {
+    if (account && network) {
       backgroundApiProxy.serviceOverview.subscribe();
     }
-  }, [renderDefiList]);
+  }, [account, network]);
 
   const onTokenCellPress = useCallback(
     (item: SimplifiedToken) => {

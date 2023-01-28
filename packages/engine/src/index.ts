@@ -874,6 +874,7 @@ class Engine {
     }
     const client = await this.providerManager.getClient(networkId);
     const { bestBlockNumber } = await client.getInfo();
+    const blockHeight = String(bestBlockNumber);
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
@@ -881,7 +882,7 @@ class Engine {
           balance: balances[0]
             .div(new BigNumber(10).pow(network.decimals))
             .toFixed(),
-          blockHeight: bestBlockNumber,
+          blockHeight,
         };
       } else {
         ret.main = undefined;
@@ -906,11 +907,11 @@ class Engine {
           })
         ] = {
           balance: bal,
-          blockHeight: bestBlockNumber,
+          blockHeight,
         };
         ret[tokenId1] = {
           balance: bal,
-          blockHeight: bestBlockNumber,
+          blockHeight,
         };
       }
     });

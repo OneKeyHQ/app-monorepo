@@ -295,9 +295,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
 
   const onAddToken = useCallback(async () => {
+    const { engine, serviceToken, servicePrice } = backgroundApiProxy;
     try {
       await checkIfShouldActiveToken();
-      await backgroundApiProxy.engine.quickAddToken(
+      await engine.quickAddToken(
         accountId,
         networkId,
         item.tokenIdOnNetwork,
@@ -309,18 +310,17 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
       return;
     }
-    backgroundApiProxy.serviceToken.fetchAccountTokens({
+    await serviceToken.fetchAccountTokens({
       activeAccountId: accountId,
       activeNetworkId: networkId,
     });
     if (hideSmallBalance) {
-      const [balances] =
-        await backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          tokenIds: [item.tokenIdOnNetwork],
-        });
-      const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+      const [balances] = await serviceToken.fetchTokenBalance({
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        tokenIds: [item.tokenIdOnNetwork],
+      });
+      const price = await servicePrice.getSimpleTokenPrice({
         networkId,
         tokenId: item.tokenIdOnNetwork,
       });

@@ -8,7 +8,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 export type TokenBalanceValue =
   | {
       balance: string;
-      blockHeight?: number;
+      blockHeight?: string;
     }
   | undefined;
 export type TokenChartData = [number, number][];

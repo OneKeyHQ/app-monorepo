@@ -47,7 +47,7 @@ export type TokenBalancesResponse = {
   name?: string;
   // for sol
   sendAddress: string;
-  bestBlockNumber?: number;
+  bestBlockNumber?: string;
 }[];
 
 const getBalances = async (

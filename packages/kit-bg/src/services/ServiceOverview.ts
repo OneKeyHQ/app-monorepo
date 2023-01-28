@@ -22,6 +22,8 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceOverview extends ServiceBase {
+  private interval: any;
+
   private pendingTasks: IOverviewScanTaskItem[] = [];
 
   @bindThis()
@@ -30,12 +32,26 @@ class ServiceOverview extends ServiceBase {
     appEventBus.on(AppEventBusNames.AccountChanged, this.subscribe);
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribe);
+  }
 
-    setInterval(() => {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  @bindThis()
+  @backgroundMethod()
+  async startQueryPendingTasks() {
+    if (this.interval) {
+      return;
+    }
+    this.interval = setInterval(() => {
       this.queryPendingTasks();
     }, getTimeDurationMs({ seconds: 15 }));
+  }
 
-    this.subscribe();
+  // eslint-disable-next-line @typescript-eslint/require-await
+  @bindThis()
+  @backgroundMethod()
+  async stopQueryPendingTasks() {
+    clearInterval(this.interval);
+    this.interval = null;
   }
 
   @bindThis()

@@ -82,8 +82,6 @@ const AnnualLoading: FC = () => {
     const res = await serviceToken.fetchAccountTokens({
       activeNetworkId: networkId,
       activeAccountId: accountId,
-      withBalance: true,
-      wait: true,
     });
     const accountTokens = res.filter((n) => !n.security);
     const prices = await servicePrice.fetchSimpleTokenPrice({

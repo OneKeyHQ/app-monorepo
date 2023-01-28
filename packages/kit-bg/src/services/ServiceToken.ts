@@ -34,25 +34,40 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IServiceBaseProps } from './ServiceBase';
-
 export type IFetchAccountTokensParams = {
   activeAccountId: string;
   activeNetworkId: string;
-  withBalance?: boolean;
-  wait?: boolean;
   forceReloadTokens?: boolean;
 };
+
 @backgroundClass()
 export default class ServiceToken extends ServiceBase {
-  constructor(props: IServiceBaseProps) {
-    super(props);
+  private interval: any;
+
+  @bindThis()
+  registerEvents() {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, this.refreshTokenBalance);
+  }
 
-    setInterval(() => {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  @bindThis()
+  @backgroundMethod()
+  async startRefreshAccountTokens() {
+    if (this.interval) {
+      return;
+    }
+    this.interval = setInterval(() => {
       this.refreshTokenBalance();
     }, getTimeDurationMs({ seconds: 15 }));
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  @bindThis()
+  @backgroundMethod()
+  async stopRefreshAccountTokens() {
+    clearInterval(this.interval);
+    this.interval = null;
   }
 
   @bindThis()
@@ -63,7 +78,6 @@ export default class ServiceToken extends ServiceBase {
       this.fetchAccountTokens({
         activeAccountId,
         activeNetworkId,
-        withBalance: true,
       });
     }
   }

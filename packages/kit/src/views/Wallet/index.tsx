@@ -76,8 +76,6 @@ const WalletTabs: FC = () => {
               await backgroundApiProxy.serviceToken.fetchAccountTokens({
                 activeAccountId: account.id,
                 activeNetworkId: network.id,
-                withBalance: true,
-                wait: true,
                 forceReloadTokens: true,
               });
             } catch (e) {
