@@ -226,10 +226,10 @@ const NFTDetailModal: FC = () => {
       });
       debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
     } catch (e) {
-      console.log('image operate error: ', e);
+      debugLogger.hardwareSDK.info('image operate error: ', e);
       ToastManager.show(
         {
-          title: 'NFT图片处理失败, 请更换图片后重试',
+          title: intl.formatMessage({ id: 'msg__image_download_failed' }),
         },
         {
           type: 'error',

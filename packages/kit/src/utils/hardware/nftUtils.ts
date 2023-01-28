@@ -109,7 +109,7 @@ export const compressNFT = async (
   isThumbnail: boolean,
 ) => {
   if (!uri) return;
-  console.log(
+  debugLogger.hardwareSDK.info(
     `width: ${width}, height: ${height}, originW: ${originW}, originH: ${originH}`,
   );
   const aspectRatioLonger = originW > originH;
@@ -163,7 +163,7 @@ export const compressNFT = async (
     base64: true,
   });
 
-  console.log('imageResult ====> : ', imageResult);
+  debugLogger.hardwareSDK.info('imageResult ====> : ', imageResult);
 
   const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
   const arrayBuffer = new Uint8Array(buffer);
@@ -178,9 +178,9 @@ export const generateUploadNFTParams = async (
   metadata: NFTMetaData,
 ) => {
   const { width, height } = await getImageSize(imageUri);
-  console.log('image size: ', { width, height });
+  debugLogger.hardwareSDK.info('image size: ', { width, height });
   const base64 = await imageToBase64(imageUri);
-  console.log(base64);
+  debugLogger.hardwareSDK.info(base64);
   const data = await compressNFT(base64, 480, 800, width, height, false);
   const zoomData = await compressNFT(base64, 238, 238, width, height, true);
 
