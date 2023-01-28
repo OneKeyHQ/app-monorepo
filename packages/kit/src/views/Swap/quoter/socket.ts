@@ -689,7 +689,7 @@ export class SocketQuoter implements Quoter {
     tx: TransactionDetails,
   ): Promise<TransactionProgress> {
     const { nonce, networkId, accountId, tokens, attachment } = tx;
-    if (nonce && tokens) {
+    if (nonce !== undefined && tokens) {
       const { from, to } = tokens;
       const fromChainId = getChainIdFromNetworkId(from.networkId);
       const toChainId = getChainIdFromNetworkId(to.networkId);
