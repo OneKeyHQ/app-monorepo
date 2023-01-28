@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { BlurView } from 'expo-blur';
@@ -13,6 +13,7 @@ import {
   CustomSkeleton,
   HStack,
   Icon,
+  IconButton,
   Modal,
   Pressable,
   ScrollView,
@@ -29,6 +30,8 @@ import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/Na
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
+import type { Device } from '@onekeyhq/engine/src/types/device';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
@@ -41,17 +44,22 @@ import type {
 } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { generateUploadNFTParams } from '@onekeyhq/kit/src/utils/hardware/nftUtils';
+import NFTDetailMenu from '@onekeyhq/kit/src/views/Overlay/NFTDetailMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { SendRoutes } from '../../../../routes';
+import { deviceUtils } from '../../../../utils/hardware';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
 
 import CollectibleContent from './CollectibleContent';
 
+import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
@@ -112,7 +120,7 @@ const NFTDetailModal: FC = () => {
   const { network, asset: outerAsset, isOwner } = route.params;
 
   const [asset, updateAsset] = useState(outerAsset);
-  const { serviceNFT } = backgroundApiProxy;
+  const { serviceNFT, serviceHardware } = backgroundApiProxy;
 
   let hasBlurViewBG = isImage(asset.contentType);
   if (asset.nftscanUri && asset.nftscanUri?.length > 0) {
@@ -168,6 +176,86 @@ const NFTDetailModal: FC = () => {
   }, [outerAsset.contractAddress, network.id, serviceNFT, isEVM]);
 
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
+
+  const [showMenu, setShowMenu] = useState(false);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [device, setDevice] = useState<Device | null>(null);
+  useEffect(() => {
+    (async () => {
+      if (!wallet || wallet.type !== 'hw') {
+        setShowMenu(false);
+        return;
+      }
+      const hwDevice = await backgroundApiProxy.engine.getHWDeviceByWalletId(
+        wallet.id,
+      );
+      const supportContentType = [
+        'image/gif',
+        'image/svg',
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+      ];
+      const isSupportType = supportContentType.includes(
+        asset.contentType ?? '',
+      );
+      setShowMenu(hwDevice?.deviceType === 'touch' && isSupportType);
+      setDevice(hwDevice);
+    })();
+  }, [wallet, asset]);
+
+  const onCollectToTouch = useCallback(async () => {
+    let uri;
+    if (asset.nftscanUri && asset.nftscanUri.length > 0) {
+      uri = asset.nftscanUri;
+    } else {
+      uri = getContentWithAsset(asset);
+    }
+
+    if (!uri) return;
+
+    setMenuLoading(true);
+    let uploadResParams: DeviceUploadResourceParams | undefined;
+    try {
+      uploadResParams = await generateUploadNFTParams(uri, {
+        header:
+          asset.name && asset.name.length > 0
+            ? asset.name
+            : `#${asset.tokenId as string}`,
+        subheader: asset.description ?? '',
+        network: network.name,
+        owner: asset.owner,
+      });
+      debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
+    } catch (e) {
+      debugLogger.hardwareSDK.info('image operate error: ', e);
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg__image_download_failed' }),
+        },
+        {
+          type: 'error',
+        },
+      );
+      setMenuLoading(false);
+      return;
+    }
+    if (uploadResParams) {
+      try {
+        await serviceHardware.uploadResource(
+          device?.mac ?? '',
+          uploadResParams,
+        );
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__change_saved' }),
+        });
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+      } finally {
+        setMenuLoading(false);
+      }
+    }
+  }, [asset, device, intl, serviceHardware, network]);
 
   const goToCollectionDetail = useCollectionDetail();
   const sendAction = () => {
@@ -255,11 +343,33 @@ const NFTDetailModal: FC = () => {
       <VStack space="24px" mb="50px">
         {/* Asset name and collection name */}
         <Box>
-          <Typography.DisplayLarge fontWeight="700">
-            {asset.name && asset.name.length > 0
-              ? asset.name
-              : `#${asset.tokenId as string}`}
-          </Typography.DisplayLarge>
+          <HStack alignItems="stretch" justifyContent="space-between">
+            <Text
+              typography={{ sm: 'DisplayLarge', md: 'DisplayLarge' }}
+              fontWeight="700"
+            >
+              {asset.name && asset.name.length > 0
+                ? asset.name
+                : `#${asset.tokenId as string}`}
+            </Text>
+            {showMenu && (
+              <NFTDetailMenu onCollectToTouch={onCollectToTouch}>
+                <IconButton
+                  name="EllipsisVerticalOutline"
+                  size={isSmallScreen ? 'sm' : 'xs'}
+                  type="basic"
+                  circle
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="border-default"
+                  h={{ base: 34, sm: 30 }}
+                  ml={3}
+                  mr={{ base: 0, sm: 10 }}
+                  isLoading={menuLoading}
+                  isDisabled={menuLoading}
+                />
+              </NFTDetailMenu>
+            )}
+          </HStack>
           <HStack space="8px" mt="4px">
             <Text typography="Body1" color="text-subdued">
               {intl.formatMessage({ id: 'content__last_sale' })}
@@ -564,8 +674,8 @@ const NFTDetailModal: FC = () => {
     >
       <NavigationButton
         position="absolute"
-        top={platformEnv.isExtension ? '8px' : '24px'}
-        right={platformEnv.isExtension ? '8px' : '24px'}
+        top={platformEnv.isExtensionUiPopup ? '8px' : '24px'}
+        right={platformEnv.isExtensionUiPopup ? '8px' : '24px'}
         zIndex={1}
         onPress={modalClose}
       />
