@@ -249,7 +249,7 @@ const Content: FC<Props> = ({
       <Box mt="24px">
         {isLoading && (
           <Alert
-            customIconName="CheckCircleMini"
+            customIconName="EllipsisHorizontalCircleMini"
             title={intl.formatMessage(
               {
                 id: 'modal__migrating_data_awaiting_confirmation',
