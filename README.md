@@ -51,7 +51,7 @@ yarn
 
 # Install the expo command line tool globally
 
-npm install -g expo-cli
+npm install -g expo-cli@6.0.8
 ```
 
 ## 🧑‍💻 Develop
