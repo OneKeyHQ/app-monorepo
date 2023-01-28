@@ -39,6 +39,7 @@ import hardwareReducer from './reducers/hardware'; // 62.86 MB **** +40 Mb engin
 import httpServerReducer from './reducers/httpServer';
 import marketReducer from './reducers/market';
 import nftReducer from './reducers/nft';
+import overviewReducer from './reducers/overview';
 import reducerAccountSelector from './reducers/reducerAccountSelector';
 import refresherReducer from './reducers/refresher';
 import runtimeReducer from './reducers/runtime';
@@ -80,6 +81,7 @@ const allReducers = combineReducers({
   swapTransactions: swapTransactionsReducer,
   tokens: tokensReducer,
   webTabs: webTabsReducer,
+  overview: overviewReducer,
   httpServer: httpServerReducer,
 });
 

@@ -4,8 +4,6 @@ import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IDecodedTx,
@@ -78,6 +76,7 @@ export type TransferSendParamsPayload = SendConfirmPayloadBase & {
     name: string;
     symbol: string;
     balance?: string;
+    sendAddress?: string;
   };
 };
 

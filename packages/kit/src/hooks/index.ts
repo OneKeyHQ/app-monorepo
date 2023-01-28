@@ -11,7 +11,6 @@ export {
   useAccountTokens,
   useAccountTokensBalance,
   useNetworkTokens,
-  useNetworkTokensPrice,
   useNativeToken,
 } from './useTokens';
 export { usePrevious } from './usePrevious';
@@ -21,5 +20,5 @@ export * from './useActiveSideAccount';
 export * from './useNetwork';
 export * from './useAccount';
 export * from './useWallet';
-export * from './useManageTokens';
+export * from './useOverview';
 export * from './useTranslation';

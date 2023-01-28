@@ -26,7 +26,7 @@ export default function StakingETHNotes() {
   const { params } = useRoute<RouteProps>();
   const { account } = useActiveWalletAccount();
   const state = useKelePoolStakingState(params.networkId, account?.id);
-  const tokenInfo = useNativeToken(params.networkId, account?.id);
+  const tokenInfo = useNativeToken(params.networkId);
   const onClose = useCallback(() => {
     const parent = navigation.getParent();
     if (parent?.canGoBack()) {

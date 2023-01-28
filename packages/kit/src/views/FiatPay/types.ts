@@ -1,5 +1,3 @@
-import type { TokenBalanceValue } from '../../store/reducers/tokens';
-
 export type Provider = 'moonpay';
 
 export type CurrencyType = {
@@ -9,7 +7,7 @@ export type CurrencyType = {
   symbol: string;
   contract: string;
   provider: Record<Provider, string>;
-  balance: TokenBalanceValue;
+  balance: string | undefined;
   logoURI: string;
 };
 

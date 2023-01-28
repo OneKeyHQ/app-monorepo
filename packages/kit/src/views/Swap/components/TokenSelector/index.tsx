@@ -28,11 +28,10 @@ import {
   useDebounce,
   useNetworkSimple,
 } from '../../../../hooks';
+import { useTokenBalance } from '../../../../hooks/useTokens';
 import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
-import { formatDecimalZero } from '../../../Market/utils';
 import {
   useSwapAccountTokens,
-  useTokenBalanceSimple,
   useTokenPrice,
   useTokenSearch,
 } from '../../hooks/useSwapTokenUtils';
@@ -162,7 +161,11 @@ const ExtraInfo: FC<ExtraInfoProps> = ({ token }) => {
     token?.networkId ?? '',
   );
 
-  const balance = useTokenBalanceSimple(token, accountId);
+  const balance = useTokenBalance({
+    networkId: token?.networkId ?? '',
+    accountId: accountId ?? '',
+    token,
+  });
   const price = useTokenPrice(token);
 
   if (isCompatible) {

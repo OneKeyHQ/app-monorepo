@@ -16,7 +16,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 
 import { useActiveWalletAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
-import { useTokenInfo } from '../../hooks/useTokenInfo';
+import { useSingleToken } from '../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { ManageTokenRoutes } from '../ManageTokens/types';
 import PriceChart from '../PriceChart/PriceChart';
@@ -43,13 +43,12 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const isVertical = useIsVerticalLayout();
-  // const { charts } = useManageTokens();
-  const { accountId, networkId, tokenId } = route.params;
+  const { accountId, networkId, tokenId, sendAddress } = route.params;
   const price = useSimpleTokenPriceValue({
     networkId,
     contractAdress: tokenId,
   });
-  const token = useTokenInfo({ networkId, tokenIdOnNetwork: tokenId });
+  const { token } = useSingleToken(networkId, tokenId);
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
 
@@ -92,6 +91,35 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     [token, navigation],
   );
 
+  const headerRight = useCallback(
+    () => (
+      <Select
+        dropdownPosition="right"
+        title={intl.formatMessage({ id: 'action__more' })}
+        onChange={onHeaderRightPress}
+        footer={null}
+        activatable={false}
+        triggerProps={{
+          width: '40px',
+        }}
+        dropdownProps={{
+          width: 248,
+        }}
+        options={[
+          {
+            label: intl.formatMessage({
+              id: 'form__price_alert',
+            }),
+            value: 'priceAlert',
+            iconProps: { name: 'BellOutline' },
+          },
+        ]}
+        renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
+      />
+    ),
+    [intl, onHeaderRightPress],
+  );
+
   useLayoutEffect(() => {
     if (!priceReady) {
       return;
@@ -100,38 +128,25 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       return;
     }
     navigation.setOptions({
-      // eslint-disable-next-line react/no-unstable-nested-components
-      headerRight: () => (
-        <Select
-          dropdownPosition="right"
-          title={intl.formatMessage({ id: 'action__more' })}
-          onChange={onHeaderRightPress}
-          footer={null}
-          activatable={false}
-          triggerProps={{
-            width: '40px',
-          }}
-          dropdownProps={{
-            width: 248,
-          }}
-          options={[
-            {
-              label: intl.formatMessage({
-                id: 'form__price_alert',
-              }),
-              value: 'priceAlert',
-              iconProps: { name: 'BellOutline' },
-            },
-          ]}
-          renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
-        />
-      ),
+      headerRight,
     });
-  }, [navigation, intl, onHeaderRightPress, priceReady, token, isVertical]);
+  }, [
+    navigation,
+    intl,
+    headerRight,
+    onHeaderRightPress,
+    priceReady,
+    token,
+    isVertical,
+  ]);
 
   const headerView = (
     <>
-      <TokenInfo token={token} priceReady={priceReady} />
+      <TokenInfo
+        token={token}
+        sendAddress={sendAddress}
+        priceReady={priceReady}
+      />
       <StakedAssets
         networkId={token?.networkId}
         tokenIdOnNetwork={token?.tokenIdOnNetwork}

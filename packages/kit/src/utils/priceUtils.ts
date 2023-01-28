@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { formatDecimalZero } from '../views/Market/utils';
@@ -76,8 +77,9 @@ export function getTokenValue({
   price: number | undefined | null;
   balances: Record<string, TokenBalanceValue>;
 }) {
-  const tokenId = token?.tokenIdOnNetwork || 'main';
-  const balance = balances[tokenId] || 0;
+  const { balance } = balances[getBalanceKey(token)] || {
+    balance: '0',
+  };
   if (balance !== undefined) {
     const priceValue = new BigNumber(price || 0);
     return new BigNumber(balance).times(priceValue);
@@ -96,11 +98,12 @@ export function getTokenValues({
   vsCurrency: string;
 }) {
   return tokens.map((token) => {
-    const tokenId = token?.tokenIdOnNetwork || 'main';
     const priceId = token?.tokenIdOnNetwork
       ? `${token?.networkId}-${token.tokenIdOnNetwork}`
       : token?.networkId ?? '';
-    const balance = balances[tokenId] || 0;
+    const { balance } = balances[getBalanceKey(token)] || {
+      balance: 0,
+    };
     if (balance !== undefined) {
       let price = new BigNumber(0);
       if (prices?.[priceId]) {

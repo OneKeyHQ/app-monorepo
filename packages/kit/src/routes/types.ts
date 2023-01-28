@@ -63,6 +63,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Webview]: NavigatorScreenParams<SubModalRoutesParams.WebviewRoutesParams>;
   [ModalRoutes.Revoke]: NavigatorScreenParams<SubModalRoutesParams.RevokeRoutesParams>;
   [ModalRoutes.NFTMarket]: NavigatorScreenParams<SubModalRoutesParams.NFTMarketRoutesParams>;
+  [ModalRoutes.Overview]: NavigatorScreenParams<SubModalRoutesParams.OverviewModalRoutesParams>;
   [ModalRoutes.AnnualReport]: NavigatorScreenParams<SubModalRoutesParams.AnnualReportModalParams>;
 };
 /** Modal */
@@ -92,6 +93,7 @@ export type HomeRoutesParams = {
     accountId: string;
     networkId: string;
     tokenId: string; // tokenIdOnNetwork
+    sendAddress?: string;
     historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.FullTokenListScreen]: {
@@ -156,6 +158,10 @@ export type HomeRoutesParams = {
   [HomeRoutes.RevokeRedirect]: undefined;
   [HomeRoutes.KeyTag]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;
+  [HomeRoutes.OverviewDefiListScreen]: {
+    networkId: string;
+    address: string;
+  };
   [HomeRoutes.WalletSwitch]: undefined;
   [HomeRoutes.AnnualLoading]: undefined;
   [HomeRoutes.AnnualReport]: {

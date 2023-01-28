@@ -1,28 +1,46 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import B from 'bignumber.js';
+import natsort from 'natsort';
+import { useAsync } from 'react-async-hook';
+
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { getPreBaseValue } from '../utils/priceUtils';
 
 import { useAppSelector } from './useAppSelector';
 
-export function useAccountTokens(networkId?: string, accountId?: string) {
-  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
-  return useMemo(() => {
-    if (!networkId || !accountId) {
-      return [];
-    }
-    return accountTokens[networkId]?.[accountId] ?? [];
-  }, [networkId, accountId, accountTokens]);
-}
+export const useSingleToken = (networkId: string, address: string) => {
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<Token>();
 
-export function useAccountTokenLoading(networkId: string, accountId: string) {
-  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
-  return useMemo(
-    () => typeof accountTokens[networkId]?.[accountId] === 'undefined',
-    [networkId, accountId, accountTokens],
-  );
+  useEffect(() => {
+    backgroundApiProxy.engine
+      .findToken({
+        networkId,
+        tokenIdOnNetwork: address,
+      })
+      .then((t) => {
+        if (t) {
+          setToken(t);
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [address, networkId]);
+
+  return {
+    loading,
+    token,
+  };
+};
+export function useNativeToken(networkId?: string): Token | undefined {
+  const { token } = useSingleToken(networkId ?? '', '');
+  return token;
 }
 
 export function useAccountTokensBalance(
@@ -38,48 +56,129 @@ export function useAccountTokensBalance(
   }, [networkId, accountId, balances]);
 }
 
+export function useAccountTokens(
+  networkId = '',
+  accountId = '',
+  useFilter = false,
+) {
+  const {
+    hideRiskTokens,
+    hideSmallBalance,
+    putMainTokenOnTop,
+    selectedFiatMoneySymbol,
+  } = useAppSelector((s) => s.settings);
+  const tokens = useAppSelector(
+    (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+  );
+  const balances = useAppSelector(
+    (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId] ?? [],
+  );
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap ?? {});
+
+  const valueTokens = tokens
+    .map((t) => {
+      const priceInfo =
+        prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
+      const price = priceInfo?.[selectedFiatMoneySymbol] ?? 0;
+      const balance = balances[getBalanceKey(t)]?.balance ?? '0';
+      const value = new B(price).multipliedBy(balance);
+      const value24h = new B(balance).multipliedBy(
+        getPreBaseValue({
+          priceInfo,
+          vsCurrency: selectedFiatMoneySymbol,
+        })[selectedFiatMoneySymbol] ?? 0,
+      );
+      const info = {
+        ...t,
+        price,
+        balance,
+        value,
+        value24h,
+      };
+      return info;
+    })
+    .sort(
+      (a, b) =>
+        // By value
+        b.value.comparedTo(a.value) ||
+        // By price
+        new B(b.price).comparedTo(a.price) ||
+        // By native token
+        (b.isNative ? 1 : 0) ||
+        (a.isNative ? -1 : 0) ||
+        // By name
+        natsort({ insensitive: true })(a.name, b.name),
+    );
+
+  if (!useFilter) {
+    return valueTokens;
+  }
+
+  const filteredTokens = valueTokens.filter((t) => {
+    if (hideSmallBalance && new B(t.value).isLessThan(1)) {
+      return false;
+    }
+    if (hideRiskTokens && t.security) {
+      return false;
+    }
+    if (putMainTokenOnTop && (t.isNative || !t.address)) {
+      return false;
+    }
+    return true;
+  });
+  if (!putMainTokenOnTop) {
+    return filteredTokens;
+  }
+  const nativeToken = valueTokens.find(
+    (t) => t.isNative || !t.tokenIdOnNetwork,
+  );
+  if (nativeToken) {
+    return [nativeToken, ...filteredTokens];
+  }
+  return filteredTokens;
+}
+
+export function useAccountTokenValues(networkId: string, accountId: string) {
+  const accountTokens = useAccountTokens(networkId, accountId, true);
+
+  return useMemo(() => {
+    let value = new B(0);
+    let value24h = new B(0);
+    for (const t of accountTokens) {
+      value = value.plus(t.value);
+      value24h = value24h.plus(t.value24h);
+    }
+    return {
+      value,
+      value24h,
+    };
+  }, [accountTokens]);
+}
+
+export function useAccountTokenLoading(networkId: string, accountId: string) {
+  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+  return useMemo(
+    () => typeof accountTokens[networkId]?.[accountId] === 'undefined',
+    [networkId, accountId, accountTokens],
+  );
+}
+
 export const useNativeTokenBalance = (
   networkId?: string,
   accountId?: string,
 ) => {
   const balances = useAccountTokensBalance(networkId, accountId);
-  return useMemo(() => balances?.main, [balances]);
+  return useMemo(() => balances?.main?.balance || '0', [balances]);
 };
 
 export function useNetworkTokens(networkId?: string) {
-  const tokens = useAppSelector((s) => s.tokens.tokens);
-  return useMemo(() => {
-    if (!networkId) {
-      return [];
-    }
-    return tokens[networkId] ?? [];
-  }, [networkId, tokens]);
-}
+  const { result: tokens } = useAsync(
+    async () =>
+      backgroundApiProxy.engine.getTopTokensOnNetwork(networkId ?? ''),
+    [networkId],
+  );
 
-export function useNetworkTokensPrice(networkId?: string) {
-  const tokensPrice = useAppSelector((s) => s.tokens.tokensPrice);
-  return useMemo(() => {
-    if (!networkId) {
-      return {};
-    }
-    return tokensPrice[networkId] ?? {};
-  }, [networkId, tokensPrice]);
-}
-
-export function useNetworkTokensChart(networkId: string) {
-  const charts = useAppSelector((s) => s.tokens.charts);
-  return useMemo(() => charts?.[networkId] ?? {}, [networkId, charts]);
-}
-
-export function useNativeToken(
-  networkId?: string,
-  accountId?: string,
-): Token | undefined {
-  const tokens = useAccountTokens(networkId, accountId);
-  return useMemo(
-    () => tokens.filter((token) => !token.tokenIdOnNetwork),
-    [tokens],
-  )[0];
+  return tokens ?? [];
 }
 
 export const useNFTSymbolPrice = ({
@@ -122,25 +221,6 @@ export const useNFTPrice = ({
   return symbolPrice * amount;
 };
 
-export const useSingleToken = (networkId: string, address: string) => {
-  const [token, setToken] = useState<Token>();
-
-  useEffect(() => {
-    backgroundApiProxy.engine
-      .findToken({
-        networkId,
-        tokenIdOnNetwork: address,
-      })
-      .then((t) => {
-        if (t) {
-          setToken(t);
-        }
-      });
-  }, [address, networkId]);
-
-  return token;
-};
-
 export const useTokenSupportStakedAssets = (
   networkId?: string,
   tokenIdOnNetwork?: string,
@@ -152,3 +232,36 @@ export const useTokenSupportStakedAssets = (
 
     [networkId, tokenIdOnNetwork],
   );
+
+export const useTokenBalance = ({
+  networkId,
+  accountId,
+  token,
+  fallback = '0',
+}: {
+  networkId: string;
+  accountId: string;
+  token?: Partial<Token> | null;
+  fallback?: string;
+}) => {
+  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
+  return (
+    balances?.[networkId]?.[accountId]?.[getBalanceKey(token)]?.balance ??
+    fallback
+  );
+};
+
+export const useTokenPrice = ({
+  networkId,
+  token,
+  fallback,
+}: {
+  networkId: string;
+  vsCurrency: string;
+  token: Partial<Token>;
+  fallback: number;
+}) => {
+  const key = `${networkId}-${token?.address ?? ''}`;
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
+  return prices?.[key] ?? fallback;
+};
