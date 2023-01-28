@@ -551,4 +551,47 @@ export default class ServiceSwap extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     return appSelector((s) => s.swap.error);
   }
+
+  @backgroundMethod()
+  async fetchSwapTokenBalance(params: {
+    networkId?: string;
+    accountId?: string;
+  }) {
+    const { networkId, accountId } = params;
+    if (!networkId || !accountId) {
+      return;
+    }
+    const isMatch = isAccountCompatibleWithNetwork(accountId, networkId);
+    if (!isMatch) {
+      return;
+    }
+    const { appSelector } = this.backgroundApi;
+    const tokenList = appSelector((s) => s.swapTransactions.tokenList);
+    if (!tokenList) {
+      return;
+    }
+    const data = tokenList.find((item) => item.networkId === networkId);
+    const tokensA = data?.tokens ?? [];
+    const accountTokens = appSelector((s) => s.tokens.accountTokens);
+    const tokensB = accountTokens?.[networkId]?.[accountId] ?? [];
+
+    let tokens = [...tokensA, ...tokensB];
+    const set = new Set();
+
+    tokens = tokens.filter((item) => {
+      if (set.has(item.tokenIdOnNetwork)) {
+        return false;
+      }
+      set.add(item.tokenIdOnNetwork);
+      return true;
+    });
+
+    const { serviceToken } = this.backgroundApi;
+
+    serviceToken.fetchTokenBalance({
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+      tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+    });
+  }
 }
