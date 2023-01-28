@@ -91,7 +91,6 @@ class ProviderApiCosmos extends ProviderApiBase {
       if (!this.hasPermissions(request, key.pubKey)) {
         await this.backgroundApi.serviceDapp.openConnectionModal(request, {
           networkId: appNetworkId,
-          accountIdentify: key.pubKey,
         });
       }
 

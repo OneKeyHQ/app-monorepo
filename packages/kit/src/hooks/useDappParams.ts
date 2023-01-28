@@ -12,7 +12,6 @@ export type IDappSignAndSendParams = {
   _$t?: number;
   // Support cosmos dapp
   networkId?: string;
-  accountIdentify?: string;
 };
 
 export type IDappConnectionParams = {
