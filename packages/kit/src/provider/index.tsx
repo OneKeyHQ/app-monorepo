@@ -68,7 +68,7 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
                       // but can not work with modal
                       // https://github.com/software-mansion/react-native-screens/issues/1149
                       // so now only used for toast
-                      <FullWindowOverlay style={StyleSheet.absoluteFill}>
+                      <FullWindowOverlay>
                         <View
                           pointerEvents="box-none"
                           style={StyleSheet.absoluteFill}

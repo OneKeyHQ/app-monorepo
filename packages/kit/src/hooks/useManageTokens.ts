@@ -51,38 +51,33 @@ export const useManageTokensOfAccount = ({
     return map;
   }, [accountTokens]);
 
+  const fetchAccountTokens = useCallback(() => {
+    // TODO may cause circular refresh in UI
+    backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+      withBalance: true,
+    });
+  }, [accountId, networkId]);
+
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (pollingInterval && isFocused && accountId && networkId) {
-      // TODO may cause circular refresh in UI
-      backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
+    if (pollingInterval && accountId && networkId) {
+      fetchAccountTokens();
       timer = setInterval(() => {
-        backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
-          withBalance: true,
-        });
+        if (isFocused) {
+          fetchAccountTokens();
+        }
       }, pollingInterval);
     }
     return () => {
-      if (timer) {
-        clearInterval(timer);
-      }
+      clearInterval(timer);
     };
-  }, [isFocused, pollingInterval, accountId, networkId]);
+  }, [pollingInterval, accountId, networkId, fetchAccountTokens, isFocused]);
 
   useEffect(() => {
     if (fetchTokensOnMount && accountId && networkId) {
-      // TODO may cause circular refresh in UI
-      backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
+      fetchAccountTokens();
     }
     // eslint-disable-next-line
   }, []);
@@ -93,9 +88,7 @@ export const useManageTokensOfAccount = ({
         accountId,
         networkId,
       })
-      .then((value) => {
-        setFrozenBalance(value);
-      });
+      .then(setFrozenBalance);
   }, [accountId, networkId]);
 
   const getTokenBalance = useCallback(

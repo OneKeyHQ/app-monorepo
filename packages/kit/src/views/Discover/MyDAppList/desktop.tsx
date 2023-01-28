@@ -150,7 +150,7 @@ const Favorites = () => {
         callback={showFavoriteMenu}
       />
     ),
-    [],
+    [cardWidth],
   );
 
   return (
