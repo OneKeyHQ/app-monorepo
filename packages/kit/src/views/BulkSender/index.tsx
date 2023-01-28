@@ -15,7 +15,9 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { useNativeToken } from '@onekeyhq/kit/src/hooks';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
@@ -23,6 +25,7 @@ import { useActiveWalletAccount } from '../../hooks';
 import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
+import { NotSupported } from './NotSupported';
 import { TokenOutbox } from './TokenOutbox';
 import { BulkSenderTypeEnum } from './types';
 
@@ -33,7 +36,13 @@ function BulkSender() {
   const isVertical = useIsVerticalLayout();
   const [tabbarBgColor] = useThemeValue(['background-default']);
 
-  const { accountId, networkId, accountAddress } = useActiveWalletAccount();
+  const { accountId, networkId, accountAddress, network } =
+    useActiveWalletAccount();
+
+  const isSupported =
+    network?.settings.supportBatchTransfer &&
+    (network.impl !== IMPL_EVM ||
+      (network.impl === IMPL_EVM && batchTransferContractAddress[network.id]));
 
   const nativeToken = useNativeToken(networkId, accountId);
 
@@ -89,6 +98,8 @@ function BulkSender() {
       headerRight,
     });
   }, [navigation, headerLeft, headerRight]);
+
+  if (!isSupported) return <NotSupported />;
 
   return (
     <ScrollView>

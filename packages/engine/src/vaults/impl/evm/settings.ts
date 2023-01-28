@@ -21,6 +21,7 @@ const settings: IVaultSettings = Object.freeze({
   },
 
   supportFilterScam: true,
+  supportBatchTransfer: true,
 });
 
 export default settings;

@@ -15,7 +15,6 @@ import {
   Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -51,7 +50,6 @@ function TokenOutbox(props: Props) {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
-  const closeModal = useModalClose();
   const { accountTokens, nativeToken, balances, loading } =
     useManageTokensOfAccount({
       accountId,

@@ -145,7 +145,10 @@ const ToolsPage: FC = () => {
       allItems = allItems.filter((n) => n.key !== 'annual');
     }
 
-    if (network?.impl !== IMPL_EVM && network?.impl !== IMPL_SOL) {
+    if (
+      !network?.settings.supportBatchTransfer ||
+      (network.impl === IMPL_EVM && !batchTransferContractAddress[network.id])
+    ) {
       allItems = allItems.filter((n) => n.key !== 'bulkSender');
     }
 
