@@ -35,6 +35,7 @@ import {
   useSwapQuoteRequestParams,
 } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
+import { dangerRefs } from './refs';
 import { SwapError } from './typings';
 
 import type { HomeRoutesParams } from '../../routes/types';
@@ -181,7 +182,7 @@ const RefreshButton = () => {
   );
 
   const onRefresh = useCallback(() => {
-    if (limited || !params) {
+    if (limited || !params || dangerRefs.submited) {
       loadingAnim.setValue(0);
       Animated.timing(loadingAnim, {
         toValue: -1,

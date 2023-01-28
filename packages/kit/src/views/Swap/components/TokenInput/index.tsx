@@ -24,7 +24,7 @@ import {
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
-import { tokenReservedValues } from '../../config';
+import { reservedNetworkFee } from '../../config';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
@@ -157,7 +157,7 @@ const TokenInput: FC<TokenInputProps> = ({
     if (token.tokenIdOnNetwork) {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
-      const reserved = tokenReservedValues[token.networkId] ?? 0.1;
+      const reserved = reservedNetworkFee[token.networkId] ?? 0.1;
       const v = Math.max(0, Number(value) - reserved);
       if (v > 0) {
         backgroundApiProxy.serviceSwap.userInput(type, String(v));
