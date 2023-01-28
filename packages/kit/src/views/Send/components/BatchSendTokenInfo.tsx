@@ -1,11 +1,13 @@
 import BigNumber from 'bignumber.js';
-import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Divider, HStack, Text } from '@onekeyhq/components';
 
-import { useAccountTokens, useAccountTokensBalance } from '../../../hooks';
-import {} from '../../../hooks/useTokenInfo';
+import {
+  useNativeToken,
+  useSingleToken,
+  useTokenBalance,
+} from '../../../hooks/useTokens';
 import { BulkSenderTypeEnum } from '../../BulkSender/types';
 
 import type { BatchSendConfirmPayloadInfo } from '../types';
@@ -41,7 +43,7 @@ function BatchSendTokenInfo(props: Props) {
 
   const transferInfos = payloadInfo?.transferInfos ?? [];
   const transferInfo = transferInfos[0];
-  const tokenIdOnNetwork = transferInfo.token;
+  const tokenIdOnNetwork = transferInfo.token ?? '';
 
   let amountBN = new BigNumber(0);
   const addresses = new Set();
@@ -50,13 +52,14 @@ function BatchSendTokenInfo(props: Props) {
     amountBN = amountBN.plus(transferInfos[i].amount);
     addresses.add(transferInfos[i].to.toLowerCase());
   }
-  const balances = useAccountTokensBalance(networkId, accountId);
-  const tokens = useAccountTokens(networkId, accountId);
-  const token =
-    find(tokens, { tokenIdOnNetwork }) || find(tokens, { isNative: true });
-  const nativeToken = find(tokens, { isNative: true });
-  const tokenBalance = balances[tokenIdOnNetwork || 'main'];
-  const nativeTokenBalance = balances.main;
+  const { token } = useSingleToken(networkId, tokenIdOnNetwork);
+  const nativeToken = useNativeToken(networkId);
+  const tokenBalance = useTokenBalance({ accountId, networkId, token });
+  const nativeTokenBalance = useTokenBalance({
+    accountId,
+    networkId,
+    token: nativeToken,
+  });
 
   return (
     <Box

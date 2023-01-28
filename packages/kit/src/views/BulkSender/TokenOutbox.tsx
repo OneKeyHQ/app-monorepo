@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,11 +17,12 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks';
-import { useManageTokensOfAccount } from '@onekeyhq/kit/src/hooks/useManageTokens';
-import { useManageTokenprices } from '@onekeyhq/kit/src/hooks/useManegeTokenPrice';
+import { useAccountTokens, useNativeToken } from '@onekeyhq/kit/src/hooks';
+import {
+  useAccountTokenLoading,
+  useTokenBalance,
+} from '@onekeyhq/kit/src/hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { getTokenValues } from '@onekeyhq/kit/src/utils/priceUtils';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -50,71 +50,33 @@ function TokenOutbox(props: Props) {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
-  const { accountTokens, nativeToken, balances, loading } =
-    useManageTokensOfAccount({
-      accountId,
-      networkId,
-    });
-  const { prices } = useManageTokenprices({ networkId, accountId });
-  const { serviceBatchTransfer, serviceToken } = backgroundApiProxy;
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
-  const valueSortedTokens = useMemo(() => {
-    const tokenValues = new Map<Token, BigNumber>();
-    const sortedTokens = accountTokens
-      .filter((t) => {
-        const priceId = `${networkId}${
-          t.tokenIdOnNetwork ? `-${t.tokenIdOnNetwork}` : ''
-        }`;
-        if (t.tokenIdOnNetwork && !prices?.[priceId]) {
-          tokenValues.set(t, new BigNumber(-1));
-        }
-        const [v] = getTokenValues({
-          tokens: [t],
-          prices,
-          balances,
-          vsCurrency,
-        });
-        tokenValues.set(t, v);
-        if (t.isNative) {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        const priceIda = `${networkId}${
-          a.tokenIdOnNetwork ? `-${a.tokenIdOnNetwork}` : ''
-        }`;
-        const priceIdb = `${networkId}${
-          b.tokenIdOnNetwork ? `-${b.tokenIdOnNetwork}` : ''
-        }`;
-        return (
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          tokenValues.get(b)!.comparedTo(tokenValues.get(a)!) ||
-          new BigNumber(prices?.[priceIdb]?.[vsCurrency] || 0).comparedTo(
-            new BigNumber(prices?.[priceIda]?.[vsCurrency] || 0),
-          ) ||
-          natsort({ insensitive: true })(a.name, b.name)
-        );
-      });
 
-    return sortedTokens;
-  }, [accountTokens, networkId, prices, balances, vsCurrency]);
+  const loading = useAccountTokenLoading(networkId, accountId);
+  const accountTokens = useAccountTokens(networkId, accountId);
+  const nativeToken = accountTokens.find((token) => token.isNative);
+  const tokens = accountTokens.filter((token) => !token.isNative);
+
+  const { serviceBatchTransfer, serviceToken, serviceOverview } =
+    backgroundApiProxy;
 
   const isNative = type === BulkSenderTypeEnum.NativeToken;
-  const initialToken = isNative ? nativeToken : valueSortedTokens[0];
+  const initialToken = isNative ? nativeToken : tokens[0];
+
+  const balance = useTokenBalance({
+    accountId,
+    networkId,
+    token: selectedToken || initialToken,
+    fallback: '0',
+  });
   const formatedBalance = useMemo(
     () =>
       intl.formatMessage(
         { id: 'content__balance_str' },
         {
-          0: balances[
-            selectedToken?.tokenIdOnNetwork ||
-              initialToken?.tokenIdOnNetwork ||
-              'main'
-          ],
+          0: balance,
         },
       ),
-    [balances, intl, initialToken, selectedToken],
+    [intl, balance],
   );
 
   const { isValid, isValidating, errors } = useValidteReceiver({
@@ -147,20 +109,12 @@ function TokenOutbox(props: Props) {
         params: {
           accountId,
           networkId,
-          tokens: valueSortedTokens,
-          balances,
+          tokens,
           onTokenSelected: handleOnTokenSelected,
         },
       },
     });
-  }, [
-    accountId,
-    balances,
-    handleOnTokenSelected,
-    navigation,
-    networkId,
-    valueSortedTokens,
-  ]);
+  }, [accountId, handleOnTokenSelected, navigation, networkId, tokens]);
 
   const handleOpenAmountEditor = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -255,13 +209,25 @@ function TokenOutbox(props: Props) {
   useFocusEffect(
     useCallback(() => {
       if (accountId && networkId) {
+        serviceToken.startRefreshAccountTokens();
+        serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
           activeAccountId: accountId,
           activeNetworkId: networkId,
         });
       }
-    }, [accountId, networkId, serviceToken]),
+      return () => {
+        serviceToken.stopRefreshAccountTokens();
+        serviceOverview.stopQueryPendingTasks();
+      };
+    }, [accountId, networkId, serviceOverview, serviceToken]),
   );
+
+  useEffect(() => {
+    if (accountId && networkId) {
+      backgroundApiProxy.serviceOverview.subscribe();
+    }
+  }, [accountId, networkId]);
 
   useEffect(() => {
     if (accountId && networkId) {

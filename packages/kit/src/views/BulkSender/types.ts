@@ -26,7 +26,6 @@ export type BulkSenderRoutesParams = {
     accountId: string;
     networkId: string;
     tokens: Token[];
-    balances: Record<string, string | undefined>;
     onTokenSelected: (token: Token) => void;
   };
   [BulkSenderRoutes.AmountEditor]: {

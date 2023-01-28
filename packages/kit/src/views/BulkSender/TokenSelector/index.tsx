@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Empty,
-  HStack,
   Icon,
   Modal,
   Pressable,
@@ -18,6 +17,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useDebounce, useNetwork } from '@onekeyhq/kit/src/hooks';
+import { useTokenBalance } from '@onekeyhq/kit/src/hooks/useTokens';
 
 import type { BulkSenderRoutes, BulkSenderRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/native';
@@ -67,16 +67,24 @@ const ListEmptyComponent = () => {
 };
 
 type ListRenderTokenProps = {
+  accountId: string;
+  networkId: string;
   token: Token;
-  balance: string | undefined;
   onSelect?: (item: Token) => void;
 };
 
 const ListRenderToken: FC<ListRenderTokenProps> = ({
+  accountId,
+  networkId,
   token,
-  balance,
   onSelect,
 }) => {
+  const balance = useTokenBalance({
+    accountId,
+    networkId,
+    token,
+    fallback: '0',
+  });
   const intl = useIntl();
   const closeModal = useModalClose();
   const onPress = useCallback(() => {
@@ -123,9 +131,9 @@ function TokenSelector() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const {
+    accountId,
     networkId,
     tokens: listedTokens,
-    balances,
     onTokenSelected,
   } = route.params;
   const { network } = useNetwork({ networkId });
@@ -144,8 +152,9 @@ function TokenSelector() {
         : listedTokens;
     const renderFn: ListRenderItem<Token> = ({ item }) => (
       <ListRenderToken
+        accountId={accountId}
+        networkId={networkId}
         token={item}
-        balance={balances[item.tokenIdOnNetwork || 'main']}
         onSelect={onTokenSelected}
       />
     );
@@ -153,7 +162,7 @@ function TokenSelector() {
       dataSources: tokens,
       renderItem: renderFn,
     };
-  }, [searchQuery, listedTokens, balances, onTokenSelected]);
+  }, [searchQuery, listedTokens, accountId, networkId, onTokenSelected]);
 
   return (
     <Modal
