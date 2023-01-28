@@ -178,6 +178,7 @@ const NFTDetailModal: FC = () => {
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
   const [showMenu, setShowMenu] = useState(false);
+  const [menuLoading, setMenuLoading] = useState(false);
   const [device, setDevice] = useState<Device | null>(null);
   useEffect(() => {
     (async () => {
@@ -213,6 +214,7 @@ const NFTDetailModal: FC = () => {
 
     if (!uri) return;
 
+    setMenuLoading(true);
     let uploadResParams: DeviceUploadResourceParams | undefined;
     try {
       uploadResParams = await generateUploadNFTParams(uri, {
@@ -235,6 +237,7 @@ const NFTDetailModal: FC = () => {
           type: 'error',
         },
       );
+      setMenuLoading(false);
       return;
     }
     if (uploadResParams) {
@@ -248,6 +251,8 @@ const NFTDetailModal: FC = () => {
         });
       } catch (e) {
         deviceUtils.showErrorToast(e);
+      } finally {
+        setMenuLoading(false);
       }
     }
   }, [asset, device, intl, serviceHardware, network]);
@@ -359,6 +364,8 @@ const NFTDetailModal: FC = () => {
                   h={{ base: 34, sm: 30 }}
                   ml={3}
                   mr={{ base: 0, sm: 10 }}
+                  isLoading={menuLoading}
+                  isDisabled={menuLoading}
                 />
               </NFTDetailMenu>
             )}
