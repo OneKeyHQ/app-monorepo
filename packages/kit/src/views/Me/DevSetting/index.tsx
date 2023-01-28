@@ -8,6 +8,7 @@ import {
   Container,
   HStack,
   Pressable,
+  Select,
   Switch,
   Text,
   ToastManager,
@@ -29,6 +30,7 @@ import {
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
   setHideDiscoverContent,
+  setOverviewDefiBuildByService,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
   setUpdateDeviceRes,
@@ -92,6 +94,7 @@ export const DevSettingSection = () => {
     enableTestFiatEndpoint,
     enableZeroNotificationThreshold,
     enablePerfCheck,
+    defiBuildService,
     hideDiscoverContent,
     enableExternalAccountAnnualReport,
   } = devMode || {};
@@ -286,6 +289,30 @@ export const DevSettingSection = () => {
           subDescribeCustom={
             <NetworkAccountSelectorTrigger
               mode={EAccountSelectorMode.Transfer}
+            />
+          }
+        />
+        <Container.Item
+          title="Overview build by service"
+          titleColor="text-critical"
+          subDescribeCustom={
+            <Select
+              isTriggerPlain
+              headerShown={false}
+              footer={null}
+              containerProps={{
+                style: {
+                  minWidth: 100,
+                },
+              }}
+              onChange={(value) => {
+                dispatch(setOverviewDefiBuildByService(value));
+              }}
+              value={defiBuildService || 'all'}
+              options={['all', '3', '5', '6', '9'].map((n) => ({
+                label: n,
+                value: n,
+              }))}
             />
           }
         />

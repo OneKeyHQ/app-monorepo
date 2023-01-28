@@ -82,8 +82,6 @@ const AnnualLoading: FC = () => {
     const res = await serviceToken.fetchAccountTokens({
       activeNetworkId: networkId,
       activeAccountId: accountId,
-      withBalance: true,
-      wait: true,
     });
     const accountTokens = res.filter((n) => !n.security);
     const prices = await servicePrice.fetchSimpleTokenPrice({
@@ -99,7 +97,9 @@ const AnnualLoading: FC = () => {
 
     return accountTokens
       .map((t) => {
-        const balance = balances[t.tokenIdOnNetwork || 'main'];
+        const { balance } = balances[t.tokenIdOnNetwork || 'main'] || {
+          balance: '0',
+        };
         const price =
           prices[
             t.tokenIdOnNetwork

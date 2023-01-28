@@ -8,8 +8,8 @@ import { setShowBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
 import type { WalletSwitchItem } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   disableExtSwitchTips,
-  setWalletSwitch,
   setAnnualReportEntryEnabled,
+  setWalletSwitch,
   toggleDisableExt,
   toggleWalletSwitch,
 } from '@onekeyhq/kit/src/store/reducers/settings';

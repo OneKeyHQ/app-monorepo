@@ -12,10 +12,10 @@ import {
   useActiveSideAccount,
   useActiveWalletAccount,
   useAppSelector,
-  useManageTokensOfAccount,
   useSettings,
 } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
+import { useTokenBalance } from '../../hooks/useTokens';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { formatDecimalZero, getFiatCodeUnit } from '../../views/Market/utils';
 
@@ -326,22 +326,16 @@ export function FormatBalanceTokenOfAccount({
   networkId,
 }: {
   render?: (c: JSX.Element) => JSX.Element;
-  token?: Token | null;
+  token?: Partial<Token> | null;
   accountId: string;
   networkId: string;
 }) {
-  const { getTokenBalance } = useManageTokensOfAccount({
+  const tokenBalance = useTokenBalance({
     networkId,
     accountId,
+    token,
+    fallback: '0',
   });
-  const tokenBalance = useMemo(
-    () =>
-      getTokenBalance({
-        token,
-        defaultValue: '0',
-      }),
-    [getTokenBalance, token],
-  );
   const { network } = useActiveSideAccount({
     accountId,
     networkId,

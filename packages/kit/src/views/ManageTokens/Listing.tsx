@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,6 +19,7 @@ import {
   Token as TokenImage,
   Typography,
 } from '@onekeyhq/components';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -27,12 +28,12 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import {
   useAccountTokens,
-  useAccountTokensBalance,
   useActiveWalletAccount,
   useAppSelector,
   useDebounce,
   useNetworkTokens,
 } from '../../hooks';
+import { useSingleToken, useTokenBalance } from '../../hooks/useTokens';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
@@ -42,6 +43,7 @@ import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
 import { ManageTokenRoutes } from './types';
 
+import type { SimplifiedToken } from '../../store/reducers/tokens';
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ListRenderItem } from 'react-native';
@@ -53,8 +55,75 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
+const HeaderTokenItem: FC<
+  SimplifiedToken & Pick<HeaderTokensProps, 'onDelete'>
+> = (item) => {
+  const { tokenIdOnNetwork, onDelete } = item;
+  const { networkId, accountId } = useActiveWalletAccount();
+  const { token } = useSingleToken(networkId, tokenIdOnNetwork);
+
+  const balance = useTokenBalance({
+    accountId,
+    networkId,
+    token,
+    fallback: '0',
+  });
+
+  const navigation = useNavigation<NavigationProps>();
+
+  const onDetail = useCallback(
+    (t: Token) => {
+      navigation.navigate(ManageTokenRoutes.ViewToken, {
+        ...t,
+        decimal: t.decimals,
+        source: t.source ?? '',
+        address: t.address ?? '',
+      });
+    },
+    [navigation],
+  );
+
+  if (!token) {
+    return null;
+  }
+
+  return (
+    <Pressable
+      onPress={() => onDetail(token)}
+      flexDirection="row"
+      justifyContent="space-between"
+      p="8px"
+      borderRadius="12px"
+      alignItems="center"
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
+    >
+      <TokenImage
+        size={8}
+        token={token}
+        showInfo
+        flex={1}
+        showExtra={false}
+        description={
+          <FormatBalance
+            balance={balance}
+            suffix={token.symbol}
+            formatOptions={{ fixed: 6 }}
+          />
+        }
+      />
+      <IconButton
+        name="TrashMini"
+        type="plain"
+        circle
+        onPress={() => onDelete?.(token)}
+      />
+    </Pressable>
+  );
+};
+
 type HeaderTokensProps = {
-  tokens: Token[];
+  tokens: SimplifiedToken[];
   showTopsLabel?: boolean;
   onDelete?: (token: Token) => void;
 };
@@ -65,26 +134,6 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
   onDelete,
 }) => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
-  const balances = useAccountTokensBalance(networkId, accountId);
-  const navigation = useNavigation<NavigationProps>();
-
-  const onDetail = useCallback(
-    (token: Token) => {
-      navigation.navigate(ManageTokenRoutes.ViewToken, {
-        name: token.name,
-        symbol: token.symbol,
-        address: token.tokenIdOnNetwork,
-        decimal: token.decimals,
-        logoURI: token.logoURI,
-        verified: token.verified,
-        security: token?.security,
-        source: token.source || [],
-      });
-    },
-    [navigation],
-  );
-
   return (
     <Box>
       {tokens.length ? (
@@ -97,38 +146,11 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
           </Typography.Subheading>
           <Box mt="2" mb="6">
             {tokens.map((item) => (
-              <Pressable
-                onPress={() => onDetail(item)}
+              <HeaderTokenItem
+                {...item}
+                onDelete={onDelete}
                 key={item.tokenIdOnNetwork}
-                flexDirection="row"
-                justifyContent="space-between"
-                p="8px"
-                borderRadius="12px"
-                alignItems="center"
-                _hover={{ bgColor: 'surface-hovered' }}
-                _pressed={{ bgColor: 'surface-pressed' }}
-              >
-                <TokenImage
-                  size={8}
-                  token={item}
-                  showInfo
-                  flex={1}
-                  showExtra={false}
-                  description={
-                    <FormatBalance
-                      balance={balances[item.tokenIdOnNetwork] ?? '0'}
-                      suffix={item.symbol}
-                      formatOptions={{ fixed: 6 }}
-                    />
-                  }
-                />
-                <IconButton
-                  name="TrashMini"
-                  type="plain"
-                  circle
-                  onPress={() => onDelete?.(item)}
-                />
-              </Pressable>
+              />
             ))}
           </Box>
         </Box>
@@ -147,7 +169,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 
 type HeaderProps = {
   showTopsLabel: boolean;
-  tokens: Token[];
+  tokens: SimplifiedToken[];
   keyword: string;
   onChange: (keyword: string) => void;
   onDelete?: (token: Token) => void;
@@ -273,9 +295,10 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
 
   const onAddToken = useCallback(async () => {
+    const { engine, serviceToken, servicePrice } = backgroundApiProxy;
     try {
       await checkIfShouldActiveToken();
-      await backgroundApiProxy.engine.quickAddToken(
+      await engine.quickAddToken(
         accountId,
         networkId,
         item.tokenIdOnNetwork,
@@ -287,17 +310,17 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
       return;
     }
-    backgroundApiProxy.serviceToken.fetchAccountTokens({
+    await serviceToken.fetchAccountTokens({
       activeAccountId: accountId,
       activeNetworkId: networkId,
     });
     if (hideSmallBalance) {
-      const balances = await backgroundApiProxy.serviceToken.fetchTokenBalance({
+      const [balances] = await serviceToken.fetchTokenBalance({
         activeAccountId: accountId,
         activeNetworkId: networkId,
         tokenIds: [item.tokenIdOnNetwork],
       });
-      const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+      const price = await servicePrice.getSimpleTokenPrice({
         networkId,
         tokenId: item.tokenIdOnNetwork,
       });
@@ -359,7 +382,8 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       logoURI: item.logoURI,
       verified: item.verified,
       security: item?.security,
-      source: item.source || [],
+      source: item.source || '',
+      sendAddress: item.sendAddress,
     });
   }, [navigation, item, isOwned]);
 
@@ -484,7 +508,10 @@ export const ListingModal: FC<ListingModalProps> = ({
         data: listItems,
         // @ts-ignore
         renderItem,
-        keyExtractor: (item) => (item as Token).tokenIdOnNetwork,
+        keyExtractor: (item) => {
+          const token = item as Token;
+          return `${getBalanceKey(token)}`;
+        },
         showsVerticalScrollIndicator: false,
         ListEmptyComponent: (
           <ListEmptyComponent isLoading={loading} terms={terms} />
@@ -554,22 +581,6 @@ export const Listing: FC = () => {
       ));
     },
     [accountId, intl, networkId],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      backgroundApiProxy.serviceToken.fetchTokens({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
-        withBalance: true,
-      });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
   );
 
   return <ListingModal onRemoveAccountToken={openDeleteDialog} />;

@@ -399,7 +399,7 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTx> {
-    const { from, to, amount, token: tokenAddress } = transferInfo;
+    const { from, to, amount, token: tokenAddress, sendAddress } = transferInfo;
     const network = await this.getNetwork();
     const client = await this.getClient();
     const token = await this.engine.ensureTokenInDB(
@@ -441,9 +441,13 @@ export default class Vault extends VaultBase {
           ),
         );
       }
+
+      const source = sendAddress
+        ? new PublicKey(sendAddress)
+        : await getAssociatedTokenAddress(mint, feePayer);
       nativeTx.add(
         createTransferCheckedInstruction(
-          await getAssociatedTokenAddress(mint, feePayer),
+          source,
           mint,
           associatedTokenAddress,
           feePayer,

@@ -22,7 +22,7 @@ import NameServiceResolver, {
 } from '../../../components/NameServiceResolver';
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
-import { useTokenInfo } from '../../../hooks/useTokenInfo';
+import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
@@ -107,10 +107,10 @@ function PreSendAddress() {
 
   const { control, formState, trigger, handleSubmit } = useFormReturn;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const tokenInfo = useTokenInfo({
+  const { token: tokenInfo } = useSingleToken(
     networkId,
-    tokenIdOnNetwork: transferInfo.token,
-  });
+    transferInfo.token ?? '',
+  );
 
   const [nftInfo, updateNFTInfo] = useState<NFTAsset>();
   useEffect(() => {

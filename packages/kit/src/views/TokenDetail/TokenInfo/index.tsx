@@ -41,9 +41,10 @@ type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 export type TokenInfoProps = {
   token: TokenDO | null | undefined;
   priceReady?: boolean;
+  sendAddress?: string;
 };
 
-const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
+const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const { wallet, network, networkId, accountId } = useActiveWalletAccount();
@@ -152,6 +153,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
                     to: '',
                     amount: '',
                     token: token?.tokenIdOnNetwork ?? '',
+                    sendAddress,
                   },
                 },
               });
@@ -328,6 +330,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady }) => {
       </Box>
     ),
     [
+      sendAddress,
       isVertical,
       wallet?.type,
       intl,

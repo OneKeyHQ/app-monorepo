@@ -30,14 +30,10 @@ import {
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useManageTokens,
-  useNetworkSimple,
-} from '../../../hooks';
+import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { useTokenInfo } from '../../../hooks/useTokenInfo';
+import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
 import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
@@ -129,7 +125,6 @@ function usePreSendAmountInfo({
     return new RegExp(pattern);
   }, [amountInputDecimals]);
 
-  // const { getTokenPrice } = useManageTokens();
   const { selectedFiatMoneySymbol = 'usd' } = useSettings();
   const fiatUnit = selectedFiatMoneySymbol.toUpperCase().trim();
   const [isFiatMode, setIsFiatMode] = useState(false);
@@ -283,26 +278,20 @@ export default function StakingAmount() {
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
   const [amount, setAmount] = useState('');
-  const { account } = useActiveWalletAccount();
+  const { account, accountId } = useActiveWalletAccount();
   const network = useNetworkSimple(networkId);
 
-  const tokenInfo = useTokenInfo({
+  const { token: tokenInfo } = useSingleToken(
     networkId,
-    tokenIdOnNetwork,
-  });
-
-  const { getTokenBalance } = useManageTokens({
-    fetchTokensOnMount: true,
-  });
-
-  const tokenBalance = useMemo(
-    () =>
-      getTokenBalance({
-        token: tokenInfo,
-        defaultValue: '0',
-      }),
-    [getTokenBalance, tokenInfo],
+    tokenIdOnNetwork ?? '',
   );
+
+  const tokenBalance = useTokenBalance({
+    networkId,
+    accountId,
+    token: tokenInfo,
+    fallback: '0',
+  });
 
   const getAmountValidateError = useCallback(() => {
     if (!tokenInfo || !amount) {

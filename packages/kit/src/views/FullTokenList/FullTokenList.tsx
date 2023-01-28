@@ -5,11 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useNavigation,
-} from '../../hooks';
+import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import AssetsList from '../Wallet/AssetsList';
 
 import type { HomeRoutes } from '../../routes/types';
@@ -34,11 +30,9 @@ const FullTokenList: FC<FullTokenListProps> = () => {
       title,
     });
   }, [navigation, intl]);
-  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
 
   return (
     <AssetsList
-      hideSmallBalance={hideSmallBalance}
       accountId={accountId}
       networkId={networkId}
       flatStyle

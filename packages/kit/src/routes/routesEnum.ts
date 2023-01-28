@@ -44,6 +44,7 @@ export enum ModalRoutes {
   Webview = 'Webview',
   Revoke = 'Revoke',
   NFTMarket = 'NFTMarket',
+  Overview = 'Overview',
   AnnualReport = 'AnnualReport',
 }
 
@@ -91,6 +92,7 @@ export enum HomeRoutes {
   NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
   NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
   NFTPNLScreen = 'NFTPNLScreen',
+  OverviewDefiListScreen = 'OverviewDefiListScreen',
   WalletSwitch = 'WalletSwitch',
   AnnualLoading = 'AnnualLoading',
   AnnualReport = 'AnnualReport',
