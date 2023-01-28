@@ -474,6 +474,8 @@ class DeviceUtils {
         return new Error.ConnectTimeoutError(payload);
       case HardwareErrorCode.BlindSignDisabled:
         return new Error.OpenBlindSign(payload);
+      case HardwareErrorCode.FileAlreadyExists:
+        return Error.FileAlreadyExistError(payload);
       default:
         return new Error.UnknownHardwareError(payload);
     }
