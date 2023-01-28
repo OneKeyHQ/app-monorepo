@@ -245,7 +245,8 @@ export default class Vault extends VaultBase {
         }
         break;
       }
-      case 'disperseToken': {
+      case 'disperseToken':
+      case 'disperseTokenSimple': {
         const tokenAddress = txDesc.args[0];
         const recipients: string[] = txDesc.args[1];
         const values: string[] = txDesc.args[2];
@@ -704,7 +705,7 @@ export default class Vault extends VaultBase {
           throw new Error(`Token not found: ${transferInfo.token as string}`);
         }
 
-        batchMethod = BatchTransferSelectors.disperseToken;
+        batchMethod = BatchTransferSelectors.disperseTokenSimple;
         paramTypes = ['address', 'address[]', 'uint256[]'];
         ParamValues = [
           token.tokenIdOnNetwork,

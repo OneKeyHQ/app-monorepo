@@ -231,14 +231,17 @@ function TokenOutbox(props: Props) {
           feeInfoEditable: true,
           encodedTxs: [...encodedApproveTxs, encodedTx],
           transferCount: transferInfos.length,
-          onModalClose: closeModal,
+          transferType: type,
+          payloadInfo: {
+            type: 'Transfer',
+            transferInfos,
+          },
         },
       },
     });
   }, [
     accountAddress,
     accountId,
-    closeModal,
     initialToken?.tokenIdOnNetwork,
     isBuildingTx,
     isValid,
@@ -248,6 +251,7 @@ function TokenOutbox(props: Props) {
     receiver,
     selectedToken?.tokenIdOnNetwork,
     serviceBatchTransfer,
+    type,
   ]);
 
   useFocusEffect(
