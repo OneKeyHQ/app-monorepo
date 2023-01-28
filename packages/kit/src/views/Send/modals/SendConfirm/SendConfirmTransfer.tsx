@@ -9,10 +9,8 @@ import type {
 import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useActiveSideAccount,
-  useManageTokensOfAccount,
-} from '../../../../hooks';
+import { useActiveSideAccount } from '../../../../hooks';
+import { useTokenBalance } from '../../../../hooks/useTokens';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
 
@@ -28,12 +26,17 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
   const { accountId, networkId } = useActiveSideAccount(props);
   const transferPayload = payload as TransferSendParamsPayload | undefined;
   const isTransferNativeToken = !transferPayload?.token?.idOnNetwork;
-  const { getTokenBalance } = useManageTokensOfAccount({
-    accountId,
-    networkId,
-  });
 
   // TODO check only supports transferPayload, decodedTx.actions[0].type=== nativeTransfer
+
+  const balance = useTokenBalance({
+    networkId,
+    accountId,
+    token: {
+      tokenIdOnNetwork: transferPayload?.token?.idOnNetwork,
+      sendAddress: transferPayload?.token?.sendAddress,
+    },
+  });
 
   const isNativeMaxSend = useMemo(() => {
     if (!transferPayload) {
@@ -41,19 +44,14 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     }
     if (isTransferNativeToken) {
       const amountBN = new BigNumber(transferPayload.value ?? 0);
-      const balanceBN = new BigNumber(
-        getTokenBalance({
-          defaultValue: '0',
-          tokenIdOnNetwork: transferPayload?.token?.idOnNetwork,
-        }),
-      );
+      const balanceBN = new BigNumber(balance);
       const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
       if (amountBN.plus(feeBN).gte(balanceBN)) {
         return true;
       }
     }
     return false;
-  }, [feeInfoPayload, getTokenBalance, isTransferNativeToken, transferPayload]);
+  }, [feeInfoPayload, balance, isTransferNativeToken, transferPayload]);
   const transferAmount = useMemo(() => {
     if (!transferPayload) {
       return '0';
@@ -69,12 +67,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
         // Use this instead of depending the incorrect feeInfoPayload results.
         return nativeTransfer.amount;
       }
-      const balanceBN = new BigNumber(
-        getTokenBalance({
-          defaultValue: '0',
-          tokenIdOnNetwork: transferPayload.token.idOnNetwork,
-        }),
-      );
+      const balanceBN = new BigNumber(balance);
       const amountBN = new BigNumber(transferPayload.value ?? 0);
       const transferAmountBn = BigNumber.min(balanceBN, amountBN);
       const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
@@ -82,13 +75,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     }
 
     return transferPayload.value ?? '0';
-  }, [
-    decodedTx,
-    feeInfoPayload,
-    getTokenBalance,
-    isNativeMaxSend,
-    transferPayload,
-  ]);
+  }, [decodedTx, feeInfoPayload, balance, isNativeMaxSend, transferPayload]);
 
   const isAmountNegative = useMemo(
     () => new BigNumber(transferAmount).lt(0),

@@ -1,11 +1,14 @@
-import { debounce, uniq } from 'lodash';
+import { debounce, uniq, xor } from 'lodash';
 
+import type { SimpleTokenPrices } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { setTokenPriceMap } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { PRICE_EXPIRED_TIME } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -32,27 +35,64 @@ export default class ServicePrice extends ServiceBase {
     tokenIds,
     vsCurrency = 'usd',
   }: FetchSimpTokenPriceType) {
-    const { appSelector, dispatch } = this.backgroundApi;
-    const { tokens, accountTokens } = appSelector((s) => s.tokens);
+    const { appSelector, dispatch, engine } = this.backgroundApi;
+    const accountTokens = appSelector(
+      (s) => s.tokens.accountTokens?.[networkId]?.[accountId ?? ''] ?? [],
+    );
     let tokenIdsOnNetwork: string[] = [];
     if (tokenIds) {
       tokenIdsOnNetwork = tokenIds;
     } else {
-      const ids1 = tokens[networkId] || [];
-      const ids2 = accountId ? accountTokens[networkId]?.[accountId] ?? [] : [];
-      tokenIdsOnNetwork = ids1.concat(ids2).map((i) => i.tokenIdOnNetwork);
-      tokenIdsOnNetwork = uniq(tokenIdsOnNetwork);
+      const tokens = await engine.getTopTokensOnNetwork(networkId, 50);
+      tokenIdsOnNetwork = uniq(
+        tokens.concat(accountTokens).map((t) => t.tokenIdOnNetwork),
+      );
+    }
+    const { cachePrices, cachedTokenIds } = this.getTokenPricesInCache(
+      networkId,
+      tokenIdsOnNetwork,
+      vsCurrency,
+    );
+    const restTokenIds = xor(cachedTokenIds, tokenIdsOnNetwork);
+    if (!restTokenIds.length) {
+      return cachePrices;
     }
     const params: PriceQueryParams = {
       vsCurrency,
       platform: networkId,
-      contractAddresses: tokenIdsOnNetwork,
+      contractAddresses: restTokenIds,
     };
     const datas = await this.getCgkTokenPrice(params);
     if (Object.keys(datas).length > 0) {
       dispatch(setTokenPriceMap({ prices: datas }));
     }
     return datas;
+  }
+
+  @bindThis()
+  getTokenPricesInCache(
+    networkId: string,
+    tokenIds: string[],
+    vsCurrency: string,
+  ) {
+    const now = Date.now();
+    const { appSelector } = this.backgroundApi;
+    const cachedTokenIds = [];
+    const cachePrices: Record<string, SimpleTokenPrices> = {};
+    const tokenPricesInCache = appSelector((s) => s.tokens.tokenPriceMap ?? {});
+    for (const tokenId of tokenIds) {
+      const key = tokenId ? `${networkId}-${tokenId}` : networkId;
+      const price = tokenPricesInCache?.[key];
+      if (
+        price?.updatedAt &&
+        price[vsCurrency] &&
+        now - price.updatedAt <= PRICE_EXPIRED_TIME
+      ) {
+        cachePrices[key] = price;
+        cachedTokenIds.push(tokenId);
+      }
+    }
+    return { cachePrices, cachedTokenIds };
   }
 
   _fetchSimpleTokenPriceDebounced = debounce(
@@ -103,6 +143,7 @@ export default class ServicePrice extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async getCgkTokenPrice({
     platform,
     contractAddresses,

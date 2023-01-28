@@ -59,7 +59,7 @@ function getNetworkIdFromTokenId(tokenId: string): string {
 
 export const isValidTokenId = (tokenId: string) => tokenId?.includes(SEPERATOR);
 
-export const formatServerToken = (token: ServerToken) => {
+export const formatServerToken = (token: ServerToken): Token => {
   const { address = '', logoURI, isNative } = token;
   const { impl, chainId } = token;
   let tokenAddress = address;
@@ -76,6 +76,7 @@ export const formatServerToken = (token: ServerToken) => {
     logoURI: logoURI || '',
     tokenIdOnNetwork: tokenAddress,
     address: tokenAddress,
+    source: token.source?.join(',') ?? '',
   };
 };
 
@@ -162,6 +163,21 @@ export const fetchTools = async (): Promise<Tool[]> => {
     { data: [] },
   );
   return res.data ?? [];
+};
+
+export const getBalanceKey = (token?: Partial<Token> | null) => {
+  if (!token) {
+    return '';
+  }
+  const { sendAddress } = token;
+  const tokenAddress = token.tokenIdOnNetwork ?? token.address;
+  if (!tokenAddress) {
+    return 'main';
+  }
+  if (sendAddress) {
+    return `${tokenAddress}--${sendAddress}`;
+  }
+  return tokenAddress;
 };
 
 export { getNetworkIdFromTokenId };

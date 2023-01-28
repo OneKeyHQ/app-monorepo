@@ -13,10 +13,9 @@ export function useReloadAccountBalance({
     if (!accountId || !networkId) {
       return;
     }
-    backgroundApiProxy.serviceToken.fetchAccountTokensDebounced({
+    backgroundApiProxy.serviceToken.fetchAccountTokens({
       activeAccountId: accountId,
       activeNetworkId: networkId,
-      withBalance: true,
     });
   }, [accountId, networkId]);
 }

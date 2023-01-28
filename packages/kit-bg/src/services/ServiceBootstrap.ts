@@ -13,6 +13,8 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { IServiceBaseProps } from './ServiceBase';
+
 // should upate AUTO_SWITCH_DEFAULT_RPC_AT_VERSION version first
 const defaultNetworkRpcs: Record<string, string> = {
   'aptos--1': 'https://fullnode.mainnet.aptoslabs.com',
@@ -56,6 +58,14 @@ const defaultNetworkRpcs: Record<string, string> = {
 
 @backgroundClass()
 export default class ServiceBootstrap extends ServiceBase {
+  constructor(props: IServiceBaseProps) {
+    super(props);
+
+    const { serviceOverview, serviceToken } = this.backgroundApi;
+
+    serviceToken.registerEvents();
+    serviceOverview.registerEvents();
+  }
   // eslint-disable-next-line
   @backgroundMethod()
   async checkShouldShowNotificationGuide(): Promise<boolean> {
