@@ -5,10 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -37,7 +34,6 @@ const AccountHeader = () => <AccountInfo />;
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
-  const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet, account, network, accountId, networkId } =
     useActiveWalletAccount();
@@ -108,7 +104,6 @@ const WalletTabs: FC = () => {
         >
           <>
             <AssetsList
-              hideSmallBalance={hideSmallBalance}
               accountId={accountId}
               networkId={networkId}
               ListFooterComponent={<Box h={6} />}
