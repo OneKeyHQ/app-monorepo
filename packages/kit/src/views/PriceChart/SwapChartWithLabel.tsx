@@ -1,14 +1,14 @@
 import type { FC, ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
-import { Box, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Box, Spinner, Typography } from '@onekeyhq/components';
 
 import useFormatDate from '../../hooks/useFormatDate';
+import { formatDecimalZero } from '../Market/utils';
 
 import ChartView from './ChartView';
 import SvgNoPriceData from './NoPriceData';
-import PriceLabel from './PriceLabel';
+import SwapPriceDisplayInfo from './SwapPriceDisplayInfo';
 
 import type { MarketApiData, OnHoverFunction } from './chartService';
 
@@ -26,7 +26,6 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   const { formatDate } = useFormatDate();
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState(formatDate(new Date()));
-  const isVerticalLayout = useIsVerticalLayout();
   const basePrice = data?.length ? data[0][1] : 0;
   const latestPrice = data?.length ? data[data.length - 1][1] : 0;
   let currentPrice;
@@ -57,13 +56,10 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
     },
     [formatDate],
   );
-  const priceLabel = (
-    <PriceLabel price={currentPrice} time={time} basePrice={basePrice} />
-  );
   const chartView = data ? (
     <ChartView
       isFetching={isFetching}
-      height={isVerticalLayout ? 190 : 240}
+      height={350}
       data={data}
       onHover={onHover}
     />
@@ -72,21 +68,22 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   );
   const chartViewWithSpinner =
     data && data.length === 0 ? <Spinner /> : chartView;
-  return isVerticalLayout ? (
-    <>
-      {priceLabel}
-      <Box h="190px" mt="25px" justifyContent="center" alignItems="center">
-        {platformEnv.isNative ? chartView : chartViewWithSpinner}
-      </Box>
-      {children}
-    </>
-  ) : (
+  return (
     <>
       <Box flexDirection="row" justifyContent="space-between">
-        {priceLabel}
+        <Typography.DisplayXLarge my="1">
+          {currentPrice ? formatDecimalZero(currentPrice) : ''}
+        </Typography.DisplayXLarge>
         <Box w="280px">{children}</Box>
       </Box>
-      <Box h="240px" mt="30px" justifyContent="center" alignItems="center">
+      <Box>
+        <SwapPriceDisplayInfo
+          price={currentPrice}
+          time={time}
+          basePrice={basePrice}
+        />
+      </Box>
+      <Box h="350px" mt="30px" justifyContent="center" alignItems="center">
         {chartViewWithSpinner}
       </Box>
     </>
