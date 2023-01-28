@@ -146,7 +146,8 @@ export function useSwapAccountTokens(networkId?: string, accountId?: string) {
     const balanceIsOk = (address: string) => {
       const key = address || 'main';
       return Boolean(
-        balances[key] && Number(formatAmount(balances[key], 6)) > 0,
+        balances[key] &&
+          Number(formatAmount(balances[key]?.balance ?? '0', 6)) > 0,
       );
     };
 
