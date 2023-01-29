@@ -34,6 +34,7 @@ import {
 import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
+import { MigrationEnable } from '../Migration/util';
 
 import type { IOnboardingRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
@@ -269,18 +270,21 @@ const ImportWallet = () => {
             <Image source={KeyTagPNG} w="224px" h="64px" />
           </Center>
         </ImportItem>
-        <ImportItem
-          title={intl.formatMessage({
-            id: 'onboarding__import_wallet_with_migrate',
-          })}
-          icon="ArrowPathRoundedSquareOutline"
-          onPress={onPressMigration}
-        >
-          <IconToIconIllus
-            leftIcon="ComputerDesktopSolid"
-            rightIcon="DevicePhoneMobileSolid"
-          />
-        </ImportItem>
+        {MigrationEnable && (
+          <ImportItem
+            title={intl.formatMessage({
+              id: 'onboarding__import_wallet_with_migrate',
+            })}
+            icon="ArrowPathRoundedSquareOutline"
+            onPress={onPressMigration}
+          >
+            <IconToIconIllus
+              leftIcon="ComputerDesktopSolid"
+              rightIcon="DevicePhoneMobileSolid"
+            />
+          </ImportItem>
+        )}
+
         {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
           <ImportItem
             title={intl.formatMessage({ id: 'action__restore_from_icloud' })}

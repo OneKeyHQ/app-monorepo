@@ -52,7 +52,7 @@ function deviceInfo() {
 
 const OneKeyMigrateQRCodePrefix = `${ONEKEY_APP_DEEP_LINK}migrate`;
 
-const MigrationEnable = true;
+const MigrationEnable = !platformEnv.isWeb;
 
 export {
   parseDeviceInfo,
