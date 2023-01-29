@@ -31,6 +31,7 @@ function buildEnabledWallets({
   ];
   const enabledWalletsInVerticalOnly = [
     ...Object.values(WALLET_CONNECT_INSTITUTION_WALLET_NAMES),
+    WALLET_CONNECT_WALLET_NAMES['1inch'],
   ];
   if (isVerticalLayout) {
     enabledWallets = enabledWallets.concat(enabledWalletsInVerticalOnly);
