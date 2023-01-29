@@ -21,6 +21,7 @@ import lottieNFCTransferData from '@onekeyhq/kit/assets/animations/lottie_onekey
 import lottieNFCTransmittingData from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transmitting.json';
 import iconNFCScanHint from '@onekeyhq/kit/assets/hardware/ic_pair_hint_scan_lite.png';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export type ConnectType = 'ble' | 'nfc';
@@ -105,7 +106,7 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
         hideSecondaryAction
         header={title}
         onClose={() => {
-          console.log('HardwareConnect: onClose');
+          debugLogger.onekeyLite.debug('HardwareConnect: onClose');
 
           onCloseConnect?.();
         }}

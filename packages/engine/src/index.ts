@@ -314,12 +314,15 @@ class Engine {
 
     // v1 fix
     let fixFillCount = 0;
-    if (mnemonic.length < 12) {
-      fixFillCount = 12 - mnemonic.length;
-    } else if (mnemonic.length > 12 && mnemonic.length < 18) {
-      fixFillCount = 18 - mnemonic.length;
-    } else if (mnemonic.length > 18 && mnemonic.length < 24) {
-      fixFillCount = 24 - mnemonic.length;
+    const supportedMnemonicLength = [12, 15, 18, 21, 24];
+    for (const len of supportedMnemonicLength) {
+      if (mnemonic.length === len) {
+        break;
+      }
+      if (mnemonic.length < len) {
+        fixFillCount = len - mnemonic.length;
+        break;
+      }
     }
 
     // eslint-disable-next-line no-plusplus
