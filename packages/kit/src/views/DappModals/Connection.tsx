@@ -21,7 +21,6 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
-import { IMPL_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -243,7 +242,7 @@ const Connection = () => {
 
   const { networkImpl, network, accountAddress, account } =
     useActiveWalletAccount();
-  const { sourceInfo, accountIdentify } = useDappParams();
+  const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? defaultSourceInfo;
   const computedIsRug = useMemo(() => isRug(origin), [origin]);
   const hostname = useMemo(() => {
@@ -357,7 +356,7 @@ const Connection = () => {
         'Wallet or account not selected, you should create or import one.',
       );
     }
-    let address = accountAddress;
+    const address = accountAddress;
     let accounts: string | string[] | { accounts: string[] } = [address].filter(
       Boolean,
     );
@@ -373,9 +372,6 @@ const Connection = () => {
     if (scope === 'solana') {
       accounts = address;
     }
-    if (scope === IMPL_COSMOS) {
-      address = accountIdentify ?? address;
-    }
 
     backgroundApiProxy.serviceDapp.saveConnectedAccounts({
       site: {
@@ -385,7 +381,7 @@ const Connection = () => {
       address,
     });
     return accounts;
-  }, [accountAddress, accountIdentify, networkImpl, origin, scope]);
+  }, [accountAddress, networkImpl, origin, scope]);
 
   const dappApprove = useDappApproveAction({
     id,
