@@ -49,13 +49,6 @@ const RecoveryWallet = () => {
           <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
         }
       >
-        <Text
-          typography={{ sm: 'DisplayLarge', md: 'DisplayXLarge' }}
-          mt={{ base: -6, sm: -12 }}
-          mb={{ base: 3, sm: 9 }}
-        >
-          Private Key or Address
-        </Text>
         <OnboardingAddExistingWallet />
       </Layout>
       <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
