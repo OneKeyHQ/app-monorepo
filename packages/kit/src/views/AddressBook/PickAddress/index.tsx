@@ -45,6 +45,12 @@ type RouteProps = RouteProp<
   AddressBookRoutes.PickAddressRoute
 >;
 
+const ItemSeparatorComponent = () => (
+  <Box mx={{ base: 4, md: 6 }}>
+    <Divider />
+  </Box>
+);
+
 const AddressBook = () => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -131,11 +137,7 @@ const AddressBook = () => {
     <FlatList
       ListEmptyComponent={listEmptyComponent}
       data={items}
-      ItemSeparatorComponent={() => (
-        <Box mx={{ base: 4, md: 6 }}>
-          <Divider />
-        </Box>
-      )}
+      ItemSeparatorComponent={ItemSeparatorComponent}
       renderItem={renderItem}
       keyExtractor={(item) => item.address}
     />
@@ -249,11 +251,7 @@ const MyWallet = () => {
       contentContainerStyle={{ flexGrow: 1 }}
       keyExtractor={(item: Account, index) => `${item.address}${index}`}
       renderItem={renderItem}
-      ItemSeparatorComponent={() => (
-        <Box mx={{ base: 4, md: 6 }}>
-          <Divider />
-        </Box>
-      )}
+      ItemSeparatorComponent={ItemSeparatorComponent}
       // eslint-disable-next-line
       renderSectionHeader={({ section }: { section: WalletAccount }) => (
         <Typography.Subheading my="2" mx={{ base: 4, md: 6 }}>
