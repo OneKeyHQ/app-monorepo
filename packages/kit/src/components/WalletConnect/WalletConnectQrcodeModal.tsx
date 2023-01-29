@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -164,14 +164,45 @@ export function ConnectWalletListView({
     [connectExternalWallet],
   );
 
+  const [registerWalletLists, setRegisterWalletLists] = useState<
+    WalletService[]
+  >([]);
+  useEffect(() => {
+    (async () => {
+      const walletServiceData = isInstitutionWallet
+        ? institutionData
+        : walletServicesEnabled;
+
+      if (!platformEnv.isNativeIOS) {
+        setRegisterWalletLists(walletServiceData);
+        return;
+      }
+
+      const result = [];
+      for (const wallet of walletServiceData) {
+        try {
+          const { mobile = { native: '' } } = wallet;
+          const { native: deepLink } = mobile;
+          if (deepLink) {
+            const canOpen = await Linking.canOpenURL(deepLink);
+            if (canOpen) {
+              result.push(wallet);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      setRegisterWalletLists(result);
+    })();
+  }, [isInstitutionWallet, institutionData, walletServicesEnabled]);
+
   const walletsList = useMemo(() => {
     if (platformEnv.isNativeAndroid) {
       return null;
     }
-    const walletServiceData = isInstitutionWallet
-      ? institutionData
-      : walletServicesEnabled;
-    return walletServiceData.map((item) => {
+    return registerWalletLists.map((item) => {
       const imgUri =
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -198,13 +229,7 @@ export function ConnectWalletListView({
         />
       );
     });
-  }, [
-    doConnect,
-    loadingId,
-    walletServicesEnabled,
-    institutionData,
-    isInstitutionWallet,
-  ]);
+  }, [doConnect, loadingId, registerWalletLists]);
   return (
     <>
       {walletsList}
