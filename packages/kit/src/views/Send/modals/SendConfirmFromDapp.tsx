@@ -19,7 +19,6 @@ type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
 export function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
   const pendingAction = useRef<StackActionType>();
-  // const navigation = useAppNavigation();
   const {
     sourceInfo,
     unsignedMessage,
@@ -30,6 +29,7 @@ export function SendConfirmFromDapp() {
     networkId: dappNetworkId,
   } = useDappParams();
   useEffect(() => {
+    // OK-16560: navigate when app in background would cause modal render in wrong size
     const appStateListener = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         setTimeout(() => {
