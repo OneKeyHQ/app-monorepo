@@ -129,10 +129,15 @@
 		<string>PlusJakartaSans-SemiBold.ttf</string>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
-  <array>
-    <string>tpoutside</string>
-    <string>imtokenv2</string>
-    <string>bitkeep</string>
-  </array>
+	<array>
+		<string>fireblocks-wc</string>
+		<string>zerion</string>
+		<string>rainbow</string>
+		<string>trust</string>
+		<string>metamask</string>
+		<string>tpoutside</string>
+		<string>imtokenv2</string>
+		<string>bitkeep</string>
+	</array>
 </dict>
 </plist>
