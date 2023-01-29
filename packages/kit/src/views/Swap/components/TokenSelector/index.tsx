@@ -5,14 +5,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
   Empty,
   Icon,
   Image,
   Modal,
   Pressable,
   Searchbar,
-  Spinner,
   ToggleButtonGroup,
   Token as TokenComponent,
   Typography,
@@ -38,7 +36,7 @@ import {
 import { formatAmount } from '../../utils';
 
 import { TokenSelectorContext } from './context';
-import { EmptySkeleton } from './EmptySkeleton';
+import { EmptySkeleton, LoadingSkeleton } from './Skeleton';
 
 import type { ListRenderItem } from 'react-native';
 
@@ -130,9 +128,9 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   const intl = useIntl();
   if (isLoading) {
     return (
-      <Center w="full" h="20">
-        <Spinner size="lg" />
-      </Center>
+      <Box px="2">
+        <LoadingSkeleton />
+      </Box>
     );
   }
   return terms.length > 0 ? (
@@ -152,9 +150,10 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
 
 type ExtraInfoProps = {
   token?: Token;
+  isSearchMode?: boolean;
 };
 
-const ExtraInfo: FC<ExtraInfoProps> = ({ token }) => {
+const ExtraInfo: FC<ExtraInfoProps> = ({ token, isSearchMode }) => {
   const { accountId } = useContext(TokenSelectorContext);
   const isCompatible = isAccountCompatibleWithNetwork(
     accountId ?? '',
@@ -168,7 +167,7 @@ const ExtraInfo: FC<ExtraInfoProps> = ({ token }) => {
   });
   const price = useTokenPrice(token);
 
-  if (isCompatible) {
+  if (!isSearchMode && isCompatible) {
     return (
       <Box alignItems="flex-end">
         <Typography.Heading fontSize={16} lineHeight={24}>
@@ -247,7 +246,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         description={description}
         nameProps={{ numberOfLines: 2 }}
       />
-      <ExtraInfo token={token} />
+      <ExtraInfo token={token} isSearchMode={isSearchMode} />
     </Pressable>
   );
 };

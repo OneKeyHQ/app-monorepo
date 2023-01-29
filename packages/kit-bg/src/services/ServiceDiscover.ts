@@ -113,12 +113,15 @@ class ServicDiscover extends ServiceBase {
   @backgroundMethod()
   async getCompactList() {
     const url = `${this.baseUrl}/compact_list`;
-    this.getList(url);
+    await this.getList(url);
   }
 
   @backgroundMethod()
   async fetchData() {
-    this.getCompactList();
+    if (Date.now() - this.updatedAt > 60 * 1000) {
+      await this.getCompactList();
+      this.updatedAt = Date.now();
+    }
   }
 
   @backgroundMethod()
