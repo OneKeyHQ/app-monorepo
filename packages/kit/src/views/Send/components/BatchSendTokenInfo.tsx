@@ -8,8 +8,8 @@ import {
   useSingleToken,
   useTokenBalance,
 } from '../../../hooks/useTokens';
-import { BulkSenderTypeEnum } from '../../BulkSender/types';
 
+import type { BulkSenderTypeEnum } from '../../BulkSender/types';
 import type { BatchSendConfirmPayloadInfo } from '../types';
 
 type Props = {
@@ -39,7 +39,7 @@ function TokenInfoBlock({
 }
 
 function BatchSendTokenInfo(props: Props) {
-  const { accountId, networkId, payloadInfo, type } = props;
+  const { accountId, networkId, payloadInfo } = props;
 
   const transferInfos = payloadInfo?.transferInfos ?? [];
   const transferInfo = transferInfos[0];
@@ -86,12 +86,10 @@ function BatchSendTokenInfo(props: Props) {
           title="Token Balance"
           content={`${tokenBalance ?? 0} ${token?.symbol ?? ''}`}
         />
-        {type === BulkSenderTypeEnum.Token && (
-          <TokenInfoBlock
-            title="Native Balance"
-            content={`${nativeTokenBalance ?? 0} ${nativeToken?.symbol ?? ''}`}
-          />
-        )}
+        <TokenInfoBlock
+          title="Native Balance"
+          content={`${nativeTokenBalance ?? 0} ${nativeToken?.symbol ?? ''}`}
+        />
       </HStack>
     </Box>
   );

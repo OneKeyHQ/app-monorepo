@@ -9,7 +9,9 @@ import {
   Button,
   HStack,
   Icon,
+  IconButton,
   Pressable,
+  Switch,
   Text,
   Token as TokenComponent,
   useIsVerticalLayout,
@@ -18,7 +20,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
-import { useAccountTokens } from '@onekeyhq/kit/src/hooks';
+import { useAccountTokens, useNetwork } from '@onekeyhq/kit/src/hooks';
 import {
   useAccountTokenLoading,
   useTokenBalance,
@@ -28,6 +30,8 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
+import { showAmountEditor } from './AmountEditor';
+import { showDeflationaryTip } from './DeflationaryTip';
 import { useValidteReceiver } from './hooks';
 import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
@@ -48,12 +52,14 @@ function TokenOutbox(props: Props) {
   const [receiverFromOut, setReceiverFromOut] = useState<TokenReceiver[]>([]);
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
+  const [isDeflationary, setIsDeflationary] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
+  const { network } = useNetwork({ networkId });
 
   const loading = useAccountTokenLoading(networkId, accountId);
-  const accountTokens = useAccountTokens(networkId, accountId);
+  const accountTokens = useAccountTokens(networkId, accountId, true);
   const nativeToken = accountTokens.find((token) => token.isNative);
   const tokens = accountTokens.filter((token) => !token.isNative);
 
@@ -118,16 +124,8 @@ function TokenOutbox(props: Props) {
   }, [accountId, handleOnTokenSelected, navigation, networkId, tokens]);
 
   const handleOpenAmountEditor = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.BulkSender,
-      params: {
-        screen: BulkSenderRoutes.AmountEditor,
-        params: {
-          onAmountChanged: handleOnAmountChanged,
-        },
-      },
-    });
-  }, [handleOnAmountChanged, navigation]);
+    showAmountEditor(handleOnAmountChanged);
+  }, [handleOnAmountChanged]);
 
   const handlePreviewTransfer = useCallback(async () => {
     if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
@@ -169,6 +167,8 @@ function TokenOutbox(props: Props) {
         accountId,
         transferInfos,
         prevNonce,
+        isDeflationary:
+          network?.settings?.supportDeflationary && isDeflationary,
       });
 
     setIsBuildingTx(false);
@@ -197,9 +197,11 @@ function TokenOutbox(props: Props) {
     accountId,
     initialToken?.tokenIdOnNetwork,
     isBuildingTx,
+    isDeflationary,
     isValid,
     isValidating,
     navigation,
+    network?.settings?.supportDeflationary,
     networkId,
     receiver,
     selectedToken?.tokenIdOnNetwork,
@@ -278,7 +280,7 @@ function TokenOutbox(props: Props) {
           />
         </Box>
         <Box display={isUploadMode ? 'none' : 'flex'}>
-          <HStack mt={4} space={4}>
+          <HStack mt={4}>
             <Button
               type="basic"
               size="xs"
@@ -287,6 +289,25 @@ function TokenOutbox(props: Props) {
             >
               {intl.formatMessage({ id: 'action__edit_amount' })}
             </Button>
+            {network?.settings?.supportDeflationary && (
+              <>
+                <Switch
+                  ml={4}
+                  isChecked={isDeflationary}
+                  onToggle={() => setIsDeflationary(!isDeflationary)}
+                  labelType="after"
+                  label={intl.formatMessage({ id: 'action__deflationary' })}
+                />
+                <IconButton
+                  onPress={showDeflationaryTip}
+                  size="xs"
+                  name="InformationCircleOutline"
+                  type="plain"
+                  iconColor="icon-subdued"
+                  circle
+                />
+              </>
+            )}
           </HStack>
           <Box mt={4}>
             <Button

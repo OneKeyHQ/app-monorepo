@@ -651,6 +651,7 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
     prevNonce?: number,
+    isDeflationary?: boolean,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
@@ -705,7 +706,9 @@ export default class Vault extends VaultBase {
           throw new Error(`Token not found: ${transferInfo.token as string}`);
         }
 
-        batchMethod = BatchTransferSelectors.disperseTokenSimple;
+        batchMethod = isDeflationary
+          ? BatchTransferSelectors.disperseToken
+          : BatchTransferSelectors.disperseTokenSimple;
         paramTypes = ['address', 'address[]', 'uint256[]'];
         ParamValues = [
           token.tokenIdOnNetwork,

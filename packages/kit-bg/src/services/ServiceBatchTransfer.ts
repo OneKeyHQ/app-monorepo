@@ -144,6 +144,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     networkId: string;
     transferInfos: ITransferInfo[];
     prevNonce?: number;
+    isDeflationary?: boolean;
   }) {
     return this.backgroundApi.engine.buildEncodedTxFromBatchTransfer(params);
   }

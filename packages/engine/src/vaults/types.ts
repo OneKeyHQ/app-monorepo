@@ -67,6 +67,7 @@ export type IVaultSettings = {
 
   supportFilterScam?: boolean;
   supportBatchTransfer?: boolean;
+  supportDeflationary?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

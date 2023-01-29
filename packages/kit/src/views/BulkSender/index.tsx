@@ -7,9 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  Center,
   HStack,
-  ScrollView,
   Text,
   useIsVerticalLayout,
   useThemeValue,
@@ -86,7 +84,7 @@ function BulkSender() {
     }
     return (
       <Box pr="6">
-        <NetworkAccountSelectorTrigger type={isVertical ? 'plain' : 'basic'} />
+        <NetworkAccountSelectorTrigger type={isVertical ? 'basic' : 'plain'} />
       </Box>
     );
   }, [accountId, isVertical, walletConnectButton]);
@@ -114,6 +112,7 @@ function BulkSender() {
         alignSelf: 'center',
         flex: 1,
       }}
+      renderHeader={() => <Text display="none">''</Text>}
       headerHeight={isVertical ? 0 : 30}
       swipeEnabled={false}
       disableRefresh

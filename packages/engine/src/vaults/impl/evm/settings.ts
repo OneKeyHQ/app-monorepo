@@ -22,6 +22,7 @@ const settings: IVaultSettings = Object.freeze({
 
   supportFilterScam: true,
   supportBatchTransfer: true,
+  supportDeflationary: true,
 });
 
 export default settings;

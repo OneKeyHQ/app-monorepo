@@ -1,37 +1,33 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  BottomSheetModal,
   Box,
   Button,
   HStack,
   Icon,
   Input,
-  Modal,
   Text,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
-import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
-import type { BulkSenderRoutes, BulkSenderRoutesParams } from '../types';
-import type { RouteProp } from '@react-navigation/native';
+import { showOverlay } from '../../../utils/overlayUtils';
 
-type RouteProps = RouteProp<
-  BulkSenderRoutesParams,
-  BulkSenderRoutes.AmountEditor
->;
-
-function AmountEditor() {
+function AmountEditorBottomSheetModal({
+  onAmountChanged,
+  closeOverlay,
+}: {
+  onAmountChanged: (amount: string) => void;
+  closeOverlay: () => void;
+}) {
   const [amount, setAmount] = useState('');
   const [isValid, setIsValid] = useState(true);
 
-  const route = useRoute<RouteProps>();
   const intl = useIntl();
-  const modalClose = useModalClose();
-
-  const { onAmountChanged } = route.params;
+  const isVertical = useIsVerticalLayout();
 
   useEffect(() => {
     if (amount === '') {
@@ -45,15 +41,16 @@ function AmountEditor() {
   const handleConfirmAmount = useCallback(() => {
     if (!isValid) return;
     onAmountChanged(amount);
-    modalClose();
-  }, [amount, isValid, modalClose, onAmountChanged]);
+    closeOverlay();
+  }, [amount, closeOverlay, isValid, onAmountChanged]);
 
   return (
-    <Modal headerShown={false} footer={null}>
-      <Text typography="DisplayMedium" textAlign="center">
-        {intl.formatMessage({ id: 'action__edit_amount' })}
-      </Text>
-      <Text typography="Body1" color="text-subdued" textAlign="center" mt={2}>
+    <BottomSheetModal
+      closeOverlay={closeOverlay}
+      showCloseButton={!isVertical}
+      title={intl.formatMessage({ id: 'action__edit_amount' })}
+    >
+      <Text typography="Body1" color="text-subdued" textAlign="center">
         {intl.formatMessage({ id: 'modal__reset_app_desc' })}
       </Text>
       <Box mt={5}>
@@ -81,7 +78,7 @@ function AmountEditor() {
         </HStack>
       </Box>
       <HStack mt={6} space={3}>
-        <Button size="xl" flex={1} onPress={modalClose}>
+        <Button size="xl" flex={1} onPress={closeOverlay}>
           {intl.formatMessage({ id: 'action__cancel' })}
         </Button>
         <Button
@@ -94,8 +91,17 @@ function AmountEditor() {
           {intl.formatMessage({ id: 'action__confirm' })}
         </Button>
       </HStack>
-    </Modal>
+    </BottomSheetModal>
   );
 }
 
-export { AmountEditor };
+const showAmountEditor = (onAmountChanged: (amount: string) => void) => {
+  showOverlay((close) => (
+    <AmountEditorBottomSheetModal
+      onAmountChanged={onAmountChanged}
+      closeOverlay={close}
+    />
+  ));
+};
+
+export { showAmountEditor };
