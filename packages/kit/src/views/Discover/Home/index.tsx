@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import type { FC } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+
+import { useFocusEffect } from '@react-navigation/core';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -24,9 +26,11 @@ const DiscoverPage: FC<DiscoverProps> = ({
   onItemSelect,
   onItemSelectHistory,
 }) => {
-  useEffect(() => {
-    backgroundApiProxy.serviceDiscover.fetchData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      backgroundApiProxy.serviceDiscover.fetchData();
+    }, []),
+  );
 
   const [categoryId, setCategoryId] = useState('');
   const isSmall = useIsVerticalLayout();

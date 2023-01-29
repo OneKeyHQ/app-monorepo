@@ -52,7 +52,7 @@ export const Mobile = () => {
               <SwapHeaderButtons />
             </Box>
           )}
-          <Box>
+          <Box px={isSmall ? undefined : 4}>
             <SwapContent />
           </Box>
           <Box px="4">
