@@ -40,7 +40,6 @@ function AccountHistorySettingsBottomSheetModal({
             {intl.formatMessage({ id: 'form__hide_0_amount_transfers_desc' })}
           </Text>
           <Switch
-            flexBasis="20%"
             labelType="false"
             isChecked={hideScamHistory}
             onToggle={() =>
