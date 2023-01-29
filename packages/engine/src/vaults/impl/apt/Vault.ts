@@ -15,7 +15,6 @@ import type { Token } from '@onekeyhq/kit/src/store/typings';
 import {
   getTimeDurationMs,
   getTimeStamp,
-  hexlify,
   isHexString,
 } from '@onekeyhq/kit/src/utils/helper';
 import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
@@ -38,7 +37,7 @@ import {
   convertFeeGweiToValue,
   convertFeeValueToGwei,
 } from '../../utils/feeInfoUtils';
-import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
+import { addHexPrefix, hexlify, stripHexPrefix } from '../../utils/hexUtils';
 import { VaultBase } from '../../VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -272,10 +271,15 @@ export default class Vault extends VaultBase {
 
   override async validateTokenAddress(tokenAddress: string): Promise<string> {
     const [address, module, name] = tokenAddress.split('::');
+
     if (module && name) {
       try {
         return `${(
-          await this.validateAddress(address)
+          await this.validateAddress(
+            hexlify(address, {
+              hexPad: 'left',
+            }),
+          )
         ).toLowerCase()}::${module}::${name}`;
       } catch {
         // pass
