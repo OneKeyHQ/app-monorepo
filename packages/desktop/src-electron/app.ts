@@ -328,7 +328,7 @@ function createMainWindow() {
     browserWindow.webContents.send('appState', undefined);
   });
 
-  browserWindow.on('show', () => {
+  browserWindow.on('focus', () => {
     browserWindow.webContents.send('appState', 'active');
   });
 
