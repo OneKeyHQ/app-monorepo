@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -58,6 +58,7 @@ const clientInfo: DeviceInfo = deviceInfo();
 const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
   const { serviceMigrate } = backgroundApiProxy;
 
+  const serverRef = useRef(serverInfo);
   const [connectStatus, updateConnectStatus] = useState<ConnectStatus>(() => {
     if (serverInfo) {
       return ConnectStatus.Success;
@@ -66,7 +67,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
   });
 
   const [fromData, updateFromData] = useState(clientInfo);
-  const [toData, updateToData] = useState(serverInfo);
+  const [toData, updateToData] = useState(serverRef.current);
   const parseFromData = useMemo(() => parseDeviceInfo(fromData), [fromData]);
   const parseToData = useMemo(() => {
     if (toData) {
@@ -76,7 +77,6 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
 
   const [isSend, setIsSend] = useState(true);
   const intl = useIntl();
-
   const { exportDataRequest } = useExportData();
 
   const navigation = useNavigation();
@@ -86,6 +86,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
       setTimeout(() => {
         serviceMigrate.connectServer(serverAddress).then((data) => {
           if (data) {
+            serverRef.current = data;
             updateToData(data);
             updateConnectStatus(ConnectStatus.Success);
           } else {
@@ -97,17 +98,20 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
   }, [connectStatus, serverAddress, serviceMigrate]);
 
   useEffect(() => {
-    if (connectStatus !== ConnectStatus.Success || serverInfo === undefined) {
+    if (
+      connectStatus !== ConnectStatus.Success ||
+      serverRef.current === undefined
+    ) {
       return;
     }
     if (isSend) {
       updateFromData(clientInfo);
-      updateToData(serverInfo);
+      updateToData(serverRef.current);
     } else {
-      updateFromData(serverInfo);
+      updateFromData(serverRef.current);
       updateToData(clientInfo);
     }
-  }, [connectStatus, isSend, serverInfo]);
+  }, [connectStatus, fromData, isSend, toData]);
 
   const sendAction = useCallback(async () => {
     const { status, data } = await exportDataRequest();
@@ -135,6 +139,8 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
     const data = await serviceMigrate.getDataFromServer({
       ipAddress: serverAddress,
     });
+    console.log('getDataAction = ', data);
+
     if (data) {
       if (isEmptyData(JSON.parse(data.public))) {
         ToastManager.show(
@@ -173,8 +179,8 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
           )}`,
         });
         serviceMigrate.disConnectServer(serverAddress);
-        closeOverlay();
       }
+      closeOverlay();
     } else {
       await getDataAction();
     }

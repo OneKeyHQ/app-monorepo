@@ -42,7 +42,7 @@ import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { OneKeyMigrateQRCodePrefix, parseDeviceInfo } from '../util';
 
-import { useMigrateContext } from './context';
+import { ServerStatus, useMigrateContext } from './context';
 import { ExportResult, useConnectServer, useExportData } from './hook';
 import { showSendDataRequestModal } from './SendDataRequestModal';
 
@@ -57,6 +57,17 @@ function hostWithURL(url: string) {
   return res;
 }
 
+function addressWithoutHttp(address: string) {
+  let copyAddress = address;
+  if (copyAddress.startsWith('http://')) {
+    copyAddress = copyAddress.replace('http://', '');
+  }
+  if (copyAddress.endsWith('/')) {
+    copyAddress = copyAddress.slice(0, copyAddress.length - 1);
+  }
+  return copyAddress;
+}
+
 const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
   const intl = useIntl();
   const { serviceHTTP } = backgroundApiProxy;
@@ -68,13 +79,7 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
   const showModal = useRef<boolean>(false);
 
   const copyAction = useCallback(() => {
-    let copyAddress = serverAddress;
-    if (copyAddress.startsWith('http://')) {
-      copyAddress = copyAddress.replace('http://', '');
-    }
-    if (copyAddress.endsWith('/')) {
-      copyAddress = copyAddress.slice(0, copyAddress.length - 1);
-    }
+    const copyAddress = addressWithoutHttp(serverAddress);
     copyToClipboard(copyAddress);
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__copied' }),
@@ -195,7 +200,9 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
           shadow="depth.1"
         >
           <QRCode
-            value={`${OneKeyMigrateQRCodePrefix}${serverAddress}`}
+            value={`${OneKeyMigrateQRCodePrefix}${addressWithoutHttp(
+              serverAddress,
+            )}`}
             size={170}
             logo={qrcodeLogo}
             logoSize={36}
@@ -322,7 +329,6 @@ const SecondaryContent: FC = () => {
     const serverUrl = await serviceHTTP.startHttpServer();
     if (serverUrl) {
       debugLogger.migrate.info('startHttpServer', serverUrl);
-
       updateServerAddress(serverUrl);
       return true;
     }
@@ -331,18 +337,26 @@ const SecondaryContent: FC = () => {
 
   useEffect(() => {
     if (context?.selectRange === 0) {
-      startHttpServer();
+      startHttpServer().then((success) => {
+        if (setContext) {
+          setContext((ctx) => ({
+            ...ctx,
+            serverStatus: success ? ServerStatus.Success : ServerStatus.Fail,
+          }));
+        }
+      });
     } else {
       serviceHTTP.stopHttpServer();
       updateServerAddress('');
     }
-  }, [context?.selectRange, serviceHTTP, startHttpServer]);
+  }, [context?.selectRange, serviceHTTP, setContext, startHttpServer]);
 
   return (
     <>
       {httpServerEnable() ? (
         <Center mb="16px">
           <SegmentedControl
+            enabled={context?.serverStatus === ServerStatus.Success}
             selectedIndex={context?.selectRange}
             onChange={(index) => {
               if (setContext) {

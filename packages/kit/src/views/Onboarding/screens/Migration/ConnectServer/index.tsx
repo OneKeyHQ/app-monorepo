@@ -9,7 +9,11 @@ import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import Layout from '../../../Layout';
 
-import { MigrateContextProvider, useMigrateContext } from './context';
+import {
+  MigrateContextProvider,
+  ServerStatus,
+  useMigrateContext,
+} from './context';
 import SecondaryContent from './SecondaryContent';
 
 import type { EOnboardingRoutes } from '../../../routes/enums';
@@ -53,7 +57,16 @@ const MigrationDescription: FC = () => {
   const context = useMigrateContext()?.context;
 
   const DESCRIPTIONS = [
-    intl.formatMessage({ id: 'content__migration_step_1' }),
+    <Text
+      typography={{ sm: 'Body2', md: 'Body1' }}
+      color={
+        context?.selectRange === 0 && context.serverStatus === ServerStatus.Fail
+          ? 'text-critical'
+          : 'text-default'
+      }
+    >
+      {intl.formatMessage({ id: 'content__migration_step_1' })}
+    </Text>,
     intl.formatMessage({ id: 'content__migration_step_2' }),
     context?.selectRange === 0
       ? intl.formatMessage(

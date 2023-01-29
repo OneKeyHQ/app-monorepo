@@ -181,13 +181,10 @@ class ServiceMigrate extends ServiceBase {
 
   @backgroundMethod()
   isConnectedUUID(uuid: string) {
-    if (uuid.length === 0) {
-      return false;
+    if (this.connectUUID.length > 0 && uuid === this.connectUUID) {
+      return true;
     }
-    if (this.connectUUID.length > 0 && uuid !== this.connectUUID) {
-      return false;
-    }
-    return true;
+    return false;
   }
 
   receivedHttpRequest = ({
@@ -213,8 +210,16 @@ class ServiceMigrate extends ServiceBase {
 
     debugLogger.migrate.info('receivedHttpRequest = ', apiName, uuid);
 
+    if (uuid.length === 0) {
+      serviceHTTP.serverRespond({
+        requestId,
+        respondData: { success: false },
+      });
+      return;
+    }
+
     if (apiName === MigrateAPINames.Connect) {
-      if (!this.isConnectedUUID(uuid)) {
+      if (this.connectUUID.length > 0) {
         serviceHTTP.serverRespond({
           requestId,
           respondData: { success: false },
@@ -281,6 +286,7 @@ class ServiceMigrate extends ServiceBase {
 
   @backgroundMethod()
   unRegisterHttpEvents() {
+    this.connectUUID = '';
     appEventBus.removeListener(
       AppEventBusNames.HttpServerRequest,
       this.receivedHttpRequest,
