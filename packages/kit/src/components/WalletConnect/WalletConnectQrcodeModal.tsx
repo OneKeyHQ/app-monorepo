@@ -194,7 +194,6 @@ export function ConnectWalletListView({
         }
       }
 
-      console.log('registerWallets: ', result);
       setRegisterWalletLists(result);
     })();
   }, [isInstitutionWallet, institutionData, walletServicesEnabled]);
