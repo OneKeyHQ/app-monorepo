@@ -75,14 +75,16 @@ const SwappingVia: FC<SwappingViaProps> = ({
 }) => {
   if (!providers) {
     return (
-      <Text typography={typography} color={color} isTruncated>
-        OneKey Swap
-      </Text>
+      <Box flexDirection="row" flexGrow={1}>
+        <Text typography={typography} color={color} isTruncated>
+          OneKey Swap
+        </Text>
+      </Box>
     );
   }
   if (providers.length === 1) {
     return (
-      <Box flexDirection="row" alignItems="center">
+      <Box flexDirection="row" alignItems="center" flexGrow={1}>
         {providers[0].logoUrl ? (
           <SwappingViaLogos sources={[providers[0].logoUrl]} />
         ) : null}
@@ -101,7 +103,7 @@ const SwappingVia: FC<SwappingViaProps> = ({
   if (providers.length > 1) {
     const sources = providers.map((i) => i.logoUrl).filter(Boolean);
     return (
-      <Box alignItems="center" flexDirection="row" alignContent="center">
+      <Box alignItems="center" flexDirection="row" flexGrow={1}>
         {sources.length > 0 ? <SwappingViaLogos sources={sources} /> : null}
         <Text
           ml="2"
@@ -116,9 +118,11 @@ const SwappingVia: FC<SwappingViaProps> = ({
     );
   }
   return (
-    <Text typography={typography} color={color}>
-      OneKey Swap
-    </Text>
+    <Box alignItems="center" flexDirection="row" flexGrow={1}>
+      <Text typography={typography} color={color}>
+        OneKey Swap
+      </Text>
+    </Box>
   );
 };
 
