@@ -763,6 +763,7 @@ export default class Vault extends VaultBase {
       txHex,
       utxos,
       addresses,
+      changeAddress,
     );
     return {
       ...encodeTx,
