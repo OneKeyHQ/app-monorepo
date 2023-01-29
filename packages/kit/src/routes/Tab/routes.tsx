@@ -10,6 +10,7 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import AnnualReport from '@onekeyhq/kit/src/views/AnnualReport/Report';
 import AnnualLoading from '@onekeyhq/kit/src/views/AnnualReport/Welcome';
+import BulkSender from '@onekeyhq/kit/src/views/BulkSender';
 import DiscoverScreen from '@onekeyhq/kit/src/views/Discover';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
 import DiscoverHome from '@onekeyhq/kit/src/views/Discover/Home';
@@ -39,7 +40,6 @@ import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
-import BulkSender from '../../views/BulkSender';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
 import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';

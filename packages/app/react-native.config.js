@@ -1,5 +1,9 @@
 module.exports = {
   dependencies: {
+    'react-native-fs': {
+      // disable fs in CI environment
+      platforms: process.env.CI ? { ios: null, android: null } : {},
+    },
     'react-native-flipper': {
       // disable flipper in CI environment
       platforms: process.env.CI ? { ios: null, android: null } : {},

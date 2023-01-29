@@ -33,8 +33,7 @@ function ReceiverEditor(props: Props) {
       <Textarea
         value={receiverString}
         h="240px"
-        // @ts-ignore
-        onChange={(e) => setReceiverString(e.currentTarget.value)}
+        onChangeText={(text) => setReceiverString(text)}
       />
       <Box mt={3}>
         <ReceiverErrors errors={receiverErrors} />

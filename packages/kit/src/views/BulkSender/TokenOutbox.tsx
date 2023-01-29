@@ -14,10 +14,11 @@ import {
   Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
-import { useAccountTokens, useNativeToken } from '@onekeyhq/kit/src/hooks';
+import { useAccountTokens } from '@onekeyhq/kit/src/hooks';
 import {
   useAccountTokenLoading,
   useTokenBalance,
@@ -236,75 +237,80 @@ function TokenOutbox(props: Props) {
   }, [accountId, networkId]);
 
   return (
-    <Box paddingX={isVertical ? 4 : 0} paddingY={5}>
-      <Pressable.Item
-        disabled={loading || isNative}
-        px={4}
-        py={2}
-        borderColor="border-default"
-        borderWidth={1}
-        borderRadius={12}
-        onPress={handleOpenTokenSelector}
-      >
-        <HStack alignItems="center">
-          <TokenComponent
-            flex={1}
-            size={8}
-            showInfo
-            showTokenVerifiedIcon={false}
-            token={selectedToken || initialToken}
-            name={selectedToken?.symbol || initialToken?.symbol}
-            showExtra={false}
-            description={formatedBalance}
+    <Tabs.ScrollView>
+      <Box paddingX={isVertical ? 4 : 0} paddingY={5}>
+        <Pressable.Item
+          disabled={loading || isNative}
+          px={4}
+          py={2}
+          borderColor="border-default"
+          borderWidth={1}
+          borderRadius={12}
+          onPress={handleOpenTokenSelector}
+        >
+          <HStack alignItems="center">
+            <TokenComponent
+              flex={1}
+              size={8}
+              showInfo
+              showTokenVerifiedIcon={false}
+              token={selectedToken || initialToken}
+              name={selectedToken?.symbol || initialToken?.symbol}
+              showExtra={false}
+              description={formatedBalance}
+            />
+            {!isNative && (
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+            )}
+          </HStack>
+        </Pressable.Item>
+        <Box mt={6}>
+          <ReceiverInput
+            accountId={accountId}
+            networkId={networkId}
+            setReceiver={setReceiver}
+            receiverFromOut={receiverFromOut}
+            setReceiverFromOut={setReceiverFromOut}
+            receiverErrors={errors}
+            type={type}
+            isUploadMode={isUploadMode}
+            setIsUploadMode={setIsUploadMode}
           />
-          {!isNative && (
-            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-          )}
-        </HStack>
-      </Pressable.Item>
-      <Box mt={6}>
-        <ReceiverInput
-          accountId={accountId}
-          networkId={networkId}
-          setReceiver={setReceiver}
-          receiverFromOut={receiverFromOut}
-          setReceiverFromOut={setReceiverFromOut}
-          receiverErrors={errors}
-          type={type}
-          isUploadMode={isUploadMode}
-          setIsUploadMode={setIsUploadMode}
-        />
-      </Box>
-      <Box display={isUploadMode ? 'none' : 'flex'}>
-        <HStack mt={4} space={4}>
-          <Button
-            type="basic"
-            size="xs"
-            leftIconName="CurrencyDollarSolid"
-            onPress={handleOpenAmountEditor}
-          >
-            {intl.formatMessage({ id: 'action__edit_amount' })}
-          </Button>
-        </HStack>
-        <Box mt={4}>
-          <Button
-            isLoading={isValidating || isBuildingTx}
-            isDisabled={
-              isValidating || !isValid || receiver.length === 0 || isBuildingTx
-            }
-            type="primary"
-            size="xl"
-            maxW={isVertical ? 'full' : '280px'}
-            onPress={handlePreviewTransfer}
-          >
-            {intl.formatMessage({ id: 'action__preview' })}
-          </Button>
         </Box>
-        <Text fontSize={14} color="text-subdued" mt={4}>
-          {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-        </Text>
+        <Box display={isUploadMode ? 'none' : 'flex'}>
+          <HStack mt={4} space={4}>
+            <Button
+              type="basic"
+              size="xs"
+              leftIconName="CurrencyDollarSolid"
+              onPress={handleOpenAmountEditor}
+            >
+              {intl.formatMessage({ id: 'action__edit_amount' })}
+            </Button>
+          </HStack>
+          <Box mt={4}>
+            <Button
+              isLoading={isValidating || isBuildingTx}
+              isDisabled={
+                isValidating ||
+                !isValid ||
+                receiver.length === 0 ||
+                isBuildingTx
+              }
+              type="primary"
+              size="xl"
+              maxW={isVertical ? 'full' : '280px'}
+              onPress={handlePreviewTransfer}
+            >
+              {intl.formatMessage({ id: 'action__preview' })}
+            </Button>
+          </Box>
+          <Text fontSize={14} color="text-subdued" mt={4}>
+            {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
+          </Text>
+        </Box>
       </Box>
-    </Box>
+    </Tabs.ScrollView>
   );
 }
 

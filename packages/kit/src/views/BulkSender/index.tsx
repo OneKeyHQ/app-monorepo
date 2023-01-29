@@ -44,7 +44,7 @@ function BulkSender() {
     (network.impl !== IMPL_EVM ||
       (network.impl === IMPL_EVM && batchTransferContractAddress[network.id]));
 
-  const nativeToken = useNativeToken(networkId, accountId);
+  const nativeToken = useNativeToken(networkId);
 
   const { connectAndCreateExternalAccount } =
     useConnectAndCreateExternalAccount({
@@ -94,7 +94,6 @@ function BulkSender() {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerLeft,
       headerRight,
     });
   }, [navigation, headerLeft, headerRight]);
@@ -102,47 +101,46 @@ function BulkSender() {
   if (!isSupported) return <NotSupported />;
 
   return (
-    <ScrollView>
-      <Center>
-        <Box maxW="768px" w="100%">
-          <Tabs.Container
-            initialTabName={BulkSenderTypeEnum.NativeToken}
-            containerStyle={{
-              width: '100%',
-              marginHorizontal: 'auto',
-              backgroundColor: tabbarBgColor,
-              alignSelf: 'center',
-              flex: 1,
-            }}
-            headerHeight={isVertical ? 0 : 30}
-            scrollEnabled={false}
-          >
-            <Tabs.Tab
-              name={BulkSenderTypeEnum.NativeToken}
-              label={nativeToken?.symbol ?? ''}
-            >
-              <TokenOutbox
-                accountId={accountId}
-                networkId={networkId}
-                accountAddress={accountAddress}
-                type={BulkSenderTypeEnum.NativeToken}
-              />
-            </Tabs.Tab>
-            <Tabs.Tab
-              name={BulkSenderTypeEnum.Token}
-              label={intl.formatMessage({ id: 'form__token' })}
-            >
-              <TokenOutbox
-                accountId={accountId}
-                networkId={networkId}
-                accountAddress={accountAddress}
-                type={BulkSenderTypeEnum.Token}
-              />
-            </Tabs.Tab>
-          </Tabs.Container>
-        </Box>
-      </Center>
-    </ScrollView>
+    <Tabs.Container
+      headerContainerStyle={{
+        width: '100%',
+        maxWidth: 768,
+      }}
+      containerStyle={{
+        width: '100%',
+        maxWidth: 768,
+        marginHorizontal: 'auto',
+        backgroundColor: tabbarBgColor,
+        alignSelf: 'center',
+        flex: 1,
+      }}
+      headerHeight={isVertical ? 0 : 30}
+      swipeEnabled={false}
+      disableRefresh
+    >
+      <Tabs.Tab
+        name={BulkSenderTypeEnum.NativeToken}
+        label={nativeToken?.symbol ?? ''}
+      >
+        <TokenOutbox
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+          type={BulkSenderTypeEnum.NativeToken}
+        />
+      </Tabs.Tab>
+      <Tabs.Tab
+        name={BulkSenderTypeEnum.Token}
+        label={intl.formatMessage({ id: 'form__token' })}
+      >
+        <TokenOutbox
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+          type={BulkSenderTypeEnum.Token}
+        />
+      </Tabs.Tab>
+    </Tabs.Container>
   );
 }
 

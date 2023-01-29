@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
-import RNFetchBlob from 'react-native-blob-util';
 import { pickSingle, types } from 'react-native-document-picker';
+import { readFile } from 'react-native-fs';
 import { read, utils } from 'xlsx';
 
 import { Center, Icon, Pressable, Text } from '@onekeyhq/components';
@@ -30,15 +29,10 @@ function ReceiverUploader(props: Props) {
         mode: 'open',
         type: [types.plainText, types.csv, types.xls, types.xlsx],
       });
-      let path = f.fileCopyUri;
+      const path = f.fileCopyUri;
       if (!path) return;
-      if (Platform.OS === 'ios')
-        path = path.replace(
-          /^.*\/Documents\//,
-          `${RNFetchBlob.fs.dirs.DocumentDir}/`,
-        );
-      const res = await RNFetchBlob.fs.readFile(path, 'ascii');
-      const wb = read(new Uint8Array(res), { raw: true, type: 'buffer' });
+      const bstr = await readFile(path, 'ascii');
+      const wb = read(bstr, { raw: true, type: 'binary' });
 
       const data = utils.sheet_to_json<TokenReceiver>(
         wb.Sheets[wb.SheetNames[0]],
@@ -61,7 +55,14 @@ function ReceiverUploader(props: Props) {
 
   return (
     <>
-      <Pressable height="148px" onPress={handleUploadFile}>
+      <Pressable
+        height="148px"
+        onPress={handleUploadFile}
+        borderWidth={1}
+        borderColor="border-default"
+        borderRadius="12px"
+        backgroundColor="surface-default"
+      >
         <Center w="full" h="full">
           <Icon name="UploadOutline" size={40} color="icon-subdued" />
         </Center>
