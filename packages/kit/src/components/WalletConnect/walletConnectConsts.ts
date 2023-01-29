@@ -82,6 +82,7 @@ export const WALLET_CONNECT_WALLET_NAMES = {
   'TokenPocket': 'TokenPocket',
   'BitKeep': 'BitKeep',
   'Zerion': 'Zerion',
+  '1inch': '1inch Wallet',
 };
 
 export const WALLET_CONNECT_INSTITUTION_WALLET_NAMES = {
