@@ -771,6 +771,7 @@ class Engine {
       '118': OnekeyNetwork.cosmoshub,
       '1815': OnekeyNetwork.ada,
       '461': OnekeyNetwork.fil,
+      '784': OnekeyNetwork.sui,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -872,9 +873,11 @@ class Engine {
         );
       }
     }
-    const client = await this.providerManager.getClient(networkId);
-    const { bestBlockNumber } = await client.getInfo();
-    const blockHeight = String(bestBlockNumber);
+    const client = await this.getChainOnlyVault(networkId);
+    const { latestBlock } = await client.getClientEndpointStatus(
+      await client.getRpcUrl(),
+    );
+    const blockHeight = String(latestBlock);
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
