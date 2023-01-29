@@ -6,21 +6,14 @@ import { Box, Icon, Typography } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
 import { calculateGains } from '../../utils/priceUtils';
-import { formatDecimalZero } from '../Market/utils';
 
 type PriceLabelProps = {
   price: number | null;
   basePrice: number;
   time: string;
-  simpleMode?: boolean;
 };
 
-const PriceLabel: FC<PriceLabelProps> = ({
-  price,
-  basePrice,
-  time,
-  simpleMode,
-}) => {
+const PriceLabel: FC<PriceLabelProps> = ({ price, basePrice, time }) => {
   const intl = useIntl();
   const priceLabel = intl.formatMessage({
     id: 'content__price_uppercase',
@@ -56,21 +49,12 @@ const PriceLabel: FC<PriceLabelProps> = ({
   // const { selectedFiatMoneySymbol } = useSettings();
   return (
     <Box flexDirection="column">
-      {simpleMode ? null : (
-        <Typography.Subheading color="text-subdued">
-          {priceLabel}
-        </Typography.Subheading>
-      )}
-      {simpleMode ? (
-        <Typography.DisplayXLarge mt="4px" mb="4px">
-          {price ? formatDecimalZero(price) : ''}
-        </Typography.DisplayXLarge>
-      ) : (
-        <Typography.DisplayXLarge mt="4px" mb="4px">
-          <FormatCurrencyNumber value={price || 0} />
-        </Typography.DisplayXLarge>
-      )}
-
+      <Typography.Subheading color="text-subdued">
+        {priceLabel}
+      </Typography.Subheading>
+      <Typography.DisplayXLarge mt="4px" mb="4px">
+        <FormatCurrencyNumber value={price || 0} />
+      </Typography.DisplayXLarge>
       <Box flexDirection="row" alignItems="center">
         {displayInfo}
       </Box>

@@ -40,7 +40,7 @@ type Props = {
   token: TokenType;
   networkId: string;
   balance: B;
-  price: string;
+  price: number | undefined;
   allowance: string;
   totalSupply: string;
   accountAddress: string;

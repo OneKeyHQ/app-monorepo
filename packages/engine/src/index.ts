@@ -16,7 +16,10 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
+import type {
+  TokenBalanceValue,
+  TokenChartData,
+} from '@onekeyhq/kit/src/store/reducers/tokens';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import {
@@ -70,6 +73,7 @@ import {
   fetchOnlineTokens,
   fetchTokenDetail,
   formatServerToken,
+  getBalanceKey,
   getNetworkIdFromTokenId,
 } from './managers/token';
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
@@ -137,7 +141,6 @@ import type {
   IEncodedTx,
   IEncodedTxUpdateOptions,
   IFeeInfoUnit,
-  IHistoryTx,
   ISetApprovalForAll,
   ITransferInfo,
   IVaultSettings,
@@ -783,38 +786,22 @@ class Engine {
     networkId: string,
     tokenIdsOnNetwork: Array<string>,
     withMain = true,
-  ): Promise<[Record<string, string | undefined>, Token[] | undefined]> {
-    // Get account balance, main token balance is always included.
-    const [network, tokens, accountTokens] = await Promise.all([
+  ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
+    const [network, accountTokens] = await Promise.all([
       this.getNetwork(networkId),
-      this.getTokens(networkId, undefined, false),
       this.getTokens(networkId, accountId, withMain, true, false),
     ]);
-    const decimalsMap: Record<string, number> = {};
-    // TODO performance
-    tokens.forEach((token) => {
-      if (
-        tokenIdsOnNetwork.includes(token.tokenIdOnNetwork) ||
-        accountTokens.some((t) => t.tokenIdOnNetwork === token.tokenIdOnNetwork)
-      ) {
-        decimalsMap[token.tokenIdOnNetwork] = token.decimals;
-      }
-    });
     const tokensToGet = uniq([
       ...tokenIdsOnNetwork,
       ...accountTokens.map((t) => t.tokenIdOnNetwork),
-    ])
-      .filter((address) => {
-        if (withMain && address === '') {
-          return false;
-        }
-        return true;
-      })
-      .filter((tokenId) => typeof decimalsMap[tokenId] !== 'undefined');
+    ]).filter((address) => {
+      if (withMain && address === '') {
+        return false;
+      }
+      return true;
+    });
     const vault = await this.getVault({ networkId, accountId });
-
-    const ret: Record<string, string | undefined> = {};
-    let newTokens: Token[] | undefined;
+    const ret: Record<string, TokenBalanceValue> = {};
     if (balanceSupprtedNetwork.includes(networkId)) {
       try {
         const account = await this.getAccount(accountId, networkId);
@@ -822,38 +809,58 @@ class Engine {
 
         const balancesFromApi =
           (await getBalancesFromApi(networkId, accountAddress)) || [];
-        const missedTokenIds: string[] = [];
         const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
           accountId,
           networkId,
         );
-
-        for (const { address, balance } of balancesFromApi) {
-          if (
-            address &&
-            +balance > 0 &&
-            !removedTokens.includes(address) &&
-            !tokensToGet.includes(address)
-          ) {
-            // only record new token balances
-            // other token balances still get from RPC for accuracy
-            ret[address] = balance;
-            missedTokenIds.push(address);
+        const allAccountTokens: Token[] = [];
+        for (const {
+          address,
+          balance,
+          sendAddress,
+          bestBlockNumber: blockHeight,
+        } of balancesFromApi.filter(
+          (b) =>
+            (+b.balance > 0 || !b.address) &&
+            !removedTokens.includes(b.address),
+        )) {
+          try {
+            let token = await this.findToken({
+              networkId,
+              tokenIdOnNetwork: address,
+            });
+            if (!token) {
+              token = await this.quickAddToken(accountId, networkId, address);
+            }
+            if (token) {
+              // only record new token balances
+              // other token balances still get from RPC for accuracy
+              const tokenId = address || 'main';
+              ret[
+                getBalanceKey({
+                  address,
+                  sendAddress,
+                })
+              ] = {
+                balance,
+                blockHeight,
+              };
+              ret[tokenId] = {
+                balance,
+                blockHeight,
+              };
+              allAccountTokens.push({
+                ...token,
+                sendAddress,
+                autoDetected: !accountTokens.some((t) => t.address === address),
+              });
+            }
+          } catch (e) {
+            // pass
           }
         }
-        if (missedTokenIds.length) {
-          newTokens = (
-            await Promise.all(
-              missedTokenIds.map((id) =>
-                this.quickAddToken(accountId, networkId, id, undefined, {
-                  autoDetected: true,
-                }),
-              ),
-            )
-          )
-            .filter(Boolean)
-            .map((t) => ({ ...t, autoDetected: true }));
-        }
+
+        return [ret, allAccountTokens];
       } catch (e) {
         debugLogger.common.error(
           `getBalancesFromApi`,
@@ -865,24 +872,50 @@ class Engine {
         );
       }
     }
+    const client = await this.providerManager.getClient(networkId);
+    const { bestBlockNumber } = await client.getInfo();
+    const blockHeight = String(bestBlockNumber);
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
-        ret.main = balances[0]
-          .div(new BigNumber(10).pow(network.decimals))
-          .toFixed();
+        ret.main = {
+          balance: balances[0]
+            .div(new BigNumber(10).pow(network.decimals))
+            .toFixed(),
+          blockHeight,
+        };
       } else {
         ret.main = undefined;
       }
     }
-    balances.slice(withMain ? 1 : 0).forEach((balance, index) => {
+    balances.slice(withMain ? 1 : 0).forEach(async (balance, index) => {
       const tokenId1 = tokensToGet[index];
-      const decimals = decimalsMap[tokenId1];
-      if (typeof balance !== 'undefined') {
-        ret[tokenId1] = balance.div(new BigNumber(10).pow(decimals)).toFixed();
+      const token = await this.findToken({
+        networkId,
+        tokenIdOnNetwork: tokenId1,
+      });
+      const decimals = token?.decimals;
+      if (
+        token &&
+        typeof decimals !== 'undefined' &&
+        typeof balance !== 'undefined'
+      ) {
+        const bal = balance.div(new BigNumber(10).pow(decimals)).toFixed();
+        ret[
+          getBalanceKey({
+            address: tokenId1,
+          })
+        ] = {
+          balance: bal,
+          blockHeight,
+        };
+        ret[tokenId1] = {
+          balance: bal,
+          blockHeight,
+        };
       }
     });
-    return [ret, newTokens];
+    return [ret, undefined];
   }
 
   @backgroundMethod()
@@ -1470,7 +1503,7 @@ class Engine {
       impl,
       chainId,
       address: '',
-      source: [],
+      source: '',
       isNative: true,
     };
   }

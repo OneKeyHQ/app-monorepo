@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -7,7 +8,6 @@ import {
   useAccountTokens,
   useAccountTokensBalance,
   useAppSelector,
-  useNetworkTokensPrice,
   useThrottle,
 } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
@@ -62,11 +62,6 @@ export const useTokenSearch = (keyword: string, networkId?: string | null) => {
   };
 };
 
-export const useCachedPrices = (networkId?: string) => {
-  const prices = useNetworkTokensPrice(networkId);
-  return useThrottle(prices, 2000);
-};
-
 export const useCachedBalances = (networkId?: string, accountId?: string) => {
   const balances = useAccountTokensBalance(networkId, accountId);
   return useThrottle(balances, 2000);
@@ -97,7 +92,7 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
     if (!token) {
       return undefined;
     }
-    return balances[token?.tokenIdOnNetwork || 'main'];
+    return balances[getBalanceKey(token)]?.balance ?? '0';
   }, [balances, token]);
 };
 
@@ -151,7 +146,8 @@ export function useSwapAccountTokens(networkId?: string, accountId?: string) {
     const balanceIsOk = (address: string) => {
       const key = address || 'main';
       return Boolean(
-        balances[key] && Number(formatAmount(balances[key], 6)) > 0,
+        balances[key] &&
+          Number(formatAmount(balances[key]?.balance ?? '0', 6)) > 0,
       );
     };
 

@@ -48,7 +48,6 @@ const ListHeaderComponent = () => {
   const stakingState = useKelePoolStakingState(networkId, accountId);
   const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
   const navigation = useNavigation<NavigationProps['navigation']>();
-  // const prices = useNetworkTokensPrice(networkId);
   const mainPrice = useSimpleTokenPriceValue({ networkId });
   const showETH2UnableToUnstakeWarning = useAppSelector(
     (s) => s.staking.showETH2UnableToUnstakeWarning,
@@ -198,7 +197,6 @@ const ListEmptyComponent = () => {
 export default function StakedETHOnKele() {
   const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
-  // const prices = useNetworkTokensPrice(networkId);
   const mainPrice = useSimpleTokenPriceValue({ networkId });
   const [incomeItems, setIncomeItems] = useState<IncomeItem[]>([]);
   useEffect(() => {

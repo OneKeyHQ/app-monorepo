@@ -21,7 +21,6 @@ type PriceChartProps = Omit<PriceApiProps, 'days'> & {
 const PriceChart: FC<PriceChartProps> = ({ contract, networkId, style }) => {
   const [isFetching, setIsFetching] = useState(true);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
-  // const { charts: reduxCachedCharts } = useManageTokens();
   const price = useSimpleTokenPriceValue({
     networkId,
     contractAdress: contract,

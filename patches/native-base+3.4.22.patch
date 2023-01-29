@@ -156,3 +156,27 @@ index 0000000..1782152
 +
 +export default Image;
 +export type { IImageProps };
+diff --git a/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx b/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
+index 5693616..6ceb717 100644
+--- a/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
++++ b/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
+@@ -1,4 +1,5 @@
+ /* eslint-disable @typescript-eslint/no-unused-vars */
++import { OverlayContainer as RootOverlayContainer } from '@onekeyhq/components';
+ import { OverlayContainer } from '@react-native-aria/overlays';
+ import React from 'react';
+ import type { ViewStyle } from 'react-native';
+@@ -70,10 +71,11 @@ export function Overlay({
+   }
+ 
+   return (
+-    //@ts-ignore
+     <OverlayContainer style={{ ...styleObj }}>
+       <ExitAnimationContext.Provider value={{ exited, setExited }}>
+-        {children}
++        <RootOverlayContainer useFullWindowForIOS>
++          {children}
++        </RootOverlayContainer>
+       </ExitAnimationContext.Provider>
+     </OverlayContainer>
+   );

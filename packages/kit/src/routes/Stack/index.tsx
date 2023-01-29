@@ -123,6 +123,10 @@ const PNLDetailScreen = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/NFTMarket/PNL/PNLDetail'),
 );
 
+const OverviewDefiListScreen = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Overview'),
+);
+
 const WalletSwitch = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Me/UtilSection/WalletSwitch'),
 );
@@ -238,6 +242,10 @@ export const stackScreenList = [
   {
     name: HomeRoutes.NFTPNLScreen,
     component: PNLDetailScreen,
+  },
+  {
+    name: HomeRoutes.OverviewDefiListScreen,
+    component: OverviewDefiListScreen,
   },
   {
     name: HomeRoutes.WalletSwitch,

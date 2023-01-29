@@ -69,6 +69,7 @@ export type SettingsState = {
     enableTestFiatEndpoint?: boolean;
     enableZeroNotificationThreshold?: boolean;
     enablePerfCheck?: boolean;
+    defiBuildService?: string;
     hideDiscoverContent?: boolean;
     enableExternalAccountAnnualReport?: boolean;
   };
@@ -89,6 +90,7 @@ export type SettingsState = {
   };
   hideSmallBalance?: boolean;
   hideRiskTokens?: boolean;
+  putMainTokenOnTop?: boolean;
   hideScamHistory?: boolean;
   includeNFTsInTotal?: boolean;
   hideBalance?: boolean;
@@ -140,6 +142,7 @@ const initialState: SettingsState = {
     enableTestFiatEndpoint: false,
     enableZeroNotificationThreshold: false,
     enablePerfCheck: false,
+    defiBuildService: undefined,
   },
   pushNotification: defaultPushNotification,
   validationSetting: {
@@ -150,6 +153,7 @@ const initialState: SettingsState = {
   },
   hideSmallBalance: false,
   hideRiskTokens: true,
+  putMainTokenOnTop: false,
   hideScamHistory: true,
   includeNFTsInTotal: true,
   hideBalance: false,
@@ -250,6 +254,15 @@ export const settingsSlice = createSlice({
     },
     setSwapSlippagePercent: (state, action: PayloadAction<string>) => {
       state.swapSlippagePercent = action.payload;
+    },
+    setOverviewDefiBuildByService: (
+      state,
+      { payload }: PayloadAction<string>,
+    ) => {
+      state.devMode = {
+        ...state.devMode,
+        defiBuildService: payload === 'all' ? undefined : payload,
+      };
     },
     setValidationState: (
       state,
@@ -365,6 +378,9 @@ export const settingsSlice = createSlice({
     },
     setHideRiskTokens(state, action: PayloadAction<boolean>) {
       state.hideRiskTokens = action.payload;
+    },
+    setPutMainTokenOnTop(state, action: PayloadAction<boolean>) {
+      state.putMainTokenOnTop = action.payload;
     },
     setHideBalance(state, action: PayloadAction<boolean>) {
       state.hideBalance = action.payload;
@@ -494,6 +510,8 @@ export const {
   setEnableWebAuthn,
   toggleDisableExt,
   disableExtSwitchTips,
+  setPutMainTokenOnTop,
+  setOverviewDefiBuildByService,
   setHideDiscoverContent,
   setWalletSwitch,
   toggleWalletSwitch,

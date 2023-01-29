@@ -1,8 +1,4 @@
-import {
-  Base64DataBuffer,
-  Ed25519PublicKey,
-  JsonRpcProvider,
-} from '@mysten/sui.js';
+import { Ed25519PublicKey, JsonRpcProvider } from '@mysten/sui.js';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';

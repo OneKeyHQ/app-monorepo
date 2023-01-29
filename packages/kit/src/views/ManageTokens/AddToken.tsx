@@ -17,12 +17,13 @@ import {
 } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountTokens, useManageTokens } from '../../hooks';
+import { useAccountTokens, useAccountTokensBalance } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
@@ -56,7 +57,7 @@ const useRouteParams = () => {
   let token: Partial<TokenType>;
   if ('query' in params) {
     const query: WatchAssetParameters = JSON.parse(params.query);
-    const { address, symbol, decimals, image } = query.options;
+    const { address, symbol, decimals, image, sendAddress } = query.options;
     token = {
       name: symbol ?? '',
       address,
@@ -64,6 +65,7 @@ const useRouteParams = () => {
       // @ts-ignore
       decimal: decimals ?? 0,
       logoURI: image ?? '',
+      sendAddress: sendAddress ?? undefined,
     };
   } else {
     token = params;
@@ -74,7 +76,7 @@ const useRouteParams = () => {
   );
   if ('query' in params) {
     const query: WatchAssetParameters = JSON.parse(params.query);
-    const { address, symbol, decimals, image } = query.options;
+    const { address, symbol, decimals, image, sendAddress } = query.options;
     return {
       name: symbol ?? '',
       address,
@@ -83,13 +85,14 @@ const useRouteParams = () => {
       logoURI: image ?? '',
       security: data?.hasSecurity,
       verified: data?.hasSecurity === false,
+      sendAddress: sendAddress ?? undefined,
     };
   }
   return params;
 };
 
 function ViewTokenModal(props: IViewTokenModalProps) {
-  const { balances } = useManageTokens();
+  const balances = useAccountTokensBalance();
   const { account: activeAccount, network: activeNetwork } =
     useActiveWalletAccount();
   const intl = useIntl();
@@ -128,17 +131,20 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       },
     ].filter(({ value }) => !!value);
 
-    if (balances[address]) {
+    const { balance } = balances[getBalanceKey(token)] || {
+      balance: '0',
+    };
+    if (balance) {
       data.push({
         label: intl.formatMessage({
           id: 'content__balance',
           defaultMessage: 'Balance',
         }),
-        value: balances[address] ?? '0',
+        value: balance ?? '0',
       });
     }
     return data;
-  }, [name, symbol, address, decimal, balances, intl]);
+  }, [name, symbol, address, decimal, balances, intl, token]);
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {

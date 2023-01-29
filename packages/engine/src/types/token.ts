@@ -30,7 +30,7 @@ export type Token = HasName & {
   address?: string;
   impl?: string;
   chainId?: string;
-  source?: string[];
+  source?: string;
   coingeckoId?: string;
   swftId?: string;
   marketCap?: number;
@@ -38,6 +38,7 @@ export type Token = HasName & {
   security?: boolean;
   addToIndex?: boolean;
   autoDetected?: boolean;
+  sendAddress?: string;
 };
 
 export type Tool = {

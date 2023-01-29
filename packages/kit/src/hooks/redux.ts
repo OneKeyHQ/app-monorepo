@@ -17,7 +17,7 @@ import { fetchCurrencies } from '../views/FiatPay/Service';
 import { useTransactionSendContext } from '../views/Send/utils/TransactionSendContext';
 
 import { useAppSelector } from './useAppSelector';
-import { useManageTokens } from './useManageTokens';
+import { useAccountTokensBalance } from './useTokens';
 
 export { useAppSelector };
 export type ISelectorBuilder = (
@@ -218,6 +218,7 @@ export const useMoonpayPayCurrency = (code?: string) => {
 
 export const useMoonpaySell = (networkId?: string, token?: Token | null) => {
   const currencies = useFiatPay(networkId ?? '');
+  const { accountId } = useActiveWalletAccount();
   let cryptoCurrency = currencies.find((item) => {
     if (!token?.tokenIdOnNetwork) {
       return item.contract === '' && item.networkId === token?.networkId;
@@ -227,8 +228,10 @@ export const useMoonpaySell = (networkId?: string, token?: Token | null) => {
       item.contract === token?.tokenIdOnNetwork
     );
   });
-  const { balances } = useManageTokens();
-  const amount = balances[token?.tokenIdOnNetwork || 'main'] ?? '0';
+  const balances = useAccountTokensBalance(networkId, accountId);
+  const { balance: amount } = balances[token?.tokenIdOnNetwork || 'main'] ?? {
+    balance: '0',
+  };
   if (cryptoCurrency) {
     cryptoCurrency = { ...cryptoCurrency, balance: amount };
   }

@@ -552,7 +552,7 @@ export default class ServiceRevoke extends ServiceBase {
 
   @backgroundMethod()
   async fetchGoPlusERC20TokenApproval(networkId: string, address: string) {
-    const { engine } = this.backgroundApi;
+    const { engine, servicePrice } = this.backgroundApi;
     const readProvider = await this.getReadProvider(networkId);
     if (!readProvider) {
       return {
@@ -560,6 +560,8 @@ export default class ServiceRevoke extends ServiceBase {
         prices: {},
       };
     }
+
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const res = await fetchSecurityInfo<GoPlusApproval[]>({
       networkId,
       address,
@@ -601,15 +603,17 @@ export default class ServiceRevoke extends ServiceBase {
       .map((r) => r.token?.address?.toLowerCase())
       .filter((a) => !!a) as string[];
 
-    const priceAndCharts = await engine.getPricesAndCharts(
-      networkId,
-      addresses,
-      false,
+    const pricesMap = await servicePrice.getCgkTokenPrice({
+      platform: networkId,
+      contractAddresses: addresses,
+    });
+
+    const prices = Object.fromEntries(
+      Object.entries(pricesMap).map(([k, value]) => {
+        const v = value?.[vsCurrency];
+        return [k, v];
+      }),
     );
-    const prices: Record<string, string> = {};
-    for (const [id, price] of Object.entries(priceAndCharts[0])) {
-      prices[id] = price.toString();
-    }
 
     return {
       allowance,
@@ -680,7 +684,7 @@ export default class ServiceRevoke extends ServiceBase {
     useGoPlusApi = true,
   ): Promise<{
     allowance: (ERC20TokenAllowance | ERC721TokenAllowance)[];
-    prices?: Record<string, string>;
+    prices?: Record<string, number | undefined>;
     address?: string;
     isFromRpc: boolean;
   }> {

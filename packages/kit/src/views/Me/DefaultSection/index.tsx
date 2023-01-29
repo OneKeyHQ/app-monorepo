@@ -50,7 +50,7 @@ export const DefaultSection = () => {
               onPress={() => {
                 appNavigation.navigate(RootRoutes.Onboarding, {
                   screen: EOnboardingRoutes.Migration,
-                  params: undefined,
+                  params: {},
                 });
               }}
             >
