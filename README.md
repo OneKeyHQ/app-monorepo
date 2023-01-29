@@ -68,13 +68,13 @@ Execute the following commands in the root directory to develop different busine
 
 Execute the following commands in the root directory and build target for production. Make sure each platform starts correctly and environment variables are configured correctly. For expo build please read this [doc](https://docs.expo.dev/build/setup/) to **complete some prerequisites first**.
 
-- web: `cd packages/web && yarn build`, build the static files at packages/web/web-build, for production build, see [release-web.yml](./.github/workflows/release-web.yml) job for detail.
-- ios: use expo server to build, see [release-ios.yml](./.github/workflows/release-ios.yml) job for detail.
+- web: `cd packages/web && yarn build`, build the static files at packages/web/web-build, for production build, see [release-web.yml](./.github/workflows/release-web.yml) job for details.
+- ios: use expo server to build, see [release-ios.yml](./.github/workflows/release-ios.yml) job for details.
 - android:  
-  - use expo server to build, see [release-android.yml](./.github/workflows/release-android.yml) job for detail.
-  - or use `cd packages/app/android && ENTRY_FILE=__generated__/AppEntry.js ./gradlew aR` to build in local.
-- desktop: : `cd packages/desktop && yarn build`, see [release-desktop.yml](./.github/workflows/release-desktop.yml) job for detail.
-- ext: `cd packages/ext && yarn build:all`, see [release-ext.yml](./.github/workflows/release-ext.yml) job for detail.
+  - use expo server to build, see [release-android.yml](./.github/workflows/release-android.yml) job for details.
+  - or use `cd packages/app/android && ./gradlew aR` to build in local.
+- desktop: : `cd packages/desktop && yarn build`, see [release-desktop.yml](./.github/workflows/release-desktop.yml) job for details.
+- ext: `cd packages/ext && yarn build:all`, see [release-ext.yml](./.github/workflows/release-ext.yml) job for details.
 
 ## 🗂 Multi-repository directory structure
 
