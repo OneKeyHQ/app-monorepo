@@ -70,6 +70,19 @@ const Checkbox3 = () => {
   );
 };
 
+const Checkbox3False = () => {
+  const [checked, setChecked] = useState(true);
+  return (
+    <CheckBox
+      isDisabled
+      onChange={(isSelected) => setChecked(isSelected)}
+      isChecked={checked}
+      title="Disable"
+      description="Get notified when someones posts a comment on a posting."
+    />
+  );
+};
+
 const Checkbox4 = () => {
   const [checked, setChecked] = useState(false);
   return (
@@ -153,6 +166,8 @@ const CheckBoxGallery = () => (
       <Checkbox2 />
       <Divider my="2" />
       <Checkbox3 />
+      <Divider my="2" />
+      <Checkbox3False />
       <Divider my="2" />
       <Checkbox4 />
       <Divider my="2" />
