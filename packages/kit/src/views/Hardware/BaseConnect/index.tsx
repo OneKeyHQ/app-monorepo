@@ -15,10 +15,6 @@ import {
 } from '@onekeyhq/components';
 import type { ButtonType } from '@onekeyhq/components/src/Button';
 import Button from '@onekeyhq/components/src/Button';
-import lottieNFCConnectComplete from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_complete.json';
-import lottieNFCConnecting from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_connect.json';
-import lottieNFCTransferData from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transfer.json';
-import lottieNFCTransmittingData from '@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transmitting.json';
 import iconNFCScanHint from '@onekeyhq/kit/assets/hardware/ic_pair_hint_scan_lite.png';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -60,8 +56,9 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
   const intl = useIntl();
 
   const [visibleIosHint, setVisibleIosHint] = useState(false);
-  const [lottieConnectingIcon, setLottieConnectingIcon] =
-    useState<any>(lottieNFCConnecting);
+  const [lottieConnectingIcon, setLottieConnectingIcon] = useState<any>(
+    require('@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_connect.json'),
+  );
   const [lottieAutoPlay, setLottieAutoPlay] = useState<boolean>(
     !platformEnv.isNativeIOS,
   );
@@ -72,28 +69,38 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
     setLottieLoopPlay(operateType !== 'complete' && operateType !== 'done');
 
     if (operateType === 'guide') {
-      setLottieConnectingIcon(lottieNFCConnecting);
+      setLottieConnectingIcon(
+        require('@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_connect.json'),
+      );
       if (platformEnv.isNativeIOS) {
         setVisibleIosHint(false);
       }
     }
     if (operateType === 'connect') {
-      setLottieConnectingIcon(lottieNFCConnecting);
+      setLottieConnectingIcon(
+        require('@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_connect.json'),
+      );
       if (platformEnv.isNativeIOS) {
         setVisibleIosHint(true);
       }
     }
     if (operateType === 'transfer') {
-      setLottieConnectingIcon(lottieNFCTransferData);
+      setLottieConnectingIcon(
+        require('@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transfer.json'),
+      );
       setTimeout(() => {
-        setLottieConnectingIcon(lottieNFCTransmittingData);
+        setLottieConnectingIcon(
+          require('@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_transmitting.json'),
+        );
       }, 1000);
       if (platformEnv.isNativeIOS) {
         setVisibleIosHint(false);
       }
     }
     if (operateType === 'complete' || operateType === 'done') {
-      setLottieConnectingIcon(lottieNFCConnectComplete);
+      setLottieConnectingIcon(
+        require('@onekeyhq/kit/assets/animations/lottie_onekey_lite_nfc_complete.json'),
+      );
       if (platformEnv.isNativeIOS) {
         setVisibleIosHint(false);
       }
@@ -163,9 +170,13 @@ const HardwareConnect: FC<HardwareConnectViewProps> = ({
                     loop={lottieLoopPlay}
                   />
                 </ZStack>
-                <Box mt="202px">
-                  <Image source={iconNFCScanHint} />
-                </Box>
+                <Image
+                  w="100%"
+                  h="55%"
+                  resizeMode="cover"
+                  mt="202px"
+                  source={iconNFCScanHint}
+                />
               </ZStack>
             </Box>
           ),
