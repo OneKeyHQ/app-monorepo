@@ -132,6 +132,14 @@ const CheckBox: FC<CheckBoxProps> = ({
             value,
             bg: 'action-primary-default',
             borderColor: 'action-primary-default',
+            _hover: {
+              borderColor: 'action-primary-hovered',
+              bg: 'action-primary-hovered',
+              _disabled: {
+                borderColor: 'checkbox-border-disabled',
+                bg: 'action-primary-disabled',
+              },
+            },
           }}
           _disabled={{
             value,

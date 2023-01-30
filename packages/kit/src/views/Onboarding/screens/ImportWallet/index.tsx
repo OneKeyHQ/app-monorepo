@@ -19,6 +19,7 @@ import {
 import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
+import { MigrationEnable } from '../Migration/util';
 
 import {
   OptionKeyTag,
@@ -132,14 +133,16 @@ const ImportWallet = () => {
             onPress={onPressKeyTag}
           />
         </ItemWrapper>
-        <ItemWrapper>
-          <OptionMigration
-            title={intl.formatMessage({
-              id: 'onboarding__import_wallet_with_migrate',
-            })}
-            onPress={onPressMigration}
-          />
-        </ItemWrapper>
+        {MigrationEnable && (
+          <ItemWrapper>
+            <OptionMigration
+              title={intl.formatMessage({
+                id: 'onboarding__import_wallet_with_migrate',
+              })}
+              onPress={onPressMigration}
+            />
+          </ItemWrapper>
+        )}
         {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
           <ItemWrapper>
             <OptioniCloud

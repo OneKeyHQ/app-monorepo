@@ -46,7 +46,7 @@ const TextArea = forwardRef<
   const primaryComponent = (
     <NativeBaseTextArea
       ref={ref}
-      selectionColor="text-default"
+      selectionColor="text-subdued"
       isInvalid={isInvalid}
       borderColor="border-default"
       bg="action-secondary-default"

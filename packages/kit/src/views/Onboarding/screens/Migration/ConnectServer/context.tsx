@@ -3,10 +3,17 @@ import { createContext, useContext, useMemo, useState } from 'react';
 
 import { httpServerEnable } from '@onekeyhq/kit-bg/src/services/ServiceHTTP';
 
+export enum ServerStatus {
+  Connecting = 0,
+  Success = 1,
+  Fail = 2,
+}
+
 export type MigrateContextValue = {
   inputValue: string;
   serverAddress?: string;
   selectRange?: number;
+  serverStatus?: ServerStatus;
 };
 
 export type IMigrateContext = {

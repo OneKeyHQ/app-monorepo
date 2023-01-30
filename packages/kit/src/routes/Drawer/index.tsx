@@ -46,7 +46,6 @@ const DrawerStackNavigator = () => {
          */
         drawerType: 'back',
         drawerStyle,
-        swipeEnabled: !platformEnv.isNativeIOSPad,
         swipeEdgeWidth: 390,
       }}
       drawerContent={drawerContent}
@@ -58,7 +57,9 @@ const DrawerStackNavigator = () => {
           const routeName = getFocusedRouteNameFromRoute(route);
           return {
             swipeEnabled:
-              routeName !== TabRoutes.Discover && routeName !== TabRoutes.NFT,
+              routeName !== TabRoutes.Discover &&
+              routeName !== TabRoutes.NFT &&
+              !platformEnv.isNativeIOSPad,
           };
         }}
       />
