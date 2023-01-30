@@ -52,6 +52,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
+import timelinePerfTrace, {
+  ETimelinePerfNames,
+} from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -306,6 +309,11 @@ class ServiceAccount extends ServiceBase {
       serviceCloudBackup,
     } = this.backgroundApi;
 
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> start',
+    });
+
     startTrace('engine.createHDWallet');
     const wallet = await engine.createHDWallet({
       password,
@@ -313,6 +321,11 @@ class ServiceAccount extends ServiceBase {
       avatar: avatar ?? randomAvatar(),
     });
     stopTrace('engine.createHDWallet');
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> engine done',
+    });
 
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
@@ -327,12 +340,32 @@ class ServiceAccount extends ServiceBase {
     dispatch(...actions, unlock(), release());
 
     await serviceAccount.initWallets();
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> initWallets DONE',
+    });
+
     await serviceAccount.autoChangeAccount({ walletId: wallet.id });
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> autoChangeAccount DONE',
+    });
+
     const isOk = await serviceApp.verifyPassword(password);
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> verifyPassword DONE',
+    });
     if (isOk) {
       servicePassword.savePassword(password);
     }
     serviceCloudBackup.requestBackup();
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> end',
+    });
+
     return wallet;
   }
 

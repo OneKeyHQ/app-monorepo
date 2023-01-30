@@ -9,6 +9,9 @@ import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import timelinePerfTrace, {
+  ETimelinePerfNames,
+} from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
@@ -156,21 +159,45 @@ function BehindTheSceneCreatingWallet({
     try {
       // wait first typing animation start
       await wait(300); // 1500, 300
+      const p1 = performance.now();
       debugLogger.onBoarding.info('startCreatingHDWallet');
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.createHDWallet,
+        title: 'onboarding.createHDWallet >> start',
+      });
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,
       });
       await wait(300);
+
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.createHDWallet,
+        title: 'onboarding.createHDWallet >> createHDWallet DONE',
+      });
+
       if (withEnableAuthentication) {
         backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
         await savePassword(password);
+        timelinePerfTrace.mark({
+          name: ETimelinePerfNames.createHDWallet,
+          title: 'onboarding.createHDWallet >> savePassword DONE',
+        });
       }
       if (platformEnv.isDev) {
         ToastManager.show({
           title: intl.formatMessage({ id: 'msg__account_created' }),
         });
       }
+      const p2 = performance.now();
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.createHDWallet,
+        title: 'onboarding.createHDWallet >> end',
+      });
+      debugLogger.onBoarding.info(
+        'startCreatingHDWallet done!',
+        Math.round(p2 - p1),
+      );
       return true;
     } catch (e) {
       debugLogger.common.error(e);

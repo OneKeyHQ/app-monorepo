@@ -36,6 +36,7 @@ import {
   setUpdateDeviceRes,
   setUpdateDeviceSys,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import timelinePerfTrace from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
@@ -270,6 +271,10 @@ export const DevSettingSection = () => {
                 });
                 console.log('perfCheckResult', perfCheckResult);
                 console.log('$$onekeyPerfTrace', global?.$$onekeyPerfTrace);
+                console.log(
+                  'timelinePerfTrace',
+                  timelinePerfTrace.getTimelineData(),
+                );
               }}
             >
               Export
