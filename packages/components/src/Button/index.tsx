@@ -115,6 +115,46 @@ const useNbTextProps = (
     [size, textColor, textProps],
   );
 
+const useIcons = ({
+  iconSize,
+  leftIconName,
+  iconColor,
+  iconDefaultColor = 'icon-default',
+  isDisabled,
+  rightIconName,
+}: {
+  iconSize?: number;
+  leftIconName?: ICON_NAMES;
+  iconColor?: ThemeToken;
+  iconDefaultColor?: ThemeToken;
+  isDisabled?: boolean;
+  rightIconName?: ICON_NAMES;
+}) =>
+  useMemo(() => {
+    const leftIcon = leftIconName ? (
+      <Icon
+        size={iconSize}
+        name={leftIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : iconDefaultColor)}
+      />
+    ) : undefined;
+    const rightIcon = rightIconName ? (
+      <Icon
+        size={iconSize}
+        name={rightIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : iconDefaultColor)}
+      />
+    ) : undefined;
+    return { leftIcon, rightIcon };
+  }, [
+    iconColor,
+    iconDefaultColor,
+    iconSize,
+    isDisabled,
+    leftIconName,
+    rightIconName,
+  ]);
+
 const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
   (
     {
@@ -131,20 +171,13 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
     ref,
   ) => {
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+    });
     const nbTextProps = useNbTextProps('text-default', size, textProps);
     return (
       <NativeBaseButton
@@ -205,20 +238,14 @@ const PrimaryButton = forwardRef<
   ) => {
     const nbTextProps = useNbTextProps('text-on-primary', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+      iconDefaultColor: 'icon-on-primary',
+    });
     return (
       <NativeBaseButton
         ref={ref}
@@ -275,20 +302,13 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
   ) => {
     const nbTextProps = useNbTextProps('text-default', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+    });
     return (
       <NativeBaseButton
         ref={ref}
@@ -337,20 +357,14 @@ const DestructiveButton = forwardRef<
   ) => {
     const nbTextProps = useNbTextProps('text-on-critical', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+      iconDefaultColor: 'icon-on-critical',
+    });
     return (
       <NativeBaseButton
         ref={ref}
@@ -414,20 +428,14 @@ const OutlineButton = forwardRef<
   ) => {
     const nbTextProps = useNbTextProps('text-critical', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+      iconDefaultColor: 'icon-critical',
+    });
     return (
       <NativeBaseButton
         ref={ref}
@@ -496,7 +504,7 @@ const Button = forwardRef<
     if (rightIconName) {
       pr = getPaddingWithIcon(size);
     }
-    const textProps: FontProps | undefined = useMemo(() => {
+    const textProps = useMemo(() => {
       if (leftIconName) {
         if (size === 'xl' || size === 'lg') {
           return { pl: '1' };
