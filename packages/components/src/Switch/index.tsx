@@ -1,6 +1,9 @@
 import type { ComponentProps, FC } from 'react';
 
 import { Switch as BaseSwitch } from 'native-base';
+import { TouchableNativeFeedback } from 'react-native-gesture-handler';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import Typography from '../Typography';
@@ -10,7 +13,7 @@ import type { ISizes } from 'native-base/lib/typescript/theme/base/sizes';
 export type SwitchSize = 'sm' | 'lg' | 'mini';
 export type LabelType = 'false' | 'after' | 'before';
 
-export type SwitchProps = {
+export interface SwitchProps extends ComponentProps<typeof BaseSwitch> {
   /**
    * 选中状态
    */
@@ -37,37 +40,26 @@ export type SwitchProps = {
   onToggle?: () => void;
 
   isFullMode?: boolean;
-} & ComponentProps<typeof BaseSwitch>;
+}
 
-const defaultProps = {
-  isChecked: false,
-  isDisabled: false,
-  size: 'sm',
-  label: 'false',
-} as const;
-
-const getRectSize = (size: SwitchSize = 'sm'): ISizes => {
-  const sizeMap: Record<SwitchSize, ISizes> = {
-    'sm': 'md',
-    'lg': 'lg',
-    'mini': 'sm',
-  };
-  return sizeMap[size];
+const sizeMap: Record<SwitchSize, ISizes> = {
+  'sm': 'md',
+  'lg': 'lg',
+  'mini': 'sm',
 };
 
 const Switch: FC<SwitchProps> = ({
-  isChecked,
+  isChecked = false,
   labelType,
-  size,
-  label,
-  isDisabled,
+  size = 'sm',
+  label = 'false',
+  isDisabled = false,
   onToggle,
   isFullMode,
   ...props
 }) => {
-  const iSize = getRectSize(size);
-
-  return (
+  const iSize = sizeMap[size];
+  const content = (
     <Box
       alignItems="center"
       flexDirection={labelType === 'after' ? 'row-reverse' : 'row'}
@@ -102,7 +94,14 @@ const Switch: FC<SwitchProps> = ({
       />
     </Box>
   );
+  return platformEnv.isNativeAndroid ? (
+    // use TouchableNativeFeedback from gesture-handler
+    // to avoid the touch conflict with bottomsheet
+    <TouchableNativeFeedback disabled={isDisabled} onPress={onToggle}>
+      {content}
+    </TouchableNativeFeedback>
+  ) : (
+    content
+  );
 };
-
-Switch.defaultProps = defaultProps;
 export default Switch;

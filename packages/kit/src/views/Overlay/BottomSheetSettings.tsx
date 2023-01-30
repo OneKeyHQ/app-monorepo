@@ -23,7 +23,7 @@ export const BottomSheetSettings: FC<{
   const [bg, handleBg] = useThemeValue(['surface-subdued', 'icon-subdued']);
 
   useEffect(() => {
-    setTimeout(() => modalizeRef.current?.open(), 10);
+    setTimeout(() => modalizeRef.current?.open());
   }, []);
 
   return isVerticalLayout ? (
@@ -41,7 +41,6 @@ export const BottomSheetSettings: FC<{
       }}
       handleStyle={{ backgroundColor: handleBg }}
       tapGestureEnabled={false}
-      // panGestureEnabled={false}
     >
       <Box px="16px" py="24px" bg="surface-subdued">
         {children}
@@ -84,7 +83,7 @@ export const BottomSheetSettingRow: FC<{
   return (
     <Box
       p="16px"
-      borderWidth={themeVariant === 'light' ? 1 : undefined}
+      borderWidth={themeVariant === 'light' ? 1 : 0}
       borderColor="border-subdued"
       borderRadius="12"
       borderTopRadius={borderTopRadius}
