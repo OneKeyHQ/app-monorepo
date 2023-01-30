@@ -153,6 +153,9 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<string> {
+    if (address.length < 35) {
+      return Promise.reject(new InvalidAddress());
+    }
     if (validShelleyAddress(address) || validBootstrapAddress(address)) {
       return Promise.resolve(address);
     }
