@@ -92,9 +92,14 @@ const useRouteParams = () => {
 };
 
 function ViewTokenModal(props: IViewTokenModalProps) {
-  const balances = useAccountTokensBalance();
-  const { account: activeAccount, network: activeNetwork } =
-    useActiveWalletAccount();
+  const {
+    account: activeAccount,
+    network: activeNetwork,
+    networkId,
+    accountId,
+  } = useActiveWalletAccount();
+
+  const balances = useAccountTokensBalance(networkId, accountId);
   const intl = useIntl();
   const { sourceInfo } = useDappParams();
   const token = useRouteParams();

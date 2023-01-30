@@ -35,7 +35,7 @@ import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountValues, useNavigationActions } from '../../../hooks';
+import { useAccountUsdValues, useNavigationActions } from '../../../hooks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
@@ -57,7 +57,7 @@ const AccountAmountInfo: FC = () => {
 
   const { copyAddress } = useCopyAddress({ wallet });
 
-  const accountAllValues = useAccountValues({
+  const accountAllValues = useAccountUsdValues({
     networkId,
     accountId,
   });
@@ -71,7 +71,11 @@ const AccountAmountInfo: FC = () => {
       ) : (
         <HStack flex="1">
           <Typography.Display2XLarge numberOfLines={2} isTruncated>
-            <FormatCurrencyNumber decimals={2} value={accountAllValues.value} />
+            <FormatCurrencyNumber
+              decimals={2}
+              value={0}
+              convertValue={accountAllValues.value}
+            />
           </Typography.Display2XLarge>
           <IconButton
             name="ChevronDownMini"
@@ -99,7 +103,12 @@ const AccountAmountInfo: FC = () => {
           {percentageGain}
         </Typography.Body1Strong>
         <Typography.Body1Strong color="text-subdued">
-          (<FormatCurrencyNumber onlyNumber value={gain} decimals={2} />){' '}
+          <FormatCurrencyNumber
+            onlyNumber
+            value={0}
+            convertValue={gain}
+            decimals={2}
+          />
           {intl.formatMessage({ id: 'content__today' })}
         </Typography.Body1Strong>
       </>

@@ -9,7 +9,6 @@ import {
   Icon,
   Pressable,
   Text,
-  useIsVerticalLayout,
   useTheme,
 } from '@onekeyhq/components';
 import type {
@@ -35,7 +34,6 @@ type NavigationProps = ModalScreenProps<ManageConnectedSitesRoutesParams>;
 type NavigationStackProps = NativeStackNavigationProp<HomeRoutesParams>;
 export const UtilSection = () => {
   const intl = useIntl();
-  const small = useIsVerticalLayout();
   const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const stackNavigation = useNavigation<NavigationStackProps>();

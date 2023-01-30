@@ -44,7 +44,6 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const networkId = route.params?.networkId;
   const intl = useIntl();
 
-  const accountTokens = useAccountTokens();
   const navigation = useNavigation();
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
@@ -53,8 +52,11 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
     account: activeAccount,
     network: defaultNetwork,
   } = useActiveWalletAccount();
+
   const activeNetwork = useNetworkSimple(networkId ?? null, defaultNetwork);
   const isSmallScreen = useIsVerticalLayout();
+
+  const accountTokens = useAccountTokens(activeNetwork?.id, activeAccount?.id);
 
   const helpTip = intl.formatMessage({
     id: 'form__searching_token',

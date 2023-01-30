@@ -9,7 +9,7 @@ import { useAccountTokenValues, useNFTPrice } from './useTokens';
 
 export type OverviewAssetType = 'defis' | 'tokens' | 'nfts';
 
-export const useAccountValues = (props: {
+export const useAccountUsdValues = (props: {
   networkId: string;
   accountId: string;
 }) => {
@@ -27,7 +27,7 @@ export const useAccountValues = (props: {
     value24h: new B('0'),
   };
 
-  const tokenValues = useAccountTokenValues(networkId, accountId);
+  const tokenValues = useAccountTokenValues(networkId, accountId, true, 'usd');
 
   const nftValue = useNFTPrice({
     accountId: account?.address,

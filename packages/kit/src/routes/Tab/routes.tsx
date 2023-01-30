@@ -22,6 +22,7 @@ import VolumeHaptic from '@onekeyhq/kit/src/views/Me/GenaralSection/VolumeHaptic
 import CloudBackup from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup';
 import CloudBackupDetails from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/BackupDetails';
 import CloudBackupPreviousBackups from '@onekeyhq/kit/src/views/Me/SecuritySection/CloudBackup/PreviousBackups';
+import WalletSwitch from '@onekeyhq/kit/src/views/Me/UtilSection/WalletSwitch';
 import NFTMarket from '@onekeyhq/kit/src/views/NFTMarket/Home';
 import OverviewDefiListScreen from '@onekeyhq/kit/src/views/Overview';
 import Protected from '@onekeyhq/kit/src/views/Protected';
@@ -203,6 +204,10 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.AddressBook,
         component: AddressBook,
+      },
+      {
+        name: HomeRoutes.WalletSwitch,
+        component: WalletSwitch,
       },
       {
         name: HomeRoutes.VolumeHaptic,
