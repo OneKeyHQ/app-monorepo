@@ -3,8 +3,8 @@ import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
-import type { DBUTXOAccount } from '../../../../types/account';
 import type { Token } from '../../../../types/token';
 import type {
   IAdaAccount,
@@ -79,7 +79,7 @@ class ClientAda {
     },
     {
       promise: true,
-      maxAge: 1000 * 60 * 5,
+      maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
 
@@ -92,8 +92,12 @@ class ClientAda {
   }
 
   getUTXOs = memoizee(
-    async (dbAccount: DBUTXOAccount): Promise<IAdaUTXO[]> => {
-      const { xpub, addresses, path } = dbAccount;
+    async (
+      xpub: string,
+      path: string,
+      addresses: Record<string, string>,
+    ): Promise<IAdaUTXO[]> => {
+      // const { xpub, addresses, path } = dbAccount;
       const stakeAddress = addresses['2/0'];
       const { data } = await this.backendRequest.get<IAdaUTXO[]>(
         `/utxos?stakeAddress=${stakeAddress}&xpub=${xpub}`,
@@ -111,7 +115,7 @@ class ClientAda {
     },
     {
       promise: true,
-      maxAge: 1000 * 60,
+      maxAge: getTimeDurationMs({ minute: 1 }),
     },
   );
 
@@ -127,7 +131,7 @@ class ClientAda {
         .then((i) => i.data),
     {
       promise: true,
-      maxAge: 1000 * 15,
+      maxAge: getTimeDurationMs({ seconds: 30 }),
     },
   );
 
@@ -174,7 +178,7 @@ class ClientAda {
     },
     {
       promise: true,
-      maxAge: 1000 * 60,
+      maxAge: getTimeDurationMs({ minute: 1 }),
     },
   );
 

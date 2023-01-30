@@ -6,6 +6,7 @@ import memoizee from 'memoizee';
 
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { COINTYPE_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -81,7 +82,7 @@ export default class Vault extends VaultBase {
 
   // client: axios
   private getClientCache = memoizee((rpcUrl: string) => new ClientAda(rpcUrl), {
-    maxAge: 60 * 1000 * 3,
+    maxAge: getTimeDurationMs({ minute: 3 }),
   });
 
   override async getOutputAccount(): Promise<Account & { addresses: string }> {
@@ -152,6 +153,9 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<string> {
+    if (address.length < 35) {
+      return Promise.reject(new InvalidAddress());
+    }
     if (validShelleyAddress(address) || validBootstrapAddress(address)) {
       return Promise.resolve(address);
     }
@@ -367,8 +371,9 @@ export default class Vault extends VaultBase {
     }
 
     const client = await this.getClient();
+    const { xpub, path, addresses } = dbAccount;
     const [utxos] = await Promise.all([
-      client.getUTXOs(dbAccount),
+      client.getUTXOs(xpub, path, addresses),
       ensureSDKReady(),
     ]);
 
@@ -717,7 +722,7 @@ export default class Vault extends VaultBase {
       return account.addresses['2/0'];
     },
     {
-      maxAge: 1000 * 60 * 30,
+      maxAge: getTimeDurationMs({ minute: 3 }),
       promise: true,
     },
   );
@@ -733,7 +738,8 @@ export default class Vault extends VaultBase {
   async getUtxosForDapp(amount?: string) {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const client = await this.getClient();
-    const utxos = await client.getUTXOs(dbAccount);
+    const { xpub, path, addresses } = dbAccount;
+    const utxos = await client.getUTXOs(xpub, path, addresses);
     const CardanoApi = await getCardanoApi();
     return CardanoApi.dAppUtils.getUtxos(dbAccount.address, utxos, amount);
   }
@@ -757,12 +763,14 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
     const addresses = await client.getAssociatedAddresses(stakeAddress);
-    const utxos = await client.getUTXOs(dbAccount);
+    const { xpub, path, addresses: accountAddresses } = dbAccount;
+    const utxos = await client.getUTXOs(xpub, path, accountAddresses);
     const CardanoApi = await getCardanoApi();
     const encodeTx = await CardanoApi.dAppUtils.convertCborTxToEncodeTx(
       txHex,
       utxos,
       addresses,
+      changeAddress,
     );
     return {
       ...encodeTx,
