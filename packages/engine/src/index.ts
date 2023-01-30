@@ -61,7 +61,10 @@ import {
   getImportedAccountUUID,
   getWatchingAccountUUID,
 } from './managers/backup';
-import { getDefaultPurpose } from './managers/derivation';
+import {
+  derivationPathTemplates,
+  getDefaultPurpose,
+} from './managers/derivation';
 import { getTokenRiskyItems } from './managers/goplus';
 import { implToCoinTypes } from './managers/impl';
 import {
@@ -2682,6 +2685,13 @@ class Engine {
           );
           return;
         }
+        const { coinType } = dbAccount;
+        if (typeof derivationPathTemplates[coinType] === 'undefined') {
+          debugLogger.cloudBackup.debug(
+            `Backup watching account coinType ${coinType} isn't support`,
+          );
+          return;
+        }
         return this.dbApi.addAccountToWallet('watching', dbAccount);
       }),
     );
@@ -2701,6 +2711,13 @@ class Engine {
           return;
         }
 
+        const { coinType } = dbAccount;
+        if (typeof derivationPathTemplates[coinType] === 'undefined') {
+          debugLogger.cloudBackup.debug(
+            `Backup imported account coinType ${coinType} isn't support`,
+          );
+          return;
+        }
         let encryptedPrivateKey = Buffer.from(privateKey, 'hex');
         if (localPassword !== remotePassword) {
           encryptedPrivateKey = encrypt(
@@ -2755,6 +2772,13 @@ class Engine {
         });
         const reIdPrefix = new RegExp(`^${id}`);
         for (const accountToAdd of accounts) {
+          const { coinType } = accountToAdd;
+          if (typeof derivationPathTemplates[coinType] === 'undefined') {
+            debugLogger.cloudBackup.debug(
+              `Backup HDWallets account coinType ${coinType} isn't support`,
+            );
+            return;
+          }
           accountToAdd.id = accountToAdd.id.replace(reIdPrefix, wallet.id);
           await this.dbApi.addAccountToWallet(wallet.id, accountToAdd);
         }
