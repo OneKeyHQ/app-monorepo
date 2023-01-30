@@ -253,7 +253,6 @@ class ServiceApp extends ServiceBase {
       serviceCloudBackup,
       serviceTranslation,
       serviceDiscover,
-      serviceMigrate,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
