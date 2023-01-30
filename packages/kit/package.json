@@ -27,7 +27,7 @@
     "expo-secure-store": "^11.2.0",
     "fuse.js": "^6.5.3",
     "lightweight-charts": "^3.8.0",
-    "moti": "^0.21.0",
+    "moti": "^0.22.0",
     "react-async-hook": "^4.0.0",
     "react-freeze": "^1.0.3",
     "react-intl": "^5.21.2",
