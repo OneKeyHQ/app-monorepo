@@ -150,9 +150,7 @@ export const UtilSection = () => {
             gotoScanQrcode();
           }}
         >
-          <Icon
-            name={small ? 'ViewfinderCircleOutline' : 'ViewfinderCircleMini'}
-          />
+          <Icon name="ViewfinderCircleOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex="1"

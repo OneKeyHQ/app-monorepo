@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -115,15 +115,6 @@ const DesktopMain = () => (
 const DesktopChart = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
-
-  useEffect(() => {
-    if (inputToken) {
-      backgroundApiProxy.servicePrice.getSimpleTokenPrice({
-        networkId: inputToken.networkId,
-        tokenId: inputToken.tokenIdOnNetwork,
-      });
-    }
-  }, [inputToken]);
 
   if (!inputToken || !outputToken) {
     return null;

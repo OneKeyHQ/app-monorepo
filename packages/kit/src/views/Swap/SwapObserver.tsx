@@ -90,13 +90,39 @@ const NetworkStatusObserver = () => {
   return null;
 };
 
-const SwapListener = () => (
+const PriceObserver = () => {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+
+  useEffect(() => {
+    if (inputToken) {
+      backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+        networkId: inputToken.networkId,
+        tokenId: inputToken.tokenIdOnNetwork,
+      });
+    }
+  }, [inputToken]);
+
+  useEffect(() => {
+    if (outputToken) {
+      backgroundApiProxy.servicePrice.getSimpleTokenPrice({
+        networkId: outputToken.networkId,
+        tokenId: outputToken.tokenIdOnNetwork,
+      });
+    }
+  }, [outputToken]);
+
+  return null;
+};
+
+const SwapObserver = () => (
   <>
     <AccountsObserver />
     <UserSelectedQuoterObserver />
     <WelcomeObserver />
     <NetworkStatusObserver />
+    <PriceObserver />
   </>
 );
 
-export default SwapListener;
+export default SwapObserver;
