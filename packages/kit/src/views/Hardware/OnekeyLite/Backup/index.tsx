@@ -18,6 +18,7 @@ import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { SkipAppLock } from '../../../../components/AppLock';
 import HardwareConnect from '../../BaseConnect';
@@ -111,6 +112,7 @@ const Backup: FC = () => {
       async (error: CallbackError, data: boolean | null, state: CardInfo) => {
         console.log('state', state);
         if (data) {
+          debugLogger.onekeyLite.debug('NFC read success:', data, state);
           console.log('NFC read data:', data);
           stateNfcComplete();
           if (walletId) {
@@ -122,9 +124,12 @@ const Backup: FC = () => {
           }
           onSuccess?.();
         } else if (error) {
-          console.log('NFC read error', error);
-
-          console.log('NFC read error code', error.code, error.message);
+          debugLogger.onekeyLite.debug(
+            'NFC read error code',
+            error.code,
+            error.message,
+            state,
+          );
           setPinRetryCount(state?.pinRetryCount?.toString() ?? '0');
           setErrorCode(error.code);
         }
@@ -156,7 +161,10 @@ const Backup: FC = () => {
   };
 
   const handlerNfcConnectState = (event: NfcConnectUiState) => {
-    console.log('Onekey Lite Reset handler NfcConnectState', event);
+    debugLogger.onekeyLite.debug(
+      'Onekey Lite Reset handler NfcConnectState',
+      event,
+    );
 
     switch (event.code) {
       case 1:
