@@ -33,7 +33,7 @@ import {
   useTokenPrice,
   useTokenSearch,
 } from '../../hooks/useSwapTokenUtils';
-import { formatAmount } from '../../utils';
+import { formatAmount, gt } from '../../utils';
 
 import { TokenSelectorContext } from './context';
 import { EmptySkeleton, LoadingSkeleton } from './Skeleton';
@@ -167,7 +167,7 @@ const ExtraInfo: FC<ExtraInfoProps> = ({ token, isSearchMode }) => {
   });
   const price = useTokenPrice(token);
 
-  if (!isSearchMode && isCompatible) {
+  if (!isSearchMode && isCompatible && gt(balance, 0)) {
     return (
       <Box alignItems="flex-end">
         <Typography.Heading fontSize={16} lineHeight={24}>
