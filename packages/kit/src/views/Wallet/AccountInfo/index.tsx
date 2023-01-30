@@ -153,11 +153,7 @@ const AccountAmountInfo: FC = () => {
               _pressed={{ bg: 'surface-pressed' }}
               onPress={() => openAddressDetails(account?.address)}
             >
-              <Icon
-                name="ArrowTopRightOnSquareOutline"
-                color="icon-subdued"
-                size={16}
-              />
+              <Icon name="GlobeAltOutline" color="icon-subdued" size={16} />
             </Pressable>
           </Tooltip>
         ) : null}

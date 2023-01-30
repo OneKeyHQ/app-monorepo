@@ -83,7 +83,12 @@ public class HttpServerModule extends ReactContextBaseJavaModule implements Life
     try {
       server.start();
       if (this.listener != null) {
-        this.listener.invoke("http://" + getIpAddress() + ":" + port + "/", true);
+        String ipAddress = getIpAddress();
+        if (ipAddress != null) {
+          this.listener.invoke("http://" + getIpAddress() + ":" + port + "/", true);
+        } else {
+          this.listener.invoke("", false);
+        }
       }
     } catch (IOException e) {
       if (this.listener != null) {

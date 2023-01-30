@@ -8,6 +8,7 @@ import {
 } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
+import { useSwapTokenList } from '../hooks/useSwapTokenUtils';
 
 import type { Token } from '../../../store/typings';
 
@@ -27,6 +28,8 @@ const Input = () => {
       return undefined;
     },
   );
+
+  const tokens = useSwapTokenList(networkSelectorId);
 
   const onSelect = useCallback(
     (token: Token) => {
@@ -59,6 +62,16 @@ const Input = () => {
       networkId: networkSelectorId,
     });
   }, [networkSelectorId, sendingAccount?.id]);
+
+  useEffect(() => {
+    if (networkSelectorId && sendingAccount?.id) {
+      backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
+        networkId: networkSelectorId,
+        accountId: sendingAccount.id,
+        tokenIds: tokens.map((item) => item.tokenIdOnNetwork),
+      });
+    }
+  }, [tokens, networkSelectorId, sendingAccount?.id]);
 
   return (
     <TokenSelectorContext.Provider value={value}>

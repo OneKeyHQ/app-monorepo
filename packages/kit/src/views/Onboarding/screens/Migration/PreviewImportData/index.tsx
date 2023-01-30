@@ -258,7 +258,7 @@ const PreviewImportData = () => {
       return null;
     }
     return (
-      <Box width="286px">
+      <Box>
         <Center
           size="48px"
           bgColor="decorative-surface-two"

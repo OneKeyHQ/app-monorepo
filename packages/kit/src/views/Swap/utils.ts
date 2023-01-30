@@ -91,6 +91,15 @@ export function gte(a: BigNumber.Value, b: BigNumber.Value): boolean {
   return num1.gte(num2);
 }
 
+export function gt(a: BigNumber.Value, b: BigNumber.Value): boolean {
+  const num1 = new BigNumber(a);
+  const num2 = new BigNumber(b);
+  if (!BigNumber.isBigNumber(num1) || !BigNumber.isBigNumber(num2)) {
+    return false;
+  }
+  return num1.gt(num2);
+}
+
 export function lte(a: BigNumber.Value, b: BigNumber.Value): boolean {
   const num1 = new BigNumber(a);
   const num2 = new BigNumber(b);

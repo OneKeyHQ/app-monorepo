@@ -1,4 +1,4 @@
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 import { useEffect, useRef } from 'react';
 
 import { Modalize } from 'react-native-modalize';

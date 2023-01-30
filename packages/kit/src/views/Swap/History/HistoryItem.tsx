@@ -122,7 +122,7 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
         flexDirection="row"
         alignItems="center"
       >
-        <Box flexDirection="row" alignItems="center" width="30%">
+        <Box flexDirection="row" alignItems="center" flexBasis="30%">
           <Box mr="4">
             <TokenIcon
               token={{ logoURI: tx.tokens?.from.token.logoURI }}
@@ -141,26 +141,28 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
             </Typography.Body2>
           </Box>
         </Box>
-        <Box flexDirection="row" alignItems="center" width="35%">
+        <Box flexDirection="row" alignItems="center" flexBasis="35%">
           <Center h="4" w="8" my="1">
             <Icon name="ArrowRightMini" size={16} />
           </Center>
-          <Box flexDirection="row" alignItems="center">
+          <Box flexDirection="row" alignItems="center" flex="1">
             <Box mr="4">
               <TokenIcon
                 token={{ logoURI: tx.tokens?.to.token.logoURI }}
                 size="8"
               />
             </Box>
-            <Box>
+            <Box flex="1">
               <Box flexDirection="row" alignItems="center">
                 <Typography.Caption mr="1">≈</Typography.Caption>
-                <Typography.Body1Strong>
-                  {formatTokenAmount({
-                    token: tx.tokens?.to.token,
-                    amount: tx.tokens?.to.amount,
-                  })}
-                </Typography.Body1Strong>
+                <Box flex="1">
+                  <Typography.Body1Strong isTruncated>
+                    {formatTokenAmount({
+                      token: tx.tokens?.to.token,
+                      amount: tx.tokens?.to.amount,
+                    })}
+                  </Typography.Body1Strong>
+                </Box>
               </Box>
               <Typography.Body2 color="text-subdued">
                 {toNetwork?.shortName}
@@ -169,10 +171,11 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
           </Box>
         </Box>
         <Box
-          width="20%"
+          flexBasis="20%"
           alignItems="center"
           justifyContent="flex-start"
           flexDirection="row"
+          px="1"
         >
           <SwappingVia
             providers={tx.providers}

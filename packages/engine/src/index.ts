@@ -314,12 +314,15 @@ class Engine {
 
     // v1 fix
     let fixFillCount = 0;
-    if (mnemonic.length < 12) {
-      fixFillCount = 12 - mnemonic.length;
-    } else if (mnemonic.length > 12 && mnemonic.length < 18) {
-      fixFillCount = 18 - mnemonic.length;
-    } else if (mnemonic.length > 18 && mnemonic.length < 24) {
-      fixFillCount = 24 - mnemonic.length;
+    const supportedMnemonicLength = [12, 15, 18, 21, 24];
+    for (const len of supportedMnemonicLength) {
+      if (mnemonic.length === len) {
+        break;
+      }
+      if (mnemonic.length < len) {
+        fixFillCount = len - mnemonic.length;
+        break;
+      }
     }
 
     // eslint-disable-next-line no-plusplus
@@ -771,6 +774,7 @@ class Engine {
       '118': OnekeyNetwork.cosmoshub,
       '1815': OnekeyNetwork.ada,
       '461': OnekeyNetwork.fil,
+      '784': OnekeyNetwork.sui,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -872,9 +876,11 @@ class Engine {
         );
       }
     }
-    const client = await this.providerManager.getClient(networkId);
-    const { bestBlockNumber } = await client.getInfo();
-    const blockHeight = String(bestBlockNumber);
+    const client = await this.getChainOnlyVault(networkId);
+    const { latestBlock } = await client.getClientEndpointStatus(
+      await client.getRpcUrl(),
+    );
+    const blockHeight = String(latestBlock);
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
       if (typeof balances[0] !== 'undefined') {
