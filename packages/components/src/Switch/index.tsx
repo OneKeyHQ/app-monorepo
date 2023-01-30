@@ -95,6 +95,10 @@ const Switch: FC<SwitchProps> = ({
         isChecked={isChecked}
         isDisabled={isDisabled}
         onToggle={onToggle}
+        _hover={{
+          offTrackColor: 'surface-neutral-hovered',
+          onTrackColor: 'action-primary-hovered',
+        }}
       />
     </Box>
   );

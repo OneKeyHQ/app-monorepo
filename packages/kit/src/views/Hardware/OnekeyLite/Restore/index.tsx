@@ -16,6 +16,7 @@ import type { ButtonType } from '@onekeyhq/components/src/Button';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { SkipAppLock } from '../../../../components/AppLock';
 import { useNavigationActions } from '../../../../hooks';
@@ -123,6 +124,7 @@ const Restore: FC = () => {
       pinCode,
       (error: CallbackError, data: string | null, state: CardInfo) => {
         if (data) {
+          debugLogger.onekeyLite.debug('NFC read success, card state:', state);
           setRestoreData(data);
           stateNfcComplete();
           navigation.navigate(
@@ -135,12 +137,14 @@ const Restore: FC = () => {
             },
           );
         } else if (error) {
-          console.log('NFC read error', error);
-
-          console.log('NFC read error code', error.code, error.message);
+          debugLogger.onekeyLite.debug('NFC read error', error);
           setPinRetryCount(state?.pinRetryCount?.toString() ?? '0');
           setErrorCode(error.code);
         } else {
+          debugLogger.onekeyLite.debug(
+            'NFC read unknown error, card state:',
+            state,
+          );
           setErrorCode(CardErrors.ExecFailure);
         }
       },
@@ -148,7 +152,7 @@ const Restore: FC = () => {
   };
 
   const handleCloseConnect = () => {
-    console.log('handleCloseConnect');
+    debugLogger.onekeyLite.debug('handleCloseConnect');
   };
 
   const handleActionPress = () => {
@@ -187,6 +191,7 @@ const Restore: FC = () => {
   };
 
   const handlerNfcConnectState = (event: NfcConnectUiState) => {
+    debugLogger.onekeyLite.debug('handlerNfcConnectState', event);
     switch (event.code) {
       case 1:
         break;
