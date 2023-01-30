@@ -179,6 +179,26 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
       isDisabled,
     });
     const nbTextProps = useNbTextProps('text-default', size, textProps);
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: {
+          bg: 'action-secondary-hovered',
+          borderColor: 'border-default',
+        },
+        _pressed: {
+          background: 'action-secondary-pressed',
+          borderColor: 'border-default',
+        },
+        _disabled: {
+          bg: 'action-secondary-disabled',
+          borderColor: 'border-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -192,23 +212,8 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="border-default"
         _text={nbTextProps}
-        _hover={{
-          bg: 'action-secondary-hovered',
-          borderColor: 'border-default',
-        }}
-        _pressed={{
-          background: 'action-secondary-pressed',
-          borderColor: 'border-default',
-        }}
-        _disabled={{
-          bg: 'action-secondary-disabled',
-          borderColor: 'border-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-          _text: { color: 'text-disabled' },
-        }}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -246,6 +251,26 @@ const PrimaryButton = forwardRef<
       isDisabled,
       iconDefaultColor: 'icon-on-primary',
     });
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: { bg: 'action-primary-hovered' },
+        _focus: { bg: 'action-primary-default' },
+        _pressed: { bg: 'action-primary-pressed' },
+        _loading: {
+          bg: 'action-primary-disabled',
+          borderColor: 'action-primary-disabled',
+        },
+        _disabled: {
+          bg: 'action-primary-disabled',
+          borderColor: 'action-primary-disabled',
+          color: 'text-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -259,23 +284,8 @@ const PrimaryButton = forwardRef<
         borderColor="transparent"
         _text={nbTextProps}
         bg="action-primary-default"
-        _hover={{ bg: 'action-primary-hovered' }}
-        _focus={{ bg: 'action-primary-default' }}
-        _pressed={{ bg: 'action-primary-pressed' }}
-        _loading={{
-          bg: 'action-primary-disabled',
-          borderColor: 'action-primary-disabled',
-        }}
-        _disabled={{
-          bg: 'action-primary-disabled',
-          borderColor: 'action-primary-disabled',
-          color: 'text-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-          _text: { color: 'text-disabled' },
-        }}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -309,6 +319,19 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
       rightIconName,
       isDisabled,
     });
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: { bg: 'surface-hovered' },
+        _pressed: { bg: 'surface-pressed' },
+        _focus: { bg: undefined },
+        _disabled: {
+          color: 'text-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -319,15 +342,7 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
         borderRadius="12"
         variant="ghost"
         _text={nbTextProps}
-        _hover={{ bg: 'surface-hovered' }}
-        _pressed={{ bg: 'surface-pressed' }}
-        _focus={{ bg: undefined }}
-        _disabled={{
-          color: 'text-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-        }}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -365,6 +380,31 @@ const DestructiveButton = forwardRef<
       isDisabled,
       iconDefaultColor: 'icon-on-critical',
     });
+
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: { bg: 'action-critical-hovered' },
+        _loading: {
+          bg: 'action-critical-disabled',
+          borderColor: 'action-critical-disabled',
+        },
+        _disabled: {
+          bg: 'action-critical-disabled',
+          borderColor: 'action-critical-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        },
+        _focus: {
+          bg: 'action-critical-hovered',
+        },
+        _pressed: {
+          bg: 'action-critical-hovered',
+        },
+        _spinner: { size: iconSize },
+      }),
+      [iconSize],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -377,28 +417,9 @@ const DestructiveButton = forwardRef<
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="action-critical-default"
         bg="action-critical-default"
-        _hover={{ bg: 'action-critical-hovered' }}
-        _loading={{
-          bg: 'action-critical-disabled',
-          borderColor: 'action-critical-disabled',
-        }}
-        _disabled={{
-          bg: 'action-critical-disabled',
-          borderColor: 'action-critical-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-          _text: { color: 'text-disabled' },
-        }}
         _text={nbTextProps}
-        _focus={{
-          bg: 'action-critical-hovered',
-        }}
-        _pressed={{
-          bg: 'action-critical-hovered',
-        }}
-        _spinner={{ size: iconSize }}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -436,6 +457,27 @@ const OutlineButton = forwardRef<
       isDisabled,
       iconDefaultColor: 'icon-critical',
     });
+    const inlineObjStyles = useMemo(
+      () => ({
+        _focus: { bg: undefined, borderColor: 'border-critical-default' },
+        _pressed: { bg: undefined, borderColor: 'border-critical-default' },
+        _hover: {
+          bg: 'surface-critical-subdued-hovered',
+          borderColor: 'border-critical-default',
+        },
+        _disabled: {
+          borderColor: 'border-disabled',
+          _text: { color: 'text-disabled' },
+          cursor: 'not-allowed',
+          opacity: 1,
+        },
+        _loading: {
+          borderColor: 'border-disabled',
+          _text: { color: 'text-disabled' },
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -448,24 +490,8 @@ const OutlineButton = forwardRef<
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="border-critical-default"
         _text={nbTextProps}
-        _focus={{ bg: undefined, borderColor: 'border-critical-default' }}
-        _pressed={{ bg: undefined, borderColor: 'border-critical-default' }}
-        _hover={{
-          bg: 'surface-critical-subdued-hovered',
-          borderColor: 'border-critical-default',
-        }}
-        _disabled={{
-          borderColor: 'border-disabled',
-          _text: { color: 'text-disabled' },
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-        }}
-        _loading={{
-          borderColor: 'border-disabled',
-          _text: { color: 'text-disabled' },
-        }}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
