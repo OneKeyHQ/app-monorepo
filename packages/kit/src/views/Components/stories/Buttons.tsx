@@ -87,7 +87,6 @@ const ButtonUsePromise = () => {
         use Promise
       </Button>
       <Button
-      le
         type="primary"
         rightIconName="AcademicCapMini"
         size="xl"
