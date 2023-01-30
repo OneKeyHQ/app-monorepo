@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
@@ -60,7 +60,13 @@ const Welcome = () => {
   }
 
   const route = useRoute<RouteProps>();
-  const disableAnimation = !!route?.params?.disableAnimation;
+  const [disableAnimation, setDisableAnimation] = useState(
+    !!route?.params?.disableAnimation,
+  );
+  const resetLayoutAnimation = useCallback(
+    () => setDisableAnimation(!!route?.params?.disableAnimation),
+    [route],
+  );
 
   const { network: activeNetwork } = useActiveWalletAccount();
   const hardwareDisabled = !activeNetwork?.settings?.hardwareAccountEnabled;
@@ -102,34 +108,51 @@ const Welcome = () => {
   // const insets = useSafeAreaInsets();
 
   const onPressCreateWallet = useCallback(() => {
+    resetLayoutAnimation();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.SetPassword);
-  }, [navigation]);
+  }, [navigation, resetLayoutAnimation]);
   const onPressImportWallet = useCallback(() => {
+    resetLayoutAnimation();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
     navigation.navigate(EOnboardingRoutes.ImportWallet);
-  }, [navigation]);
+  }, [navigation, resetLayoutAnimation]);
 
   const onPressHardwareWallet = useCallback(() => {
     if (hardwareDisabled) return;
+    setDisableAnimation(true);
     forceVisibleUnfocused?.();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(
-      RootRoutes.Modal as any,
-      {
-        screen: ModalRoutes.CreateWallet,
-        params: {
-          screen: CreateWalletModalRoutes.ConnectHardwareModal,
-        },
-      } as any,
-    );
-  }, [hardwareDisabled, forceVisibleUnfocused, navigation]);
+    if (disableAnimation) {
+      navigation.navigate(
+        RootRoutes.Modal as any,
+        {
+          screen: ModalRoutes.CreateWallet,
+          params: {
+            screen: CreateWalletModalRoutes.ConnectHardwareModal,
+          },
+        } as any,
+      );
+    } else {
+      setTimeout(() => {
+        navigation.navigate(
+          RootRoutes.Modal as any,
+          {
+            screen: ModalRoutes.CreateWallet,
+            params: {
+              screen: CreateWalletModalRoutes.ConnectHardwareModal,
+            },
+          } as any,
+        );
+      }, 100);
+    }
+  }, [hardwareDisabled, forceVisibleUnfocused, navigation, disableAnimation]);
 
   const onPressThirdPartyWallet = useCallback(() => {
+    resetLayoutAnimation();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.ThirdPartyWallet);
-    // navigation.navigate(EOnboardingRoutes.ConnectWallet);
-  }, [navigation]);
+    setTimeout(() => navigation.navigate(EOnboardingRoutes.ThirdPartyWallet));
+  }, [navigation, resetLayoutAnimation]);
 
   return (
     <>
@@ -141,7 +164,11 @@ const Welcome = () => {
         disableAnimation={disableAnimation}
       >
         <Icon name="BrandLogoIllus" size={48} />
-        <Text typography={{ sm: 'DisplayXLarge', md: 'Display2XLarge' }} mt={6}>
+        <Text
+          typography={{ sm: 'DisplayXLarge', md: 'Display2XLarge' }}
+          mt={6}
+          flexGrow={1}
+        >
           {intl.formatMessage({ id: 'onboarding__landing_welcome_title' })}
           {'\n'}
           <Text color="text-subdued">
@@ -205,7 +232,7 @@ const Welcome = () => {
           </Box>
         </Box>
         <Hidden till="sm">
-          <Box flexDirection="row" alignItems="center" mt="24px">
+          <Box flexDirection="row" alignItems="center" mt="24px" mb="-12px">
             <Divider flex={1} />
             <Text mx="14px" typography="Subheading" color="text-disabled">
               {intl.formatMessage({ id: 'content__or_lowercase' })}

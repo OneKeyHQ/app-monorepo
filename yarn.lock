@@ -5547,7 +5547,7 @@ __metadata:
     "@types/qrcode": ^1.4.2
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
-    moti: ^0.21.0
+    moti: ^0.22.0
     native-base: 3.4.22
     qrcode: ^1.5.0
     react-content-loader: ^6.2.0
@@ -5560,7 +5560,7 @@ __metadata:
     react-native-progress: ^5.0.0
     react-native-root-siblings: ^4.1.1
     react-native-svg: ^13.7.0
-    react-native-tab-view: ^3.3.0
+    react-native-tab-view: ^3.3.4
     react-native-typewriter: ^0.7.0
     react-player: ^2.10.1
     recyclerlistview: ^4.2.0
@@ -5727,7 +5727,7 @@ __metadata:
     expo-secure-store: ^11.2.0
     fuse.js: ^6.5.3
     lightweight-charts: ^3.8.0
-    moti: ^0.21.0
+    moti: ^0.22.0
     react-async-hook: ^4.0.0
     react-freeze: ^1.0.3
     react-intl: ^5.21.2
@@ -5791,7 +5791,7 @@ __metadata:
     expo: ^45.0.5
     expo-yarn-workspaces: ^2.0.3
     firebase: ^9.8.2
-    moti: ^0.21.0
+    moti: ^0.22.0
     react-native-web: 0.18.10
   languageName: unknown
   linkType: soft
@@ -23706,14 +23706,14 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"moti@npm:^0.21.0":
-  version: 0.21.0
-  resolution: "moti@npm:0.21.0"
+"moti@npm:^0.22.0":
+  version: 0.22.0
+  resolution: "moti@npm:0.22.0"
   dependencies:
     framer-motion: ^6.5.1
   peerDependencies:
     react-native-reanimated: "*"
-  checksum: 2fb4c16e46a7e2778f8680f28ec7c3f2003d6c739f55da1ffc239e1b4cdb04dcf3fc76e29870232ca6d9d2276cc7fc5791474d56dfaeb9a895f158a4a2acae78
+  checksum: 8517dd4aec5c5fce6869b1594189c23d5e23ea81b1bc0803b4c53ac7201d184d3da5c3172360d95b9dba065d397519f3f0c7b8f4c128c01e34e9b6ba3be86779
   languageName: node
   linkType: hard
 
@@ -27404,16 +27404,16 @@ optjs@latest:
   languageName: node
   linkType: hard
 
-"react-native-tab-view@npm:^3.3.0":
-  version: 3.3.0
-  resolution: "react-native-tab-view@npm:3.3.0"
+"react-native-tab-view@npm:^3.3.4":
+  version: 3.3.4
+  resolution: "react-native-tab-view@npm:3.3.4"
   dependencies:
     use-latest-callback: ^0.1.5
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-pager-view: "*"
-  checksum: 44d876cfb600c6e88658c210ef3220cd38fc758c902b653416f509f78d9a8d2683e912c36a0d55644e142d2ba1f6b9c58a5306537ff7c09f2e9fb57cd09731c2
+  checksum: 9bb6b84afd155067c1021bdd14569eb0f3b3b274a2aec87360a672fbb3a2d67d083678c78ef11f1848d7ac9760baf026416f2b63671f25ad4bdef1ef5ae560f9
   languageName: node
   linkType: hard
 

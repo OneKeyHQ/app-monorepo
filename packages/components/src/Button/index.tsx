@@ -71,6 +71,17 @@ const getPaddingWithIcon = (size: ButtonSize = 'base'): number => {
   return sizeMap[size];
 };
 
+const getHeight = (size: ButtonSize = 'base'): number => {
+  const sizeMap: Record<ButtonSize, number> = {
+    'base': 5,
+    'xs': 4,
+    'sm': 5,
+    'lg': 6,
+    'xl': 6,
+  };
+  return sizeMap[size];
+};
+
 const getIconSize = (size: ButtonSize = 'base'): number => {
   const sizeMap: Record<ButtonSize, number> = {
     'base': 20,
@@ -474,6 +485,7 @@ const Button = forwardRef<
     ref,
   ) => {
     let [pt, pr, pb, pl] = getPadding(size);
+    const h = getHeight();
     const buttonIconSize = iconSize ?? getIconSize(size);
     const Component = components[type];
     let textProps: FontProps | undefined;
@@ -492,6 +504,7 @@ const Button = forwardRef<
     return (
       <Component
         ref={ref}
+        _stack={{ h }}
         pt={pt}
         pr={pr}
         pb={pb}

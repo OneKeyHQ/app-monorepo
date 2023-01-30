@@ -54,6 +54,7 @@ const COINTYPE_ADA = '1815';
 
 const IMPL_SUI = 'sui';
 const COINTYPE_SUI = '784';
+
 const IMPL_FIL = 'fil';
 const COINTYPE_FIL = '461';
 

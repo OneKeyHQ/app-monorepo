@@ -58,9 +58,11 @@ export function ConnectThirdPartyWallet({ onPress }: { onPress: () => void }) {
     <Pressable
       flexDirection="row"
       alignSelf="center"
+      flexWrap="wrap"
+      justifyContent="center"
       alignItems="center"
       p="8px"
-      mt={{ base: '24px', md: '12px' }}
+      mt="24px"
       borderRadius="12px"
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
