@@ -33,7 +33,7 @@ const ThirdPartyWallet = () => {
 
   return (
     <Layout title={intl.formatMessage({ id: 'title__connect_with' })}>
-      <Box flexDir="row" flexWrap="wrap" m="-4px">
+      <Box flexDir="row" flexWrap="wrap" m="-4px" minH="10px">
         <ConnectWalletListView
           onConnectResult={async (result) => {
             await addExternalAccount(result);
