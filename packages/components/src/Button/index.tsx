@@ -3,7 +3,14 @@ import type {
   ForwardRefExoticComponent,
   RefAttributes,
 } from 'react';
-import { forwardRef, memo, useCallback, useEffect, useState } from 'react';
+import {
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -21,6 +28,7 @@ import type { ICON_NAMES } from '../Icon';
 import type { ThemeToken } from '../Provider/theme';
 import type { TypographyStyle } from '../Typography';
 import type { Text } from 'native-base';
+import type { ColorType } from 'native-base/lib/typescript/components/types';
 
 type FontProps = ComponentProps<typeof Text>;
 
@@ -93,6 +101,20 @@ const getTextProps = (size: ButtonSize = 'base'): FontProps => {
   return getTypographyStyleProps(styleMap[size]);
 };
 
+const useNbTextProps = (
+  textColor: ColorType,
+  size: ButtonSize = 'base',
+  textProps?: FontProps,
+) =>
+  useMemo(
+    () => ({
+      color: textColor,
+      ...getTextProps(size),
+      ...textProps,
+    }),
+    [size, textColor, textProps],
+  );
+
 const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
   (
     {
@@ -123,7 +145,7 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
         color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
       />
     ) : undefined;
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-default', size, textProps);
     return (
       <NativeBaseButton
         ref={ref}
@@ -136,7 +158,7 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
         bg="action-secondary-default"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="border-default"
-        _text={{ color: 'text-default', ...nbTextProps }}
+        _text={nbTextProps}
         _hover={{
           bg: 'action-secondary-hovered',
           borderColor: 'border-default',
@@ -153,7 +175,6 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
           opacity: 1,
           _text: { color: 'text-disabled' },
         }}
-        spinner={<Spinner size="sm" />}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
         {...props}
       >
@@ -182,7 +203,7 @@ const PrimaryButton = forwardRef<
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-on-primary', size, textProps);
     const { iconColor } = props;
     const leftIcon = leftIconName ? (
       <Icon
@@ -209,7 +230,7 @@ const PrimaryButton = forwardRef<
         variant="solid"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="transparent"
-        _text={{ color: 'text-on-primary', ...nbTextProps }}
+        _text={nbTextProps}
         bg="action-primary-default"
         _hover={{ bg: 'action-primary-hovered' }}
         _focus={{ bg: 'action-primary-default' }}
@@ -227,7 +248,6 @@ const PrimaryButton = forwardRef<
           opacity: 1,
           _text: { color: 'text-disabled' },
         }}
-        spinner={<Spinner size="sm" />}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
         {...props}
       >
@@ -253,7 +273,7 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-default', size, textProps);
     const { iconColor } = props;
     const leftIcon = leftIconName ? (
       <Icon
@@ -278,7 +298,7 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
         rightIcon={rightIcon}
         borderRadius="12"
         variant="ghost"
-        _text={{ color: 'text-default', ...nbTextProps }}
+        _text={nbTextProps}
         _hover={{ bg: 'surface-hovered' }}
         _pressed={{ bg: 'surface-pressed' }}
         _focus={{ bg: undefined }}
@@ -288,7 +308,6 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
           cursor: 'not-allowed',
           opacity: 1,
         }}
-        spinner={<Spinner size="sm" />}
         {...props}
       >
         {children}
@@ -316,7 +335,7 @@ const DestructiveButton = forwardRef<
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-on-critical', size, textProps);
     const { iconColor } = props;
     const leftIcon = leftIconName ? (
       <Icon
@@ -357,10 +376,7 @@ const DestructiveButton = forwardRef<
           opacity: 1,
           _text: { color: 'text-disabled' },
         }}
-        _text={{
-          color: 'text-on-critical',
-          ...nbTextProps,
-        }}
+        _text={nbTextProps}
         _focus={{
           bg: 'action-critical-hovered',
         }}
@@ -368,7 +384,6 @@ const DestructiveButton = forwardRef<
           bg: 'action-critical-hovered',
         }}
         _spinner={{ size: iconSize }}
-        spinner={<Spinner size="sm" />}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
         {...props}
       >
@@ -397,7 +412,7 @@ const OutlineButton = forwardRef<
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-critical', size, textProps);
     const { iconColor } = props;
     const leftIcon = leftIconName ? (
       <Icon
@@ -424,7 +439,7 @@ const OutlineButton = forwardRef<
         variant="outline"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="border-critical-default"
-        _text={{ color: 'text-critical', ...nbTextProps }}
+        _text={nbTextProps}
         _focus={{ bg: undefined, borderColor: 'border-critical-default' }}
         _pressed={{ bg: undefined, borderColor: 'border-critical-default' }}
         _hover={{
@@ -442,7 +457,6 @@ const OutlineButton = forwardRef<
           borderColor: 'border-disabled',
           _text: { color: 'text-disabled' },
         }}
-        spinner={<Spinner size="sm" />}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
         {...props}
       >
@@ -476,19 +490,25 @@ const Button = forwardRef<
     let [pt, pr, pb, pl] = getPadding(size);
     const buttonIconSize = iconSize ?? getIconSize(size);
     const Component = components[type];
-    let textProps: FontProps | undefined;
     if (leftIconName) {
       pl = getPaddingWithIcon(size);
-      if (size === 'xl' || size === 'lg') {
-        textProps = { pl: '1' };
-      }
     }
     if (rightIconName) {
       pr = getPaddingWithIcon(size);
-      if (size === 'xl' || size === 'lg') {
-        textProps = { pr: '1' };
-      }
     }
+    const textProps: FontProps | undefined = useMemo(() => {
+      if (leftIconName) {
+        if (size === 'xl' || size === 'lg') {
+          return { pl: '1' };
+        }
+      }
+      if (rightIconName) {
+        if (size === 'xl' || size === 'lg') {
+          return { pr: '1' };
+        }
+      }
+    }, [leftIconName, rightIconName, size]);
+    const spinner = useMemo(() => <Spinner size="sm" />, []);
     return (
       <Component
         ref={ref}
@@ -501,6 +521,7 @@ const Button = forwardRef<
         size={size}
         leftIconName={leftIconName}
         rightIconName={rightIconName}
+        spinner={spinner}
         {...props}
       />
     );
