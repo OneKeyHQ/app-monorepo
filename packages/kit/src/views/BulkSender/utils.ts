@@ -1,6 +1,11 @@
+import { openUrlExternal } from '../../utils/openUrl';
+
 import { BulkSenderTypeEnum } from './types';
 
 import type { TokenReceiver } from './types';
+
+const RECEIVER_EXAMPLE_URL =
+  'https://onekey-devops.s3.ap-southeast-1.amazonaws.com/send_ERC20.xlsx';
 
 export function encodeReceiver(receiver: TokenReceiver[]): string {
   const count = receiver.length;
@@ -34,4 +39,8 @@ export function decodeReceiver<T>(
   }
 
   return receiver;
+}
+
+export function downloadReceiverExample() {
+  openUrlExternal(RECEIVER_EXAMPLE_URL);
 }

@@ -5,9 +5,10 @@ import { pickSingle, types } from 'react-native-document-picker';
 import { readFile } from 'react-native-fs';
 import { read, utils } from 'xlsx';
 
-import { Center, Icon, Pressable, Text } from '@onekeyhq/components';
+import { Center, HStack, Icon, Pressable, Text } from '@onekeyhq/components';
 
 import { TokenReceiverEnum } from '../types';
+import { downloadReceiverExample } from '../utils';
 
 import type { TokenReceiver } from '../types';
 
@@ -67,9 +68,20 @@ function ReceiverUploader(props: Props) {
           <Icon name="UploadOutline" size={40} color="icon-subdued" />
         </Center>
       </Pressable>
-      <Text fontSize={14} color="text-subdued" mt={4}>
-        {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-      </Text>
+      <HStack mt={4} space="10px">
+        <Text fontSize={14} color="text-subdued">
+          {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
+        </Text>
+        <Pressable onPress={downloadReceiverExample}>
+          <Text
+            fontSize={14}
+            color="text-subdued"
+            textDecorationLine="underline"
+          >
+            {intl.formatMessage({ id: 'action__download_example' })}
+          </Text>
+        </Pressable>
+      </HStack>
     </>
   );
 }

@@ -35,6 +35,7 @@ import { showDeflationaryTip } from './DeflationaryTip';
 import { useValidteReceiver } from './hooks';
 import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
+import { downloadReceiverExample } from './utils';
 
 import type { TokenReceiver } from './types';
 
@@ -326,9 +327,20 @@ function TokenOutbox(props: Props) {
               {intl.formatMessage({ id: 'action__preview' })}
             </Button>
           </Box>
-          <Text fontSize={14} color="text-subdued" mt={4}>
-            {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-          </Text>
+          <HStack mt={4} space="10px">
+            <Text fontSize={14} color="text-subdued">
+              {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
+            </Text>
+            <Pressable onPress={downloadReceiverExample}>
+              <Text
+                fontSize={14}
+                color="text-subdued"
+                textDecorationLine="underline"
+              >
+                {intl.formatMessage({ id: 'action__download_example' })}
+              </Text>
+            </Pressable>
+          </HStack>
         </Box>
       </Box>
     </Tabs.ScrollView>

@@ -4,13 +4,15 @@ import { read, utils } from 'xlsx';
 
 import {
   Center,
+  HStack,
   Icon,
+  Pressable,
   Text,
-  useIsVerticalLayout,
   useThemeValue,
 } from '@onekeyhq/components';
 
 import { TokenReceiverEnum } from '../types';
+import { downloadReceiverExample } from '../utils';
 
 import type { TokenReceiver } from '../types';
 
@@ -25,7 +27,6 @@ function ReceiverUploader(props: Props) {
     useThemeValue(['surface-default', 'border-default', 'interactive-default']);
 
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
   const { isDragAccept, getRootProps, getInputProps } = useDropzone({
     multiple: false,
     accept: {
@@ -84,9 +85,20 @@ function ReceiverUploader(props: Props) {
           </Text>
         </Center>
       </div>
-      <Text fontSize={14} color="text-subdued" mt={isVertical ? 4 : 3}>
-        {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-      </Text>
+      <HStack mt={4} space="10px">
+        <Text fontSize={14} color="text-subdued">
+          {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
+        </Text>
+        <Pressable onPress={downloadReceiverExample}>
+          <Text
+            fontSize={14}
+            color="text-subdued"
+            textDecorationLine="underline"
+          >
+            {intl.formatMessage({ id: 'action__download_example' })}
+          </Text>
+        </Pressable>
+      </HStack>
     </>
   );
 }
