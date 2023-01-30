@@ -117,4 +117,4 @@ function getDefaultPurpose(impl: string): number {
   return (purposeMap[impl] || [44])[0];
 }
 
-export { getPath, getDefaultPurpose };
+export { getPath, getDefaultPurpose, derivationPathTemplates };
