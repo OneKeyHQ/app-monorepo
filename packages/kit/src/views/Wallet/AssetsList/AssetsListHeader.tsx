@@ -34,7 +34,7 @@ import {
 } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import { useAccountTokenValues } from '../../../hooks/useTokens';
-import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
+import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

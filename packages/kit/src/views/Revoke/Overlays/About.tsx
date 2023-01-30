@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
-import { BottomSheetSettings } from '../../Overlay/AccountValueSettings';
+import { BottomSheetSettings } from '../../Overlay/BottomSheetSettings';
 import SvgRevoke from '../Svg';
 
 export type ActionKey = 'share' | 'copy' | 'change' | 'revoke';
