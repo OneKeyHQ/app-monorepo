@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Pressable,
-  ScrollView,
   Searchbar,
   SectionList,
   Typography,
@@ -250,7 +249,7 @@ const CurrencySelectModal: FC = () => {
           bgColor="action-secondary-default"
           borderWidth={1}
           borderColor="border-default"
-          placeholder="Search Token or Contract Address"
+          placeholder="Search Currency"
           value={keyword}
           onClear={() => setKeyword('')}
           onChangeText={(text) => {
@@ -259,20 +258,17 @@ const CurrencySelectModal: FC = () => {
         />
       </Box>
       <KeyboardAvoidingView flex={1}>
-        <ScrollView
+        <SectionList
           flex={1}
           py={1}
           contentContainerStyle={{ flex: 1, paddingBottom: bottom }}
-        >
-          <SectionList
-            sections={terms.length > 0 ? searchList : ratesSectionList}
-            renderItem={renderItem}
-            ListHeaderComponent={terms.length > 0 ? null : headerComponent}
-            renderSectionHeader={({ section: { title } }) => (
-              <CurrencySectionLable title={title} />
-            )}
-          />
-        </ScrollView>
+          sections={terms.length > 0 ? searchList : ratesSectionList}
+          renderItem={renderItem}
+          ListHeaderComponent={terms.length > 0 ? null : headerComponent}
+          renderSectionHeader={({ section: { title } }) => (
+            <CurrencySectionLable title={title} />
+          )}
+        />
       </KeyboardAvoidingView>
     </Modal>
   );
