@@ -141,7 +141,11 @@ const Welcome = () => {
         disableAnimation={disableAnimation}
       >
         <Icon name="BrandLogoIllus" size={48} />
-        <Text typography={{ sm: 'DisplayXLarge', md: 'Display2XLarge' }} mt={6}>
+        <Text
+          typography={{ sm: 'DisplayXLarge', md: 'Display2XLarge' }}
+          mt={6}
+          flexGrow={1}
+        >
           {intl.formatMessage({ id: 'onboarding__landing_welcome_title' })}
           {'\n'}
           <Text color="text-subdued">
@@ -205,7 +209,7 @@ const Welcome = () => {
           </Box>
         </Box>
         <Hidden till="sm">
-          <Box flexDirection="row" alignItems="center" mt="24px">
+          <Box flexDirection="row" alignItems="center" mt="24px" mb="-12px">
             <Divider flex={1} />
             <Text mx="14px" typography="Subheading" color="text-disabled">
               {intl.formatMessage({ id: 'content__or_lowercase' })}

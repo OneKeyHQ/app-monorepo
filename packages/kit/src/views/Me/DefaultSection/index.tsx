@@ -54,14 +54,14 @@ export const DefaultSection = () => {
                 });
               }}
             >
-              <Icon name="ArrowPathOutline" />
+              <Icon name="ArrowPathRoundedSquareOutline" />
               <Text
                 typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                 flex="1"
                 numberOfLines={1}
                 mx={3}
               >
-                Migration
+                {intl.formatMessage({ id: 'title__migration' })}
               </Text>
               <Box>
                 <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
