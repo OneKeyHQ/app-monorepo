@@ -152,12 +152,13 @@ function CardanoProvider() {
         }
 
         case CardanoEvent.dAppConvertCborTxToEncodeTx: {
-          const { txHex, utxos, addresses } = eventParams;
+          const { txHex, utxos, addresses, changeAddress } = eventParams;
           try {
             const result = await CardanoApi.dAppUtils.convertCborTxToEncodeTx(
               txHex,
               utxos,
               addresses,
+              changeAddress,
             );
             sendResponse(promiseId, { error: null, result });
           } catch (error) {

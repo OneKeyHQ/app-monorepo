@@ -7,7 +7,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import type { IAdaOutputs, IAdaUTXO } from '../../types';
+import type { IAdaOutputs, IAdaUTXO, IChangeAddress } from '../../types';
 import type BigNumber from 'bignumber.js';
 
 const ProvideMethod = 'callCardanoWebEmbedMethod';
@@ -204,13 +204,14 @@ const convertCborTxToEncodeTx = async (
   txHex: string,
   utxos: IAdaUTXO[],
   addresses: string[],
+  changeAddress: IChangeAddress,
 ) => {
   await ensureSDKReady();
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: CardanoEvent.dAppConvertCborTxToEncodeTx,
-    params: { txHex, utxos, addresses },
+    params: { txHex, utxos, addresses, changeAddress },
   })) as IResult;
 
   if (result.error) {
