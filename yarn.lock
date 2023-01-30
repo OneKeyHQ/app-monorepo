@@ -5725,7 +5725,7 @@ __metadata:
     expo-localization: ^13.0.0
     expo-notifications: ~0.15.4
     expo-secure-store: ^11.2.0
-    fuse.js: ^6.5.3
+    fuse.js: ^6.6.2
     lightweight-charts: ^3.8.0
     moti: ^0.21.0
     react-async-hook: ^4.0.0
@@ -18145,10 +18145,10 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"fuse.js@npm:^6.5.3":
-  version: 6.5.3
-  resolution: "fuse.js@npm:6.5.3"
-  checksum: f7c14f4422000e7f7e3515c66f7cefdfc38adec4cf380097f4146a201ea438af60b67dc5849b3c0de0115ce3f9bc5afad6fc6570c08dcfcef5bf6e95eb8e6d6f
+"fuse.js@npm:^6.6.2":
+  version: 6.6.2
+  resolution: "fuse.js@npm:6.6.2"
+  checksum: 17ae758ce205276ebd88bd9c9f088a100be0b4896abac9f6b09847151269d1690f41d7f98ff5813d4a58973162dbd99d0072ce807020fee6f9de60170f6b08eb
   languageName: node
   linkType: hard
 

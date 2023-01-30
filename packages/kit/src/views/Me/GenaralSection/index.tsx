@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Divider,
   Icon,
   Pressable,
   Select,
@@ -18,10 +19,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
-  RootRoutes,
+  ModalScreenProps,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/types';
 import {
   setLocale,
   setSelectedFiatMoneySymbol,
@@ -31,6 +36,9 @@ import { supportedHaptics } from '@onekeyhq/shared/src/haptics';
 
 import { SelectTrigger } from '../SelectTrigger';
 
+import { CurrencySelectModal } from './CurrencySelect/types';
+
+import type { CurrencySelectModalParams } from './CurrencySelect/types';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -39,9 +47,12 @@ type NavigationProps = CompositeNavigationProp<
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.VolumeHaptic>
 >;
 
+type ModalNavigationProps = ModalScreenProps<CurrencySelectModalParams>;
+
 export const GenaralSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const modalNavigation = useNavigation<ModalNavigationProps['navigation']>();
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { theme, locale, selectedFiatMoneySymbol } = useSettings();
   const { themeVariant } = useTheme();
@@ -158,35 +169,41 @@ export const GenaralSection = () => {
             />
           </Box>
           <Box w="full">
-            <Select<string>
-              title={intl.formatMessage({
-                id: 'form__fiat_currency',
-              })}
-              isTriggerPlain
-              footer={null}
-              headerShown={false}
-              value={selectedFiatMoneySymbol ?? 'usd'}
-              onChange={(value) => {
-                dispatch(setSelectedFiatMoneySymbol(value));
-                serviceNotification.syncPushNotificationConfig();
+            <Pressable
+              display="flex"
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              py={4}
+              px={{ base: 4, md: 6 }}
+              onPress={() => {
+                modalNavigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.CurrencySelect,
+                  params: {
+                    screen: CurrencySelectModal.CurrencySelectHome,
+                  },
+                });
               }}
-              options={fiatMoneySymbolList.map((symbol) => ({
-                label: symbol.toUpperCase(),
-                value: symbol,
-              }))}
-              dropdownProps={{ width: '64' }}
-              dropdownPosition="right"
-              renderTrigger={({ activeOption }) => (
-                <SelectTrigger
-                  title={intl.formatMessage({
-                    id: 'form__fiat_currency',
-                  })}
-                  hideDivider={!supportedHaptics}
-                  activeOption={activeOption}
-                  iconName="CurrencyDollarOutline"
-                />
-              )}
-            />
+            >
+              <Icon name="CurrencyDollarOutline" />
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                flex="1"
+                numberOfLines={1}
+                mx={3}
+              >
+                {intl.formatMessage({
+                  id: 'form__fiat_currency',
+                })}
+              </Text>
+              <Box flexDirection="row" alignItems="center">
+                <Typography.Body1 mr={0.5}>
+                  {selectedFiatMoneySymbol.toLocaleUpperCase()}
+                </Typography.Body1>
+                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+              </Box>
+            </Pressable>
+            <Divider />
           </Box>
           {supportedHaptics ? (
             <Pressable

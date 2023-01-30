@@ -17,7 +17,7 @@ import {
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useTokenBalance } from '../../hooks/useTokens';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
-import { formatDecimalZero, getFiatCodeUnit } from '../../views/Market/utils';
+import { formatDecimalZero } from '../../views/Market/utils';
 
 import type { Token } from '../../store/typings';
 
@@ -397,11 +397,11 @@ export function FormatCurrencyNumber({
   if (typeof value !== 'number' && !(value instanceof BigNumber)) {
     return null;
   }
-  const fiat = fiatMap[selectedFiatMoneySymbol] || 0;
+  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
+  const unit = fiatMap[selectedFiatMoneySymbol]?.unit || '$';
   const maxDecimals =
     decimals ??
     getSuggestedDecimals(value instanceof BigNumber ? value.toNumber() : value);
-  const isBTCCurrency = selectedFiatMoneySymbol === 'btc';
   const numberValue = value instanceof BigNumber ? value.toNumber() : value;
   const numberConvertValue = convertValue
     ? new BigNumber(fiat).multipliedBy(convertValue).toNumber()
@@ -409,26 +409,18 @@ export function FormatCurrencyNumber({
   const resNumber = numberValue + numberConvertValue;
   return (
     <>
-      {`${
-        isBTCCurrency && !onlyNumber
-          ? getFiatCodeUnit(selectedFiatMoneySymbol)
-          : ''
-      }`}
+      {`${!onlyNumber ? unit : ''}`}
       {resNumber < 0.01 ? (
-        `${
-          !isBTCCurrency && !onlyNumber
-            ? getFiatCodeUnit(selectedFiatMoneySymbol)
-            : ''
-        }${formatDecimalZero(resNumber)}`
+        `${formatDecimalZero(resNumber)}`
       ) : (
         <FormattedNumber
           value={resNumber ?? 0}
-          currencyDisplay="narrowSymbol"
+          // currencyDisplay="narrowSymbol"
           // eslint-disable-next-line react/style-prop-object
-          style={onlyNumber || isBTCCurrency ? 'decimal' : 'currency'}
+          style="decimal"
           minimumFractionDigits={2}
           maximumFractionDigits={maxDecimals}
-          currency={selectedFiatMoneySymbol}
+          // currency={selectedFiatMoneySymbol}
         />
       )}
     </>

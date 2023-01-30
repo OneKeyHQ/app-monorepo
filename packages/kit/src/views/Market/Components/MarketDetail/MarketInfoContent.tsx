@@ -18,7 +18,8 @@ import type {
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
-import { formatMarketValueForInfo, getFiatCodeUnit } from '../../utils';
+import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
+import { formatMarketValueForInfo } from '../../utils';
 
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoLinks } from './MarketInfoLinks';
@@ -96,6 +97,7 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
 }) => {
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
+  const unit = useCurrencyUnit(selectedFiatMoneySymbol);
   return (
     <Box px={px}>
       <VStack space={6} mt="6">
@@ -107,30 +109,22 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
             <BaseInfo
               isFetching={high24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_high' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForInfo(high24h)}`}
+              value={`${unit}${formatMarketValueForInfo(high24h)}`}
             />
             <BaseInfo
               isFetching={low24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_low' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForInfo(low24h)}`}
+              value={`${unit}${formatMarketValueForInfo(low24h)}`}
             />
             <BaseInfo
               isFetching={volume24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_volume' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForInfo(volume24h)}`}
+              value={`${unit}${formatMarketValueForInfo(volume24h)}`}
             />
             <BaseInfo
               isFetching={marketCap === undefined}
               title={intl.formatMessage({ id: 'form__market_cap' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForInfo(marketCap)}`}
+              value={`${unit}${formatMarketValueForInfo(marketCap)}`}
             />
             <BaseInfo
               isFetching={marketCapRank === undefined}
