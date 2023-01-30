@@ -23,7 +23,10 @@ import { wait } from '../../utils/helper';
 import { useConnectExternalWallet } from '../../views/ExternalAccount/useConnectExternalWallet';
 
 import { useMobileRegistryOfWalletServices } from './useMobileRegistryOfWalletServices';
-import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from './walletConnectConsts';
+import {
+  WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING,
+  WALLET_CONNECT_WALLET_NAMES,
+} from './walletConnectConsts';
 
 import type { CreateWalletRoutesParams } from '../../routes';
 import type { CreateWalletModalRoutes } from '../../routes/routesEnum';
@@ -182,8 +185,12 @@ export function ConnectWalletListView({
       for (const wallet of walletServiceData) {
         try {
           const { mobile = { native: '' } } = wallet;
-          const { native: deepLink } = mobile;
+          let { native: deepLink } = mobile;
           if (deepLink) {
+            // 1inch wallet deep link is incorrect
+            if (wallet.name === WALLET_CONNECT_WALLET_NAMES['1inch']) {
+              deepLink = deepLink.replace('1inch', 'oneinch');
+            }
             const canOpen = await Linking.canOpenURL(deepLink);
             if (canOpen) {
               result.push(wallet);
