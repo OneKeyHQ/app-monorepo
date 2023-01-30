@@ -120,12 +120,14 @@ export type IConnectWalletListViewProps = {
   uri?: string;
   isInstitutionWallet?: boolean;
   onConnectResult?: (result: IConnectToWalletResult) => void;
+  walletListsCallback?: (dataSource: WalletService[]) => void;
 };
 export function ConnectWalletListView({
   connectToWalletService, // open app directly
   uri,
   onConnectResult,
   isInstitutionWallet,
+  walletListsCallback,
 }: IConnectWalletListViewProps) {
   const { data: walletServicesEnabled, institutionData } =
     useMobileRegistryOfWalletServices();
@@ -178,6 +180,7 @@ export function ConnectWalletListView({
 
       if (!platformEnv.isNativeIOS) {
         setRegisterWalletLists(walletServiceData);
+        walletListsCallback?.(walletServiceData);
         return;
       }
 
@@ -202,8 +205,14 @@ export function ConnectWalletListView({
       }
 
       setRegisterWalletLists(result);
+      walletListsCallback?.(result);
     })();
-  }, [isInstitutionWallet, institutionData, walletServicesEnabled]);
+  }, [
+    isInstitutionWallet,
+    institutionData,
+    walletServicesEnabled,
+    walletListsCallback,
+  ]);
 
   const walletsList = useMemo(() => {
     if (platformEnv.isNativeAndroid) {

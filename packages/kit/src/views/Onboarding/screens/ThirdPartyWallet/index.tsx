@@ -1,7 +1,10 @@
+import { useState } from 'react';
+
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Hidden, Text, ToastManager } from '@onekeyhq/components';
+import { Box, Center, Hidden, Text, ToastManager } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ConnectWalletListView } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -31,27 +34,43 @@ const ThirdPartyWallet = () => {
 
   const navigation = useAppNavigation();
 
+  const [showPlaceholder, setShowPlaceholder] = useState(false);
+
   return (
     <Layout title={intl.formatMessage({ id: 'title__connect_with' })}>
-      <Box flexDir="row" flexWrap="wrap" m="-4px" minH="10px">
-        <ConnectWalletListView
-          onConnectResult={async (result) => {
-            await addExternalAccount(result);
-            if (!disableOnboardingDone) {
-              await onboardingDone();
-              await wait(600);
-              ToastManager.show({
-                title: intl.formatMessage({ id: 'msg__account_imported' }),
-              });
-            } else {
-              navigation?.goBack?.();
-            }
-            if (onSuccess) {
-              onSuccess();
-            }
-          }}
-        />
-      </Box>
+      {showPlaceholder ? (
+        <Center>
+          <Text typography={{ sm: 'Body1', md: 'Body1' }}>
+            {intl.formatMessage({ id: 'content__no_other_wallets_installed' })}
+          </Text>
+        </Center>
+      ) : (
+        <Box flexDir="row" flexWrap="wrap" m="-4px" minH="10px">
+          <ConnectWalletListView
+            onConnectResult={async (result) => {
+              await addExternalAccount(result);
+              if (!disableOnboardingDone) {
+                await onboardingDone();
+                await wait(600);
+                ToastManager.show({
+                  title: intl.formatMessage({ id: 'msg__account_imported' }),
+                });
+              } else {
+                navigation?.goBack?.();
+              }
+              if (onSuccess) {
+                onSuccess();
+              }
+            }}
+            walletListsCallback={(dataSource) => {
+              console.log('dataSource: ', dataSource);
+              setShowPlaceholder(
+                !!platformEnv.isNativeIOS && dataSource.length === 0,
+              );
+            }}
+          />
+        </Box>
+      )}
       <Hidden till="sm">
         <>
           <Text mt={8} mb={3} typography="Subheading" color="text-subdued">
