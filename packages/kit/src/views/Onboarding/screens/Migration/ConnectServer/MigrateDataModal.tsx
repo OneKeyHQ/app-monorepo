@@ -178,8 +178,8 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
             { platform: parseToData.name },
           )}`,
         });
-        serviceMigrate.disConnectServer(serverAddress);
       }
+      serviceMigrate.disConnectServer(serverAddress);
       closeOverlay();
     } else {
       await getDataAction();
