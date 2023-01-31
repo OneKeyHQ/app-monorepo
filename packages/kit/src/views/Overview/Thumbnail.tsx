@@ -187,7 +187,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
       mb="24"
     >
       <AssetHeader
-        name="Defi"
+        name="DeFi"
         value={allDefiValues}
         accountAllValue={accountAllValue}
         itemLength={len}

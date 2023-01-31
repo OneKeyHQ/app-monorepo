@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { debounce, uniq } from 'lodash';
+import memoizee from 'memoizee';
 
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
@@ -309,8 +310,16 @@ export default class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   async getTokenRiskyItems(params: CheckParams) {
-    return getTokenRiskyItems(params);
+    return this._getTokenRiskyItemsWithMemo(params);
   }
+
+  _getTokenRiskyItemsWithMemo = memoizee(getTokenRiskyItems, {
+    promise: true,
+    primitive: true,
+    max: 200,
+    maxAge: getTimeDurationMs({ day: 1 }),
+    normalizer: (args) => JSON.stringify(args),
+  });
 
   @backgroundMethod()
   async getAddressRiskyItems(params: CheckParams) {
