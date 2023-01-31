@@ -56,9 +56,10 @@ export default class ServiceBatchTransfer extends ServiceBase {
     accountId: string;
     networkId: string;
     transferInfos: ITransferInfo[];
+    isUnlimited?: boolean;
     prevNonce?: number;
   }): Promise<IEncodedTx[]> {
-    const { accountId, networkId, transferInfos } = params;
+    const { accountId, networkId, transferInfos, isUnlimited } = params;
     const { engine } = this.backgroundApi;
     const network = await engine.getNetwork(networkId);
 
@@ -128,7 +129,14 @@ export default class ServiceBatchTransfer extends ServiceBase {
               networkId,
               accountId,
               token: transferInfo.token as string,
-              amount: InfiniteAmountText,
+              amount: isUnlimited
+                ? InfiniteAmountText
+                : transferInfos
+                    .reduce(
+                      (result, info) => result.plus(info.amount),
+                      new BigNumber(0),
+                    )
+                    .toFixed(),
               spender: contract,
             }),
           ];

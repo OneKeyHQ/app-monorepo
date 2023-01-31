@@ -31,6 +31,7 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { showAmountEditor } from './AmountEditor';
+import { showApprovalSelector } from './ApporvalSelector';
 import { showDeflationaryTip } from './DeflationaryTip';
 import { useValidteReceiver } from './hooks';
 import { ReceiverInput } from './ReceiverInput';
@@ -54,6 +55,7 @@ function TokenOutbox(props: Props) {
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
   const [isDeflationary, setIsDeflationary] = useState(false);
+  const [isUnlimited, setIsUnlimited] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -128,6 +130,13 @@ function TokenOutbox(props: Props) {
     showAmountEditor(handleOnAmountChanged);
   }, [handleOnAmountChanged]);
 
+  const handleOpenApprovalSelector = useCallback(() => {
+    showApprovalSelector({
+      isUnlimited,
+      setIsUnlimited,
+    });
+  }, [isUnlimited]);
+
   const handlePreviewTransfer = useCallback(async () => {
     if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
       return;
@@ -150,6 +159,7 @@ function TokenOutbox(props: Props) {
         networkId,
         accountId,
         transferInfos,
+        isUnlimited,
       });
 
     const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
@@ -199,6 +209,7 @@ function TokenOutbox(props: Props) {
     initialToken?.tokenIdOnNetwork,
     isBuildingTx,
     isDeflationary,
+    isUnlimited,
     isValid,
     isValidating,
     navigation,
@@ -281,25 +292,17 @@ function TokenOutbox(props: Props) {
           />
         </Box>
         <Box display={isUploadMode ? 'none' : 'flex'}>
-          <HStack mt={4}>
-            <Button
-              type="basic"
-              size="xs"
-              leftIconName="CurrencyDollarSolid"
-              onPress={handleOpenAmountEditor}
-            >
-              {intl.formatMessage({ id: 'action__edit_amount' })}
-            </Button>
+          <HStack space={4} alignItems="center" flexWrap="wrap">
             {network?.settings?.supportDeflationary && (
-              <>
+              <HStack alignItems="center" mt={4}>
                 <Switch
-                  ml={4}
                   isChecked={isDeflationary}
                   onToggle={() => setIsDeflationary(!isDeflationary)}
                   labelType="after"
                   label={intl.formatMessage({ id: 'action__deflationary' })}
                 />
                 <IconButton
+                  ml={-2}
                   onPress={showDeflationaryTip}
                   size="xs"
                   name="InformationCircleOutline"
@@ -307,7 +310,29 @@ function TokenOutbox(props: Props) {
                   iconColor="icon-subdued"
                   circle
                 />
-              </>
+              </HStack>
+            )}
+            <Button
+              mt={4}
+              type="basic"
+              size="xs"
+              leftIconName="CurrencyDollarSolid"
+              onPress={handleOpenAmountEditor}
+            >
+              {intl.formatMessage({ id: 'action__edit_amount' })}
+            </Button>
+            {!isNative && (
+              <Button
+                mt={4}
+                type="basic"
+                size="xs"
+                leftIconName="CurrencyDollarSolid"
+                onPress={handleOpenApprovalSelector}
+              >
+                <Text>
+                  Approval: {isUnlimited ? 'Unlimited' : 'Exact Amount'}
+                </Text>
+              </Button>
             )}
           </HStack>
           <Box mt={4}>
