@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Empty,
   Icon,
   KeyboardAvoidingView,
   Modal,
@@ -98,12 +99,13 @@ const PopularCard: FC<PopularCardProps> = ({ currency, index, onPress }) => {
 type PopularHeaderProps = {
   keys: string[];
   onPress: (currency: string) => void;
+  title?: string;
 };
 
-const PopularHeader: FC<PopularHeaderProps> = ({ keys, onPress }) => (
+const PopularHeader: FC<PopularHeaderProps> = ({ title, keys, onPress }) => (
   <Box px={{ base: '16px', md: '24px' }}>
     <Typography.Subheading mb={3} color="text-subdued">
-      POPULAR
+      {title ?? ''}
     </Typography.Subheading>
     <Box flexDirection="row" flexWrap="wrap" alignContent="flex-start">
       {keys.map((value, index) => (
@@ -209,14 +211,34 @@ const CurrencySelectModal: FC = () => {
   const headerComponent = useMemo(
     () => (
       <PopularHeader
+        title={intl.formatMessage({ id: 'form__popular' })}
         onPress={(currency) => {
           onSelectedCurrency(currency);
         }}
         keys={popularList}
       />
     ),
-    [onSelectedCurrency, popularList],
+    [intl, onSelectedCurrency, popularList],
   );
+
+  const emptyComponent = useMemo(
+    () => (
+      <Empty
+        title={intl.formatMessage(
+          { id: 'title__no_result_for_str' },
+          { 0: keyword },
+        )}
+        emoji="👀"
+        handleAction={() => {
+          setKeyword('');
+        }}
+        actionTitle={intl.formatMessage({ id: 'action__start_a_new_search' })}
+        actionProps={{ type: 'basic' }}
+      />
+    ),
+    [intl, keyword],
+  );
+
   const renderItem = ({ item }: { item: string }) => (
     <CurrencyCell
       onPress={(value) => {
@@ -249,7 +271,9 @@ const CurrencySelectModal: FC = () => {
           bgColor="action-secondary-default"
           borderWidth={1}
           borderColor="border-default"
-          placeholder="Search Currency"
+          placeholder={intl.formatMessage({
+            id: 'form__search_currency_unit_or_name',
+          })}
           value={keyword}
           onClear={() => setKeyword('')}
           onChangeText={(text) => {
@@ -266,8 +290,11 @@ const CurrencySelectModal: FC = () => {
           renderItem={renderItem}
           ListHeaderComponent={terms.length > 0 ? null : headerComponent}
           renderSectionHeader={({ section: { title } }) => (
-            <CurrencySectionLable title={title} />
+            <CurrencySectionLable
+              title={intl.formatMessage({ id: `form__${title}` })}
+            />
           )}
+          ListEmptyComponent={emptyComponent}
         />
       </KeyboardAvoidingView>
     </Modal>
