@@ -29,12 +29,12 @@ import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import { FormatCurrencyNumber } from '../../../components/Format';
 import {
   useAccountTokens,
-  useAccountValues,
+  useAccountUsdValues,
   useNavigation,
 } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import { useAccountTokenValues } from '../../../hooks/useTokens';
-import { showHomeBalanceSettings } from '../../Overlay/AccountValueSettings';
+import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -100,9 +100,11 @@ const ListHeader: FC<{
   const accountTokensValue = useAccountTokenValues(
     networkId,
     account?.id ?? '',
+    true,
+    'usd',
   ).value;
 
-  const accountAllValue = useAccountValues({
+  const accountAllValue = useAccountUsdValues({
     networkId,
     accountId: account?.id ?? '',
   }).value;
@@ -173,13 +175,17 @@ const ListHeader: FC<{
               {accountTokensValue.isNaN() ? (
                 ' '
               ) : (
-                <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+                <FormatCurrencyNumber
+                  decimals={2}
+                  value={0}
+                  convertValue={accountTokensValue}
+                />
               )}
             </Text>
-            {rate.isNaN() ? null : (
-              <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
-            )}
           </Box>
+        )}
+        {rate.isNaN() ? null : (
+          <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
         )}
         <Box ml="auto" flexDirection="row" alignItems="center">
           {tokenCountOrAddToken}
@@ -188,10 +194,14 @@ const ListHeader: FC<{
       <Box mt={isVerticalLayout ? '8px' : '16px'}>
         {isVerticalLayout ? (
           <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-            {Number.isNaN(accountTokens) ? (
+            {Number.isNaN(accountTokensValue) ? (
               ' '
             ) : (
-              <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+              <FormatCurrencyNumber
+                decimals={2}
+                value={0}
+                convertValue={accountTokensValue}
+              />
             )}
           </Text>
         ) : (

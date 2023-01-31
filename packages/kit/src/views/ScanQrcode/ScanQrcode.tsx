@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused, useRoute } from '@react-navigation/core';
-import { Camera as ExpoCamera } from 'expo-camera';
+import { requestCameraPermissionsAsync } from 'expo-camera';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
@@ -103,10 +103,9 @@ const ScanQrcode: FC = () => {
   }, [handleBarCodeScanned]);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await ExpoCamera.requestCameraPermissionsAsync();
-      setCurrentPermission(status);
-    })();
+    requestCameraPermissionsAsync().then(({ status }) =>
+      setCurrentPermission(status),
+    );
   }, []);
 
   useEffect(() => {

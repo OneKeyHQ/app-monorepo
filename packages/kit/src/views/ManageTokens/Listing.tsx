@@ -37,7 +37,7 @@ import { useSingleToken, useTokenBalance } from '../../hooks/useTokens';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
-import { showHomeBalanceSettings } from '../Overlay/AccountValueSettings';
+import { showHomeBalanceSettings } from '../Overlay/HomeBalanceSettings';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';

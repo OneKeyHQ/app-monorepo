@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
-import { BottomSheetSettings } from '../../Overlay/AccountValueSettings';
+import { BottomSheetSettings } from '../../Overlay/BottomSheetSettings';
 
 export type ActionKey = 'share' | 'copy' | 'change' | 'revoke';
 

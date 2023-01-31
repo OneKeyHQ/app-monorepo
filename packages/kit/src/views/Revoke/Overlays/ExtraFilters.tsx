@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Switch, VStack } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
-import { BottomSheetSettings } from '../../Overlay/AccountValueSettings';
+import { BottomSheetSettings } from '../../Overlay/BottomSheetSettings';
 import { AssetType } from '../types';
 
 import type { Filter } from '../types';

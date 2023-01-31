@@ -18,7 +18,11 @@ import {
 } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
-import { useAccountValues, useAppSelector, useNavigation } from '../../hooks';
+import {
+  useAccountUsdValues,
+  useAppSelector,
+  useNavigation,
+} from '../../hooks';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { OverviewModalRoutes } from './types';
@@ -158,7 +162,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
     [defis],
   );
 
-  const accountAllValue = useAccountValues({
+  const accountAllValue = useAccountUsdValues({
     networkId,
     accountId,
   }).value;
