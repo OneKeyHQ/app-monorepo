@@ -226,7 +226,7 @@ const CurrencySelectModal: FC = () => {
       <Empty
         title={intl.formatMessage(
           { id: 'title__no_result_for_str' },
-          { 0: keyword },
+          { keyword },
         )}
         emoji="👀"
         handleAction={() => {
