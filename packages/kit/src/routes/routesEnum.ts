@@ -46,6 +46,7 @@ export enum ModalRoutes {
   NFTMarket = 'NFTMarket',
   Overview = 'Overview',
   AnnualReport = 'AnnualReport',
+  CurrencySelect = 'CurrencySelect',
 }
 
 export enum RootRoutes {

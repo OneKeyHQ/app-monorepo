@@ -3,9 +3,17 @@ import { isEqual, merge } from 'lodash';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
 
+export type TExchangeRate = {
+  name?: string;
+  value?: number;
+  unit?: string;
+  type?: string[];
+  key?: string;
+};
+
 type InitialState = {
   symbolList: string[];
-  map: Record<string, string>;
+  map: Record<string, TExchangeRate>;
 };
 
 const initialState: InitialState = {

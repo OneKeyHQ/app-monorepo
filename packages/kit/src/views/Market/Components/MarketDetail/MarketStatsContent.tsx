@@ -9,12 +9,12 @@ import { useSettings } from '@onekeyhq/kit/src/hooks';
 import type { MarketStats } from '@onekeyhq/kit/src/store/reducers/market';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 
+import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import {
   formatLocalDate,
   formatMarketValueForComma,
   formatMarketVolatility,
-  getFiatCodeUnit,
 } from '../../utils';
 
 type DataViewComponentProps = {
@@ -77,6 +77,7 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
 }) => {
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
+  const unit = useCurrencyUnit(selectedFiatMoneySymbol);
   const { locale } = useSettings();
   const timeLocal = useMemo(
     () => (locale === 'system' ? locale : getDefaultLocale()),
@@ -177,9 +178,7 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
           <Box>
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__market_cap' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForComma(marketCap)}`}
+              value={`${unit}${formatMarketValueForComma(marketCap)}`}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__market_cap_rank' })}
@@ -191,9 +190,7 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__trading_volume' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForComma(trandingVolume)}`}
+              value={`${unit}${formatMarketValueForComma(trandingVolume)}`}
             />
             {/* <DataViewComponent
               title={intl.formatMessage({ id: 'form__7d_low' })}
@@ -205,28 +202,20 @@ export const MarketStatsContent: FC<MarketStats & { px: string }> = ({
             /> */}
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__24h_low' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForComma(low24h)}`}
+              value={`${unit}${formatMarketValueForComma(low24h)}`}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__24h_high' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForComma(high24h)}`}
+              value={`${unit}${formatMarketValueForComma(high24h)}`}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__all_time_low' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForComma(atl?.value)}`}
+              value={`${unit}${formatMarketValueForComma(atl?.value)}`}
               subValue={formatLocalDate(atl?.time, timeLocal)}
             />
             <DataViewComponent
               title={intl.formatMessage({ id: 'form__all_time_high' })}
-              value={`${getFiatCodeUnit(
-                selectedFiatMoneySymbol,
-              )}${formatMarketValueForComma(ath?.value)}`}
+              value={`${unit}${formatMarketValueForComma(ath?.value)}`}
               subValue={formatLocalDate(ath?.time, timeLocal)}
             />
           </Box>

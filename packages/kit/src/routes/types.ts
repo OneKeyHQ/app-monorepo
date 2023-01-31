@@ -65,6 +65,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.NFTMarket]: NavigatorScreenParams<SubModalRoutesParams.NFTMarketRoutesParams>;
   [ModalRoutes.Overview]: NavigatorScreenParams<SubModalRoutesParams.OverviewModalRoutesParams>;
   [ModalRoutes.AnnualReport]: NavigatorScreenParams<SubModalRoutesParams.AnnualReportModalParams>;
+  [ModalRoutes.CurrencySelect]: NavigatorScreenParams<SubModalRoutesParams.CurrencySelectModalParams>;
 };
 /** Modal */
 

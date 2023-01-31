@@ -12,13 +12,13 @@ import {
 } from '@onekeyhq/components';
 
 import { useSettings } from '../../../../hooks';
+import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
   formatDecimalZero,
   formatMarketValueForComma,
   formatMarketValueForInfo,
   formatMarketVolatility,
-  getFiatCodeUnit,
 } from '../../utils';
 
 import type { MarketTokenItem } from '../../../../store/reducers/market';
@@ -34,6 +34,7 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
   onLongPress,
 }) => {
   const { selectedFiatMoneySymbol } = useSettings();
+  const unit = useCurrencyUnit(selectedFiatMoneySymbol);
   const intl = useIntl();
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
@@ -43,20 +44,18 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
     if (!marketTokenItem?.totalVolume) {
       return '';
     }
-    return `${getFiatCodeUnit(
-      selectedFiatMoneySymbol,
-    )}${formatMarketValueForInfo(marketTokenItem?.totalVolume)}`;
-  }, [marketTokenItem?.totalVolume, selectedFiatMoneySymbol]);
+    return `${unit}${formatMarketValueForInfo(marketTokenItem?.totalVolume)}`;
+  }, [marketTokenItem?.totalVolume, unit]);
   const tokenPrice = useMemo(() => {
     if (!marketTokenItem?.price) {
       return '';
     }
-    return `${getFiatCodeUnit(selectedFiatMoneySymbol)}${
+    return `${unit}${
       marketTokenItem.price <= 1
         ? formatDecimalZero(marketTokenItem.price)
         : formatMarketValueForComma(marketTokenItem.price)
     }`;
-  }, [marketTokenItem?.price, selectedFiatMoneySymbol]);
+  }, [marketTokenItem?.price, unit]);
   const percentage = useMemo(() => {
     if (!marketTokenItem?.priceChangePercentage24H) {
       return '';

@@ -27,6 +27,7 @@ import type { TabRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { MARKET_FAVORITES_CATEGORYID } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { EMarketCellData } from '../../config';
 import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
@@ -35,7 +36,6 @@ import {
   formatMarketValueForComma,
   formatMarketValueForInfo,
   formatMarketVolatility,
-  getFiatCodeUnit,
 } from '../../utils';
 
 import { showMarketCellMoreMenu } from './MarketCellMoreMenu';
@@ -83,6 +83,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const { selectedFiatMoneySymbol } = useSettings();
+  const unit = useCurrencyUnit(selectedFiatMoneySymbol);
   const { size } = useUserDevice();
   const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
   const selectedCategoryId = useMarketSelectedCategoryId();
@@ -212,9 +213,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                                 id: 'form__vol_str',
                               },
                               {
-                                0: `${getFiatCodeUnit(
-                                  selectedFiatMoneySymbol,
-                                )}${formatMarketValueForInfo(
+                                0: `${unit}${formatMarketValueForInfo(
                                   marketTokenItem.totalVolume,
                                 )}`,
                               },
@@ -234,7 +233,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column
                 key={tag.id}
                 text={{
-                  label: `${getFiatCodeUnit(selectedFiatMoneySymbol)}${
+                  label: `${unit}${
                     marketTokenItem.price <= 1
                       ? formatDecimalZero(marketTokenItem.price)
                       : formatMarketValueForComma(marketTokenItem.price)
@@ -341,9 +340,9 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column
                 key={tag.id}
                 text={{
-                  label: `${getFiatCodeUnit(
-                    selectedFiatMoneySymbol,
-                  )}${formatMarketValueForComma(marketTokenItem.totalVolume)}`,
+                  label: `${unit}${formatMarketValueForComma(
+                    marketTokenItem.totalVolume,
+                  )}`,
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
@@ -368,9 +367,9 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column
                 key={tag.id}
                 text={{
-                  label: `${getFiatCodeUnit(
-                    selectedFiatMoneySymbol,
-                  )}${formatMarketValueForComma(marketTokenItem.marketCap)}`,
+                  label: `${unit}${formatMarketValueForComma(
+                    marketTokenItem.marketCap,
+                  )}`,
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
