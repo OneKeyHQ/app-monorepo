@@ -17,6 +17,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -564,6 +565,69 @@ export const Debug = () => {
               }
             >
               <Typography.Body1>Batch Transfer DAI</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={async () => {
+                try {
+                  const password =
+                    await backgroundApiProxy.servicePassword.getPassword();
+                  if (!password) {
+                    ToastManager.show(
+                      {
+                        title: 'please input password first',
+                      },
+                      {
+                        type: 'error',
+                      },
+                    );
+                    return;
+                  }
+                  for (let i = 0; i < 30; i += 1) {
+                    const mnemonic =
+                      await backgroundApiProxy.engine.generateMnemonic();
+                    await backgroundApiProxy.serviceAccount.createHDWallet({
+                      password,
+                      mnemonic,
+                      isAutoAddAllNetworkAccounts: true,
+                    });
+                    console.log(
+                      `create test wallet (${
+                        i + 1
+                      }) >>>>>>>>>> ${mnemonic.slice(0, 30)}`,
+                    );
+                  }
+                  ToastManager.show({
+                    title: 'Batch create wallets done!',
+                  });
+                } catch (error) {
+                  const e = error as OneKeyError | undefined;
+                  console.error(error);
+
+                  let msg = e?.message;
+                  if (e?.key) {
+                    const id = e?.key as any;
+                    const values = e?.info;
+                    msg = intl.formatMessage(
+                      {
+                        id,
+                      },
+                      values,
+                    );
+                  }
+
+                  ToastManager.show(
+                    {
+                      title: msg,
+                    },
+                    {
+                      type: 'error',
+                    },
+                  );
+                }
+              }}
+            >
+              <Typography.Body1>Batch create wallets</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>

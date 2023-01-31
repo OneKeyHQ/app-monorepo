@@ -298,12 +298,14 @@ class ServiceAccount extends ServiceBase {
     avatar,
     dispatchActionDelay,
     postCreatedDelay,
+    isAutoAddAllNetworkAccounts,
   }: {
     password: string;
     mnemonic?: string;
     avatar?: Avatar;
     dispatchActionDelay?: number;
     postCreatedDelay?: number;
+    isAutoAddAllNetworkAccounts?: boolean;
   }) {
     const { dispatch, engine, appSelector, serviceAccount } =
       this.backgroundApi;
@@ -321,6 +323,7 @@ class ServiceAccount extends ServiceBase {
       mnemonic,
       avatar: avatar ?? randomAvatar(),
       autoAddAccountNetworkId: networkId,
+      isAutoAddAllNetworkAccounts,
     });
     stopTrace('engine.createHDWallet');
 

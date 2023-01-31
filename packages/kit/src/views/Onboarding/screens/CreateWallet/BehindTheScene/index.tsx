@@ -168,7 +168,7 @@ function BehindTheSceneCreatingWallet({
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,
-        dispatchActionDelay: 300,
+        dispatchActionDelay: 300, // should dispatchAction before postCreated
         postCreatedDelay: 600,
       });
 
