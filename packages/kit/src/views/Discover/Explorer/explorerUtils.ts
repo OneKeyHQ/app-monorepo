@@ -7,6 +7,7 @@ import type { DAppItemType, WebSiteHistory } from '../type';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebView } from 'react-native-webview';
+import { appSelector } from '../../../store';
 
 export interface WebSiteType {
   url?: string;
@@ -142,5 +143,28 @@ export function crossWebviewLoadUrl({
   } else {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (wrapperRef?.innerRef as WebView)?.loadUrl(url);
+  }
+}
+const getCurrentWebviewRef = () =>
+  getWebviewWrapperRef({
+    tabId: appSelector((s) => s.webTabs.currentTabId),
+  });
+export function pauseDappInteraction() {
+  const ref = getCurrentWebviewRef();
+  if (ref) {
+    if (ref.jsBridge) {
+      // pause dapp interaction
+      ref.jsBridge.globalOnMessageEnabled = false;
+    }
+  }
+}
+
+export function resumeDappInteraction() {
+  const ref = getCurrentWebviewRef();
+  if (ref) {
+    if (ref.jsBridge) {
+      // resume dapp interaction
+      ref.jsBridge.globalOnMessageEnabled = true;
+    }
   }
 }

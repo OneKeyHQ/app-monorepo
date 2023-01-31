@@ -25,7 +25,6 @@ import {
   targetPreviewY,
   toggleFloatingWindow,
 } from '../explorerAnimation';
-import { getWebviewWrapperRef } from '../explorerUtils';
 
 import { ControllerBarMobile } from './ControllerBarMobile';
 import FloatingBar from './FloatingBar';
@@ -51,26 +50,11 @@ const FloatingContainer: FC<
   const [containerHeight, setContainerHeight] = useState(0);
   const [showContent, setShowContent] = useState(false);
   const { top } = useSafeAreaInsets();
-  const jsBridge = getWebviewWrapperRef({
-    tabId: currentTab?.id,
-  })?.jsBridge;
-
-  const innerBeforeMinimize = useCallback(() => {
-    if (jsBridge) {
-      // stop dapp interaction
-      jsBridge.globalOnMessageEnabled = false;
-    }
-    beforeMinimize?.();
-  }, [beforeMinimize, jsBridge]);
 
   const innerBeforeMaximize = useCallback(() => {
     if (!showContent) setShowContent(true);
-    if (jsBridge) {
-      // resume dapp interaction
-      jsBridge.globalOnMessageEnabled = true;
-    }
     beforeMaximize?.();
-  }, [beforeMaximize, jsBridge, showContent]);
+  }, [beforeMaximize, showContent]);
 
   const innerAfterMinimize = useCallback(() => {
     if (showContent) setShowContent(false);
@@ -83,7 +67,7 @@ const FloatingContainer: FC<
       () => {
         if (expandAnim.value !== MIN_OR_HIDE) {
           minimizeFloatingWindow({
-            before: innerBeforeMinimize,
+            before: beforeMinimize,
           });
           return true;
         }
@@ -92,7 +76,7 @@ const FloatingContainer: FC<
     );
 
     return () => subscription.remove();
-  }, [innerBeforeMinimize]);
+  }, [beforeMinimize]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;
@@ -105,7 +89,7 @@ const FloatingContainer: FC<
     } else if (tabs.length === 1) {
       hideTabGrid();
       minimizeFloatingWindow({
-        before: innerBeforeMinimize,
+        before: beforeMinimize,
       });
     }
 
@@ -201,7 +185,7 @@ const FloatingContainer: FC<
               h="48px"
               onPress={() => {
                 toggleFloatingWindow({
-                  beforeMinimize: innerBeforeMinimize,
+                  beforeMinimize,
                   afterMaximize,
                   beforeMaximize: innerBeforeMaximize,
                   afterMinimize: innerAfterMinimize,

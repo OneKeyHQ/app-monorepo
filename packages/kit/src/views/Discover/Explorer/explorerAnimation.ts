@@ -11,6 +11,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { appSelector } from '../../../store';
 
+import { pauseDappInteraction, resumeDappInteraction } from './explorerUtils';
+
 import type { View } from 'react-native';
 import type ViewShot from 'react-native-view-shot';
 // for mobile tab animations
@@ -79,6 +81,7 @@ export const expandFloatingWindow = ({
   before,
   after = () => {},
 }: ExpandAnimationEvents) => {
+  resumeDappInteraction();
   before?.();
   expandAnim.value = withTiming(MAX_OR_SHOW, { duration: 300 }, () =>
     runOnJS(after)(),
@@ -88,6 +91,7 @@ export const minimizeFloatingWindow = ({
   before,
   after = () => {},
 }: ExpandAnimationEvents) => {
+  pauseDappInteraction();
   before?.();
   setTimeout(() => {
     expandAnim.value = withTiming(MIN_OR_HIDE, { duration: 300 }, () =>
