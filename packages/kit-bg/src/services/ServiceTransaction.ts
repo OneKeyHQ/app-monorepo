@@ -26,9 +26,10 @@ export default class ServiceTransaction extends ServiceBase {
     feePresetIndex?: string;
   }) {
     const { accountId, networkId, encodedTx, feePresetIndex } = params;
-    const { engine, servicePassword, serviceHistory } = this.backgroundApi;
+    const { engine, servicePassword, serviceHistory, appSelector } =
+      this.backgroundApi;
     const network = await engine.getNetwork(params.networkId);
-    const wallets = await engine.getWallets();
+    const wallets = appSelector((s) => s.runtime.wallets);
     const activeWallet = wallets.find((wallet) =>
       wallet.accounts.includes(accountId),
     );

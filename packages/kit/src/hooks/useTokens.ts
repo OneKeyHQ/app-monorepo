@@ -60,6 +60,7 @@ export function useAccountTokens(
   networkId = '',
   accountId = '',
   useFilter = false,
+  vsCurrency?: string,
 ) {
   const {
     hideRiskTokens,
@@ -67,6 +68,9 @@ export function useAccountTokens(
     putMainTokenOnTop,
     selectedFiatMoneySymbol,
   } = useAppSelector((s) => s.settings);
+  const fiatSymbol = vsCurrency ?? selectedFiatMoneySymbol;
+  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  const fiat = fiatMap[fiatSymbol] || 0;
   const tokens = useAppSelector(
     (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
   );
@@ -79,20 +83,22 @@ export function useAccountTokens(
     .map((t) => {
       const priceInfo =
         prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
-      const price = priceInfo?.[selectedFiatMoneySymbol] ?? 0;
+      const price = priceInfo?.[fiatSymbol] ?? 0;
       const balance = balances[getBalanceKey(t)]?.balance ?? '0';
       const value = new B(price).multipliedBy(balance);
+      const usdValue = fiat === 0 ? 0 : value.div(fiat);
       const value24h = new B(balance).multipliedBy(
         getPreBaseValue({
           priceInfo,
-          vsCurrency: selectedFiatMoneySymbol,
-        })[selectedFiatMoneySymbol] ?? 0,
+          vsCurrency: fiatSymbol,
+        })[fiatSymbol] ?? 0,
       );
       const info = {
         ...t,
         price,
         balance,
         value,
+        usdValue,
         value24h,
       };
       return info;
@@ -115,7 +121,7 @@ export function useAccountTokens(
   }
 
   const filteredTokens = valueTokens.filter((t) => {
-    if (hideSmallBalance && new B(t.value).isLessThan(1)) {
+    if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
       return false;
     }
     if (hideRiskTokens && t.security) {
@@ -138,8 +144,18 @@ export function useAccountTokens(
   return filteredTokens;
 }
 
-export function useAccountTokenValues(networkId: string, accountId: string) {
-  const accountTokens = useAccountTokens(networkId, accountId, true);
+export function useAccountTokenValues(
+  networkId: string,
+  accountId: string,
+  useFilter = true,
+  vsCurrency?: string,
+) {
+  const accountTokens = useAccountTokens(
+    networkId,
+    accountId,
+    useFilter,
+    vsCurrency,
+  );
 
   return useMemo(() => {
     let value = new B(0);

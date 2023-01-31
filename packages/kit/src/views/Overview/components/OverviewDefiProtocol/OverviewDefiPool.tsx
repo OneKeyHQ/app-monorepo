@@ -52,7 +52,7 @@ const GenernalTokens = ({
         </Typography.Body2Strong>
         <Typography.Body2Strong mx="1">{t.symbol}</Typography.Body2Strong>
         <Typography.Body2 color="text-subdued">
-          <FormatCurrencyNumber value={new B(t.value ?? 0)} />
+          <FormatCurrencyNumber value={0} convertValue={new B(t.value ?? 0)} />
         </Typography.Body2>
       </HStack>
     ))}

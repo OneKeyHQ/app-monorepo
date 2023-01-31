@@ -15,7 +15,7 @@ import {
 
 import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountValues, useActiveWalletAccount } from '../../../../hooks';
+import { useAccountUsdValues, useActiveWalletAccount } from '../../../../hooks';
 
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
@@ -57,7 +57,7 @@ export const OverviewDefiProtocol: FC<
 
   const { networkId, accountId } = useActiveWalletAccount();
 
-  const accountAllValues = useAccountValues({
+  const accountAllValues = useAccountUsdValues({
     networkId,
     accountId,
   });

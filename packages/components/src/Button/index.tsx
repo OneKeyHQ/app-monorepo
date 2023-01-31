@@ -3,7 +3,14 @@ import type {
   ForwardRefExoticComponent,
   RefAttributes,
 } from 'react';
-import { forwardRef, memo, useCallback, useEffect, useState } from 'react';
+import {
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -21,6 +28,7 @@ import type { ICON_NAMES } from '../Icon';
 import type { ThemeToken } from '../Provider/theme';
 import type { TypographyStyle } from '../Typography';
 import type { Text } from 'native-base';
+import type { ColorType } from 'native-base/lib/typescript/components/types';
 
 type FontProps = ComponentProps<typeof Text>;
 
@@ -71,17 +79,6 @@ const getPaddingWithIcon = (size: ButtonSize = 'base'): number => {
   return sizeMap[size];
 };
 
-const getHeight = (size: ButtonSize = 'base'): number => {
-  const sizeMap: Record<ButtonSize, number> = {
-    'base': 5,
-    'xs': 4,
-    'sm': 5,
-    'lg': 6,
-    'xl': 6,
-  };
-  return sizeMap[size];
-};
-
 const getIconSize = (size: ButtonSize = 'base'): number => {
   const sizeMap: Record<ButtonSize, number> = {
     'base': 20,
@@ -104,6 +101,60 @@ const getTextProps = (size: ButtonSize = 'base'): FontProps => {
   return getTypographyStyleProps(styleMap[size]);
 };
 
+const useNbTextProps = (
+  textColor: ColorType,
+  size: ButtonSize = 'base',
+  textProps?: FontProps,
+) =>
+  useMemo(
+    () => ({
+      color: textColor,
+      ...getTextProps(size),
+      ...textProps,
+    }),
+    [size, textColor, textProps],
+  );
+
+const useIcons = ({
+  iconSize,
+  leftIconName,
+  iconColor,
+  iconDefaultColor = 'icon-default',
+  isDisabled,
+  rightIconName,
+}: {
+  iconSize?: number;
+  leftIconName?: ICON_NAMES;
+  iconColor?: ThemeToken;
+  iconDefaultColor?: ThemeToken;
+  isDisabled?: boolean;
+  rightIconName?: ICON_NAMES;
+}) =>
+  useMemo(() => {
+    const leftIcon = leftIconName ? (
+      <Icon
+        size={iconSize}
+        name={leftIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : iconDefaultColor)}
+      />
+    ) : undefined;
+    const rightIcon = rightIconName ? (
+      <Icon
+        size={iconSize}
+        name={rightIconName}
+        color={iconColor || (isDisabled ? 'icon-disabled' : iconDefaultColor)}
+      />
+    ) : undefined;
+    return { leftIcon, rightIcon };
+  }, [
+    iconColor,
+    iconDefaultColor,
+    iconSize,
+    isDisabled,
+    leftIconName,
+    rightIconName,
+  ]);
+
 const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
   (
     {
@@ -120,21 +171,34 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
     ref,
   ) => {
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+    });
+    const nbTextProps = useNbTextProps('text-default', size, textProps);
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: {
+          bg: 'action-secondary-hovered',
+          borderColor: 'border-default',
+        },
+        _pressed: {
+          background: 'action-secondary-pressed',
+          borderColor: 'border-default',
+        },
+        _disabled: {
+          bg: 'action-secondary-disabled',
+          borderColor: 'border-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -147,25 +211,9 @@ const BasicButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
         bg="action-secondary-default"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="border-default"
-        _text={{ color: 'text-default', ...nbTextProps }}
-        _hover={{
-          bg: 'action-secondary-hovered',
-          borderColor: 'border-default',
-        }}
-        _pressed={{
-          background: 'action-secondary-pressed',
-          borderColor: 'border-default',
-        }}
-        _disabled={{
-          bg: 'action-secondary-disabled',
-          borderColor: 'border-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-          _text: { color: 'text-disabled' },
-        }}
-        spinner={<Spinner size="sm" />}
+        _text={nbTextProps}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -193,22 +241,36 @@ const PrimaryButton = forwardRef<
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-on-primary', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-primary')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+      iconDefaultColor: 'icon-on-primary',
+    });
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: { bg: 'action-primary-hovered' },
+        _focus: { bg: 'action-primary-default' },
+        _pressed: { bg: 'action-primary-pressed' },
+        _loading: {
+          bg: 'action-primary-disabled',
+          borderColor: 'action-primary-disabled',
+        },
+        _disabled: {
+          bg: 'action-primary-disabled',
+          borderColor: 'action-primary-disabled',
+          color: 'text-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -220,26 +282,10 @@ const PrimaryButton = forwardRef<
         variant="solid"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="transparent"
-        _text={{ color: 'text-on-primary', ...nbTextProps }}
+        _text={nbTextProps}
         bg="action-primary-default"
-        _hover={{ bg: 'action-primary-hovered' }}
-        _focus={{ bg: 'action-primary-default' }}
-        _pressed={{ bg: 'action-primary-pressed' }}
-        _loading={{
-          bg: 'action-primary-disabled',
-          borderColor: 'action-primary-disabled',
-        }}
-        _disabled={{
-          bg: 'action-primary-disabled',
-          borderColor: 'action-primary-disabled',
-          color: 'text-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-          _text: { color: 'text-disabled' },
-        }}
-        spinner={<Spinner size="sm" />}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -264,22 +310,28 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-default', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-default')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+    });
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: { bg: 'surface-hovered' },
+        _pressed: { bg: 'surface-pressed' },
+        _focus: { bg: undefined },
+        _disabled: {
+          color: 'text-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -289,17 +341,8 @@ const PlainButton = forwardRef<typeof NativeBaseButton, ButtonPropsWithoutType>(
         rightIcon={rightIcon}
         borderRadius="12"
         variant="ghost"
-        _text={{ color: 'text-default', ...nbTextProps }}
-        _hover={{ bg: 'surface-hovered' }}
-        _pressed={{ bg: 'surface-pressed' }}
-        _focus={{ bg: undefined }}
-        _disabled={{
-          color: 'text-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-        }}
-        spinner={<Spinner size="sm" />}
+        _text={nbTextProps}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -327,22 +370,41 @@ const DestructiveButton = forwardRef<
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-on-critical', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-on-critical')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+      iconDefaultColor: 'icon-on-critical',
+    });
+
+    const inlineObjStyles = useMemo(
+      () => ({
+        _hover: { bg: 'action-critical-hovered' },
+        _loading: {
+          bg: 'action-critical-disabled',
+          borderColor: 'action-critical-disabled',
+        },
+        _disabled: {
+          bg: 'action-critical-disabled',
+          borderColor: 'action-critical-disabled',
+          cursor: 'not-allowed',
+          opacity: 1,
+          _text: { color: 'text-disabled' },
+        },
+        _focus: {
+          bg: 'action-critical-hovered',
+        },
+        _pressed: {
+          bg: 'action-critical-hovered',
+        },
+        _spinner: { size: iconSize },
+      }),
+      [iconSize],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -355,32 +417,9 @@ const DestructiveButton = forwardRef<
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="action-critical-default"
         bg="action-critical-default"
-        _hover={{ bg: 'action-critical-hovered' }}
-        _loading={{
-          bg: 'action-critical-disabled',
-          borderColor: 'action-critical-disabled',
-        }}
-        _disabled={{
-          bg: 'action-critical-disabled',
-          borderColor: 'action-critical-disabled',
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-          _text: { color: 'text-disabled' },
-        }}
-        _text={{
-          color: 'text-on-critical',
-          ...nbTextProps,
-        }}
-        _focus={{
-          bg: 'action-critical-hovered',
-        }}
-        _pressed={{
-          bg: 'action-critical-hovered',
-        }}
-        _spinner={{ size: iconSize }}
-        spinner={<Spinner size="sm" />}
+        _text={nbTextProps}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -408,22 +447,37 @@ const OutlineButton = forwardRef<
     },
     ref,
   ) => {
-    const nbTextProps = { ...getTextProps(size), ...textProps };
+    const nbTextProps = useNbTextProps('text-critical', size, textProps);
     const { iconColor } = props;
-    const leftIcon = leftIconName ? (
-      <Icon
-        size={iconSize}
-        name={leftIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
-      />
-    ) : undefined;
-    const rightIcon = rightIconName ? (
-      <Icon
-        size={iconSize}
-        name={rightIconName}
-        color={iconColor || (isDisabled ? 'icon-disabled' : 'icon-critical')}
-      />
-    ) : undefined;
+    const { leftIcon, rightIcon } = useIcons({
+      iconSize,
+      iconColor,
+      leftIconName,
+      rightIconName,
+      isDisabled,
+      iconDefaultColor: 'icon-critical',
+    });
+    const inlineObjStyles = useMemo(
+      () => ({
+        _focus: { bg: undefined, borderColor: 'border-critical-default' },
+        _pressed: { bg: undefined, borderColor: 'border-critical-default' },
+        _hover: {
+          bg: 'surface-critical-subdued-hovered',
+          borderColor: 'border-critical-default',
+        },
+        _disabled: {
+          borderColor: 'border-disabled',
+          _text: { color: 'text-disabled' },
+          cursor: 'not-allowed',
+          opacity: 1,
+        },
+        _loading: {
+          borderColor: 'border-disabled',
+          _text: { color: 'text-disabled' },
+        },
+      }),
+      [],
+    );
     return (
       <NativeBaseButton
         ref={ref}
@@ -435,26 +489,9 @@ const OutlineButton = forwardRef<
         variant="outline"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="border-critical-default"
-        _text={{ color: 'text-critical', ...nbTextProps }}
-        _focus={{ bg: undefined, borderColor: 'border-critical-default' }}
-        _pressed={{ bg: undefined, borderColor: 'border-critical-default' }}
-        _hover={{
-          bg: 'surface-critical-subdued-hovered',
-          borderColor: 'border-critical-default',
-        }}
-        _disabled={{
-          borderColor: 'border-disabled',
-          _text: { color: 'text-disabled' },
-          // @ts-ignore
-          cursor: 'not-allowed',
-          opacity: 1,
-        }}
-        _loading={{
-          borderColor: 'border-disabled',
-          _text: { color: 'text-disabled' },
-        }}
-        spinner={<Spinner size="sm" />}
+        _text={nbTextProps}
         shadow={isDisabled || isLoading ? undefined : 'depth.1'}
+        {...inlineObjStyles}
         {...props}
       >
         {children}
@@ -485,26 +522,30 @@ const Button = forwardRef<
     ref,
   ) => {
     let [pt, pr, pb, pl] = getPadding(size);
-    const h = getHeight();
     const buttonIconSize = iconSize ?? getIconSize(size);
     const Component = components[type];
-    let textProps: FontProps | undefined;
     if (leftIconName) {
       pl = getPaddingWithIcon(size);
-      if (size === 'xl' || size === 'lg') {
-        textProps = { pl: '1' };
-      }
     }
     if (rightIconName) {
       pr = getPaddingWithIcon(size);
-      if (size === 'xl' || size === 'lg') {
-        textProps = { pr: '1' };
-      }
     }
+    const textProps = useMemo(() => {
+      if (leftIconName) {
+        if (size === 'xl' || size === 'lg') {
+          return { pl: '1' };
+        }
+      }
+      if (rightIconName) {
+        if (size === 'xl' || size === 'lg') {
+          return { pr: '1' };
+        }
+      }
+    }, [leftIconName, rightIconName, size]);
+    const spinner = useMemo(() => <Spinner size="sm" />, []);
     return (
       <Component
         ref={ref}
-        _stack={{ h }}
         pt={pt}
         pr={pr}
         pb={pb}
@@ -514,6 +555,7 @@ const Button = forwardRef<
         size={size}
         leftIconName={leftIconName}
         rightIconName={rightIconName}
+        spinner={spinner}
         {...props}
       />
     );

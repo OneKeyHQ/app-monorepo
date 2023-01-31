@@ -325,7 +325,7 @@ export default class ServiceSwap extends ServiceBase {
     ) {
       return sendingAccount;
     }
-    const wallets = await engine.getWallets();
+    const wallets = appSelector((s) => s.runtime.wallets);
     const { networks } = appSelector((s) => s.runtime);
     const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
       (s) => s.general,
@@ -371,7 +371,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async getAccountRelatedWallet(accountId: string) {
     const { appSelector } = this.backgroundApi;
-    const { wallets } = appSelector((s) => s.runtime);
+    const wallets = appSelector((s) => s.runtime.wallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[0];
       const { accounts } = wallet;
@@ -443,8 +443,8 @@ export default class ServiceSwap extends ServiceBase {
     if (!recipient.accountId) {
       return true;
     }
-    const { engine } = this.backgroundApi;
-    const wallets = await engine.getWallets();
+    const { appSelector } = this.backgroundApi;
+    const wallets = appSelector((s) => s.runtime.wallets);
     const watchingWallet = wallets.find((wallet) => wallet.type === 'watching');
     if (watchingWallet) {
       return watchingWallet.accounts.includes(recipient.accountId);

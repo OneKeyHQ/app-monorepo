@@ -170,7 +170,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const changeAddress = getChangeAddress(dbAccount);
     const utxos = await (
       await (this.vault as AdaVault).getClient()
-    ).getUTXOs(dbAccount);
+    ).getUTXOs(dbAccount.xpub, dbAccount.path, dbAccount.addresses);
 
     const { inputs, outputs, fee, tx } = encodedTx;
     const res = await HardwareSDK.cardanoSignTransaction(connectId, deviceId, {
