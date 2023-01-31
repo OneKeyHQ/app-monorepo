@@ -197,7 +197,7 @@ export const GenaralSection = () => {
                 <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
               </Box>
             </Pressable>
-            <Divider />
+            {supportedHaptics ? <Divider /> : null}
           </Box>
           {supportedHaptics ? (
             <Pressable
