@@ -30,10 +30,14 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   COINTYPE_BTC,
+  IMPL_BTC,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import timelinePerfTrace, {
+  ETimelinePerfNames,
+} from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -425,12 +429,19 @@ class Engine {
     mnemonic,
     name,
     avatar,
+    autoAddAccountNetworkId,
   }: {
     password: string;
     mnemonic?: string;
     name?: string;
     avatar?: Avatar;
+    autoAddAccountNetworkId?: string;
   }): Promise<Wallet> {
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'engine.createHDWallet >> validation START',
+    });
+
     // Create an HD wallet, generate seed if not provided.
     if (typeof name !== 'undefined' && name.length > 0) {
       await this.validator.validateWalletName(name);
@@ -442,12 +453,22 @@ class Engine {
       this.validator.validateHDWalletNumber(),
     ]);
 
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'engine.createHDWallet >> validation DONE',
+    });
+
     let rs;
     try {
       rs = revealableSeedFromMnemonic(usedMnemonic, password);
     } catch {
       throw new OneKeyInternalError('Invalid mnemonic.');
     }
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'engine.createHDWallet >> revealableSeedFromMnemonic DONE',
+    });
 
     if (
       usedMnemonic === mnemonicFromEntropy(rs.entropyWithLangPrefixed, password)
@@ -460,15 +481,13 @@ class Engine {
         avatar,
       });
 
-      const supportedImpls = getSupportedImpls();
-      const addedImpl = new Set();
-      const networks: Array<string> = [];
-      (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
-        if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
-          addedImpl.add(impl);
-          networks.push(networkId);
-        }
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.createHDWallet,
+        title: 'engine.createHDWallet >> dbApi.createHDWallet DONE',
       });
+
+      const networks = [autoAddAccountNetworkId || OnekeyNetwork.eth];
+
       await Promise.all(
         networks.map((networkId) =>
           this.addHdOrHwAccounts(password, wallet.id, networkId).then(
@@ -477,8 +496,20 @@ class Engine {
           ),
         ),
       );
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.createHDWallet,
+        title:
+          'engine.createHDWallet >> addHdOrHwAccounts of each network DONE',
+      });
 
-      return this.dbApi.confirmWalletCreated(wallet.id);
+      const result = this.dbApi.confirmWalletCreated(wallet.id);
+
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.createHDWallet,
+        title: 'engine.createHDWallet >> dbApi.confirmWalletCreated DONE',
+      });
+
+      return result;
     }
 
     throw new OneKeyInternalError('Invalid mnemonic.');

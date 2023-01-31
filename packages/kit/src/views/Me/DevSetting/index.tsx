@@ -36,6 +36,7 @@ import {
   setUpdateDeviceRes,
   setUpdateDeviceSys,
 } from '@onekeyhq/kit/src/store/reducers/settings';
+import timelinePerfTrace from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../../components/NetworkAccountSelector';
@@ -259,17 +260,21 @@ export const DevSettingSection = () => {
             <Button
               size="xs"
               onPress={() => {
+                const timelinePerfTraceData =
+                  timelinePerfTrace.getTimelineData();
                 copyToClipboard(
                   JSON.stringify({
                     $$onekeyPerfTrace: global?.$$onekeyPerfTrace,
                     perfCheckResult,
+                    timelinePerfTraceData,
                   }),
                 );
                 ToastManager.show({
                   title: intl.formatMessage({ id: 'msg__copied' }),
                 });
-                console.log('perfCheckResult', perfCheckResult);
                 console.log('$$onekeyPerfTrace', global?.$$onekeyPerfTrace);
+                console.log('perfCheckResult', perfCheckResult);
+                console.log('timelinePerfTraceData', timelinePerfTraceData);
               }}
             >
               Export
