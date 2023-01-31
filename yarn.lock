@@ -5632,8 +5632,8 @@ __metadata:
     bs58check: ^2.1.2
     buffer: ^6.0.3
     camelcase-keys: ^7.0.2
-    cardano-coin-selection: 1.1.3
-    cardano-coin-selection-asmjs: 1.1.3
+    cardano-coin-selection: 1.1.4
+    cardano-coin-selection-asmjs: 1.1.4
     cardano-crypto.js: ^6.1.1
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
@@ -12261,15 +12261,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cardano-coin-selection-asmjs@npm:1.1.3":
-  version: 1.1.3
-  resolution: "cardano-coin-selection-asmjs@npm:1.1.3"
+"cardano-coin-selection-asmjs@npm:1.1.4":
+  version: 1.1.4
+  resolution: "cardano-coin-selection-asmjs@npm:1.1.4"
   dependencies:
     "@emurgo/cardano-message-signing-asmjs": ^1.0.1
     "@emurgo/cardano-serialization-lib-asmjs": 11.1.0
   peerDependencies:
     bignumber.js: ^9.0.1
-  checksum: abb00358b3533022bc21317af904fe7bfb9ec1615ba9beb92bfd3e478071f6e05d491d90469a9e9abc1074ae9baffbd58b1191e81fc94888030076e7fc49a453
+  checksum: 2eb0bb5a3b82d34bfb94554b930894fc1f3f6a1a3eda9a029fa39ca0bcfc02ae815f76b733f9bf1b796655aef14460ef29561fc5d4acbcbfe9bf30f29f529edc
   languageName: node
   linkType: hard
 
@@ -12285,15 +12285,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cardano-coin-selection@npm:1.1.3":
-  version: 1.1.3
-  resolution: "cardano-coin-selection@npm:1.1.3"
+"cardano-coin-selection@npm:1.1.4":
+  version: 1.1.4
+  resolution: "cardano-coin-selection@npm:1.1.4"
   dependencies:
     "@emurgo/cardano-message-signing-browser": ^1.0.1
     "@emurgo/cardano-serialization-lib-browser": 11.1.0
   peerDependencies:
     bignumber.js: ^9.0.1
-  checksum: 3bdec6315fd2f037e040fd2d23dff61850c017f6071d4977e40d24ac10b9cdbba32619a7b900c9ca74f7879b0c1c302264d30c638ce3243ab6c8f4f4f707c941
+  checksum: 892899e6d1be677215bfebcfeb30c8e684b3115f65509abca6c91c5248d4bd5a5e62454803b7977c8013e21ec70e6d03cdbf69f68a7ffea6beadf1aa25638370
   languageName: node
   linkType: hard
 
