@@ -291,7 +291,11 @@ const CurrencySelectModal: FC = () => {
           ListHeaderComponent={terms.length > 0 ? null : headerComponent}
           renderSectionHeader={({ section: { title } }) => (
             <CurrencySectionLable
-              title={intl.formatMessage({ id: `form__${title}` })}
+              title={
+                title === 'crypto'
+                  ? intl.formatMessage({ id: 'form__crypto' })
+                  : intl.formatMessage({ id: 'form__fiat' })
+              }
             />
           )}
           ListEmptyComponent={emptyComponent}

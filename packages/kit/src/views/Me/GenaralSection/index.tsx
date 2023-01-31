@@ -16,7 +16,7 @@ import {
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   HomeRoutesParams,
   ModalScreenProps,
@@ -27,11 +27,7 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import {
-  setLocale,
-  setSelectedFiatMoneySymbol,
-  setTheme,
-} from '@onekeyhq/kit/src/store/reducers/settings';
+import { setLocale, setTheme } from '@onekeyhq/kit/src/store/reducers/settings';
 import { supportedHaptics } from '@onekeyhq/shared/src/haptics';
 
 import { SelectTrigger } from '../SelectTrigger';
@@ -56,8 +52,6 @@ export const GenaralSection = () => {
   const { dispatch, serviceNotification } = backgroundApiProxy;
   const { theme, locale, selectedFiatMoneySymbol } = useSettings();
   const { themeVariant } = useTheme();
-
-  const fiatMoneySymbolList = useAppSelector((s) => s.fiatMoney.symbolList);
   const localeOptions = useMemo(
     () =>
       [
@@ -197,9 +191,9 @@ export const GenaralSection = () => {
                 })}
               </Text>
               <Box flexDirection="row" alignItems="center">
-                <Typography.Body1 mr={0.5}>
+                <Typography.Body1Strong mr={1}>
                   {selectedFiatMoneySymbol.toLocaleUpperCase()}
-                </Typography.Body1>
+                </Typography.Body1Strong>
                 <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
               </Box>
             </Pressable>
