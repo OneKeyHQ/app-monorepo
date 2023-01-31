@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 
 import { Image } from '@onekeyhq/components';
 import type { IAccount } from '@onekeyhq/engine/src/types';
@@ -30,12 +30,14 @@ export function MockExternalAccountImg(props: ComponentProps<typeof Image>) {
 function ExternalAccountImg({
   accountId,
   account,
+  walletName,
   size = 6,
   radius = '6',
   ...others
 }: ComponentProps<typeof Image> & {
   accountId: string;
   account?: IAccount;
+  walletName?: string | null;
   size?: number | string;
   radius?: string;
 }) {
@@ -57,7 +59,14 @@ function ExternalAccountImg({
       return imgInfo?.sm || imgInfo?.md || imgInfo?.lg || '';
     }
     return '';
-  }, [accountId, account]);
+  }, [accountId, account, walletName]);
+
+  useEffect(() => {
+    console.log('image wallet Name changed');
+    return () => {
+      console.log('image wallet Name changed destory');
+    };
+  }, [walletName]);
 
   if (accountImg) {
     // return null;
