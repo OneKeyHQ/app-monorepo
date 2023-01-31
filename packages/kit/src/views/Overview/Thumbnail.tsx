@@ -19,7 +19,7 @@ import {
 
 import { FormatCurrencyNumber } from '../../components/Format';
 import {
-  useAccountUsdValues,
+  useAccountValues,
   useAppSelector,
   useNavigation,
 } from '../../hooks';
@@ -162,7 +162,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
     [defis],
   );
 
-  const accountAllValue = useAccountUsdValues({
+  const accountAllValue = useAccountValues({
     networkId,
     accountId,
   }).value;
