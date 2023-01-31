@@ -9,21 +9,18 @@ import { showOverlay } from '../../../utils/overlayUtils';
 import { OverlayPanel } from '../../Overlay/OverlayPanel';
 
 export const EnableExtTips: FC<{
-  enable?: boolean;
   onClose: () => void;
-}> = ({ enable, onClose }) => {
+}> = ({ onClose }) => {
   const intl = useIntl();
   return (
     <Box px={4} w="100%">
       <Empty
-        emoji={enable ? '✅️' : '⏸️'}
+        emoji="🔄"
         title={intl.formatMessage({
-          id: enable ? 'title__extension_enabled' : 'title__extension_paused',
+          id: 'title__refresh_website_to_take_effect',
         })}
         subTitle={intl.formatMessage({
-          id: enable
-            ? 'title__extension_enabled_desc'
-            : 'title__extension_paused_desc',
+          id: 'title__refresh_website_to_take_effect_desc',
         })}
       />
       <Button
@@ -42,7 +39,7 @@ export const EnableExtTips: FC<{
   );
 };
 
-export const showEnableExtTipsSheet = ({ enable }: { enable?: boolean }) => {
+export const showEnableExtTipsSheet = () => {
   showOverlay((closeOverlay) => (
     <OverlayPanel
       closeOverlay={closeOverlay}
@@ -53,7 +50,7 @@ export const showEnableExtTipsSheet = ({ enable }: { enable?: boolean }) => {
         tapGestureEnabled: false,
       }}
     >
-      <EnableExtTips enable={enable} onClose={closeOverlay} />
+      <EnableExtTips onClose={closeOverlay} />
     </OverlayPanel>
   ));
 };
