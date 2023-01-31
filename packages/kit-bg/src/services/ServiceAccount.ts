@@ -8,7 +8,7 @@ import {
   getCoinTypeFromNetworkId,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
-import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
 import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -923,33 +923,78 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async removeWallet(walletId: string, password: string | undefined) {
-    const {
-      appSelector,
-      serviceNotification,
-      engine,
-      dispatch,
-      serviceCloudBackup,
-    } = this.backgroundApi;
-    const wallet = await engine.getWallet(walletId);
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.removeWallet,
+      title: 'ServiceAccount.removeWallet >> start',
+    });
+
+    const { appSelector, engine } = this.backgroundApi;
     const activeWalletId = appSelector((s) => s.general.activeWalletId);
+
+    const wallet = await engine.getWallet(walletId);
     const accounts = await engine.getAccounts(wallet.accounts);
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.removeWallet,
+      title: 'ServiceAccount.removeWallet >> engine.getAccounts  DONE',
+    });
+
+    await engine.removeWallet(walletId, password ?? '');
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.removeWallet,
+      title: 'ServiceAccount.removeWallet >> engine.removeWallet  DONE',
+    });
+
+    setTimeout(
+      () =>
+        this.postWalletRemoved({
+          accounts,
+          activeWalletId,
+          removedWalletId: walletId,
+        }),
+      600,
+    );
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.removeWallet,
+      title: 'ServiceAccount.removeWallet >> end',
+    });
+  }
+
+  async postWalletRemoved({
+    accounts,
+    activeWalletId,
+    removedWalletId,
+  }: {
+    accounts: IAccount[];
+    activeWalletId: string | undefined | null;
+    removedWalletId: string;
+  }) {
+    const { serviceNotification, dispatch, serviceCloudBackup } =
+      this.backgroundApi;
+
+    if (activeWalletId && activeWalletId === removedWalletId) {
+      // autoChangeWallet if remove current wallet
+      // TODO performance
+      await this.autoChangeWallet();
+    } else {
+      // TODO noDispatch
+      // TODO performance
+      await this.initWallets();
+    }
+
     serviceNotification.removeAccountDynamicBatch({
       addressList: accounts
         .filter((a) => a.coinType === COINTYPE_ETH)
         .map((a) => a.address),
     });
-    await engine.removeWallet(walletId, password ?? '');
 
-    if (activeWalletId === walletId) {
-      await this.autoChangeWallet();
-    } else {
-      await this.initWallets();
-    }
-
-    dispatch(setRefreshTS());
-    if (!walletId.startsWith('hw')) {
+    if (!removedWalletId.startsWith('hw')) {
+      // TODO noDispatch
       serviceCloudBackup.requestBackup();
     }
+
+    // TODO delay and batch dispatch
+    dispatch(setRefreshTS());
   }
 
   @backgroundMethod()

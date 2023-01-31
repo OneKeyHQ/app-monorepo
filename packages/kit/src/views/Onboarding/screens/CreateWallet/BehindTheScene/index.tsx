@@ -161,9 +161,11 @@ function BehindTheSceneCreatingWallet({
       await wait(300); // 1500, 300
       const p1 = performance.now();
       debugLogger.onBoarding.info('startCreatingHDWallet');
+
+      timelinePerfTrace.clear(ETimelinePerfNames.createHDWallet);
       timelinePerfTrace.mark({
         name: ETimelinePerfNames.createHDWallet,
-        title: 'onboarding.createHDWallet >> start',
+        title: 'onboarding.createHDWallet >> start ===========================',
       });
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,

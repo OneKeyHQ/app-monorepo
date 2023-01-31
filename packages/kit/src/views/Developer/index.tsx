@@ -592,9 +592,9 @@ export const Debug = () => {
                       isAutoAddAllNetworkAccounts: true,
                     });
                     console.log(
-                      `create test wallet (${
+                      `Create test wallet (${
                         i + 1
-                      }) >>>>>>>>>> ${mnemonic.slice(0, 30)}`,
+                      }) >>>>>>>>>> mnemonic: ${mnemonic.slice(0, 30)}`,
                     );
                   }
                   ToastManager.show({
