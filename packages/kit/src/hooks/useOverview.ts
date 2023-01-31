@@ -19,7 +19,7 @@ export const useAccountValues = (props: {
   );
 
   const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[selectedFiatMoneySymbol] || 0;
+  const fiat = fiatMap[selectedFiatMoneySymbol].value || 0;
   const { account } = useAccount({
     networkId,
     accountId,
