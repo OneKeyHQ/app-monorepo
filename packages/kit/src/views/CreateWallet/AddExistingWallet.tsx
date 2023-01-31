@@ -345,6 +345,18 @@ function AddExistingWalletView(
   const isSmallScreen = useIsVerticalLayout();
   const isVerticalLayout = useIsVerticalLayout();
 
+  const helpText = useCallback(
+    (value: string) => (
+      <NameServiceResolver
+        name={value}
+        disable={mode === 'imported'}
+        onChange={onNameServiceChange || onNameServiceStatusChange}
+        disableBTC
+      />
+    ),
+    [onNameServiceChange, onNameServiceStatusChange, mode],
+  );
+
   return (
     <Box
       display="flex"
@@ -392,14 +404,7 @@ function AddExistingWalletView(
               });
             },
           }}
-          helpText={(value) => (
-            <NameServiceResolver
-              name={value}
-              disable={mode === 'imported'}
-              onChange={onNameServiceChange || onNameServiceStatusChange}
-              disableBTC
-            />
-          )}
+          helpText={helpText}
         >
           <Form.Textarea
             placeholder={placeholder}

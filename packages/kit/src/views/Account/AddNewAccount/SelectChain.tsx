@@ -29,6 +29,8 @@ type RouteProps = RouteProp<
   CreateAccountModalRoutes.RecoverySelectChainList
 >;
 
+const ItemSeparatorComponent = () => <Box h="8px" />;
+
 const RecoverSelectChainModal: FC = () => {
   const intl = useIntl();
 
@@ -127,7 +129,7 @@ const RecoverSelectChainModal: FC = () => {
         data: selectableNetworks,
         // @ts-ignore
         renderItem,
-        ItemSeparatorComponent: () => <Box h="8px" />,
+        ItemSeparatorComponent,
         keyExtractor: (item) => (item as Network).id,
         showsVerticalScrollIndicator: false,
       }}

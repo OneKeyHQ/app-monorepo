@@ -27,6 +27,10 @@ const styles = StyleSheet.create({
   },
 });
 
+const ItemSeparatorComponentH3 = () => <Box h="3" />;
+
+const ItemSeparatorComponentH8 = () => <Box h="8" />;
+
 const ListEmptyComponentRenderItem = () => {
   const { width } = useWindowDimensions();
   const screenWidth = width - 270 - 48;
@@ -90,7 +94,7 @@ const ListEmptyComponentRenderItem = () => {
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => `${item}`}
         key={`key${numColumns}`}
-        ItemSeparatorComponent={() => <Box h="3" />}
+        ItemSeparatorComponent={ItemSeparatorComponentH3}
       />
     ),
     [data, numColumns, renderItem],
@@ -107,7 +111,7 @@ export const EmptySkeleton = () => (
     data={[1, 2]}
     renderItem={() => <ListEmptyComponentRenderItem />}
     keyExtractor={(item) => String(item)}
-    ItemSeparatorComponent={() => <Box h="8" />}
+    ItemSeparatorComponent={ItemSeparatorComponentH8}
   />
 );
 

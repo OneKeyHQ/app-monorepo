@@ -200,7 +200,7 @@ const PriceImpactAlertContent = () => {
       }
     }
     main();
-  }, []);
+  }, [intl]);
   return (
     <Box flexDirection="row" mt="6">
       <Box mr="3">

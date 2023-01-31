@@ -428,19 +428,6 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     [intl],
   );
 
-  const openLinkUrl = useCallback((url: string) => {
-    if (platformEnv.isNative) {
-      Linking.openURL(url);
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
-
-  const onOpenTx = useCallback(() => {
-    const url = buildTransactionDetailsUrl(network, tx.hash);
-    openLinkUrl(url);
-  }, [openLinkUrl, network, tx.hash]);
-
   const onPress = useCallback(() => {
     if (from && to && fromNetwork && toNetwork) {
       backgroundApiProxy.serviceSwap.setInputToken(from.token);
