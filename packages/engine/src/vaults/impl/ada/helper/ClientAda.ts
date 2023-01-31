@@ -91,6 +91,16 @@ class ClientAda {
     return balance;
   }
 
+  async getBalanceWithLovelace(stakeAddress: string): Promise<IAdaAmount> {
+    const res = await this.request
+      .get<IAdaAccount>(`/accounts/${stakeAddress}`)
+      .then((i) => i.data);
+    return {
+      unit: 'lovelace',
+      quantity: res.controlled_amount ?? '0',
+    };
+  }
+
   getUTXOs = memoizee(
     async (
       xpub: string,
