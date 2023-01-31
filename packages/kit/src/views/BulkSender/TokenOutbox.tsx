@@ -31,7 +31,7 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { showAmountEditor } from './AmountEditor';
-import { showApprovalSelector } from './ApporvalSelector';
+import { showApprovalSelector } from './ApprovalSelector';
 import { showDeflationaryTip } from './DeflationaryTip';
 import { useValidteReceiver } from './hooks';
 import { ReceiverInput } from './ReceiverInput';
