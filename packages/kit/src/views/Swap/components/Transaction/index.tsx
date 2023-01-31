@@ -554,15 +554,15 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           </Typography.Caption>
         </TransactionField>
         <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>
-          <Pressable flexDirection="row" alignItems="center" onPress={onOpenTx}>
+          <Pressable
+            flexDirection="row"
+            alignItems="center"
+            onPress={() => onCopy(tx.hash)}
+          >
             <Typography.Caption color="text-subdued" mr="1">
               {shortenAddress(tx.hash)}
             </Typography.Caption>
-            <Icon
-              name="ArrowTopRightOnSquareOutline"
-              color="icon-subdued"
-              size={16}
-            />
+            <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
           </Pressable>
         </TransactionField>
         {swftcOrderId ? (
