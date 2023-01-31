@@ -4,7 +4,7 @@
 
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
-import { cloneDeep, isEmpty, uniq, uniqBy } from 'lodash';
+import { cloneDeep, isEmpty, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
@@ -16,10 +16,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type {
-  TokenBalanceValue,
-  TokenChartData,
-} from '@onekeyhq/kit/src/store/reducers/tokens';
+import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import {
@@ -42,7 +39,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { balanceSupprtedNetwork, getBalancesFromApi } from './apiProxyUtils';
 import { DbApi } from './dbs';
 import { DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
 import simpleDb from './dbs/simple/simpleDb';
@@ -80,7 +76,6 @@ import {
   fetchOnlineTokens,
   fetchTokenDetail,
   formatServerToken,
-  getBalanceKey,
   getNetworkIdFromTokenId,
 } from './managers/token';
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
@@ -816,146 +811,6 @@ class Engine {
 
     const vault = await this.getVault({ accountId, networkId });
     return vault.getExportedCredential(password);
-  }
-
-  @backgroundMethod()
-  async getAccountBalance(
-    accountId: string,
-    networkId: string,
-    tokenIdsOnNetwork: Array<string>,
-    withMain = true,
-  ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
-    const [network, accountTokens] = await Promise.all([
-      this.getNetwork(networkId),
-      this.getTokens(networkId, accountId, withMain, true, false),
-    ]);
-    const tokensToGet = uniq([
-      ...tokenIdsOnNetwork,
-      ...accountTokens.map((t) => t.tokenIdOnNetwork),
-    ]).filter((address) => {
-      if (withMain && address === '') {
-        return false;
-      }
-      return true;
-    });
-    const vault = await this.getVault({ networkId, accountId });
-    const ret: Record<string, TokenBalanceValue> = {};
-    if (balanceSupprtedNetwork.includes(networkId)) {
-      try {
-        const account = await this.getAccount(accountId, networkId);
-        const accountAddress = await vault.getFetchBalanceAddress(account);
-
-        const balancesFromApi =
-          (await getBalancesFromApi(networkId, accountAddress)) || [];
-        const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
-          accountId,
-          networkId,
-        );
-        const allAccountTokens: Token[] = [];
-        for (const {
-          address,
-          balance,
-          sendAddress,
-          bestBlockNumber: blockHeight,
-        } of balancesFromApi.filter(
-          (b) =>
-            (+b.balance > 0 || !b.address) &&
-            !removedTokens.includes(b.address),
-        )) {
-          try {
-            let token = await this.findToken({
-              networkId,
-              tokenIdOnNetwork: address,
-            });
-            if (!token) {
-              token = await this.quickAddToken(accountId, networkId, address);
-            }
-            if (token) {
-              // only record new token balances
-              // other token balances still get from RPC for accuracy
-              const tokenId = address || 'main';
-              ret[
-                getBalanceKey({
-                  address,
-                  sendAddress,
-                })
-              ] = {
-                balance,
-                blockHeight,
-              };
-              ret[tokenId] = {
-                balance,
-                blockHeight,
-              };
-              allAccountTokens.push({
-                ...token,
-                sendAddress,
-                autoDetected: !accountTokens.some((t) => t.address === address),
-              });
-            }
-          } catch (e) {
-            // pass
-          }
-        }
-
-        return [ret, allAccountTokens];
-      } catch (e) {
-        debugLogger.common.error(
-          `getBalancesFromApi`,
-          {
-            params: [networkId, accountId],
-            message: e instanceof Error ? e.message : e,
-          },
-          e,
-        );
-      }
-    }
-    const client = await this.getChainOnlyVault(networkId);
-    const { latestBlock } = await client.getClientEndpointStatus(
-      await client.getRpcUrl(),
-    );
-    const blockHeight = String(latestBlock);
-    const balances = await vault.getAccountBalance(tokensToGet, withMain);
-    if (withMain) {
-      if (typeof balances[0] !== 'undefined') {
-        ret.main = {
-          balance: balances[0]
-            .div(new BigNumber(10).pow(network.decimals))
-            .toFixed(),
-          blockHeight,
-        };
-      } else {
-        ret.main = undefined;
-      }
-    }
-    balances.slice(withMain ? 1 : 0).forEach(async (balance, index) => {
-      const tokenId1 = tokensToGet[index];
-      const token = await this.findToken({
-        networkId,
-        tokenIdOnNetwork: tokenId1,
-      });
-      const decimals = token?.decimals;
-      if (
-        token &&
-        typeof decimals !== 'undefined' &&
-        typeof balance !== 'undefined'
-      ) {
-        const bal = balance.div(new BigNumber(10).pow(decimals)).toFixed();
-        ret[
-          getBalanceKey({
-            address: tokenId1,
-          })
-        ] = {
-          balance: bal,
-          blockHeight,
-        };
-        ret[tokenId1] = {
-          balance: bal,
-          blockHeight,
-        };
-      }
-    });
-    return [ret, undefined];
   }
 
   @backgroundMethod()
