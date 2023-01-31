@@ -52,6 +52,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
+import timelinePerfTrace, {
+  ETimelinePerfNames,
+} from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -291,32 +294,42 @@ class ServiceAccount extends ServiceBase {
     password,
     mnemonic,
     avatar,
+    dispatchActionDelay,
+    postCreatedDelay,
   }: {
     password: string;
     mnemonic?: string;
     avatar?: Avatar;
+    dispatchActionDelay?: number;
+    postCreatedDelay?: number;
   }) {
-    const {
-      dispatch,
-      engine,
-      appSelector,
-      serviceAccount,
-      serviceApp,
-      servicePassword,
-      serviceCloudBackup,
-    } = this.backgroundApi;
+    const { dispatch, engine, appSelector, serviceAccount } =
+      this.backgroundApi;
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> start',
+    });
+
+    const { networkId } = getActiveWalletAccount();
 
     startTrace('engine.createHDWallet');
     const wallet = await engine.createHDWallet({
       password,
       mnemonic,
       avatar: avatar ?? randomAvatar(),
+      autoAddAccountNetworkId: networkId,
     });
     stopTrace('engine.createHDWallet');
 
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> engine done',
+    });
+
     const data: { isPasswordSet: boolean } = appSelector((s) => s.data);
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
-    const actions = [];
+    const actions: any[] = [];
     if (!status.boardingCompleted) {
       actions.push(setBoardingCompleted());
     }
@@ -324,16 +337,65 @@ class ServiceAccount extends ServiceBase {
       actions.push(passwordSet());
       actions.push(setEnableAppLock(true));
     }
-    dispatch(...actions, unlock(), release());
+    actions.push(unlock());
+    actions.push(release());
 
-    await serviceAccount.initWallets();
-    await serviceAccount.autoChangeAccount({ walletId: wallet.id });
-    const isOk = await serviceApp.verifyPassword(password);
-    if (isOk) {
-      servicePassword.savePassword(password);
+    const wallets = await serviceAccount.initWallets({ noDispatch: true });
+    actions.push(updateWallets(wallets));
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> initWallets DONE',
+    });
+
+    if (dispatchActionDelay) {
+      setTimeout(() => dispatch(...actions), dispatchActionDelay);
+    } else {
+      dispatch(...actions);
     }
-    serviceCloudBackup.requestBackup();
+
+    if (postCreatedDelay) {
+      setTimeout(() => {
+        this.postHDWalletCreated({
+          wallet,
+          password,
+        });
+      }, postCreatedDelay);
+    } else {
+      this.postHDWalletCreated({
+        wallet,
+        password,
+      });
+    }
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.createHDWallet,
+      title: 'serviceAccount.createHDWallet >> end',
+    });
+
     return wallet;
+  }
+
+  postHDWalletCreated({
+    wallet,
+    password,
+  }: {
+    wallet: IWallet;
+    password: string;
+  }) {
+    const { serviceAccount, serviceApp, servicePassword, serviceCloudBackup } =
+      this.backgroundApi;
+
+    serviceAccount.autoChangeAccount({ walletId: wallet.id });
+
+    (async () => {
+      const isOk = await serviceApp.verifyPassword(password);
+      if (isOk) {
+        servicePassword.savePassword(password);
+      }
+    })();
+
+    serviceCloudBackup.requestBackup();
   }
 
   @backgroundMethod()
@@ -463,6 +525,53 @@ class ServiceAccount extends ServiceBase {
       coinType,
     });
     return dbAccount;
+  }
+
+  @backgroundMethod()
+  async autoAddFirstHdOrHwAccount({
+    wallet,
+    networkId,
+  }: {
+    wallet: IWallet;
+    networkId: string;
+  }) {
+    const { engine, servicePassword } = this.backgroundApi;
+    const password = await servicePassword.getPassword();
+    if (
+      password &&
+      networkId &&
+      wallet.id &&
+      (wallet.type === 'hd' || wallet.type === 'hw')
+    ) {
+      try {
+        const accountsInWalletAndNetwork = await engine.getAccounts(
+          wallet.accounts,
+          networkId,
+        );
+        if (accountsInWalletAndNetwork.length) {
+          return;
+        }
+        const accounts = await engine.addHdOrHwAccounts(
+          password,
+          wallet.id,
+          networkId,
+          [0],
+        );
+        const activeAccount = accounts[0];
+        await this.postAccountAdded({
+          networkId,
+          account: activeAccount,
+          walletType: wallet.type,
+          walletId: wallet.id,
+          checkOnBoarding: false,
+          checkPasswordSet: false,
+          shouldBackup: false,
+          password,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
   }
 
   @backgroundMethod()
