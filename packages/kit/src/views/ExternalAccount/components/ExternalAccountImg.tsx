@@ -61,13 +61,6 @@ function ExternalAccountImg({
     return '';
   }, [accountId, account, walletName]);
 
-  useEffect(() => {
-    console.log('image wallet Name changed');
-    return () => {
-      console.log('image wallet Name changed destory');
-    };
-  }, [walletName]);
-
   if (accountImg) {
     // return null;
     // const source = ImgMetaMask;
