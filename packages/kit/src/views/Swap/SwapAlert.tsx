@@ -3,7 +3,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Icon, Typography } from '@onekeyhq/components';
+import {
+  Alert,
+  BottomSheetModal,
+  Box,
+  Button,
+  Center,
+  Icon,
+  Typography,
+} from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -13,8 +21,10 @@ import {
   useAppSelector,
   useNetworkSimple,
 } from '../../hooks';
+import { showOverlay } from '../../utils/overlayUtils';
 
 import { useInputLimitsError } from './hooks/useSwap';
+import { usePriceImpact } from './hooks/useSwapUtils';
 import { SwapError } from './typings';
 
 const RecipientBox = () => {
@@ -123,7 +133,6 @@ const ErrorAlert = () => {
 
 const ExchangeAddressAlertContent = () => {
   const intl = useIntl();
-
   return (
     <Box flexDirection="row" mt="6">
       <Box mr="3">
@@ -161,12 +170,73 @@ const ExchangeAddressAlert = () => {
   return recipientUnknown ? <ExchangeAddressAlertContent /> : null;
 };
 
+const PriceImpactAlertContent = () => {
+  const intl = useIntl();
+  useEffect(() => {
+    async function main() {
+      const priceImpactShown =
+        await backgroundApiProxy.serviceSwap.getSwapPriceImpactShown();
+      if (!priceImpactShown) {
+        backgroundApiProxy.serviceSwap.setSwapPriceImpactShown(true);
+        showOverlay((close) => (
+          <BottomSheetModal
+            title={intl.formatMessage({ id: 'modal__attention' })}
+            closeOverlay={close}
+          >
+            <Center w="full">
+              <Typography.Body1 textAlign="center" color="text-subdued">
+                {intl.formatMessage({
+                  id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
+                })}
+              </Typography.Body1>
+              <Center w="full" mt="5">
+                <Button size="lg" w="full" type="primary" onPress={close}>
+                  {intl.formatMessage({ id: 'action__i_got_it' })}
+                </Button>
+              </Center>
+            </Center>
+          </BottomSheetModal>
+        ));
+      }
+    }
+    main();
+  }, []);
+  return (
+    <Box flexDirection="row" mt="6">
+      <Box mr="3">
+        <Icon
+          width={20}
+          height={20}
+          color="text-warning"
+          name="ExclamationCircleOutline"
+        />
+      </Box>
+      <Box flex="1">
+        <Typography.Body2 color="text-warning">
+          {intl.formatMessage({
+            id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
+          })}
+        </Typography.Body2>
+      </Box>
+    </Box>
+  );
+};
+
+const PriceImpactAlert = () => {
+  const priceImpact = usePriceImpact();
+  if (priceImpact && priceImpact > 10) {
+    return <PriceImpactAlertContent />;
+  }
+  return null;
+};
+
 const SwapWarning: FC = () => (
   <>
     <ExchangeAddressAlert />
     <DepositLimitAlert />
     <RecipientAlert />
     <ErrorAlert />
+    <PriceImpactAlert />
   </>
 );
 
