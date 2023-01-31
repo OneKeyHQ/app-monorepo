@@ -168,8 +168,9 @@ function BehindTheSceneCreatingWallet({
       await backgroundApiProxy.serviceAccount.createHDWallet({
         password,
         mnemonic,
+        dispatchActionDelay: 300,
+        postCreatedDelay: 600,
       });
-      await wait(300);
 
       timelinePerfTrace.mark({
         name: ETimelinePerfNames.createHDWallet,
@@ -178,11 +179,7 @@ function BehindTheSceneCreatingWallet({
 
       if (withEnableAuthentication) {
         backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
-        await savePassword(password);
-        timelinePerfTrace.mark({
-          name: ETimelinePerfNames.createHDWallet,
-          title: 'onboarding.createHDWallet >> savePassword DONE',
-        });
+        savePassword(password);
       }
       if (platformEnv.isDev) {
         ToastManager.show({

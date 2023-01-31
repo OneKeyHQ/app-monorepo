@@ -260,21 +260,21 @@ export const DevSettingSection = () => {
             <Button
               size="xs"
               onPress={() => {
+                const timelinePerfTraceData =
+                  timelinePerfTrace.getTimelineData();
                 copyToClipboard(
                   JSON.stringify({
                     $$onekeyPerfTrace: global?.$$onekeyPerfTrace,
                     perfCheckResult,
+                    timelinePerfTraceData,
                   }),
                 );
                 ToastManager.show({
                   title: intl.formatMessage({ id: 'msg__copied' }),
                 });
-                console.log('perfCheckResult', perfCheckResult);
                 console.log('$$onekeyPerfTrace', global?.$$onekeyPerfTrace);
-                console.log(
-                  'timelinePerfTrace',
-                  timelinePerfTrace.getTimelineData(),
-                );
+                console.log('perfCheckResult', perfCheckResult);
+                console.log('timelinePerfTraceData', timelinePerfTraceData);
               }}
             >
               Export

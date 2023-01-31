@@ -30,6 +30,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   COINTYPE_BTC,
+  IMPL_BTC,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -428,11 +429,13 @@ class Engine {
     mnemonic,
     name,
     avatar,
+    autoAddAccountNetworkId,
   }: {
     password: string;
     mnemonic?: string;
     name?: string;
     avatar?: Avatar;
+    autoAddAccountNetworkId?: string;
   }): Promise<Wallet> {
     timelinePerfTrace.mark({
       name: ETimelinePerfNames.createHDWallet,
@@ -483,22 +486,7 @@ class Engine {
         title: 'engine.createHDWallet >> dbApi.createHDWallet DONE',
       });
 
-      const supportedImpls = getSupportedImpls();
-      const addedImpl = new Set();
-      const networks: Array<string> = [];
-
-      (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
-        if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
-          addedImpl.add(impl);
-          networks.push(networkId);
-        }
-      });
-
-      timelinePerfTrace.mark({
-        name: ETimelinePerfNames.createHDWallet,
-        title: `engine.createHDWallet >> prepare networks DONE: networksLength=${networks.length}`,
-        payload: { networks },
-      });
+      const networks = [autoAddAccountNetworkId || OnekeyNetwork.eth];
 
       await Promise.all(
         networks.map((networkId) =>

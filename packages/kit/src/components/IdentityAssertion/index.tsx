@@ -1,16 +1,40 @@
 import type { FC } from 'react';
+import { useEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Empty, ToastManager } from '@onekeyhq/components';
+import type { IWallet } from '@onekeyhq/engine/src/types';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
 } from '../NetworkAccountSelector/hooks/useCreateAccountInWallet';
+
+const { serviceAccount } = backgroundApiProxy;
+
+function AutoAddFirstHdOrHwAccount({
+  wallet,
+  networkId,
+}: {
+  wallet: IWallet;
+  networkId: string;
+}) {
+  const walletId = wallet?.id;
+  useEffect(() => {
+    if (wallet && walletId && networkId) {
+      serviceAccount.autoAddFirstHdOrHwAccount({
+        wallet,
+        networkId,
+      });
+    }
+  }, [networkId, wallet, walletId]);
+  return null;
+}
 
 const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
   children,
@@ -18,8 +42,14 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { walletId, accountId, networkId, isCompatibleNetwork, network } =
-    useActiveWalletAccount();
+  const {
+    walletId,
+    accountId,
+    networkId,
+    isCompatibleNetwork,
+    network,
+    wallet,
+  } = useActiveWalletAccount();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     walletId,
@@ -80,6 +110,9 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
           h="56px"
           justifyContent="center"
         >
+          {isCreateAccountSupported && wallet ? (
+            <AutoAddFirstHdOrHwAccount wallet={wallet} networkId={networkId} />
+          ) : null}
           <Button
             leftIconName={
               isCreateAccountSupported ? 'PlusOutline' : 'BanOutline'

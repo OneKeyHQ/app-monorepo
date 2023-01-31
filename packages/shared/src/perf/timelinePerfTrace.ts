@@ -33,12 +33,13 @@ class TimelinePerfTrace {
     const perfNow = global.performance.now();
     const time = new Date().toLocaleString();
     timeline.push({
+      lag: parseInt(String(lastItem ? perfNow - lastItem.elapsed : 0), 10),
       title,
-      payload,
 
       time,
-      lag: parseInt(String(lastItem ? perfNow - lastItem.elapsed : 0), 10),
       elapsed: Math.round(perfNow),
+
+      payload,
     });
     timeline = timeline.slice(-200);
 
