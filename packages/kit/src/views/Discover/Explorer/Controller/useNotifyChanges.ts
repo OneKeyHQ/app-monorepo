@@ -50,10 +50,10 @@ export const useNotifyChanges = () => {
       return;
     }
     // only enable message for current focused webview
-    jsBridge.globalOnMessageEnabled = true;
+    jsBridge.globalOnMessageEnabled = isFocusedInDiscoverTab;
     // connect background jsBridge
     backgroundApiProxy.connectBridge(jsBridge);
-  }, [webviewRef]);
+  }, [webviewRef, isFocusedInDiscoverTab]);
 
   useEffect(() => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {

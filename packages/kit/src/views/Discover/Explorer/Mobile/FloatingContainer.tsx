@@ -9,6 +9,7 @@ import Animated, {
 
 import { Box, Pressable, useSafeAreaInsets } from '@onekeyhq/components';
 
+import DelayedFreeze from '../../../../components/DelayedFreeze';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
@@ -24,6 +25,7 @@ import {
   targetPreviewY,
   toggleFloatingWindow,
 } from '../explorerAnimation';
+import { getWebviewWrapperRef } from '../explorerUtils';
 
 import { ControllerBarMobile } from './ControllerBarMobile';
 import FloatingBar from './FloatingBar';
@@ -49,16 +51,31 @@ const FloatingContainer: FC<
   const [containerHeight, setContainerHeight] = useState(0);
   const [showContent, setShowContent] = useState(false);
   const { top } = useSafeAreaInsets();
+  const jsBridge = getWebviewWrapperRef({
+    tabId: currentTab?.id,
+  })?.jsBridge;
+
+  const innerBeforeMinimize = useCallback(() => {
+    if (jsBridge) {
+      // stop dapp interaction
+      jsBridge.globalOnMessageEnabled = false;
+    }
+    beforeMinimize?.();
+  }, [beforeMinimize, jsBridge]);
 
   const innerBeforeMaximize = useCallback(() => {
     if (!showContent) setShowContent(true);
+    if (jsBridge) {
+      // resume dapp interaction
+      jsBridge.globalOnMessageEnabled = true;
+    }
     beforeMaximize?.();
-  }, [beforeMaximize, showContent]);
+  }, [beforeMaximize, jsBridge, showContent]);
 
   const innerAfterMinimize = useCallback(() => {
-    // if (showContent) setShowContent(false);
+    if (showContent) setShowContent(false);
     afterMinimize?.();
-  }, [afterMinimize]);
+  }, [afterMinimize, showContent]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -66,7 +83,7 @@ const FloatingContainer: FC<
       () => {
         if (expandAnim.value !== MIN_OR_HIDE) {
           minimizeFloatingWindow({
-            before: beforeMinimize,
+            before: innerBeforeMinimize,
           });
           return true;
         }
@@ -75,7 +92,7 @@ const FloatingContainer: FC<
     );
 
     return () => subscription.remove();
-  }, [beforeMinimize]);
+  }, [innerBeforeMinimize]);
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;
@@ -88,7 +105,7 @@ const FloatingContainer: FC<
     } else if (tabs.length === 1) {
       hideTabGrid();
       minimizeFloatingWindow({
-        before: beforeMinimize,
+        before: innerBeforeMinimize,
       });
     }
 
@@ -184,7 +201,7 @@ const FloatingContainer: FC<
               h="48px"
               onPress={() => {
                 toggleFloatingWindow({
-                  beforeMinimize,
+                  beforeMinimize: innerBeforeMinimize,
                   afterMaximize,
                   beforeMaximize: innerBeforeMaximize,
                   afterMinimize: innerAfterMinimize,
@@ -197,10 +214,14 @@ const FloatingContainer: FC<
                 onSearch={onSearch}
               />
             </Pressable>
-            {showContent && <WebTabFront />}
+            <DelayedFreeze freeze={!showContent}>
+              <WebTabFront />
+            </DelayedFreeze>
           </Box>
         </Animated.View>
-        {showContent && <WebTabGrid />}
+        <DelayedFreeze freeze={!showContent}>
+          <WebTabGrid />
+        </DelayedFreeze>
       </Animated.View>
       <ControllerBarMobile />
     </>
