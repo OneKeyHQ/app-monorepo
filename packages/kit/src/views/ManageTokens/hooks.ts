@@ -42,11 +42,12 @@ export const useSearchTokens = (
       } finally {
         setLoading(false);
       }
-      const [balances] = await backgroundApiProxy.serviceToken.getAccountBalance(
-        accountId,
-        networkid,
-        tokens.map((i) => i.tokenIdOnNetwork),
-      );
+      const [balances] =
+        await backgroundApiProxy.serviceToken.getAccountBalance(
+          accountId,
+          networkid,
+          tokens.map((i) => i.tokenIdOnNetwork),
+        );
       backgroundApiProxy.dispatch(
         setAccountTokensBalances({
           activeAccountId: accountId,

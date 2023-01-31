@@ -110,7 +110,7 @@ export const Listing: FC = () => {
     getActiveWalletAccount().network,
   );
 
-  const allNetworkRefList = useRef(
+  const allNetworkRefList = useRef<[string, boolean][]>(
     getManageNetworks().allNetworks.map((n) => [n.id, n.enabled]),
   );
 
