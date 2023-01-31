@@ -93,7 +93,7 @@ export const OverviewDefiBoxHeader: FC<{
         </HStack>
       </HStack>
       <Pressable onPress={toggle}>
-        <HStack>
+        <HStack alignItems="center">
           <VStack>
             {desc}
             {extra}
