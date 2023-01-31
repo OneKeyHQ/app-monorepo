@@ -38,9 +38,9 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 export type IFetchAccountTokensParams = {
   activeAccountId: string;
@@ -394,20 +394,15 @@ export default class ServiceToken extends ServiceBase {
         if (token) {
           // only record new token balances
           // other token balances still get from RPC for accuracy
-          const tokenId = address || 'main';
-          ret[
-            getBalanceKey({
+          Object.assign(ret, {
+            [getBalanceKey({
               address,
               sendAddress,
-            })
-          ] = {
-            balance,
-            blockHeight,
-          };
-          ret[tokenId] = {
-            balance,
-            blockHeight,
-          };
+            })]: {
+              balance,
+              blockHeight,
+            },
+          });
           allAccountTokens.push({
             ...token,
             sendAddress,
@@ -441,19 +436,23 @@ export default class ServiceToken extends ServiceBase {
     const ret: Record<string, TokenBalanceValue> = {};
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain) {
-      if (typeof balances[0] !== 'undefined') {
-        ret.main = {
-          balance: balances[0]
-            .div(new BigNumber(10).pow(network.decimals))
-            .toFixed(),
-          blockHeight,
-        };
-      } else {
-        ret.main = undefined;
-      }
+      Object.assign(ret, {
+        main:
+          typeof balances[0] !== 'undefined'
+            ? {
+                balance: balances[0]
+                  .div(new BigNumber(10).pow(network.decimals))
+                  .toFixed(),
+                blockHeight,
+              }
+            : undefined,
+      });
     }
-    balances.slice(withMain ? 1 : 0).forEach(async (balance, index) => {
-      const tokenId1 = tokensToGet[index];
+    const balanceList = balances.slice(withMain ? 1 : 0);
+    for (let i = 0; i < balanceList.length; i += 1) {
+      const balance = balanceList[i];
+
+      const tokenId1 = tokensToGet[i];
       const token = await engine.findToken({
         networkId,
         tokenIdOnNetwork: tokenId1,
@@ -465,20 +464,16 @@ export default class ServiceToken extends ServiceBase {
         typeof balance !== 'undefined'
       ) {
         const bal = balance.div(new BigNumber(10).pow(decimals)).toFixed();
-        ret[
-          getBalanceKey({
+        Object.assign(ret, {
+          [getBalanceKey({
             address: tokenId1,
-          })
-        ] = {
-          balance: bal,
-          blockHeight,
-        };
-        ret[tokenId1] = {
-          balance: bal,
-          blockHeight,
-        };
+          })]: {
+            balance: bal,
+            blockHeight,
+          },
+        });
       }
-    });
+    }
     return [ret, undefined];
   }
 
