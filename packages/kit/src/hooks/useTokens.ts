@@ -70,7 +70,7 @@ export function useAccountTokens(
   } = useAppSelector((s) => s.settings);
   const fiatSymbol = vsCurrency ?? selectedFiatMoneySymbol;
   const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[fiatSymbol] || 0;
+  const fiat = fiatMap[fiatSymbol]?.value || 0;
   const tokens = useAppSelector(
     (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
   );
