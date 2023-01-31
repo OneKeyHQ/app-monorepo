@@ -120,13 +120,16 @@ const OverviewProtocolDetail: FC = () => {
       // @ts-ignore
       header={header}
       headerDescription={headerDescription}
-    >
-      <OverviewDefiProtocol
-        {...protocol}
-        showHeader={false}
-        bgColor="surface-default"
-      />
-    </Modal>
+      scrollViewProps={{
+        children: (
+          <OverviewDefiProtocol
+            {...protocol}
+            showHeader={false}
+            bgColor="surface-default"
+          />
+        ),
+      }}
+    />
   );
 };
 
