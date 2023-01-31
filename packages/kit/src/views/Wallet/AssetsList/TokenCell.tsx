@@ -111,9 +111,12 @@ const TokenCell: FC<TokenCellProps> = ({
 
   const handlePress = useCallback(
     (t: TokenType) => {
-      onPress?.(t);
+      onPress?.({
+        ...t,
+        sendAddress: tokenItem?.sendAddress,
+      });
     },
-    [onPress],
+    [onPress, tokenItem?.sendAddress],
   );
 
   if (!token) {
