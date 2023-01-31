@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { Box, Textarea } from '@onekeyhq/components';
+import { Box } from '@onekeyhq/components';
 
 import { useDebounce } from '../../../hooks';
+import { TextareaWithLineNumber } from '../TextareaWithLineNumber';
 import { decodeReceiver, encodeReceiver } from '../utils';
 
 import { ReceiverErrors } from './ReceiverErrors';
@@ -30,10 +31,9 @@ function ReceiverEditor(props: Props) {
 
   return (
     <Box>
-      <Textarea
-        value={receiverString}
-        h="240px"
-        onChangeText={(text) => setReceiverString(text)}
+      <TextareaWithLineNumber
+        receiverString={receiverString}
+        setReceiverString={setReceiverString}
       />
       <Box mt={3}>
         <ReceiverErrors errors={receiverErrors} />

@@ -32,6 +32,14 @@ export type BulkSenderRoutesParams = {
 export type TokenReceiver = {
   Address: string;
   Amount: string;
+  LinerNumber?: number;
+};
+
+export type NFTReceiver = {
+  Address: string;
+  Amount: string;
+  TokenId: string;
+  LinerNumber?: number;
 };
 
 export type ReceiverError = {

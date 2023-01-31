@@ -100,22 +100,16 @@ function ApprovalSelectorBottomSheetModal({
       title="Approval"
     >
       <Box pb={isVertical ? 6 : 0}>
-        {approvalOptions.map((option) => {
-          console.log(option.title);
-          console.log(isUnlimited);
-          console.log(option.isUnlimited);
-          console.log(isUnlimited === option.isUnlimited);
-          return (
-            <OptionItem
-              key={option.title}
-              isChecked={isUnlimited === option.isUnlimited}
-              title={option.title}
-              content={option.content}
-              isUnlimited={option.isUnlimited}
-              onSelected={handleSelectApproval}
-            />
-          );
-        })}
+        {approvalOptions.map((option) => (
+          <OptionItem
+            key={option.title}
+            isChecked={isUnlimited === option.isUnlimited}
+            title={option.title}
+            content={option.content}
+            isUnlimited={option.isUnlimited}
+            onSelected={handleSelectApproval}
+          />
+        ))}
         <Button type="primary" size="xl" mt={6} onPress={closeOverlay}>
           {intl.formatMessage({ id: 'action__done' })}
         </Button>

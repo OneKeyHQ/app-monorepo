@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Icon, Text, Textarea } from '@onekeyhq/components';
+import { Box, Center, Icon, Text } from '@onekeyhq/components';
 
 import { useDebounce } from '../../../hooks';
 import { useDropUpload } from '../hooks';
+import { TextareaWithLineNumber } from '../TextareaWithLineNumber';
 import { TokenReceiverEnum } from '../types';
 import { decodeReceiver, encodeReceiver } from '../utils';
 
@@ -58,13 +59,15 @@ function ReceiverEditor(props: Props) {
 
   return (
     <Box>
-      <div style={{ width: '100%', height: '100%' }} {...getRootProps()}>
-        <Textarea
-          value={receiverString}
-          h="240px"
-          // @ts-ignore
-          onChange={(e) => setReceiverString(e.currentTarget.value)}
+      <div
+        style={{ width: '100%', height: '100%', position: 'relative' }}
+        {...getRootProps()}
+      >
+        <TextareaWithLineNumber
+          receiverString={receiverString}
+          setReceiverString={setReceiverString}
         />
+
         {isDragAccept && (
           <Center
             flex="1"

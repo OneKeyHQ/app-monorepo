@@ -18,6 +18,14 @@ export function encodeReceiver(receiver: TokenReceiver[]): string {
   );
 }
 
+export function encodeReceiverWithLineNumber(receiverString: string): string {
+  const lines = receiverString.split('\n');
+  const linesWithNumber = lines.map(
+    (line, index) => `${index + 1}${new Array(line.length + 3).join(' ')}`,
+  );
+  return linesWithNumber.join('\n');
+}
+
 export function decodeReceiver<T>(
   receiverString: string,
   type: BulkSenderTypeEnum,
