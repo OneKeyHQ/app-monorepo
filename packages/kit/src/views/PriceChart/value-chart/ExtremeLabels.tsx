@@ -113,9 +113,6 @@ const ExtremeLabels = memo(
             }}
             width={width}
           >
-            {/* {`${getFiatCodeUnit(
-              selectedFiatMoneySymbol,
-            )}${formatMarketValueForInfo(formatNative(smallestY.y))}`} */}
             <FormatCurrencyNumber value={formatNative(smallestY.y)} />
           </CenteredLabel>
         ) : null}
@@ -128,9 +125,6 @@ const ExtremeLabels = memo(
             }}
             width={width}
           >
-            {/* {`${getFiatCodeUnit(
-              selectedFiatMoneySymbol,
-            )}${formatMarketValueForInfo(formatNative(greatestY.y))}`} */}
             <FormatCurrencyNumber value={formatNative(greatestY.y)} />
           </CenteredLabel>
         ) : null}

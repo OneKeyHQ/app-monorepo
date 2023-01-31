@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 import { memo, useCallback, useEffect } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import { Box } from '@onekeyhq/components';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
@@ -113,11 +111,9 @@ function CardanoProvider() {
         }
 
         case CardanoEvent.dAppGetBalance: {
-          const { balance } = eventParams;
+          const { balances } = eventParams;
           try {
-            const result = await CardanoApi.dAppUtils.getBalance(
-              new BigNumber(balance),
-            );
+            const result = await CardanoApi.dAppUtils.getBalance(balances);
             sendResponse(promiseId, { error: null, result });
           } catch (error) {
             sendResponse(promiseId, { error, result: null });

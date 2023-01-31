@@ -95,6 +95,7 @@ const getValueColumn = (): ColumnItem => ({
   boxProps: {
     textAlign: 'right',
     maxW: '200px',
+    justifyContent: 'flex-end',
   },
 });
 

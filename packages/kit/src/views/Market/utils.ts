@@ -103,15 +103,3 @@ export function formatLocalDate(date?: string, locale?: string) {
   }
   return '';
 }
-
-const fiatUnitMap: Record<string, string> = {
-  'usd': '$',
-  'cny': '￥',
-  'hkd': '$',
-  'jpy': '￥',
-  'btc': '₿',
-};
-
-export function getFiatCodeUnit(currentCode: string) {
-  return fiatUnitMap[currentCode] ?? fiatUnitMap.usd;
-}

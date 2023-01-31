@@ -45,14 +45,11 @@ export class PriceController {
     return result;
   }
 
-  async getFiats(fiats: Array<string>): Promise<Record<string, BigNumber>> {
-    const ret: Record<string, BigNumber> = { 'usd': new BigNumber('1') };
-    let rates: Record<string, { value: number }>;
-    const params = { 'vs_currencies': fiats.join(',') };
+  async getFiats(): Promise<Record<string, Record<string, any>>> {
+    let rates: Record<string, Record<string, any>>;
     try {
-      rates = await this.fetchApi<Record<string, { value: number }>>(
+      rates = await this.fetchApi<Record<string, Record<string, any>>>(
         '/exchange_rates/vs_currencies',
-        params,
       );
     } catch (e) {
       return Promise.reject(new Error('Failed to get fiat rates.'));
@@ -61,19 +58,7 @@ export class PriceController {
     if (typeof rates.usd === 'undefined') {
       return Promise.reject(new Error('Failed to get fiat rates.'));
     }
-
-    const btcToUsd = new BigNumber(rates.usd.value);
-    ret.btc = new BigNumber(1).div(btcToUsd);
-    fiats.forEach((fiat) => {
-      if (
-        fiat !== 'usd' &&
-        fiat !== 'btc' &&
-        typeof rates[fiat] !== 'undefined'
-      ) {
-        ret[fiat] = new BigNumber(rates[fiat].value).div(btcToUsd);
-      }
-    });
-    return ret;
+    return rates;
   }
 
   async getCgkTokensChart({

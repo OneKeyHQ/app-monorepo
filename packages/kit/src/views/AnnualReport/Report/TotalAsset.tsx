@@ -30,7 +30,7 @@ const TotalAsset: FC<PageProps> = ({
     [tokens, nftValue],
   );
 
-  const btcPrice = useAppSelector((s) => s.fiatMoney?.map?.btc ?? 0);
+  const btcPrice = useAppSelector((s) => s.fiatMoney?.map?.btc?.value ?? 0);
 
   const hasNoAsset = useMemo(() => totalValue.isEqualTo(0), [totalValue]);
 
