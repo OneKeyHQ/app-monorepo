@@ -4,6 +4,7 @@ import {
   Box,
   Center,
   Image,
+  Token as TokenDisplay,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -38,7 +39,7 @@ export const TokenInput: FC<TokenInputProps> = ({
       maxW="full"
     >
       <Box position="relative">
-        <Image w="6" h="6" src={token?.logoURI} borderRadius="full" />
+        <TokenDisplay size={6} borderRadius="full" token={token} />
         {network ? (
           <Box position="absolute" top={-4} right={-4}>
             <Center w="4" h="4" borderRadius="full" bg="background-default">
