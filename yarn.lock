@@ -5147,10 +5147,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.38":
-  version: 1.6.38
-  resolution: "@onekeyfe/network-list@npm:1.6.38"
-  checksum: 0ef7aea04d661fac69c70d28b164cf13f51fd3eaab2f7546c97e3301e6c17fc3c8d463ee338981c340e132291e9fd29b2cdf179de2d071550551562259ca9ab7
+"@onekeyfe/network-list@npm:1.6.40":
+  version: 1.6.40
+  resolution: "@onekeyfe/network-list@npm:1.6.40"
+  checksum: ac11bfde8236b1914e033b439c49d6a243d75cfe469640a5f71d40fe1f347dfda9aaf5d77f9df80e19a688b0361c0ab1305c312acd7f25b9f6648648255ecf99
   languageName: node
   linkType: hard
 
@@ -5350,7 +5350,7 @@ __metadata:
     "@onekeyfe/hd-transport": 0.2.24
     "@onekeyfe/hd-web-sdk": 0.2.24
     "@onekeyfe/js-sdk": 1.1.5
-    "@onekeyfe/network-list": 1.6.38
+    "@onekeyfe/network-list": 1.6.40
     "@onekeyfe/onekey-cross-webview": 1.1.19
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
     "@starcoin/starcoin": 2.1.5
@@ -18158,9 +18158,9 @@ colour@latest:
   linkType: hard
 
 "fuse.js@npm:^6.5.3":
-  version: 6.5.3
-  resolution: "fuse.js@npm:6.5.3"
-  checksum: f7c14f4422000e7f7e3515c66f7cefdfc38adec4cf380097f4146a201ea438af60b67dc5849b3c0de0115ce3f9bc5afad6fc6570c08dcfcef5bf6e95eb8e6d6f
+  version: 6.6.2
+  resolution: "fuse.js@npm:6.6.2"
+  checksum: 17ae758ce205276ebd88bd9c9f088a100be0b4896abac9f6b09847151269d1690f41d7f98ff5813d4a58973162dbd99d0072ce807020fee6f9de60170f6b08eb
   languageName: node
   linkType: hard
 

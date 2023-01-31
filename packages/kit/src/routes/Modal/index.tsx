@@ -78,6 +78,10 @@ const AnnualReportModal = createLazyComponent(() => import('./AnnualReport'));
 
 const OverviewModal = createLazyComponent(() => import('./Overview'));
 
+const CurrencySelectModal = createLazyComponent(
+  () => import('./CurrencySelect'),
+);
+
 export enum ModalNavigatorRoutes {
   ReceiveTokenNavigator = 'ReceiveTokenNavigator',
   SendNavigator = 'SendNavigator',
@@ -224,6 +228,7 @@ const modalStackScreenList = [
     name: ModalRoutes.AnnualReport,
     component: AnnualReportModal,
   },
+  { name: ModalRoutes.CurrencySelect, component: CurrencySelectModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
