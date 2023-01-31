@@ -64,7 +64,6 @@ const ThirdPartyWallet = () => {
             }
           }}
           walletListsCallback={(dataSource) => {
-            console.log('dataSource: ', dataSource);
             setShowPlaceholder(
               !!platformEnv.isNativeIOS && dataSource.length === 0,
             );
