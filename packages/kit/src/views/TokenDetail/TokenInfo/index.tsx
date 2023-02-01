@@ -51,7 +51,12 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { sellEnable, balances, cryptoCurrency, amount } = useMoonpaySell(
     network?.id,
-    token,
+    token
+      ? {
+          ...token,
+          sendAddress,
+        }
+      : undefined,
   );
 
   const renderAccountAmountInfo = useMemo(
