@@ -428,19 +428,6 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     [intl],
   );
 
-  const openLinkUrl = useCallback((url: string) => {
-    if (platformEnv.isNative) {
-      Linking.openURL(url);
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
-
-  const onOpenTx = useCallback(() => {
-    const url = buildTransactionDetailsUrl(network, tx.hash);
-    openLinkUrl(url);
-  }, [openLinkUrl, network, tx.hash]);
-
   const onPress = useCallback(() => {
     if (from && to && fromNetwork && toNetwork) {
       backgroundApiProxy.serviceSwap.setInputToken(from.token);
@@ -554,15 +541,15 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           </Typography.Caption>
         </TransactionField>
         <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>
-          <Pressable flexDirection="row" alignItems="center" onPress={onOpenTx}>
+          <Pressable
+            flexDirection="row"
+            alignItems="center"
+            onPress={() => onCopy(tx.hash)}
+          >
             <Typography.Caption color="text-subdued" mr="1">
               {shortenAddress(tx.hash)}
             </Typography.Caption>
-            <Icon
-              name="ArrowTopRightOnSquareOutline"
-              color="icon-subdued"
-              size={16}
-            />
+            <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
           </Pressable>
         </TransactionField>
         {swftcOrderId ? (

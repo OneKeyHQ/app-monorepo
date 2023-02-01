@@ -27,6 +27,7 @@ const ManagerWalletLocalValidationView: FC = () => {
   type PasswordViewProps = {
     password: string;
   };
+  // eslint-disable-next-line
   const PasswordView: FC<PasswordViewProps> = ({ password }) => {
     useEffect(() => {
       if (!password) return;
