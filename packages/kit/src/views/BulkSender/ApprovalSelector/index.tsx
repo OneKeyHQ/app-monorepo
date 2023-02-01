@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   BottomSheetModal,
   Box,
   Button,
@@ -15,19 +16,24 @@ import {
 
 import * as overlayUtils from '../../../utils/overlayUtils';
 
+type ApprovalOption = {
+  title: string;
+  subtitle?: string;
+  content: string;
+  isUnlimited: boolean;
+};
+
 function OptionItem({
-  title,
-  content,
+  option,
   isChecked,
-  isUnlimited,
   onSelected,
 }: {
-  title: string;
-  content: string;
+  option: ApprovalOption;
   isChecked: boolean;
-  isUnlimited: boolean;
   onSelected: (isUnlimited: boolean) => void;
 }) {
+  const { title, subtitle, content, isUnlimited } = option;
+
   return (
     <Pressable
       borderRadius={12}
@@ -45,7 +51,14 @@ function OptionItem({
     >
       <HStack space={4} alignItems="center">
         <Box flex={1}>
-          <Text typography="Body1Strong">{title}</Text>
+          {subtitle ? (
+            <HStack space={2}>
+              <Text typography="Body1Strong">{title}</Text>
+              <Badge title={subtitle} size="sm" />
+            </HStack>
+          ) : (
+            <Text typography="Body1Strong">{title}</Text>
+          )}
           <Text typography="Body2" color="text-subdued">
             {content}
           </Text>
@@ -70,17 +83,20 @@ function ApprovalSelectorBottomSheetModal({
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
 
-  const approvalOptions = [
+  const approvalOptions: ApprovalOption[] = [
     {
-      title: 'Amount of Token to Send',
-      content:
-        'Approve the amount of tokens to send. You will need to approve a new allowance again in the future.',
+      title: intl.formatMessage({ id: 'form__exact_amount' }),
+      subtitle: intl.formatMessage({ id: 'content__safer' }),
+      content: intl.formatMessage({
+        id: 'content__approve_the_amount_to_tokens_to_be_sent',
+      }),
       isUnlimited: false,
     },
     {
-      title: 'Unlimited',
-      content:
-        'You don’t need to approve again in the future which means will save you some gas.',
+      title: intl.formatMessage({ id: 'form__unlimited' }),
+      content: intl.formatMessage({
+        id: 'content__you_dont_need _to_approve_again_in_the_future',
+      }),
       isUnlimited: true,
     },
   ];
@@ -104,9 +120,7 @@ function ApprovalSelectorBottomSheetModal({
           <OptionItem
             key={option.title}
             isChecked={isUnlimited === option.isUnlimited}
-            title={option.title}
-            content={option.content}
-            isUnlimited={option.isUnlimited}
+            option={option}
             onSelected={handleSelectApproval}
           />
         ))}

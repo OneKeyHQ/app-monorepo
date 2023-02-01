@@ -41,6 +41,8 @@ function TokenInfoBlock({
 function BatchSendTokenInfo(props: Props) {
   const { accountId, networkId, payloadInfo } = props;
 
+  const intl = useIntl();
+
   const transferInfos = payloadInfo?.transferInfos ?? [];
   const transferInfo = transferInfos[0];
   const tokenIdOnNetwork = transferInfo.token ?? '';
@@ -72,22 +74,25 @@ function BatchSendTokenInfo(props: Props) {
     >
       <HStack paddingY={4} space={2}>
         <TokenInfoBlock
-          title="Address Count"
+          title={intl.formatMessage({ id: 'form__address_count' })}
           content={Array.from(addresses).length.toString()}
         />
         <TokenInfoBlock
-          title="Transfer Amount"
+          title={intl.formatMessage({ id: 'form__transfer_amount' })}
           content={`${amountBN.toFixed()} ${token?.symbol ?? ''}`}
         />
       </HStack>
       <Divider />
       <HStack paddingY={4} space={2}>
         <TokenInfoBlock
-          title="Token Balance"
+          title={intl.formatMessage({ id: 'form__token_balance' })}
           content={`${tokenBalance ?? 0} ${token?.symbol ?? ''}`}
         />
         <TokenInfoBlock
-          title="Native Balance"
+          title={intl.formatMessage(
+            { id: 'form__str_balance' },
+            { symbol: nativeToken?.symbol },
+          )}
           content={`${nativeTokenBalance ?? 0} ${nativeToken?.symbol ?? ''}`}
         />
       </HStack>

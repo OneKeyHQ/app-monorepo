@@ -38,6 +38,8 @@ function BulkSender() {
     useActiveWalletAccount();
 
   const isSupported =
+    !network?.isTestnet &&
+    network?.enabled &&
     network?.settings.supportBatchTransfer &&
     (network.impl !== IMPL_EVM ||
       (network.impl === IMPL_EVM && batchTransferContractAddress[network.id]));
@@ -96,7 +98,7 @@ function BulkSender() {
     });
   }, [navigation, headerLeft, headerRight]);
 
-  if (!isSupported) return <NotSupported />;
+  if (!isSupported) return <NotSupported networkId={networkId} />;
 
   return (
     <Tabs.Container

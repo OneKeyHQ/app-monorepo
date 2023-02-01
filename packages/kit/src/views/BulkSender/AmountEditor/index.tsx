@@ -51,7 +51,9 @@ function AmountEditorBottomSheetModal({
       title={intl.formatMessage({ id: 'action__edit_amount' })}
     >
       <Text typography="Body1" color="text-subdued" textAlign="center">
-        {intl.formatMessage({ id: 'modal__reset_app_desc' })}
+        {intl.formatMessage({
+          id: 'content__this_will_be_applied_to_all_receiver_address_in_the_input',
+        })}
       </Text>
       <Box mt={5}>
         <Input
@@ -73,7 +75,7 @@ function AmountEditorBottomSheetModal({
             color="icon-warning"
           />
           <Text typography="Caption" color="text-warning">
-            {intl.formatMessage({ id: 'action__cancel' })}
+            {intl.formatMessage({ id: 'msg__enter_a_number' })}
           </Text>
         </HStack>
       </Box>

@@ -329,9 +329,11 @@ function TokenOutbox(props: Props) {
                 leftIconName="CurrencyDollarSolid"
                 onPress={handleOpenApprovalSelector}
               >
-                <Text>
-                  Approval: {isUnlimited ? 'Unlimited' : 'Exact Amount'}
-                </Text>
+                {intl.formatMessage({
+                  id: isUnlimited
+                    ? 'action__approval_unlimited'
+                    : 'action__approval_exact_amount',
+                })}
               </Button>
             )}
           </HStack>

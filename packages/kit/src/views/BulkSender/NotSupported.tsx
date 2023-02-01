@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Center,
@@ -14,24 +16,27 @@ import type { INetwork } from '@onekeyhq/engine/src/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useManageNetworks } from '../../hooks';
+import { useManageNetworks, useNetwork } from '../../hooks';
 
-function NotSupported() {
+function NotSupported({ networkId }: { networkId: string }) {
   const { allNetworks } = useManageNetworks();
+  const { network } = useNetwork({ networkId });
   const { serviceNetwork } = backgroundApiProxy;
+  const intl = useIntl();
 
   const networkSupported = allNetworks.filter(
-    (network) =>
-      network?.settings.supportBatchTransfer &&
-      (network.impl !== IMPL_EVM ||
-        (network.impl === IMPL_EVM &&
-          batchTransferContractAddress[network.id])),
+    (n) =>
+      !n.isTestnet &&
+      n.enabled &&
+      n?.settings.supportBatchTransfer &&
+      (n.impl !== IMPL_EVM ||
+        (n.impl === IMPL_EVM && batchTransferContractAddress[n.id])),
   );
 
   const handleSelecteNetwork = useCallback(
-    (network: INetwork) => {
-      if (!network.enabled) return;
-      serviceNetwork.changeActiveNetwork(network.id);
+    (n: INetwork) => {
+      if (!n.enabled) return;
+      serviceNetwork.changeActiveNetwork(n.id);
     },
     [serviceNetwork],
   );
@@ -43,21 +48,30 @@ function NotSupported() {
           🤷‍♀️
         </Text>
         <Text typography="DisplayMedium" mt={3} textAlign="center">
-          Aptos is not supported yet
+          {intl.formatMessage(
+            {
+              id: 'title__str_network_is_not_supported_yet',
+            },
+            {
+              chain: network?.name,
+            },
+          )}
         </Text>
         <Text typography="Body1" color="text-subdued" mt={2} textAlign="center">
-          Choose a supported network.
+          {intl.formatMessage({
+            id: 'content__choose_a_supported_network',
+          })}
         </Text>
         <HStack space={2} mt={6} flexWrap="wrap" justifyContent="center">
-          {networkSupported.map((network) => (
-            <Tooltip key={network.id} label={network?.name} placement="top">
-              <Pressable onPress={() => handleSelecteNetwork(network)}>
-                <Box mb={3} opacity={network.enabled ? 1 : 0.7}>
+          {networkSupported.map((n) => (
+            <Tooltip key={n.id} label={n?.name} placement="top">
+              <Pressable onPress={() => handleSelecteNetwork(n)}>
+                <Box mb={3}>
                   <Token
                     position="relative"
                     mb={3}
                     size={8}
-                    token={{ logoURI: network?.logoURI }}
+                    token={{ logoURI: n?.logoURI }}
                   />
                 </Box>
               </Pressable>
