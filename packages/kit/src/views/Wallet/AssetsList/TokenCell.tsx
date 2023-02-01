@@ -58,7 +58,10 @@ const TokenCell: FC<TokenCellProps> = ({
   const balance = useTokenBalance({
     accountId,
     networkId,
-    token,
+    token: {
+      ...token,
+      ...tokenItem,
+    },
     fallback: '0',
   });
   const { network } = useActiveSideAccount({ accountId, networkId });

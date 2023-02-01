@@ -131,6 +131,35 @@ export const ControllerBarMobile: FC = () => {
     </Animated.View>
   );
 
+  const onPress = useCallback(() => {
+    showOverlay((closeOverlay) => (
+      <OverlayPanel
+        closeOverlay={closeOverlay}
+        modalProps={{ headerShown: false }}
+      >
+        <PressableItem
+          flexDirection="row"
+          alignItems="center"
+          py={{ base: '12px', sm: '8px' }}
+          px={{ base: '16px', sm: '8px' }}
+          bg="transparent"
+          borderRadius="12px"
+          onPress={() => {
+            closeOverlay();
+            dispatch(closeAllWebTabs());
+          }}
+        >
+          <Icon color="text-critical" size={24} name="XMarkMini" />
+          <Typography.Body1Strong ml="12px" color="text-critical">
+            {intl.formatMessage({
+              id: 'action__close_all_tabs',
+            })}
+          </Typography.Body1Strong>
+        </PressableItem>
+      </OverlayPanel>
+    ));
+  }, [dispatch, intl]);
+
   const tabController = (
     <Animated.View
       style={[
@@ -162,39 +191,7 @@ export const ControllerBarMobile: FC = () => {
         iconSize={26}
         name="PlusCircleMini"
       />
-      <IconButton
-        name="TrashOutline"
-        flex={1}
-        type="plain"
-        onPress={() => {
-          showOverlay((closeOverlay) => (
-            <OverlayPanel
-              closeOverlay={closeOverlay}
-              modalProps={{ headerShown: false }}
-            >
-              <PressableItem
-                flexDirection="row"
-                alignItems="center"
-                py={{ base: '12px', sm: '8px' }}
-                px={{ base: '16px', sm: '8px' }}
-                bg="transparent"
-                borderRadius="12px"
-                onPress={() => {
-                  closeOverlay();
-                  dispatch(closeAllWebTabs());
-                }}
-              >
-                <Icon color="text-critical" size={24} name="XMarkMini" />
-                <Typography.Body1Strong ml="12px" color="text-critical">
-                  {intl.formatMessage({
-                    id: 'action__close_all_tabs',
-                  })}
-                </Typography.Body1Strong>
-              </PressableItem>
-            </OverlayPanel>
-          ));
-        }}
-      />
+      <IconButton name="TrashOutline" flex={1} type="plain" onPress={onPress} />
     </Animated.View>
   );
   return (

@@ -225,12 +225,7 @@ const TokenInput: FC<TokenInputProps> = ({
           mt="1"
         >
           <Pressable
-            onPress={() => {
-              if (isDisabled) {
-                return;
-              }
-              onPress?.();
-            }}
+            onPress={onPress}
             flexDirection="row"
             alignItems="center"
             _hover={{ bg: 'surface-hovered' }}

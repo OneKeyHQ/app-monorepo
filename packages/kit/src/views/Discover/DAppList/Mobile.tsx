@@ -25,6 +25,8 @@ const styles = StyleSheet.create({
   },
 });
 
+const ItemSeparatorComponentH8 = () => <Box h="8" />;
+
 const EmptySkeleton = () => (
   <FlatList
     contentContainerStyle={styles.container}
@@ -46,7 +48,7 @@ const EmptySkeleton = () => (
     )}
     showsVerticalScrollIndicator={false}
     keyExtractor={(item) => String(item)}
-    ItemSeparatorComponent={() => <Box h="8" />}
+    ItemSeparatorComponent={ItemSeparatorComponentH8}
   />
 );
 

@@ -121,24 +121,26 @@ type EmptySkeletonProps = {
   offset?: number;
 };
 
+const ListHeaderComponent = () => (
+  <FlatList
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{
+      paddingHorizontal: 16,
+      marginBottom: 16,
+    }}
+    data={[1, 2, 3]}
+    renderItem={() => (
+      <Box h="7" w="12" borderRadius={12} mr={3} overflow="hidden">
+        <CustomSkeleton />
+      </Box>
+    )}
+  />
+);
+
 export const EmptySkeleton: FC<EmptySkeletonProps> = ({ offset }) => (
   <EmptySkeletonContent
     offset={offset}
-    ListHeaderComponent={() => (
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          marginBottom: 16,
-        }}
-        data={[1, 2, 3]}
-        renderItem={() => (
-          <Box h="7" w="12" borderRadius={12} mr={3} overflow="hidden">
-            <CustomSkeleton />
-          </Box>
-        )}
-      />
-    )}
+    ListHeaderComponent={ListHeaderComponent}
   />
 );

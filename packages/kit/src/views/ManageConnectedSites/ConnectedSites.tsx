@@ -233,6 +233,17 @@ export default function ConnectedSites() {
     ),
     [openDeleteDialog, parsedConnections?.length],
   );
+
+  const ListHeaderComponent = useCallback(
+    () => (
+      <ConnectedSitesHeader
+        connections={connections}
+        onDisConnectWalletConnected={openDeleteDialog}
+        onAddConnectSite={openAddDialog}
+      />
+    ),
+    [connections, openDeleteDialog, openAddDialog],
+  );
   return (
     <Modal
       hidePrimaryAction
@@ -243,13 +254,7 @@ export default function ConnectedSites() {
       footer={null}
       flatListProps={{
         // use function to avoid Header re-render
-        ListHeaderComponent: () => (
-          <ConnectedSitesHeader
-            connections={connections}
-            onDisConnectWalletConnected={openDeleteDialog}
-            onAddConnectSite={openAddDialog}
-          />
-        ),
+        ListHeaderComponent,
         data: parsedConnections,
         // @ts-ignore
         renderItem,
