@@ -42,6 +42,7 @@ import { useEvmAccount } from './hooks';
 
 import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -97,7 +98,7 @@ const AnnualLoading: FC = () => {
 
     return accountTokens
       .map((t) => {
-        const { balance } = balances[t.tokenIdOnNetwork || 'main'] || {
+        const { balance } = balances[getBalanceKey(t)] || {
           balance: '0',
         };
         const price =
