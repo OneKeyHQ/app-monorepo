@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { ToastManager } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import {
@@ -229,7 +230,7 @@ export const useMoonpaySell = (networkId?: string, token?: Token | null) => {
     );
   });
   const balances = useAccountTokensBalance(networkId, accountId);
-  const { balance: amount } = balances[token?.tokenIdOnNetwork || 'main'] ?? {
+  const { balance: amount } = balances[getBalanceKey(token)] ?? {
     balance: '0',
   };
   if (cryptoCurrency) {
