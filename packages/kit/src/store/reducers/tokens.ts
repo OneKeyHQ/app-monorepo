@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { merge, uniqWith } from 'lodash';
+import { uniqBy } from 'lodash';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -89,17 +89,19 @@ export const tokensSlice = createSlice({
       if (!state.accountTokens[activeNetworkId]) {
         state.accountTokens[activeNetworkId] = {};
       }
-      state.accountTokens[activeNetworkId][activeAccountId] = uniqWith(
-        tokens,
-        (a, b) => {
-          if (!a.sendAddress || !b.sendAddress) {
-            return a.address === b.address;
+      state.accountTokens[activeNetworkId][activeAccountId] = uniqBy(
+        tokens.filter((t, _i, arr) => {
+          if (
+            !t.sendAddress &&
+            arr.some(
+              (token) => token.sendAddress && token.address === t.address,
+            )
+          ) {
+            return false;
           }
-          return (
-            `${a.tokenIdOnNetwork}--${a.sendAddress ?? ''}` ===
-            `${b.tokenIdOnNetwork}--${b.sendAddress ?? ''}`
-          );
-        },
+          return true;
+        }),
+        (t) => `${t.tokenIdOnNetwork}-${t.sendAddress ?? ''}`,
       );
     },
     setAccountTokensBalances(
