@@ -435,17 +435,14 @@ export default class ServiceToken extends ServiceBase {
 
     const ret: Record<string, TokenBalanceValue> = {};
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
-    if (withMain) {
+    if (withMain && typeof balances[0] !== 'undefined') {
       Object.assign(ret, {
-        main:
-          typeof balances[0] !== 'undefined'
-            ? {
-                balance: balances[0]
-                  .div(new BigNumber(10).pow(network.decimals))
-                  .toFixed(),
-                blockHeight,
-              }
-            : undefined,
+        main: {
+          balance: balances[0]
+            .div(new BigNumber(10).pow(network.decimals))
+            .toFixed(),
+          blockHeight,
+        },
       });
     }
     const balanceList = balances.slice(withMain ? 1 : 0);
