@@ -121,12 +121,10 @@ export const tokensSlice = createSlice({
         balance: '0',
       };
 
-      // use merge() to ignore undefined field updating in tokensBalance
-      state.accountTokensBalance[activeNetworkId][activeAccountId] = merge(
-        {},
-        oldTokensBalance,
-        tokensBalance,
-      );
+      state.accountTokensBalance[activeNetworkId][activeAccountId] = {
+        ...oldTokensBalance,
+        ...tokensBalance,
+      };
     },
   },
 });
