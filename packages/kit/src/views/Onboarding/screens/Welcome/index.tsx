@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
@@ -21,10 +21,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useNavigationActions,
-} from '../../../../hooks';
+import { useNavigationActions } from '../../../../hooks';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,
@@ -67,9 +64,6 @@ const Welcome = () => {
     () => setDisableAnimation(!!route?.params?.disableAnimation),
     [route],
   );
-
-  const { network: activeNetwork } = useActiveWalletAccount();
-  const hardwareDisabled = !activeNetwork?.settings?.hardwareAccountEnabled;
 
   const context = useOnboardingContext();
   const forceVisibleUnfocused = context?.forceVisibleUnfocused;
@@ -119,7 +113,6 @@ const Welcome = () => {
   }, [navigation, resetLayoutAnimation]);
 
   const onPressHardwareWallet = useCallback(() => {
-    if (hardwareDisabled) return;
     setDisableAnimation(true);
     forceVisibleUnfocused?.();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
@@ -146,7 +139,7 @@ const Welcome = () => {
         );
       }, 100);
     }
-  }, [hardwareDisabled, forceVisibleUnfocused, navigation, disableAnimation]);
+  }, [forceVisibleUnfocused, navigation, disableAnimation]);
 
   const onPressThirdPartyWallet = useCallback(() => {
     resetLayoutAnimation();
@@ -216,7 +209,6 @@ const Welcome = () => {
               })}
               onPress={onPressHardwareWallet}
               overflow="hidden"
-              isDisabled={hardwareDisabled}
             >
               <Hidden till="sm">
                 <Box position="absolute" zIndex={-1} right="0" top="0">
