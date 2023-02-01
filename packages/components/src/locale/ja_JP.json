@@ -1630,7 +1630,7 @@
   "msg__password_needs_to_be_the_same": "2回入力したパスワードは一致しなければならない",
   "msg__password_validation": "パスワードは 8 ～ 128 文字でなければならない",
   "msg__polkadot_account_deposit_amount": "預金（新しい口座への最初の送金は預金よりも大きい）",
-  "msg__polkadot_info_keep_account_alive": "閉鎖された場合、住宅ローン未満の口座金額は削除され、閉鎖された場合、住宅ローン未満の口座金額はネットワークによって削除されます。",
+  "msg__polkadot_info_keep_account_alive": "閉鎖された場合、住宅ローン未満の口座金額はネットワークによって削除されます。",
   "msg__polkadot_keep_account_alive": "キープアライブアカウント",
   "msg__price_alert_reached": "🔔プライスアラート！",
   "msg__price_alert_reached_desc": "{0}は目標値の{1}に達しました",

@@ -1630,7 +1630,7 @@
   "msg__password_needs_to_be_the_same": "비밀번호는 두 항목에 대해 동일해야 합니다.",
   "msg__password_validation": "비밀번호는 8~128자 사이여야 합니다.",
   "msg__polkadot_account_deposit_amount": "입금 (새 계좌로의 첫 이체는 입금보다 큽니다)",
-  "msg__polkadot_info_keep_account_alive": "폐쇄되면 모기지보다 적은 계좌 금액이 제거되고, 폐쇄되면 모기지보다 적은 계좌 금액이 네트워크에 의해 제거됩니다.",
+  "msg__polkadot_info_keep_account_alive": "닫히면 모기지보다 적은 계정 금액이 네트워크에 의해 제거됩니다.",
   "msg__polkadot_keep_account_alive": "계정 유지",
   "msg__price_alert_reached": "🔔 가격 알림!",
   "msg__price_alert_reached_desc": "{0} 이(가) 목표 값인 {1} 에 도달했습니다.",
