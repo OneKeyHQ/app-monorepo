@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Ed25519PublicKey, JsonRpcProvider } from '@mysten/sui.js';
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SUI as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';

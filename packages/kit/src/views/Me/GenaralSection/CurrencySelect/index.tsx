@@ -285,7 +285,7 @@ const CurrencySelectModal: FC = () => {
         <SectionList
           flex={1}
           py={1}
-          contentContainerStyle={{ flex: 1, paddingBottom: bottom }}
+          contentContainerStyle={{ paddingBottom: bottom }}
           sections={terms.length > 0 ? searchList : ratesSectionList}
           renderItem={renderItem}
           ListHeaderComponent={terms.length > 0 ? null : headerComponent}

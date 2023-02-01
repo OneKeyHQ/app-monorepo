@@ -320,7 +320,7 @@ class ServiceApp extends ServiceBase {
         activeNetworkId,
       }),
     );
-
+    serviceBootstrap.fetchFiatMoneyRate();
     serviceBootstrap.switchDefaultRpcToOnekeyRpcNode();
     serviceOnboarding.checkOnboardingStatus();
     serviceSetting.updateRemoteSetting();
