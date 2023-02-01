@@ -70,8 +70,13 @@ class ServiceHardware extends ServiceBase {
       if (!this.registeredEvents) {
         this.registeredEvents = true;
 
-        const { LOG_EVENT, DEVICE, FIRMWARE, FIRMWARE_EVENT } =
-          await CoreSDKLoader();
+        const {
+          LOG_EVENT,
+          DEVICE,
+          FIRMWARE,
+          FIRMWARE_EVENT,
+          supportInputPinOnSoftware,
+        } = await CoreSDKLoader();
         instance.on('UI_EVENT', (e) => {
           const { type, payload } = e;
 
@@ -79,6 +84,7 @@ class ServiceHardware extends ServiceBase {
             const { device, type: eventType, passphraseState } = payload || {};
             const { deviceType, connectId, deviceId, features } = device || {};
             const { bootloader_mode: bootLoaderMode } = features || {};
+            const inputPinOnSoftware = supportInputPinOnSoftware(features);
 
             this.backgroundApi.dispatch(
               setHardwarePopup({
@@ -90,6 +96,7 @@ class ServiceHardware extends ServiceBase {
                   deviceConnectId: connectId,
                   deviceBootLoaderMode: !!bootLoaderMode,
                   passphraseState,
+                  supportInputPinOnSoftware: inputPinOnSoftware.support,
                 },
               }),
             );
@@ -430,6 +437,12 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getDevicePayload(deviceId: string): Promise<DevicePayload> {
+    return (await this.backgroundApi.engine.getHWDeviceByDeviceId(deviceId))
+      .payload;
+  }
+
+  @backgroundMethod()
   async checkBridge() {
     if (!this._hasUseBridge()) {
       return Promise.resolve(true);
@@ -502,6 +515,14 @@ class ServiceHardware extends ServiceBase {
         await this.updateDevicePayload(deviceId, {
           onDeviceInputPin: true,
         });
+      } else if (deviceId && inputPinOnSoftware.support) {
+        const devicePayload = await this.getDevicePayload(deviceId);
+
+        if (!devicePayload || devicePayload.onDeviceInputPin === undefined) {
+          await this.updateDevicePayload(deviceId, {
+            onDeviceInputPin: false,
+          });
+        }
       }
     } catch {
       // ignore
