@@ -311,6 +311,7 @@ const RecoverAccounts: FC = () => {
     generateCount: 0,
     showPathAndLink: false,
   });
+  const currentPageRef = useRef<number>(config.currentPage);
   const [depDataInit, setDepDataInit] = useState(false);
   const [pendRefreshData, setPendRefreshData] = useState(true);
   const [realGenerateCount, setRealGenerateCount] = useState(Number.MAX_VALUE);
@@ -348,6 +349,10 @@ const RecoverAccounts: FC = () => {
     }
     refreshActiveAccounts();
   }, [network, wallet, obj]);
+
+  useEffect(() => {
+    currentPageRef.current = config.currentPage;
+  }, [config.currentPage]);
 
   useEffect(() => {
     if (!depDataInit) return;
@@ -497,7 +502,7 @@ const RecoverAccounts: FC = () => {
     (selectedAll: boolean) => {
       const newSelectState = new Map(selectState);
 
-      const start = config.currentPage * PAGE_SIZE + config.fromIndex - 1;
+      const start = currentPageRef.current * PAGE_SIZE + config.fromIndex - 1;
       for (let index = start; index < start + PAGE_SIZE; index += 1) {
         const state = newSelectState.get(index);
         if (!!state && !state.isDisabled) {
@@ -510,7 +515,7 @@ const RecoverAccounts: FC = () => {
 
       setSelectState(newSelectState);
     },
-    [config.fromIndex, config.currentPage, selectState],
+    [config.fromIndex, currentPageRef, selectState],
   );
 
   useEffect(() => {
