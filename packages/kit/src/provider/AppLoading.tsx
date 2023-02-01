@@ -6,7 +6,6 @@ import * as SplashScreen from 'expo-splash-screen';
 // TODO: add .d.ts for react-native-animated-splash-screen
 // @ts-expect-error no .d.ts
 import AnimatedSplash from 'react-native-animated-splash-screen';
-import useSWR from 'swr';
 
 import { Box, useThemeValue } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -98,13 +97,14 @@ AnimatedSplashView.displayName = 'AnimatedSplashView';
 
 const AppLoading: FC = ({ children }) => {
   const [initDataReady, setInitDataReady] = useState(false);
-  useSWR(
-    initDataReady ? 'fiat-money' : null,
-    () => serviceCronJob.getFiatMoney(),
-    {
-      refreshInterval: 5 * 60 * 1000,
-    },
-  );
+  // fiat-money trigger move to init app after endpoint change
+  // useSWR(
+  //   initDataReady ? 'fiat-money' : null,
+  //   () => serviceCronJob.getFiatMoney(),
+  //   {
+  //     refreshInterval: 5 * 60 * 1000,
+  //   },
+  // );
 
   let bgColor: string | undefined = useThemeValue('background-default');
   if (platformEnv.isRuntimeBrowser) {
