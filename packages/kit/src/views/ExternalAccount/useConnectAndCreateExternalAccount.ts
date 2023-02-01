@@ -75,7 +75,7 @@ export function useConnectAndCreateExternalAccount({
   const goToOnboardingConnectWallet = useCallback(
     () =>
       navigation.navigate(RootRoutes.Onboarding, {
-        screen: EOnboardingRoutes.ConnectWallet,
+        screen: EOnboardingRoutes.ThirdPartyWallet,
         params: {
           disableAnimation: true,
           disableOnboardingDone: true,

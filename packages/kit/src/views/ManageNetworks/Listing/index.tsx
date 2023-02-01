@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import type { FC } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -31,29 +34,31 @@ type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
   ManageNetworkRoutes.Listing
 >;
+
+const updateNetworks = debounce(
+  (params: [string, boolean][]) => {
+    backgroundApiProxy.serviceNetwork.updateNetworks(params);
+  },
+  1000,
+  {
+    leading: false,
+    trailing: true,
+  },
+);
+
 const NetworkItem: FC<{
   item: Network;
   onLabelPress?: () => void;
   isDisabled?: boolean;
-}> = ({ item, onLabelPress, isDisabled }) => {
+  onToggle: (item: Network) => void;
+}> = ({ item, onLabelPress, isDisabled, onToggle }) => {
   const [checked, setChecked] = useState(item.enabled);
-  const checking = useRef(false);
   const handleToggle = useCallback(
     (network: Network) => {
-      setChecked(!checked);
-      const { allNetworks } = getManageNetworks();
-      const networkStatus: [string, boolean][] = allNetworks.map(
-        ({ id, enabled }) => {
-          if (id !== network.id) {
-            return [id, enabled];
-          }
-          return [id, !enabled];
-        },
-      );
-
-      backgroundApiProxy.serviceNetwork.updateNetworks(networkStatus);
+      setChecked((v) => !v);
+      onToggle(network);
     },
-    [checked],
+    [onToggle],
   );
   return (
     <ListItem flex={1} onPress={onLabelPress}>
@@ -107,6 +112,10 @@ export const Listing: FC = () => {
     getActiveWalletAccount().network,
   );
 
+  const allNetworkRefList = useRef<[string, boolean][]>(
+    getManageNetworks().allNetworks.map((n) => [n.id, n.enabled]),
+  );
+
   const data = useMemo(
     () =>
       allNetworks.filter(
@@ -123,6 +132,16 @@ export const Listing: FC = () => {
     },
     [navigation],
   );
+
+  const onToggle = useCallback((item: Network) => {
+    allNetworkRefList.current = allNetworkRefList.current.map((n) => {
+      if (n[0] === item.id) {
+        return [n[0], !n[1]];
+      }
+      return n;
+    });
+    updateNetworks(allNetworkRefList.current);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -153,9 +172,10 @@ export const Listing: FC = () => {
         onLabelPress={item.preset ? undefined : () => onPress(item, 'edit')}
         item={item}
         isDisabled={item.id === activeNetwork?.id}
+        onToggle={onToggle}
       />
     ),
-    [activeNetwork, onPress],
+    [activeNetwork, onPress, onToggle],
   );
 
   return (

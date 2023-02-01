@@ -56,6 +56,9 @@ const ListItem: FC<ListItemProps> = ({
     accountId: activeAccountId,
     networkId: activeNetworkId,
   } = useActiveWalletAccount();
+  const activeExternalWalletName = useAppSelector(
+    (s) => s.general.activeExternalWalletName,
+  );
   const isActive = useMemo(
     () =>
       activeWalletId === walletId &&
@@ -101,7 +104,11 @@ const ListItem: FC<ListItemProps> = ({
               : 'transparent'
           }
         >
-          <ExternalAccountImg mr={3} accountId={account?.id} />
+          <ExternalAccountImg
+            mr={3}
+            accountId={account?.id}
+            walletName={isActive ? activeExternalWalletName : null}
+          />
           <Box flex={1} mr={3}>
             <Text typography="Body2Strong" isTruncated numberOfLines={1}>
               {label}

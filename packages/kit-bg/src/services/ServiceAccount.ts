@@ -16,6 +16,7 @@ import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
 import { passwordSet, release } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   changeActiveAccount,
+  changeActiveExternalWalletName,
   setActiveIds,
 } from '@onekeyhq/kit/src/store/reducers/general';
 import {
@@ -112,6 +113,7 @@ class ServiceAccount extends ServiceBase {
       }),
       ...(extraActions || []),
     );
+    this.changeActiveExternalWalletName(walletId, accountId);
     this.notifyAccountsChanged();
   }
 
@@ -1084,6 +1086,27 @@ class ServiceAccount extends ServiceBase {
       accountId,
       walletId: wallet.id,
     });
+  }
+
+  @backgroundMethod()
+  async changeActiveExternalWalletName(
+    walletId: string | null,
+    accountId: string | null,
+  ) {
+    let activeExternalWalletName = null;
+    if (walletId === 'external' && accountId) {
+      const result =
+        await this.backgroundApi.serviceWalletConnect.getWalletConnectSessionOfAccount(
+          {
+            accountId,
+          },
+        );
+      activeExternalWalletName = result.accountInfo?.walletName;
+    }
+
+    this.backgroundApi.dispatch(
+      changeActiveExternalWalletName(activeExternalWalletName ?? ''),
+    );
   }
 }
 

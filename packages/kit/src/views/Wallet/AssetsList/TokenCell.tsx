@@ -58,7 +58,10 @@ const TokenCell: FC<TokenCellProps> = ({
   const balance = useTokenBalance({
     accountId,
     networkId,
-    token,
+    token: {
+      ...token,
+      ...tokenItem,
+    },
     fallback: '0',
   });
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -111,9 +114,12 @@ const TokenCell: FC<TokenCellProps> = ({
 
   const handlePress = useCallback(
     (t: TokenType) => {
-      onPress?.(t);
+      onPress?.({
+        ...t,
+        sendAddress: tokenItem?.sendAddress,
+      });
     },
-    [onPress],
+    [onPress, tokenItem?.sendAddress],
   );
 
   if (!token) {

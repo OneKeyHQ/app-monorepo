@@ -29,7 +29,7 @@ import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import { FormatCurrencyNumber } from '../../../components/Format';
 import {
   useAccountTokens,
-  useAccountUsdValues,
+  useAccountValues,
   useNavigation,
 } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
@@ -101,10 +101,9 @@ const ListHeader: FC<{
     networkId,
     account?.id ?? '',
     true,
-    'usd',
   ).value;
 
-  const accountAllValue = useAccountUsdValues({
+  const accountAllValue = useAccountValues({
     networkId,
     accountId: account?.id ?? '',
   }).value;
@@ -175,11 +174,7 @@ const ListHeader: FC<{
               {accountTokensValue.isNaN() ? (
                 ' '
               ) : (
-                <FormatCurrencyNumber
-                  decimals={2}
-                  value={0}
-                  convertValue={accountTokensValue}
-                />
+                <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
               )}
             </Text>
           </Box>
@@ -197,11 +192,7 @@ const ListHeader: FC<{
             {Number.isNaN(accountTokensValue) ? (
               ' '
             ) : (
-              <FormatCurrencyNumber
-                decimals={2}
-                value={0}
-                convertValue={accountTokensValue}
-              />
+              <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
             )}
           </Text>
         ) : (

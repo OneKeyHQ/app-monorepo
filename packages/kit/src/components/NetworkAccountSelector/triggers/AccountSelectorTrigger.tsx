@@ -1,11 +1,15 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import { useActiveWalletAccount, useNavigationActions } from '../../../hooks';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useNavigationActions,
+} from '../../../hooks';
 import ExternalAccountImg from '../../../views/ExternalAccount/components/ExternalAccountImg';
 
 import { BaseSelectorTrigger } from './BaseSelectorTrigger';
@@ -25,6 +29,10 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
 }) => {
   const { account } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
+  const activeExternalWalletName = useAppSelector(
+    (s) => s.general.activeExternalWalletName,
+  );
+
   const intl = useIntl();
   const activeOption = useMemo(
     () => ({
@@ -44,7 +52,10 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
       icon={
         // eslint-disable-next-line no-nested-ternary
         isVertical ? null : account?.id ? (
-          <ExternalAccountImg accountId={account?.id} />
+          <ExternalAccountImg
+            accountId={account?.id}
+            walletName={activeExternalWalletName}
+          />
         ) : null
       }
       label={activeOption.label}
