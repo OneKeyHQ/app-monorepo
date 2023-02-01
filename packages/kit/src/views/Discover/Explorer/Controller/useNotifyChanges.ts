@@ -9,7 +9,11 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useIsFocusedInTab } from '../../../../hooks/useIsFocusedInTab';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
 import { TabRoutes } from '../../../../routes/routesEnum';
-import { getWebviewWrapperRef } from '../explorerUtils';
+import {
+  getWebviewWrapperRef,
+  pauseDappInteraction,
+  resumeDappInteraction,
+} from '../explorerUtils';
 
 import { useWebTabs } from './useWebTabs';
 
@@ -50,7 +54,14 @@ export const useNotifyChanges = () => {
       return;
     }
     // only enable message for current focused webview
-    jsBridge.globalOnMessageEnabled = isFocusedInDiscoverTab;
+    if (isFocusedInDiscoverTab) {
+      if (platformEnv.isDesktop) {
+        resumeDappInteraction();
+      }
+      // native should resume only if webview is focused
+    } else {
+      pauseDappInteraction();
+    }
     // connect background jsBridge
     backgroundApiProxy.connectBridge(jsBridge);
   }, [webviewRef, isFocusedInDiscoverTab]);

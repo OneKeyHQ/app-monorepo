@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { appSelector } from '../../../store';
+
 import type { DAppItemType, WebSiteHistory } from '../type';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebView } from 'react-native-webview';
-import { appSelector } from '../../../store';
 
 export interface WebSiteType {
   url?: string;
@@ -149,12 +150,48 @@ const getCurrentWebviewRef = () =>
   getWebviewWrapperRef({
     tabId: appSelector((s) => s.webTabs.currentTabId),
   });
+
+const injectToPauseWebsocket = () => {
+  if (globalThis.WebSocket) {
+    // @ts-ignore
+    if (!globalThis.$$wsSend) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      globalThis.$$wsSend = globalThis.WebSocket.prototype.send;
+    }
+    globalThis.WebSocket.prototype.send = () => {};
+  }
+};
+
+const injectToResumeWebsocket = () => {
+  if (
+    globalThis.WebSocket &&
+    // @ts-ignore
+    globalThis.$$wsSend
+  ) {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    globalThis.WebSocket.prototype.send = globalThis.$$wsSend;
+  }
+};
+
 export function pauseDappInteraction() {
   const ref = getCurrentWebviewRef();
   if (ref) {
+    // pause jsbridge interaction
     if (ref.jsBridge) {
-      // pause dapp interaction
       ref.jsBridge.globalOnMessageEnabled = false;
+    }
+    // pause wallet connect websocket
+    if (platformEnv.isNative) {
+      (ref.innerRef as WebView)?.injectJavaScript(
+        `(${injectToPauseWebsocket.toString()})()`,
+      );
+    }
+    if (platformEnv.isDesktop) {
+      (ref.innerRef as IElectronWebView)?.executeJavaScript(
+        `(${injectToPauseWebsocket.toString()})()`,
+      );
     }
   }
 }
@@ -162,9 +199,20 @@ export function pauseDappInteraction() {
 export function resumeDappInteraction() {
   const ref = getCurrentWebviewRef();
   if (ref) {
+    // resume jsbridge interaction
     if (ref.jsBridge) {
-      // resume dapp interaction
       ref.jsBridge.globalOnMessageEnabled = true;
+    }
+    // resume wallet connect websocket
+    if (platformEnv.isNative) {
+      (ref.innerRef as WebView)?.injectJavaScript(
+        `(${injectToResumeWebsocket.toString()})()`,
+      );
+    }
+    if (platformEnv.isDesktop) {
+      (ref.innerRef as IElectronWebView)?.executeJavaScript(
+        `(${injectToResumeWebsocket.toString()})()`,
+      );
     }
   }
 }
