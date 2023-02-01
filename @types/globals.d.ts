@@ -32,6 +32,8 @@ declare global {
   var $$localforage: any;
   var $$navigationActions: any;
   var $$wcTransports: any;
+  var $$onekeyDisabledSetTimeout: boolean | undefined;
+  var $$onekeyDisabledSetInterval: boolean | undefined;
   var $$onekeyPerfTrace:
     | {
         log: (options: { name: string; payload?: any }) => void;
