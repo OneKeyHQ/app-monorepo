@@ -45,6 +45,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const intl = useIntl();
 
   const navigation = useNavigation();
+  const [loading, setLoading] = useState(false);
   const [isSearching, setSearching] = useState(false);
   const [inputDisabled, setInputDisabled] = useState(false);
   const {
@@ -98,7 +99,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
             defaultMessage: 'Token Added',
           }),
         });
-        backgroundApiProxy.serviceToken.fetchTokenBalance({
+        await backgroundApiProxy.serviceToken.fetchAccountTokens({
           activeAccountId: accountId,
           activeNetworkId: $networkId,
         });
@@ -112,33 +113,39 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
 
   const onSubmit = useCallback(
     async (data: AddCustomTokenValues) => {
-      if (activeNetwork && activeAccount) {
-        const $accountId = activeAccount.id;
-        const $networkId = activeNetwork.id;
-        const tokenId = data.address;
+      if (!activeNetwork || !activeAccount) {
+        return;
+      }
+      setLoading(true);
+      const $accountId = activeAccount.id;
+      const $networkId = activeNetwork.id;
+      const tokenId = data.address;
 
-        const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
-          activeNetwork.id,
-        );
-        if (vaultSettings?.activateTokenRequired) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ManageToken,
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+        activeNetwork.id,
+      );
+      if (vaultSettings?.activateTokenRequired) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.ManageToken,
+          params: {
+            screen: ManageTokenRoutes.ActivateToken,
             params: {
-              screen: ManageTokenRoutes.ActivateToken,
-              params: {
-                walletId,
-                accountId: $accountId,
-                networkId: $networkId,
-                tokenId,
-                onSuccess() {
-                  onAddToken($accountId, $networkId, tokenId);
-                },
+              walletId,
+              accountId: $accountId,
+              networkId: $networkId,
+              tokenId,
+              onSuccess() {
+                onAddToken($accountId, $networkId, tokenId).finally(() => {
+                  setLoading(false);
+                });
               },
             },
-          });
-        } else {
-          onAddToken($accountId, $networkId, tokenId);
-        }
+          },
+        });
+      } else {
+        onAddToken($accountId, $networkId, tokenId).finally(() => {
+          setLoading(false);
+        });
       }
     },
     [activeNetwork, activeAccount, navigation, walletId, onAddToken],
@@ -215,8 +222,9 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
       primaryActionProps={{
         type: 'primary',
         isDisabled: !isValid && !isSearching,
-        onPromise: () => handleSubmit(onSubmit)(),
+        isLoading: loading,
       }}
+      onPrimaryActionPress={() => handleSubmit(onSubmit)()}
     >
       <KeyboardDismissView>
         <Form>

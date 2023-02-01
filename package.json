@@ -69,7 +69,7 @@
     "@onekeyfe/hd-transport": "0.2.24",
     "@onekeyfe/hd-web-sdk": "0.2.24",
     "@onekeyfe/js-sdk": "1.1.5",
-    "@onekeyfe/network-list": "1.6.40",
+    "@onekeyfe/network-list": "1.6.41",
     "@onekeyfe/onekey-cross-webview": "1.1.19",
     "@starcoin/starcoin": "2.1.5",
     "@web3-react/core": "8.0.35-beta.0",
