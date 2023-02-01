@@ -30,7 +30,7 @@ export const fiatMoneySlice = createSlice({
       if (!isEqual(state.symbolList, symbolList)) {
         state.symbolList = symbolList;
       }
-      const newMap = merge({}, state.map, action.payload);
+      const newMap = { ...action.payload };
       if (!isEqual(state.map, newMap)) {
         state.map = newMap;
       }
