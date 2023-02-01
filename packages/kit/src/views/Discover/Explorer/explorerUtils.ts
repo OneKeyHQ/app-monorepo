@@ -152,26 +152,26 @@ const getCurrentWebviewRef = () =>
   });
 
 const injectToPauseWebsocket = () => {
-  if (globalThis.WebSocket) {
+  if (window.WebSocket) {
     // @ts-ignore
-    if (!globalThis.$$wsSend) {
+    if (!window.$$onekeyWebSocketSend) {
       // @ts-ignore
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      globalThis.$$wsSend = globalThis.WebSocket.prototype.send;
+      window.$$onekeyWebSocketSend = window.WebSocket.prototype.send;
     }
-    globalThis.WebSocket.prototype.send = () => {};
+    window.WebSocket.prototype.send = () => {};
   }
 };
 
 const injectToResumeWebsocket = () => {
   if (
-    globalThis.WebSocket &&
+    window.WebSocket &&
     // @ts-ignore
-    globalThis.$$wsSend
+    window.$$onekeyWebSocketSend
   ) {
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    globalThis.WebSocket.prototype.send = globalThis.$$wsSend;
+    window.WebSocket.prototype.send = window.$$onekeyWebSocketSend;
   }
 };
 
