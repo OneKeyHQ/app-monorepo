@@ -144,14 +144,14 @@ function TokenOutbox(props: Props) {
     let prevNonce;
 
     setIsBuildingTx(true);
-    const tokenAddress =
-      selectedToken?.tokenIdOnNetwork || initialToken?.tokenIdOnNetwork;
+    const token = selectedToken || initialToken;
     for (let i = 0; i < receiver.length; i += 1) {
       transferInfos.push({
         from: accountAddress,
         to: receiver[i].Address,
         amount: receiver[i].Amount,
-        token: tokenAddress,
+        token: token?.tokenIdOnNetwork,
+        sendAddress: token?.sendAddress,
       });
     }
     const encodedApproveTxs =
@@ -206,7 +206,7 @@ function TokenOutbox(props: Props) {
   }, [
     accountAddress,
     accountId,
-    initialToken?.tokenIdOnNetwork,
+    initialToken,
     isBuildingTx,
     isDeflationary,
     isUnlimited,
@@ -216,7 +216,7 @@ function TokenOutbox(props: Props) {
     network?.settings?.supportDeflationary,
     networkId,
     receiver,
-    selectedToken?.tokenIdOnNetwork,
+    selectedToken,
     serviceBatchTransfer,
     type,
   ]);
@@ -321,21 +321,22 @@ function TokenOutbox(props: Props) {
             >
               {intl.formatMessage({ id: 'action__edit_amount' })}
             </Button>
-            {!isNative && (
-              <Button
-                mt={4}
-                type="basic"
-                size="xs"
-                leftIconName="CurrencyDollarSolid"
-                onPress={handleOpenApprovalSelector}
-              >
-                {intl.formatMessage({
-                  id: isUnlimited
-                    ? 'action__approval_unlimited'
-                    : 'action__approval_exact_amount',
-                })}
-              </Button>
-            )}
+            {!isNative &&
+              network?.settings.batchTokenTransferApprovalRequired && (
+                <Button
+                  mt={4}
+                  type="basic"
+                  size="xs"
+                  leftIconName="CurrencyDollarSolid"
+                  onPress={handleOpenApprovalSelector}
+                >
+                  {intl.formatMessage({
+                    id: isUnlimited
+                      ? 'action__approval_unlimited'
+                      : 'action__approval_exact_amount',
+                  })}
+                </Button>
+              )}
           </HStack>
           <Box mt={4}>
             <Button

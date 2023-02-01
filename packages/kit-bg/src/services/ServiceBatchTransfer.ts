@@ -21,7 +21,6 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
-import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -62,8 +61,9 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const { accountId, networkId, transferInfos, isUnlimited } = params;
     const { engine } = this.backgroundApi;
     const network = await engine.getNetwork(networkId);
+    const vaultSettings = await engine.getVaultSettings(networkId);
 
-    if (network.impl === IMPL_SOL) {
+    if (!vaultSettings.batchTokenTransferApprovalRequired) {
       return Promise.resolve([]);
     }
 
@@ -169,13 +169,14 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const { engine } = this.backgroundApi;
     const { networkId, pendingTxs, encodedTx } = params;
     const network = await engine.getNetwork(networkId);
+    const vaultSettings = await engine.getVaultSettings(networkId);
     const { wait } = await CoreSDKLoader();
     let sendTxRetry = 0;
     let refreshPendingTxsRetry = 0;
     if (
       pendingTxs &&
       pendingTxs.length > 0 &&
-      network.impl === IMPL_EVM &&
+      vaultSettings.batchTokenTransferApprovalRequired &&
       (encodedTx as IEncodedTxEvm).to ===
         batchTransferContractAddress[network.id]
     ) {

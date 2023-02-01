@@ -59,7 +59,7 @@ function OptionItem({
           ) : (
             <Text typography="Body1Strong">{title}</Text>
           )}
-          <Text typography="Body2" color="text-subdued">
+          <Text typography="Body2" color="text-subdued" lineHeight="20px">
             {content}
           </Text>
         </Box>
