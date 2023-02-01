@@ -730,9 +730,19 @@ export default class Vault extends VaultBase {
   // Dapp Function
 
   async getBalanceForDapp(address: string) {
-    const [balance] = await this.getBalances([{ address }]);
+    const client = await this.getClient();
+    const stakeAddress = await this.getStakeAddress(address);
+    const promises: (Promise<IAdaAmount> | Promise<IAdaAmount[]>)[] = [
+      client.getBalanceWithLovelace(stakeAddress),
+      client.getAssetsBalances(stakeAddress),
+    ];
+    const [balance, assetsBalance] = await Promise.all(promises);
+    const result = [
+      balance,
+      ...(assetsBalance as IAdaAmount[]),
+    ] as IAdaAmount[];
     const CardanoApi = await getCardanoApi();
-    return CardanoApi.dAppUtils.getBalance(balance ?? new BigNumber(0));
+    return CardanoApi.dAppUtils.getBalance(result);
   }
 
   async getUtxosForDapp(amount?: string) {

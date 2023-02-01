@@ -207,36 +207,37 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override signMessage(messages: IUnsignedMessageEvm[]): Promise<string[]> {
-    throw new NotImplemented();
-    // debugLogger.common.info('signMessage', messages);
-    // const dbAccount = await this.getDbAccount();
-    // const { PROTO } = await CoreSDKLoader();
-    // const { connectId, deviceId } = await this.getHardwareInfo();
-    // const passphraseState = await this.getWalletPassphraseState();
-    // const HardwareSDK = await this.getHardwareSDKInstance();
-    // const result = await Promise.all(
-    //   messages.map(
-    //     // @ts-expect-error
-    //     async ({ payload }: { payload: { addr: string; payload: string } }) => {
-    //       const response = await HardwareSDK.cardanoSignMessage(
-    //         connectId,
-    //         deviceId,
-    //         {
-    //           ...passphraseState,
-    //           path: dbAccount.path,
-    //           networkId: NetworkId.MAINNET,
-    //           derivationType: PROTO.CardanoDerivationType.ICARUS,
-    //           message: payload.payload,
-    //         },
-    //       );
-    //       if (!response.success) {
-    //         throw convertDeviceError(response.payload);
-    //       }
-    //       return response.payload;
-    //     },
-    //   ),
-    // );
-    // return result.map((ret) => JSON.stringify(ret));
+  override async signMessage(
+    messages: IUnsignedMessageEvm[],
+  ): Promise<string[]> {
+    debugLogger.common.info('signMessage', messages);
+    const dbAccount = await this.getDbAccount();
+    const { PROTO } = await CoreSDKLoader();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const result = await Promise.all(
+      messages.map(
+        // @ts-expect-error
+        async ({ payload }: { payload: { addr: string; payload: string } }) => {
+          const response = await HardwareSDK.cardanoSignMessage(
+            connectId,
+            deviceId,
+            {
+              ...passphraseState,
+              path: dbAccount.path,
+              networkId: NetworkId.MAINNET,
+              derivationType: PROTO.CardanoDerivationType.ICARUS,
+              message: payload.payload,
+            },
+          );
+          if (!response.success) {
+            throw convertDeviceError(response.payload);
+          }
+          return response.payload;
+        },
+      ),
+    );
+    return result.map((ret) => JSON.stringify(ret));
   }
 }
