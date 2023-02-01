@@ -56,8 +56,8 @@ import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import timelinePerfTrace, {
   ETimelinePerfNames,
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
-import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -972,14 +972,26 @@ class ServiceAccount extends ServiceBase {
     const { serviceNotification, dispatch, serviceCloudBackup } =
       this.backgroundApi;
 
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.postWalletRemoved,
+      title: 'ServiceAccount.postWalletRemoved >> start =================== ',
+    });
+
     if (activeWalletId && activeWalletId === removedWalletId) {
       // autoChangeWallet if remove current wallet
-      // TODO performance
+      // **** multiple dispatch cause UI reload performance issue
       await this.autoChangeWallet();
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.postWalletRemoved,
+        title: 'ServiceAccount.postWalletRemoved >> autoChangeWallet DONE',
+      });
     } else {
-      // TODO noDispatch
-      // TODO performance
+      // **** multiple dispatch cause UI reload performance issue
       await this.initWallets();
+      timelinePerfTrace.mark({
+        name: ETimelinePerfNames.postWalletRemoved,
+        title: 'ServiceAccount.postWalletRemoved >> initWallets DONE',
+      });
     }
 
     serviceNotification.removeAccountDynamicBatch({
@@ -987,14 +999,30 @@ class ServiceAccount extends ServiceBase {
         .filter((a) => a.coinType === COINTYPE_ETH)
         .map((a) => a.address),
     });
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.postWalletRemoved,
+      title:
+        'ServiceAccount.postWalletRemoved >> removeAccountDynamicBatch DONE',
+    });
 
     if (!removedWalletId.startsWith('hw')) {
-      // TODO noDispatch
+      // **** multiple dispatch cause UI reload performance issue
       serviceCloudBackup.requestBackup();
     }
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.postWalletRemoved,
+      title: 'ServiceAccount.postWalletRemoved >> requestBackup DONE',
+    });
 
-    // TODO delay and batch dispatch
+    // **** multiple dispatch cause UI reload performance issue
     dispatch(setRefreshTS());
+
+    await wait(10);
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.postWalletRemoved,
+      title: 'ServiceAccount.postWalletRemoved >> end',
+    });
+    return null;
   }
 
   @backgroundMethod()

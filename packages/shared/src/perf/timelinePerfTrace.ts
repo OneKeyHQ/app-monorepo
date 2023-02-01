@@ -10,6 +10,7 @@ interface IPerfTimelineItem {
 export enum ETimelinePerfNames {
   createHDWallet = 'createHDWallet',
   removeWallet = 'removeWallet',
+  postWalletRemoved = 'postWalletRemoved',
 }
 
 const MAX_TIMELINE_LEN = 100;
