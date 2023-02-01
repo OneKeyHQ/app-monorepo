@@ -31,6 +31,8 @@ type RouteProps = RouteProp<
   DiscoverModalRoutes.SearchHistoryModal
 >;
 
+const ItemSeparatorComponent = () => <Divider />;
+
 export const SearchModalView: FC = () => {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
@@ -110,7 +112,7 @@ export const SearchModalView: FC = () => {
         data: flatListData,
         // @ts-expect-error
         renderItem,
-        ItemSeparatorComponent: () => <Divider />,
+        ItemSeparatorComponent,
         // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         keyExtractor: (item, index) => `${index}-${item?.id}`,

@@ -247,6 +247,7 @@ function SendConfirm({
       wallet?.type,
       serviceHistory,
       resendActionInfo,
+      networkImpl,
     ],
   );
 

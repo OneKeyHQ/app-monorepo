@@ -104,7 +104,7 @@ const Header: FC<HeaderProps> = ({ keyword, onChange }) => {
       <Searchbar
         w="full"
         placeholder={intl.formatMessage({
-          id: 'form__search_tokens',
+          id: 'content__search_token_or_contract_address',
           defaultMessage: 'Search Tokens',
         })}
         mb="16px"

@@ -2,7 +2,10 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { formatAmount } from '../utils';
+import { useAppSelector } from '../../../hooks';
+import { div, formatAmount, lte, minus, multiply } from '../utils';
+
+import { useTokenPrice } from './useSwapTokenUtils';
 
 import type { TransactionDetails } from '../typings';
 
@@ -30,4 +33,20 @@ export function useSummaryTx() {
     },
     [intl],
   );
+}
+
+export function usePriceImpact() {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const inputPrice = useTokenPrice(inputToken);
+  const outputPrice = useTokenPrice(outputToken);
+  const instantRate = useAppSelector((s) => s.swap.quote?.instantRate);
+  if (outputPrice && inputPrice && instantRate) {
+    const rate = div(inputPrice, outputPrice);
+    if (lte(instantRate, rate)) {
+      const percent = multiply(div(minus(rate, instantRate), rate), 100);
+      return Number(percent);
+    }
+  }
+  return undefined;
 }
