@@ -58,6 +58,8 @@ const defaultNetworkRpcs: Record<string, string> = {
 
 @backgroundClass()
 export default class ServiceBootstrap extends ServiceBase {
+  static fetchFiatTimer: NodeJS.Timeout | null = null;
+
   constructor(props: IServiceBaseProps) {
     super(props);
 
@@ -133,5 +135,15 @@ export default class ServiceBootstrap extends ServiceBase {
     dispatch(
       updateAutoSwitchDefaultRpcAtVersion(AUTO_SWITCH_DEFAULT_RPC_AT_VERSION),
     );
+  }
+
+  @backgroundMethod()
+  fetchFiatMoneyRate() {
+    this.backgroundApi.serviceCronJob.getFiatMoney();
+    if (!ServiceBootstrap.fetchFiatTimer) {
+      ServiceBootstrap.fetchFiatTimer = setInterval(() => {
+        this.backgroundApi.serviceCronJob.getFiatMoney();
+      }, 5 * 60 * 1000);
+    }
   }
 }
