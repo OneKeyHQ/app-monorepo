@@ -143,7 +143,9 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
 
 const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const { networkId, address, limitSize, accountId } = props;
-  const { selectedFiatMoneySymbol } = useAppSelector((s) => s.settings);
+  const selectedFiatMoneySymbol = useAppSelector(
+    (s) => s.settings?.selectedFiatMoneySymbol,
+  );
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
 
@@ -153,8 +155,6 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const defis = useAppSelector(
     (s) => s.overview.defi?.[`${networkId}--${address}`] ?? [],
   );
-
-  const len = useMemo(() => defis.length, [defis]);
 
   const allDefiValues = useMemo(
     () =>
@@ -176,7 +176,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
     });
   }, [navigation, networkId, address]);
 
-  if (!len) {
+  if (!defis.length) {
     return null;
   }
 
@@ -192,7 +192,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
         name="DeFi"
         value={allDefiValues}
         accountAllValue={accountAllValue}
-        itemLength={len}
+        itemLength={defis.length}
         onPress={handlePressHeader}
       />
       {defis.slice(0, limitSize).map((item, idx) => (
