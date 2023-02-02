@@ -23,6 +23,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       onSrcChange,
       receiveHandler,
       onNavigationStateChange,
+      onShouldStartLoadWithRequest,
       nativeWebviewSource,
       nativeInjectedJavaScriptBeforeContentLoaded,
       isSpinnerLoading,
@@ -51,9 +52,15 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
       // setting layer type to software may fix some crashes on android
       // https://github.com/react-native-webview/react-native-webview/issues/1915#issuecomment-880989194
       props.androidLayerType = androidLayerType;
+      props.onShouldStartLoadWithRequest = onShouldStartLoadWithRequest;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return props;
-    }, [androidLayerType, nativeWebviewSource, onOpenWindow]);
+    }, [
+      androidLayerType,
+      nativeWebviewSource,
+      onOpenWindow,
+      onShouldStartLoadWithRequest,
+    ]);
     const nativeInjectedJsCode = useMemo(() => {
       let code: string = injectedNativeCode || '';
       if (nativeInjectedJavaScriptBeforeContentLoaded) {
@@ -124,6 +131,7 @@ const InpageProviderWebView: FC<InpageProviderWebViewProps> = forwardRef(
             }
           }}
           onNavigationStateChange={onNavigationStateChange}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           textInteractionEnabled={undefined}
           minimumFontSize={undefined}
           // allowFileAccessFromFileURLs

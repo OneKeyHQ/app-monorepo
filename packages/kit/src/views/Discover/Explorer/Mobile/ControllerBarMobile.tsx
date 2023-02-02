@@ -131,7 +131,7 @@ export const ControllerBarMobile: FC = () => {
     </Animated.View>
   );
 
-  const onPress = useCallback(() => {
+  const closeAllTabs = useCallback(() => {
     showOverlay((closeOverlay) => (
       <OverlayPanel
         closeOverlay={closeOverlay}
@@ -191,7 +191,12 @@ export const ControllerBarMobile: FC = () => {
         iconSize={26}
         name="PlusCircleMini"
       />
-      <IconButton name="TrashOutline" flex={1} type="plain" onPress={onPress} />
+      <IconButton
+        name="TrashOutline"
+        flex={1}
+        type="plain"
+        onPress={closeAllTabs}
+      />
     </Animated.View>
   );
   return (
