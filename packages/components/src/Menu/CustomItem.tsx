@@ -1,5 +1,5 @@
 /* eslint-disable no-nested-ternary */
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import { Menu } from 'native-base';
 
@@ -16,19 +16,26 @@ interface CustomItemProps extends IMenuItemProps {
   icon?: ICON_NAMES;
   variant?: 'desctructive' | 'highlight';
   isDisabled?: boolean;
+  extraChildren?: ReactNode;
 }
 
 const CustomItem: FC<CustomItemProps> = ({
   children,
   variant,
   isDisabled,
+  extraChildren,
   icon,
+  color,
   ...rest
 }) => (
   <Menu.Item isDisabled={isDisabled} {...rest}>
-    <HStack flex={1} alignItems="center" space={3}>
+    <HStack
+      flex={1}
+      justifyContent="space-between"
+      alignItems="center"
+      space={3}
+    >
       <Text
-        flex={1}
         typography={platformEnv.isNative ? 'Body1' : 'Body2'}
         color={
           variant === 'desctructive'
@@ -57,6 +64,7 @@ const CustomItem: FC<CustomItemProps> = ({
           }
         />
       ) : null}
+      {extraChildren}
     </HStack>
   </Menu.Item>
 );
