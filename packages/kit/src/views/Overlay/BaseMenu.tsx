@@ -1,5 +1,5 @@
-import type { FC, ReactElement } from 'react';
-import { Children, cloneElement } from 'react';
+import type { FC, ReactElement, ReactNode } from 'react';
+import { Children, Fragment, cloneElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,20 +9,25 @@ import { Menu } from '@onekeyhq/components';
 import type { IMenuProps } from 'native-base';
 import type { MessageDescriptor } from 'react-intl';
 
-type IMenuOptions = (
+export type IBaseMenuOptions = (
   | {
       id: MessageDescriptor['id'];
-      intlValues?: Record<string, string>;
+      intlValues?: Record<string | number, string>;
       onPress: () => void;
-      icon: ICON_NAMES;
+      icon?: ICON_NAMES;
+      closeOnSelect?: boolean;
+      extraChildren?: ReactNode;
+      isDisabled?: boolean;
+      variant?: 'desctructive' | 'highlight';
     }
   | false
   | undefined
+  | (() => ReactElement)
 )[];
 
 export type IMenu = Omit<IMenuProps, 'trigger'>;
 interface IBaseMenu extends IMenu {
-  options: IMenuOptions;
+  options: IBaseMenuOptions;
 }
 
 const BaseMenu: FC<IBaseMenu> = ({
@@ -41,10 +46,28 @@ const BaseMenu: FC<IBaseMenu> = ({
       }
       {...rest}
     >
-      {options
-        .filter(Boolean)
-        .map(({ onPress, icon, id, intlValues }, index) => (
-          <Menu.CustomItem key={index} icon={icon} onPress={onPress}>
+      {options.filter(Boolean).map((option, index) => {
+        if (typeof option === 'function') {
+          return <Fragment key={index}>{option()}</Fragment>;
+        }
+        const {
+          onPress,
+          id,
+          intlValues,
+          closeOnSelect = true,
+          ...menuItemProps
+        } = option;
+        return (
+          <Menu.CustomItem
+            key={index}
+            {...menuItemProps}
+            onPress={() => {
+              onPress();
+              if (!closeOnSelect) {
+                return false;
+              }
+            }}
+          >
             {intl.formatMessage(
               {
                 id,
@@ -52,7 +75,8 @@ const BaseMenu: FC<IBaseMenu> = ({
               intlValues,
             )}
           </Menu.CustomItem>
-        ))}
+        );
+      })}
     </Menu>
   );
 };

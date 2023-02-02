@@ -1,7 +1,6 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
-import type { ICON_NAMES } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -9,22 +8,15 @@ import { useAppSelector } from '../../hooks';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
 
 import BaseMenu from './BaseMenu';
+import useUpdateItem from './useUpdateItem';
 
-import type { IMenu } from './BaseMenu';
-import type { MessageDescriptor } from 'react-intl';
+import type { IBaseMenuOptions, IMenu } from './BaseMenu';
 
 const HomeMoreMenu: FC<IMenu> = (props) => {
   const isPasswordSet = useAppSelector((s) => s.data.isPasswordSet);
-  const options: (
-    | {
-        id: MessageDescriptor['id'];
-        onPress: () => void;
-        icon: ICON_NAMES;
-      }
-    | false
-    | undefined
-  )[] = useMemo(
-    () => [
+  const updateItemOptions = useUpdateItem();
+  const options = useMemo(() => {
+    const baseOptions: IBaseMenuOptions = [
       {
         id: 'action__scan',
         onPress: () => gotoScanQrcode(),
@@ -44,9 +36,11 @@ const HomeMoreMenu: FC<IMenu> = (props) => {
         onPress: () => backgroundApiProxy.serviceApp.lock(true),
         icon: 'LockClosedMini',
       },
-    ],
-    [isPasswordSet],
-  );
+    ];
+    return updateItemOptions
+      ? baseOptions.concat(updateItemOptions)
+      : baseOptions;
+  }, [isPasswordSet, updateItemOptions]);
 
   return <BaseMenu options={options} {...props} />;
 };
