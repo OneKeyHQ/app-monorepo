@@ -817,7 +817,7 @@ export default class Vault extends VaultBase {
       transfers.map(({ signature, txHash }) => [
         'getTransaction',
         [
-          txHash || isArray(signature) ? signature && signature[0] : signature,
+          txHash || (isArray(signature) ? signature[0] : signature),
           { encoding: 'base58' },
         ],
       ]),
