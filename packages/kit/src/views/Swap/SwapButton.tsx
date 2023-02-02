@@ -390,7 +390,6 @@ const ExchangeButton = () => {
             },
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
-            skipSaveHistory: true,
             encodedTx: {
               ...encodedApproveTx,
               from: sendingAccount?.address,
