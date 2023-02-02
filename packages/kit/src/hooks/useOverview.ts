@@ -5,7 +5,11 @@ import { useAccount } from '.';
 import B from 'bignumber.js';
 
 import { useAppSelector } from './useAppSelector';
-import { useAccountTokenValues, useNFTPrice } from './useTokens';
+import {
+  useAccountTokenValues,
+  useCurrentFiatValue,
+  useNFTPrice,
+} from './useTokens';
 
 export type OverviewAssetType = 'defis' | 'tokens' | 'nfts';
 
@@ -14,12 +18,9 @@ export const useAccountValues = (props: {
   accountId: string;
 }) => {
   const { networkId, accountId } = props;
-  const { includeNFTsInTotal, selectedFiatMoneySymbol } = useAppSelector(
-    (s) => s.settings,
-  );
+  const { includeNFTsInTotal } = useAppSelector((s) => s.settings);
 
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
+  const fiat = useCurrentFiatValue();
   const { account } = useAccount({
     networkId,
     accountId,
