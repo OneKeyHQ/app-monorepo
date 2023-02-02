@@ -1261,7 +1261,7 @@ class Engine {
     {
       promise: true,
       primitive: true,
-      max: 200,
+      max: 500,
       maxAge: 1000 * 60 * 10,
       normalizer: (args) => JSON.stringify(args),
     },

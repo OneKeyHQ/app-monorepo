@@ -273,3 +273,11 @@ export const useTokenPrice = ({
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
   return prices?.[key] ?? fallback;
 };
+
+export const useCurrentFiatValue = () => {
+  const selectedFiatMoneySymbol = useAppSelector(
+    (s) => s.settings.selectedFiatMoneySymbol,
+  );
+  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  return fiatMap?.[selectedFiatMoneySymbol]?.value || 0;
+};
