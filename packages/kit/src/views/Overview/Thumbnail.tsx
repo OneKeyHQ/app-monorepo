@@ -78,7 +78,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
           />
         )}
         <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-          <FormatCurrencyNumber value={0} convertValue={value} />
+          <FormatCurrencyNumber value={value} />
         </Text>
       </>
     ),
