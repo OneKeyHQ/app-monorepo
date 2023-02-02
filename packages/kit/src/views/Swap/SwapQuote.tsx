@@ -24,9 +24,9 @@ import { ArrivalTime } from './components/ArrivalTime';
 import SwappingVia from './components/SwappingVia';
 import TransactionFee from './components/TransactionFee';
 import TransactionRate from './components/TransactionRate';
-import { useTokenPrice } from './hooks/useSwapTokenUtils';
+import { usePriceImpact } from './hooks/useSwapUtils';
 import { SwapRoutes } from './typings';
-import { div, getTokenAmountValue, lte, minus, multiply } from './utils';
+import { getTokenAmountValue } from './utils';
 
 const SwapArrivalTime = () => {
   const arrivalTime = useAppSelector((s) => s.swap.quote?.arrivalTime);
@@ -169,21 +169,13 @@ const SwapMinimumReceived = () => {
 };
 
 const SwapPriceImpact = () => {
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const inputPrice = useTokenPrice(inputToken);
-  const outputPrice = useTokenPrice(outputToken);
-  const instantRate = useAppSelector((s) => s.swap.quote?.instantRate);
-  if (outputPrice && inputPrice && instantRate) {
-    const rate = div(inputPrice, outputPrice);
-    if (lte(instantRate, rate)) {
-      const percent = multiply(div(minus(rate, instantRate), rate), 100);
-      return (
-        <Typography.Body2 color="text-subdued">
-          -{Number(percent).toFixed(2)}%
-        </Typography.Body2>
-      );
-    }
+  const priceImpact = usePriceImpact();
+  if (priceImpact) {
+    return (
+      <Typography.Body2 color="text-subdued">
+        -{Number(priceImpact).toFixed(2)}%
+      </Typography.Body2>
+    );
   }
   return <Typography.Body2 color="text-subdued">&lt;0.01%</Typography.Body2>;
 };

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Base64DataBuffer, JsonRpcProvider } from '@mysten/sui.js';
+import { Ed25519PublicKey, JsonRpcProvider } from '@mysten/sui.js';
 import * as SHA3 from 'js-sha3';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
@@ -55,10 +55,8 @@ export class KeyringImported extends KeyringImportedBase {
 
     const pub = pubkey.toString('hex');
 
-    const hash = SHA3.sha3_256.create();
-    hash.update(pubkey);
-    hash.update('\x00');
-    const address = addHexPrefix(hash.hex());
+    const publicKey = new Ed25519PublicKey(pubkey);
+    const address = addHexPrefix(publicKey.toSuiAddress());
 
     return Promise.resolve([
       {

@@ -3,7 +3,11 @@ import Fuse from 'fuse.js';
 import type { TExchangeRate } from '@onekeyhq/kit/src/store/reducers/fiatMoney';
 
 export const fuseSearch = (list: TExchangeRate[], keyword: string) => {
-  const options = { includeScore: false, keys: ['name', 'unit', 'key'] };
+  const options = {
+    includeScore: false,
+    keys: ['name', 'unit', 'key'],
+    threshold: 0.2,
+  };
   const fuse = new Fuse(list, options);
   const result = fuse.search(keyword).map((item) => item.item);
   const cryptoRes = result.filter((item) => item.type?.includes('crypto'));

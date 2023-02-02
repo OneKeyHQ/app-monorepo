@@ -30,10 +30,14 @@ type RouteProps = RouteProp<
   StackRoutesType['Developer']
 >;
 
+const ListHeaderComponent = () => {
+  const goBack = useNavigationBack();
+  return <Button onPress={goBack}>Back to HOME</Button>;
+};
+
 const Index = () => {
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
-  const goBack = useNavigationBack();
 
   console.log('route: ', route.params.ts);
 
@@ -45,7 +49,7 @@ const Index = () => {
     <FlatList
       data={componentsRoute}
       bg="background-hovered"
-      ListHeaderComponent={() => <Button onPress={goBack}>Back to HOME</Button>}
+      ListHeaderComponent={ListHeaderComponent}
       renderItem={({ item, index }) => (
         <Pressable
           onPress={() => {

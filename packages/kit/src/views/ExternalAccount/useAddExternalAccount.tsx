@@ -1,14 +1,18 @@
 import { useCallback } from 'react';
 
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { changeActiveExternalWalletName } from '../../store/reducers/general';
 
 import type { IConnectToWalletResult } from '../../components/WalletConnect/useWalletConnectQrcodeModal';
 
 export function useAddExternalAccount() {
   const { serviceAccount, serviceExternalAccount } = backgroundApiProxy;
+  const { accountId: activeAccountId, walletId: activeWalletId } =
+    useActiveWalletAccount();
   const addExternalAccount = useCallback(
     async (result: IConnectToWalletResult) => {
       const {
@@ -69,13 +73,19 @@ export function useAddExternalAccount() {
         });
       }
 
+      if (activeWalletId === 'external' && activeAccountId === accountId) {
+        backgroundApiProxy.dispatch(
+          changeActiveExternalWalletName(accountInfo?.walletName ?? ''),
+        );
+      }
+
       // closeDrawer();
       // resetToRoot();
       // closeExtensionWindowIfOnboardingFinished();
 
       return addedResult;
     },
-    [serviceAccount, serviceExternalAccount],
+    [serviceAccount, serviceExternalAccount, activeAccountId, activeWalletId],
   );
 
   return { addExternalAccount };

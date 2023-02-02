@@ -425,12 +425,14 @@ class Engine {
     name,
     avatar,
     autoAddAccountNetworkId,
+    isAutoAddAllNetworkAccounts,
   }: {
     password: string;
     mnemonic?: string;
     name?: string;
     avatar?: Avatar;
     autoAddAccountNetworkId?: string;
+    isAutoAddAllNetworkAccounts?: boolean;
   }): Promise<Wallet> {
     timelinePerfTrace.mark({
       name: ETimelinePerfNames.createHDWallet,
@@ -481,7 +483,19 @@ class Engine {
         title: 'engine.createHDWallet >> dbApi.createHDWallet DONE',
       });
 
-      const networks = [autoAddAccountNetworkId || OnekeyNetwork.eth];
+      let networks: Array<string> = [];
+      if (isAutoAddAllNetworkAccounts) {
+        const supportedImpls = getSupportedImpls();
+        const addedImpl = new Set();
+        (await this.listNetworks()).forEach(({ id: networkId, impl }) => {
+          if (supportedImpls.has(impl) && !addedImpl.has(impl)) {
+            addedImpl.add(impl);
+            networks.push(networkId);
+          }
+        });
+      } else {
+        networks = [autoAddAccountNetworkId || OnekeyNetwork.eth];
+      }
 
       await Promise.all(
         networks.map((networkId) =>

@@ -38,39 +38,38 @@ const ThirdPartyWallet = () => {
 
   return (
     <Layout title={intl.formatMessage({ id: 'title__connect_with' })}>
-      {showPlaceholder ? (
+      {showPlaceholder && (
         <Center>
           <Text typography={{ sm: 'Body1', md: 'Body1' }}>
             {intl.formatMessage({ id: 'content__no_other_wallets_installed' })}
           </Text>
         </Center>
-      ) : (
-        <Box flexDir="row" flexWrap="wrap" m="-4px" minH="10px">
-          <ConnectWalletListView
-            onConnectResult={async (result) => {
-              await addExternalAccount(result);
-              if (!disableOnboardingDone) {
-                await onboardingDone();
-                await wait(600);
-                ToastManager.show({
-                  title: intl.formatMessage({ id: 'msg__account_imported' }),
-                });
-              } else {
-                navigation?.goBack?.();
-              }
-              if (onSuccess) {
-                onSuccess();
-              }
-            }}
-            walletListsCallback={(dataSource) => {
-              console.log('dataSource: ', dataSource);
-              setShowPlaceholder(
-                !!platformEnv.isNativeIOS && dataSource.length === 0,
-              );
-            }}
-          />
-        </Box>
       )}
+
+      <Box flexDir="row" flexWrap="wrap" m="-4px" minH="10px">
+        <ConnectWalletListView
+          onConnectResult={async (result) => {
+            await addExternalAccount(result);
+            if (!disableOnboardingDone) {
+              await onboardingDone();
+              await wait(600);
+              ToastManager.show({
+                title: intl.formatMessage({ id: 'msg__account_imported' }),
+              });
+            } else {
+              navigation?.goBack?.();
+            }
+            if (onSuccess) {
+              onSuccess();
+            }
+          }}
+          walletListsCallback={(dataSource) => {
+            setShowPlaceholder(
+              !!platformEnv.isNativeIOS && dataSource.length === 0,
+            );
+          }}
+        />
+      </Box>
       <Hidden till="sm">
         <>
           <Text mt={8} mb={3} typography="Subheading" color="text-subdued">

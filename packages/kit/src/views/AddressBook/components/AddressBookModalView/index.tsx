@@ -117,6 +117,18 @@ const ModalView: FC<ModalViewProps> = ({
     [trigger, onNameServiceChange],
   );
 
+  const helpText = useCallback(
+    (value: string) => (
+      <NameServiceResolver
+        name={value}
+        onChange={syncStateAndReTriggerValidate}
+        disableBTC={false}
+        networkId={networkId}
+      />
+    ),
+    [syncStateAndReTriggerValidate, networkId],
+  );
+
   return (
     <Modal
       header={header}
@@ -160,14 +172,7 @@ const ModalView: FC<ModalViewProps> = ({
                 control={control}
                 name="address"
                 label={intl.formatMessage({ id: 'form__address' })}
-                helpText={(value) => (
-                  <NameServiceResolver
-                    name={value}
-                    onChange={syncStateAndReTriggerValidate}
-                    disableBTC={false}
-                    networkId={networkId}
-                  />
-                )}
+                helpText={helpText}
                 rules={{
                   required: {
                     value: true,

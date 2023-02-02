@@ -483,6 +483,16 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSwapPriceImpactShown() {
+    return simpleDb.setting.getSwapPriceImpactShown();
+  }
+
+  @backgroundMethod()
+  async setSwapPriceImpactShown(value: boolean) {
+    return simpleDb.setting.setSwapPriceImpactShown(value);
+  }
+
+  @backgroundMethod()
   async setSwapChartMode(mode: string) {
     return this.backgroundApi.dispatch(setSwapChartMode(mode));
   }
