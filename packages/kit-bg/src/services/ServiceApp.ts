@@ -40,6 +40,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -49,12 +50,14 @@ import type { IServiceBaseProps } from './ServiceBase';
 class ServiceApp extends ServiceBase {
   private _appInited = false;
 
+  private interval?: ReturnType<typeof setInterval>;
+
   constructor(props: IServiceBaseProps) {
     super(props);
     this.initAppAfterStoreReady();
     if (platformEnv.isExtensionBackground) {
       this.autoOpenOnboardingIfExtensionInstalled();
-      setInterval(() => this.checkLockStatus(1), 60 * 1000);
+      this.interval = setInterval(() => this.checkLockStatus(1), 60 * 1000);
     }
     // TODO recheck last reset status and resetApp here
   }
@@ -144,6 +147,22 @@ class ServiceApp extends ServiceBase {
     }
   }
 
+  async stopAllServiceInterval() {
+    const {
+      serviceNotification,
+      serviceOverview,
+      serviceSocket,
+      serviceToken,
+    } = this.backgroundApi;
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
+    serviceNotification.clear();
+    await serviceOverview.stopQueryPendingTasks();
+    serviceSocket.clear();
+    await serviceToken.stopRefreshAccountTokens();
+  }
+
   resetAppAtTime = 0;
 
   @backgroundMethod()
@@ -158,6 +177,11 @@ class ServiceApp extends ServiceBase {
       appSelector,
     } = this.backgroundApi;
     this.resetAppAtTime = Date.now();
+
+    await this.stopAllServiceInterval();
+
+    timerUtils.disableSetInterval();
+
     // Stop auto-save first
     persistor.pause();
     const pushEnable = appSelector(
@@ -181,11 +205,13 @@ class ServiceApp extends ServiceBase {
 
     // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
     await wait(1500);
+
     // restartApp() MUST be called from background in Ext
     this.restartApp();
 
     await wait(1500);
     this.resetAppAtTime = 0;
+    timerUtils.enableSetInterval();
   }
 
   @backgroundMethod()

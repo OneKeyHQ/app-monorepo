@@ -5,9 +5,13 @@ import { useIntl } from 'react-intl';
 
 import { CheckBox, Dialog, ToastManager } from '@onekeyhq/components';
 import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import timelinePerfTrace, {
+  ETimelinePerfNames,
+} from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
+import { wait } from '../../../utils/helper';
 
 export type DeleteWalletProp = {
   walletId: string;
@@ -81,15 +85,36 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
           disabled: !hardware && !confirmed,
           isDisabled: !hardware && !confirmed,
         },
-        onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
+        onPrimaryActionPress: async ({ onClose }: OnCloseCallback) => {
           if (!walletId) return;
 
           setIsLoading(true);
 
+          await wait(100);
+
+          timelinePerfTrace.clear(ETimelinePerfNames.removeWallet);
+          timelinePerfTrace.mark({
+            name: ETimelinePerfNames.removeWallet,
+            title:
+              'ManagerWalletDeleteDialog >> remove wallet start =======================',
+          });
+
           engine
             .getWallet(walletId)
             .then(async (wallet) => {
+              timelinePerfTrace.mark({
+                name: ETimelinePerfNames.removeWallet,
+                title: 'ManagerWalletDeleteDialog >> engine.getWallet DONE',
+              });
+
               await serviceAccount.removeWallet(walletId, password);
+
+              timelinePerfTrace.mark({
+                name: ETimelinePerfNames.removeWallet,
+                title:
+                  'ManagerWalletDeleteDialog >> serviceAccount.removeWallet DONE',
+              });
+
               ToastManager.show({
                 title: intl.formatMessage(
                   { id: 'msg__wallet_deleted' },
@@ -99,7 +124,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
               onClose?.();
               setTimeout(() => {
                 closeWalletSelector();
-              }, 600);
+              }, 100);
             })
             .catch((e) => {
               ToastManager.show({
@@ -109,6 +134,12 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
             })
             .finally(() => {
               setIsLoading(false);
+              setConfirmed(false);
+
+              timelinePerfTrace.mark({
+                name: ETimelinePerfNames.removeWallet,
+                title: 'ManagerWalletDeleteDialog >> remove wallet end',
+              });
             });
         },
       }}
