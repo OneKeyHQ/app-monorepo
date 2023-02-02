@@ -97,7 +97,7 @@ const ConnectHardwareModal: FC = () => {
   /**
    * Ensure that the search is completed for this round
    */
-  const searchState = useRef<'start' | 'stop'>('stop');
+  const searchStateRef = useRef<'start' | 'stop'>('stop');
   const [checkBonded, setCheckBonded] = useState(false);
   const [devices, setDevices] = useState<SearchDeviceInfo[]>([]);
 
@@ -225,7 +225,7 @@ const ConnectHardwareModal: FC = () => {
         setSearchedDevices(response.payload);
       },
       (state) => {
-        searchState.current = state;
+        searchStateRef.current = state;
       },
     );
   }, [intl, serviceHardware]);
@@ -239,6 +239,7 @@ const ConnectHardwareModal: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const timerRef = useRef<NodeJS.Timeout>();
   const waitPreviousSearchFinished = (device: SearchDevice) =>
     new Promise<void>((resolve) => {
       if (!deviceUtils) return;
@@ -246,13 +247,26 @@ const ConnectHardwareModal: FC = () => {
 
       deviceUtils.stopScan();
       setIsConnectingDeviceId(device.connectId);
-      const timer = setInterval(() => {
-        if (searchState.current === 'stop') {
-          clearInterval(timer);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      timerRef.current = setInterval(() => {
+        console.log('====> time excute');
+        if (searchStateRef.current === 'stop') {
+          clearInterval(timerRef.current);
           resolve();
         }
       }, 100);
     });
+  useEffect(
+    () => () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = undefined;
+      }
+    },
+    [],
+  );
 
   const handleConnectDeviceWithDevice = useCallback(
     async (device: SearchDevice) => {
