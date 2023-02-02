@@ -20,6 +20,7 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useAccountValues, useAppSelector } from '../../../../hooks';
 import { useNavigationBack } from '../../../../hooks/useAppNavigation';
+import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 
 import type {
   OverviewModalRoutes,
@@ -41,6 +42,8 @@ const OverviewProtocolDetail: FC = () => {
 
   const { networkId, address, protocolId, accountId } = route.params;
 
+  const currentFiatValue = useCurrentFiatValue();
+
   const accountAllValue = useAccountValues({
     networkId,
     accountId,
@@ -55,9 +58,10 @@ const OverviewProtocolDetail: FC = () => {
   const rate = useMemo(
     () =>
       new B(protocol?.protocolValue ?? 0)
+        .multipliedBy(currentFiatValue)
         .div(accountAllValue)
         .multipliedBy(100),
-    [protocol?.protocolValue, accountAllValue],
+    [protocol?.protocolValue, accountAllValue, currentFiatValue],
   );
 
   const headerDescription = useMemo(() => {

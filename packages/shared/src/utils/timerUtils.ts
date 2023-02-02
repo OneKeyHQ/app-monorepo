@@ -21,8 +21,16 @@ function interceptTimeout(
 }
 
 function interceptTimerWithDisable() {
-  interceptTimeout('setTimeout', '$$onekeyDisabledSetTimeout');
-  interceptTimeout('setInterval', '$$onekeyDisabledSetInterval');
+  try {
+    interceptTimeout('setTimeout', '$$onekeyDisabledSetTimeout');
+  } catch (error) {
+    console.error(error);
+  }
+  try {
+    interceptTimeout('setInterval', '$$onekeyDisabledSetInterval');
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 function enableSetTimeout() {

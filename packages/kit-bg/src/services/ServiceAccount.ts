@@ -414,15 +414,15 @@ class ServiceAccount extends ServiceBase {
     skipRepeat = false,
   ) {
     const { engine } = this.backgroundApi;
-    const accounts = await engine.addHdOrHwAccounts(
+    const accounts = await engine.addHdOrHwAccounts({
       password,
       walletId,
       networkId,
-      index,
+      indexes: index,
       names,
       purpose,
       skipRepeat,
-    );
+    });
 
     if (!accounts.length) return;
 
@@ -556,12 +556,13 @@ class ServiceAccount extends ServiceBase {
         if (accountsInWalletAndNetwork.length) {
           return;
         }
-        const accounts = await engine.addHdOrHwAccounts(
+        const accounts = await engine.addHdOrHwAccounts({
           password,
-          wallet.id,
+          walletId: wallet.id,
           networkId,
-          [0],
-        );
+          indexes: [0],
+          isAddInitFirstAccountOnly: true,
+        });
         const activeAccount = accounts[0];
         await this.postAccountAdded({
           networkId,
@@ -872,11 +873,11 @@ class ServiceAccount extends ServiceBase {
     if (typeof account === 'undefined' && networkId) {
       // Network is neither btc nor evm, account is not by default created.
       try {
-        const accounts = await engine.addHdOrHwAccounts(
-          'Undefined',
-          wallet.id,
+        const accounts = await engine.addHdOrHwAccounts({
+          password: 'Undefined',
+          walletId: wallet.id,
           networkId,
-        );
+        });
         if (accounts.length > 0) {
           const $account = accounts[0];
           account = $account;
