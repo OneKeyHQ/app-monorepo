@@ -3,6 +3,7 @@ import type { IDistributionChannel } from '@onekeyhq/shared/src/platformEnv';
 export type MigrateServiceResp<T> = {
   success?: boolean;
   data?: T;
+  message?: string;
 };
 
 export type MigrateData = {

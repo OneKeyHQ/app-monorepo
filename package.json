@@ -82,6 +82,7 @@
     "bitcoinjs-lib": "6.0.1",
     "bitcoinjs-message": "2.2.0",
     "expo-device": "^4.3.0",
+    "jsrsasign": "^10.6.1",
     "memoizee": "^0.4.15",
     "timeout-signal": "1.1.0",
     "whatwg-url": "^7.0.0"
@@ -93,6 +94,7 @@
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
     "@types/chrome": "^0.0.161",
     "@types/jest": "^29.2.3",
+    "@types/jsrsasign": "^10",
     "@types/memoizee": "^0.4.8",
     "@types/node": "^16.7.13",
     "@types/react": "^17.0.33",

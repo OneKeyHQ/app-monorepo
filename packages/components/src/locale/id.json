@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "Kami menemukan perangkat ini",
   "modal__migrating_data": "Migrasi Data",
   "modal__migrating_data_awaiting_confirmation": "Menunggu Konfirmasi dari {from}",
-  "modal__migrating_data_connection_failed_desc": "Pastikan semua perangkat terhubung ke LAN yang sama dan coba lagi",
+  "modal__migrating_data_connection_failed_desc": "Pastikan semua perangkat terhubung ke jaringan yang sama dan coba lagi",
   "modal__migrating_data_desc": "Aplikasi Terhubung",
   "modal__need_install_onekey_bridge": "Membutuhkan instalasi OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "Meluncurkan desktop OneKey sebelum menggunakan perangkat keras. Anda juga dapat menginstal OneKey Bridge untuk meningkatkan stabilitas transfer. Lanjutkan dan unduh?",

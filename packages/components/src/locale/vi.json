@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "Chúng tôi đã tìm thấy những thiết bị này",
   "modal__migrating_data": "Di chuyển dữ liệu",
   "modal__migrating_data_awaiting_confirmation": "Đang chờ xác nhận từ {from}",
-  "modal__migrating_data_connection_failed_desc": "Vui lòng đảm bảo rằng tất cả các thiết bị được kết nối với cùng một mạng LAN và thử lại",
+  "modal__migrating_data_connection_failed_desc": "Vui lòng đảm bảo rằng tất cả các thiết bị được kết nối với cùng một mạng và thử lại",
   "modal__migrating_data_desc": "Ứng dụng được kết nối",
   "modal__need_install_onekey_bridge": "Yêu cầu cài đặt OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "Khởi chạy máy tính để bàn OneKey trước khi sử dụng thiết bị phần cứng. Bạn cũng có thể cài đặt OneKey Bridge để tăng cường độ ổn định của quá trình truyền. Tiếp tục và tải xuống?",

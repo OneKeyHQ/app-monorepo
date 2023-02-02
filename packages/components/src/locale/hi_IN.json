@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "हमें ये डिवाइस मिले",
   "modal__migrating_data": "माइग्रेट डेटा",
   "modal__migrating_data_awaiting_confirmation": "{from} पुष्टि की प्रतीक्षा में",
-  "modal__migrating_data_connection_failed_desc": "कृपया सुनिश्चित करें कि सभी डिवाइस एक ही LAN से जुड़े हैं और पुनः प्रयास करें",
+  "modal__migrating_data_connection_failed_desc": "कृपया सुनिश्चित करें कि सभी डिवाइस एक ही नेटवर्क से जुड़े हैं और पुनः प्रयास करें",
   "modal__migrating_data_desc": "ऐप्स कनेक्टेड",
   "modal__need_install_onekey_bridge": "वनकी ब्रिज की स्थापना की आवश्यकता है",
   "modal__need_install_onekey_bridge_desc": "हार्डवेयर डिवाइस का उपयोग करने से पहले OneKey डेस्कटॉप लॉन्च करना। स्थानांतरण स्थिरता को बढ़ाने के लिए आप OneKey Bridge भी स्थापित कर सकते हैं। आगे बढ़ो और डाउनलोड करो?",
