@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import bg1 from '@onekeyhq/kit/assets/annual/1.jpg';
 import bgLoading from '@onekeyhq/kit/assets/annual/bg_loading.png';
@@ -42,7 +43,6 @@ import { useEvmAccount } from './hooks';
 
 import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
