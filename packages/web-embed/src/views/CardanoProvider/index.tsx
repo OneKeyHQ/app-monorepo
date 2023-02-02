@@ -13,6 +13,7 @@ const getCardanoApi = async () => {
     composeTxPlan: Loader.onekeyUtils.composeTxPlan,
     signTransaction: Loader.onekeyUtils.signTransaction,
     hwSignTransaction: Loader.trezorUtils.signTransaction,
+    txToOneKey: Loader.onekeyUtils.txToOneKey,
     dAppUtils: Loader.dAppUtils,
   };
 };
@@ -23,6 +24,7 @@ enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
   signTransaction = 'Cardano_signTransaction',
   hwSignTransaction = 'Cardano_hwSignTransaction',
+  txToOneKey = 'Cardano_txToOneKey',
   dAppGetBalance = 'Cardano_DAppGetBalance',
   dAppGetAddresses = 'Cardano_DAppGetAddresses',
   dAppGetUtxos = 'Cardano_DAppGetUtxos',
@@ -102,6 +104,23 @@ function CardanoProvider() {
               txBodyHex,
               signedWitnesses,
               options,
+            );
+            sendResponse(promiseId, { error: null, result });
+          } catch (error) {
+            sendResponse(promiseId, { error, result: null });
+          }
+          break;
+        }
+
+        case CardanoEvent.txToOneKey: {
+          const { rawTx, network, initKeys, xpub, changeAddress } = eventParams;
+          try {
+            const result = await CardanoApi.txToOneKey(
+              rawTx,
+              network,
+              initKeys,
+              xpub,
+              changeAddress,
             );
             sendResponse(promiseId, { error: null, result });
           } catch (error) {

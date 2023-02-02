@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "เราพบอุปกรณ์เหล่านี้",
   "modal__migrating_data": "การย้ายข้อมูล",
   "modal__migrating_data_awaiting_confirmation": "รอการยืนยันจาก {from}",
-  "modal__migrating_data_connection_failed_desc": "โปรดตรวจสอบให้แน่ใจว่าอุปกรณ์ทั้งหมดเชื่อมต่อกับ LAN เดียวกันแล้วลองอีกครั้ง",
+  "modal__migrating_data_connection_failed_desc": "โปรดตรวจสอบว่าอุปกรณ์ทั้งหมดเชื่อมต่อกับเครือข่ายเดียวกันแล้วลองอีกครั้ง",
   "modal__migrating_data_desc": "เชื่อมต่อแอพแล้ว",
   "modal__need_install_onekey_bridge": "ต้องติดตั้ง OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "การเปิด OneKey desktop ก่อนใช้อุปกรณ์ฮาร์ดแวร์ คุณยังสามารถติดตั้ง OneKey Bridge เพื่อเพิ่มความเสถียรในการถ่ายโอนได้อีกด้วย ไปข้างหน้าและดาวน์โหลด?",

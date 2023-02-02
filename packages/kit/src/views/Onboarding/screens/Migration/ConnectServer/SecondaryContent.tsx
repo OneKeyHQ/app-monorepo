@@ -40,37 +40,22 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { gotoScanQrcode } from '../../../../../utils/gotoScanQrcode';
 import { EOnboardingRoutes } from '../../../routes/enums';
-import { OneKeyMigrateQRCodePrefix, parseDeviceInfo } from '../util';
+import {
+  OneKeyMigrateQRCodePrefix,
+  addressWithoutHttp,
+  parseDeviceInfo,
+} from '../util';
 
 import { ServerStatus, useMigrateContext } from './context';
 import { ExportResult, useConnectServer, useExportData } from './hook';
 import { showSendDataRequestModal } from './SendDataRequestModal';
 
-function hostWithURL(url: string) {
-  let res = url;
-  if (url.startsWith('http://')) {
-    res = res.replace('http://', '');
-  }
-  if (url.endsWith('/')) {
-    res = res.substring(0, res.length - 1);
-  }
-  return res;
-}
-
-function addressWithoutHttp(address: string) {
-  let copyAddress = address;
-  if (copyAddress.startsWith('http://')) {
-    copyAddress = copyAddress.replace('http://', '');
-  }
-  if (copyAddress.endsWith('/')) {
-    copyAddress = copyAddress.slice(0, copyAddress.length - 1);
-  }
-  return copyAddress;
-}
-
-const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
+const QRCodeView: FC<{
+  qrcode: string;
+  refreshQrcode: () => Promise<void>;
+}> = ({ qrcode, refreshQrcode }) => {
   const intl = useIntl();
-  const { serviceHTTP } = backgroundApiProxy;
+  const { serviceHTTP, serviceMigrate } = backgroundApiProxy;
 
   const { exportDataRequest } = useExportData();
 
@@ -79,12 +64,12 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
   const showModal = useRef<boolean>(false);
 
   const copyAction = useCallback(() => {
-    const copyAddress = addressWithoutHttp(serverAddress);
+    const copyAddress = addressWithoutHttp(qrcode);
     copyToClipboard(copyAddress);
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__copied' }),
     });
-  }, [intl, serverAddress]);
+  }, [intl, qrcode]);
 
   const httpServerRequest = useCallback(
     (request: MigrateNotificationData) => {
@@ -144,9 +129,32 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
               if (isConfirm) {
                 const { status, data: exportData } = await exportDataRequest();
                 if (status === ExportResult.SUCCESS && data) {
+                  const clientPubKey = await serviceMigrate.publicKey('Client');
+                  const encryptData =
+                    await serviceMigrate.encryptDataWithPublicKey(
+                      clientPubKey,
+                      JSON.stringify(exportData),
+                    );
+                  if (encryptData === false) {
+                    serviceHTTP.serverRespond({
+                      requestId,
+                      respondData: {
+                        success: false,
+                      },
+                    });
+                    ToastManager.show({
+                      title: `${intl.formatMessage({
+                        id: 'form__failed',
+                      })}`,
+                    });
+                    return false;
+                  }
                   serviceHTTP.serverRespond({
                     requestId,
-                    respondData: { success: true, data: exportData },
+                    respondData: {
+                      success: true,
+                      data: encryptData,
+                    },
                   });
                   ToastManager.show({
                     title: `🧙 ${intl.formatMessage(
@@ -175,9 +183,18 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
             },
           });
         }
+      } else if (type === MigrateNotificationNames.UpdateQrcode) {
+        refreshQrcode();
       }
     },
-    [exportDataRequest, intl, navigation, serviceHTTP],
+    [
+      exportDataRequest,
+      intl,
+      navigation,
+      serviceHTTP,
+      serviceMigrate,
+      refreshQrcode,
+    ],
   );
 
   useEffect(() => {
@@ -189,7 +206,7 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
 
   return (
     <>
-      {serverAddress.length > 0 ? (
+      {qrcode.length > 0 ? (
         <Box
           borderRadius="24px"
           bgColor="#FFFFFF"
@@ -200,9 +217,7 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
           shadow="depth.1"
         >
           <QRCode
-            value={`${OneKeyMigrateQRCodePrefix}${addressWithoutHttp(
-              serverAddress,
-            )}`}
+            value={`${OneKeyMigrateQRCodePrefix}${qrcode}`}
             size={170}
             logo={qrcodeLogo}
             logoSize={36}
@@ -214,7 +229,7 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
         <CustomSkeleton borderRadius="12px" width={192} height={192} />
       )}
 
-      {serverAddress.length > 0 ? (
+      {qrcode.length > 0 ? (
         <Pressable
           onPress={copyAction}
           flexDirection="row"
@@ -223,7 +238,7 @@ const QRCodeView: FC<{ serverAddress: string }> = ({ serverAddress }) => {
         >
           <Icon name="LinkMini" size={20} color="icon-subdued" />
           <Text ml="8px" typography="Body1Strong">
-            {hostWithURL(serverAddress)}
+            {qrcode}
           </Text>
         </Pressable>
       ) : (
@@ -276,9 +291,7 @@ const EnterLinkView: FC = () => {
         w="full"
         type="text"
         value={context?.inputValue}
-        placeholder={`${intl.formatMessage({
-          id: 'content__example_shortcut',
-        })} 192.168.5.178:2997`}
+        placeholder="192.168.5.178:2997/1A2B"
         onChangeText={(text) => {
           if (setContext) {
             setContext((ctx) => ({
@@ -307,6 +320,12 @@ const EnterLinkView: FC = () => {
                 { type: 'error' },
               );
             }
+            if (setContext) {
+              setContext((ctx) => ({
+                ...ctx,
+                inputValue: '',
+              }));
+            }
           }
         }}
       >
@@ -320,20 +339,32 @@ const MemoEnterLinkView = memo(EnterLinkView);
 
 const SecondaryContent: FC = () => {
   const intl = useIntl();
-  const { serviceHTTP } = backgroundApiProxy;
+  const { serviceHTTP, serviceMigrate } = backgroundApiProxy;
   const context = useMigrateContext()?.context;
   const setContext = useMigrateContext()?.setContext;
 
-  const [serverAddress, updateServerAddress] = useState('');
+  const [qrcode, updateQrcode] = useState('');
+  const serverUrlRef = useRef<string>('');
+  const refreshQrcode = useCallback(async () => {
+    let result = '';
+    if (serverUrlRef.current.length > 0) {
+      const randomNum = await serviceMigrate.generateRandomNum();
+      result = `${addressWithoutHttp(serverUrlRef.current)}/${randomNum}`;
+    }
+    updateQrcode(result);
+  }, [serviceMigrate]);
+
   const startHttpServer = useCallback(async () => {
     const serverUrl = await serviceHTTP.startHttpServer();
-    if (serverUrl) {
+
+    const success = serverUrl && serverUrl.length > 0;
+    serverUrlRef.current = success ? serverUrl : '';
+    if (success) {
       debugLogger.migrate.info('startHttpServer', serverUrl);
-      updateServerAddress(serverUrl);
-      return true;
+      await refreshQrcode();
     }
-    return false;
-  }, [serviceHTTP]);
+    return success;
+  }, [refreshQrcode, serviceHTTP]);
 
   useEffect(() => {
     if (context?.selectRange === 0) {
@@ -346,10 +377,17 @@ const SecondaryContent: FC = () => {
         }
       });
     } else {
+      serviceMigrate.clearMigrateInfo();
       serviceHTTP.stopHttpServer();
-      updateServerAddress('');
+      updateQrcode('');
     }
-  }, [context?.selectRange, serviceHTTP, setContext, startHttpServer]);
+  }, [
+    context?.selectRange,
+    serviceHTTP,
+    serviceMigrate,
+    setContext,
+    startHttpServer,
+  ]);
 
   return (
     <>
@@ -377,7 +415,7 @@ const SecondaryContent: FC = () => {
 
       <Center flex={1}>
         {context?.selectRange === 0 ? (
-          <MemoQRcodeView serverAddress={serverAddress} />
+          <MemoQRcodeView qrcode={qrcode} refreshQrcode={refreshQrcode} />
         ) : (
           <MemoEnterLinkView />
         )}

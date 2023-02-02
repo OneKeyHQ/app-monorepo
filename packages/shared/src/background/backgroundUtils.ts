@@ -291,6 +291,8 @@ export async function waitForDataLoaded({
 
 export const MAX_LOG_LENGTH = 1000;
 
+// @ts-expect-error
+// TODO: add polkadot
 const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
   {
     'ethereum': IMPL_EVM,

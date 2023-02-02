@@ -7,14 +7,19 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import type { IAdaOutputs, IAdaUTXO, IChangeAddress } from '../../types';
-import type BigNumber from 'bignumber.js';
+import type {
+  IAdaAmount,
+  IAdaOutputs,
+  IAdaUTXO,
+  IChangeAddress,
+} from '../../types';
 
 const ProvideMethod = 'callCardanoWebEmbedMethod';
 enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
   signTransaction = 'Cardano_signTransaction',
   hwSignTransaction = 'Cardano_hwSignTransaction',
+  txToOneKey = 'Cardano_txToOneKey',
   dAppGetBalance = 'Cardano_DAppGetBalance',
   dAppGetAddresses = 'Cardano_DAppGetAddresses',
   dAppGetUtxos = 'Cardano_DAppGetUtxos',
@@ -146,14 +151,51 @@ const hwSignTransaction = async (
   return result.result;
 };
 
+type Key = { hash: string | null; path: string | null };
+type Keys = { payment: Key; stake: Key };
+
+const txToOneKey = async (
+  rawTx: string,
+  network: number,
+  initKeys: Keys,
+  xpub: string,
+  changeAddress: IChangeAddress,
+) => {
+  await ensureSDKReady();
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: CardanoEvent.txToOneKey,
+    params: {
+      rawTx,
+      network,
+      initKeys,
+      xpub,
+      changeAddress,
+    },
+  })) as IResult;
+
+  if (result.error) {
+    debugLogger.providerApi.error(
+      'cardano web-embed CardanoTxToOneKey error: ',
+      result.error,
+    );
+    throw new Error(result.error);
+  }
+  debugLogger.providerApi.error(
+    'cardano web-embed CardanoTxToOneKey success: ',
+    result.result,
+  );
+  return result.result;
+};
+
 // DApp Function
-const getBalance = async (balance: BigNumber) => {
+const getBalance = async (balances: IAdaAmount[]) => {
   await ensureSDKReady();
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: CardanoEvent.dAppGetBalance,
-    params: { balance: balance.toFixed() },
+    params: { balances },
   })) as IResult;
 
   if (result.error) {
@@ -253,6 +295,7 @@ const getCardanoApi = async () =>
     composeTxPlan,
     signTransaction,
     hwSignTransaction,
+    txToOneKey,
     dAppUtils,
   });
 

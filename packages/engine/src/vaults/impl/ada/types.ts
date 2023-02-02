@@ -104,6 +104,7 @@ type ITxInfo = {
   body: string;
   hash: string;
   size: number;
+  rawTxHex?: string;
 };
 
 export type IChangeAddress = {

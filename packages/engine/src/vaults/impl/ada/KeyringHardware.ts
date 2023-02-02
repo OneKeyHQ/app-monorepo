@@ -4,11 +4,7 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import {
-  NotImplemented,
-  OneKeyHardwareError,
-  OneKeyInternalError,
-} from '../../../errors';
+import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -173,26 +169,52 @@ export class KeyringHardware extends KeyringHardwareBase {
     ).getUTXOs(dbAccount.xpub, dbAccount.path, dbAccount.addresses);
 
     const { inputs, outputs, fee, tx } = encodedTx;
+    const isSignOnly = !!encodedTx.signOnly;
+    const { rawTxHex } = tx;
+    const CardanoApi = await getCardanoApi();
+    let cardanoParams;
+    // sign for DApp
+    if (isSignOnly && rawTxHex) {
+      const stakingPath = `${dbAccount.path
+        .split('/')
+        .slice(0, 4)
+        .join('/')}/2/0`;
+      const keys = {
+        payment: { hash: null, path: dbAccount.path },
+        stake: { hash: null, path: stakingPath },
+      };
+      cardanoParams = await CardanoApi.txToOneKey(
+        rawTxHex,
+        NetworkId.MAINNET,
+        keys,
+        dbAccount.xpub,
+        changeAddress,
+      );
+    } else {
+      cardanoParams = {
+        signingMode: PROTO.CardanoTxSigningMode.ORDINARY_TRANSACTION,
+        outputs: transformToOneKeyOutputs(
+          outputs,
+          changeAddress.addressParameters,
+        ),
+        fee,
+        protocolMagic: ProtocolMagic,
+        networkId: NetworkId.MAINNET,
+      };
+    }
+
+    debugLogger.hardwareSDK.info('cardano signTx params: ', cardanoParams);
+
     const res = await HardwareSDK.cardanoSignTransaction(connectId, deviceId, {
       ...passphraseState,
-      signingMode: PROTO.CardanoTxSigningMode.ORDINARY_TRANSACTION,
       inputs: transformToOneKeyInputs(inputs, utxos),
-      outputs: transformToOneKeyOutputs(
-        outputs,
-        changeAddress.addressParameters,
-      ),
-      fee,
-      protocolMagic: ProtocolMagic,
-      derivationType: PROTO.CardanoDerivationType.ICARUS,
-      networkId: NetworkId.MAINNET,
-      // TODO: certificates, withdrawals
-    });
-
+      derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
+      ...cardanoParams,
+    } as any);
     if (!res.success) {
       throw convertDeviceError(res.payload);
     }
 
-    const CardanoApi = await getCardanoApi();
     const signedTx = await CardanoApi.hwSignTransaction(
       tx.body,
       res.payload.witnesses,

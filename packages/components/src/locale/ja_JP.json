@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "これらのデバイスを見つけた",
   "modal__migrating_data": "データの移行",
   "modal__migrating_data_awaiting_confirmation": "{from}からの確認待ち",
-  "modal__migrating_data_connection_failed_desc": "すべてのデバイスが同じ LAN に接続されていることを確認してから、もう一度お試しください",
+  "modal__migrating_data_connection_failed_desc": "すべてのデバイスが同じネットワークに接続されていることを確認してから、もう一度お試しください",
   "modal__migrating_data_desc": "接続されたアプリ",
   "modal__need_install_onekey_bridge": "OneKeyBridgeのインストールが必要",
   "modal__need_install_onekey_bridge_desc": "ハードウェア デバイスを接続する前に、OneKey デスクトップ クライアントを起動する必要がある。OneKey Bridge のご利用によって、接続の安定性をアップできる。ダウンロードするか？",

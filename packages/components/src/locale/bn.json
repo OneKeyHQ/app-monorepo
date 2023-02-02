@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "আমরা এই ডিভাইসগুলি খুঁজে পেয়েছি",
   "modal__migrating_data": "ডেটা স্থানান্তর করা হচ্ছে",
   "modal__migrating_data_awaiting_confirmation": "{from} নিশ্চিতকরণের অপেক্ষায়",
-  "modal__migrating_data_connection_failed_desc": "অনুগ্রহ করে নিশ্চিত করুন যে সমস্ত ডিভাইস একই LAN এর সাথে সংযুক্ত আছে এবং আবার চেষ্টা করুন৷",
+  "modal__migrating_data_connection_failed_desc": "অনুগ্রহ করে নিশ্চিত করুন যে সমস্ত ডিভাইস একই নেটওয়ার্কে সংযুক্ত আছে এবং আবার চেষ্টা করুন",
   "modal__migrating_data_desc": "অ্যাপস সংযুক্ত",
   "modal__need_install_onekey_bridge": "OneKey Bridge ইনস্টলেশন প্রয়োজন",
   "modal__need_install_onekey_bridge_desc": "হার্ডওয়্যার ডিভাইস ব্যবহার করার আগে OneKey ডেস্কটপ চালু করা হচ্ছে। স্থানান্তর স্থিতিশীলতা বাড়াতে আপনি OneKey Brigdeও ইনস্টল করতে পারেন। এগিয়ে যান এবং ডাউনলোড করুন?",

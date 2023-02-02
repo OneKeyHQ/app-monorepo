@@ -5,6 +5,7 @@ const getCardanoApi = async () => {
     signTransaction: Loader.onekeyUtils.signTransaction,
     hwSignTransaction: Loader.trezorUtils.signTransaction,
     dAppUtils: Loader.dAppUtils,
+    txToOneKey: Loader.onekeyUtils.txToOneKey,
   };
 };
 

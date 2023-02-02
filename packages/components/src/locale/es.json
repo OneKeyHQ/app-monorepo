@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "Encontramos estos dispositivos",
   "modal__migrating_data": "Migración de datos",
   "modal__migrating_data_awaiting_confirmation": "En espera de confirmación de {from}",
-  "modal__migrating_data_connection_failed_desc": "Asegúrese de que todos los dispositivos estén conectados a la misma LAN y vuelva a intentarlo.",
+  "modal__migrating_data_connection_failed_desc": "Asegúrese de que todos los dispositivos estén conectados a la misma red y vuelva a intentarlo.",
   "modal__migrating_data_desc": "Aplicaciones conectadas",
   "modal__need_install_onekey_bridge": "Requiere la instalación de OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "Iniciar el escritorio de OneKey antes de usar el dispositivo de hardware. También puede instalar OneKey Bridge para mejorar la estabilidad de la transferencia. ¿Adelante y descarga?",
