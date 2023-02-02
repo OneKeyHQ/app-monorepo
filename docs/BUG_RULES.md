@@ -43,13 +43,27 @@ In the same manner as the [Ethereum Bug Bounty Program](https://bounty.ethereum.
 
 It is at the *sole discretion of OneKey* to decide whether or not a bug report qualifies for a bounty, and to determine the severity of the issue
 
-Severity levels:
 
-* *Note*: Up to $500 USD (min. $100)
-* *Low*: Up to $1,000 USD (min. $500)
-* *Medium*: Up to $2,000 USD (min. $1,000)
-* *High*: Up to $5,000 USD (min. $2,000)
-* *Critical*: Up to $10,000 USD (min. $5,000)
+* *P0*: Up to $10,000 USD (min. $5,000)
+* *P1*: Up to $5,000 USD (min. $2,000)
+* *P2*: Up to $2,000 USD (min. $1,000)
+* *P3*: Up to $1,000 USD (min. $500)
+* *P4*: Up to $500 USD (min. $100)
+
+
+### Severity levels
+
+#### Physical Security
+
+* P0: Privacy content can be directly read without physical contact or close proximity
+* P1: Privacy content can be directly read with physical contact or close proximity
+* P2: Privacy content can be directly read after disassembling or flying lines
+* P3: Encrypted content can be read after disassembling or flying lines
+
+#### Chain Security
+
+* P0: Chain private key signing can be directly performed by ignoring PIN/second confirmation through command
+* P1: Signature of sensitive data assets leaking caused by blind signature second prompt (hardware eth_sign)
 
 Issues reported may or may not constitute a security risk for the OneKey contracts. A higher severity will be awarded to vulnerabilities submitted that could potentially result in either the loss of funds, or a situation in which the contracts arrive in an undesirable state that cannot be rectified through existing contract mechanisms, such as 'emergency mode' or through a network upgrade. However, all submitted bugs and vulnerabilities will be considered for prizes.
 
