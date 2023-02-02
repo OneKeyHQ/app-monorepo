@@ -9,13 +9,21 @@ interface IPerfTimelineItem {
 
 export enum ETimelinePerfNames {
   createHDWallet = 'createHDWallet',
+  removeWallet = 'removeWallet',
+  postWalletRemoved = 'postWalletRemoved',
 }
+
+const MAX_TIMELINE_LEN = 100;
 
 class TimelinePerfTrace {
   timelineData: Partial<Record<ETimelinePerfNames, IPerfTimelineItem[]>> = {};
 
   getTimelineData() {
     return this.timelineData;
+  }
+
+  clear(name: ETimelinePerfNames) {
+    this.timelineData[name] = [];
   }
 
   mark({
@@ -41,7 +49,7 @@ class TimelinePerfTrace {
 
       payload,
     });
-    timeline = timeline.slice(-200);
+    timeline = timeline.slice(-1 * MAX_TIMELINE_LEN);
 
     this.timelineData[name] = timeline;
   }
