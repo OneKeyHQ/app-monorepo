@@ -7,6 +7,51 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ONEKEY_APP_DEEP_LINK } from '../../../../components/WalletConnect/walletConnectConsts';
 
+function shuffle(string: string) {
+  const a = string.split('');
+  const n = a.length;
+
+  for (let i = n - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = a[i];
+    a[i] = a[j];
+    a[j] = tmp;
+  }
+  return a.join('');
+}
+
+const randomString = (
+  length = 20,
+  wishlist = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@-#$',
+) =>
+  Array.from(crypto.getRandomValues(new Uint32Array(length)))
+    .map((x) => wishlist[x % wishlist.length])
+    .join('');
+
+function generatePassword(length: number) {
+  if (length < 10) {
+    throw new Error('password too short');
+  }
+  const randomString1 = randomString(Math.floor(length / 3), '0123456789');
+  const randomString2 = randomString(
+    Math.floor(length / 3),
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+  );
+  const randomString3 = randomString(Math.floor(length / 3), '~!@-#$^');
+  return shuffle(randomString1 + randomString2 + randomString3);
+}
+
+function addressWithoutHttp(address: string) {
+  let copyAddress = address;
+  if (copyAddress.startsWith('http://')) {
+    copyAddress = copyAddress.replace('http://', '');
+  }
+  if (copyAddress.endsWith('/')) {
+    copyAddress = copyAddress.slice(0, copyAddress.length - 1);
+  }
+  return copyAddress;
+}
+
 // label and icon name:
 // - Mobile, DevicePhoneMobileSolid (iOS, Android)
 // - Tablet, DeviceTabletSolid (iPadOS, Android tablet)
@@ -50,7 +95,7 @@ function deviceInfo() {
   };
 }
 
-const OneKeyMigrateQRCodePrefix = `${ONEKEY_APP_DEEP_LINK}migrate`;
+const OneKeyMigrateQRCodePrefix = `${ONEKEY_APP_DEEP_LINK}migrate/`;
 
 const MigrationEnable = !platformEnv.isWeb;
 
@@ -59,4 +104,8 @@ export {
   deviceInfo,
   OneKeyMigrateQRCodePrefix,
   MigrationEnable,
+  generatePassword,
+  randomString,
+  shuffle,
+  addressWithoutHttp,
 };

@@ -1,19 +1,21 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
+import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
   BottomSheetModal,
   Box,
   Button,
+  CheckBox,
   Icon,
   Text,
 } from '@onekeyhq/components';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 
 import { showOverlay } from '../../../../../utils/overlayUtils';
-import { parseDeviceInfo } from '../util';
+import { deviceInfo, parseDeviceInfo } from '../util';
 
 type Props = {
   deviceInfo: DeviceInfo;
@@ -21,9 +23,15 @@ type Props = {
   closeOverlay: () => void;
 };
 
-const Content: FC<Props> = ({ deviceInfo, confirmPress, closeOverlay }) => {
+const Content: FC<Props> = ({
+  deviceInfo: toInfo,
+  confirmPress,
+  closeOverlay,
+}) => {
   const intl = useIntl();
-  const parseData = parseDeviceInfo(deviceInfo);
+  const parseToData = parseDeviceInfo(toInfo);
+  const parseFromData = parseDeviceInfo(deviceInfo());
+  const [confirmed, setConfirmed] = useState(false);
 
   const confirmAction = useCallback(async () => {
     const close = await confirmPress?.(true);
@@ -57,15 +65,45 @@ const Content: FC<Props> = ({ deviceInfo, confirmPress, closeOverlay }) => {
           {intl.formatMessage({ id: 'content__to' })}
         </Text>
         <Box paddingX="16px" flexDirection="row" mt="12px">
-          <Icon name={parseData.logo} size={24} color="icon-subdued" />
+          <Icon name={parseToData.logo} size={24} color="icon-subdued" />
           <Text ml="8px" typography="Body1Strong">
-            {parseData.name}
+            {parseToData.name}
           </Text>
         </Box>
       </Box>
-      <Button mt="24px" size="xl" type="primary" onPromise={confirmAction}>
-        {intl.formatMessage({ id: 'action__confirm' })}
-      </Button>
+
+      <CheckBox
+        w="full"
+        mt="24px"
+        isChecked={confirmed}
+        defaultIsChecked={false}
+        onChange={(checked) => {
+          setConfirmed(checked);
+        }}
+        title={intl.formatMessage(
+          {
+            id: 'modal__send_data_request_checkbox_label',
+          },
+          { to: parseToData.name, from: parseFromData.name },
+        )}
+        description={intl.formatMessage({
+          id: 'modal__send_data_request_desc',
+        })}
+      />
+      <Row mt="24px" space="12px" w="full">
+        <Button flex={1} size="xl" type="basic" onPress={cancelAction}>
+          {intl.formatMessage({ id: 'action__reject' })}
+        </Button>
+        <Button
+          flex={1}
+          isDisabled={!confirmed}
+          size="xl"
+          type="primary"
+          onPromise={confirmAction}
+        >
+          {intl.formatMessage({ id: 'action__confirm' })}
+        </Button>
+      </Row>
     </BottomSheetModal>
   );
 };

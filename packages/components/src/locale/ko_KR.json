@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "이 장치를 찾았습니다.",
   "modal__migrating_data": "데이터 마이그레이션",
   "modal__migrating_data_awaiting_confirmation": "{from} 의 확인 대기 중",
-  "modal__migrating_data_connection_failed_desc": "모든 장치가 동일한 LAN에 연결되어 있는지 확인하고 다시 시도하십시오.",
+  "modal__migrating_data_connection_failed_desc": "모든 장치가 동일한 네트워크에 연결되어 있는지 확인하고 다시 시도하십시오.",
   "modal__migrating_data_desc": "연결된 앱",
   "modal__need_install_onekey_bridge": "OneKey Bridge 설치 필요",
   "modal__need_install_onekey_bridge_desc": "하드웨어 장치를 사용하기 전에 OneKey 데스크탑을 시작합니다. 전송 안정성을 향상시키기 위해 OneKey Bridge를 설치할 수도 있습니다. 다운로드하시겠습니까?",

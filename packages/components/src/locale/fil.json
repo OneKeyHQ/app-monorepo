@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "Natagpuan namin ang mga device na ito",
   "modal__migrating_data": "Paglilipat ng Data",
   "modal__migrating_data_awaiting_confirmation": "Naghihintay ng Kumpirmasyon mula kay {from}",
-  "modal__migrating_data_connection_failed_desc": "Pakitiyak na nakakonekta ang lahat ng device sa parehong LAN at subukang muli",
+  "modal__migrating_data_connection_failed_desc": "Pakitiyak na nakakonekta ang lahat ng device sa parehong network at subukang muli",
   "modal__migrating_data_desc": "Nakakonekta ang Apps",
   "modal__need_install_onekey_bridge": "Nangangailangan ng pag-install ng OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "Paglulunsad ng OneKey desktop bago gamitin ang hardware device. Maaari mo ring i-install ang OneKey Bridge upang mapahusay ang katatagan ng paglipat. Sige at i-download?",

@@ -2,12 +2,25 @@ import axios from 'axios';
 import fetch from 'cross-fetch';
 import RNUUID from 'react-native-uuid';
 
+import {
+  decrypt,
+  encrypt,
+  generateKeypair,
+  rsaDecrypt,
+  rsaEncrypt,
+} from '@onekeyhq/engine/src/dbs/base';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type {
   DeviceInfo,
   MigrateData,
   MigrateServiceResp,
 } from '@onekeyhq/engine/src/types/migrate';
-import { deviceInfo } from '@onekeyhq/kit/src/views/Onboarding/screens/Migration/util';
+import {
+  deviceInfo,
+  generatePassword,
+  randomString,
+  shuffle,
+} from '@onekeyhq/kit/src/views/Onboarding/screens/Migration/util';
 import {
   backgroundClass,
   backgroundMethod,
@@ -27,6 +40,8 @@ import { HTTPServiceNames } from './ServiceHTTP';
 
 import type { RequestData } from './ServiceHTTP';
 
+const RAMDOMNUM_LEAGTH = 4;
+
 enum MigrateAPINames {
   Connect = '/migrate/connect',
   DisConnect = '/migrate/disConnect',
@@ -37,6 +52,7 @@ enum MigrateAPINames {
 export enum MigrateNotificationNames {
   ReceiveDataFromClient = 'ReceiveDataFromClient',
   RequestDataFromClient = 'RequestDataFromClient',
+  UpdateQrcode = 'UpdateQrcode',
   Other = 'Other',
 }
 
@@ -67,13 +83,31 @@ export function ServerUrl(serverUrl: string, path: string) {
 
 @backgroundClass()
 class ServiceMigrate extends ServiceBase {
-  private randomUUID = '';
+  private client = axios.create({ timeout: 60 * 1000 });
+
+  // generate by server
+  private serverKeypair: { publicKey: string; privateKey: string } = {
+    publicKey: '',
+    privateKey: '',
+  };
+
+  // generate by client
+  private clientKeypair: { publicKey: string; privateKey: string } = {
+    publicKey: '',
+    privateKey: '',
+  };
+
+  private randomNum = '';
 
   private connectUUID = '';
 
-  private client = axios.create({
-    timeout: 60 * 1000,
-  });
+  // generate by client, use for server
+  clientPubKey = '';
+
+  // use for client
+  serverPubKey = '';
+
+  private randomUUID = '';
 
   private ensureUUID({ reset }: { reset: boolean }) {
     if (reset) {
@@ -82,35 +116,201 @@ class ServiceMigrate extends ServiceBase {
     return this.randomUUID;
   }
 
-  serverUrl?: string;
+  @backgroundMethod()
+  async encryptDataWithPublicKey(publicKey: string, decryptData: string) {
+    if (this.randomNum.length === 0) {
+      debugLogger.migrate.error('encryptData error: randomNum is empty');
+      return false;
+    }
+    const password = generatePassword(90);
+    const encryptData = encrypt(
+      password,
+      Buffer.from(decryptData, 'utf-8'),
+    ).toString('base64');
+    const encryptPassword = rsaEncrypt(publicKey, password);
+    if (encryptPassword === false) {
+      return false;
+    }
+    const base64RandomNum = Buffer.from(this.randomNum, 'utf-8').toString(
+      'base64',
+    );
+    return Promise.resolve(
+      `${encryptData}${base64RandomNum}${encryptPassword}`,
+    );
+  }
+
+  decryptDataWithPrivateKey(privateKey: string, encryptData: string) {
+    if (this.randomNum.length === 0) {
+      debugLogger.migrate.error('decryptData error: randomNum is empty');
+      return false;
+    }
+
+    const base64RandomNum = Buffer.from(this.randomNum, 'utf-8').toString(
+      'base64',
+    );
+    const array = encryptData.split(base64RandomNum);
+    if (array.length === 2) {
+      const password = rsaDecrypt(privateKey, array[1]);
+      if (password === false) {
+        return;
+      }
+      const decryptData = decrypt(
+        password,
+        Buffer.from(array[0], 'base64'),
+      ).toString('utf-8');
+      return decryptData;
+    }
+  }
+
+  get baseUrl() {
+    return `${getFiatEndpoint()}/migrate`;
+  }
 
   @backgroundMethod()
-  async connectServer(ipAddress: string) {
-    const urlParams = new URLSearchParams({
-      deviceInfo: JSON.stringify(deviceInfo()),
-      uuid: this.ensureUUID({ reset: true }),
-    });
+  async publicKey(type: 'Server' | 'Client') {
+    return Promise.resolve(
+      type === 'Server' ? this.serverPubKey : this.clientPubKey,
+    );
+  }
 
-    const url = `${ServerUrl(
-      ipAddress,
-      MigrateAPINames.Connect,
-    )}?${urlParams.toString()}`;
-    const { success, data } = await this.client
-      .get<MigrateServiceResp<DeviceInfo>>(url, { timeout: 5 * 1000 })
+  @backgroundMethod()
+  async generateRandomNum() {
+    const string =
+      randomString(RAMDOMNUM_LEAGTH / 2, 'ABCDEFGHJKLMNPQRSTUVWXYZ') +
+      randomString(RAMDOMNUM_LEAGTH / 2, '123456789');
+    this.randomNum = shuffle(string);
+    return Promise.resolve(this.randomNum);
+  }
+
+  @backgroundMethod()
+  async clearMigrateInfo(deleteKey = this.connectUUID) {
+    if (deleteKey.length > 0) {
+      this.deletePublicKey({ key: deleteKey });
+    }
+    this.clientKeypair = { publicKey: '', privateKey: '' };
+    this.serverKeypair = { publicKey: '', privateKey: '' };
+    this.connectUUID = '';
+    this.serverPubKey = '';
+    this.clientPubKey = '';
+    this.randomNum = '';
+
+    return Promise.resolve(true);
+  }
+
+  @backgroundMethod()
+  async getPublicKey(params: { key: string; type: 'Server' | 'Client' }) {
+    const urlParams = new URLSearchParams(params);
+    const apiUrl = `${this.baseUrl}/key?${urlParams.toString()}`;
+    const { data } = await this.client
+      .get<MigrateServiceResp<string>>(apiUrl)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: undefined }));
-    if (!success) {
-      return undefined;
-    }
     return data;
   }
 
   @backgroundMethod()
+  async uploadPublicKey(params: {
+    key: string;
+    type: 'Server' | 'Client';
+    publicKey: string;
+  }) {
+    const { publicKey, ...rest } = params;
+    const base64 = Buffer.from(publicKey, 'utf-8').toString('base64');
+    const apiUrl = `${this.baseUrl}/upload`;
+    const { success } = await this.client
+      .post<MigrateServiceResp<undefined>>(apiUrl, {
+        ...rest,
+        publicKey: base64,
+      })
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false }));
+    return success;
+  }
+
+  @backgroundMethod()
+  async deletePublicKey(params: { key: string }) {
+    const urlParams = new URLSearchParams(params);
+    const apiUrl = `${this.baseUrl}/delete?${urlParams.toString()}`;
+    const { success } = await this.client
+      .get<MigrateServiceResp<undefined>>(apiUrl)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: undefined }));
+    return success;
+  }
+
+  @backgroundMethod()
+  async connectServer(serverUrl: string) {
+    const array = serverUrl.split('/');
+    if (array.length === 2) {
+      const [ipAddress, randomNum] = array;
+      if (randomNum.length !== RAMDOMNUM_LEAGTH) {
+        return;
+      }
+      this.randomNum = randomNum;
+      const urlParams = new URLSearchParams({
+        deviceInfo: JSON.stringify(deviceInfo()),
+        uuid: this.ensureUUID({ reset: true }),
+      });
+
+      this.clientKeypair = generateKeypair();
+      const uploadSuccess = await this.uploadPublicKey({
+        key: this.ensureUUID({ reset: false }),
+        type: 'Client',
+        publicKey: this.clientKeypair.publicKey,
+      });
+      if (!uploadSuccess) {
+        return;
+      }
+      const url = `${ServerUrl(
+        ipAddress,
+        MigrateAPINames.Connect,
+      )}?${urlParams.toString()}`;
+      const { success, data } = await this.client
+        .get<
+          MigrateServiceResp<{
+            deviceInfo: DeviceInfo;
+            password: string;
+          }>
+        >(url, { timeout: 60 * 1000 })
+        .then((resp) => resp.data)
+        .catch(() => ({ success: false, data: undefined, message: undefined }));
+      if (!success || data === undefined) {
+        this.clearMigrateInfo(this.ensureUUID({ reset: false }));
+        return;
+      }
+      const { deviceInfo: serverInfo, password } = data;
+
+      const result = rsaDecrypt(this.clientKeypair.privateKey, password);
+      if (result === false) {
+        return;
+      }
+      if (result !== this.randomNum) {
+        this.disConnectServer(ipAddress);
+        this.clearMigrateInfo(this.ensureUUID({ reset: false }));
+        return;
+      }
+      const serverPubKey = await this.getPublicKey({
+        key: this.ensureUUID({ reset: false }),
+        type: 'Server',
+      });
+
+      if (serverPubKey === undefined || serverPubKey.length === 0) {
+        debugLogger.migrate.error('Get server PublicKey fail');
+        this.clearMigrateInfo(this.ensureUUID({ reset: false }));
+        return;
+      }
+      this.serverPubKey = Buffer.from(serverPubKey, 'base64').toString('utf-8');
+      return serverInfo;
+    }
+  }
+
+  @backgroundMethod()
   async disConnectServer(ipAddress: string) {
+    this.clearMigrateInfo();
     const urlParams = new URLSearchParams({
       uuid: this.ensureUUID({ reset: false }),
     });
-
+    this.clientPubKey = '';
     const url = `${ServerUrl(
       ipAddress,
       MigrateAPINames.DisConnect,
@@ -138,22 +338,40 @@ class ServiceMigrate extends ServiceBase {
       MigrateAPINames.SendData,
     )}?${urlParams.toString()}`;
 
-    const { success } = await fetch(url, {
-      method: 'POST',
-      body: data,
-    })
-      .then((result) => {
-        if (result.ok) {
-          return result.json() as MigrateServiceResp<boolean>;
-        }
-        return {
-          success: false,
-        };
+    try {
+      if (this.serverPubKey.length === 0) {
+        debugLogger.migrate.error('sendDataToServer serverKey empty');
+        return false;
+      }
+
+      const encryptData = await this.encryptDataWithPublicKey(
+        this.serverPubKey,
+        data,
+      );
+
+      if (encryptData === false) {
+        return false;
+      }
+      const { success } = await fetch(url, {
+        method: 'POST',
+        body: encryptData,
       })
-      .catch(() => ({
-        success: false,
-      }));
-    return success;
+        .then((result) => {
+          if (result.ok) {
+            return result.json() as MigrateServiceResp<boolean>;
+          }
+          return {
+            success: false,
+          };
+        })
+        .catch(() => ({
+          success: false,
+        }));
+      return success;
+    } catch (error) {
+      debugLogger.migrate.error('sendDataToServer encrypt:', error);
+      return false;
+    }
   }
 
   @backgroundMethod()
@@ -167,15 +385,21 @@ class ServiceMigrate extends ServiceBase {
       MigrateAPINames.RequestData,
     )}?${urlParams.toString()}`;
 
-    const { success, data } = await this.client
-      .get<MigrateServiceResp<MigrateData>>(url)
+    const { success, data: encryptData } = await this.client
+      .get<MigrateServiceResp<string>>(url)
       .then((resp) => resp.data)
       .catch(() => ({
         success: false,
         data: undefined,
       }));
-    if (success) {
-      return data;
+    if (success && encryptData && encryptData.length > 0) {
+      const decryptData = this.decryptDataWithPrivateKey(
+        this.clientKeypair.privateKey,
+        encryptData,
+      );
+      if (typeof decryptData === 'string') {
+        return JSON.parse(decryptData) as MigrateData;
+      }
     }
   }
 
@@ -210,58 +434,93 @@ class ServiceMigrate extends ServiceBase {
 
     debugLogger.migrate.info('receivedHttpRequest = ', apiName, uuid);
 
-    if (uuid.length === 0) {
+    const failResponse = (message: string) => {
       serviceHTTP.serverRespond({
         requestId,
-        respondData: { success: false },
+        respondData: { success: false, message },
       });
+    };
+    if (uuid.length === 0) {
+      failResponse('uuid  is required');
       return;
     }
 
     if (apiName === MigrateAPINames.Connect) {
       if (this.connectUUID.length > 0) {
-        serviceHTTP.serverRespond({
-          requestId,
-          respondData: { success: false },
-        });
+        failResponse('service already connected');
         return;
       }
       this.connectUUID = uuid;
-      serviceHTTP.serverRespond({
-        requestId,
-        respondData: { success: true, data: deviceInfo() },
+      this.serverKeypair = generateKeypair();
+      this.getPublicKey({ key: uuid, type: 'Client' }).then((clientPubKey) => {
+        if (clientPubKey && clientPubKey.length > 0) {
+          this.clientPubKey = Buffer.from(clientPubKey, 'base64').toString(
+            'utf-8',
+          );
+          this.uploadPublicKey({
+            key: uuid,
+            type: 'Server',
+            publicKey: this.serverKeypair.publicKey,
+          }).then((success) => {
+            if (success) {
+              const password = rsaEncrypt(this.clientPubKey, this.randomNum);
+              if (password === false) {
+                this.clearMigrateInfo();
+                failResponse('rsaEncrypt randomNum fail');
+              }
+              serviceHTTP.serverRespond({
+                requestId,
+                respondData: {
+                  success: true,
+                  data: {
+                    deviceInfo: deviceInfo(),
+                    password,
+                  },
+                },
+              });
+            } else {
+              this.clearMigrateInfo();
+              failResponse('Upload server public key fail');
+            }
+          });
+        } else {
+          this.clearMigrateInfo();
+          failResponse('Get client public pey');
+        }
       });
     } else if (apiName === MigrateAPINames.DisConnect) {
       if (this.isConnectedUUID(uuid)) {
-        this.connectUUID = '';
+        this.clearMigrateInfo();
         serviceHTTP.serverRespond({
           requestId,
           respondData: { success: true },
         });
-      } else {
-        serviceHTTP.serverRespond({
-          requestId,
-          respondData: { success: false },
+        appUIEventBus.emit(AppUIEventBusNames.Migrate, {
+          type: MigrateNotificationNames.UpdateQrcode,
+          data: {} as RequestData,
         });
+      } else {
+        failResponse('connect fail');
       }
     } else if (apiName === MigrateAPINames.SendData) {
       if (!this.isConnectedUUID(uuid)) {
-        serviceHTTP.serverRespond({
-          requestId,
-          respondData: { success: false },
-        });
+        failResponse('connect fail');
         return;
       }
+      const { postData: encryptData } = data;
+
+      const decryptData = this.decryptDataWithPrivateKey(
+        this.serverKeypair.privateKey,
+        encryptData,
+      );
+
       appUIEventBus.emit(AppUIEventBusNames.Migrate, {
         type: MigrateNotificationNames.ReceiveDataFromClient,
-        data,
+        data: { requestId, postData: decryptData },
       });
     } else if (apiName === MigrateAPINames.RequestData) {
       if (!this.isConnectedUUID(uuid)) {
-        serviceHTTP.serverRespond({
-          requestId,
-          respondData: { success: false },
-        });
+        failResponse('connect fail');
         return;
       }
       appUIEventBus.emit(AppUIEventBusNames.Migrate, {
