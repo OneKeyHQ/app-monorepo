@@ -251,7 +251,6 @@ const ConnectHardwareModal: FC = () => {
         clearInterval(timerRef.current);
       }
       timerRef.current = setInterval(() => {
-        console.log('====> time excute');
         if (searchStateRef.current === 'stop') {
           clearInterval(timerRef.current);
           resolve();
