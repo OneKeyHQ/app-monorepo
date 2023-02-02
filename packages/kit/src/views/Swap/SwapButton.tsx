@@ -325,7 +325,7 @@ const ExchangeButton = () => {
             encodedTx: encodedApproveTx,
           });
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, e.message);
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
           return;
         }
 
@@ -371,7 +371,7 @@ const ExchangeButton = () => {
           }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, e.message);
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         }
         return;
@@ -449,7 +449,7 @@ const ExchangeButton = () => {
         });
         addSwapTransaction(result.txid, decodedTx.nonce);
       } catch (e: any) {
-        deviceUtils.showErrorToast(e, e.message);
+        deviceUtils.showErrorToast(e, e?.data?.message || e.message);
       }
     } else {
       const password = await backgroundApiProxy.servicePassword.getPassword();
@@ -481,7 +481,7 @@ const ExchangeButton = () => {
             addSwapTransaction(result.txid, decodedTx.nonce);
           }, 100);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, e.message);
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
         }
       } else {
         navigation.navigate(RootRoutes.Modal, {
