@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "我們找到了這些設備",
   "modal__migrating_data": "遷移數據",
   "modal__migrating_data_awaiting_confirmation": "等待 {from} 確認",
-  "modal__migrating_data_connection_failed_desc": "請確保所有設備已連接相同的本地局域網並重試",
+  "modal__migrating_data_connection_failed_desc": "請確保所有設備已連接相同的網絡並重試",
   "modal__migrating_data_desc": "已構建連接",
   "modal__need_install_onekey_bridge": "需要安裝 OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "連接硬件設備前，需要啟動 OneKey 桌面客戶端，你也可以下載  OneKey Bridge 以增強連接的穩定性。是否前往下載？",

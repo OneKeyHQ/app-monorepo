@@ -5390,6 +5390,7 @@ __metadata:
     "@starcoin/starcoin": 2.1.5
     "@types/chrome": ^0.0.161
     "@types/jest": ^29.2.3
+    "@types/jsrsasign": ^10
     "@types/memoizee": ^0.4.8
     "@types/node": ^16.7.13
     "@types/react": ^17.0.33
@@ -5446,6 +5447,7 @@ __metadata:
     jest-environment-jsdom: ^29.3.1
     jest-expo: ^47.0.1
     jest-html-reporter: ^3.7.0
+    jsrsasign: ^10.6.1
     memoizee: ^0.4.15
     metro-minify-terser: ^0.72.3
     node-notifier: ^10.0.0
@@ -8642,6 +8644,13 @@ __metadata:
   version: 0.0.29
   resolution: "@types/json5@npm:0.0.29"
   checksum: e60b153664572116dfea673c5bda7778dbff150498f44f998e34b5886d8afc47f16799280e4b6e241c0472aef1bc36add771c569c68fc5125fc2ae519a3eb9ac
+  languageName: node
+  linkType: hard
+
+"@types/jsrsasign@npm:^10":
+  version: 10.5.5
+  resolution: "@types/jsrsasign@npm:10.5.5"
+  checksum: e9a011dc3401290f72758d1acc28990d0a0d2d1de716ef4cf583fceea1172d304a1c297b89eb3e7e174543252a9f7e4d74d74c5bfc53f8d845a13ce2bc900e34
   languageName: node
   linkType: hard
 
@@ -22259,6 +22268,13 @@ colour@latest:
     json-schema: 0.4.0
     verror: 1.10.0
   checksum: 2ad1b9fdcccae8b3d580fa6ced25de930eaa1ad154db21bbf8478a4d30bbbec7925b5f5ff29b933fba9412b16a17bd484a8da4fdb3663b5e27af95dd693bab2a
+  languageName: node
+  linkType: hard
+
+"jsrsasign@npm:^10.6.1":
+  version: 10.6.1
+  resolution: "jsrsasign@npm:10.6.1"
+  checksum: 372cde32c0a1b54f0df65e2091f7b99724103f150ff535df5db798897e91cac5c484284633959da8ddf4e3d4868253c428df4d3c709f44667928e05e705105d2
   languageName: node
   linkType: hard
 

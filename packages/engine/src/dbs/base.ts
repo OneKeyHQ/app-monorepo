@@ -8,6 +8,12 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
+import {
+  generateKeypair,
+  rsaDecrypt,
+  rsaEncrypt,
+} from '../secret/encryptors/rsa';
+
 import type { DBAccount } from '../types/account';
 import type { PrivateKeyCredential } from '../types/credential';
 import type { Device, DevicePayload } from '../types/device';
@@ -223,4 +229,13 @@ export type {
   CreateHWWalletParams,
   SetWalletNameAndAvatarParams,
 };
-export { checkPassword, DEFAULT_VERIFY_STRING, encrypt, decrypt, MAIN_CONTEXT };
+export {
+  checkPassword,
+  DEFAULT_VERIFY_STRING,
+  encrypt,
+  decrypt,
+  MAIN_CONTEXT,
+  generateKeypair,
+  rsaDecrypt,
+  rsaEncrypt,
+};

@@ -197,35 +197,41 @@ export const GenaralSection = () => {
                 <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
               </Box>
             </Pressable>
-            <Divider />
           </Box>
           {supportedHaptics ? (
-            <Pressable
-              display="flex"
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-              py={4}
-              px={{ base: 4, md: 6 }}
-              onPress={() => {
-                navigation.navigate(HomeRoutes.VolumeHaptic);
-              }}
-            >
-              <Icon name="SpeakerWaveOutline" />
-              <Text
-                typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                flex="1"
-                numberOfLines={1}
-                mx={3}
+            <>
+              <Divider />
+              <Pressable
+                display="flex"
+                flexDirection="row"
+                justifyContent="space-between"
+                alignItems="center"
+                py={4}
+                px={{ base: 4, md: 6 }}
+                onPress={() => {
+                  navigation.navigate(HomeRoutes.VolumeHaptic);
+                }}
               >
-                {intl.formatMessage({
-                  id: 'form__sound_n_vibration',
-                })}
-              </Text>
-              <Box>
-                <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-              </Box>
-            </Pressable>
+                <Icon name="SpeakerWaveOutline" />
+                <Text
+                  typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                  flex="1"
+                  numberOfLines={1}
+                  mx={3}
+                >
+                  {intl.formatMessage({
+                    id: 'form__sound_n_vibration',
+                  })}
+                </Text>
+                <Box>
+                  <Icon
+                    name="ChevronRightMini"
+                    color="icon-subdued"
+                    size={20}
+                  />
+                </Box>
+              </Pressable>
+            </>
           ) : null}
         </Box>
       </Box>

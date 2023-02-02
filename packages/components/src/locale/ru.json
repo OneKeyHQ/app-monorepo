@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "Мы обнаружили эти устройства",
   "modal__migrating_data": "Перенос данных",
   "modal__migrating_data_awaiting_confirmation": "Ожидается подтверждение от {from}",
-  "modal__migrating_data_connection_failed_desc": "Убедитесь, что все устройства подключены к одной и той же локальной сети, и повторите попытку.",
+  "modal__migrating_data_connection_failed_desc": "Убедитесь, что все устройства подключены к одной сети, и повторите попытку.",
   "modal__migrating_data_desc": "Приложения подключены",
   "modal__need_install_onekey_bridge": "Требуется установка OneKey Bridge",
   "modal__need_install_onekey_bridge_desc": "Запуск рабочего стола OneKey перед использованием аппаратного устройства. Вы также можете установить OneKey Bridge, чтобы повысить стабильность передачи. Идти вперед и скачать?",
