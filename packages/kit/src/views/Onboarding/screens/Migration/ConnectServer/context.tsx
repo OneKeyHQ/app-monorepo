@@ -11,7 +11,6 @@ export enum ServerStatus {
 
 export type MigrateContextValue = {
   inputValue: string;
-  serverAddress?: string;
   selectRange?: number;
   serverStatus?: ServerStatus;
 };
@@ -28,7 +27,7 @@ function MigrateContextProvider(
     children: JSX.Element;
   },
 ) {
-  const { children, inputValue, serverAddress } = props;
+  const { children, inputValue } = props;
   const [context, setContext] = useState<MigrateContextValue>(() => {
     let selectRange = 0;
     if (inputValue && inputValue?.length > 0) {
@@ -39,7 +38,6 @@ function MigrateContextProvider(
     }
     return {
       inputValue,
-      serverAddress,
       selectRange,
     };
   });

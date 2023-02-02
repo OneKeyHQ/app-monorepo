@@ -1431,7 +1431,7 @@
   "modal__looking_for_devices_result": "Бид эдгээр төхөөрөмжийг олсон",
   "modal__migrating_data": "Өгөгдлийг шилжүүлэх",
   "modal__migrating_data_awaiting_confirmation": "{from} баталгаажуулалтыг хүлээж байна",
-  "modal__migrating_data_connection_failed_desc": "Бүх төхөөрөмж нэг LAN сүлжээнд холбогдсон эсэхийг шалгаад дахин оролдоно уу",
+  "modal__migrating_data_connection_failed_desc": "Бүх төхөөрөмж нэг сүлжээнд холбогдсон эсэхийг шалгаад дахин оролдоно уу",
   "modal__migrating_data_desc": "Апп-ууд холбогдсон",
   "modal__need_install_onekey_bridge": "OneKey Bridge суулгах шаардлагатай",
   "modal__need_install_onekey_bridge_desc": "Техник хангамжийн төхөөрөмжийг ашиглахаас өмнө OneKey ширээний компьютерийг ажиллуулж байна. Та мөн шилжүүлгийн тогтвортой байдлыг сайжруулахын тулд OneKey Bridge суулгаж болно. Үргэлжлүүлэн татаж авах уу?",
