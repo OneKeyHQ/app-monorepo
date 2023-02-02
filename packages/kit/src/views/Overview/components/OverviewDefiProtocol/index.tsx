@@ -15,11 +15,8 @@ import {
 
 import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import {
-  useAccountValues,
-  useActiveWalletAccount,
-  useAppSelector,
-} from '../../../../hooks';
+import { useAccountValues, useActiveWalletAccount } from '../../../../hooks';
+import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
@@ -59,11 +56,7 @@ export const OverviewDefiProtocol: FC<
 }) => {
   const intl = useIntl();
 
-  const selectedFiatMoneySymbol = useAppSelector(
-    (s) => s.settings?.selectedFiatMoneySymbol,
-  );
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
+  const fiat = useCurrentFiatValue();
 
   const { networkId, accountId } = useActiveWalletAccount();
 

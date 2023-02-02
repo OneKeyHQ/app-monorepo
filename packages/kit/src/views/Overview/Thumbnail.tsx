@@ -19,6 +19,7 @@ import {
 
 import { FormatCurrencyNumber } from '../../components/Format';
 import { useAccountValues, useAppSelector, useNavigation } from '../../hooks';
+import { useCurrentFiatValue } from '../../hooks/useTokens';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { OverviewModalRoutes } from './types';
@@ -143,14 +144,10 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
 
 const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const { networkId, address, limitSize, accountId } = props;
-  const selectedFiatMoneySymbol = useAppSelector(
-    (s) => s.settings?.selectedFiatMoneySymbol,
-  );
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
 
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
+  const fiat = useCurrentFiatValue();
 
   const defis = useAppSelector(
     (s) => s.overview.defi?.[`${networkId}--${address}`] ?? [],
