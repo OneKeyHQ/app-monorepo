@@ -15,7 +15,11 @@ import {
 
 import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountValues, useActiveWalletAccount } from '../../../../hooks';
+import {
+  useAccountValues,
+  useActiveWalletAccount,
+  useAppSelector,
+} from '../../../../hooks';
 
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
@@ -55,12 +59,27 @@ export const OverviewDefiProtocol: FC<
 }) => {
   const intl = useIntl();
 
+  const selectedFiatMoneySymbol = useAppSelector(
+    (s) => s.settings?.selectedFiatMoneySymbol,
+  );
+  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
+  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
+
   const { networkId, accountId } = useActiveWalletAccount();
 
   const accountAllValues = useAccountValues({
     networkId,
     accountId,
   });
+
+  const rate = useMemo(
+    () =>
+      new B(protocolValue)
+        .multipliedBy(fiat)
+        .div(accountAllValues.value)
+        .multipliedBy(100),
+    [protocolValue, accountAllValues, fiat],
+  );
 
   const content = useMemo(
     () => (
@@ -98,9 +117,7 @@ export const OverviewDefiProtocol: FC<
           showHeader ? (
             <OverviewDefiBoxHeader
               name={protocolName}
-              rate={new B(protocolValue)
-                .div(accountAllValues.value)
-                .multipliedBy(100)}
+              rate={rate}
               desc={
                 <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
                   <FormatCurrencyNumber
