@@ -137,7 +137,8 @@ export function useFormatAmount() {
   ) => {
     // Because token prices are pulled with fiat parameters, the local fiat conversion is removed
     const { selectedFiatMoneySymbol = 'usd' } = useSettings();
-    // const map = useAppSelector((s) => s.fiatMoney.map);
+    const map = useAppSelector((s) => s.fiatMoney.map);
+    const unit = map[selectedFiatMoneySymbol]?.unit ?? '';
     // const fiat = map[selectedFiatMoneySymbol];
     const fiat = 1;
 
@@ -169,9 +170,9 @@ export function useFormatAmount() {
 
       return {
         amount: amount || '0',
-        unit: selectedFiatMoneySymbol.toUpperCase().trim(),
+        unit,
       };
-    }, [balance, formatOptions, selectedFiatMoneySymbol]);
+    }, [balance, formatOptions, selectedFiatMoneySymbol, unit]);
   };
 
   return { useFormatCurrencyDisplay, useFormatBalanceDisplay };
@@ -398,7 +399,7 @@ export function FormatCurrencyNumber({
     return null;
   }
   const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
-  const unit = fiatMap[selectedFiatMoneySymbol]?.unit || '$';
+  const unit = fiatMap[selectedFiatMoneySymbol]?.unit || '';
   const maxDecimals =
     decimals ??
     getSuggestedDecimals(value instanceof BigNumber ? value.toNumber() : value);
