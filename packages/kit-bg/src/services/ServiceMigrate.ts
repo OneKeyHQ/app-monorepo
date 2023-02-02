@@ -34,6 +34,7 @@ import {
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
 import { HTTPServiceNames } from './ServiceHTTP';
@@ -85,17 +86,7 @@ export function ServerUrl(serverUrl: string, path: string) {
 class ServiceMigrate extends ServiceBase {
   private client = axios.create({ timeout: 60 * 1000 });
 
-  // generate by server
-  private serverKeypair: { publicKey: string; privateKey: string } = {
-    publicKey: '',
-    privateKey: '',
-  };
-
-  // generate by client
-  private clientKeypair: { publicKey: string; privateKey: string } = {
-    publicKey: '',
-    privateKey: '',
-  };
+  private keypair?: { publicKey: string; privateKey: string };
 
   private randomNum = '';
 
@@ -114,6 +105,21 @@ class ServiceMigrate extends ServiceBase {
       this.randomUUID = RNUUID.v4() as string;
     }
     return this.randomUUID;
+  }
+
+  keyPairProgress = false;
+
+  @backgroundMethod()
+  async setupKeypair({ reset }: { reset: boolean }) {
+    return new Promise((resolve) => {
+      if (reset || this.keypair === undefined) {
+        this.keyPairProgress = true;
+        this.keypair = generateKeypair();
+        debugLogger.migrate.error('keypair setup');
+        this.keyPairProgress = false;
+      }
+      return resolve('');
+    });
   }
 
   @backgroundMethod()
@@ -187,8 +193,6 @@ class ServiceMigrate extends ServiceBase {
     if (deleteKey.length > 0) {
       this.deletePublicKey({ key: deleteKey });
     }
-    this.clientKeypair = { publicKey: '', privateKey: '' };
-    this.serverKeypair = { publicKey: '', privateKey: '' };
     this.connectUUID = '';
     this.serverPubKey = '';
     this.clientPubKey = '';
@@ -240,8 +244,14 @@ class ServiceMigrate extends ServiceBase {
 
   @backgroundMethod()
   async connectServer(serverUrl: string) {
+    if (this.keypair === undefined) {
+      debugLogger.migrate.error('keypair not ready');
+      if (this.keyPairProgress === false) {
+        this.setupKeypair({ reset: true });
+      }
+    }
     const array = serverUrl.split('/');
-    if (array.length === 2) {
+    if (array.length === 2 && this.keypair) {
       const [ipAddress, randomNum] = array;
       if (randomNum.length !== RAMDOMNUM_LEAGTH) {
         return;
@@ -251,12 +261,10 @@ class ServiceMigrate extends ServiceBase {
         deviceInfo: JSON.stringify(deviceInfo()),
         uuid: this.ensureUUID({ reset: true }),
       });
-
-      this.clientKeypair = generateKeypair();
       const uploadSuccess = await this.uploadPublicKey({
         key: this.ensureUUID({ reset: false }),
         type: 'Client',
-        publicKey: this.clientKeypair.publicKey,
+        publicKey: this.keypair.publicKey,
       });
       if (!uploadSuccess) {
         return;
@@ -280,7 +288,7 @@ class ServiceMigrate extends ServiceBase {
       }
       const { deviceInfo: serverInfo, password } = data;
 
-      const result = rsaDecrypt(this.clientKeypair.privateKey, password);
+      const result = rsaDecrypt(this.keypair.privateKey, password);
       if (result === false) {
         return;
       }
@@ -319,6 +327,9 @@ class ServiceMigrate extends ServiceBase {
       .get<MigrateServiceResp<boolean>>(url)
       .then((resp) => resp.data)
       .catch(() => ({ success: false }));
+    if (!platformEnv.isNative) {
+      this.setupKeypair({ reset: true });
+    }
     return success;
   }
 
@@ -385,6 +396,10 @@ class ServiceMigrate extends ServiceBase {
       MigrateAPINames.RequestData,
     )}?${urlParams.toString()}`;
 
+    if (this.keypair === undefined) {
+      debugLogger.migrate.error('keypair lose');
+      return;
+    }
     const { success, data: encryptData } = await this.client
       .get<MigrateServiceResp<string>>(url)
       .then((resp) => resp.data)
@@ -394,7 +409,7 @@ class ServiceMigrate extends ServiceBase {
       }));
     if (success && encryptData && encryptData.length > 0) {
       const decryptData = this.decryptDataWithPrivateKey(
-        this.clientKeypair.privateKey,
+        this.keypair.privateKey,
         encryptData,
       );
       if (typeof decryptData === 'string') {
@@ -435,6 +450,7 @@ class ServiceMigrate extends ServiceBase {
     debugLogger.migrate.info('receivedHttpRequest = ', apiName, uuid);
 
     const failResponse = (message: string) => {
+      debugLogger.migrate.error(`apiName:${apiName},error:${message}`);
       serviceHTTP.serverRespond({
         requestId,
         respondData: { success: false, message },
@@ -450,17 +466,22 @@ class ServiceMigrate extends ServiceBase {
         failResponse('service already connected');
         return;
       }
+      if (this.keypair === undefined) {
+        debugLogger.migrate.error('keypair not ready');
+        if (this.keyPairProgress === false) {
+          this.setupKeypair({ reset: true });
+        }
+      }
       this.connectUUID = uuid;
-      this.serverKeypair = generateKeypair();
       this.getPublicKey({ key: uuid, type: 'Client' }).then((clientPubKey) => {
-        if (clientPubKey && clientPubKey.length > 0) {
+        if (clientPubKey && clientPubKey.length > 0 && this.keypair) {
           this.clientPubKey = Buffer.from(clientPubKey, 'base64').toString(
             'utf-8',
           );
           this.uploadPublicKey({
             key: uuid,
             type: 'Server',
-            publicKey: this.serverKeypair.publicKey,
+            publicKey: this.keypair.publicKey,
           }).then((success) => {
             if (success) {
               const password = rsaEncrypt(this.clientPubKey, this.randomNum);
@@ -490,11 +511,15 @@ class ServiceMigrate extends ServiceBase {
       });
     } else if (apiName === MigrateAPINames.DisConnect) {
       if (this.isConnectedUUID(uuid)) {
-        this.clearMigrateInfo();
         serviceHTTP.serverRespond({
           requestId,
           respondData: { success: true },
         });
+        if (!platformEnv.isNative) {
+          this.setupKeypair({ reset: true });
+        }
+        this.clearMigrateInfo();
+
         appUIEventBus.emit(AppUIEventBusNames.Migrate, {
           type: MigrateNotificationNames.UpdateQrcode,
           data: {} as RequestData,
@@ -509,8 +534,12 @@ class ServiceMigrate extends ServiceBase {
       }
       const { postData: encryptData } = data;
 
+      if (this.keypair === undefined) {
+        failResponse('keypair lose');
+        return;
+      }
       const decryptData = this.decryptDataWithPrivateKey(
-        this.serverKeypair.privateKey,
+        this.keypair.privateKey,
         encryptData,
       );
 
