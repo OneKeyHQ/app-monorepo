@@ -17,6 +17,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -84,6 +85,7 @@ class ServiceOverview extends ServiceBase {
       address,
       scanTypes: ['defi'],
     };
+    debugLogger.overview.info('subscribe overview task=', task);
     const res = await fetchData<{
       tasks?: IOverviewScanTaskItem[];
     }>(
@@ -122,8 +124,7 @@ class ServiceOverview extends ServiceBase {
         }
         // TODO: tokens nfts histories
       } catch (e) {
-        console.log(e, tasks);
-        // pass
+        debugLogger.overview.info('query pending task error, error=', e, tasks);
       }
     }
     this.pendingTasks = newPendingTasks;
@@ -167,6 +168,7 @@ class ServiceOverview extends ServiceBase {
 
     if (!pendingTasks.length || !savedDefiList?.length) {
       dispatch(...data.map(setOverviewPortfolioDefi));
+      debugLogger.overview.info('fetch defis done', data);
     }
 
     return pendingTasks;

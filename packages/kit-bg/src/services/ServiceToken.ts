@@ -323,7 +323,7 @@ export default class ServiceToken extends ServiceBase {
   _getTokenRiskyItemsWithMemo = memoizee(getTokenRiskyItems, {
     promise: true,
     primitive: true,
-    max: 200,
+    max: 500,
     maxAge: getTimeDurationMs({ day: 1 }),
     normalizer: (args) => JSON.stringify(args),
   });

@@ -128,6 +128,7 @@ export enum LoggerNames {
   autoUpdate = 'autoUpdate',
   migrate = 'migrate',
   onekeyLite = 'onekeyLite',
+  overview = 'overview',
 }
 
 export type LoggerEntity = {
@@ -181,6 +182,7 @@ const debugLogger: Record<
   [LoggerNames.autoUpdate]: Cache.createLogger(LoggerNames.autoUpdate),
   [LoggerNames.migrate]: Cache.createLogger(LoggerNames.migrate),
   [LoggerNames.onekeyLite]: Cache.createLogger(LoggerNames.onekeyLite),
+  [LoggerNames.overview]: Cache.createLogger(LoggerNames.overview),
 };
 
 if (platformEnv.isDev) {
