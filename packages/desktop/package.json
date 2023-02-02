@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "expo-yarn-workspaces postinstall",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "dev": "npx concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 dist/app.js",
     "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 expo start --web --port 19001",
