@@ -9,6 +9,7 @@ import Animated, {
 
 import { Box, Pressable, useSafeAreaInsets } from '@onekeyhq/components';
 
+import DelayedFreeze from '../../../../components/DelayedFreeze';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
@@ -56,9 +57,9 @@ const FloatingContainer: FC<
   }, [beforeMaximize, showContent]);
 
   const innerAfterMinimize = useCallback(() => {
-    // if (showContent) setShowContent(false);
+    if (showContent) setShowContent(false);
     afterMinimize?.();
-  }, [afterMinimize]);
+  }, [afterMinimize, showContent]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -197,10 +198,14 @@ const FloatingContainer: FC<
                 onSearch={onSearch}
               />
             </Pressable>
-            {showContent && <WebTabFront />}
+            <DelayedFreeze freeze={!showContent}>
+              <WebTabFront />
+            </DelayedFreeze>
           </Box>
         </Animated.View>
-        {showContent && <WebTabGrid />}
+        <DelayedFreeze freeze={!showContent}>
+          <WebTabGrid />
+        </DelayedFreeze>
       </Animated.View>
       <ControllerBarMobile />
     </>

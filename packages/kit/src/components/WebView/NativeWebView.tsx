@@ -99,9 +99,14 @@ const NativeWebView = forwardRef(
         mediaPlaybackRequiresUserAction
         source={{ uri: src }}
         onMessage={webviewOnMessage}
-        renderError={() => (
-          <ErrorView onRefresh={() => webviewRef.current?.reload()} />
-        )}
+        renderError={(
+          errorDomain: string | undefined,
+          errorCode: number,
+          errorDesc: string,
+        ) => {
+          debugLogger.webview.error({ errorDomain, errorCode, errorDesc, src });
+          return <ErrorView onRefresh={() => webviewRef.current?.reload()} />;
+        }}
         {...props}
       />
     );

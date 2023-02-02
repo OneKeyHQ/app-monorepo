@@ -7,6 +7,8 @@ import { BackHandler } from 'react-native';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { WALLET_CONNECT_PROTOCOL_PREFIXES } from '../../../../components/WalletConnect/walletConnectConsts';
+import { handleDeepLinkUrl } from '../../../../routes/deepLink';
 import { homeTab, setWebTabData } from '../../../../store/reducers/webTabs';
 import { gotoSite } from '../Controller/gotoSite';
 import { onNavigation } from '../Controller/useWebController';
@@ -44,24 +46,36 @@ const WebContent: FC<WebTab & WebViewProps> = ({
         title,
         url: navUrl,
       } = navigationStateChangeEvent;
-      const isDeepLink = !navUrl.startsWith('http') && navUrl !== 'about:blank';
-      if (isDeepLink) {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        webviewRefs[id]?.innerRef?.stopLoading();
-        // canOpenURL may need additional config on android 11+
-        // https://github.com/facebook/react-native/issues/32311#issuecomment-933568611
-        // so just try open directly
-        Linking.openURL(navUrl).catch();
-        return;
-      }
       if (loading) {
         onNavigation({ url: navUrl, title, canGoBack, canGoForward, loading });
       } else {
         onNavigation({ title, canGoBack, canGoForward, loading });
       }
     },
-    [id, showHome],
+    [showHome],
+  );
+  const onShouldStartLoadWithRequest = useCallback(
+    (navigationStateChangeEvent: WebViewNavigation) => {
+      const { url: navUrl } = navigationStateChangeEvent;
+      const isDeepLink = !navUrl.startsWith('http') && navUrl !== 'about:blank';
+      if (isDeepLink) {
+        if (
+          WALLET_CONNECT_PROTOCOL_PREFIXES.some((prefix) =>
+            navUrl.startsWith(prefix),
+          )
+        ) {
+          handleDeepLinkUrl({ url: navUrl });
+          return false;
+        }
+        // canOpenURL may need additional config on android 11+
+        // https://github.com/facebook/react-native/issues/32311#issuecomment-933568611
+        // so just try open directly
+        Linking.openURL(navUrl).catch();
+        return false;
+      }
+      return true;
+    },
+    [],
   );
 
   useEffect(() => {
@@ -102,6 +116,7 @@ const WebContent: FC<WebTab & WebViewProps> = ({
             webviewRefs[id] = ref;
           }
         }}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
           gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });

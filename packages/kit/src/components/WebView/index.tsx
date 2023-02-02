@@ -24,6 +24,7 @@ interface WebViewProps {
   openUrlInExt?: boolean;
   onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
+  onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
   allowpopups?: boolean;
   containerProps?: ComponentProps<typeof Box>;
   customReceiveHandler?: IJsBridgeReceiveHandler;
