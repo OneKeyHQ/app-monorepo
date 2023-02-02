@@ -499,10 +499,11 @@ class Engine {
 
       await Promise.all(
         networks.map((networkId) =>
-          this.addHdOrHwAccounts(password, wallet.id, networkId).then(
-            undefined,
-            (e) => console.error(e),
-          ),
+          this.addHdOrHwAccounts({
+            password,
+            walletId: wallet.id,
+            networkId,
+          }).then(undefined, (e) => console.error(e)),
         ),
       );
       timelinePerfTrace.mark({
@@ -576,8 +577,16 @@ class Engine {
     // Add BTC & ETH accounts by default.
     try {
       if (wallet.accounts.length === 0) {
-        await this.addHdOrHwAccounts('', wallet.id, OnekeyNetwork.btc);
-        await this.addHdOrHwAccounts('', wallet.id, OnekeyNetwork.eth);
+        await this.addHdOrHwAccounts({
+          password: '',
+          walletId: wallet.id,
+          networkId: OnekeyNetwork.btc,
+        });
+        await this.addHdOrHwAccounts({
+          password: '',
+          walletId: wallet.id,
+          networkId: OnekeyNetwork.eth,
+        });
       }
     } catch (e) {
       await this.removeWallet(wallet.id, '');
@@ -931,16 +940,31 @@ class Engine {
   }
 
   @backgroundMethod()
-  async addHdOrHwAccounts(
-    password: string,
-    walletId: string,
-    networkId: string,
-    indexes?: Array<number>,
-    names?: Array<string>,
-    purpose?: number,
-    skipRepeat?: boolean,
-    callback = (_account: Account): Promise<boolean> => Promise.resolve(true),
-  ): Promise<Array<Account>> {
+  async addHdOrHwAccounts({
+    password,
+    walletId,
+    networkId,
+    indexes,
+    names,
+    purpose,
+    skipRepeat,
+    callback,
+    isAddInitFirstAccountOnly,
+  }: {
+    password: string;
+    walletId: string;
+    networkId: string;
+    indexes?: Array<number>;
+    names?: Array<string>;
+    purpose?: number;
+    skipRepeat?: boolean;
+    callback?: (_account: Account) => Promise<boolean>;
+    isAddInitFirstAccountOnly?: boolean;
+  }): Promise<Array<Account>> {
+    // eslint-disable-next-line no-param-reassign
+    callback =
+      callback ??
+      ((_account: Account): Promise<boolean> => Promise.resolve(true));
     // And an HD account to wallet. Path and name are auto detected if not specified.
     // Raise an error if:
     // 1. wallet,
@@ -965,9 +989,14 @@ class Engine {
     if (!coinType) {
       throw new OneKeyInternalError(`coinType of impl=${impl} not found.`);
     }
-    const usedIndexes = indexes || [
-      wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0,
-    ];
+    const nextIndex =
+      wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0;
+    const usedIndexes = indexes || [nextIndex];
+    if (isAddInitFirstAccountOnly && nextIndex > 0) {
+      throw new OneKeyInternalError(
+        'isAddInitFirstAccountOnly=true, skip adding next account',
+      );
+    }
     if (usedIndexes.some((index) => index >= 2 ** 31)) {
       throw new OneKeyInternalError(
         'Invalid child index, should be less than 2^31.',
