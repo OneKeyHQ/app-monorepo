@@ -103,6 +103,37 @@ export default class ServiceNameResolver extends ServiceBase {
     return NAME_RESOLVER;
   }
 
+  // UD libs api allNonEmptyRecords unusable，so use records api
+
+  private UDSupportKeys = [
+    'crypto.ETH.address',
+    'crypto.POLY.address',
+    'crypto.CRO.address',
+    'crypto.CELO.address',
+    'crypto.AVAX.address',
+    'crypto.OKT.address',
+    'crypto.ETC.address',
+    'crypto.BNB.VERSION.BEP20.address',
+    'crypto.FTM.VERSION.ERC20.address',
+    'crypto.FTM.VERSION.OPERA.address',
+    'crypto.ADA.address',
+    'crypto.ALGO.address',
+    'crypto.APT.address',
+    'crypto.SUI.address',
+    'crypto.BCH.address',
+    'crypto.BTC.address',
+    'crypto.CFX.address',
+    'crypto.DOGE.address',
+    'crypto.FIL.address',
+    'crypto.LTC.address',
+    'crypto.NEAR.address',
+    'crypto.SOL.address',
+    'crypto.TRX.address',
+    'crypto.XRP.address',
+    'crypto.ATOM.address',
+    'crypto.FET.version.FETCHAI.address',
+  ];
+
   @backgroundMethod()
   async checkIsValidName(name: string) {
     const status = this.config.some((resolver) => resolver.pattern.test(name));
@@ -276,23 +307,25 @@ export default class ServiceNameResolver extends ServiceBase {
     name: string,
   ): Promise<ResolverNameList | null | string> {
     const resolution = new Resolution();
+    let names: ResolverNames[] = [];
     try {
-      const result = await resolution.allNonEmptyRecords(name);
-      const names: ResolverNameList = [];
-      Object.keys(result).forEach((key) => {
-        if (key.startsWith('crypto.') && key.endsWith('.address')) {
+      const records = await resolution.records(name, this.UDSupportKeys);
+      Object.keys(records).forEach((key) => {
+        const value = records[key];
+        if (value?.length) {
           const subtype = key.replace('crypto.', '').replace('.address', '');
-          names.push({
+          const resulet = {
             subtype,
-            value: result[key],
+            value,
             type: 'address',
             key,
-          });
+          };
+          names = [...names, resulet];
         }
       });
-      return names;
     } catch (e) {
       return 'msg__network_request_failed';
     }
+    return names;
   }
 }
