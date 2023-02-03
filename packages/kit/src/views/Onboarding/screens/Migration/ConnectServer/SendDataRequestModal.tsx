@@ -50,16 +50,12 @@ const Content: FC<Props> = ({
       title={intl.formatMessage({ id: 'modal__send_data_request' })}
       closeOverlay={cancelAction}
     >
-      <Text typography="Body2" color="text-subdued">
-        {intl.formatMessage({ id: 'modal__send_data_request_desc' })}
-      </Text>
       <Box
         bgColor="surface-default"
         borderRadius="12px"
         borderColor="border-subdued"
         borderWidth={1}
         py="16px"
-        mt="24px"
       >
         <Text typography="Body2" color="text-subdued" ml="16px">
           {intl.formatMessage({ id: 'content__to' })}
