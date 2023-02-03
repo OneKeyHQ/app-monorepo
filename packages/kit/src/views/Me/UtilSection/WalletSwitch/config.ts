@@ -39,7 +39,7 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     logo: AptosMartianLogo,
     title: 'Martian',
     propertyKeys: ['martian'],
-    enable: true,
+    enable: false,
   },
   'SUI-Sui Wallet': {
     logo: SuiWalletLogo,
