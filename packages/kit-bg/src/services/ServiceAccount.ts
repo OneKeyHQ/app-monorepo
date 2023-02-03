@@ -113,7 +113,7 @@ class ServiceAccount extends ServiceBase {
       }),
       ...(extraActions || []),
     );
-    this.changeActiveExternalWalletName(walletId, accountId);
+    this.changeActiveExternalWalletName(accountId);
     this.notifyAccountsChanged();
   }
 
@@ -1166,12 +1166,16 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async changeActiveExternalWalletName(
-    walletId: string | null,
-    accountId: string | null,
-  ) {
+  async changeActiveExternalWalletName(accountId: string | null) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const activeWalletId = appSelector((s) => s.general.activeWalletId);
+    const activeAccountId = appSelector((s) => s.general.activeAccountId);
     let activeExternalWalletName = null;
-    if (walletId === 'external' && accountId) {
+    if (
+      activeWalletId === 'external' &&
+      accountId &&
+      accountId === activeAccountId
+    ) {
       const result =
         await this.backgroundApi.serviceWalletConnect.getWalletConnectSessionOfAccount(
           {
@@ -1181,9 +1185,7 @@ class ServiceAccount extends ServiceBase {
       activeExternalWalletName = result.accountInfo?.walletName;
     }
 
-    this.backgroundApi.dispatch(
-      changeActiveExternalWalletName(activeExternalWalletName ?? ''),
-    );
+    dispatch(changeActiveExternalWalletName(activeExternalWalletName ?? ''));
   }
 }
 
