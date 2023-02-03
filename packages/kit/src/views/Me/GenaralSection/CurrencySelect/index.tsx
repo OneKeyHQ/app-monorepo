@@ -201,8 +201,7 @@ const CurrencySelectModal: FC = () => {
 
   const onSelectedCurrency = useCallback(
     (value) => {
-      backgroundApiProxy.dispatch(setSelectedFiatMoneySymbol(value));
-      backgroundApiProxy.serviceNotification.syncPushNotificationConfig();
+      backgroundApiProxy.servicePrice.currencyChanged(value);
       onClose();
     },
     [onClose],
@@ -242,7 +241,6 @@ const CurrencySelectModal: FC = () => {
   const renderItem = ({ item }: { item: string }) => (
     <CurrencyCell
       onPress={(value) => {
-        console.log(value);
         onSelectedCurrency(value);
       }}
       item={item}
