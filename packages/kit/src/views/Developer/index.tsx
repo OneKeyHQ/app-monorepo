@@ -115,7 +115,6 @@ export const Debug = () => {
               networkId,
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
-              skipSaveHistory: false,
               encodedTx: encodedApproveTx,
               onSuccess: () => {
                 resolve('');
