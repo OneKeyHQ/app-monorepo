@@ -1,5 +1,6 @@
 import { debounce, uniq, xor } from 'lodash';
 
+import { setSelectedFiatMoneySymbol } from '@onekeyhq/kit/src/store/reducers/settings';
 import type { SimpleTokenPrices } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { setTokenPriceMap } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
@@ -9,6 +10,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { PRICE_EXPIRED_TIME } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import ServiceBase from './ServiceBase';
 
@@ -177,5 +182,13 @@ export default class ServicePrice extends ServiceBase {
     } catch {
       return {};
     }
+  }
+
+  @backgroundMethod()
+  currencyChanged(value: string) {
+    const { dispatch, serviceNotification } = this.backgroundApi;
+    dispatch(setSelectedFiatMoneySymbol(value));
+    appEventBus.emit(AppEventBusNames.CurrencyChanged);
+    serviceNotification.syncPushNotificationConfig();
   }
 }
