@@ -137,6 +137,7 @@ const validChannels = [
   'update/downloading',
   'update/downloaded',
   'touch/update-res-success',
+  'touch/update-progress',
 ];
 
 const desktopApi = {

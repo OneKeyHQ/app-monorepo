@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "قم بالتبديل إلى Boardloader",
   "modal__update_resources_switch_to_boardloader_desc": "لتحديث موارد البرامج الثابتة على جهازك ، ستحتاج إلى تبديلها إلى وضع Boardloader.",
   "modal__update_resources_updating_resources": "تحديث الموارد",
-  "modal__update_resources_updating_resources_desc": "قد تستغرق هذه العملية بعض الوقت ، الرجاء الانتظار ...",
+  "modal__update_resources_updating_resources_desc": "اكتمل {pct} ، الرجاء الانتظار ...",
   "modal__updating": "التحديث",
   "modal__updating_attention": "اترك التطبيق مفتوحًا والجهاز مفتوحًا أثناء التحديث.",
   "modal__what_is_new_in_onekey_str": "ما الجديد في OneKey {0}",
