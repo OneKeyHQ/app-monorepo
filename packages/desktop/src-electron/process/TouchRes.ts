@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import stream from 'stream';
 import { promisify } from 'util';
@@ -270,6 +271,16 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
       });
     });
 
+  const getDirSize = async (dir: string, files: string[]) => {
+    const stats = files
+      .filter((file) => file !== '.DS_Store')
+      .map((file) => fsPromises.stat(path.join(dir, file)));
+    return (await Promise.all(stats)).reduce(
+      (accumulator, { size }) => accumulator + size,
+      0,
+    );
+  };
+
   const writeResFile = (diskPath: string): Promise<boolean> =>
     new Promise((resolve, reject) => {
       const targetFolder = path.join(diskPath, 'res');
@@ -291,6 +302,16 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
           return;
         }
 
+        const start = process.uptime();
+        const totalSize = await getDirSize(SourceFolder, files);
+        let chunkSize = 0;
+        const end = process.uptime();
+        logger.info(
+          `get ${SourceFolder} folder size took this much time: ${
+            end - start
+          }, totlaSize: ${totalSize}`,
+        );
+
         try {
           const copyFiles = files.filter((file) => file !== '.DS_Store');
           for (const file of copyFiles) {
@@ -298,6 +319,14 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
             const targetFile = path.join(targetFolder, file);
 
             await copyFile(sourceFile, targetFile);
+
+            const { size } = await fsPromises.stat(sourceFile);
+            chunkSize += size;
+
+            mainWindow.webContents.send(
+              `touch/update-progress`,
+              Math.ceil((chunkSize / totalSize) * 100),
+            );
           }
         } catch (copyErr) {
           logger.error('copyFile error: ', copyErr);
