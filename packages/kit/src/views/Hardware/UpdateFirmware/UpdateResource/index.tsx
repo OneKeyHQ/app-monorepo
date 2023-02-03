@@ -284,10 +284,14 @@ const UpdateWarningModal: FC = () => {
         id: 'modal__update_resources_select_resources_desc',
       });
     if (step3)
-      // return intl.formatMessage({
-      //   id: 'modal__update_resources_updating_resources_desc',
-      // });
-      return `${copyFileProgress}% complete, please wait...`;
+      return intl.formatMessage(
+        {
+          id: 'modal__update_resources_updating_resources_desc',
+        },
+        {
+          pct: `${copyFileProgress}%`,
+        },
+      );
     if (step4)
       return intl.formatMessage({
         id: 'modal__update_resources_restart_device_desc',
