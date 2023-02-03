@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { BigNumber } from 'asmcrypto.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -157,11 +158,15 @@ const SwapMinimumReceived = () => {
     (s) => s.swap.quote?.estimatedBuyAmount || s.swap.quote?.buyAmount,
   );
   const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const swapSlippagePercent = useAppSelector(
+    (s) => s.settings.swapSlippagePercent,
+  );
   if (outputToken && buyAmount) {
+    const bn = getTokenAmountValue(outputToken, buyAmount);
+    const value = bn.minus(bn.multipliedBy(Number(swapSlippagePercent) / 100));
     return (
       <Typography.Body2 color="text-subdued">
-        {getTokenAmountValue(outputToken, buyAmount).toFixed(4)}{' '}
-        {outputToken.symbol.toUpperCase()}
+        {value.toFixed(4)} {outputToken.symbol.toUpperCase()}
       </Typography.Body2>
     );
   }
