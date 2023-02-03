@@ -39,6 +39,12 @@ export const ONEKEY_APP_DEEP_LINK = `${ONEKEY_APP_DEEP_LINK_NAME}://`; // onekey
 export const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
 
+export const WALLET_CONNECT_PROTOCOL_PREFIXES = [
+  ONEKEY_APP_DEEP_LINK_NAME,
+  WALLET_CONNECT_DEEP_LINK_NAME,
+  'ethereum',
+];
+
 const platformName = [
   process.env.ONEKEY_PLATFORM ?? '',
   process.env.EXT_CHANNEL ?? '',

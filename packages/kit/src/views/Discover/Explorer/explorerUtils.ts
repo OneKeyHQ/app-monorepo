@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { appSelector } from '../../../store';
+
 import type { DAppItemType, WebSiteHistory } from '../type';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -142,5 +144,75 @@ export function crossWebviewLoadUrl({
   } else {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (wrapperRef?.innerRef as WebView)?.loadUrl(url);
+  }
+}
+const getCurrentWebviewRef = () =>
+  getWebviewWrapperRef({
+    tabId: appSelector((s) => s.webTabs.currentTabId),
+  });
+
+const injectToPauseWebsocket = () => {
+  if (window.WebSocket) {
+    // @ts-ignore
+    if (!window.$$onekeyWebSocketSend) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      window.$$onekeyWebSocketSend = window.WebSocket.prototype.send;
+    }
+    window.WebSocket.prototype.send = () => {};
+  }
+};
+
+const injectToResumeWebsocket = () => {
+  if (
+    window.WebSocket &&
+    // @ts-ignore
+    window.$$onekeyWebSocketSend
+  ) {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    window.WebSocket.prototype.send = window.$$onekeyWebSocketSend;
+  }
+};
+
+export function pauseDappInteraction() {
+  const ref = getCurrentWebviewRef();
+  if (ref) {
+    // pause jsbridge interaction
+    if (ref.jsBridge) {
+      ref.jsBridge.globalOnMessageEnabled = false;
+    }
+    // pause wallet connect websocket
+    if (platformEnv.isNative) {
+      (ref.innerRef as WebView)?.injectJavaScript(
+        `(${injectToPauseWebsocket.toString()})()`,
+      );
+    }
+    if (platformEnv.isDesktop) {
+      (ref.innerRef as IElectronWebView)?.executeJavaScript(
+        `(${injectToPauseWebsocket.toString()})()`,
+      );
+    }
+  }
+}
+
+export function resumeDappInteraction() {
+  const ref = getCurrentWebviewRef();
+  if (ref) {
+    // resume jsbridge interaction
+    if (ref.jsBridge) {
+      ref.jsBridge.globalOnMessageEnabled = true;
+    }
+    // resume wallet connect websocket
+    if (platformEnv.isNative) {
+      (ref.innerRef as WebView)?.injectJavaScript(
+        `(${injectToResumeWebsocket.toString()})()`,
+      );
+    }
+    if (platformEnv.isDesktop) {
+      (ref.innerRef as IElectronWebView)?.executeJavaScript(
+        `(${injectToResumeWebsocket.toString()})()`,
+      );
+    }
   }
 }
