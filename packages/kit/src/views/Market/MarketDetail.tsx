@@ -35,9 +35,9 @@ import type {
   TabRoutesParams,
 } from '../../routes/types';
 import type { MarketTokenItem } from '../../store/reducers/market';
-import type { CurrencyType } from '../FiatPay/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 
@@ -316,7 +316,7 @@ const MarketDetail: FC = () => {
   const { tokenDetail } = useMarketDetail({ coingeckoId: marketTokenId });
   return (
     <MarketDetailLayout marketTokenId={marketTokenId}>
-      <MarketDetailTab
+      <MarketDetailContent
         tokenDetail={tokenDetail}
         marketTokenId={marketTokenId}
       />

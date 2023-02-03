@@ -7,7 +7,9 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  ScrollView,
   useIsVerticalLayout,
+  useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
@@ -18,9 +20,10 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
-import { MarketInfoContent } from './MarketDetailComponent';
+import { MarketDetailComponent } from './MarketDetailComponent';
 import MarketPriceChart from './MarketPriceChart';
 import { MarketStatsContent } from './MarketStatsContent';
+import { RefreshControl } from 'react-native';
 
 const MarketDetailActionButton = ({
   marketTokenId,
@@ -96,51 +99,31 @@ type MarketDetailTabsProps = {
   tokenDetail?: MarketTokenDetail;
 };
 
-enum MarketDetailTabName {
-  Info = 'info',
-  Stats = 'stats',
-}
-
 const MARKET_DETAIL_TAB_HEADER_H_VERTICAL = 440;
-const MARKET_DETAIL_TAB_HEADER_H = 392;
 
-const nullComponent = () => null;
-
-const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
+const MarketDetailContent: FC<MarketDetailTabsProps> = ({
   marketTokenId,
   tokenDetail,
 }) => {
   const intl = useIntl();
-  const { screenWidth } = useUserDevice();
+  const { bottom } = useSafeAreaInsets();
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
   const contentPadding = isVerticalLayout ? '16px' : '0px';
 
-  const infoContent = useCallback(
-    () => (
-      <MarketInfoContent
-        low24h={tokenDetail?.stats?.low24h}
-        high24h={tokenDetail?.stats?.high24h}
-        marketCapDominance={tokenDetail?.stats?.marketCapDominance}
-        marketCapRank={tokenDetail?.stats?.marketCapRank}
-        marketCap={tokenDetail?.stats?.marketCap}
-        volume24h={tokenDetail?.stats?.volume24h}
-        news={tokenDetail?.news}
-        expolorers={tokenDetail?.explorers}
-        about={tokenDetail?.about}
-        links={tokenDetail?.links}
-        px={contentPadding}
-      />
-    ),
-    [tokenDetail, contentPadding],
-  );
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await backgroundApiProxy.serviceMarket.fetchMarketDetail(marketTokenId);
+    setRefreshing(false);
+  }, [marketTokenId]);
 
-  const statsContent = useCallback(
-    () => <MarketStatsContent px={contentPadding} {...tokenDetail?.stats} />,
-    [contentPadding, tokenDetail?.stats],
-  );
-  const header = useCallback(
-    () => (
+  return (
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: bottom }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <Box
         w="100%"
         p={contentPadding}
@@ -157,56 +140,23 @@ const MarketDetailTabs: FC<MarketDetailTabsProps> = ({
           <MarketPriceChart coingeckoId={marketTokenId} />
         )}
       </Box>
-    ),
-    [contentPadding, isVerticalLayout, marketTokenId],
-  );
-  return (
-    <Tabs.Container
-      refreshing={refreshing}
-      onRefresh={async () => {
-        setRefreshing(true);
-        await backgroundApiProxy.serviceMarket.fetchMarketDetail(marketTokenId);
-        setRefreshing(false);
-      }}
-      initialTabName={MarketDetailTabName.Info}
-      containerStyle={{
-        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-        width: isVerticalLayout ? screenWidth : screenWidth - 224,
-        marginHorizontal: 'auto', // Center align vertically
-        alignSelf: 'center',
-        flex: 1,
-      }}
-      renderHeader={header}
-      headerHeight={
-        isVerticalLayout
-          ? MARKET_DETAIL_TAB_HEADER_H_VERTICAL
-          : MARKET_DETAIL_TAB_HEADER_H
-      }
-    >
-      <Tabs.Tab
-        name={MarketDetailTabName.Info}
-        label={intl.formatMessage({ id: 'content__info' })}
-      >
-        <Tabs.FlatList
-          data={null}
-          showsVerticalScrollIndicator={false}
-          renderItem={nullComponent}
-          ListEmptyComponent={infoContent}
-        />
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={MarketDetailTabName.Stats}
-        label={intl.formatMessage({ id: 'title__stats' })}
-      >
-        <Tabs.FlatList
-          data={null}
-          showsVerticalScrollIndicator={false}
-          renderItem={nullComponent}
-          ListEmptyComponent={statsContent}
-        />
-      </Tabs.Tab>
-    </Tabs.Container>
+      <MarketDetailComponent
+        low24h={tokenDetail?.stats?.low24h}
+        high24h={tokenDetail?.stats?.high24h}
+        marketCapDominance={tokenDetail?.stats?.marketCapDominance}
+        marketCapRank={tokenDetail?.stats?.marketCapRank}
+        marketCap={tokenDetail?.stats?.marketCap}
+        volume24h={tokenDetail?.stats?.volume24h}
+        news={tokenDetail?.news}
+        expolorers={tokenDetail?.explorers}
+        about={tokenDetail?.about}
+        links={tokenDetail?.links}
+        atl={tokenDetail?.stats?.atl}
+        ath={tokenDetail?.stats?.ath}
+        px={contentPadding}
+      />
+    </ScrollView>
   );
 };
 
-export default memo(MarketDetailTabs);
+export default memo(MarketDetailContent);

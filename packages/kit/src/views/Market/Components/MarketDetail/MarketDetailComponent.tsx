@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Divider,
   HStack,
   Skeleton,
   Typography,
@@ -19,11 +20,68 @@ import type {
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
-import { formatMarketValueForInfo } from '../../utils';
+import {
+  formatMarketValueForComma,
+  formatMarketValueForInfo,
+} from '../../utils';
 
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoLinks } from './MarketInfoLinks';
 import { MarketInfoNewsList } from './MarketInfoNewsList';
+import { useGridBoxStyle } from '../../hooks/useMarketLayout';
+import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+
+type DataViewComponentProps = {
+  title?: string;
+  value?: string;
+  subValue?: string;
+  valueColor?: string;
+  index?: number;
+  isFetching?: boolean;
+};
+const DataViewComponent: FC<DataViewComponentProps> = ({
+  title,
+  value,
+  subValue,
+  valueColor,
+  index,
+  isFetching,
+}) => {
+  const gridBoxStyle = useGridBoxStyle({
+    index,
+    outPadding: 32,
+    maxW: SCREEN_SIZE.LARGE,
+  });
+  return (
+    <Box {...gridBoxStyle}>
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+        mb="3"
+      >
+        <Typography.Body2Strong color="text-subdued">
+          {title}
+        </Typography.Body2Strong>
+        <Box alignItems="flex-end">
+          {isFetching ? (
+            <Skeleton shape="Body2" />
+          ) : (
+            <Typography.Body2Strong color={valueColor ?? 'text-default'}>
+              {value}
+            </Typography.Body2Strong>
+          )}
+          {subValue ? (
+            <Typography.Caption color="text-subdued">
+              {subValue}
+            </Typography.Caption>
+          ) : null}
+        </Box>
+      </Box>
+      <Divider />
+    </Box>
+  );
+};
 
 const WRAP_STRING_LENGTH = 9;
 const WRAP_TITLE_STRING_LENGTH = 10;
@@ -68,7 +126,7 @@ const BaseInfo = ({
   );
 };
 
-type MarketInfoContentProps = {
+type MarketDetailComponentProps = {
   low24h?: number;
   high24h?: number;
   marketCapDominance?: string;
@@ -78,11 +136,19 @@ type MarketInfoContentProps = {
   expolorers?: MarketEXplorer[];
   news?: MarketNews[];
   about?: string;
+  atl?: {
+    time?: string;
+    value?: number;
+  };
+  ath?: {
+    time?: string;
+    value?: number;
+  };
   links?: MarketLinks;
   px?: string;
 };
 
-export const MarketInfoContent: FC<MarketInfoContentProps> = ({
+export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   low24h,
   high24h,
   volume24h,
@@ -94,6 +160,8 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   about,
   links,
   px,
+  atl,
+  ath,
 }) => {
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
@@ -101,9 +169,9 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
   return (
     <Box px={px}>
       <VStack space={6} mt="6">
-        <Box>
+        {/* <Box>
           <Typography.Heading>
-            {intl.formatMessage({ id: 'content__info' })}
+            {intl.formatMessage({ id: 'content__stats' })}
           </Typography.Heading>
           <HStack space={0} flexWrap="wrap">
             <BaseInfo
@@ -137,6 +205,56 @@ export const MarketInfoContent: FC<MarketInfoContentProps> = ({
               value={`${marketCapDominance || 0}`}
             />
           </HStack>
+        </Box> */}
+        <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
+          <DataViewComponent
+            index={0}
+            isFetching={marketCap === undefined}
+            title={intl.formatMessage({ id: 'form__market_cap' })}
+            value={`${unit}${formatMarketValueForInfo(marketCap)}`}
+          />
+          <DataViewComponent
+            index={1}
+            isFetching={marketCapRank === undefined}
+            title={intl.formatMessage({ id: 'form__market_cap_rank' })}
+            value={`#${marketCapRank ?? 0}`}
+          />
+          <DataViewComponent
+            index={2}
+            isFetching={marketCapDominance === undefined}
+            title={intl.formatMessage({ id: 'form__market_cap_dominance' })}
+            value={`${marketCapDominance || 0}`}
+          />
+          <DataViewComponent
+            index={3}
+            isFetching={volume24h === undefined}
+            title={intl.formatMessage({ id: 'form__24h_volume' })}
+            value={`${unit}${formatMarketValueForInfo(volume24h)}`}
+          />
+          <DataViewComponent
+            index={4}
+            isFetching={low24h === undefined}
+            title={intl.formatMessage({ id: 'form__24h_low' })}
+            value={`${unit}${formatMarketValueForInfo(low24h)}`}
+          />
+          <DataViewComponent
+            index={5}
+            isFetching={high24h === undefined}
+            title={intl.formatMessage({ id: 'form__24h_high' })}
+            value={`${unit}${formatMarketValueForInfo(high24h)}`}
+          />
+          <DataViewComponent
+            index={5}
+            isFetching={atl?.value === undefined}
+            title={intl.formatMessage({ id: 'form__all_time_low' })}
+            value={`${unit}${formatMarketValueForComma(atl?.value)}`}
+          />
+          <DataViewComponent
+            index={5}
+            isFetching={ath?.value === undefined}
+            title={intl.formatMessage({ id: 'form__all_time_high' })}
+            value={`${unit}${formatMarketValueForComma(ath?.value)}`}
+          />
         </Box>
         {expolorers?.length ? (
           <Box>
