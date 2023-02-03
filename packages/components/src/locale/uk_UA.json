@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Переключіться на Boardloader",
   "modal__update_resources_switch_to_boardloader_desc": "Щоб оновити ресурси мікропрограми на вашому пристрої, вам потрібно буде перемкнути його в режим Boardloader.",
   "modal__update_resources_updating_resources": "Оновлення ресурсів",
-  "modal__update_resources_updating_resources_desc": "Цей процес може зайняти деякий час, зачекайте...",
+  "modal__update_resources_updating_resources_desc": "{pct} завершено, зачекайте...",
   "modal__updating": "Оновлення",
   "modal__updating_attention": "Тримайте програму відкритою, а пристрій розблокованим під час оновлення.",
   "modal__what_is_new_in_onekey_str": "Що нового в OneKey {0}",

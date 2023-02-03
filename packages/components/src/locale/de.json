@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Wechseln Sie zum Boardloader",
   "modal__update_resources_switch_to_boardloader_desc": "Um Firmware-Ressourcen auf Ihrem Gerät zu aktualisieren, müssen Sie es in den Boardloader-Modus schalten.",
   "modal__update_resources_updating_resources": "Aktualisieren von Ressourcen",
-  "modal__update_resources_updating_resources_desc": "Dieser Vorgang kann eine Weile dauern, bitte warten...",
+  "modal__update_resources_updating_resources_desc": "{pct} abgeschlossen, bitte warten...",
   "modal__updating": "Aktualisierung",
   "modal__updating_attention": "Lassen Sie die App während des Updates geöffnet und das Gerät entsperrt.",
   "modal__what_is_new_in_onekey_str": "Was ist neu in OneKey {0}",
