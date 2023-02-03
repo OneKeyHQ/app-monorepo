@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "বোর্ডলোডারে স্যুইচ করুন",
   "modal__update_resources_switch_to_boardloader_desc": "আপনার ডিভাইসে ফার্মওয়্যার সংস্থান আপডেট করার জন্য, আপনাকে এটিকে বোর্ডলোডার মোডে স্যুইচ করতে হবে।",
   "modal__update_resources_updating_resources": "সম্পদ আপডেট করা হচ্ছে",
-  "modal__update_resources_updating_resources_desc": "এই প্রক্রিয়াটিতে কিছু সময় লাগতে পারে, অনুগ্রহ করে অপেক্ষা করুন...",
+  "modal__update_resources_updating_resources_desc": "{pct} সম্পন্ন হয়েছে, অনুগ্রহ করে অপেক্ষা করুন...",
   "modal__updating": "আপডেট করা হচ্ছে",
   "modal__updating_attention": "আপডেটের সময় অ্যাপটি খোলা রাখুন এবং ডিভাইসটি আনলক করুন।",
   "modal__what_is_new_in_onekey_str": "OneKey এ নতুন কি আছে {0}",

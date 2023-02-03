@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "เปลี่ยนไปใช้บอร์ดโหลดเดอร์",
   "modal__update_resources_switch_to_boardloader_desc": "ในการอัปเดตแหล่งข้อมูลเฟิร์มแวร์บนอุปกรณ์ของคุณ คุณจะต้องเปลี่ยนเป็นโหมด Boardloader",
   "modal__update_resources_updating_resources": "การอัปเดตทรัพยากร",
-  "modal__update_resources_updating_resources_desc": "กระบวนการนี้อาจใช้เวลาสักครู่ โปรดรอ...",
+  "modal__update_resources_updating_resources_desc": "{pct} เสร็จสมบูรณ์ โปรดรอสักครู่...",
   "modal__updating": "กำลังอัปเดต",
   "modal__updating_attention": "เปิดแอปไว้และปลดล็อกอุปกรณ์ระหว่างการอัปเดต",
   "modal__what_is_new_in_onekey_str": "มีอะไรใหม่ใน OneKey {0}",

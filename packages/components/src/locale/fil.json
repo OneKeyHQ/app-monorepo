@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Lumipat sa Boardloader",
   "modal__update_resources_switch_to_boardloader_desc": "Upang ma-update ang mga mapagkukunan ng firmware sa iyong device, kakailanganin mong ilipat ito sa Boardloader mode.",
   "modal__update_resources_updating_resources": "Pag-update ng Mga Mapagkukunan",
-  "modal__update_resources_updating_resources_desc": "Maaaring magtagal ang prosesong ito, mangyaring maghintay...",
+  "modal__update_resources_updating_resources_desc": "Nakumpleto {pct} , mangyaring maghintay...",
   "modal__updating": "Nag-a-update",
   "modal__updating_attention": "Panatilihing bukas ang app at naka-unlock ang device sa panahon ng pag-update.",
   "modal__what_is_new_in_onekey_str": "Ano ang bago sa OneKey {0}",

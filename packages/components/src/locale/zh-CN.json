@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "切换至 Boardloader",
   "modal__update_resources_switch_to_boardloader_desc": "为了在您的设备上更新固件资源，您将需要切换至 Boardloader 模式。",
   "modal__update_resources_updating_resources": "正在更新资源",
-  "modal__update_resources_updating_resources_desc": "这个过程需要一点时间，请稍等片刻...",
+  "modal__update_resources_updating_resources_desc": "已完成 {pct}，请稍等片刻...",
   "modal__updating": "升级中",
   "modal__updating_attention": "升级过程中保持打开 APP 以及解锁设备。",
   "modal__what_is_new_in_onekey_str": "OneKey {0} 更新内容",
