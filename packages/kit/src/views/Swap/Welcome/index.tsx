@@ -52,17 +52,6 @@ const SwapFeatures = () => {
           </Box>
         </Box>
         <Box flexDirection="row" mb="8">
-          <Typography.DisplayXLarge mr="4">🥪</Typography.DisplayXLarge>
-          <Box flex="1">
-            <Typography.DisplayMedium>
-              {intl.formatMessage({ id: 'form__anti_sandwich_attack' })}
-            </Typography.DisplayMedium>
-            <Typography.Body1 color="text-subdued">
-              {intl.formatMessage({ id: 'form__anti_sandwich_attack_desc' })}
-            </Typography.Body1>
-          </Box>
-        </Box>
-        <Box flexDirection="row" mb="8">
           <Typography.DisplayXLarge mr="4">👥</Typography.DisplayXLarge>
           <Box flex="1">
             <Typography.DisplayMedium>
