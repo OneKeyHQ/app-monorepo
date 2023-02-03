@@ -189,9 +189,16 @@ export function pauseDappInteraction() {
       );
     }
     if (platformEnv.isDesktop) {
-      (ref.innerRef as IElectronWebView)?.executeJavaScript(
-        `(${injectToPauseWebsocket.toString()})()`,
-      );
+      const deskTopRef = ref.innerRef as IElectronWebView;
+      if (deskTopRef) {
+        try {
+          deskTopRef.executeJavaScript(
+            `(${injectToPauseWebsocket.toString()})()`,
+          );
+        } catch (e) {
+          // if not dom ready, no need to pause websocket
+        }
+      }
     }
   }
 }
@@ -210,9 +217,16 @@ export function resumeDappInteraction() {
       );
     }
     if (platformEnv.isDesktop) {
-      (ref.innerRef as IElectronWebView)?.executeJavaScript(
-        `(${injectToResumeWebsocket.toString()})()`,
-      );
+      const deskTopRef = ref.innerRef as IElectronWebView;
+      if (deskTopRef) {
+        try {
+          deskTopRef.executeJavaScript(
+            `(${injectToResumeWebsocket.toString()})()`,
+          );
+        } catch (e) {
+          // if not dom ready, no need to resume websocket
+        }
+      }
     }
   }
 }
