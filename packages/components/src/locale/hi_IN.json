@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "बोर्डलोडर पर स्विच करें",
   "modal__update_resources_switch_to_boardloader_desc": "अपने डिवाइस पर फ़र्मवेयर संसाधनों को अपडेट करने के लिए, आपको इसे बोर्डलोडर मोड में स्विच करना होगा।",
   "modal__update_resources_updating_resources": "अद्यतन संसाधन",
-  "modal__update_resources_updating_resources_desc": "इस प्रक्रिया में कुछ समय लग सकता है, कृपया प्रतीक्षा करें...",
+  "modal__update_resources_updating_resources_desc": "{pct} पूर्ण, कृपया प्रतीक्षा करें...",
   "modal__updating": "अद्यतन करने",
   "modal__updating_attention": "अपडेट के दौरान ऐप को खुला रखें और डिवाइस को अनलॉक रखें।",
   "modal__what_is_new_in_onekey_str": "वनकी में नया क्या है {0}",

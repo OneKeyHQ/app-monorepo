@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Beralih ke Boardloader",
   "modal__update_resources_switch_to_boardloader_desc": "Untuk memperbarui sumber daya firmware pada perangkat Anda, Anda harus mengalihkannya ke mode Boardloader.",
   "modal__update_resources_updating_resources": "Memperbarui Sumber Daya",
-  "modal__update_resources_updating_resources_desc": "Proses ini mungkin memakan waktu cukup lama, harap tunggu...",
+  "modal__update_resources_updating_resources_desc": "{pct} selesai, harap tunggu...",
   "modal__updating": "Memperbarui",
   "modal__updating_attention": "Biarkan aplikasi tetap terbuka dan perangkat tidak terkunci selama pembaruan.",
   "modal__what_is_new_in_onekey_str": "Yang baru di OneKey {0}",

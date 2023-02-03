@@ -44,26 +44,21 @@ In the same manner as the [Ethereum Bug Bounty Program](https://bounty.ethereum.
 It is at the *sole discretion of OneKey* to decide whether or not a bug report qualifies for a bounty, and to determine the severity of the issue
 
 
-* *P0*: Up to $10,000 USD (min. $5,000)
-* *P1*: Up to $5,000 USD (min. $2,000)
-* *P2*: Up to $2,000 USD (min. $1,000)
-* *P3*: Up to $1,000 USD (min. $500)
-* *P4*: Up to $500 USD (min. $100)
+* *P0*: $5,000 USD
+* *P1*: $2,500 USD
+* *P2*: $1,000 USD
+* *P3*: $500 USD
+* *P4*: $250 USD
 
 
-### Severity levels
+### Severity levels based on
 
-#### Physical Security
+* The severity of the bug.
+* The likelihood that the bug will affect users.
+* The responsibility of the researcher — did the researcher take destructive action or otherwise harm the functioning of our systems.
+* The role of the researcher — was the researcher the first person to discover the bug, or is the bug based on some public information.
+* How well the report was written and how easy it is to understand.
 
-* P0: Privacy content can be directly read without physical contact or close proximity
-* P1: Privacy content can be directly read with physical contact or close proximity
-* P2: Privacy content can be directly read after disassembling or flying lines
-* P3: Encrypted content can be read after disassembling or flying lines
-
-#### Chain Security
-
-* P0: Chain private key signing can be directly performed by ignoring PIN/second confirmation through command
-* P1: Signature of sensitive data assets leaking caused by blind signature second prompt (hardware eth_sign)
 
 Issues reported may or may not constitute a security risk for the OneKey contracts. A higher severity will be awarded to vulnerabilities submitted that could potentially result in either the loss of funds, or a situation in which the contracts arrive in an undesirable state that cannot be rectified through existing contract mechanisms, such as 'emergency mode' or through a network upgrade. However, all submitted bugs and vulnerabilities will be considered for prizes.
 
@@ -71,7 +66,24 @@ Issues reported may or may not constitute a security risk for the OneKey contrac
 
 Any vulnerabilities or flaws in other software tools created by OneKey (e.g. OneKeyJS, purser, tailor, etc.) are not eligible. Flaws in these software tools are welcome disclosures, but will not be awarded bounties for this bug bounty program.
 
-Additional examples of ineligible bugs:
+When reporting vulnerabilities, please consider (1) attack scenario / exploitability, and (2) security impact of the bug. The following issues are considered out of scope:
+
 * Attacks and vulnerabilities that depend on compromised keys or other security flaws outside the OneKey codebase (keyloggers, intercepted communications, social engineering exploits, etc.).
 * Attacks that are accounted for in the system design, i.e. Ethereum network spamming, malicious reputation mining, malfeasance in OneKey administration.
 * Critiques of the OneKey and overall mechanism design. We welcome suggestions and constructive criticism, and ask that it be directed to dev@OneKey.so .
+* Clickjacking on pages with no sensitive actions
+* Cross-Site Request Forgery (CSRF) on unauthenticated forms or forms with no sensitive actions
+* Attacks requiring MITM or physical access to a user's device.
+* Attacks requiring a compromised victim device.
+* Previously known vulnerable libraries without a working Proof of Concept.
+* Comma Separated Values (CSV) injection without demonstrating a vulnerability.
+* Any activity that could lead to the disruption of our service (DoS).
+* Content spoofing and text injection issues without showing an attack vector/without being able to modify HTML/CSS
+* Rate limiting or bruteforce issues on non-authentication endpoints
+* Vulnerabilities only affecting users of outdated or unpatched browsers [Less than 2 stable versions behind the latest released stable version]
+* Software version disclosure / Banner identification issues / Descriptive error messages or headers (e.g. stack traces, application or server errors).
+* Public Zero-day vulnerabilities that have had an official patch for less than 1 month will be awarded on a case by case basis.
+* Tabnabbing
+* Open redirect - unless an additional security impact can be demonstrated
+* Issues that require unlikely user interaction
+* Perceived security weaknesses without evidence of the ability to demonstrate impact (e.g. Missing best practices, functional bugs without security implications, etc.)
