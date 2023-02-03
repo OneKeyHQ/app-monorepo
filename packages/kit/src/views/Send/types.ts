@@ -131,7 +131,6 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   feeInfoEditable: boolean;
   onDetail?: (txid: string) => any;
   signOnly?: boolean;
-  skipSaveHistory?: boolean;
 };
 export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;
@@ -299,7 +298,6 @@ export type BatchSendConfirmParams = BatchSendConfirmShared & {
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
   transferCount: number;
-  skipSaveHistory?: boolean;
 };
 
 export type IBatchTxsConfirmViewPropsHandleConfirm = ({

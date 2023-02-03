@@ -29,20 +29,21 @@ const ListHeaderItemsEmptyComponent = () => {
   const intl = useIntl();
   const { itemSource } = useContext(DiscoverContext);
   return (
-    <Box
-      px="4"
-      w="full"
-      h="20"
-      borderRadius={12}
-      bg="surface-subdued"
-      justifyContent="center"
-      alignItems="center"
-    >
-      <Typography.Body2 textAlign="center" color="text-subdued">
-        {itemSource === 'Favorites'
-          ? intl.formatMessage({ id: 'message__discover_favorite_is_empty' })
-          : intl.formatMessage({ id: 'message__discover_history_is_empty' })}
-      </Typography.Body2>
+    <Box px="4" w="full">
+      <Box
+        w="full"
+        h="20"
+        borderRadius={12}
+        bg="surface-subdued"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <Typography.Body2 textAlign="center" color="text-subdued">
+          {itemSource === 'Favorites'
+            ? intl.formatMessage({ id: 'message__discover_favorite_is_empty' })
+            : intl.formatMessage({ id: 'message__discover_history_is_empty' })}
+        </Typography.Body2>
+      </Box>
     </Box>
   );
 };
@@ -70,14 +71,19 @@ const ListHeaderFavorites = () => {
       </Pressable>
     );
   };
+
+  if (favorites.length === 0) {
+    return <ListHeaderItemsEmptyComponent />;
+  }
+
   return (
     <FlatList
+      bg="blue.100"
       horizontal
       data={favorites}
       renderItem={renderItem}
       showsHorizontalScrollIndicator={false}
       keyExtractor={(item, i) => `${item.id}${i}`}
-      ListEmptyComponent={ListHeaderItemsEmptyComponent}
     />
   );
 };
@@ -105,6 +111,11 @@ const ListHeaderHistories = () => {
       </Pressable>
     );
   };
+
+  if (histories.length === 0) {
+    return <ListHeaderItemsEmptyComponent />;
+  }
+
   return (
     <FlatList
       horizontal

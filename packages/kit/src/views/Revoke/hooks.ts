@@ -179,7 +179,6 @@ export const useUpdateAllowance = ({
             networkId,
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
-            skipSaveHistory: false,
             encodedTx: encodedApproveTx,
             onSuccess: () => {
               DeviceEventEmitter?.emit('Revoke:refresh', assetType);

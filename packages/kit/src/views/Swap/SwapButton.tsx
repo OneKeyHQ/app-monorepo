@@ -43,14 +43,16 @@ import {
 import type { FetchQuoteParams, QuoteData } from './typings';
 import type { TokenAmount } from './utils';
 
-function convertToSwapInfo(options: {
+type IConvertToSwapInfoOptions = {
   swapQuote: QuoteData;
   quoteParams: FetchQuoteParams;
   inputAmount: TokenAmount;
   outputAmount: TokenAmount;
   account: BaseAccount;
   receivingAddress?: string;
-}): ISwapInfo {
+};
+
+function convertToSwapInfo(options: IConvertToSwapInfoOptions): ISwapInfo {
   const {
     swapQuote,
     quoteParams,
@@ -317,7 +319,12 @@ const ExchangeButton = () => {
 
       const password = await backgroundApiProxy.servicePassword.getPassword();
 
-      if ((password && !validationSetting?.Payment) || wallet.type === 'hw') {
+      if (
+        (wallet.type !== 'external' &&
+          password &&
+          !validationSetting?.Payment) ||
+        wallet.type === 'hw'
+      ) {
         try {
           await backgroundApiProxy.serviceSwap.sendTransaction({
             accountId: sendingAccount.id,
@@ -325,7 +332,7 @@ const ExchangeButton = () => {
             encodedTx: encodedApproveTx,
           });
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, e.message);
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
           return;
         }
 
@@ -371,7 +378,7 @@ const ExchangeButton = () => {
           }
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, e.message);
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         }
         return;
@@ -390,7 +397,6 @@ const ExchangeButton = () => {
             },
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
-            skipSaveHistory: true,
             encodedTx: {
               ...encodedApproveTx,
               from: sendingAccount?.address,
@@ -400,21 +406,45 @@ const ExchangeButton = () => {
                 return;
               }
               const encodedEvmTx = encodedTx as IEncodedTxEvm;
-              try {
-                const { result, decodedTx } =
-                  await backgroundApiProxy.serviceSwap.sendTransaction({
-                    accountId: sendingAccount.id,
-                    networkId: targetNetworkId,
-                    encodedTx: { ...encodedEvmTx },
-                    payload: {
-                      type: 'InternalSwap',
-                      swapInfo,
+              if (wallet.type === 'external') {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.Send,
+                  params: {
+                    screen: SendRoutes.SendConfirm,
+                    params: {
+                      accountId: sendingAccount.id,
+                      networkId: targetNetworkId,
+                      encodedTx: { ...encodedEvmTx },
+                      payloadInfo: {
+                        type: 'InternalSwap',
+                        swapInfo,
+                      },
+                      feeInfoEditable: true,
+                      feeInfoUseFeeInTx: false,
+                      onSuccess: (tx, data) => {
+                        addSwapTransaction(tx.txid, data?.decodedTx?.nonce);
+                      },
                     },
-                  });
-                addSwapTransaction(result.txid, decodedTx.nonce);
-                appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
-              } catch {
-                appUIEventBus.emit(AppUIEventBusNames.SwapError);
+                  },
+                });
+              } else {
+                try {
+                  const { result, decodedTx } =
+                    await backgroundApiProxy.serviceSwap.sendTransaction({
+                      accountId: sendingAccount.id,
+                      networkId: targetNetworkId,
+                      encodedTx: { ...encodedEvmTx },
+                      payload: {
+                        type: 'InternalSwap',
+                        swapInfo,
+                      },
+                    });
+                  addSwapTransaction(result.txid, decodedTx.nonce);
+                  appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+                } catch (e: any) {
+                  deviceUtils.showErrorToast(e, e?.data?.message || e.message);
+                  appUIEventBus.emit(AppUIEventBusNames.SwapError);
+                }
               }
             },
           },
@@ -449,11 +479,15 @@ const ExchangeButton = () => {
         });
         addSwapTransaction(result.txid, decodedTx.nonce);
       } catch (e: any) {
-        deviceUtils.showErrorToast(e, e.message);
+        deviceUtils.showErrorToast(e, e?.data?.message || e.message);
       }
     } else {
       const password = await backgroundApiProxy.servicePassword.getPassword();
-      if (password && !validationSetting?.Payment) {
+      if (
+        password &&
+        !validationSetting?.Payment &&
+        wallet.type !== 'external'
+      ) {
         try {
           const { result, decodedTx } =
             await backgroundApiProxy.serviceSwap.sendTransaction({
@@ -481,7 +515,7 @@ const ExchangeButton = () => {
             addSwapTransaction(result.txid, decodedTx.nonce);
           }, 100);
         } catch (e: any) {
-          deviceUtils.showErrorToast(e, e.message);
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
         }
       } else {
         navigation.navigate(RootRoutes.Modal, {
