@@ -4,6 +4,7 @@ import { Base64DataBuffer } from '@mysten/sui.js';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import type VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -24,7 +25,10 @@ import type {
   SuiTransactionResponse,
 } from '@mysten/sui.js';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import type { PermissionType } from '@onekeyfe/onekey-sui-provider';
+import type {
+  PermissionType,
+  SuiChainType,
+} from '@onekeyfe/onekey-sui-provider';
 
 @backgroundClass()
 class ProviderApiSui extends ProviderApiBase {
@@ -44,8 +48,8 @@ class ProviderApiSui extends ProviderApiBase {
   }
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    const data = async () => {
-      const params = await this.network();
+    const data = () => {
+      const params = this.network();
       const result = {
         // TODO do not emit events to EVM Dapps, injected provider check scope
         method: 'wallet_events_networkChange',
@@ -166,12 +170,31 @@ class ProviderApiSui extends ProviderApiBase {
     return Promise.resolve(address);
   }
 
-  private async network(): Promise<string> {
-    debugLogger.providerApi.info('SUI network');
-    const { networkId } = getActiveWalletAccount();
-    const network = await this.backgroundApi.engine.getNetwork(networkId);
+  @permissionRequired()
+  @providerApiMethod()
+  public getActiveChain(
+    request: IJsBridgeMessagePayload,
+  ): Promise<SuiChainType> {
+    debugLogger.providerApi.info('SUI getActiveChain', request);
+    return Promise.resolve(this.network());
+  }
 
-    return Promise.resolve(network.isTestnet ? 'Testnet' : 'Mainnet');
+  private network(): SuiChainType {
+    const { networkId } = getActiveWalletAccount();
+
+    const { impl, chainId } = parseNetworkId(networkId);
+
+    if (impl !== IMPL_SUI) {
+      throw web3Errors.rpc.invalidRequest();
+    }
+    if (chainId === '8888881') {
+      return 'sui:testnet';
+    }
+    if (chainId === '8888882') {
+      return 'sui:devnet';
+    }
+
+    throw web3Errors.rpc.invalidRequest();
   }
 
   @permissionRequired()
