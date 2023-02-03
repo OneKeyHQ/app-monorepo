@@ -26,7 +26,6 @@ import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens'
 import {
   setAccountTokens,
   setAccountTokensBalances,
-  setTokenPriceMap,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -56,6 +55,8 @@ export default class ServiceToken extends ServiceBase {
   registerEvents() {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, this.refreshTokenBalance);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    appEventBus.on(AppEventBusNames.CurrencyChanged, this.refreshTokenBalance);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -113,7 +114,8 @@ export default class ServiceToken extends ServiceBase {
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
     });
     const accountTokens = tokens.concat(autodetectedTokens);
-    const prices = await servicePrice.fetchSimpleTokenPrice({
+    // check token prices
+    await servicePrice.fetchSimpleTokenPrice({
       networkId: activeNetworkId,
       accountId: activeAccountId,
       tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
@@ -124,9 +126,6 @@ export default class ServiceToken extends ServiceBase {
         activeAccountId,
         activeNetworkId,
         tokensBalance: balances,
-      }),
-      setTokenPriceMap({
-        prices,
       }),
       setAccountTokens({
         activeAccountId,

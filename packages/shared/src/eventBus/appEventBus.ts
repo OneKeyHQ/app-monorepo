@@ -9,6 +9,7 @@ enum AppEventBusNames {
   AccountNameChanged = 'AccountNameChanged',
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
+  CurrencyChanged = 'CurrencyChanged',
   BackupRequired = 'BackupRequired',
   NotificationStatusChanged = 'NotificationStatusChanged',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
