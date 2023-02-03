@@ -56,7 +56,7 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
   'TRON-TronLink': {
     logo: TronLinkLogo,
     title: 'TronLink',
-    propertyKeys: ['tronLink'],
+    propertyKeys: ['tronLink', 'tronWeb', 'sunWeb'],
     enable: true,
   },
   'CARDAND-Nami': {
