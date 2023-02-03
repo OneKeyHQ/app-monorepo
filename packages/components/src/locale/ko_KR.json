@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "보드로더로 전환",
   "modal__update_resources_switch_to_boardloader_desc": "장치의 펌웨어 리소스를 업데이트하려면 장치를 보드 로더 모드로 전환해야 합니다.",
   "modal__update_resources_updating_resources": "리소스 업데이트",
-  "modal__update_resources_updating_resources_desc": "이 프로세스는 다소 시간이 걸릴 수 있습니다. 잠시 기다려 주십시오...",
+  "modal__update_resources_updating_resources_desc": "{pct} 완료되었습니다. 잠시만 기다려 주십시오...",
   "modal__updating": "업데이트 중",
   "modal__updating_attention": "업데이트하는 동안 앱을 열어두고 기기를 잠금 해제하세요.",
   "modal__what_is_new_in_onekey_str": "OneKey {0} 의 새로운 기능",

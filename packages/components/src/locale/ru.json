@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Переключиться на загрузчик",
   "modal__update_resources_switch_to_boardloader_desc": "Чтобы обновить ресурсы прошивки на вашем устройстве, вам необходимо переключить его в режим Boardloader.",
   "modal__update_resources_updating_resources": "Обновление ресурсов",
-  "modal__update_resources_updating_resources_desc": "Этот процесс может занять некоторое время, пожалуйста, подождите...",
+  "modal__update_resources_updating_resources_desc": "{pct} завершено, пожалуйста, подождите...",
   "modal__updating": "Обновление",
   "modal__updating_attention": "Держите приложение открытым, а устройство разблокированным во время обновления.",
   "modal__what_is_new_in_onekey_str": "Что нового в OneKey {0}",

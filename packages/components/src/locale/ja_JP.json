@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "ボードローダーに切り替える",
   "modal__update_resources_switch_to_boardloader_desc": "デバイスのファームウェア リソースを更新するために、ボードローダー モードに切り替える必要がある。",
   "modal__update_resources_updating_resources": "リソース更新中",
-  "modal__update_resources_updating_resources_desc": "このプロセスには時間がかかる場合があり、しばらくお待ちください...",
+  "modal__update_resources_updating_resources_desc": "{pct}完了しました。お待ちください...",
   "modal__updating": "アップグレード中",
   "modal__updating_attention": "アップグレード中には、APP をロック解除且つ開いたままに保持してください。",
   "modal__what_is_new_in_onekey_str": "OneKeyの新機能{0}",

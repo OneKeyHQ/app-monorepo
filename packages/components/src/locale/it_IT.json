@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Passa a Caricatore di schede",
   "modal__update_resources_switch_to_boardloader_desc": "Per aggiornare le risorse del firmware sul tuo dispositivo, dovrai passare alla modalità Boardloader.",
   "modal__update_resources_updating_resources": "Aggiornamento delle risorse",
-  "modal__update_resources_updating_resources_desc": "Questo processo potrebbe richiedere del tempo, attendere...",
+  "modal__update_resources_updating_resources_desc": "{pct} completato, attendi...",
   "modal__updating": "In aggiornamento",
   "modal__updating_attention": "Tieni l'app aperta e il dispositivo sbloccato durante l'aggiornamento.",
   "modal__what_is_new_in_onekey_str": "Novità di OneKey {0}",
