@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Boardloader руу шилжих",
   "modal__update_resources_switch_to_boardloader_desc": "Таны төхөөрөмж дээрх програм хангамжийн нөөцийг шинэчлэхийн тулд та үүнийг Boardloader горимд шилжүүлэх шаардлагатай болно.",
   "modal__update_resources_updating_resources": "Нөөцүүдийг шинэчлэх",
-  "modal__update_resources_updating_resources_desc": "Энэ процесс хэсэг хугацаа шаардаж магадгүй тул түр хүлээнэ үү...",
+  "modal__update_resources_updating_resources_desc": "{pct} дууссан, түр хүлээнэ үү...",
   "modal__updating": "Шинэчилж байна",
   "modal__updating_attention": "Шинэчлэх явцад програмыг нээлттэй байлгаж, төхөөрөмжийн түгжээг тайл.",
   "modal__what_is_new_in_onekey_str": "OneKey-н шинэ зүйл {0}",

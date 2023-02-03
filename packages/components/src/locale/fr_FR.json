@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Passer à Boardloader",
   "modal__update_resources_switch_to_boardloader_desc": "Afin de mettre à jour les ressources du firmware sur votre appareil, vous devrez le basculer en mode Boardloader.",
   "modal__update_resources_updating_resources": "Mise à jour des ressources",
-  "modal__update_resources_updating_resources_desc": "Ce processus peut prendre un certain temps, veuillez patienter...",
+  "modal__update_resources_updating_resources_desc": "{pct} terminé, veuillez patienter...",
   "modal__updating": "Mise à jour",
   "modal__updating_attention": "Gardez l'application ouverte et l'appareil déverrouillé pendant la mise à jour.",
   "modal__what_is_new_in_onekey_str": "Quoi de neuf dans OneKey {0}",

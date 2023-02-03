@@ -1490,7 +1490,7 @@
   "modal__update_resources_switch_to_boardloader": "Chuyển sang Trình tải bảng",
   "modal__update_resources_switch_to_boardloader_desc": "Để cập nhật tài nguyên chương trình cơ sở trên thiết bị của mình, bạn cần chuyển thiết bị sang chế độ Boardloader.",
   "modal__update_resources_updating_resources": "Cập nhật tài nguyên",
-  "modal__update_resources_updating_resources_desc": "Quá trình này có thể mất một chút thời gian, vui lòng đợi...",
+  "modal__update_resources_updating_resources_desc": "{pct} đã hoàn thành, vui lòng đợi...",
   "modal__updating": "Đang cập nhật",
   "modal__updating_attention": "Giữ cho ứng dụng luôn mở và thiết bị được mở khóa trong quá trình cập nhật.",
   "modal__what_is_new_in_onekey_str": "Có gì mới trong OneKey {0}",
