@@ -62,13 +62,21 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
+    const chainInfoImpl = await this.getChainInfoImplOptions();
+    const chainId = await this.getNetworkChainId();
+
     let addressesResponse;
     try {
       addressesResponse = await HardwareSDK.polkadotGetAddress(
         connectId,
         deviceId,
         {
-          bundle: paths.map((path) => ({ path, showOnOneKey })),
+          bundle: paths.map((path) => ({
+            path,
+            showOnOneKey,
+            prefix: chainInfoImpl.addressPrefix,
+            network: chainId,
+          })),
           ...passphraseState,
         },
       );
@@ -107,14 +115,19 @@ export class KeyringHardware extends KeyringHardwareBase {
   async getAddress(params: IHardwareGetAddressParams): Promise<string> {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
+    const chainInfoImpl = await this.getChainInfoImplOptions();
+    const chainId = await this.getNetworkChainId();
+
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.polkadotGetAddress(connectId, deviceId, {
       path: params.path,
+      prefix: chainInfoImpl.addressPrefix,
+      network: chainId,
       showOnOneKey: params.showOnOneKey,
       ...passphraseState,
     });
     if (response.success && !!response.payload?.address) {
-      return response.payload.address.toLowerCase();
+      return response.payload.address;
     }
     throw convertDeviceError(response.payload);
   }
@@ -127,6 +140,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.getDbAccount();
 
     const vault = this.vault as Vault;
+    const chainId = await this.getNetworkChainId();
 
     const { rawTx: message } = await vault.serializeUnsignedTransaction(
       unsignedTx.payload.encodedTx,
@@ -141,6 +155,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       deviceId,
       {
         path: dbAccount.path,
+        network: chainId,
         rawTx: bytesToHex(message),
         ...passphraseState,
       },

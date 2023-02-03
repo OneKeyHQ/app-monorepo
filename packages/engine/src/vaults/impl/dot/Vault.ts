@@ -3,7 +3,13 @@ import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import { ApiPromise, HttpProvider } from '@polkadot/api';
 import { EXTRINSIC_VERSION } from '@polkadot/types/extrinsic/v4/Extrinsic';
-import { hexToU8a, u8aToHex, u8aToU8a, u8aWrapBytes } from '@polkadot/util';
+import {
+  hexToU8a,
+  u8aConcat,
+  u8aToHex,
+  u8aToU8a,
+  u8aWrapBytes,
+} from '@polkadot/util';
 import {
   construct,
   createMetadata,
@@ -515,10 +521,16 @@ export default class Vault extends VaultBase {
       encodedTx.nonce,
       parseInt(encodedTx.era),
     );
-    const FAKE_SIGNATURE = new Uint8Array(256).fill(1);
+    // const FAKE_SIGNATURE = new Uint8Array(256).fill(1);
+    // or
+    const fakeSignature = u8aConcat(
+      new Uint8Array([1]),
+      new Uint8Array(64).fill(0x42),
+    );
+
     const signedTransaction = await this.serializeSignedTransaction(
       encodedTx,
-      u8aToHex(FAKE_SIGNATURE),
+      u8aToHex(fakeSignature),
     );
     const signedTransactionU8a = hexToU8a(signedTransaction);
 
