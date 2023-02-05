@@ -48,6 +48,7 @@ import {
 } from '../base';
 
 import type { DBAccount, DBVariantAccount } from '../../types/account';
+import type { DBAccountDerivation } from '../../types/accountDerivation';
 import type { PrivateKeyCredential } from '../../types/credential';
 import type { DBDevice, Device, DevicePayload } from '../../types/device';
 import type {
@@ -91,6 +92,7 @@ const TOKEN_STORE_NAME = 'tokens';
 const TOKEN_BINDING_STORE_NAME = 'token_bindings';
 const HISTORY_STORE_NAME = 'history';
 const DEVICE_STORE_NAME = 'devices';
+const ACCOUNT_DERIVATION_STORE_NAME = 'account_derivations';
 
 function initDb(db: IDBDatabase) {
   db.createObjectStore(CONTEXT_STORE_NAME, { keyPath: 'id' });
@@ -2295,6 +2297,190 @@ class IndexedDBApi implements DBAPI {
                   new OneKeyInternalError(`Device ${deviceId} not found.`),
                 );
               }
+            }
+          };
+        }),
+    );
+  }
+
+  addAccountDerivation(
+    walletId: string,
+    accountId: string,
+    impl: string,
+    template: string,
+  ): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [ACCOUNT_DERIVATION_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = () => {
+            reject(new OneKeyInternalError('Failed to update wallet name.'));
+          };
+          // transaction.oncomplete = () => {
+          //   resolve();
+          // };
+
+          const accountDerivationStore = transaction.objectStore(
+            ACCOUNT_DERIVATION_STORE_NAME,
+          );
+
+          const id = `${walletId}-${impl}-${template}`;
+          const getExistRecordRequest = accountDerivationStore.get(id);
+          getExistRecordRequest.onsuccess = (_event) => {
+            const accountDerivation =
+              getExistRecordRequest.result as DBAccountDerivation;
+            if (accountDerivation) {
+              accountDerivation.accounts = [
+                ...new Set([...accountDerivation.accounts, accountId]),
+              ];
+              const requestUpdate =
+                accountDerivationStore.put(accountDerivation);
+              requestUpdate.onerror = (event) => {
+                reject(event);
+              };
+              requestUpdate.onsuccess = () => {
+                resolve();
+              };
+            } else {
+              // insert new accountDerivation record because is not exist record
+              const requestInsert = accountDerivationStore.add({
+                id,
+                walletId,
+                accounts: [accountId],
+                template,
+              });
+
+              requestInsert.onerror = (event) => {
+                reject(event);
+              };
+              requestInsert.onsuccess = () => {
+                resolve();
+              };
+            }
+          };
+        }),
+    );
+  }
+
+  removeAccountDerivationByWalletId(walletId: string): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [ACCOUNT_DERIVATION_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = () => {
+            reject(
+              new OneKeyInternalError(
+                'Failed to delete account derivation by wallet id.',
+              ),
+            );
+          };
+          transaction.oncomplete = () => {
+            resolve();
+          };
+
+          const accountDerivationStore = transaction.objectStore(
+            ACCOUNT_DERIVATION_STORE_NAME,
+          );
+
+          const request = accountDerivationStore.getAll();
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              const accountDerivations =
+                request.result as Array<DBAccountDerivation>;
+              accountDerivations.forEach((accountDerivation) => {
+                if (accountDerivation.walletId === walletId) {
+                  accountDerivationStore.delete(accountDerivation.id);
+                }
+              });
+            }
+          };
+        }),
+    );
+  }
+
+  removeAccountDerivationByAccountId(
+    walletId: string,
+    accountId: string,
+  ): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [ACCOUNT_DERIVATION_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = () => {
+            reject(
+              new OneKeyInternalError(
+                'Failed to delete account derivation by account id.',
+              ),
+            );
+          };
+          transaction.oncomplete = () => {
+            resolve();
+          };
+
+          const accountDerivationStore = transaction.objectStore(
+            ACCOUNT_DERIVATION_STORE_NAME,
+          );
+
+          const request = accountDerivationStore.getAll();
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              const accountDerivations =
+                request.result as Array<DBAccountDerivation>;
+              accountDerivations.forEach((accountDerivation) => {
+                if (accountDerivation.walletId === walletId) {
+                  accountDerivation.accounts =
+                    accountDerivation.accounts.filter((id) => id !== accountId);
+                  accountDerivationStore.put(accountDerivation);
+                }
+              });
+            }
+          };
+        }),
+    );
+  }
+
+  // return Record<template, record>
+  getAccountDerivationByWalletId(walletId: string) {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [ACCOUNT_DERIVATION_STORE_NAME],
+            'readonly',
+          );
+          transaction.onerror = () => {
+            reject(
+              new OneKeyInternalError(
+                'Failed to get account derivation by wallet id.',
+              ),
+            );
+          };
+
+          const accountDerivationStore = transaction.objectStore(
+            ACCOUNT_DERIVATION_STORE_NAME,
+          );
+
+          const request = accountDerivationStore.getAll();
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              const accountDerivations =
+                request.result as Array<DBAccountDerivation>;
+              const result = accountDerivations
+                .filter((item) => item.walletId === walletId)
+                .reduce((acc, item) => {
+                  acc[item.template] = item;
+                  return acc;
+                }, {} as Record<string, DBAccountDerivation>);
+              resolve(result);
             }
           };
         }),
