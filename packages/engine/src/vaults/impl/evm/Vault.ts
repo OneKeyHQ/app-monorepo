@@ -707,8 +707,8 @@ export default class Vault extends VaultBase {
         }
 
         batchMethod = isDeflationary
-          ? BatchTransferSelectors.disperseToken
-          : BatchTransferSelectors.disperseTokenSimple;
+          ? BatchTransferSelectors.disperseTokenSimple
+          : BatchTransferSelectors.disperseToken;
         paramTypes = ['address', 'address[]', 'uint256[]'];
         ParamValues = [
           token.tokenIdOnNetwork,
