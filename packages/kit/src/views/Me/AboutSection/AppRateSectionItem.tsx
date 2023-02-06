@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { openAppReview } from '../../../utils/openAppReview';
+import { openAppStoryWriteReview } from '../../../utils/openAppReview';
 
 const ExtRateUrl = {
   'chrome':
@@ -16,13 +16,11 @@ const ExtRateUrl = {
     'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
 };
 
-const AppRateSectionItem: FC<{ onAfterOnpenReview: () => void }> = ({
-  onAfterOnpenReview,
-}) => {
+const AppRateSectionItem: FC = () => {
   const intl = useIntl();
   const showRate =
     platformEnv.isExtension ||
-    platformEnv.isNativeAndroidGooglePlay ||
+    platformEnv.isNativeAndroid ||
     platformEnv.isNativeIOS;
   const onPress = useCallback(() => {
     if (platformEnv.isExtension) {
@@ -32,10 +30,9 @@ const AppRateSectionItem: FC<{ onAfterOnpenReview: () => void }> = ({
       window.open(url, intl.formatMessage({ id: 'form__rate_our_app' }));
     }
     if (platformEnv.isNative) {
-      openAppReview(true);
-      onAfterOnpenReview();
+      openAppStoryWriteReview();
     }
-  }, [intl, onAfterOnpenReview]);
+  }, [intl]);
   if (showRate) {
     return (
       <Pressable
