@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 import type { ChainInfo, CoinInfo } from '@onekeyhq/engine/src/types/chain';
 import type {

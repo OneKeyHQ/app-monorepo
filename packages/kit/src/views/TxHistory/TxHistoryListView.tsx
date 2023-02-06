@@ -203,6 +203,7 @@ function TxHistoryListSectionList(props: {
       [],
     );
 
+  const divider = useCallback(() => <Divider key="separator" />, []);
   const sectionListProps = {
     renderItem,
     renderSectionHeader,
@@ -220,7 +221,7 @@ function TxHistoryListSectionList(props: {
     ),
     ListEmptyComponent: <TxHistoryListViewEmpty key="empty" />,
     ListFooterComponent: <Box key="footer" h="20px" />,
-    ItemSeparatorComponent: () => <Divider key="separator" />,
+    ItemSeparatorComponent: divider,
     keyExtractor: (tx: IHistoryTx, index: number) =>
       tx.id || index.toString(10),
     showsVerticalScrollIndicator: false,

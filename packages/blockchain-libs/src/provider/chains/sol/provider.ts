@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/naming-convention,camelcase,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-shadow,@typescript-eslint/no-unsafe-return,@typescript-eslint/restrict-plus-operands,@typescript-eslint/require-await,no-restricted-globals,no-continue,eqeqeq,@typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/naming-convention,camelcase,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-shadow,@typescript-eslint/no-unsafe-return,@typescript-eslint/restrict-plus-operands,@typescript-eslint/require-await,no-restricted-globals,no-continue,eqeqeq,@typescript-eslint/restrict-template-expressions,@typescript-eslint/no-unused-vars */
 import OneKeyConnect from '@onekeyfe/js-sdk';
 import * as splToken from '@solana/spl-token';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';

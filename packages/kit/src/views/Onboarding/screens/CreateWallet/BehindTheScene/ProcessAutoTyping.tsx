@@ -233,6 +233,15 @@ function ProcessAutoTyping({
     }),
   );
 
+  const normalText = useCallback(
+    (text) => <TypeWriter.NormalText>{text}</TypeWriter.NormalText>,
+    [],
+  );
+  const highlightText = useCallback(
+    (text) => <TypeWriter.Highlight>{text}</TypeWriter.Highlight>,
+    [],
+  );
+
   return (
     <>
       <Box
@@ -267,12 +276,8 @@ function ProcessAutoTyping({
                 {intl.formatMessage(
                   { id: processInfo.text as any },
                   {
-                    a: (text) => (
-                      <TypeWriter.NormalText>{text}</TypeWriter.NormalText>
-                    ),
-                    b: (text) => (
-                      <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
-                    ),
+                    a: normalText,
+                    b: highlightText,
                   },
                 )}
               </TypeWriter>
@@ -292,9 +297,7 @@ function ProcessAutoTyping({
                   {intl.formatMessage(
                     { id: 'content__your_wallet_is_now_ready' },
                     {
-                      b: (text) => (
-                        <TypeWriter.Highlight>{text}</TypeWriter.Highlight>
-                      ),
+                      b: highlightText,
                     },
                   )}{' '}
                   🚀
