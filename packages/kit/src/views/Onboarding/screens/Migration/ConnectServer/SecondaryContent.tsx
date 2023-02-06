@@ -26,6 +26,7 @@ import type {
   DeviceInfo,
   MigrateData,
 } from '@onekeyhq/engine/src/types/migrate';
+import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import { httpServerEnable } from '@onekeyhq/kit-bg/src/services/ServiceHTTP';
 import { MigrateNotificationNames } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
 import type { MigrateNotificationData } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
@@ -96,7 +97,9 @@ const QRCodeView: FC<{
                 requestId,
                 respondData: {
                   success: false,
-                  data: 'can not fount public/private.',
+                  data: undefined,
+                  message: 'can not fount public/private.',
+                  code: MigrateErrorCode.DecryptFail,
                 },
               });
               throw new Error(`can not fount public/private.`);
@@ -106,7 +109,9 @@ const QRCodeView: FC<{
               requestId,
               respondData: {
                 success: false,
-                data: 'postData is not string',
+                data: undefined,
+                message: 'postData is not string',
+                code: MigrateErrorCode.DecryptFail,
               },
             });
             throw new Error(`postData is not string`);
@@ -140,13 +145,17 @@ const QRCodeView: FC<{
                       requestId,
                       respondData: {
                         success: false,
+                        code: MigrateErrorCode.EncryptFail,
                       },
                     });
-                    ToastManager.show({
-                      title: `${intl.formatMessage({
-                        id: 'form__failed',
-                      })}`,
-                    });
+                    ToastManager.show(
+                      {
+                        title: intl.formatMessage({
+                          id: 'form__failed',
+                        }),
+                      },
+                      { type: 'error' },
+                    );
                     return false;
                   }
                   serviceHTTP.serverRespond({
@@ -177,7 +186,10 @@ const QRCodeView: FC<{
               }
               serviceHTTP.serverRespond({
                 requestId,
-                respondData: { success: false },
+                respondData: {
+                  success: false,
+                  code: MigrateErrorCode.RejectData,
+                },
               });
               return true;
             },

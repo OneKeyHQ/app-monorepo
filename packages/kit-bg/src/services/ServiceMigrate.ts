@@ -15,6 +15,7 @@ import type {
   MigrateData,
   MigrateServiceResp,
 } from '@onekeyhq/engine/src/types/migrate';
+import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import {
   deviceInfo,
   generatePassword,
@@ -400,22 +401,31 @@ class ServiceMigrate extends ServiceBase {
       debugLogger.migrate.error('keypair lose');
       return;
     }
-    const { success, data: encryptData } = await this.client
+    const result = await this.client
       .get<MigrateServiceResp<string>>(url)
       .then((resp) => resp.data)
       .catch(() => ({
         success: false,
         data: undefined,
+        code: MigrateErrorCode.ConnectFail,
       }));
+
+    const { success, data: encryptData, code } = result;
+
     if (success && encryptData && encryptData.length > 0) {
       const decryptData = this.decryptDataWithPrivateKey(
         this.keypair.privateKey,
         encryptData,
       );
       if (typeof decryptData === 'string') {
-        return JSON.parse(decryptData) as MigrateData;
+        try {
+          return JSON.parse(decryptData) as MigrateData;
+        } catch {
+          debugLogger.migrate.error('parse decryptData error');
+        }
       }
     }
+    return code;
   }
 
   @backgroundMethod()
@@ -449,21 +459,21 @@ class ServiceMigrate extends ServiceBase {
 
     debugLogger.migrate.info('receivedHttpRequest = ', apiName, uuid);
 
-    const failResponse = (message: string) => {
+    const failResponse = (message: string, code?: number) => {
       debugLogger.migrate.error(`apiName:${apiName},error:${message}`);
       serviceHTTP.serverRespond({
         requestId,
-        respondData: { success: false, message },
+        respondData: { success: false, message, code },
       });
     };
     if (uuid.length === 0) {
-      failResponse('uuid  is required');
+      failResponse('uuid  is required', MigrateErrorCode.ConnectFail);
       return;
     }
 
     if (apiName === MigrateAPINames.Connect) {
       if (this.connectUUID.length > 0) {
-        failResponse('service already connected');
+        failResponse('service already connected', MigrateErrorCode.ConnectFail);
         return;
       }
       if (this.keypair === undefined) {
@@ -487,7 +497,10 @@ class ServiceMigrate extends ServiceBase {
               const password = rsaEncrypt(this.clientPubKey, this.randomNum);
               if (password === false) {
                 this.clearMigrateInfo();
-                failResponse('rsaEncrypt randomNum fail');
+                failResponse(
+                  'rsaEncrypt randomNum fail',
+                  MigrateErrorCode.EncryptFail,
+                );
               }
               serviceHTTP.serverRespond({
                 requestId,
@@ -501,12 +514,18 @@ class ServiceMigrate extends ServiceBase {
               });
             } else {
               this.clearMigrateInfo();
-              failResponse('Upload server public key fail');
+              failResponse(
+                'Upload server public key fail',
+                MigrateErrorCode.PublicKeyError,
+              );
             }
           });
         } else {
           this.clearMigrateInfo();
-          failResponse('Get client public pey');
+          failResponse(
+            'Get client public pey',
+            MigrateErrorCode.PublicKeyError,
+          );
         }
       });
     } else if (apiName === MigrateAPINames.DisConnect) {
@@ -525,17 +544,17 @@ class ServiceMigrate extends ServiceBase {
           data: {} as RequestData,
         });
       } else {
-        failResponse('connect fail');
+        failResponse('uuid not match', MigrateErrorCode.UUIDNotMatch);
       }
     } else if (apiName === MigrateAPINames.SendData) {
       if (!this.isConnectedUUID(uuid)) {
-        failResponse('connect fail');
+        failResponse('uuid not match', MigrateErrorCode.UUIDNotMatch);
         return;
       }
       const { postData: encryptData } = data;
 
       if (this.keypair === undefined) {
-        failResponse('keypair lose');
+        failResponse('keypair lose', MigrateErrorCode.KetPairLose);
         return;
       }
       const decryptData = this.decryptDataWithPrivateKey(
@@ -549,7 +568,7 @@ class ServiceMigrate extends ServiceBase {
       });
     } else if (apiName === MigrateAPINames.RequestData) {
       if (!this.isConnectedUUID(uuid)) {
-        failResponse('connect fail');
+        failResponse('uuid not match', MigrateErrorCode.UUIDNotMatch);
         return;
       }
       appUIEventBus.emit(AppUIEventBusNames.Migrate, {
