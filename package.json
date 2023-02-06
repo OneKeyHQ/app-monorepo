@@ -210,7 +210,8 @@
     "cross-fetch@^3.1.5": "patch:cross-fetch@npm%3A3.1.5#./.yarn/patches/cross-fetch-npm-3.1.5-e414995db9.patch",
     "cross-fetch@^3.0.6": "patch:cross-fetch@npm%3A3.1.5#./.yarn/patches/cross-fetch-npm-3.1.5-e414995db9.patch",
     "protobufjs@^6.11.3": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch",
-    "protobufjs@^6.11.2": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch"
+    "protobufjs@^6.11.2": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch",
+    "keytar@^7.9.0": "patch:keytar@npm%3A7.9.0#./.yarn/patches/keytar-npm-7.9.0-682d6e5c1d.patch"
   },
   "packageManager": "yarn@3.3.1"
 }
