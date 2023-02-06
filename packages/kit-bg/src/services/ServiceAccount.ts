@@ -527,7 +527,8 @@ class ServiceAccount extends ServiceBase {
     const { engine } = this.backgroundApi;
     const dbAccount = await engine.dbApi.getAccountByAddress({
       address,
-      coinType,
+      // TODO: template filter multiple coinType network
+      coinType: Array.isArray(coinType) ? '' : coinType,
     });
     return dbAccount;
   }

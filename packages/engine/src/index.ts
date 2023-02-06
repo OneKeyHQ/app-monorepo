@@ -66,7 +66,11 @@ import {
   getDefaultPurpose,
 } from './managers/derivation';
 import { getTokenRiskyItems } from './managers/goplus';
-import { implToCoinTypes } from './managers/impl';
+import {
+  getAccountNameInfoByTemplate,
+  getDefaultAccountNameInfoByImpl,
+  implToCoinTypes,
+} from './managers/impl';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
@@ -950,6 +954,7 @@ class Engine {
     skipRepeat,
     callback,
     isAddInitFirstAccountOnly,
+    template,
   }: {
     password: string;
     walletId: string;
@@ -960,6 +965,7 @@ class Engine {
     skipRepeat?: boolean;
     callback?: (_account: Account) => Promise<boolean>;
     isAddInitFirstAccountOnly?: boolean;
+    template?: string;
   }): Promise<Array<Account>> {
     // eslint-disable-next-line no-param-reassign
     callback =
@@ -985,12 +991,18 @@ class Engine {
 
     const { impl } = dbNetwork;
     const usedPurpose = purpose || getDefaultPurpose(impl);
-    const coinType = implToCoinTypes[impl];
+    const accountNameInfo =
+      template && template.length
+        ? getAccountNameInfoByTemplate(impl, template)
+        : getDefaultAccountNameInfoByImpl(impl);
+    const { coinType } = accountNameInfo;
     if (!coinType) {
       throw new OneKeyInternalError(`coinType of impl=${impl} not found.`);
     }
-    const nextIndex =
-      wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0;
+    // TODO: nextIndex should use wallet.nextAccountIds[template]
+    // const nextIndex =
+    //   wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0;
+    const nextIndex = wallet.nextAccountIds[accountNameInfo.template] || 0;
     const usedIndexes = indexes || [nextIndex];
     if (isAddInitFirstAccountOnly && nextIndex > 0) {
       throw new OneKeyInternalError(
@@ -1010,6 +1022,8 @@ class Engine {
       indexes: usedIndexes,
       purpose: usedPurpose,
       names,
+      coinType,
+      template: accountNameInfo.template,
     });
 
     const ret: Array<Account> = [];

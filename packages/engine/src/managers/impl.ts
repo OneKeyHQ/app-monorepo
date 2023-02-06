@@ -403,6 +403,31 @@ function getAccountNameInfoByImpl(
   return ret;
 }
 
+function getDefaultAccountNameInfoByImpl(impl: string): AccountNameInfo {
+  const ret = defaultAccountNameInfo[impl];
+  if (typeof ret.default === 'undefined') {
+    throw new NotImplemented(`Implementation ${impl} is not supported.`);
+  }
+  return ret.default;
+}
+
+function getAccountNameInfoByTemplate(
+  impl: string,
+  template: string,
+): AccountNameInfo {
+  const ret = defaultAccountNameInfo[impl];
+  if (typeof ret === 'undefined') {
+    throw new NotImplemented(`Is not supported for implementation ${impl}.`);
+  }
+  const accountNameInfo = Object.values(ret).find(
+    (value) => value.template === template,
+  );
+  if (typeof accountNameInfo === 'undefined') {
+    throw new NotImplemented(`template ${template} not supported.`);
+  }
+  return accountNameInfo;
+}
+
 export {
   implToCoinTypes,
   implToAccountType,
@@ -412,4 +437,6 @@ export {
   getCurveByImpl,
   getDefaultCurveByCoinType,
   getAccountNameInfoByImpl,
+  getDefaultAccountNameInfoByImpl,
+  getAccountNameInfoByTemplate,
 };

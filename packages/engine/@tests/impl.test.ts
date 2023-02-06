@@ -2,7 +2,9 @@ import {
   coinTypeToImpl,
   defaultCurveMap,
   getAccountNameInfoByImpl,
+  getAccountNameInfoByTemplate,
   getCurveByImpl,
+  getDefaultAccountNameInfoByImpl,
   getDefaultCurveByCoinType,
   implToCoinTypes,
   isCoinTypeCompatibleWithImpl,
@@ -48,6 +50,34 @@ describe('test impl', () => {
             accountNameInfo.coinType,
           ),
         ).toBeTruthy();
+      });
+    });
+  });
+
+  test('test getDefaultAccountNameInfoByImpl function', () => {
+    Object.keys(implToCoinTypes).forEach((impl: string) => {
+      const defaultInfo = getAccountNameInfoByImpl(impl).default;
+      const accountNameInfo = getDefaultAccountNameInfoByImpl(impl);
+      expect(accountNameInfo).toBeTruthy();
+      expect(accountNameInfo.prefix).toBe(defaultInfo.prefix);
+      expect(accountNameInfo.category).toBe(defaultInfo.category);
+      expect(accountNameInfo.template).toBe(defaultInfo.template);
+      const coinTypes = implToCoinTypes[impl];
+      expect(
+        (Array.isArray(coinTypes) ? coinTypes : [coinTypes]).includes(
+          accountNameInfo.coinType,
+        ),
+      ).toBeTruthy();
+    });
+  });
+
+  test('test getAccountNameInfoByTemplate function', () => {
+    Object.keys(implToCoinTypes).forEach((impl: string) => {
+      const accountNameInfos = getAccountNameInfoByImpl(impl);
+      Object.values(accountNameInfos).forEach((accountNameInfo) => {
+        expect(
+          getAccountNameInfoByTemplate(impl, accountNameInfo.template),
+        ).toBe(accountNameInfo);
       });
     });
   });

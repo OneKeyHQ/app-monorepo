@@ -593,7 +593,8 @@ class Validators {
         network.impl,
       )
     ) {
-      const coinType = implToCoinTypes[network.impl] ?? COINTYPE_BTC;
+      const coinType =
+        (implToCoinTypes[network.impl] as string) ?? COINTYPE_BTC;
       const accountPathPrefix = `${purpose}'/${coinType}'`;
       const nextAccountId = wallet.nextAccountIds[accountPathPrefix];
       if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
