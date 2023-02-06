@@ -90,6 +90,7 @@ export default class Vault extends VaultBase {
   );
 
   private getApiExplorerCache = memoizee(
+    // eslint-disable-next-line @typescript-eslint/require-await
     async (baseURL) => axios.create({ baseURL }),
     {
       primitive: true,
@@ -103,7 +104,7 @@ export default class Vault extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     let baseURL = network.blockExplorerURL.name;
     if (network.isTestnet) {
-      baseURL = network.blockExplorerURL.name.replace(/shast/, 'shastaapi');
+      baseURL = network.blockExplorerURL.name.replace(/shast/, 'shastapi');
     } else {
       baseURL = network.blockExplorerURL.name.replace(
         /(tronscan)/,
