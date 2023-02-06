@@ -1,3 +1,6 @@
+import NetInfo from '@react-native-community/netinfo';
+import { debounce } from 'lodash';
+
 import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
 import type {
   AddNetworkParams,
@@ -7,11 +10,16 @@ import type {
 import type { GeneralInitialState } from '@onekeyhq/kit/src/store/reducers/general';
 import { changeActiveNetwork } from '@onekeyhq/kit/src/store/reducers/general';
 import { updateNetworks } from '@onekeyhq/kit/src/store/reducers/runtime';
-import { updateUserSwitchNetworkFlag } from '@onekeyhq/kit/src/store/reducers/status';
-import { wait } from '@onekeyhq/kit/src/utils/helper';
+import type { IRpcStatus } from '@onekeyhq/kit/src/store/reducers/status';
+import {
+  setRpcStatus,
+  updateUserSwitchNetworkFlag,
+} from '@onekeyhq/kit/src/store/reducers/status';
+import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   AppEventBusNames,
@@ -25,6 +33,29 @@ import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
+  rpcMeasureInterval: NodeJS.Timeout | null = null;
+
+  @bindThis()
+  registerEvents() {
+    appEventBus.on(
+      AppEventBusNames.NetworkChanged,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      this.measureRpcStatus,
+    );
+
+    this.rpcMeasureInterval = setInterval(
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      this.measureRpcStatus,
+      getTimeDurationMs({ minute: 1 }),
+    );
+
+    NetInfo.addEventListener(() => {
+      this.measureRpcStatus();
+    });
+
+    this.measureRpcStatus();
+  }
+
   @backgroundMethod()
   async changeActiveNetwork(
     networkId: NonNullable<GeneralInitialState['activeNetworkId']>,
@@ -228,6 +259,55 @@ class ServiceNetwork extends ServiceBase {
       s.runtime.networks.find((n) => n.id === networkId),
     );
     return Promise.resolve(network);
+  }
+
+  measureRpcStatus = debounce(
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    this._measureRpcStatus,
+    getTimeDurationMs({ seconds: 5 }),
+    {
+      leading: true,
+      trailing: true,
+    },
+  );
+
+  @bindThis()
+  @backgroundMethod()
+  async _measureRpcStatus(_networkId?: string) {
+    console.log('_measureRpcStatus');
+    let networkId: string | undefined | null = _networkId;
+    const { appSelector, engine, dispatch } = this.backgroundApi;
+    await this.backgroundApi.serviceApp.waitForAppInited({
+      logName: 'measureRpcStatus',
+    });
+    if (!networkId) {
+      networkId = appSelector((s) => s.general.activeNetworkId);
+    }
+    if (!networkId) {
+      return;
+    }
+    let status: IRpcStatus = {
+      latestBlock: undefined,
+      responseTime: undefined,
+    };
+    const network = await engine.getNetwork(networkId);
+    try {
+      status = await this.getRPCEndpointStatus(
+        network.rpcURL,
+        networkId,
+        false,
+      );
+    } catch (error) {
+      // pass
+    }
+    dispatch(
+      setRpcStatus({
+        networkId,
+        status,
+      }),
+    );
+
+    return status;
   }
 }
 
