@@ -32,6 +32,31 @@ const TermsOfService: FC = () => {
     );
   }, [intl, privacyPolicyUrl]);
 
+  const agreementText = useCallback(
+    (text) => (
+      <Text
+        color="text-subdued"
+        onPress={onOpenUserAgreement}
+        typography="CaptionUnderline"
+      >
+        {text}
+      </Text>
+    ),
+    [onOpenUserAgreement],
+  );
+  const policyText = useCallback(
+    (text) => (
+      <Text
+        color="text-subdued"
+        onPress={onOpenPrivacyPolicy}
+        typography="CaptionUnderline"
+      >
+        {text}
+      </Text>
+    ),
+    [onOpenPrivacyPolicy],
+  );
+
   return (
     <Center
       position="absolute"
@@ -50,24 +75,8 @@ const TermsOfService: FC = () => {
         {intl.formatMessage(
           { id: 'content__agree_to_user_agreement_and_privacy_policy' },
           {
-            a: (text) => (
-              <Text
-                color="text-subdued"
-                onPress={onOpenUserAgreement}
-                typography="CaptionUnderline"
-              >
-                {text}
-              </Text>
-            ),
-            b: (text) => (
-              <Text
-                color="text-subdued"
-                onPress={onOpenPrivacyPolicy}
-                typography="CaptionUnderline"
-              >
-                {text}
-              </Text>
-            ),
+            a: agreementText,
+            b: policyText,
           },
         )}
       </Text>

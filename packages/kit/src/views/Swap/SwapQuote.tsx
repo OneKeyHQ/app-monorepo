@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { BigNumber } from 'asmcrypto.js';
 import { useIntl } from 'react-intl';
 
 import {
