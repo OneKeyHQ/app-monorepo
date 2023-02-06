@@ -23920,12 +23920,12 @@ __metadata:
 
 "keytar@patch:keytar@npm%3A7.9.0#./.yarn/patches/keytar-npm-7.9.0-682d6e5c1d.patch::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
   version: 7.9.0
-  resolution: "keytar@patch:keytar@npm%3A7.9.0#./.yarn/patches/keytar-npm-7.9.0-682d6e5c1d.patch::version=7.9.0&hash=d18548&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+  resolution: "keytar@patch:keytar@npm%3A7.9.0#./.yarn/patches/keytar-npm-7.9.0-682d6e5c1d.patch::version=7.9.0&hash=1091dc&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
   dependencies:
     node-addon-api: ^4.3.0
     node-gyp: latest
     prebuild-install: ^7.0.1
-  checksum: e33d77b5e27839a60281dffcda9ad54dbf02e6d5af4b96c8f9e7bc5457a48ddbf7fcd500b1126f53785af417722723779cba9716275bb4dcca2ea67e02759803
+  checksum: f3a073461357bafb32175df811f8ed2b499c50417e015173714c969e7aea56469413170a7c8fbdd23428ff8f25d40672bd43191cee8f63ad6a9b0807ce5f313a
   languageName: node
   linkType: hard
 
