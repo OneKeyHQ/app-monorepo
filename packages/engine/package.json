@@ -32,7 +32,7 @@
     "@glif/filecoin-message": "^2.0.27",
     "@glif/filecoin-rpc-client": "^2.0.8",
     "@metamask/eth-sig-util": "^4.0.1",
-    "@mysten/sui.js": "^0.20.0",
+    "@mysten/sui.js": "^0.26.0",
     "@noble/hashes": "1.1.2",
     "@solana/spl-token": "^0.3.0",
     "@solana/web3.js": "^1.47.3",

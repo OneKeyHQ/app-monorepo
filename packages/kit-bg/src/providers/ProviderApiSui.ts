@@ -30,6 +30,14 @@ import type {
   SuiChainType,
 } from '@onekeyfe/onekey-sui-provider';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+interface SuiSignAndExecuteTransactionOptions {}
+
+interface SuiSignAndExecuteTransactionInput {
+  transaction: SignableTransaction;
+  options?: SuiSignAndExecuteTransactionOptions;
+}
+
 @backgroundClass()
 class ProviderApiSui extends ProviderApiBase {
   public providerName = IInjectedProviderNames.sui;
@@ -201,7 +209,7 @@ class ProviderApiSui extends ProviderApiBase {
   @providerApiMethod()
   public async signAndExecuteTransaction(
     request: IJsBridgeMessagePayload,
-    params: SignableTransaction,
+    params: SuiSignAndExecuteTransactionInput,
   ): Promise<SuiTransactionResponse> {
     debugLogger.providerApi.info('SUI signAndSubmitTransaction', params);
     const { networkId, accountId } = getActiveWalletAccount();
@@ -210,7 +218,7 @@ class ProviderApiSui extends ProviderApiBase {
       accountId,
     })) as VaultSUI;
 
-    const encodeTx = params;
+    const encodeTx = params.transaction;
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
