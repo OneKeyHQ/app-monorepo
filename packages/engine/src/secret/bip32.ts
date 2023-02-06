@@ -176,6 +176,7 @@ class ED25519Bip32KeyDeriver implements Bip32KeyDeriver {
     return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   CKDPub(parent: ExtendedKey, index: number): ExtendedKey {
     throw Error('CKDPub is not supported for ed25519.');
   }

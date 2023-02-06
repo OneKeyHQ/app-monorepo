@@ -40,6 +40,7 @@ type Props = {
 
 function isEmptyData(data: PublicBackupData) {
   let empty = true;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Object.entries(data).forEach(([_, value]) => {
     if (!isEmpty(value)) {
       empty = false;

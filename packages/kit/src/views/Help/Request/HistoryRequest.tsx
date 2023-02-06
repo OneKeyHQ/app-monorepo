@@ -207,6 +207,15 @@ export const HistoryRequest: FC = () => {
     getData();
   }, [getData]);
 
+  const ListHeaderComponent = useCallback(
+    () => <Box mb="16px">{HintView}</Box>,
+    [HintView],
+  );
+  const ItemSeparatorComponent = useCallback(
+    () => <Divider height="24px" bgColor="surface-subdued" />,
+    [],
+  );
+
   return (
     <Modal
       height="560px"
@@ -227,10 +236,8 @@ export const HistoryRequest: FC = () => {
               data: historyList,
               // @ts-ignore
               renderItem,
-              ListHeaderComponent: () => <Box mb="16px">{HintView}</Box>,
-              ItemSeparatorComponent: () => (
-                <Divider height="24px" bgColor="surface-subdued" />
-              ),
+              ListHeaderComponent,
+              ItemSeparatorComponent,
               keyExtractor: (item) => (item as TicketType).created_at,
             }
           : undefined

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Spinner, Text, useThemeValue } from '@onekeyhq/components';
+import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../../hooks';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
