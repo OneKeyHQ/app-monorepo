@@ -20,7 +20,7 @@ const AppRateSectionItem: FC = () => {
   const intl = useIntl();
   const showRate =
     platformEnv.isExtension ||
-    platformEnv.isNativeAndroid ||
+    platformEnv.isNativeAndroidGooglePlay ||
     platformEnv.isNativeIOS;
   const onPress = useCallback(() => {
     if (platformEnv.isExtension) {
