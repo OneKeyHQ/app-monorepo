@@ -23907,7 +23907,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"keytar@npm:^7.9.0":
+"keytar@npm:7.9.0":
   version: 7.9.0
   resolution: "keytar@npm:7.9.0"
   dependencies:
@@ -23915,6 +23915,17 @@ __metadata:
     node-gyp: latest
     prebuild-install: ^7.0.1
   checksum: 4dbdd21f69e21a53032cbc949847f57338e42df763c5eec04e1b5d7142a689f95d8c3d74fb3b7dc321b5d678271d8d8d1a0dcaa919673ebc50ef8ce76f354e21
+  languageName: node
+  linkType: hard
+
+"keytar@patch:keytar@npm%3A7.9.0#./.yarn/patches/keytar-npm-7.9.0-682d6e5c1d.patch::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
+  version: 7.9.0
+  resolution: "keytar@patch:keytar@npm%3A7.9.0#./.yarn/patches/keytar-npm-7.9.0-682d6e5c1d.patch::version=7.9.0&hash=d18548&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+  dependencies:
+    node-addon-api: ^4.3.0
+    node-gyp: latest
+    prebuild-install: ^7.0.1
+  checksum: e33d77b5e27839a60281dffcda9ad54dbf02e6d5af4b96c8f9e7bc5457a48ddbf7fcd500b1126f53785af417722723779cba9716275bb4dcca2ea67e02759803
   languageName: node
   linkType: hard
 
