@@ -683,52 +683,6 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getWalletAccountsGroupedByNetwork(
-    walletId: string,
-  ): Promise<Array<{ networkId: string; accounts: Array<Account> }>> {
-    const wallet = await this.getWallet(walletId);
-    const accounts = await this.getAccounts(wallet.accounts);
-    const networks = await this.listNetworks();
-
-    const networkToAccounts: Record<string, Array<Account>> = {};
-    const coinTypeToNetworks: Record<string, Array<string>> = {};
-    for (const network of networks) {
-      networkToAccounts[network.id] = [];
-      const coinType = implToCoinTypes[network.impl];
-      if (!coinType) {
-        throw new OneKeyInternalError(
-          `coinType of impl=${network.impl} not found.`,
-        );
-      }
-      if (coinType in coinTypeToNetworks) {
-        coinTypeToNetworks[coinType].push(network.id);
-      } else {
-        coinTypeToNetworks[coinType] = [network.id];
-      }
-    }
-
-    for (const account of accounts) {
-      for (const networkId of coinTypeToNetworks[account.coinType] || []) {
-        if (account.type !== AccountType.VARIANT) {
-          networkToAccounts[networkId].push(account);
-        } else {
-          const vault = await this.getVault({
-            networkId,
-            accountId: account.id,
-          });
-          const outputAccount = await vault.getOutputAccount();
-          if (!isEmpty(outputAccount.address))
-            networkToAccounts[networkId].push(outputAccount);
-        }
-      }
-    }
-    return networks.map(({ id: networkId }) => ({
-      networkId,
-      accounts: networkToAccounts[networkId],
-    }));
-  }
-
-  @backgroundMethod()
   async getAccounts(
     accountIds: Array<string>,
     networkId?: string,
@@ -880,6 +834,7 @@ class Engine {
     start = 0,
     limit = 10,
     purpose?: number,
+    template?: string,
   ): Promise<Array<ImportableHDAccount>> {
     // Search importable HD accounts.
     const wallet = await this.dbApi.getWallet(walletId);
@@ -891,12 +846,18 @@ class Engine {
       .map((index) => start + index)
       .filter((i) => i < 2 ** 31);
 
+    const { impl } = await this.getNetwork(networkId);
+    const accountNameInfo = template
+      ? getAccountNameInfoByTemplate(impl, template)
+      : getDefaultAccountNameInfoByImpl(impl);
     const vault = await this.getWalletOnlyVault(networkId, walletId);
     const accounts = await vault.keyring.prepareAccounts({
       type: 'SEARCH_ACCOUNTS',
       password,
       indexes,
       purpose,
+      coinType: accountNameInfo.coinType,
+      template: accountNameInfo.template,
     });
 
     const addresses = await Promise.all(
