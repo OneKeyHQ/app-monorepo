@@ -95,16 +95,16 @@ export function useAccountTokens(
         ...t,
         price,
         balance,
-        value,
-        usdValue,
-        value24h,
+        value: value.toString(),
+        usdValue: usdValue.toString(),
+        value24h: value24h.toString(),
       };
       return info;
     })
     .sort(
       (a, b) =>
         // By value
-        b.value.comparedTo(a.value) ||
+        new B(b.value).comparedTo(a.value) ||
         // By price
         new B(b.price).comparedTo(a.price) ||
         // By native token
@@ -261,17 +261,28 @@ export const useTokenBalance = ({
 
 export const useTokenPrice = ({
   networkId,
-  token,
-  fallback,
+  tokenIdOnNetwork,
+  fallback = 0,
+  vsCurrency,
 }: {
   networkId: string;
   vsCurrency: string;
-  token: Partial<Token>;
-  fallback: number;
+  tokenIdOnNetwork: string;
+  fallback?: number;
 }) => {
-  const key = `${networkId}-${token?.address ?? ''}`;
+  const key = tokenIdOnNetwork
+    ? `${networkId}-${tokenIdOnNetwork ?? ''}`
+    : networkId;
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
-  return prices?.[key] ?? fallback;
+  const price = prices?.[key]?.[vsCurrency];
+  useEffect(() => {
+    backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
+      networkId,
+      tokenIds: [tokenIdOnNetwork],
+      vsCurrency,
+    });
+  }, [networkId, tokenIdOnNetwork, vsCurrency]);
+  return price ?? fallback;
 };
 
 export const useCurrentFiatValue = () => {
