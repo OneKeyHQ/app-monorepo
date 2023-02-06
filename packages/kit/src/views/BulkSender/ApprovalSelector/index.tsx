@@ -113,7 +113,7 @@ function ApprovalSelectorBottomSheetModal({
     <BottomSheetModal
       closeOverlay={closeOverlay}
       showCloseButton={!isVertical}
-      title="Approval"
+      title={intl.formatMessage({ id: 'title__approval' })}
     >
       <Box pb={isVertical ? 6 : 0}>
         {approvalOptions.map((option) => (

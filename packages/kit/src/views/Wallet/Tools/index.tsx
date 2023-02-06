@@ -28,7 +28,7 @@ import type {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -78,8 +78,8 @@ const data: DataItem[] = [
       color: 'decorative-icon-two',
     },
     iconBg: 'decorative-surface-two',
-    title: 'title__blockchain_explorer',
-    description: 'title__blockchain_explorer_desc',
+    title: 'title__bulksender',
+    description: 'title__bulksender_desc',
   },
   {
     key: 'explorer',
