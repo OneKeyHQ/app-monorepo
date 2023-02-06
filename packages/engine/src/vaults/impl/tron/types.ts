@@ -33,3 +33,47 @@ export type IRPCCallResponse = {
     message: string;
   };
 };
+
+export type IContractDetail = {
+  'address': string;
+  'balance': number;
+  'verify_status': number;
+  'is_proxy': boolean;
+  'proxy_implementation': string;
+  'old_proxy_implementation': string;
+  'name': string;
+  'description': string;
+  'vip': boolean;
+  'tokenInfo': {
+    'tokenId': string;
+    'tokenAbbr': string;
+    'tokenName': string;
+    'tokenDecimal': number;
+    'tokenCanShow': number;
+    'tokenType': string;
+    'tokenLogo': string;
+    'tokenLevel': string;
+    'issuerAddr': string;
+    'vip': boolean;
+  };
+};
+
+export type ITokenDetail = {
+  'tokenId': string;
+  'balance': string;
+  'tokenName': string;
+  'tokenAbbr': string;
+  'tokenDecimal': number;
+  'tokenCanShow': number;
+  'tokenType': string;
+  'tokenLogo': string;
+  'vip': boolean;
+  'tokenPriceInTrx': number;
+  'amount': number;
+  'nrOfTokenHolders': number;
+  'transferCount': number;
+};
+
+export type IAccountDetail = {
+  tokens: ITokenDetail[];
+};
