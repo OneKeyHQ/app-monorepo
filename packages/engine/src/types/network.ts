@@ -39,8 +39,13 @@ type EvmExtraInfo = {
 type AccountNameInfo = {
   prefix: string;
   category: string;
+  template: string;
+  coinType: string;
   label?: string;
   addressPrefix?: string;
+  desc?: string;
+  subDesc?: string;
+  recommended?: boolean;
 };
 
 type BlockExplorer = {

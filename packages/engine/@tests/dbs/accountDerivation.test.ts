@@ -1,49 +1,23 @@
-import { DbApi } from './index';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import {
-  COINTYPE_ETH,
-  IMPL_EVM,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { DbApi } from '../../src/dbs/index';
+import { getAccountNameInfoByImpl } from '../../src/managers/impl';
 
-import type { DBAPI } from './base';
-
-const defaultAccountNameInfo = {
-  [IMPL_EVM]: {
-    default: {
-      prefix: 'EVM',
-      category: `44'/${COINTYPE_ETH}'`,
-      label: 'BIP44 Standard',
-      coinType: COINTYPE_ETH,
-      template: `m/44'/60'/0'/0/x`,
-    },
-    ledgerLive: {
-      prefix: 'EVM',
-      category: `44'/${COINTYPE_ETH}'`,
-      label: `Ledger Live`,
-      coinType: COINTYPE_ETH,
-      template: `m/44'/60'/x'/0/0`,
-    },
-    LedgerLegacy: {
-      prefix: 'EVM',
-      category: `44'/${COINTYPE_ETH}'`,
-      label: `Ledger Legacy`,
-      coinType: COINTYPE_ETH,
-      template: `m/44'/60'/0'/x`,
-    },
-  },
-};
+import type { DBAPI } from '../../src/dbs/base';
 
 const walletId = 'fake-walletId';
 const createAccountId = (index: number) => `fake-accountId-${index}`;
 
-const bip44StandardTemplate = defaultAccountNameInfo[IMPL_EVM].default.template;
-const ledgerLiveTemplate = defaultAccountNameInfo[IMPL_EVM].ledgerLive.template;
-
 describe('test AccountDerivation database API', () => {
   let dbApi: DBAPI;
+  let bip44StandardTemplate = '';
+  let ledgerLiveTemplate = '';
 
   beforeEach(() => {
     dbApi = new DbApi();
+    const evmAccountNameInfo = getAccountNameInfoByImpl(IMPL_EVM);
+    bip44StandardTemplate = evmAccountNameInfo.default.template;
+    ledgerLiveTemplate = evmAccountNameInfo.ledgerLive.template;
   });
 
   test('should insert a bip44 standard template record', async () => {

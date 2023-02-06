@@ -1,3 +1,5 @@
+import { flatten } from 'lodash';
+
 import {
   COINTYPE_ADA,
   COINTYPE_ALGO,
@@ -7,6 +9,7 @@ import {
   COINTYPE_CFX,
   COINTYPE_COSMOS,
   COINTYPE_DOGE,
+  COINTYPE_ETC,
   COINTYPE_ETH,
   COINTYPE_FIL,
   COINTYPE_LTC,
@@ -47,8 +50,8 @@ enum Curve {
   ED25519 = 'ed25519',
 }
 
-const implToCoinTypes: Partial<Record<string, string>> = {
-  [IMPL_EVM]: COINTYPE_ETH,
+const implToCoinTypes: Partial<Record<string, string | string[]>> = {
+  [IMPL_EVM]: [COINTYPE_ETH, COINTYPE_ETC],
   [IMPL_SOL]: COINTYPE_SOL,
   [IMPL_ALGO]: COINTYPE_ALGO,
   [IMPL_NEAR]: COINTYPE_NEAR,
@@ -69,7 +72,11 @@ const implToCoinTypes: Partial<Record<string, string>> = {
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
-  Object.entries(implToCoinTypes).map(([k, v]) => [v, k]),
+  flatten(
+    Object.entries(implToCoinTypes).map(([k, v]) =>
+      Array.isArray(v) ? v.map((coinType: string) => [coinType, k]) : [[v, k]],
+    ),
+  ),
 );
 
 const implToAccountType: Record<string, AccountType> = {
@@ -94,7 +101,9 @@ const implToAccountType: Record<string, AccountType> = {
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
-  return implToCoinTypes[impl] === coinType;
+  return Array.isArray(implToCoinTypes[impl])
+    ? !!implToCoinTypes[impl]?.includes(coinType)
+    : implToCoinTypes[impl] === coinType;
 }
 
 const defaultCurveMap: Record<string, Curve> = {
@@ -134,110 +143,253 @@ const defaultAccountNameInfo: Record<
   string,
   Record<string, AccountNameInfo>
 > = {
-  [IMPL_EVM]: { default: { prefix: 'EVM', category: `44'/${COINTYPE_ETH}'` } },
-  [IMPL_SOL]: { default: { prefix: 'SOL', category: `44'/${COINTYPE_SOL}'` } },
+  [IMPL_EVM]: {
+    default: {
+      prefix: 'EVM',
+      category: `44'/${COINTYPE_ETH}'`,
+      template: `m/44'/${COINTYPE_ETH}'/0'/0/x`,
+      coinType: COINTYPE_ETH,
+      label: 'BIP44 Standard',
+      desc: `OneKey, Metamask, Ledger Live m/44'/60'/0'/0/*`,
+      recommended: true,
+    },
+    etcNative: {
+      prefix: 'ETC-Native',
+      category: `44'/${COINTYPE_ETC}'`,
+      template: `m/44'/${COINTYPE_ETC}'/0'/0/x`,
+      coinType: COINTYPE_ETC,
+      label: `BIP44 Standard (CoinType 61')`,
+      desc: `m/44'/61'/0'/0/*`,
+      recommended: true,
+    },
+    ledgerLive: {
+      prefix: 'Ledger Live',
+      category: `44'/${COINTYPE_ETH}'`,
+      template: `m/44'/${COINTYPE_ETH}'/x'/0/0`,
+      coinType: COINTYPE_ETH,
+      label: 'Ledger Live',
+      desc: `m/44'/60'/*'/0/0`,
+    },
+    ledgerLegacy: {
+      prefix: 'Ledger Legacy',
+      category: `44'/${COINTYPE_ETH}'`,
+      template: `m/44'/${COINTYPE_ETH}'/0'/x`,
+      coinType: COINTYPE_ETH,
+      label: 'Ledger Legacy',
+      desc: `Ledger ETH Wallet, MEW, MyCrypto m/44'/60'/0'/*`,
+    },
+  },
+  [IMPL_SOL]: {
+    default: {
+      prefix: 'SOL',
+      category: `44'/${COINTYPE_SOL}'`,
+      template: `m/44'/${COINTYPE_SOL}'/x'/0'`,
+      coinType: COINTYPE_SOL,
+      label: 'BIP44 Standard',
+      desc: 'OneKey, Phantom, Sollet',
+      recommended: true,
+    },
+    ledgerLive: {
+      prefix: 'Ledger Live',
+      category: `44'/${COINTYPE_SOL}'`,
+      template: `m/44'/${COINTYPE_SOL}'/x'`,
+      coinType: COINTYPE_SOL,
+      label: 'Ledger Live',
+      desc: 'Ledger Live, Solflare',
+    },
+  },
   [IMPL_ALGO]: {
-    default: { prefix: 'ALGO', category: `44'/${COINTYPE_ALGO}'` },
+    default: {
+      prefix: 'ALGO',
+      category: `44'/${COINTYPE_ALGO}'`,
+      template: `m/44'/${COINTYPE_ALGO}'/0'/0'/x'`,
+      coinType: COINTYPE_ALGO,
+    },
   },
   [IMPL_NEAR]: {
-    default: { prefix: 'NEAR', category: `44'/${COINTYPE_NEAR}'` },
+    default: {
+      prefix: 'NEAR',
+      category: `44'/${COINTYPE_NEAR}'`,
+      template: `m/44'/${COINTYPE_NEAR}'/x'`,
+      coinType: COINTYPE_NEAR,
+    },
   },
-  [IMPL_STC]: { default: { prefix: 'STC', category: `44'/${COINTYPE_STC}'` } },
-  [IMPL_CFX]: { default: { prefix: 'CFX', category: `44'/${COINTYPE_CFX}'` } },
+  [IMPL_STC]: {
+    default: {
+      prefix: 'STC',
+      category: `44'/${COINTYPE_STC}'`,
+      template: `m/44'/${COINTYPE_STC}'/0'/0'/x'`,
+      coinType: COINTYPE_STC,
+    },
+  },
+  [IMPL_CFX]: {
+    default: {
+      prefix: 'CFX',
+      category: `44'/${COINTYPE_CFX}'`,
+      template: `m/44'/503'/0'/0/x`,
+      coinType: COINTYPE_CFX,
+    },
+  },
   [IMPL_BTC]: {
     default: {
       prefix: 'BTC Nested SegWit',
       category: `49'/${COINTYPE_BTC}'`,
-      label: 'Nested SegWit (P2SH)',
-      addressPrefix: '3',
+      template: `m/49'/${COINTYPE_BTC}'/x'/0/0`,
+      coinType: COINTYPE_BTC,
+      label: 'Nested SegWit',
+      desc: 'Start with “3”. Medium transaction transfer fee.',
+      subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
     BIP44: {
       prefix: 'BTC Legacy',
       category: `44'/${COINTYPE_BTC}'`,
-      label: 'Legacy (P2PKH)',
-      addressPrefix: '1',
+      template: `m/44'/${COINTYPE_BTC}'/x'/0/0`,
+      coinType: COINTYPE_BTC,
+      label: 'Legacy',
+      desc: 'Start with “1”. High transaction fee.',
+      subDesc: 'BIP44, P2PKH, Base58.',
     },
     BIP84: {
       prefix: 'BTC Native SegWit',
       category: `84'/${COINTYPE_BTC}'`,
+      template: `m/84'/${COINTYPE_BTC}'/x'/0/0`,
+      coinType: COINTYPE_BTC,
       label: 'Native SegWit',
-      addressPrefix: 'bc1',
+      desc: 'Start with with “bc1”. Low transaction fee.',
+      subDesc: 'BIP84, P2WPKH, Bech32. ',
     },
   },
   [IMPL_TBTC]: {
     default: {
       prefix: 'TBTC Nested SegWit',
       category: `49'/${COINTYPE_TBTC}'`,
-      label: 'Nested SegWit (P2SH)',
-      addressPrefix: '2',
+      template: `m/49'/${COINTYPE_TBTC}'/x'/0/0`,
+      coinType: COINTYPE_TBTC,
+      label: 'Nested SegWit',
+      desc: 'Start with “2”. Medium transaction transfer fee.',
+      subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
     BIP44: {
       prefix: 'TBTC Legacy',
       category: `44'/${COINTYPE_TBTC}'`,
-      label: 'Legacy (P2PKH)',
-      addressPrefix: 'm',
+      template: `m/44'/${COINTYPE_TBTC}'/x'/0/0`,
+      coinType: COINTYPE_TBTC,
+      label: 'Legacy',
+      desc: 'Start with “m”. High transaction fee.',
+      subDesc: 'BIP44, P2PKH, Base58.',
     },
     BIP84: {
       prefix: 'TBTC Native SegWit',
       category: `84'/${COINTYPE_TBTC}'`,
+      template: `m/84'/${COINTYPE_TBTC}'/x'/0/0`,
+      coinType: COINTYPE_TBTC,
       label: 'Native SegWit',
-      addressPrefix: 'tb1',
+      desc: 'Start with with “tb1”. Low transaction fee.',
+      subDesc: 'BIP84, P2WPKH, Bech32. ',
     },
   },
   [IMPL_TRON]: {
-    default: { prefix: 'TRON', category: `44'/${COINTYPE_TRON}'` },
+    default: {
+      prefix: 'TRON',
+      category: `44'/${COINTYPE_TRON}'`,
+      template: `m/44'/${COINTYPE_TRON}'/0'/0/x`,
+      coinType: COINTYPE_TRON,
+    },
   },
   [IMPL_APTOS]: {
-    default: { prefix: 'APT', category: `44'/${COINTYPE_APTOS}'` },
+    default: {
+      prefix: 'APT',
+      category: `44'/${COINTYPE_APTOS}'`,
+      template: `m/44'/${COINTYPE_APTOS}'/x'/0'/0'`,
+      coinType: COINTYPE_APTOS,
+    },
   },
   [IMPL_DOGE]: {
     default: {
       prefix: 'DOGE',
       category: `44'/${COINTYPE_DOGE}'`,
       label: 'Legacy (P2PKH)',
+      template: `m/44'/${COINTYPE_DOGE}'/x'/0/0`,
+      coinType: COINTYPE_DOGE,
     },
   },
   [IMPL_LTC]: {
     default: {
       prefix: 'LTC Nested SegWit',
       category: `49'/${COINTYPE_LTC}'`,
-      label: 'Nested SegWit (P2SH)',
-      addressPrefix: 'M',
+      template: `m/49'/${COINTYPE_LTC}'/x'/0/0`,
+      coinType: COINTYPE_LTC,
+      label: 'Nested SegWit',
+      desc: 'Start with “M”. Medium transaction transfer fee.',
+      subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
     BIP44: {
       prefix: 'LTC Legacy',
       category: `44'/${COINTYPE_LTC}'`,
-      label: 'Legacy (P2PKH)',
-      addressPrefix: 'L',
+      template: `m/44'/${COINTYPE_LTC}'/x'/0/0`,
+      coinType: COINTYPE_LTC,
+      label: 'Legacy',
+      desc: 'Start with “L”. High transaction fee.',
+      subDesc: 'BIP44, P2PKH, Base58.',
     },
     BIP84: {
       prefix: 'LTC Native SegWit',
       category: `84'/${COINTYPE_LTC}'`,
+      template: `m/84'/${COINTYPE_LTC}'/x'/0/0`,
+      coinType: COINTYPE_LTC,
       label: 'Native SegWit',
-      addressPrefix: 'ltc1',
+      desc: 'Start with with “ltc1”. Low transaction fee.',
+      subDesc: 'BIP84, P2WPKH, Bech32. ',
     },
   },
   [IMPL_BCH]: {
     default: {
       prefix: 'BCH',
       category: `44'/${COINTYPE_BCH}'`,
+      template: `m/44'/${COINTYPE_BCH}'/x'/0/0`,
+      coinType: COINTYPE_BCH,
       label: 'Legacy (P2PKH)',
     },
   },
   [IMPL_XRP]: {
-    default: { prefix: 'RIPPLE', category: `44'/${COINTYPE_XRP}'` },
+    default: {
+      prefix: 'RIPPLE',
+      category: `44'/${COINTYPE_XRP}'`,
+      template: `m/44'/${COINTYPE_XRP}'/x'/0/0`,
+      coinType: COINTYPE_XRP,
+    },
   },
   [IMPL_COSMOS]: {
-    default: { prefix: 'COSMOS', category: `44'/${COINTYPE_COSMOS}'` },
+    default: {
+      prefix: 'COSMOS',
+      category: `44'/${COINTYPE_COSMOS}'`,
+      template: `m/44'/${COINTYPE_COSMOS}'/x'/0/0`,
+      coinType: COINTYPE_COSMOS,
+    },
   },
   [IMPL_ADA]: {
-    default: { prefix: 'CARDANO', category: `1852'/${COINTYPE_ADA}'` },
+    default: {
+      prefix: 'CARDANO',
+      category: `1852'/${COINTYPE_ADA}'`,
+      template: `m/1852'/${COINTYPE_ADA}'/x'/0/0`,
+      coinType: COINTYPE_ADA,
+    },
   },
   [IMPL_SUI]: {
-    default: { prefix: 'SUI', category: `44'/${COINTYPE_SUI}'` },
+    default: {
+      prefix: 'SUI',
+      category: `44'/${COINTYPE_SUI}'`,
+      template: `m/44'/${COINTYPE_SUI}'/x'/0'/0'`,
+      coinType: COINTYPE_SUI,
+    },
   },
   [IMPL_FIL]: {
-    default: { prefix: 'FIL', category: `44'/${COINTYPE_FIL}'` },
+    default: {
+      prefix: 'FIL',
+      category: `44'/${COINTYPE_FIL}'`,
+      template: `m/44'/${COINTYPE_FIL}'/0'/0/x`,
+      coinType: COINTYPE_FIL,
+    },
   },
 };
 
@@ -254,7 +406,9 @@ function getAccountNameInfoByImpl(
 export {
   implToCoinTypes,
   implToAccountType,
+  coinTypeToImpl,
   isCoinTypeCompatibleWithImpl,
+  defaultCurveMap,
   getCurveByImpl,
   getDefaultCurveByCoinType,
   getAccountNameInfoByImpl,

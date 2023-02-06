@@ -6,6 +6,7 @@ const SEPERATOR = '--';
 
 const IMPL_EVM = 'evm';
 const COINTYPE_ETH = '60';
+const COINTYPE_ETC = '61';
 
 const IMPL_SOL = 'sol';
 const COINTYPE_SOL = '501';
@@ -131,6 +132,7 @@ export {
   SEPERATOR,
   IMPL_EVM,
   COINTYPE_ETH,
+  COINTYPE_ETC,
   IMPL_SOL,
   COINTYPE_SOL,
   IMPL_ALGO,
