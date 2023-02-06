@@ -1,21 +1,32 @@
 diff --git a/lib/keytar.js b/lib/keytar.js
-index 027456c566d85e57ddeb34944f60040156210265..d65ffa9e9e34244024685e2b5257d942ca21bf4c 100644
+index 027456c566d85e57ddeb34944f60040156210265..b42a0678c43a9b9037156b7973d3b7d43a9992a3 100644
 --- a/lib/keytar.js
 +++ b/lib/keytar.js
-@@ -1,4 +1,16 @@
+@@ -1,4 +1,27 @@
 -var keytar = require('../build/Release/keytar.node')
 +var keytar;
++
 +try {
-+  keytar = require('@onekeyhq/shared/src/keytar/keytar-x86.node')
-+} catch (error) {
-+  console.error(error);
-+}
-+try {
-+  keytar = require('@onekeyhq/shared/src/keytar/keytar-arm64.node')
++  keytar = require('../build/Release/keytar.node');
 +} catch (error) {
 +  console.error(error);
 +}
 +
++try {
++  keytar = require('@onekeyhq/shared/src/keytar/keytar-x86.node');
++} catch (error) {
++  console.error(error);
++}
++
++try {
++  keytar = require('@onekeyhq/shared/src/keytar/keytar-arm64.node');
++} catch (error) {
++  console.error(error);
++}
++
++if(!keytar) {
++  throw new Error('ERROR: require keytar.node module failed.')
++}
 +
  
  function checkRequired(val, name) {
