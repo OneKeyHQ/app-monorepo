@@ -332,12 +332,6 @@ const EnterLinkView: FC = () => {
                 { type: 'error' },
               );
             }
-            if (setContext) {
-              setContext((ctx) => ({
-                ...ctx,
-                inputValue: '',
-              }));
-            }
           }
         }}
       >
