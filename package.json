@@ -250,6 +250,7 @@
     "@polkadot/x-global": "^12.2.1",
     "react": "18.2.0",
     "jsc-android": "294992.0.0"
+    "keytar@^7.9.0": "patch:keytar@npm%3A7.9.0#./.yarn/patches/keytar-npm-7.9.0-682d6e5c1d.patch"
   },
   "packageManager": "yarn@3.5.0"
 }
