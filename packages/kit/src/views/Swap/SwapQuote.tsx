@@ -1,16 +1,17 @@
-import { useCallback, useMemo } from 'react';
-
+import { useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
   BottomSheetModal,
   Box,
+  Button,
+  Center,
   CustomSkeleton,
   Icon,
   IconButton,
   Pressable,
   Stack,
-  Switch,
   Typography,
 } from '@onekeyhq/components';
 
@@ -33,16 +34,67 @@ const SwapArrivalTime = () => {
   return <ArrivalTime value={arrivalTime} typography="Body2" />;
 };
 
+
+const SwapExactAmountAllowanceBottomSheetModal: FC<{ onClose: () => void }> = ({ onClose }) => {
+  const intl = useIntl();
+  const disableSwapExactApproveAmount = useAppSelector(
+    (s) => s.settings.disableSwapExactApproveAmount,
+  );
+  const [isDisableSwapExactApproveAmount, setState] = useState(!!disableSwapExactApproveAmount)
+  return <Stack direction="column" space="2">
+    <Pressable
+      _hover={{ bg: 'surface-hovered' }}
+      px={4}
+      py={2}
+      borderRadius={12}
+      _pressed={{ bg: 'surface-pressed' }}
+      w="full"
+      onPress={() => setState(false)}
+    >
+      <Typography.Body1Strong>{intl.formatMessage({ id: 'form__exact_amount' })}</Typography.Body1Strong>
+      <Box display='flex' flexDirection='row' justifyContent='space-between' alignItems='center'>
+        <Typography.Body1Strong color='text-subdued'>{intl.formatMessage({ id: 'content__approve_the_amount_to_tokens_to_be_sent' })}</Typography.Body1Strong>
+        <Center w='5'>{!isDisableSwapExactApproveAmount ? <Icon name='CheckMini' size={20} color='text-success'></Icon> : null }</Center>
+      </Box>
+    </Pressable>
+    <Pressable
+      _hover={{ bg: 'surface-hovered' }}
+      px={4}
+      py={2}
+      borderRadius={12}
+      _pressed={{ bg: 'surface-pressed' }}
+      w="full"
+      onPress={() => setState(true)}
+    >
+      <Typography.Body1Strong>{intl.formatMessage({ id: 'form__unlimited' })}</Typography.Body1Strong>
+      <Box display='flex' flexDirection='row' justifyContent='space-between' alignItems='center'>
+        <Typography.Body1Strong color='text-subdued'>{intl.formatMessage({ id: 'content__you_dont_need _to_approve_again_in_the_future' })}</Typography.Body1Strong>
+        <Center w='5'>{!!isDisableSwapExactApproveAmount ? <Icon name='CheckMini' size={20} color='text-success'></Icon> : null }</Center>
+      </Box>
+    </Pressable>
+    <Button size='xl' type='primary' onPress={() => {
+      backgroundApiProxy.dispatch(setDisableSwapExactApproveAmount(isDisableSwapExactApproveAmount))
+      onClose();
+    }}>{intl.formatMessage({ id: 'action__done' })}</Button>
+  </Stack>
+}
+
 const SwapExactAmoutAllowance = () => {
   const intl = useIntl();
   const disableSwapExactApproveAmount = useAppSelector(
     (s) => s.settings.disableSwapExactApproveAmount,
   );
-  const onToggle = useCallback(() => {
-    backgroundApiProxy.dispatch(
-      setDisableSwapExactApproveAmount(!disableSwapExactApproveAmount),
-    );
-  }, [disableSwapExactApproveAmount]);
+
+  const onPress = useCallback(() => {
+    showOverlay((close) => (
+      <BottomSheetModal
+        title={intl.formatMessage({ id: 'form__approval' })}
+        closeOverlay={close}
+      >
+        <SwapExactAmountAllowanceBottomSheetModal onClose={close} />
+      </BottomSheetModal>
+    ));
+  }, []);
   return (
     <Box
       display="flex"
@@ -52,17 +104,15 @@ const SwapExactAmoutAllowance = () => {
       mb="4"
     >
       <Typography.Body2 color="text-disabled" mr="2">
-        {intl.formatMessage({ id: 'form__exact_amount_allowance' })}
+        {intl.formatMessage({ id: 'form__approval' })}
       </Typography.Body2>
-      <Box flex="1" flexDirection="row" justifyContent="flex-end">
-        <Box maxW="full">
-          <Switch
-            size="mini"
-            labelType="false"
-            isChecked={!disableSwapExactApproveAmount}
-            onToggle={onToggle}
-          />
-        </Box>
+      <Box flex="1" flexDirection="row" justifyContent="flex-end" alignItems="center">
+        <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
+          <Typography.Body2 mr="1" color="text-subdued">
+            {disableSwapExactApproveAmount ? intl.formatMessage({ id: 'form__unlimited' }) : intl.formatMessage({ id: 'form__exact_amount' })}
+          </Typography.Body2>
+          <Icon size={16} name="ChevronRightOutline" />
+        </Pressable>
       </Box>
     </Box>
   );
