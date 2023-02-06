@@ -394,6 +394,9 @@ const ExchangeButton = () => {
               params: {
                 accountId: sendingAccount.id,
                 networkId: targetNetworkId,
+                payloadInfo: {
+                  type: 'InternalSwap',
+                },
                 feeInfoEditable: true,
                 feeInfoUseFeeInTx: false,
                 encodedTx: approveTx,
@@ -469,7 +472,7 @@ const ExchangeButton = () => {
                 },
               },
             });
-            return 
+            return;
           }
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Send,
