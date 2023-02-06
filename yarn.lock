@@ -4545,7 +4545,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mysten/sui.js@npm:0.26.0, @mysten/sui.js@npm:^0.26.0":
+"@mysten/sui.js@npm:0.26.0":
   version: 0.26.0
   resolution: "@mysten/sui.js@npm:0.26.0"
   dependencies:
@@ -4909,9 +4909,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-injected@file:.yalc/@onekeyfe/cross-inpage-provider-injected::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
+"@onekeyfe/cross-inpage-provider-injected@npm:1.1.23":
   version: 1.1.23
-  resolution: "@onekeyfe/cross-inpage-provider-injected@file:.yalc/@onekeyfe/cross-inpage-provider-injected#.yalc/@onekeyfe/cross-inpage-provider-injected::hash=010ac3&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
+  resolution: "@onekeyfe/cross-inpage-provider-injected@npm:1.1.23"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": 1.1.23
     "@onekeyfe/cross-inpage-provider-types": 1.1.23
@@ -4922,7 +4922,7 @@ __metadata:
     buffer: ^6.0.3
   peerDependencies:
     electron: "*"
-  checksum: 4dd7e0a11d063cba7e05fdd3aa9caafc04422c7f7bc313a835ad6e6ebf4d198e3ae3cf793d028aa369d3865578f946b7f924e4c8c1d1966b6a7722f6203f94db
+  checksum: 39b4265b225afaa1f684b4fcb7f06ce986de913abd76fa3b4ed8016b1f4ac9acdadd4ecba5fdc1c715afa37e36fcceb47dea5997628ae3fae286d2937a55b68a
   languageName: node
   linkType: hard
 
@@ -5289,21 +5289,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-sui-provider@file:.yalc/@onekeyfe/onekey-sui-provider::locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A.":
-  version: 1.1.23
-  resolution: "@onekeyfe/onekey-sui-provider@file:.yalc/@onekeyfe/onekey-sui-provider#.yalc/@onekeyfe/onekey-sui-provider::hash=047a2f&locator=%40onekeyhq%2Fapp-monorepo%40workspace%3A."
-  dependencies:
-    "@mysten/wallet-standard": 0.3.0
-    "@onekeyfe/cross-inpage-provider-core": 1.1.23
-    "@onekeyfe/cross-inpage-provider-errors": 1.1.23
-    "@onekeyfe/cross-inpage-provider-types": 1.1.23
-    "@onekeyfe/extension-bridge-injected": 1.1.23
-    eth-rpc-errors: ^4.0.3
-    mitt: ^3.0.0
-  checksum: d2616105b0d86492f7d07fc1e826c1d274687ba4c8ad0134f706c6b17cee439ba47dc89f3478c58948eb22b07eff6e55c3c9594f533ae35ab685c602ae0c54be
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/onekey-sui-provider@npm:1.1.23":
   version: 1.1.23
   resolution: "@onekeyfe/onekey-sui-provider@npm:1.1.23"
@@ -5372,7 +5357,7 @@ __metadata:
     "@onekeyfe/blockchain-libs": 0.0.48
     "@onekeyfe/cross-inpage-provider-core": 1.1.23
     "@onekeyfe/cross-inpage-provider-errors": 1.1.23
-    "@onekeyfe/cross-inpage-provider-injected": "file:.yalc/@onekeyfe/cross-inpage-provider-injected"
+    "@onekeyfe/cross-inpage-provider-injected": 1.1.23
     "@onekeyfe/cross-inpage-provider-types": 1.1.23
     "@onekeyfe/extension-bridge-hosted": 1.1.23
     "@onekeyfe/hd-ble-sdk": 0.2.24
@@ -5383,7 +5368,6 @@ __metadata:
     "@onekeyfe/js-sdk": 1.1.5
     "@onekeyfe/network-list": 1.6.41
     "@onekeyfe/onekey-cross-webview": 1.1.23
-    "@onekeyfe/onekey-sui-provider": "file:.yalc/@onekeyfe/onekey-sui-provider"
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
     "@starcoin/starcoin": 2.1.5
     "@types/chrome": ^0.0.161
@@ -5647,7 +5631,7 @@ __metadata:
     "@glif/filecoin-message": ^2.0.27
     "@glif/filecoin-rpc-client": ^2.0.8
     "@metamask/eth-sig-util": ^4.0.1
-    "@mysten/sui.js": ^0.26.0
+    "@mysten/sui.js": 0.26.0
     "@noble/hashes": 1.1.2
     "@solana/spl-token": ^0.3.0
     "@solana/web3.js": ^1.47.3
