@@ -147,6 +147,12 @@ function initDb(db: IDBDatabase) {
     ['networkId', 'accountId', 'createdAt'],
     { unique: false },
   );
+
+  const accountDerivationStore = db.createObjectStore(
+    ACCOUNT_DERIVATION_STORE_NAME,
+    { keyPath: 'id' },
+  );
+  accountDerivationStore.createIndex('walletId', 'walletId', { unique: false });
 }
 
 class IndexedDBApi implements DBAPI {

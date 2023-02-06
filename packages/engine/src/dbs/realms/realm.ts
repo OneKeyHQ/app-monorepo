@@ -51,6 +51,7 @@ import {
 } from '../base';
 
 import {
+  AccountDerivationSchema,
   AccountSchema,
   ContextSchema,
   CredentialSchema,
@@ -84,7 +85,6 @@ import type {
   StoredPrivateKeyCredential,
   StoredSeedCredential,
 } from '../base';
-import type { AccountDerivationSchema } from './schemas';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
@@ -114,6 +114,7 @@ class RealmDB implements DBAPI {
         CredentialSchema,
         HistoryEntrySchema,
         DeviceSchema,
+        AccountDerivationSchema,
       ],
       schemaVersion: SCHEMA_VERSION,
       migration: (oldRealm, newRealm) => {
