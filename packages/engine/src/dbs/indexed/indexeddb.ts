@@ -2449,7 +2449,9 @@ class IndexedDBApi implements DBAPI {
   }
 
   // return Record<template, record>
-  getAccountDerivationByWalletId(walletId: string) {
+  getAccountDerivationByWalletId(
+    walletId: string,
+  ): Promise<Record<string, DBAccountDerivation>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {

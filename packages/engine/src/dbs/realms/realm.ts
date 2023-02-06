@@ -62,6 +62,7 @@ import {
 } from './schemas';
 
 import type { DBAccount } from '../../types/account';
+import type { DBAccountDerivation } from '../../types/accountDerivation';
 import type { PrivateKeyCredential } from '../../types/credential';
 import type { Device, DevicePayload } from '../../types/device';
 import type {
@@ -83,6 +84,7 @@ import type {
   StoredPrivateKeyCredential,
   StoredSeedCredential,
 } from '../base';
+import type { AccountDerivationSchema } from './schemas';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
@@ -1920,6 +1922,88 @@ class RealmDB implements DBAPI {
       }
     });
     return Promise.resolve();
+  }
+
+  addAccountDerivation(
+    walletId: string,
+    accountId: string,
+    impl: string,
+    template: string,
+  ): Promise<void> {
+    const id = `${walletId}-${impl}-${template}`;
+    const accountDerivation =
+      this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
+        'AccountDerivation',
+        id,
+      );
+    const account = this.realm!.objectForPrimaryKey<AccountSchema>(
+      'Account',
+      accountId,
+    );
+    if (typeof accountDerivation === 'undefined') {
+      this.realm!.write(() => {
+        this.realm!.create('AccountDerivation', {
+          id,
+          walletId,
+          accounts: [account],
+          template,
+        });
+      });
+    } else {
+      this.realm!.write(() => {
+        accountDerivation.accounts.add(account as AccountSchema);
+      });
+    }
+    return Promise.resolve();
+  }
+
+  removeAccountDerivationByWalletId(walletId: string): Promise<void> {
+    const accountDerivations = this.realm!.objects<AccountDerivationSchema>(
+      'AccountDerivation',
+    ).filtered('walletId == $0', walletId);
+    this.realm!.write(() => {
+      this.realm!.delete(accountDerivations);
+    });
+    return Promise.resolve();
+  }
+
+  removeAccountDerivationByAccountId(
+    walletId: string,
+    accountId: string,
+  ): Promise<void> {
+    const accountDerivations = this.realm!.objects<AccountDerivationSchema>(
+      'AccountDerivation',
+    ).filtered('walletId == $0', walletId);
+    const account = this.realm!.objectForPrimaryKey<AccountSchema>(
+      'Account',
+      accountId,
+    );
+    this.realm!.write(() => {
+      accountDerivations.forEach((accountDerivation) => {
+        const hasAccount = accountDerivation.accounts.filtered(
+          'id == $0',
+          accountId,
+        );
+        if (hasAccount.length) {
+          accountDerivation.accounts.delete(account as AccountSchema);
+        }
+      });
+    });
+    return Promise.resolve();
+  }
+
+  // return Record<template, record>
+  getAccountDerivationByWalletId(
+    walletId: string,
+  ): Promise<Record<string, DBAccountDerivation>> {
+    const accountDerivations = this.realm!.objects<AccountDerivationSchema>(
+      'AccountDerivation',
+    ).filtered('walletId == $0', walletId);
+    const result: Record<string, DBAccountDerivation> = {};
+    accountDerivations.forEach((accountDerivation) => {
+      result[accountDerivation.template] = accountDerivation.internalObj;
+    });
+    return Promise.resolve(result);
   }
 
   private static addSingletonWalletEntry({

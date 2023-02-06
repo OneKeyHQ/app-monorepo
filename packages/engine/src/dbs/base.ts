@@ -15,6 +15,7 @@ import {
 } from '../secret/encryptors/rsa';
 
 import type { DBAccount } from '../types/account';
+import type { DBAccountDerivation } from '../types/accountDerivation';
 import type { PrivateKeyCredential } from '../types/credential';
 import type { Device, DevicePayload } from '../types/device';
 import type {
@@ -214,6 +215,20 @@ interface DBAPI {
   getDeviceByDeviceId(deviceId: string): Promise<Device>;
   updateWalletName(walletId: string, name: string): Promise<void>;
   updateDevicePayload(deviceId: string, payload: DevicePayload): Promise<void>;
+  addAccountDerivation(
+    walletId: string,
+    accountId: string,
+    impl: string,
+    template: string,
+  ): Promise<void>;
+  removeAccountDerivationByWalletId(walletId: string): Promise<void>;
+  removeAccountDerivationByAccountId(
+    walletId: string,
+    accountId: string,
+  ): Promise<void>;
+  getAccountDerivationByWalletId(
+    walletId: string,
+  ): Promise<Record<string, DBAccountDerivation>>;
 }
 
 export type {
