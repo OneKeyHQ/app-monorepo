@@ -264,16 +264,16 @@ export type IPrepareSoftwareAccountsParams = {
   indexes: Array<number>;
   purpose?: number;
   names?: Array<string>;
-  coinType?: string;
-  template?: string;
+  coinType: string;
+  template: string;
 };
 export type IPrepareHardwareAccountsParams = {
   type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS';
   indexes: Array<number>;
   purpose?: number;
   names?: Array<string>;
-  coinType?: string;
-  template?: string;
+  coinType: string;
+  template: string;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams

@@ -5,6 +5,8 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
+import { getPathPrefix } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -45,17 +47,18 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    const { password, indexes, names } = params;
+    const { password, indexes, names, template } = params;
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
 
+    const pathPrefix = getPathPrefix(template);
     const pubkeyInfos = batchGetPublicKeys(
       'ed25519',
       seed,
       password,
-      PATH_PREFIX,
+      pathPrefix,
       indexes.map((index) => `${index}'/0'`),
     );
 
@@ -63,11 +66,13 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Unable to get public keys');
     }
 
+    const impl = await this.getNetworkImpl();
+    const { prefix } = getAccountNameInfoByTemplate(impl, template);
     return pubkeyInfos.map(({ path, extendedKey: { key: pubkey } }, i) => {
       const address = new PublicKey(pubkey).toBase58();
       return {
         id: `${this.walletId}--${path}`,
-        name: (names || [])[i] || `SOL #${indexes[i] + 1}`,
+        name: (names || [])[i] || `${prefix} #${indexes[i] + 1}`,
         type: AccountType.SIMPLE,
         path,
         coinType: COIN_TYPE,

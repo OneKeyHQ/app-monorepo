@@ -7,6 +7,7 @@ import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -64,8 +65,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    const { indexes, names } = params;
-    const paths = indexes.map((index) => `${PATH_PREFIX}/${index}'/0'`);
+    const { indexes, names, template } = params;
+    const paths = indexes.map((index) => template.replace('x', `${index}`));
     const showOnOneKey = false;
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
@@ -86,10 +87,12 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw convertDeviceError(addressesResponse.payload);
     }
 
+    const impl = await this.getNetworkImpl();
+    const { prefix } = getAccountNameInfoByTemplate(impl, template);
     return addressesResponse.payload
       .map(({ address, path }, index) => ({
         id: `${this.walletId}--${path}`,
-        name: (names || [])[index] || `SOL #${indexes[index] + 1}`,
+        name: (names || [])[index] || `${prefix} #${indexes[index] + 1}`,
         type: AccountType.SIMPLE,
         path,
         coinType: COIN_TYPE,

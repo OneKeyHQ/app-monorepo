@@ -117,4 +117,13 @@ function getDefaultPurpose(impl: string): number {
   return (purposeMap[impl] || [44])[0];
 }
 
-export { getPath, getDefaultPurpose, derivationPathTemplates };
+/**
+ * m/44'/60'/x'/0/0 -> m/44'/60'
+ * @param template derivation path template
+ * @returns string
+ */
+function getPathPrefix(template: string) {
+  return template?.split('x')[0].slice(0, -1);
+}
+
+export { getPath, getDefaultPurpose, derivationPathTemplates, getPathPrefix };
