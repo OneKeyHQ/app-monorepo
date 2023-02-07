@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 
+import * as FileSystem from 'expo-file-system';
 import { useIntl } from 'react-intl';
 import { pickSingle, types } from 'react-native-document-picker';
-import { readFile } from 'react-native-fs';
 import { read, utils } from 'xlsx';
 
 import { Center, HStack, Icon, Pressable, Text } from '@onekeyhq/components';
@@ -32,8 +32,10 @@ function ReceiverUploader(props: Props) {
       });
       const path = f.fileCopyUri;
       if (!path) return;
-      const bstr = await readFile(path, 'ascii');
-      const wb = read(bstr, { raw: true, type: 'binary' });
+      const b64 = await FileSystem.readAsStringAsync(path, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const wb = read(b64, { raw: true, type: 'base64' });
 
       const data = utils.sheet_to_json<TokenReceiver>(
         wb.Sheets[wb.SheetNames[0]],

@@ -34,7 +34,6 @@
     "react-native-animated-splash-screen": "^2.0.5",
     "react-native-camera": "4.2.1",
     "react-native-document-picker": "^8.1.3",
-    "react-native-fs": "^2.20.0",
     "react-native-root-siblings": "^4.1.1",
     "react-native-snap-carousel": "3.9.1",
     "react-native-url-polyfill": "^1.3.0",
