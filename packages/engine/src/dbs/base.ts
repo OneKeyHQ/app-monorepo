@@ -158,6 +158,10 @@ interface DBAPI {
     walletId: string,
     params: SetWalletNameAndAvatarParams,
   ): Promise<Wallet>;
+  updateWalletNextAccountIds(
+    walletId: string,
+    nextAccountIds: Record<string, number>,
+  ): Promise<Wallet>;
   getCredential(
     walletId: string,
     password: string,
@@ -185,6 +189,7 @@ interface DBAPI {
     rollbackNextAccountIds: Record<string, number>,
   ): Promise<void>;
   setAccountName(accountId: string, name: string): Promise<DBAccount>;
+  setAccountTemplate(accountId: string, template: string): Promise<DBAccount>;
   addAccountAddress(
     accountId: string,
     networkId: string,

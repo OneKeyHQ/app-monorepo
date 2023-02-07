@@ -1,12 +1,19 @@
 import { networkList } from '@onekeyfe/network-list';
 import semver from 'semver';
 
+import {
+  convertCategoryToTemplate,
+  getDBAccountTemplate,
+  getImplByCoinType,
+} from '@onekeyhq/engine/src/managers/impl';
+import { setDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  ACCOUNT_DERIVATION_DB_MIGRATION_VERSION,
   AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -67,6 +74,7 @@ export default class ServiceBootstrap extends ServiceBase {
 
     serviceToken.registerEvents();
     serviceOverview.registerEvents();
+    this.migrateAccountDerivationTable();
   }
   // eslint-disable-next-line
   @backgroundMethod()
@@ -145,5 +153,58 @@ export default class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceCronJob.getFiatMoney();
       }, 5 * 60 * 1000);
     }
+  }
+
+  @backgroundMethod()
+  async migrateAccountDerivationTable() {
+    const { appSelector } = this.backgroundApi;
+    const dbMigrationVersion = appSelector(
+      (s) => s.settings.dbMigrationVersion,
+    );
+    const appVersion = appSelector((s) => s.settings.version);
+    if (
+      dbMigrationVersion &&
+      semver.valid(dbMigrationVersion) &&
+      semver.gte(dbMigrationVersion, ACCOUNT_DERIVATION_DB_MIGRATION_VERSION)
+    ) {
+      return;
+    }
+
+    const { dbApi } = this.backgroundApi.engine;
+    const wallets = await dbApi.getWallets();
+    const hdOrHwWallets = wallets.filter(
+      (w) => w.id.startsWith('hd') || w.id.startsWith('hw'),
+    );
+
+    for (const wallet of hdOrHwWallets) {
+      // update accounts
+      const accounts = await dbApi.getAccounts(wallet.accounts);
+      for (const account of accounts) {
+        if (!account.template) {
+          const template = getDBAccountTemplate(account);
+          const impl = getImplByCoinType(account.coinType);
+          await dbApi.addAccountDerivation(
+            wallet.id,
+            account.id,
+            impl,
+            template,
+          );
+          await dbApi.setAccountTemplate(account.id, template);
+        }
+      }
+
+      // update nextAccountIds field
+      const { nextAccountIds } = wallet;
+      const newNextAccountIds = { ...nextAccountIds };
+      for (const [category, value] of Object.entries(nextAccountIds)) {
+        const template = convertCategoryToTemplate(category);
+        if (template) {
+          newNextAccountIds[template] = value;
+        }
+      }
+
+      await dbApi.updateWalletNextAccountIds(wallet.id, newNextAccountIds);
+    }
+    this.backgroundApi.dispatch(setDbMigrationVersion(appVersion));
   }
 }

@@ -4,11 +4,14 @@ import {
   getAccountNameInfoByImpl,
   getAccountNameInfoByTemplate,
   getCurveByImpl,
+  getDBAccountTemplate,
   getDefaultAccountNameInfoByImpl,
   getDefaultCurveByCoinType,
   implToCoinTypes,
   isCoinTypeCompatibleWithImpl,
 } from '../src/managers/impl';
+
+import getDBAccountFixtures from './fixtures/getDBAccountTemplate';
 
 describe('test impl', () => {
   test('test coinTypeToImpl function', () => {
@@ -79,6 +82,13 @@ describe('test impl', () => {
           getAccountNameInfoByTemplate(impl, accountNameInfo.template),
         ).toBe(accountNameInfo);
       });
+    });
+  });
+
+  getDBAccountFixtures.forEach((f) => {
+    it(f.description, () => {
+      const response = getDBAccountTemplate(f.params as any);
+      expect(response).toEqual(f.response);
     });
   });
 });

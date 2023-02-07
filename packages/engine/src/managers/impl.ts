@@ -43,6 +43,7 @@ import {
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
 
+import type { DBAccount } from '../types/account';
 import type { AccountNameInfo } from '../types/network';
 
 enum Curve {
@@ -78,6 +79,10 @@ const coinTypeToImpl: Record<string, string> = Object.fromEntries(
     ),
   ),
 );
+
+function getImplByCoinType(coinType: string) {
+  return coinTypeToImpl[coinType];
+}
 
 const implToAccountType: Record<string, AccountType> = {
   [IMPL_EVM]: AccountType.SIMPLE,
@@ -428,6 +433,40 @@ function getAccountNameInfoByTemplate(
   return accountNameInfo;
 }
 
+function getDBAccountTemplate(account: DBAccount) {
+  const { coinType, path, template } = account;
+  const impl = coinTypeToImpl[coinType];
+  if (template) {
+    return template;
+  }
+  if ([IMPL_BTC, IMPL_TBTC, IMPL_LTC].includes(impl)) {
+    for (const accountInfo of Object.values(getAccountNameInfoByImpl(impl))) {
+      if (path.indexOf(accountInfo.category) > -1) {
+        return accountInfo.template;
+      }
+    }
+  }
+  const defaultAccountInfo = getDefaultAccountNameInfoByImpl(impl);
+  return defaultAccountInfo.template;
+}
+
+// For database migration, wallets.nextAccountIds
+function convertCategoryToTemplate(category: string) {
+  for (const [impl, accountInfo] of Object.entries(defaultAccountNameInfo)) {
+    for (const info of Object.values(accountInfo)) {
+      if (info.category === category) {
+        if (
+          (impl === IMPL_EVM && category === `44'/${COINTYPE_ETH}'`) ||
+          impl === IMPL_SOL
+        ) {
+          return accountInfo.default.template;
+        }
+        return info.template;
+      }
+    }
+  }
+}
+
 export {
   implToCoinTypes,
   implToAccountType,
@@ -439,4 +478,7 @@ export {
   getAccountNameInfoByImpl,
   getDefaultAccountNameInfoByImpl,
   getAccountNameInfoByTemplate,
+  getDBAccountTemplate,
+  getImplByCoinType,
+  convertCategoryToTemplate,
 };

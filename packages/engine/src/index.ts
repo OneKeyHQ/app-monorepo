@@ -961,9 +961,9 @@ class Engine {
       throw new OneKeyInternalError(`coinType of impl=${impl} not found.`);
     }
     // TODO: nextIndex should use wallet.nextAccountIds[template]
-    // const nextIndex =
-    //   wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0;
-    const nextIndex = wallet.nextAccountIds[accountNameInfo.template] || 0;
+    const nextIndex =
+      wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0;
+    // const nextIndex = wallet.nextAccountIds[accountNameInfo.template] || 0;
     const usedIndexes = indexes || [nextIndex];
     if (isAddInitFirstAccountOnly && nextIndex > 0) {
       throw new OneKeyInternalError(

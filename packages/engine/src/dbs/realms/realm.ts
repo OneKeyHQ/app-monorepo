@@ -1309,6 +1309,40 @@ class RealmDB implements DBAPI {
     }
   }
 
+  updateWalletNextAccountIds(
+    walletId: string,
+    nextAccountIds: Record<string, number>,
+  ): Promise<Wallet> {
+    try {
+      const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
+        'Wallet',
+        walletId,
+      );
+      if (typeof wallet === 'undefined') {
+        return Promise.reject(
+          new OneKeyInternalError(`Wallet ${walletId} not found.`),
+        );
+      }
+      if (
+        (wallet.type as string) !== WALLET_TYPE_HD &&
+        (wallet.type as string) !== WALLET_TYPE_HW
+      ) {
+        return Promise.reject(
+          new OneKeyInternalError('Only HD or HW wallet name can be set.'),
+        );
+      }
+      this.realm!.write(() => {
+        Object.entries(nextAccountIds).forEach(([k, v]) => {
+          wallet.nextAccountIds![k] = v;
+        });
+      });
+      return Promise.resolve(wallet.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
   /**
    * retrieve the stored credential of a wallet
    * @param credentialId wallet or account id
@@ -1620,6 +1654,27 @@ class RealmDB implements DBAPI {
       }
       this.realm!.write(() => {
         account.name = name;
+      });
+      return Promise.resolve(account.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  setAccountTemplate(accountId: string, template: string): Promise<DBAccount> {
+    try {
+      const account = this.realm!.objectForPrimaryKey<AccountSchema>(
+        'Account',
+        accountId,
+      );
+      if (typeof account === 'undefined') {
+        return Promise.reject(
+          new OneKeyInternalError(`Account ${accountId} not found.`),
+        );
+      }
+      this.realm!.write(() => {
+        account.template = template;
       });
       return Promise.resolve(account.internalObj);
     } catch (error: any) {

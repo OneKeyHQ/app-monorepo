@@ -1284,6 +1284,52 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
+  updateWalletNextAccountIds(
+    walletId: string,
+    nextAccountIds: Record<string, number>,
+  ): Promise<Wallet> {
+    let ret: Wallet;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction: IDBTransaction = db.transaction(
+            [WALLET_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to set wallet name.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const walletStore = transaction.objectStore(WALLET_STORE_NAME);
+          const getWalletRequest = walletStore.get(walletId);
+          getWalletRequest.onsuccess = (_wevent) => {
+            const wallet = getWalletRequest.result as Wallet;
+            if (typeof wallet === 'undefined') {
+              reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
+              return;
+            }
+            if (
+              (wallet.type as string) !== WALLET_TYPE_HD &&
+              (wallet.type as string) !== WALLET_TYPE_HW
+            ) {
+              reject(
+                new OneKeyInternalError(
+                  'Only HD or HW wallet name can be set.',
+                ),
+              );
+              return;
+            }
+            wallet.nextAccountIds = nextAccountIds;
+            ret = wallet;
+            walletStore.put(wallet);
+          };
+        }),
+    );
+  }
+
   getCredential(
     credentialId: string, // walletId || acountId
     password: string,
@@ -1931,6 +1977,37 @@ class IndexedDBApi implements DBAPI {
               return;
             }
             account.name = name;
+            ret = account;
+            accountStore.put(account);
+          };
+        }),
+    );
+  }
+
+  setAccountTemplate(accountId: string, template: string): Promise<DBAccount> {
+    let ret: DBAccount;
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction([ACCOUNT_STORE_NAME], 'readwrite');
+          transaction.onerror = (_tevent) => {
+            reject(new OneKeyInternalError('Failed to set account name.'));
+          };
+          transaction.oncomplete = (_tevent) => {
+            resolve(ret);
+          };
+
+          const accountStore = transaction.objectStore(ACCOUNT_STORE_NAME);
+          const getAccountRequest = accountStore.get(accountId);
+          getAccountRequest.onsuccess = (_aevent) => {
+            const account = getAccountRequest.result as DBAccount;
+            if (typeof account === 'undefined') {
+              reject(
+                new OneKeyInternalError(`Account ${accountId} not found.`),
+              );
+              return;
+            }
+            account.template = template;
             ret = account;
             accountStore.put(account);
           };
