@@ -475,16 +475,16 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTx> {
     const client = await this.getClient();
     const transferInfo = transferInfos[0];
-    const { from, to } = transferInfo;
+    const { from } = transferInfo;
 
     const feePayer = new PublicKey(from);
-    const receiver = new PublicKey(to);
     const nativeTx = new Transaction();
     [, nativeTx.recentBlockhash] = await client.getFees();
     nativeTx.feePayer = feePayer;
 
     for (let i = 0; i < transferInfos.length; i += 1) {
-      const { token: tokenAddress, isNFT, amount } = transferInfos[i];
+      const { token: tokenAddress, amount, to, sendAddress } = transferInfos[i];
+      const receiver = new PublicKey(to);
 
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
@@ -518,15 +518,29 @@ export default class Vault extends VaultBase {
             ),
           );
         }
+
+        const source = sendAddress
+          ? new PublicKey(sendAddress)
+          : await getAssociatedTokenAddress(mint, feePayer);
         nativeTx.add(
           createTransferCheckedInstruction(
-            await getAssociatedTokenAddress(mint, feePayer),
+            source,
             mint,
             associatedTokenAddress,
             feePayer,
             BigInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
             token.decimals,
           ),
+        );
+      } else {
+        nativeTx.add(
+          SystemProgram.transfer({
+            fromPubkey: new PublicKey(from),
+            toPubkey: new PublicKey(to),
+            lamports: BigInt(
+              new BigNumber(amount).shiftedBy(token.decimals).toFixed(),
+            ),
+          }),
         );
       }
     }

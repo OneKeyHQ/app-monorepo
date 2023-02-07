@@ -1,7 +1,6 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
 
 import { ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -18,7 +17,6 @@ import type { RouteProp } from '@react-navigation/core';
 const StatsListScreen = () => {
   const { bottom } = useSafeAreaInsets();
   const navigation = useNavigation();
-  const intl = useIntl();
   const route =
     useRoute<RouteProp<HomeRoutesParams, HomeRoutes.NFTMarketStatsList>>();
   const { network, selectedIndex } = route.params;
@@ -30,27 +28,32 @@ const StatsListScreen = () => {
     selectedNetwork,
   });
 
+  const headerRight = useCallback(
+    () => (
+      <ChainSelector
+        triggerSize="lg"
+        selectedNetwork={selectedNetwork}
+        onChange={(n) => {
+          setSelectedNetwork(n);
+          if (setContext) {
+            setContext((ctx) => ({
+              ...ctx,
+              selectedNetwork: n,
+            }));
+          }
+        }}
+        tiggerProps={{ paddingRight: '16px' }}
+      />
+    ),
+    [selectedNetwork],
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: 'Stats',
-      headerRight: () => (
-        <ChainSelector
-          triggerSize="lg"
-          selectedNetwork={selectedNetwork}
-          onChange={(n) => {
-            setSelectedNetwork(n);
-            if (setContext) {
-              setContext((ctx) => ({
-                ...ctx,
-                selectedNetwork: n,
-              }));
-            }
-          }}
-          tiggerProps={{ paddingRight: '16px' }}
-        />
-      ),
+      headerRight,
     });
-  }, [intl, navigation, selectedNetwork]);
+  }, [headerRight, navigation]);
 
   const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
