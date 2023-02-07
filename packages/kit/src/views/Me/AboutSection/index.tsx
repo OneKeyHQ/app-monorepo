@@ -22,8 +22,6 @@ import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { canShowAppReview } from '../../../utils/openAppReview';
-
 import AppRateSectionItem from './AppRateSectionItem';
 import AutoUpdateSectionItem from './AutoUpdateSectionItem';
 
@@ -37,22 +35,11 @@ export const AboutSection = () => {
   const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
   const { themeVariant } = useTheme();
-  const [showRate, setShowRate] = useState(() => !platformEnv.isNative);
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const settings = useSettings();
   let lastTime: Date | undefined;
   let num = 0;
-  const checkShowAppReview = useCallback(() => {
-    if (platformEnv.isNative) {
-      canShowAppReview(true).then((data) => {
-        setShowRate(!!data);
-      });
-    }
-  }, []);
-  useEffect(() => {
-    checkShowAppReview();
-  }, [checkShowAppReview]);
   const openDebugMode = () => {
     const nowTime = new Date();
     if (
@@ -149,9 +136,7 @@ export const AboutSection = () => {
           </Text>
         </Pressable>
         {!platformEnv.isMas ? <AutoUpdateSectionItem /> : null}
-        {showRate ? (
-          <AppRateSectionItem onAfterOnpenReview={checkShowAppReview} />
-        ) : null}
+        <AppRateSectionItem />
         <Pressable
           display="flex"
           flexDirection="row"

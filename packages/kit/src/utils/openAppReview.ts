@@ -1,3 +1,4 @@
+import { Linking, Platform } from 'react-native';
 import InAppReview from 'react-native-in-app-review';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -46,4 +47,23 @@ export const openAppReview = async (unlimitedTimes?: boolean) => {
     'hasFlowFinishedSuccessfully',
     hasFlowFinishedSuccessfully,
   );
+};
+
+const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
+const PLAY_STORE_LINK = `market://details?id=so.onekey.app.wallet`;
+
+export const openAppStoryWriteReview = () => {
+  const STORY_LINK = Platform.select({
+    android: PLAY_STORE_LINK,
+    ios: APP_STORE_LINK,
+  });
+  if (STORY_LINK) {
+    Linking.canOpenURL(STORY_LINK).then((supported) => {
+      if (!supported) {
+        debugLogger.common.info(`Can't handle url: ${STORY_LINK}`);
+      } else {
+        Linking.openURL(STORY_LINK);
+      }
+    });
+  }
 };
