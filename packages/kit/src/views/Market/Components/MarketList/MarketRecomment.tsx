@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,6 +31,24 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
   );
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
+  const onSelected = useCallback((isSelected, coingeckoId) => {
+    if (isSelected) {
+      setGroupValue((oldGroup) => {
+        if (oldGroup.find((v) => v === coingeckoId)) return oldGroup;
+        const newGroup: string[] = [coingeckoId, ...oldGroup];
+        return newGroup;
+      });
+    } else {
+      setGroupValue((oldGroup) => {
+        const newGroup = [...oldGroup];
+        const findIndex = oldGroup.indexOf(coingeckoId);
+        if (findIndex !== -1) {
+          newGroup.splice(findIndex, 1);
+        }
+        return newGroup;
+      });
+    }
+  }, []);
   return (
     <Box flex={1} alignItems="center" justifyContent="center">
       <Box mt={isVertical ? '40px' : '56px'} maxW={GRID_MAX_WIDTH}>
@@ -56,16 +74,7 @@ const MarketRecomment: FC<MarketRecommentProps> = ({ tokens }) => {
               symbol={t.symbol ?? ''}
               coingeckoId={t.coingeckoId ?? ''}
               isSelected={groupValue?.includes(t.coingeckoId)}
-              onPress={(isSelected) => {
-                if (isSelected) {
-                  const newGroup = [t.coingeckoId, ...groupValue];
-                  setGroupValue(newGroup);
-                } else {
-                  const newGroup = [...groupValue];
-                  newGroup.splice(newGroup.indexOf(t.coingeckoId), 1);
-                  setGroupValue(newGroup);
-                }
-              }}
+              onPress={onSelected}
               index={i}
             />
           ))}
