@@ -30,8 +30,9 @@ import {
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
-import { getPath } from '../../managers/derivation';
+import { getNextAccountIds, getPath } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
+import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
 import { AccountType } from '../../types/account';
 import {
@@ -796,7 +797,7 @@ class RealmDB implements DBAPI {
       if (typeof accountFind !== 'undefined') {
         return Promise.reject(new AccountAlreadyExists());
       }
-      this.realm!.write(() => {
+      this.realm!.write(async () => {
         const accountNew = this.realm!.create('Account', account);
         wallet.accounts!.add(accountNew as AccountSchema);
         switch (wallet.type) {
@@ -834,16 +835,50 @@ class RealmDB implements DBAPI {
               );
             }
 
-            let nextId = wallet.nextAccountIds![category] || 0;
-            while (
-              wallet.accounts!.filtered(
-                'id == $0',
-                `${walletId}--${getPath(purpose, coinType, nextId)}`,
-              )?.length > 0
-            ) {
-              nextId += 1;
+            if (!account.template) {
+              return Promise.reject(
+                new OneKeyInternalError(`Account should has template field`),
+              );
             }
-            wallet.nextAccountIds![category] = nextId;
+            const impl = getImplByCoinType(account.coinType);
+            const template = account.template ?? '';
+            const id = `${walletId}-${impl}-${template}`;
+            const accountDerivation =
+              this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
+                'AccountDerivation',
+                id,
+              );
+            if (typeof accountDerivation === 'undefined') {
+              this.realm!.create('AccountDerivation', {
+                id,
+                walletId,
+                accounts: [account.id],
+                template,
+              });
+            } else {
+              accountDerivation.accounts.push(account.id);
+            }
+
+            console.log('accountDerivation: ', accountDerivation);
+            let nextId = wallet.nextAccountIds![template] || 0;
+            console.log('nextId before: ', nextId);
+            nextId = getNextAccountIds(
+              accountDerivation?.internalObj ?? ({} as DBAccountDerivation),
+              nextId,
+            );
+            console.log('nextId after: ', nextId);
+            wallet.nextAccountIds![template] = nextId;
+
+            // let nextId = wallet.nextAccountIds![category] || 0;
+            // while (
+            //   wallet.accounts!.filtered(
+            //     'id == $0',
+            //     `${walletId}--${getPath(purpose, coinType, nextId)}`,
+            //   )?.length > 0
+            // ) {
+            //   nextId += 1;
+            // }
+            // wallet.nextAccountIds![category] = nextId;
             break;
           }
           case WALLET_TYPE_IMPORTED: {
@@ -1992,22 +2027,20 @@ class RealmDB implements DBAPI {
         'AccountDerivation',
         id,
       );
-    const account = this.realm!.objectForPrimaryKey<AccountSchema>(
-      'Account',
-      accountId,
-    );
     if (typeof accountDerivation === 'undefined') {
       this.realm!.write(() => {
         this.realm!.create('AccountDerivation', {
           id,
           walletId,
-          accounts: [account],
+          accounts: [accountId],
           template,
         });
       });
     } else {
       this.realm!.write(() => {
-        accountDerivation.accounts.add(account as AccountSchema);
+        accountDerivation.accounts = [
+          ...new Set([...accountDerivation.accounts, accountId]),
+        ];
       });
     }
     return Promise.resolve();
@@ -2036,13 +2069,9 @@ class RealmDB implements DBAPI {
     );
     this.realm!.write(() => {
       accountDerivations.forEach((accountDerivation) => {
-        const hasAccount = accountDerivation.accounts.filtered(
-          'id == $0',
-          accountId,
+        accountDerivation.accounts = accountDerivation.accounts.filter(
+          (id) => id !== account?.id,
         );
-        if (hasAccount.length) {
-          accountDerivation.accounts.delete(account as AccountSchema);
-        }
       });
     });
     return Promise.resolve();
@@ -2060,6 +2089,25 @@ class RealmDB implements DBAPI {
       result[accountDerivation.template] = accountDerivation.internalObj;
     });
     return Promise.resolve(result);
+  }
+
+  private getAccountDerivationRecord(
+    walletId: string,
+    impl: string,
+    template: string,
+  ): Promise<DBAccountDerivation> {
+    const id = `${walletId}-${impl}-${template}`;
+    const accountDerivation =
+      this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
+        'AccountDerivation',
+        id,
+      );
+    if (typeof accountDerivation === 'undefined') {
+      return Promise.reject(
+        new OneKeyInternalError(`AccountDerivation ${id} not found.`),
+      );
+    }
+    return Promise.resolve(accountDerivation.internalObj);
   }
 
   private static addSingletonWalletEntry({

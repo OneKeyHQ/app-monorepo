@@ -1,6 +1,5 @@
 import Realm from 'realm';
 
-import type { AccountSchema } from '.';
 import type { DBAccountDerivation } from '../../../types/accountDerivation';
 
 class AccountDerivationSchema extends Realm.Object {
@@ -8,7 +7,7 @@ class AccountDerivationSchema extends Realm.Object {
 
   public walletId!: string;
 
-  public accounts!: Realm.Set<AccountSchema>;
+  public accounts!: string[];
 
   public template!: string;
 
@@ -18,7 +17,7 @@ class AccountDerivationSchema extends Realm.Object {
     properties: {
       id: 'string',
       walletId: 'string',
-      accounts: { type: 'Account<>', default: [] },
+      accounts: 'string[]',
       template: 'string',
     },
   };
@@ -27,7 +26,7 @@ class AccountDerivationSchema extends Realm.Object {
     return {
       id: this.id,
       walletId: this.walletId,
-      accounts: (this.accounts || []).map((account) => account.id),
+      accounts: this.accounts,
       template: this.template,
     };
   }

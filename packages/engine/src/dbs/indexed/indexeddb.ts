@@ -217,12 +217,8 @@ class IndexedDBApi implements DBAPI {
           };
         }
         if (oldVersion < 7) {
-          const accountDerivationStore = db.createObjectStore(
-            ACCOUNT_DERIVATION_STORE_NAME,
-            { keyPath: 'id' },
-          );
-          accountDerivationStore.createIndex('walletId', 'walletId', {
-            unique: false,
+          db.createObjectStore(ACCOUNT_DERIVATION_STORE_NAME, {
+            keyPath: 'id',
           });
         }
       };
