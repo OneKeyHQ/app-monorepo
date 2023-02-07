@@ -391,6 +391,7 @@
   "content__default": "Default",
   "content__defi_master_desc": "You’re the wise man of vision. There is always a harvest when you wait",
   "content__deflationary_desc": "Please ignore this if your token isn't deflationary.Most tokens are not, so leave it as is. If your token has deflationary functions, such as token dividends, burning, taxes, etc., please enable this.\r\n\r\nIf you are the token owner and there is an automatic LP function and you have not added a liquidity pool, please turn off the automatic LP first.",
+  "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Bulk transfers for deflationary tokens are not supported at this moment.",
   "content__deposit_tokens_to_your_wallet": "Deposit tokens to your wallet",
   "content__description": "Description",
   "content__details": "Details",

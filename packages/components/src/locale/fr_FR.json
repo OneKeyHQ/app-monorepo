@@ -391,6 +391,7 @@
   "content__default": "Défaut",
   "content__defi_master_desc": "Vous êtes le sage de la vision. Il y a toujours une récolte quand tu attends",
   "content__deflationary_desc": "Veuillez ignorer ceci si votre jeton n'est pas déflationniste. La plupart des jetons ne le sont pas, alors laissez-le tel quel. Si votre jeton a des fonctions déflationnistes, telles que les dividendes symboliques, la combustion, les taxes, etc., veuillez l'activer. \n\nSi vous êtes le propriétaire du jeton et qu'il existe une fonction LP automatique et que vous n'avez pas ajouté de pool de liquidités, veuillez d'abord désactiver la LP automatique.",
+  "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Les transferts en masse pour les jetons déflationnistes ne sont pas pris en charge pour le moment.",
   "content__deposit_tokens_to_your_wallet": "Déposez des jetons dans votre portefeuille",
   "content__description": "Description",
   "content__details": "Détails",

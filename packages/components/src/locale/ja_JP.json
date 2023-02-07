@@ -391,6 +391,7 @@
   "content__default": "デフォルト",
   "content__defi_master_desc": "あなたはビジョンのある賢者です。待っていれば必ず収穫がある",
   "content__deflationary_desc": "トークンがデフレでない場合は、これを無視してください。ほとんどのトークンはデフレでないため、そのままにしておいてください。トークンにトークンの配当、バーン、税金などのデフレ機能がある場合は、これを有効にしてください。 \n\nあなたがトークン所有者で、自動 LP 機能があり、流動性プールを追加していない場合は、最初に自動 LP をオフにしてください。",
+  "content__deflationary_token_transfers_are_not_supported_at_this_moment": "現時点では、デフレ トークンの一括転送はサポートされていません。",
   "content__deposit_tokens_to_your_wallet": "トークンをウォレットに預け入れる",
   "content__description": "説明",
   "content__details": "詳細",

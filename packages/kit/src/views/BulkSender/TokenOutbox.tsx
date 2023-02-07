@@ -285,6 +285,11 @@ function TokenOutbox(props: Props) {
           />
         </Box>
         <Box display={isUploadMode ? 'none' : 'flex'}>
+          <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
+            {intl.formatMessage({
+              id: 'content__deflationary_token_transfers_are_not_supported_at_this_moment',
+            })}
+          </Text>
           <HStack space={4} alignItems="center" flexWrap="wrap">
             <Button
               mt={4}
