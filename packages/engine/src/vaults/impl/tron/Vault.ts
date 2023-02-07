@@ -289,12 +289,12 @@ export default class Vault extends VaultBase {
           if (accountInfo) {
             const { tokens } = accountInfo;
             const token = find(tokens, { tokenId: tokenAddress });
-            if (token) {
-              return new BigNumber(token.balance);
-            }
+            return new BigNumber(token?.balance ?? 0);
           }
+
+          return new BigNumber(0);
         } catch {
-          // pass
+          return new BigNumber(0);
         }
       }),
     );
