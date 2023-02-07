@@ -1771,7 +1771,7 @@
   "title__arrival_time": "Heure d'arrivée",
   "title__asset__display": "Affichage des actifs",
   "title__assets": "Actifs",
-  "title__attention_token": "Jeton d'avertissement",
+  "title__attention_token": "Jeton suspect",
   "title__backup_completed": "Sauvegarde terminée !",
   "title__backup_completed_desc": "Vous pouvez récupérer votre portefeuille en utilisant cette carte et ce code PIN à tout moment.",
   "title__backup_details": "Détails de la sauvegarde",

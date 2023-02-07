@@ -1771,7 +1771,7 @@
   "title__arrival_time": "আগমনের সময়",
   "title__asset__display": "সম্পদ প্রদর্শন",
   "title__assets": "সম্পদ",
-  "title__attention_token": "মনোযোগ টোকেন",
+  "title__attention_token": "সন্দেহজনক টোকেন",
   "title__backup_completed": "ব্যাকআপ সম্পন্ন!",
   "title__backup_completed_desc": "আপনি সর্বদা এই কার্ড এবং পিন ব্যবহার করে আপনার ওয়ালেট পুনরুদ্ধার করতে পারেন।",
   "title__backup_details": "ব্যাকআপ বিবরণ",

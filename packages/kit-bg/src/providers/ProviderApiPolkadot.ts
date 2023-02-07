@@ -1,13 +1,9 @@
-import { bytesToHex } from '@noble/hashes/utils';
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import { Injected, Unsubcall } from '@polkadot/extension-inject/types';
 import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
-import { th } from 'date-fns/locale';
 
-import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
 import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { IEncodedTxDot } from '@onekeyhq/engine/src/vaults/impl/dot/types';
@@ -26,10 +22,7 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import type {
-  InjectedAccount,
-  InjectedAccountWithMeta,
-} from '@polkadot/extension-inject/types';
+import type { InjectedAccount } from '@polkadot/extension-inject/types';
 import type {
   SignerPayloadJSON,
   SignerPayloadRaw,
@@ -103,6 +96,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
   @providerApiMethod()
   public async web3Accounts(
     request: IJsBridgeMessagePayload,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: boolean,
   ): Promise<InjectedAccount[]> {
     debugLogger.providerApi.info('Polkadot getAccounts', request);

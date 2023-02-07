@@ -1160,7 +1160,7 @@
   "form__protocol_uppercase": "协议",
   "form__protocols_uppercase": "协议",
   "form__provided_by": "服务商",
-  "form__provided_by_desc": "我们的聚合器调用多个第三方路由合约，不使用 任何自身开发的合约。因此，我们的用户界面与直接在第三 方交易继承同样的安全性。",
+  "form__provided_by_desc": "我们的聚合器调用多个第三方路由合约，不使用任何自身开发的合约。因此，我们的用户界面与直接在第三方交易继承同样的安全性。",
   "form__proxy_contract_found": "存在代理合约",
   "form__proxy_contract_found_desc": "合约所有者通过代理合约可能替换此币的相关逻辑，进而对此币价格、机制产生影响",
   "form__put_coins_at_the_top": "置顶主币",
@@ -1771,7 +1771,7 @@
   "title__arrival_time": "到账时间",
   "title__asset__display": "资产显示",
   "title__assets": "资产",
-  "title__attention_token": "需要注意的代币",
+  "title__attention_token": "可疑代币",
   "title__backup_completed": "备份成功",
   "title__backup_completed_desc": "您可以随时使用此卡和 PIN 恢复您的钱包",
   "title__backup_details": "备份详情",

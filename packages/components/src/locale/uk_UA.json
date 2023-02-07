@@ -1771,7 +1771,7 @@
   "title__arrival_time": "Час прибуття",
   "title__asset__display": "Відображення активів",
   "title__assets": "Активи",
-  "title__attention_token": "Знак уваги",
+  "title__attention_token": "Підозрілий маркер",
   "title__backup_completed": "Резервне копіювання завершено!",
   "title__backup_completed_desc": "Ви можете відновити свій гаманець за допомогою цієї картки та PIN-коду в будь-який час.",
   "title__backup_details": "Деталі резервного копіювання",

@@ -1771,7 +1771,7 @@
   "title__arrival_time": "Время прибытия",
   "title__asset__display": "Отображение активов",
   "title__assets": "Активы",
-  "title__attention_token": "Знак внимания",
+  "title__attention_token": "Подозрительный токен",
   "title__backup_completed": "Резервное копирование завершено!",
   "title__backup_completed_desc": "Вы всегда сможете восстановить свой кошелек с помощью этой карты и PIN-кода.",
   "title__backup_details": "Сведения о резервной копии",

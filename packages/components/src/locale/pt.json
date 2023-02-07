@@ -1771,7 +1771,7 @@
   "title__arrival_time": "Tempo de chegada",
   "title__asset__display": "Exibição de recursos",
   "title__assets": "Bens",
-  "title__attention_token": "Símbolo de Atenção",
+  "title__attention_token": "Token Suspeito",
   "title__backup_completed": "Backup completo!",
   "title__backup_completed_desc": "Você pode recuperar sua carteira usando este cartão e PIN o tempo todo.",
   "title__backup_details": "Detalhes do backup",

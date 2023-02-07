@@ -4983,12 +4983,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:0.2.24, @onekeyfe/hd-core@npm:^0.2.24":
+"@onekeyfe/hd-core@npm:0.2.24":
   version: 0.2.24
   resolution: "@onekeyfe/hd-core@npm:0.2.24"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.25
-    "@onekeyfe/hd-transport": ^0.2.25
+    "@onekeyfe/hd-shared": ^0.2.24
+    "@onekeyfe/hd-transport": ^0.2.24
     axios: ^0.27.2
     bignumber.js: ^9.0.2
     jszip: ^3.10.1
@@ -5001,14 +5001,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:0.2.24, @onekeyfe/hd-shared@npm:^0.2.24":
+"@onekeyfe/hd-core@npm:^0.2.24":
+  version: 0.2.25
+  resolution: "@onekeyfe/hd-core@npm:0.2.25"
+  dependencies:
+    "@onekeyfe/hd-shared": ^0.2.25
+    "@onekeyfe/hd-transport": ^0.2.25
+    axios: ^0.27.2
+    bignumber.js: ^9.0.2
+    jszip: ^3.10.1
+    parse-uri: ^1.0.7
+    semver: ^7.3.7
+  peerDependencies:
+    "@noble/hashes": ^1.1.3
+    ripple-keypairs: ^1.1.4
+  checksum: 712a717e440db719b9b920a88dbf3cb6c3fe5eb2c3b63d58d1726b82d5cea16f4fb30f52c69e3a3b45283495f403969db2b7f063d6dac485ac66d227b8e7deb5
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/hd-shared@npm:0.2.24":
   version: 0.2.24
   resolution: "@onekeyfe/hd-shared@npm:0.2.24"
   checksum: 8d89bdee427ff957f96532ea1c7932e757b4609181134e014eecd703f2e5242eb82592a1185862c02726b7cd0b7d4c323c3f6155e6d4e69a06fefbd933295a22
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:^0.2.25":
+"@onekeyfe/hd-shared@npm:^0.2.24, @onekeyfe/hd-shared@npm:^0.2.25":
   version: 0.2.25
   resolution: "@onekeyfe/hd-shared@npm:0.2.25"
   checksum: e31c6730f1b9298915f29dd84cd099745e0e0fbcecda4dd00ea0c93445ea98a6de9f5679d416c411c33150d223ec0d568dc9a1fd5040f8bbe35e56610ae5b368
@@ -5016,39 +5034,39 @@ __metadata:
   linkType: hard
 
 "@onekeyfe/hd-transport-http@npm:^0.2.24":
-  version: 0.2.24
-  resolution: "@onekeyfe/hd-transport-http@npm:0.2.24"
+  version: 0.2.25
+  resolution: "@onekeyfe/hd-transport-http@npm:0.2.25"
   dependencies:
     "@onekeyfe/hd-shared": ^0.2.25
     "@onekeyfe/hd-transport": ^0.2.25
     axios: ^0.27.2
-  checksum: a0e471b92a976fd705c193aab9be477841f5475a4ad89a5ff413667ec226c0951d35cb1abdbd9bc0093c078e5177a64368b3f1ff980ce14261663bd59f4da1cf
+  checksum: 40681404f7975e503a13ebee6cac9c76d3b646b9fa9fd9eef550111b74a30d571f0a62cb8f2f92eb5d5059aba01c9f2a0c33c059cb3ae4ed108b2d1cbe3032b5
   languageName: node
   linkType: hard
 
 "@onekeyfe/hd-transport-react-native@npm:^0.2.24":
-  version: 0.2.24
-  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.24"
+  version: 0.2.25
+  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.25"
   dependencies:
     "@onekeyfe/hd-shared": ^0.2.25
     "@onekeyfe/hd-transport": ^0.2.25
     react-native-ble-manager: ^8.1.0
     react-native-ble-plx: ^2.0.3
-  checksum: 66668931d9bb02317d63960b109b56c6040a716e9082c691988d226d5f0554fca948c51965b77a8d2ca7180816cdfc6e21eac91503e3ffb1898fb14474d90faf
+  checksum: a97500527ba36e8012b61e430fff909b8f6f3ec8920a3dc23aa9a6ba7abf7a77553f5f48740dbcd9918722b60bc5f966c147799f769d4fa56841f607d970b096
   languageName: node
   linkType: hard
 
 "@onekeyfe/hd-transport-webusb@npm:^0.2.24":
-  version: 0.2.24
-  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.24"
+  version: 0.2.25
+  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.25"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.24
-    "@onekeyfe/hd-transport": ^0.2.24
-  checksum: 5d2d85303dadcb60f843096f584c4acd9601c9726416c148f4d60b70f75b5cc491aee8f1eb879c09865004b8933dd270ca63d52497815c3507785d960657a118
+    "@onekeyfe/hd-shared": ^0.2.25
+    "@onekeyfe/hd-transport": ^0.2.25
+  checksum: ba6d42b9fd00552b819831dd2ebdcf1db114b4af9735abdd1a8f6f4933eb4db9a162052fafc89878c40e030dcc5cab2a0073f82d162133b0e59fb7915cc730c9
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:0.2.24, @onekeyfe/hd-transport@npm:^0.2.24":
+"@onekeyfe/hd-transport@npm:0.2.24":
   version: 0.2.24
   resolution: "@onekeyfe/hd-transport@npm:0.2.24"
   dependencies:
@@ -5059,7 +5077,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:^0.2.25":
+"@onekeyfe/hd-transport@npm:^0.2.24, @onekeyfe/hd-transport@npm:^0.2.25":
   version: 0.2.25
   resolution: "@onekeyfe/hd-transport@npm:0.2.25"
   dependencies:

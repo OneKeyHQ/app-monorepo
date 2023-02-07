@@ -1771,7 +1771,7 @@
   "title__arrival_time": "आने का समय",
   "title__asset__display": "एसेट डिस्प्ले",
   "title__assets": "संपत्तियां",
-  "title__attention_token": "ध्यान टोकन",
+  "title__attention_token": "संदिग्ध टोकन",
   "title__backup_completed": "बैकअप पूर्ण!",
   "title__backup_completed_desc": "आप इस कार्ड और पिन का उपयोग करके हर समय अपना वॉलेट पुनर्प्राप्त कर सकते हैं।",
   "title__backup_details": "बैकअप विवरण",

@@ -1771,7 +1771,7 @@
   "title__arrival_time": "Hora de llegada",
   "title__asset__display": "Visualización de activos",
   "title__assets": "Activos",
-  "title__attention_token": "Ficha de atención",
+  "title__attention_token": "Ficha sospechosa",
   "title__backup_completed": "¡Copia de seguridad completada!",
   "title__backup_completed_desc": "Puedes recuperar tu cartera utilizando esta tarjeta y el PIN en todo momento.",
   "title__backup_details": "Detalles de la copia de seguridad",

@@ -1771,7 +1771,7 @@
   "title__arrival_time": "到達時間",
   "title__asset__display": "資產展示",
   "title__assets": "資產",
-  "title__attention_token": "需要注意的代幣",
+  "title__attention_token": "可疑代幣",
   "title__backup_completed": "備份成功",
   "title__backup_completed_desc": "您可以隨時使用此卡和 PIN 恢復您的錢包",
   "title__backup_details": "備份詳情",
