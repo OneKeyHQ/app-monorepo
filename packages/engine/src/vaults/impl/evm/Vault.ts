@@ -706,9 +706,7 @@ export default class Vault extends VaultBase {
           throw new Error(`Token not found: ${transferInfo.token as string}`);
         }
 
-        batchMethod = isDeflationary
-          ? BatchTransferSelectors.disperseTokenSimple
-          : BatchTransferSelectors.disperseToken;
+        batchMethod = BatchTransferSelectors.disperseTokenSimple;
         paramTypes = ['address', 'address[]', 'uint256[]'];
         ParamValues = [
           token.tokenIdOnNetwork,

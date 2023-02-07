@@ -9,9 +9,7 @@ import {
   Button,
   HStack,
   Icon,
-  IconButton,
   Pressable,
-  Switch,
   Text,
   Token as TokenComponent,
   useIsVerticalLayout,
@@ -54,7 +52,6 @@ function TokenOutbox(props: Props) {
   const [receiverFromOut, setReceiverFromOut] = useState<TokenReceiver[]>([]);
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
-  const [isDeflationary, setIsDeflationary] = useState(false);
   const [isUnlimited, setIsUnlimited] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
@@ -178,8 +175,6 @@ function TokenOutbox(props: Props) {
         accountId,
         transferInfos,
         prevNonce,
-        isDeflationary:
-          network?.settings?.supportDeflationary && isDeflationary,
       });
 
     setIsBuildingTx(false);
@@ -208,12 +203,10 @@ function TokenOutbox(props: Props) {
     accountId,
     initialToken,
     isBuildingTx,
-    isDeflationary,
     isUnlimited,
     isValid,
     isValidating,
     navigation,
-    network?.settings?.supportDeflationary,
     networkId,
     receiver,
     selectedToken,
@@ -293,25 +286,6 @@ function TokenOutbox(props: Props) {
         </Box>
         <Box display={isUploadMode ? 'none' : 'flex'}>
           <HStack space={4} alignItems="center" flexWrap="wrap">
-            {network?.settings?.supportDeflationary && (
-              <HStack alignItems="center" mt={4}>
-                <Switch
-                  isChecked={isDeflationary}
-                  onToggle={() => setIsDeflationary(!isDeflationary)}
-                  labelType="after"
-                  label={intl.formatMessage({ id: 'action__deflationary' })}
-                />
-                <IconButton
-                  ml={-2}
-                  onPress={showDeflationaryTip}
-                  size="xs"
-                  name="InformationCircleOutline"
-                  type="plain"
-                  iconColor="icon-subdued"
-                  circle
-                />
-              </HStack>
-            )}
             <Button
               mt={4}
               type="basic"
