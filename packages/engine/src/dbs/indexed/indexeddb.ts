@@ -29,6 +29,7 @@ import {
 } from '../../limits';
 import { getPath } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
+import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
 import { AccountType } from '../../types/account';
 import {
@@ -1581,7 +1582,11 @@ class IndexedDBApi implements DBAPI {
       (db) =>
         new Promise((resolve, reject) => {
           const transaction: IDBTransaction = db.transaction(
-            [WALLET_STORE_NAME, ACCOUNT_STORE_NAME].concat(
+            [
+              WALLET_STORE_NAME,
+              ACCOUNT_STORE_NAME,
+              ACCOUNT_DERIVATION_STORE_NAME,
+            ].concat(
               addingImported ? [CONTEXT_STORE_NAME, CREDENTIAL_STORE_NAME] : [],
             ),
             'readwrite',
@@ -1601,8 +1606,11 @@ class IndexedDBApi implements DBAPI {
 
           const walletStore: IDBObjectStore =
             transaction.objectStore(WALLET_STORE_NAME);
+          const accountDerivationStore = transaction.objectStore(
+            ACCOUNT_DERIVATION_STORE_NAME,
+          );
           const getWalletRequest: IDBRequest = walletStore.get(walletId);
-          getWalletRequest.onsuccess = (_gevent) => {
+          getWalletRequest.onsuccess = async (_gevent) => {
             if (getWalletRequest.result === 'undefined') {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
@@ -1665,6 +1673,23 @@ class IndexedDBApi implements DBAPI {
                   nextId += 1;
                 }
                 wallet.nextAccountIds[category] = nextId;
+
+                if (!account.template) {
+                  reject(
+                    new OneKeyInternalError(
+                      `Account should has template field`,
+                    ),
+                  );
+                  return;
+                }
+                const impl = getImplByCoinType(account.coinType);
+                await this.addAccountDerivation(
+                  wallet.id,
+                  account.id,
+                  impl,
+                  account.template,
+                  accountDerivationStore,
+                );
                 break;
               }
               case WALLET_TYPE_IMPORTED: {
@@ -2394,24 +2419,30 @@ class IndexedDBApi implements DBAPI {
     accountId: string,
     impl: string,
     template: string,
+    derivationStore?: IDBObjectStore,
   ): Promise<void> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
-          const transaction = db.transaction(
-            [ACCOUNT_DERIVATION_STORE_NAME],
-            'readwrite',
-          );
-          transaction.onerror = () => {
-            reject(new OneKeyInternalError('Failed to update wallet name.'));
-          };
-          // transaction.oncomplete = () => {
-          //   resolve();
-          // };
+          let accountDerivationStore: IDBObjectStore;
+          if (!derivationStore) {
+            const transaction = db.transaction(
+              [ACCOUNT_DERIVATION_STORE_NAME],
+              'readwrite',
+            );
+            transaction.onerror = () => {
+              reject(new OneKeyInternalError('Failed to update wallet name.'));
+            };
+            // transaction.oncomplete = () => {
+            //   resolve();
+            // };
 
-          const accountDerivationStore = transaction.objectStore(
-            ACCOUNT_DERIVATION_STORE_NAME,
-          );
+            accountDerivationStore = transaction.objectStore(
+              ACCOUNT_DERIVATION_STORE_NAME,
+            );
+          } else {
+            accountDerivationStore = derivationStore;
+          }
 
           const id = `${walletId}-${impl}-${template}`;
           const getExistRecordRequest = accountDerivationStore.get(id);

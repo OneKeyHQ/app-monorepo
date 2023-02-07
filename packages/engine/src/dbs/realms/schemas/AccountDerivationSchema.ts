@@ -1,12 +1,12 @@
 import Realm from 'realm';
 
-import type { AccountSchema, WalletSchema } from '.';
+import type { AccountSchema } from '.';
 import type { DBAccountDerivation } from '../../../types/accountDerivation';
 
 class AccountDerivationSchema extends Realm.Object {
   public id!: string;
 
-  public walletId!: WalletSchema;
+  public walletId!: string;
 
   public accounts!: Realm.Set<AccountSchema>;
 
@@ -17,18 +17,16 @@ class AccountDerivationSchema extends Realm.Object {
     primaryKey: 'id',
     properties: {
       id: 'string',
-      walletId: 'Wallet',
+      walletId: 'string',
       accounts: { type: 'Account<>', default: [] },
-      teamplate: 'string',
-      createdAt: 'int',
-      updatedAt: 'int',
+      template: 'string',
     },
   };
 
   get internalObj(): DBAccountDerivation {
     return {
       id: this.id,
-      walletId: this.walletId.id,
+      walletId: this.walletId,
       accounts: (this.accounts || []).map((account) => account.id),
       template: this.template,
     };

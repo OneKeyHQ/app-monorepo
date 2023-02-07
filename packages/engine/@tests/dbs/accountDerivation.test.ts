@@ -61,7 +61,7 @@ describe('test AccountDerivation database API', () => {
     expect(accountDerivationMap[bip44StandardTemplate].accounts.length).toBe(2);
   });
 
-  test('should insert a Ledger Live teamplate reocrd', async () => {
+  test('should insert a Ledger Live template reocrd', async () => {
     await dbApi.addAccountDerivation(
       walletId,
       createAccountId(3),

@@ -88,7 +88,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 /**
  * Realm DB API
  * @implements { DBAPI }
