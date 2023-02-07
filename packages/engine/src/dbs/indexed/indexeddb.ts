@@ -81,7 +81,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -147,12 +147,6 @@ function initDb(db: IDBDatabase) {
     ['networkId', 'accountId', 'createdAt'],
     { unique: false },
   );
-
-  const accountDerivationStore = db.createObjectStore(
-    ACCOUNT_DERIVATION_STORE_NAME,
-    { keyPath: 'id' },
-  );
-  accountDerivationStore.createIndex('walletId', 'walletId', { unique: false });
 }
 
 class IndexedDBApi implements DBAPI {
@@ -220,6 +214,15 @@ class IndexedDBApi implements DBAPI {
               cursor.continue();
             }
           };
+        }
+        if (oldVersion < 7) {
+          const accountDerivationStore = db.createObjectStore(
+            ACCOUNT_DERIVATION_STORE_NAME,
+            { keyPath: 'id' },
+          );
+          accountDerivationStore.createIndex('walletId', 'walletId', {
+            unique: false,
+          });
         }
       };
     });
