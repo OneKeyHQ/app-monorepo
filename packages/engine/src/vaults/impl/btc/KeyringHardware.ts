@@ -18,7 +18,7 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
-import { getPathPrefix } from '../../../managers/derivation';
+import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
@@ -115,9 +115,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { connectId, deviceId } = await this.getHardwareInfo();
       const passphraseState = await this.getWalletPassphraseState();
       const HardwareSDK = await this.getHardwareSDKInstance();
+      const { pathPrefix } = slicePathTemplate(template);
       response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
         bundle: usedIndexes.map((index) => ({
-          path: `${getPathPrefix(template)}/${index}'`,
+          path: `${pathPrefix}/${index}'`,
           showOnOneKey: false,
         })),
         ...passphraseState,

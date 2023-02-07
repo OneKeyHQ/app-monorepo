@@ -1,4 +1,4 @@
-import { getPathPrefix } from '@onekeyhq/engine/src/managers/derivation';
+import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 
 import { OneKeyInternalError } from '../../../errors';
@@ -42,14 +42,14 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const pathPrefix = getPathPrefix(template);
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,
       password,
       pathPrefix,
-      indexes.map((index) => index.toString()),
+      indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
     );
 
     if (pubkeyInfos.length !== indexes.length) {

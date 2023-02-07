@@ -6,7 +6,7 @@ import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
-import { getPathPrefix } from '../../../managers/derivation';
+import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
@@ -71,7 +71,7 @@ export class KeyringHd extends KeyringHdBase {
       this.walletId,
       password,
     )) as ExportedSeedCredential;
-    const pathPrefix = getPathPrefix(template);
+    const { pathPrefix } = slicePathTemplate(template);
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,

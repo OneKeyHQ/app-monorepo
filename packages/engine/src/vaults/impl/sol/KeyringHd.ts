@@ -5,7 +5,7 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
-import { getPathPrefix } from '../../../managers/derivation';
+import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
@@ -53,13 +53,13 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const pathPrefix = getPathPrefix(template);
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const pubkeyInfos = batchGetPublicKeys(
       'ed25519',
       seed,
       password,
       pathPrefix,
-      indexes.map((index) => `${index}'/0'`),
+      indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
     );
 
     if (pubkeyInfos.length !== indexes.length) {

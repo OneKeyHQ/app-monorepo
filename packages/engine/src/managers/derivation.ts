@@ -118,12 +118,21 @@ function getDefaultPurpose(impl: string): number {
 }
 
 /**
- * m/44'/60'/x'/0/0 -> m/44'/60'
+ * m/44'/60'/x'/0/0 -> m/44'/60' for prefix, {index}/0/0 for suffix
  * @param template derivation path template
  * @returns string
  */
-function getPathPrefix(template: string) {
-  return template?.split('x')[0].slice(0, -1);
+function slicePathTemplate(template: string) {
+  const [prefix, suffix] = template.split('x');
+  return {
+    pathPrefix: prefix.slice(0, -1),
+    pathSuffix: `{index}${suffix}`,
+  };
 }
 
-export { getPath, getDefaultPurpose, derivationPathTemplates, getPathPrefix };
+export {
+  getPath,
+  getDefaultPurpose,
+  derivationPathTemplates,
+  slicePathTemplate,
+};

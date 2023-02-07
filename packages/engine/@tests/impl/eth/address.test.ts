@@ -1,7 +1,8 @@
 import { keccak256 } from '@ethersproject/keccak256';
 import * as bip39 from 'bip39';
+import { ethers } from 'ethers';
 
-import { getPathPrefix } from '../../../src/managers/derivation';
+import { slicePathTemplate } from '../../../src/managers/derivation';
 import {
   batchGetPublicKeys,
   revealableSeedFromMnemonic,
@@ -37,13 +38,13 @@ async function prepareAccount(
   const rs = revealableSeedFromMnemonic(usedMnemonic, password);
   const { seed } = rs;
 
-  const pathPrefix = getPathPrefix(template);
+  const { pathPrefix, pathSuffix } = slicePathTemplate(template);
   const pubkeyInfos = batchGetPublicKeys(
     'secp256k1',
     seed,
     password,
     pathPrefix,
-    indexes.map((index) => index.toString()),
+    indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
   );
 
   if (pubkeyInfos.length !== indexes.length) {
@@ -60,7 +61,7 @@ async function prepareAccount(
     const pub = pubkey.toString('hex');
     const address = pubkeyToAddress(pub);
     paths.push(path);
-    result.push(address);
+    result.push(ethers.utils.getAddress(address));
   }
 
   return result;

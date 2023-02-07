@@ -7,7 +7,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyHardwareError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
-import { getPathPrefix } from '../../../managers/derivation';
+import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
@@ -73,7 +73,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const passphraseState = await this.getWalletPassphraseState();
     const { indexes, names, type, template, coinType } = params;
 
-    const pathPrefix = getPathPrefix(template);
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
     let addressInfos;
     if (type === 'SEARCH_ACCOUNTS') {
@@ -83,6 +83,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let response;
       try {
         response = await HardwareSDK.evmGetPublicKey(connectId, deviceId, {
+          // TODO: maybe bug
           path: pathPrefix,
           showOnOneKey: false,
           chainId: Number(chainId),
@@ -99,14 +100,16 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { xpub } = response.payload;
       const node = ethers.utils.HDNode.fromExtendedKey(xpub);
       addressInfos = indexes.map((index) => ({
-        path: `${pathPrefix}/${index}`,
+        path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
         info: engineUtils.fixAddressCase({
           address: node.derivePath(`${index}`).address,
           impl: IMPL_EVM,
         }),
       }));
     } else {
-      const paths = indexes.map((index) => `${pathPrefix}/${index}`);
+      const paths = indexes.map(
+        (index) => `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+      );
       addressInfos = await OneKeyHardware.getXpubs(
         HardwareSDK,
         IMPL_EVM,
