@@ -370,6 +370,18 @@ function PreSendAddress() {
     );
   }, [control, intl, networkId]);
 
+  const helpTextOfNameServiceResolver = useCallback(
+    (value) => (
+      <NameServiceResolver
+        name={value}
+        onChange={syncStateAndReTriggerValidate}
+        disableBTC={false}
+        networkId={networkId}
+      />
+    ),
+    [networkId, syncStateAndReTriggerValidate],
+  );
+
   return (
     <BaseSendModal
       accountId={accountId}
@@ -403,14 +415,7 @@ function PreSendAddress() {
                 successMessage={successMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
-                helpText={(value) => (
-                  <NameServiceResolver
-                    name={value}
-                    onChange={syncStateAndReTriggerValidate}
-                    disableBTC={false}
-                    networkId={networkId}
-                  />
-                )}
+                helpText={helpTextOfNameServiceResolver}
                 rules={{
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
