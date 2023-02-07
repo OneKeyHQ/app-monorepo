@@ -138,6 +138,9 @@ const AnnualLoading = createLazyComponent(
 const AnnualReport = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/AnnualReport/Report'),
 );
+const BulkSender = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/BulkSender'),
+);
 
 export const stackScreenList = [
   {
@@ -258,6 +261,11 @@ export const stackScreenList = [
   {
     name: HomeRoutes.AnnualReport,
     component: AnnualReport,
+  },
+  {
+    name: HomeRoutes.BulkSender,
+    component: BulkSender,
+    alwaysShowBackButton: true,
   },
 ];
 

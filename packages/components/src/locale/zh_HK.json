@@ -391,6 +391,7 @@
   "content__default": "默認",
   "content__defi_master_desc": "您是遠見卓識的智者，\n春天繁花似錦，秋日滿載而歸。",
   "content__deflationary_desc": "如果你的代幣不是通貨緊縮的，請忽略。由於大多數代幣都不是通貨緊縮屬性，所以保持關閉即可。如果您的代幣具有通縮功能，例如代幣分紅、銷毀、稅收等，請開啟此功能。 \n\n如果您是代幣合約所有者並且有自動LP功能，並且您還沒有添加流動性池，請先關閉自動LP。",
+  "content__deflationary_token_transfers_are_not_supported_at_this_moment": "目前暫不支持通縮代幣批量轉帳。",
   "content__deposit_tokens_to_your_wallet": "將代幣存入您的錢包",
   "content__description": "描述",
   "content__details": "詳情",

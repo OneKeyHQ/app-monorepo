@@ -391,6 +391,7 @@
   "content__default": "Standard",
   "content__defi_master_desc": "Du bist der weise Mann der Vision. Es gibt immer eine Ernte, wenn Sie warten",
   "content__deflationary_desc": "Bitte ignorieren Sie dies, wenn Ihr Token nicht deflationär ist. Die meisten Token sind es nicht, also lassen Sie es so wie es ist. Wenn Ihr Token deflationäre Funktionen hat, wie z. B. Token-Dividenden, Verbrennung, Steuern usw., aktivieren Sie dies bitte. \n\nWenn Sie der Token-Besitzer sind und es eine automatische LP-Funktion gibt und Sie keinen Liquiditätspool hinzugefügt haben, schalten Sie bitte zuerst die automatische LP-Funktion aus.",
+  "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Massentransfers für deflationäre Token werden derzeit nicht unterstützt.",
   "content__deposit_tokens_to_your_wallet": "Hinterlegen Sie Token in Ihrer Brieftasche",
   "content__description": "Beschreibung",
   "content__details": "Einzelheiten",

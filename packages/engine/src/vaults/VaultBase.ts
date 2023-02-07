@@ -315,6 +315,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
     prevNonce?: number,
+    isDeflationary?: boolean,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
