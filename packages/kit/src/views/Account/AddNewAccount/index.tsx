@@ -138,11 +138,11 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   useEffect(() => {
     async function setNameAndCheck() {
       if (selectedNetwork) {
-        const { prefix, category } =
+        const { prefix, template, category } =
           selectedNetwork.accountNameInfo[watchAddressType] ||
           selectedNetwork.accountNameInfo.default;
         if (typeof prefix !== 'undefined') {
-          const id = wallet?.nextAccountIds?.[category] || 0;
+          const id: number = wallet?.nextAccountIds?.[template] || 0;
           setValue('name', `${prefix} #${id + 1}`);
           const usedPurpose = parseInt(category.split("'/")[0]);
           setPurpose(usedPurpose);

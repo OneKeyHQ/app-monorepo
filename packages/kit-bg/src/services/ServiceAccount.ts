@@ -941,6 +941,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     await engine.removeWallet(walletId, password ?? '');
+    await engine.dbApi.removeAccountDerivationByWalletId(walletId);
     timelinePerfTrace.mark({
       name: ETimelinePerfNames.removeWallet,
       title: 'ServiceAccount.removeWallet >> engine.removeWallet  DONE',
@@ -1052,6 +1053,7 @@ class ServiceAccount extends ServiceBase {
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
     await engine.removeAccount(accountId, password ?? '');
     await simpleDb.walletConnect.removeAccount({ accountId });
+    await engine.dbApi.removeAccountDerivationByAccountId(walletId, accountId);
 
     const actions = [];
     if (activeAccountId === accountId) {

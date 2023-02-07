@@ -4,7 +4,7 @@
 
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
-import { cloneDeep, isEmpty, uniqBy } from 'lodash';
+import { cloneDeep, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 
@@ -27,7 +27,6 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   COINTYPE_BTC,
-  IMPL_BTC,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -69,7 +68,6 @@ import { getTokenRiskyItems } from './managers/goplus';
 import {
   getAccountNameInfoByTemplate,
   getDefaultAccountNameInfoByImpl,
-  implToCoinTypes,
 } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
@@ -990,7 +988,13 @@ class Engine {
     const ret: Array<Account> = [];
     for (const dbAccount of accounts) {
       try {
-        const { id } = await this.dbApi.addAccountToWallet(walletId, dbAccount);
+        const finalDbAccount = dbAccount.template
+          ? dbAccount
+          : { ...dbAccount, template: accountNameInfo.template };
+        const { id } = await this.dbApi.addAccountToWallet(
+          walletId,
+          finalDbAccount,
+        );
 
         const account = await this.getAccount(id, networkId);
         ret.push(account);
@@ -1094,11 +1098,11 @@ class Engine {
 
     if (dbAccount.coinType === COINTYPE_BTC && dbAccount.path.length > 0) {
       const components = dbAccount.path.split('/');
-      const nextAccountCategory = `${components[1]}/${components[2]}`;
       const index = parseInt(components[3].slice(0, -1)); // remove the "'" suffix
-      if (wallet.nextAccountIds[nextAccountCategory] === index + 1) {
+      const template = dbAccount.template ?? '';
+      if (wallet.nextAccountIds[template] === index + 1) {
         // Removing the last account, may need to roll back next account id.
-        rollbackNextAccountIds = { [nextAccountCategory]: index };
+        rollbackNextAccountIds = { [template]: index };
         try {
           const vault = await this.getChainOnlyVault('btc--0');
           const accountUsed = await vault.checkAccountExistence(

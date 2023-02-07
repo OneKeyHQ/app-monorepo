@@ -27,7 +27,7 @@ import {
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
-import { getNextAccountIds, getPath } from '../../managers/derivation';
+import { getNextAccountIds } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
