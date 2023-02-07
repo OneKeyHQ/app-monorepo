@@ -107,6 +107,7 @@ const Container: FC<CollapsibleContainerProps> = ({
       return (
         <TabBar
           {...props}
+          lazy
           scrollEnabled={scrollEnabled}
           indicatorStyle={styles.indicator}
           indicatorContainerStyle={styles.indicatorContainer}
@@ -138,11 +139,14 @@ const Container: FC<CollapsibleContainerProps> = ({
         {renderHeader?.()}
       </Box>
       <TabView
+        lazy
+        animationEnabled={false}
         navigationState={{ index, routes }}
         renderScene={renderScene}
         onIndexChange={handleChange}
-        initialLayout={{ width: layout.width }}
+        initialLayout={layout}
         renderTabBar={renderTabBar}
+        swipeEnabled={false}
       />
     </ScrollView>
   );
