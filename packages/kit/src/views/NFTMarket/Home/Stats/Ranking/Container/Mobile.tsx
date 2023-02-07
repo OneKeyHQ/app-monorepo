@@ -155,6 +155,9 @@ const Mobile: FC<Props> = ({
     ],
   );
 
+  const ItemSeparatorComponent = useCallback(() => <Box h="4px" />, []);
+  const ListFooterComponent = useCallback(() => <Box height="20px" />, []);
+
   if (listData === undefined || listData?.length === 0 || context?.loading) {
     return (
       <EmptyView
@@ -176,8 +179,8 @@ const Mobile: FC<Props> = ({
         keyExtractor={(item, index) =>
           `${item.contract_address as string}${index}`
         }
-        ItemSeparatorComponent={() => <Box h="4px" />}
-        ListFooterComponent={() => <Box height="20px" />}
+        ItemSeparatorComponent={ItemSeparatorComponent}
+        ListFooterComponent={ListFooterComponent}
         {...listProps}
       />
     </MotiView>
