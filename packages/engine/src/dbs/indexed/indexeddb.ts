@@ -27,7 +27,7 @@ import {
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
-import { getPath } from '../../managers/derivation';
+import { getNextAccountIds, getPath } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
@@ -1664,16 +1664,6 @@ class IndexedDBApi implements DBAPI {
                   return;
                 }
 
-                let nextId = wallet.nextAccountIds[category] || 0;
-                while (
-                  wallet.accounts.includes(
-                    `${walletId}--${getPath(purpose, coinType, nextId)}`,
-                  )
-                ) {
-                  nextId += 1;
-                }
-                wallet.nextAccountIds[category] = nextId;
-
                 if (!account.template) {
                   reject(
                     new OneKeyInternalError(
@@ -1690,6 +1680,17 @@ class IndexedDBApi implements DBAPI {
                   account.template,
                   accountDerivationStore,
                 );
+                const template = account.template ?? '';
+                const accountDerivation = await this.getAccountDerivationRecord(
+                  wallet.id,
+                  impl,
+                  account.template,
+                  accountDerivationStore,
+                );
+                let nextId = wallet.nextAccountIds[template] || 0;
+                nextId = getNextAccountIds(accountDerivation, nextId);
+                wallet.nextAccountIds[template] = nextId;
+
                 break;
               }
               case WALLET_TYPE_IMPORTED: {
@@ -2604,6 +2605,26 @@ class IndexedDBApi implements DBAPI {
           };
         }),
     );
+  }
+
+  private getAccountDerivationRecord(
+    walletId: string,
+    impl: string,
+    template: string,
+    derivationStore: IDBObjectStore,
+  ): Promise<DBAccountDerivation> {
+    return new Promise((resolve, reject) => {
+      const id = `${walletId}-${impl}-${template}`;
+      const getExistRecordRequest = derivationStore.get(id);
+      getExistRecordRequest.onsuccess = (_event) => {
+        if (getExistRecordRequest.result === 'undefined') {
+          reject(new OneKeyInternalError(`AccountDerivation ${id} not found.`));
+        }
+        const accountDerivation =
+          getExistRecordRequest.result as DBAccountDerivation;
+        resolve(accountDerivation);
+      };
+    });
   }
 }
 

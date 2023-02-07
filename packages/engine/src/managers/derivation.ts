@@ -38,6 +38,8 @@ import {
 
 import { OneKeyInternalError } from '../errors';
 
+import type { DBAccountDerivation } from '../types/accountDerivation';
+
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
   [IMPL_SOL]: [44],
@@ -130,9 +132,31 @@ function slicePathTemplate(template: string) {
   };
 }
 
+function getNextAccountIds(
+  accountDerivation: DBAccountDerivation,
+  index: number,
+) {
+  const { template, accounts } = accountDerivation;
+  let nextId = index;
+  const containPath = (accountIndex: number) => {
+    const path = template.replace('x', accountIndex.toString());
+    return accounts.find((account) => {
+      const accountIdPath = account.split('--')[1];
+      return path.indexOf(accountIdPath) > -1;
+    });
+  };
+  while (containPath(nextId)) {
+    nextId += 1;
+  }
+
+  console.log('final nextId is : ', nextId);
+  return nextId;
+}
+
 export {
   getPath,
   getDefaultPurpose,
   derivationPathTemplates,
   slicePathTemplate,
+  getNextAccountIds,
 };
