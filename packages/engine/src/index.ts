@@ -1963,16 +1963,19 @@ class Engine {
     accountId,
     transferInfos,
     prevNonce,
+    isDeflationary,
   }: {
     networkId: string;
     accountId: string;
     transferInfos: ITransferInfo[];
     prevNonce?: number;
+    isDeflationary?: boolean;
   }) {
     const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromBatchTransfer(
       transferInfos,
       prevNonce,
+      isDeflationary,
     );
     debugLogger.sendTx.info(
       'buildEncodedTxFromBatchTransfer: ',

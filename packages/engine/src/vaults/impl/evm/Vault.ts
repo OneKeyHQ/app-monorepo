@@ -253,7 +253,8 @@ export default class Vault extends VaultBase {
         }
         break;
       }
-      case 'disperseToken': {
+      case 'disperseToken':
+      case 'disperseTokenSimple': {
         const tokenAddress = txDesc.args[0];
         const recipients: string[] = txDesc.args[1];
         const values: string[] = txDesc.args[2];
@@ -658,6 +659,7 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
     prevNonce?: number,
+    isDeflationary?: boolean,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
@@ -712,7 +714,7 @@ export default class Vault extends VaultBase {
           throw new Error(`Token not found: ${transferInfo.token as string}`);
         }
 
-        batchMethod = BatchTransferSelectors.disperseToken;
+        batchMethod = BatchTransferSelectors.disperseTokenSimple;
         paramTypes = ['address', 'address[]', 'uint256[]'];
         ParamValues = [
           token.tokenIdOnNetwork,
@@ -758,15 +760,22 @@ export default class Vault extends VaultBase {
 
   async buildEncodedTxFromApprove(
     approveInfo: IApproveInfo,
+    prevNonce?: number,
   ): Promise<IEncodedTxEvm> {
-    const [network, token, spender] = await Promise.all([
+    const [network, token, spender, dbAccount] = await Promise.all([
       this.getNetwork(),
       this.engine.ensureTokenInDB(this.networkId, approveInfo.token),
       this.validateAddress(approveInfo.spender),
+      this.getDbAccount(),
     ]);
     if (typeof token === 'undefined') {
       throw new Error(`Token not found: ${approveInfo.token}`);
     }
+
+    const nextNonce: number =
+      prevNonce !== undefined
+        ? prevNonce + 1
+        : await this.getNextNonce(network.id, dbAccount);
 
     const amountBN = new BigNumber(approveInfo.amount);
     const amountHex = toBigIntHex(
@@ -784,6 +793,7 @@ export default class Vault extends VaultBase {
       to: approveInfo.token,
       value: '0x0',
       data,
+      nonce: nextNonce,
     };
   }
 

@@ -5518,6 +5518,7 @@ __metadata:
     react-native-config: ^1.4.11
     react-native-confirmation-code-field: ^7.2.0
     react-native-crypto: ^2.2.0
+    react-native-document-picker: ^8.1.3
     react-native-fast-image: ^8.6.3
     react-native-flipper: 0.162.0
     react-native-flipper-performance-plugin: ^0.3.1
@@ -5571,6 +5572,7 @@ __metadata:
     native-base: 3.4.22
     qrcode: ^1.5.0
     react-content-loader: ^6.2.0
+    react-dropzone: ^14.2.3
     react-hook-form: ^7.22.1
     react-native-draggable-flatlist: 4.0.0
     react-native-keyboard-aware-scroll-view: ^0.9.5
@@ -5758,6 +5760,7 @@ __metadata:
     react-intl: ^5.21.2
     react-native-animated-splash-screen: ^2.0.5
     react-native-camera: 4.2.1
+    react-native-document-picker: ^8.1.3
     react-native-root-siblings: ^4.1.1
     react-native-snap-carousel: 3.9.1
     react-native-url-polyfill: ^1.3.0
@@ -5771,6 +5774,7 @@ __metadata:
     swr: ^1.1.2
     url-parse: ^1.5.10
     vision-camera-code-scanner: ^0.2.0
+    xlsx: "https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz"
     zbar.wasm: ^2.1.1
   languageName: unknown
   linkType: soft
@@ -11177,6 +11181,13 @@ __metadata:
   version: 1.7.0
   resolution: "atomically@npm:1.7.0"
   checksum: 991153b17334597f93b58e831bea9851e57ed9cd41d8f33991be063f170b5cc8ec7ff8605f3eb95c1d389c2ad651039e9eb8f2b795e24833c2ceb944f347373a
+  languageName: node
+  linkType: hard
+
+"attr-accept@npm:^2.2.2":
+  version: 2.2.2
+  resolution: "attr-accept@npm:2.2.2"
+  checksum: 496f7249354ab53e522510c1dc8f67a1887382187adde4dc205507d2f014836a247073b05e9d9ea51e2e9c7f71b0d2aa21730af80efa9af2d68303e5f0565c4d
   languageName: node
   linkType: hard
 
@@ -18146,6 +18157,15 @@ colour@latest:
   peerDependencies:
     webpack: ^4.0.0 || ^5.0.0
   checksum: 5e242b236598154770447fe82bd6f2241a05f07f6035730ac8ebb5729ff92faaca3882c8ada84dfa0f7127cf076adcdbad5dd1ffa9a34a22ba6a7e4d253000c5
+  languageName: node
+  linkType: hard
+
+"file-selector@npm:^0.6.0":
+  version: 0.6.0
+  resolution: "file-selector@npm:0.6.0"
+  dependencies:
+    tslib: ^2.4.0
+  checksum: 7d051b6e5d793f3c6e2ab287ba5e7c2c6a0971bccc9d56e044c8047ba483e18f60fc0b5771c951dc707c0d15f4f36ccb4f1f1aaf385d21ec8f7700dadf8325ba
   languageName: node
   linkType: hard
 
@@ -27559,6 +27579,19 @@ optjs@latest:
   languageName: node
   linkType: hard
 
+"react-dropzone@npm:^14.2.3":
+  version: 14.2.3
+  resolution: "react-dropzone@npm:14.2.3"
+  dependencies:
+    attr-accept: ^2.2.2
+    file-selector: ^0.6.0
+    prop-types: ^15.8.1
+  peerDependencies:
+    react: ">= 16.8 || 18.0.0"
+  checksum: 174b744d5ca898cf3d84ec1aeb6cef5211c446697e45dc8ece8287a03d291f8d07253206d5a1247ef156fd385d65e7de666d4d5c2986020b8543b8f2434e8b40
+  languageName: node
+  linkType: hard
+
 "react-error-overlay@npm:^6.0.9":
   version: 6.0.9
   resolution: "react-error-overlay@npm:6.0.9"
@@ -27802,6 +27835,22 @@ optjs@latest:
   peerDependencies:
     react-native-randombytes: ">=2.0.0 <4.0.0"
   checksum: 52631bf32e5d3e0aad9329e3271808a30b91f8a072d4a0c2791105cd3c3aac5d1a63a4016a570790342baa7fc4b10f15024e4d6df47e57906197d7587af450e1
+  languageName: node
+  linkType: hard
+
+"react-native-document-picker@npm:^8.1.3":
+  version: 8.1.3
+  resolution: "react-native-document-picker@npm:8.1.3"
+  dependencies:
+    invariant: ^2.2.4
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-windows: "*"
+  peerDependenciesMeta:
+    react-native-windows:
+      optional: true
+  checksum: fe2523dd1e6fa54a374240c03b27332cc37532811fd664ee98296564fd863cc559046e6c175275e1061df71e053f04562acd144bb6043f9d63fb0df8f2615029
   languageName: node
   linkType: hard
 
@@ -33861,6 +33910,15 @@ optjs@latest:
     parse-headers: ^2.0.0
     xtend: ^4.0.0
   checksum: a1db277e37737caf3ed363d2a33ce4b4ea5b5fc190b663a6f70bc252799185b840ccaa166eaeeea4841c9c60b87741f0a24e29cbcf6708dd425986d4df186d2f
+  languageName: node
+  linkType: hard
+
+"xlsx@https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz":
+  version: 0.19.1
+  resolution: "xlsx@https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz"
+  bin:
+    xlsx: ./bin/xlsx.njs
+  checksum: a7fa1b95dfc9a6923458e19f0dcd0c64d70ce49a5959c8f38c219fd232a4fdfd48d70115dbe01b0e58e80f336ce872495dcc3d12943c4d19b041c87f8eeb69c8
   languageName: node
   linkType: hard
 
