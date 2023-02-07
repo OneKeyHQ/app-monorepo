@@ -15,7 +15,7 @@ import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 type RecomendedTokenProps = {
   name?: string;
   symbol?: string;
-  onPress: (isSelected: boolean) => void;
+  onPress: (isSelected: boolean, coingckoId: string) => void;
   icon: string;
   isSelected?: boolean;
   coingeckoId: string;
@@ -47,7 +47,7 @@ const RecommendedTokenBox: FC<RecomendedTokenProps> = ({
       alignItems="center"
       justifyContent="space-between"
       onPress={() => {
-        onPress(!isSelected);
+        onPress(!isSelected, coingeckoId);
       }}
       {...boxStyle}
     >
@@ -67,7 +67,13 @@ const RecommendedTokenBox: FC<RecomendedTokenProps> = ({
         justifyContent="center"
         mr={1}
       >
-        <CheckBox isChecked={isSelected} value={value} />
+        <CheckBox
+          isChecked={isSelected}
+          value={value}
+          onChange={() => {
+            onPress(!isSelected, coingeckoId);
+          }}
+        />
       </Box>
     </Pressable>
   );
