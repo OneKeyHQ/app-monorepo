@@ -27,7 +27,6 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   COINTYPE_BTC,
-  IMPL_DOT,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -109,7 +108,6 @@ import type {
   Account,
   DBAccount,
   DBUTXOAccount,
-  DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
@@ -903,16 +901,7 @@ class Engine {
           return (a as DBUTXOAccount).address;
         }
         if (a.type === AccountType.VARIANT) {
-          let address = (a as DBVariantAccount).addresses[networkId];
-          if (!address) {
-            const { impl } = parseNetworkId(networkId);
-            if ('pub' in a && impl === IMPL_DOT) {
-              address = await vault.addressFromBase(a.pub);
-            } else {
-              address = await vault.addressFromBase(a.address);
-            }
-          }
-          return address;
+          return vault.addressFromBase(a);
         }
         return a.address;
       }),
@@ -925,15 +914,7 @@ class Engine {
           return { address };
         }
         if (a.type === AccountType.VARIANT) {
-          let address = (a as DBVariantAccount).addresses[networkId];
-          if (!address) {
-            const { impl } = parseNetworkId(networkId);
-            if ('pub' in a && impl === IMPL_DOT) {
-              address = await vault.addressFromBase(a.pub);
-            } else {
-              address = await vault.addressFromBase(a.address);
-            }
-          }
+          const address = await vault.addressFromBase(a);
           return { address };
         }
         return { address: a.address };

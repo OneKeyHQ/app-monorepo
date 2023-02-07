@@ -75,23 +75,7 @@ export class VaultContext extends VaultContextBase {
       type === AccountType.VARIANT &&
       isAccountCompatibleWithNetwork(this.accountId, this.networkId)
     ) {
-      const { impl } = parseNetworkId(this.networkId);
-      if ('pub' in this._dbAccount && impl === IMPL_DOT) {
-        address = await this.addressFromBase(this._dbAccount.pub);
-      } else {
-        const accountAddress = ((this._dbAccount as DBVariantAccount)
-          .addresses || {})[this.networkId];
-
-        if (accountAddress) {
-          address = accountAddress;
-        } else {
-          if (typeof address === 'undefined' || address.length === 0) {
-            return this._dbAccount;
-          }
-
-          address = await this.addressFromBase(address);
-        }
-      }
+      address = await this.addressFromBase(this._dbAccount);
     }
 
     return {
@@ -108,7 +92,7 @@ export class VaultContext extends VaultContextBase {
     return (await this.getDbAccount()).address;
   }
 
-  async addressFromBase(baseAddress: string): Promise<string> {
+  async addressFromBase(account: DBAccount): Promise<string> {
     throw new NotImplemented();
   }
 

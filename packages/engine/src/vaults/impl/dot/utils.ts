@@ -35,12 +35,9 @@ export const getTransactionTypeFromTxInfo = (tx: DecodedSignedTx) => {
 };
 
 export const derivationHdLedger = (mnemonic: string, path: string) => {
-  console.log('=====>>>>> derivationHdLedger begin:');
   try {
     return hdLedger(mnemonic, path);
   } catch (e: any) {
-    console.log('=====>>>>> derivationHdLedger error:', e);
-
     const { message }: { message: string } = e;
     if (
       message ===

@@ -8,7 +8,7 @@ import {
 import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
 import BigNumber from 'bignumber.js';
-import { isNil, isObject } from 'lodash';
+import { isEmpty, isNil, isObject } from 'lodash';
 import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
@@ -32,7 +32,11 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { getDecodedTxStatus, getTxStatus } from './utils';
 
-import type { Account, DBVariantAccount } from '../../../types/account';
+import type {
+  Account,
+  DBAccount,
+  DBVariantAccount,
+} from '../../../types/account';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IDecodedTx,
@@ -543,11 +547,11 @@ export default class Vault extends VaultBase {
     return privateKey;
   }
 
-  override async addressFromBase(baseAddress: string) {
+  override async addressFromBase(account: DBAccount) {
     const { isTestnet } = await this.getNetwork();
     return encode(
       isTestnet ? CoinType.TEST : CoinType.MAIN,
-      decode(baseAddress),
+      decode(account.address),
     );
   }
 

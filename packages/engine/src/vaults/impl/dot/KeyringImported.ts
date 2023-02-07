@@ -16,7 +16,6 @@ import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { COINTYPE_DOT as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { accountIdToAddress } from './sdk/address';
 import { TYPE_PREFIX } from './Vault';
 
 import type { DotImplOptions } from './types';
@@ -35,14 +34,6 @@ export class KeyringImported extends KeyringImportedBase {
   private async getChainInfoImplOptions(): Promise<DotImplOptions> {
     const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions as DotImplOptions;
-  }
-
-  override async addressFromBase(accountId: string) {
-    const implOptions = await this.getChainInfoImplOptions();
-    return accountIdToAddress(
-      accountId,
-      implOptions?.addressPrefix ?? 0,
-    ).getValue();
   }
 
   override async getSigners(password: string, addresses: Array<string>) {

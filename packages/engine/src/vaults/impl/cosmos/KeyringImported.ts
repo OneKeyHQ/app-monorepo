@@ -12,7 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { baseAddressToAddress, pubkeyToBaseAddress } from './sdk/address';
+import { pubkeyToBaseAddress } from './sdk/address';
 import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';
 
 import type {
@@ -131,13 +131,5 @@ export class KeyringImported extends KeyringImportedBase {
       txid: '',
       rawTx: Buffer.from(rawTx).toString('base64'),
     };
-  }
-
-  override async addressFromBase(baseAddress: string) {
-    const chainInfo = await this.getChainInfo();
-    return baseAddressToAddress(
-      chainInfo.implOptions?.addressPrefix ?? 'cosmos',
-      baseAddress,
-    );
   }
 }

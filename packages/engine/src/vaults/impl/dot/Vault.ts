@@ -18,7 +18,7 @@ import {
   methods,
 } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
-import { get, groupBy } from 'lodash';
+import { get, groupBy, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -26,7 +26,10 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
-import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  DBAccount,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
 import type {
@@ -196,12 +199,20 @@ export default class Vault extends VaultBase {
     return chainInfo.implOptions as DotImplOptions;
   }
 
-  override async addressFromBase(accountId: string) {
-    const implOptions = await this.getChainInfoImplOptions();
-    return accountIdToAddress(
-      accountId,
-      implOptions.addressPrefix ?? 0,
-    ).getValue();
+  override async addressFromBase(account: DBAccount) {
+    const variantAccount = account as DBVariantAccount;
+
+    if (isEmpty(variantAccount.addresses[this.networkId]?.trim())) {
+      const implOptions = await this.getChainInfoImplOptions();
+      const address = accountIdToAddress(
+        variantAccount.pub,
+        implOptions?.addressPrefix ?? 0,
+      ).getValue();
+      variantAccount.addresses[this.networkId] = address;
+      return address;
+    }
+
+    return variantAccount.addresses[this.networkId];
   }
 
   // Chain only methods

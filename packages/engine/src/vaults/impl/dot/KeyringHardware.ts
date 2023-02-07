@@ -5,7 +5,7 @@ import { u8aConcat } from '@polkadot/util';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
-import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
 import type {
@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { accountIdToAddress } from './sdk/address';
 import { TYPE_PREFIX } from './Vault';
 
 import type { DotImplOptions } from './types';
@@ -44,17 +43,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     return chainInfo.implOptions as DotImplOptions;
   }
 
-  override async addressFromBase(accountId: string) {
-    const implOptions = await this.getChainInfoImplOptions();
-    return accountIdToAddress(
-      accountId,
-      implOptions?.addressPrefix ?? 0,
-    ).getValue();
-  }
-
   async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<DBVariantAccount>> {
     const { indexes, names } = params;
     const paths = indexes.map(
       (index) => `${HARDEN_PATH_PREFIX}/${index}'/0'/0'`,

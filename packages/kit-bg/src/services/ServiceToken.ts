@@ -18,7 +18,6 @@ import {
   fetchTools,
   getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
-import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
@@ -206,12 +205,7 @@ export default class ServiceToken extends ServiceBase {
             return { address };
           }
           if (a.type === AccountType.VARIANT) {
-            let address = (a as unknown as DBVariantAccount).addresses?.[
-              networkId
-            ];
-            if (!address) {
-              address = await vault.addressFromBase(a.address);
-            }
+            const address = await vault.addressFromBase(a);
             return { address };
           }
           return { address: a.address };
