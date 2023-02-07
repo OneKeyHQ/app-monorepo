@@ -133,7 +133,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   );
 
   return (
-    <Box style={[{ backgroundColor: bgColor }, containerStyle]}>
+    <ScrollView style={[{ backgroundColor: bgColor }, containerStyle]}>
       <Box h={headerHeight || 'auto'} style={headerContainerStyle}>
         {renderHeader?.()}
       </Box>
@@ -144,7 +144,7 @@ const Container: FC<CollapsibleContainerProps> = ({
         initialLayout={{ width: layout.width }}
         renderTabBar={renderTabBar}
       />
-    </Box>
+    </ScrollView>
   );
 };
 
