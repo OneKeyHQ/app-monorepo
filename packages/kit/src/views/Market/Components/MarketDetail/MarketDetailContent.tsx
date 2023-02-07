@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { RefreshControl } from 'react-native';
 
 import {
   Box,
@@ -10,20 +11,15 @@ import {
   ScrollView,
   useIsVerticalLayout,
   useSafeAreaInsets,
-  useUserDevice,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market';
 import { SWAP_TAB_NAME } from '@onekeyhq/kit/src/store/reducers/market';
-import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 import { MarketDetailComponent } from './MarketDetailComponent';
 import MarketPriceChart from './MarketPriceChart';
-import { MarketStatsContent } from './MarketStatsContent';
-import { RefreshControl } from 'react-native';
 
 const MarketDetailActionButton = ({
   marketTokenId,
@@ -44,7 +40,7 @@ const MarketDetailActionButton = ({
     [marketTokenItem],
   );
   return (
-    <Box flexDirection="row" alignItems="center" py="24px">
+    <Box flexDirection="row" alignItems="center" pt="24px">
       <Button
         flex={1}
         type="basic"
@@ -99,13 +95,10 @@ type MarketDetailTabsProps = {
   tokenDetail?: MarketTokenDetail;
 };
 
-const MARKET_DETAIL_TAB_HEADER_H_VERTICAL = 440;
-
 const MarketDetailContent: FC<MarketDetailTabsProps> = ({
   marketTokenId,
   tokenDetail,
 }) => {
-  const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
@@ -129,7 +122,6 @@ const MarketDetailContent: FC<MarketDetailTabsProps> = ({
         p={contentPadding}
         flexDirection="column"
         bg="background-default"
-        h={MARKET_DETAIL_TAB_HEADER_H_VERTICAL}
       >
         {isVerticalLayout ? (
           <>

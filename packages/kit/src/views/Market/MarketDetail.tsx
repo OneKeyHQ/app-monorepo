@@ -23,7 +23,7 @@ import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/types';
 import { StakingRoutes } from '../Staking/typing';
 
-import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
+import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 import { useMarketDetail } from './hooks/useMarketDetail';
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
@@ -37,7 +37,6 @@ import type {
 import type { MarketTokenItem } from '../../store/reducers/market';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 
