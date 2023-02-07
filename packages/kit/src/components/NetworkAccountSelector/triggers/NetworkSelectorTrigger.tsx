@@ -24,7 +24,7 @@ const NetworkSelectorTrigger: FC<NetworkSelectorTriggerProps> = ({
 }) => {
   const { network } = useActiveWalletAccount();
   const { openNetworkSelector } = useNavigationActions();
-  const { status: rpcStatus } = useRpcMeasureStatus(network?.id ?? '');
+  const { status: rpcStatus, loading } = useRpcMeasureStatus(network?.id ?? '');
   const activeOption = useMemo(
     () => ({
       label: network?.name,
@@ -53,7 +53,7 @@ const NetworkSelectorTrigger: FC<NetworkSelectorTriggerProps> = ({
       icon={
         <Box position="relative">
           <Token size={6} {...activeOption.tokenProps} />
-          {rpcStatus && (
+          {rpcStatus && !loading && (
             <Speedindicator
               position="absolute"
               top={-1}

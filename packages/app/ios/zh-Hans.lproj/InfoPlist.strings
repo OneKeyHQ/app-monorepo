@@ -14,3 +14,4 @@
 "NSMicrophoneUsageDescription" = "使用麦克风录制视频";
 "NSPhotoLibraryAddUsageDescription" = "使用图片库保存二维码图片";
 "NSPhotoLibraryUsageDescription" = "使用图片库读取二维码图片";
+"NSLocalNetworkUsageDescription" = "此 App 将可发现和连接到您所用网络上的设备。";

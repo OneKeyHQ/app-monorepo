@@ -63,10 +63,12 @@ export default class ServiceBootstrap extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
 
-    const { serviceOverview, serviceToken } = this.backgroundApi;
+    const { serviceOverview, serviceToken, serviceNetwork } =
+      this.backgroundApi;
 
     serviceToken.registerEvents();
     serviceOverview.registerEvents();
+    serviceNetwork.registerEvents();
   }
   // eslint-disable-next-line
   @backgroundMethod()
