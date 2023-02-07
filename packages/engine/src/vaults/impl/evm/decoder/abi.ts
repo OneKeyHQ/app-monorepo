@@ -30,6 +30,7 @@ const ERC1155 = [
 const BATCH_TRANSFER = [
   'function disperseEther(address[] recipients, uint256[] values)',
   'function disperseToken(address token, address[] recipients, uint256[] values)',
+  'function disperseTokenSimple(address token, address[] recipients, uint256[] values)',
   'function disperseNFT(address recipient, address[] tokens, uint256[] tokenIds, uint256[] amounts)',
 ];
 

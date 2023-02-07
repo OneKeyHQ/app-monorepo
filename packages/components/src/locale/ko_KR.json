@@ -391,6 +391,7 @@
   "content__default": "기본",
   "content__defi_master_desc": "당신은 비전의 현명한 사람입니다. 기다리면 항상 수확이 있습니다",
   "content__deflationary_desc": "토큰이 디플레이션이 아닌 경우 이를 무시하십시오. 대부분의 토큰은 디플레이션이 아니므로 그대로 두십시오. 토큰에 토큰 배당, 소각, 세금 등과 같은 디플레이션 기능이 있는 경우 이를 활성화하십시오. \n\n토큰 소유자이고 자동 LP 기능이 있으며 유동성 풀을 추가하지 않은 경우 먼저 자동 LP를 해제하십시오.",
+  "content__deflationary_token_transfers_are_not_supported_at_this_moment": "디플레이션 토큰에 대한 대량 전송은 현재 지원되지 않습니다.",
   "content__deposit_tokens_to_your_wallet": "지갑에 토큰 입금",
   "content__description": "설명",
   "content__details": "세부",

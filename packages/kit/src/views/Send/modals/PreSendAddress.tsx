@@ -24,6 +24,7 @@ import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { BulkSenderTypeEnum } from '../../BulkSender/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -265,6 +266,7 @@ function PreSendAddress() {
                 nftInfos,
               },
               transferCount: transferInfos.length,
+              transferType: BulkSenderTypeEnum.NFT,
               onModalClose: closeModal,
             },
           },

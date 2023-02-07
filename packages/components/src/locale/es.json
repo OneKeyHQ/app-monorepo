@@ -391,6 +391,7 @@
   "content__default": "Defecto",
   "content__defi_master_desc": "Eres el sabio de la visión. Siempre hay una cosecha cuando esperas",
   "content__deflationary_desc": "Ignore esto si su token no es deflacionario. La mayoría de los tokens no lo son, así que déjelo como está. Si su token tiene funciones deflacionarias, como dividendos de token, quema, impuestos, etc., habilite esto. \n\nSi usted es el propietario del token y hay una función de LP automático y no ha agregado un grupo de liquidez, desactive primero el LP automático.",
+  "content__deflationary_token_transfers_are_not_supported_at_this_moment": "Las transferencias masivas de tokens deflacionarios no se admiten en este momento.",
   "content__deposit_tokens_to_your_wallet": "Deposite tokens en su billetera",
   "content__description": "Descripción",
   "content__details": "Detalles",

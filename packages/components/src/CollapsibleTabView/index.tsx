@@ -28,6 +28,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   onIndexChange,
   initialTabName,
   scrollEnabled = true,
+  swipeEnabled = true,
 }) => {
   const layout = useWindowDimensions();
   const isVerticalLayout = useIsVerticalLayout();
@@ -143,6 +144,7 @@ const Container: FC<CollapsibleContainerProps> = ({
         onIndexChange={handleChange}
         initialLayout={{ width: layout.width }}
         renderTabBar={renderTabBar}
+        swipeEnabled={swipeEnabled}
       />
     </Box>
   );
