@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { Row } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -15,15 +15,15 @@ const OfflineView: FC = () => {
 
   const { networkId } = useActiveWalletAccount();
 
-  const { status } = useRpcMeasureStatus(networkId);
+  const { status, loading } = useRpcMeasureStatus(networkId);
 
   useEffect(() => {
-    if (status && typeof status?.responseTime === 'undefined') {
+    if (!loading && status && typeof status?.responseTime === 'undefined') {
       setOffline(true);
     } else {
       setOffline(false);
     }
-  }, [status]);
+  }, [status, loading]);
 
   if (!offline) {
     return null;
@@ -55,4 +55,4 @@ const OfflineView: FC = () => {
   );
 };
 
-export default OfflineView;
+export default memo(OfflineView);
