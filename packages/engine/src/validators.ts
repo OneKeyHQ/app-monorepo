@@ -583,6 +583,7 @@ class Validators {
     walletId: string,
     networkId: string,
     purpose: number,
+    template: string,
   ): Promise<void> {
     const [wallet, network] = await Promise.all([
       this.engine.getWallet(walletId),
@@ -596,7 +597,7 @@ class Validators {
       const coinType =
         (implToCoinTypes[network.impl] as string) ?? COINTYPE_BTC;
       const accountPathPrefix = `${purpose}'/${coinType}'`;
-      const nextAccountId = wallet.nextAccountIds[accountPathPrefix];
+      const nextAccountId = wallet.nextAccountIds[template];
       if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
         const lastAccountId = `${walletId}${SEPERATOR}m/${accountPathPrefix}/${
           nextAccountId - 1

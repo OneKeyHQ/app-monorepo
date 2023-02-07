@@ -280,7 +280,7 @@ const PAGE_SIZE = 10;
 const RecoverAccounts: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { password, walletId, network, purpose } = route.params;
+  const { password, walletId, network, purpose, template } = route.params;
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -412,7 +412,15 @@ const RecoverAccounts: FC = () => {
     }
 
     backgroundApiProxy.engine
-      .searchHDAccounts(walletId, network, password, start, limit, purpose)
+      .searchHDAccounts(
+        walletId,
+        network,
+        password,
+        start,
+        limit,
+        purpose,
+        template,
+      )
       .then((accounts) => {
         if (accounts.length !== limit || accounts.length !== pageSize) {
           limit = accounts.length;

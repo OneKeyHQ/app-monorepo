@@ -111,6 +111,16 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       ),
     [networks, selectableNetworks, watchNetwork],
   );
+
+  const template = useMemo(() => {
+    if (selectedNetwork && watchAddressType) {
+      return (
+        selectedNetwork.accountNameInfo[watchAddressType].template ||
+        selectedNetwork.accountNameInfo.default.template
+      );
+    }
+    return '';
+  }, [selectedNetwork, watchAddressType]);
   const [purpose, setPurpose] = useState(44);
   const [cannotCreateAccountReason, setCannotCreateAccountReason] =
     useState('');
@@ -138,7 +148,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
   useEffect(() => {
     async function setNameAndCheck() {
       if (selectedNetwork) {
-        const { prefix, template, category } =
+        const { prefix, category } =
           selectedNetwork.accountNameInfo[watchAddressType] ||
           selectedNetwork.accountNameInfo.default;
         if (typeof prefix !== 'undefined') {
@@ -152,6 +162,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               selectedWalletId,
               selectedNetwork.id,
               usedPurpose,
+              template,
             );
             setCannotCreateAccountReason('');
           } catch ({ key, info }) {
@@ -178,6 +189,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     watchAddressType,
     setValue,
     setPurpose,
+    template,
   ]);
 
   const addressTypeHelpLink = useHelpLink({ path: 'articles/360002057776' });
@@ -205,6 +217,8 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             undefined,
             [name],
             purpose,
+            false,
+            template,
           )
           .then((acc) => {
             addedAccount = acc?.[0];
@@ -226,7 +240,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       }, 10);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getValues, selectedWalletId, purpose, dispatch, intl, networks],
+    [getValues, selectedWalletId, purpose, dispatch, intl, networks, template],
   );
 
   const onSubmit = handleSubmit(() => {
@@ -325,6 +339,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                             network,
                             password,
                             purpose,
+                            template,
                           },
                         );
                       },

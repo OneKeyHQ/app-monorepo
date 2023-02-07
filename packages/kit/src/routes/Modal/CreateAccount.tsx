@@ -40,6 +40,7 @@ export type CreateAccountRoutesParams = {
     network: string;
     password: string;
     purpose: number;
+    template: string;
   };
   [CreateAccountModalRoutes.RecoverAccountsAdvanced]: RecoverAccountsAdvancedParams & {
     onApply: (options: RecoverAccountsAdvancedParams) => void;
