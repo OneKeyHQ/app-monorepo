@@ -218,6 +218,21 @@ const SearchResultList: FC<Props> = ({
     },
     [intl, onSelectCollection, selectNetwork.id],
   );
+
+  const ListEmptyComponent = useCallback(
+    () => (
+      <Empty
+        title={intl.formatMessage({
+          id: 'content__no_results',
+        })}
+        emoji="🔍"
+      />
+    ),
+    [intl],
+  );
+
+  const ItemSeparatorComponent = useCallback(() => <Box h="4px" />, []);
+
   return (
     <>
       {isLoading ? (
@@ -232,17 +247,10 @@ const SearchResultList: FC<Props> = ({
                 id: 'content__collection',
               }),
             }}
-            ListEmptyComponent={() => (
-              <Empty
-                title={intl.formatMessage({
-                  id: 'content__no_results',
-                })}
-                emoji="🔍"
-              />
-            )}
+            ListEmptyComponent={ListEmptyComponent}
             data={listData}
             renderItem={renderItem}
-            ItemSeparatorComponent={() => <Box h="4px" />}
+            ItemSeparatorComponent={ItemSeparatorComponent}
           />
         </MotiView>
       )}

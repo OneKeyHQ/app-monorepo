@@ -159,6 +159,28 @@ export const SupportTokenList: FC = () => {
     [navigation, type],
   );
 
+  const ListEmptyComponent = useCallback(
+    () => (
+      <Box>
+        <Empty
+          title={intl.formatMessage({
+            id:
+              type === 'Buy'
+                ? 'empty__no_purchasable_tokens'
+                : 'empty__no_salable_tokens',
+          })}
+          subTitle={intl.formatMessage({
+            id: 'empty__no_purchasable_tokens_desc',
+          })}
+          icon="DatabaseMini"
+        />
+      </Box>
+    ),
+    [intl, type],
+  );
+
+  const separator = useCallback(() => <Box h="8px" />, []);
+
   return (
     <Modal
       maxHeight="560px"
@@ -176,23 +198,8 @@ export const SupportTokenList: FC = () => {
         renderItem,
         showsVerticalScrollIndicator: false,
         keyExtractor: (item) => (item as CurrencyType).tokenName,
-        ItemSeparatorComponent: () => <Box h="8px" />,
-        ListEmptyComponent: () => (
-          <Box>
-            <Empty
-              title={intl.formatMessage({
-                id:
-                  type === 'Buy'
-                    ? 'empty__no_purchasable_tokens'
-                    : 'empty__no_salable_tokens',
-              })}
-              subTitle={intl.formatMessage({
-                id: 'empty__no_purchasable_tokens_desc',
-              })}
-              icon="DatabaseMini"
-            />
-          </Box>
-        ),
+        ItemSeparatorComponent: separator,
+        ListEmptyComponent,
         ListHeaderComponent: (
           <Header
             onChange={(text) => {
