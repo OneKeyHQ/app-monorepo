@@ -1,13 +1,12 @@
 import axios from 'axios';
+import memoizee from 'memoizee';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { getChainIdFromNetworkId } from '@onekeyhq/engine/src/managers/network';
 
-import { Cache } from '../../../utils/cache';
 import { BaseDotClient } from '../BaseDotClient';
 
 import type { Extrinsic, Response, Transaction } from './type';
-import type { AxiosResponse } from 'axios';
 
 interface ConnectionConfig {
   allowCache: boolean;
@@ -16,13 +15,6 @@ interface ConnectionConfig {
 const CACHE_DEFAULT_EXPIRATION_TIME = 5000; // 5s
 
 export class SubScanClient extends BaseDotClient {
-  protected readonly cache: Cache;
-
-  public constructor(cache: Cache = new Cache(CACHE_DEFAULT_EXPIRATION_TIME)) {
-    super();
-    this.cache = cache;
-  }
-
   private getBaseUrl(networkId: string) {
     const chainId = getChainIdFromNetworkId(networkId);
     return `https://${chainId}.api.subscan.io/api/scan`;
@@ -34,27 +26,42 @@ export class SubScanClient extends BaseDotClient {
     data: any,
     config: ConnectionConfig = { allowCache: true },
   ): Promise<T> {
-    const key = `${url}-${JSON.stringify(data)}`;
+    if (config.allowCache) {
+      return this.cacheRequest<T>(networkId, url, data);
+    }
+    return this.request<T>(networkId, url, data);
+  }
+
+  private async request<T>(networkId: string, url: string, data: any) {
     const baseUrl = this.getBaseUrl(networkId);
 
-    const res = await this.cache
-      .get<AxiosResponse<Response<T>>>(key)
-      .catch(() => {
-        const resPromise = axios.post<Response<T>>(`${baseUrl}/${url}`, data, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        return this.cache.save(key, resPromise, {
-          cacheValue: config.allowCache,
-        });
+    return axios
+      .post<Response<T>>(`${baseUrl}/${url}`, data, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      .then((res) => {
+        if (res.data.code === 0) {
+          return res.data.data;
+        }
+        throw new OneKeyError(`SubScanClient.postJson: ${res.data.message}`);
       });
-
-    if (res.data.code === 0) {
-      return res.data.data;
-    }
-    throw new OneKeyError(`SubScanClient.postJson: ${res.data.message}`);
   }
+
+  private cacheRequest = memoizee(
+    async <T>(networkId: string, url: string, data: any): Promise<T> =>
+      this.request<T>(networkId, url, data),
+    {
+      promise: true,
+      max: 10,
+      normalizer: (args: [networkId: string, url: string, data: any]) => {
+        const [networkId, url, data] = args;
+        return `${networkId}-${url}-${JSON.stringify(data)}`;
+      },
+      maxAge: CACHE_DEFAULT_EXPIRATION_TIME,
+    },
+  );
 
   async getTransaction(networkId: string, hash: string): Promise<Extrinsic> {
     return this.postJson<Extrinsic>(networkId, 'extrinsic', {

@@ -60,7 +60,6 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let addressesResponse;
     try {
-      // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       addressesResponse = await HardwareSDK.polkadotGetAddress(
         connectId,
@@ -115,7 +114,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
 
     const passphraseState = await this.getWalletPassphraseState();
-    // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const response = await HardwareSDK.polkadotGetAddress(connectId, deviceId, {
       path: params.path,
@@ -149,7 +147,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const passphraseState = await this.getWalletPassphraseState();
 
     const HardwareSDK = await this.getHardwareSDKInstance();
-    // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const response = await HardwareSDK.polkadotSignTransaction(
       connectId,

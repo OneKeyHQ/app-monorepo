@@ -83,6 +83,8 @@ export const TYPE_PREFIX = {
   sr25519: new Uint8Array([1]),
 };
 
+const CACHE_MAX_AGE = 1000 * 60 * 30;
+
 // @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -93,15 +95,7 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
-  cache: Record<string, any> = {};
-
   settings = settings;
-
-  rpcRuntimeVersion: RuntimeVersion | null = null;
-
-  genesisHash: BlockHash | null = null;
-
-  MetadataRpc: Metadata | null = null;
 
   getNodeClient(url: string) {
     const httpProvider = new HttpProvider(url);
@@ -123,40 +117,43 @@ export default class Vault extends VaultBase {
 
   getRPCRuntimeVersionCache = memoizee(
     async (): Promise<RuntimeVersion> => {
-      if (this.rpcRuntimeVersion) return this.rpcRuntimeVersion;
       const client = await this.getClient();
-      this.rpcRuntimeVersion = await client.rpc.state.getRuntimeVersion();
-      return this.rpcRuntimeVersion;
+      return client.rpc.state.getRuntimeVersion();
     },
     {
       promise: true,
+      primitive: true,
+      maxAge: CACHE_MAX_AGE,
       max: 1,
+      normalizer: () => `${this.networkId}`,
     },
   );
 
   getGenesisHashCache = memoizee(
     async (): Promise<BlockHash> => {
-      if (this.genesisHash) return this.genesisHash;
       const client = await this.getClient();
-      this.genesisHash = await client.rpc.chain.getBlockHash(0);
-      return this.genesisHash;
+      return client.rpc.chain.getBlockHash(0);
     },
     {
       promise: true,
+      primitive: true,
+      maxAge: CACHE_MAX_AGE,
       max: 1,
+      normalizer: () => `${this.networkId}`,
     },
   );
 
   getMetadataRpcCache = memoizee(
     async (): Promise<Metadata> => {
-      if (this.MetadataRpc) return this.MetadataRpc;
       const client = await this.getClient();
-      this.MetadataRpc = await client.rpc.state.getMetadata();
-      return this.MetadataRpc;
+      return client.rpc.state.getMetadata();
     },
     {
       promise: true,
+      primitive: true,
+      maxAge: CACHE_MAX_AGE,
       max: 1,
+      normalizer: () => `${this.networkId}`,
     },
   );
 
@@ -176,7 +173,9 @@ export default class Vault extends VaultBase {
     },
     {
       promise: true,
+      maxAge: CACHE_MAX_AGE,
       max: 1,
+      normalizer: () => `${this.networkId}`,
     },
   );
 
@@ -1022,20 +1021,10 @@ export default class Vault extends VaultBase {
   }
 
   override async getMinDepositAmount(): Promise<BigNumber.Value> {
-    const key = `${this.networkId}-existentialDeposit`;
-    if (this.cache[key]) {
-      return this.cache[key] as string;
-    }
-
     const client = await this.getClient();
     const codec = client.consts.balances.existentialDeposit;
 
     const existentialDeposit = codec.toString();
-
-    if (new BigNumber(existentialDeposit).isGreaterThanOrEqualTo('0')) {
-      this.cache[key] = existentialDeposit;
-    }
-
     return existentialDeposit;
   }
 }

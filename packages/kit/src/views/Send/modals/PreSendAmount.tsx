@@ -158,8 +158,12 @@ function PreSendAmount() {
 
     if (new BigNumber(balance).isLessThanOrEqualTo('0')) return balance;
 
+    if (!tokenInfo?.decimals) {
+      return balance;
+    }
+
     const depositAmountDisplay = formatBalanceDisplay(depositAmount, null, {
-      unit: tokenInfo?.decimals ?? 12,
+      unit: tokenInfo.decimals,
     });
 
     return new BigNumber(balance)

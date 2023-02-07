@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, uniq } from 'lodash';
+import { debounce, isEmpty, uniq } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -561,6 +561,28 @@ export default class ServiceToken extends ServiceBase {
     return [balances, autodetectedTokens];
   }
 
+  private _getMinDepositAmountWithMemo = memoizee(
+    async (accountId: string, networkId: string) => {
+      if (isEmpty(networkId) || isEmpty(accountId)) return 0;
+
+      const { engine } = this.backgroundApi;
+
+      const vault = await engine.getVault({
+        accountId,
+        networkId,
+      });
+
+      return vault.getMinDepositAmount();
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 10,
+      maxAge: 1000 * 60 * 30,
+      normalizer: ([, networkId]) => networkId,
+    },
+  );
+
   @backgroundMethod()
   async getMinDepositAmount({
     accountId,
@@ -569,14 +591,6 @@ export default class ServiceToken extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    if (!networkId || !accountId) return 0;
-
-    const { engine } = this.backgroundApi;
-
-    const vault = await engine.getVault({
-      accountId,
-      networkId,
-    });
-    return vault.getMinDepositAmount();
+    return this._getMinDepositAmountWithMemo(accountId, networkId);
   }
 }
