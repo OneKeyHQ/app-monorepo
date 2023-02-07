@@ -14,3 +14,4 @@
 "NSMicrophoneUsageDescription" = "使用麥克風錄製視頻";
 "NSPhotoLibraryAddUsageDescription" = "使用圖片庫保存二維碼圖片";
 "NSPhotoLibraryUsageDescription" = "使用圖片庫讀取二維碼圖片";
+"NSLocalNetworkUsageDescription" = "此 App 將可發現和連接到您所用網絡上的設備";

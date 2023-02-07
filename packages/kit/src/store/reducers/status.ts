@@ -2,6 +2,14 @@ import { createSlice } from '@reduxjs/toolkit';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
 
+export type IRpcStatus =
+  | {
+      latestBlock?: number;
+      responseTime?: number;
+      updatedAt?: number;
+    }
+  | undefined;
+
 type StatusState = {
   isUnlock: boolean;
   boardingCompleted: boolean;
@@ -14,6 +22,7 @@ type StatusState = {
   firstTimeShowCheckRPCNodeTooltip?: boolean;
   autoSwitchDefaultRpcAtVersion?: string;
   userSwitchedNetworkRpcFlag?: Record<string, boolean>;
+  rpcStatus?: Record<string, IRpcStatus>;
 };
 
 const initialState: StatusState = {
@@ -90,6 +99,26 @@ export const slice = createSlice({
       map[networkId] = flag;
       state.userSwitchedNetworkRpcFlag = map;
     },
+    setRpcStatus(
+      state,
+      action: PayloadAction<{ networkId: string; status: IRpcStatus }>,
+    ) {
+      const { networkId, status } = action.payload;
+      if (!state.rpcStatus) {
+        state.rpcStatus = {};
+      }
+      const current = state.rpcStatus[networkId];
+      if (
+        status?.responseTime === current?.responseTime &&
+        status?.latestBlock === current?.latestBlock
+      ) {
+        return;
+      }
+      state.rpcStatus[networkId] = {
+        ...status,
+        updatedAt: Date.now(),
+      };
+    },
   },
 });
 
@@ -107,6 +136,7 @@ export const {
   setFistTimeShowCheckRPCNodeTooltip,
   updateAutoSwitchDefaultRpcAtVersion,
   updateUserSwitchNetworkFlag,
+  setRpcStatus,
 } = slice.actions;
 
 export default slice.reducer;
