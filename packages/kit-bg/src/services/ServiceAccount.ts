@@ -52,6 +52,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOT,
   IMPL_FIL,
+  IMPL_XMR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   isHardwareWallet,
@@ -80,7 +81,13 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$setBoardingCompleted = setBoardingCompleted;
 }
 
-const REFRESH_ACCOUNT_IMPL = [IMPL_COSMOS, IMPL_FIL, IMPL_CFX, IMPL_DOT];
+const REFRESH_ACCOUNT_IMPL = [
+  IMPL_COSMOS,
+  IMPL_FIL,
+  IMPL_CFX,
+  IMPL_XMR,
+  IMPL_XMR,
+];
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {

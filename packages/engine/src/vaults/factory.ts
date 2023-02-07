@@ -18,6 +18,7 @@ import {
   IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XMR,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -48,6 +49,7 @@ import VaultHelperStc from './impl/stc/VaultHelper';
 import VaultHelperSui from './impl/sui/VaultHelper';
 import VaultHelperTbtc from './impl/tbtc/VaultHelper';
 import VaultHelperTron from './impl/tron/VaultHelper';
+import VaultHelperXmr from './impl/xmr/VaultHelper';
 import VaultHelperXrp from './impl/xrp/VaultHelper';
 
 import type { KeyringBase } from './keyring/KeyringBase';
@@ -115,6 +117,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_DOT) {
     return new VaultHelperDot(options);
+  }
+  if (impl === IMPL_XMR) {
+    return new VaultHelperXmr(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -232,6 +237,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_DOT) {
     const VaultDot = (await import('./impl/dot/Vault')).default;
     vault = new VaultDot(options);
+  }
+  if (network.impl === IMPL_XMR) {
+    const VaultXmr = (await import('./impl/xmr/Vault')).default;
+    vault = new VaultXmr(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(
