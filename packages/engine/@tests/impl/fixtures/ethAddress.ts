@@ -94,6 +94,31 @@ const fixtures: {
     ],
     error: 'Genereate ethereum address failed',
   },
+  {
+    description: 'should genereate Ethereum Classic addresses',
+    params: {
+      prepareAccountParams: {
+        password: '',
+        indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        coinType: ethAccountNameInfo.etcNative.coinType,
+        template: ethAccountNameInfo.etcNative.template,
+      },
+      mnemonic,
+    },
+    response: [
+      '0x15eb1a5DD2791dce1A71BC7964e64B9B7A617E80',
+      '0x0C6263aa6eCeA10013605D504A88c203f2771022',
+      '0xD82adAD965Fd04872cdf39C89Fe4C5F2fC16e493',
+      '0x0C1b573E1629E13FB62a59D97359bcF56BcB92d5',
+      '0x0a46Ee6061540908f9ccA8FdF11Dd83FC99c1995',
+      '0xC2e7312ADFaBF446FA56Ee397D2d8F90B9D5e997',
+      '0x9E640b127BB3B97f6443cC9DBF06aa8ec1d63E3d',
+      '0x37620151773546586642b61b1d1a09ca532E7A9C',
+      '0x55F98EfA09c82F1E4b57Ec41A5DbC28B67a55118',
+      '0x4f2577DD05146f13110d97FAD223279D857912db',
+    ],
+    error: 'Genereate ethereum address failed',
+  },
 ];
 
 export default fixtures;
