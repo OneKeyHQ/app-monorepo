@@ -44,6 +44,7 @@
     "@substrate/txwrapper-polkadot": "^5.0.0",
     "algosdk": "^1.21.0",
     "aptos": "^1.3.17",
+    "axios-retry": "^3.4.0",
     "bchaddrjs": "^0.5.2",
     "bech32": "^2.0.0",
     "bignumber.js": "^9.0.1",

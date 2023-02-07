@@ -43,7 +43,6 @@ export class SubScanClient extends BaseDotClient {
         const resPromise = axios.post<Response<T>>(`${baseUrl}/${url}`, data, {
           headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': 'a76996c6595f42f59f7b3fada31b4d5a',
           },
         });
         return this.cache.save(key, resPromise, {
