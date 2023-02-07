@@ -275,13 +275,6 @@ export const useTokenPrice = ({
     : networkId;
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
   const price = prices?.[key]?.[vsCurrency];
-  useEffect(() => {
-    backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
-      networkId,
-      tokenIds: [tokenIdOnNetwork],
-      vsCurrency,
-    });
-  }, [networkId, tokenIdOnNetwork, vsCurrency]);
   return price ?? fallback;
 };
 

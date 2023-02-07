@@ -46,8 +46,13 @@ import { stringifyTokens } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import ServiceBase from './ServiceBase';
 
@@ -56,6 +61,15 @@ export default class ServiceSwap extends ServiceBase {
   request = axios.create({ timeout: 60 * 1000 });
 
   prevParams: FetchQuoteParams | undefined;
+
+  @bindThis()
+  registerEvents() {
+    appEventBus.on(
+      AppEventBusNames.CurrencyChanged,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      this.refreshSelectedTokenPrice,
+    );
+  }
 
   getNetwork(networkId?: string): Network | undefined {
     if (!networkId) {
@@ -603,5 +617,28 @@ export default class ServiceSwap extends ServiceBase {
       activeNetworkId: networkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
     });
+  }
+
+  @bindThis()
+  async refreshSelectedTokenPrice() {
+    const { appSelector, servicePrice } = this.backgroundApi;
+    const { inputToken, inputTokenNetwork, outputToken, outputTokenNetwork } =
+      appSelector((s) => s.swap ?? {});
+    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    const inputNetworkId = inputTokenNetwork?.id ?? inputToken?.networkId ?? '';
+    const outputNetworkId =
+      outputTokenNetwork?.id ?? outputToken?.networkId ?? '';
+    if (inputNetworkId !== activeNetworkId) {
+      await servicePrice.getSimpleTokenPrice({
+        networkId: inputNetworkId,
+        tokenId: inputToken?.tokenIdOnNetwork ?? '',
+      });
+    }
+    if (outputNetworkId !== activeNetworkId) {
+      await servicePrice.getSimpleTokenPrice({
+        networkId: outputNetworkId,
+        tokenId: outputToken?.tokenIdOnNetwork ?? '',
+      });
+    }
   }
 }
