@@ -146,11 +146,18 @@ const SwapExactAmoutAllowance = () => {
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
-      mb="4"
+      h="9"
     >
-      <Typography.Body2 color="text-disabled" mr="2">
-        {intl.formatMessage({ id: 'form__approval' })}
-      </Typography.Body2>
+      <Box flexDirection="row" alignItems="center">
+        <Typography.Body2 color="text-disabled" mr="2">
+          {intl.formatMessage({ id: 'form__approval' })}
+        </Typography.Body2>
+        <SwapTooltip
+          label={intl.formatMessage({
+            id: 'form__exact_amount_allowance_desc',
+          })}
+        />
+      </Box>
       <Box
         flex="1"
         flexDirection="row"
