@@ -63,6 +63,7 @@ import {
 import {
   derivationPathTemplates,
   getDefaultPurpose,
+  getNextAccountId,
 } from './managers/derivation';
 import { getTokenRiskyItems } from './managers/goplus';
 import {
@@ -958,10 +959,7 @@ class Engine {
     if (!coinType) {
       throw new OneKeyInternalError(`coinType of impl=${impl} not found.`);
     }
-    // TODO: nextIndex should use wallet.nextAccountIds[template]
-    // const nextIndex =
-    //   wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0;
-    const nextIndex = wallet.nextAccountIds[accountNameInfo.template] || 0;
+    const nextIndex = getNextAccountId(wallet.nextAccountIds, template);
     const usedIndexes = indexes || [nextIndex];
     if (isAddInitFirstAccountOnly && nextIndex > 0) {
       throw new OneKeyInternalError(
@@ -1100,7 +1098,7 @@ class Engine {
       const components = dbAccount.path.split('/');
       const index = parseInt(components[3].slice(0, -1)); // remove the "'" suffix
       const template = dbAccount.template ?? '';
-      if (wallet.nextAccountIds[template] === index + 1) {
+      if (getNextAccountId(wallet.nextAccountIds, template) === index + 1) {
         // Removing the last account, may need to roll back next account id.
         rollbackNextAccountIds = { [template]: index };
         try {

@@ -30,7 +30,7 @@ import {
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
-import { getNextAccountIds } from '../../managers/derivation';
+import { getNextAccountIdsWithAccountDerivation } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
@@ -867,7 +867,7 @@ class RealmDB implements DBAPI {
             console.log('accountDerivation: ', accountDerivation);
             let nextId = wallet.nextAccountIds![template] || 0;
             console.log('nextId before: ', nextId);
-            nextId = getNextAccountIds(
+            nextId = getNextAccountIdsWithAccountDerivation(
               accountDerivation?.internalObj ?? ({} as DBAccountDerivation),
               nextId,
             );

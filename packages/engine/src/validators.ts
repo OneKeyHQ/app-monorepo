@@ -20,6 +20,7 @@ import {
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
+import { getNextAccountId } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import { UserInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
@@ -597,7 +598,7 @@ class Validators {
       const coinType =
         (implToCoinTypes[network.impl] as string) ?? COINTYPE_BTC;
       const accountPathPrefix = `${purpose}'/${coinType}'`;
-      const nextAccountId = wallet.nextAccountIds[template];
+      const nextAccountId = getNextAccountId(wallet.nextAccountIds, template);
       if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
         const lastAccountId = `${walletId}${SEPERATOR}m/${accountPathPrefix}/${
           nextAccountId - 1

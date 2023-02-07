@@ -27,7 +27,10 @@ import {
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
-import { getNextAccountIds } from '../../managers/derivation';
+import {
+  getNextAccountIds,
+  getNextAccountIdsWithAccountDerivation,
+} from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
@@ -1684,7 +1687,10 @@ class IndexedDBApi implements DBAPI {
                   accountDerivationStore,
                 );
                 let nextId = wallet.nextAccountIds[template] || 0;
-                nextId = getNextAccountIds(accountDerivation, nextId);
+                nextId = getNextAccountIdsWithAccountDerivation(
+                  accountDerivation,
+                  nextId,
+                );
                 wallet.nextAccountIds[template] = nextId;
 
                 break;

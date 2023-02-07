@@ -16,6 +16,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
@@ -152,7 +153,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           selectedNetwork.accountNameInfo[watchAddressType] ||
           selectedNetwork.accountNameInfo.default;
         if (typeof prefix !== 'undefined') {
-          const id: number = wallet?.nextAccountIds?.[template] || 0;
+          const id: number = getNextAccountId(wallet?.nextAccountIds, template);
           setValue('name', `${prefix} #${id + 1}`);
           const usedPurpose = parseInt(category.split("'/")[0]);
           setPurpose(usedPurpose);

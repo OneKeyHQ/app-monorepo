@@ -132,7 +132,7 @@ function slicePathTemplate(template: string) {
   };
 }
 
-function getNextAccountIds(
+function getNextAccountIdsWithAccountDerivation(
   accountDerivation: DBAccountDerivation,
   index: number,
 ) {
@@ -153,10 +153,21 @@ function getNextAccountIds(
   return nextId;
 }
 
+function getNextAccountId(
+  nextAccountIds: Record<string, number> | undefined,
+  template?: string,
+) {
+  if (!nextAccountIds || !template) {
+    return 0;
+  }
+  return nextAccountIds?.[template] ?? 0;
+}
+
 export {
   getPath,
   getDefaultPurpose,
   derivationPathTemplates,
   slicePathTemplate,
-  getNextAccountIds,
+  getNextAccountId,
+  getNextAccountIdsWithAccountDerivation,
 };
