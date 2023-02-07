@@ -17,12 +17,12 @@ import { useAppSelector, useNavigation } from '../../hooks';
 import SwapChart from '../PriceChart/SwapChart';
 
 import SwapAlert from './SwapAlert';
+import SwapBanner from './SwapBanner';
 import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
 import { SwapHeaderButtons } from './SwapHeader';
 import SwapObserver from './SwapObserver';
 import SwapQuote from './SwapQuote';
-import SwapTexts from './SwapTexts';
 import SwapUpdater from './SwapUpdater';
 
 const DesktopHeader = () => {
@@ -100,7 +100,10 @@ const DesktopMain = () => (
         <Box px="4">
           <SwapAlert />
         </Box>
-        <Box my="6" px="4">
+        <Center py="3">
+          <SwapBanner />
+        </Center>
+        <Box mb="6" px="4">
           <SwapButton />
         </Box>
         <SwapQuote />
@@ -108,7 +111,6 @@ const DesktopMain = () => (
     </Center>
     <SwapUpdater />
     <SwapObserver />
-    <SwapTexts />
   </Box>
 );
 
