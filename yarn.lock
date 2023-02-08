@@ -4536,9 +4536,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mysten/sui.js@npm:0.26.0":
-  version: 0.26.0
-  resolution: "@mysten/sui.js@npm:0.26.0"
+"@mysten/sui.js@npm:0.20.0":
+  version: 0.20.0
+  resolution: "@mysten/sui.js@npm:0.20.0"
+  dependencies:
+    "@mysten/bcs": 0.5.0
+    "@noble/hashes": ^1.1.2
+    "@noble/secp256k1": ^1.6.3
+    "@scure/bip32": ^1.1.0
+    "@scure/bip39": ^1.1.0
+    "@suchipi/femver": ^1.0.0
+    bs58: ^5.0.0
+    cross-fetch: ^3.1.5
+    jayson: ^3.6.6
+    js-sha3: ^0.8.0
+    lossless-json: ^1.0.5
+    rpc-websockets: ^7.5.0
+    tweetnacl: ^1.0.3
+  checksum: dcb491c0ed4b3ac6016c0e46b3b274d8e74e1ddc51d00f67453114e3d41a092999024b4b23f6b74bb8983332aa5fd67fc2b1653ce4dbbf183f749b4aed5b470a
+  languageName: node
+  linkType: hard
+
+"@mysten/sui.js@npm:0.26.1":
+  version: 0.26.1
+  resolution: "@mysten/sui.js@npm:0.26.1"
   dependencies:
     "@mysten/bcs": 0.5.0
     "@noble/hashes": ^1.1.5
@@ -4553,17 +4574,17 @@ __metadata:
     rpc-websockets: ^7.5.0
     superstruct: ^1.0.3
     tweetnacl: ^1.0.3
-  checksum: fe3e1e1b9ede0243b9279520c2be5ccd91851649a4a0c4e65cb77ee3f29dbc8effee1ebe24d6fcaa656d66972d28c565b16aeb8e5c3f9d5585d49b326047268b
+  checksum: be4d26f0f8f44740bdcfa21fd2c498f85ee4b84024dfbb0af537b4401e56c053a2a9c45d82c31df5754ea333b921cb8ece09e574b295ac15a0a5072deaec2fc9
   languageName: node
   linkType: hard
 
-"@mysten/wallet-standard@npm:0.3.0":
-  version: 0.3.0
-  resolution: "@mysten/wallet-standard@npm:0.3.0"
+"@mysten/wallet-standard@npm:^0.3.0":
+  version: 0.3.1
+  resolution: "@mysten/wallet-standard@npm:0.3.1"
   dependencies:
-    "@mysten/sui.js": 0.26.0
+    "@mysten/sui.js": 0.26.1
     "@wallet-standard/core": 1.0.1
-  checksum: 47ed65d02b382e0f732d7120b18c4468b87fbfa1dff31317082e5cbdec1502db2eeb41e590baca3bcd6ceca76faa853b1657a17e7b51985bc4012e5138c210d9
+  checksum: daae878e228695fb37ab7b4a064aedfd13ddaf115e36050db007aec04b74cda75b8ec4e23f2d7a12c00999a1b647c9e281adad4ecc16cac5e550f68eadd18710
   languageName: node
   linkType: hard
 
@@ -4674,7 +4695,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.7.0, @noble/secp256k1@npm:~1.7.0":
+"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.6.3, @noble/secp256k1@npm:^1.7.0, @noble/secp256k1@npm:~1.7.0":
   version: 1.7.1
   resolution: "@noble/secp256k1@npm:1.7.1"
   checksum: d2301f1f7690368d8409a3152450458f27e54df47e3f917292de3de82c298770890c2de7c967d237eff9c95b70af485389a9695f73eb05a43e2bd562d18b18cb
@@ -5625,7 +5646,7 @@ __metadata:
     "@glif/filecoin-message": ^2.0.27
     "@glif/filecoin-rpc-client": ^2.0.8
     "@metamask/eth-sig-util": ^4.0.1
-    "@mysten/sui.js": 0.26.0
+    "@mysten/sui.js": 0.20.0
     "@noble/hashes": 1.1.2
     "@polkadot/extension-inject": 0.44.8
     "@solana/spl-token": ^0.3.0
@@ -7893,7 +7914,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/bip32@npm:^1.1.1":
+"@scure/bip32@npm:^1.1.0, @scure/bip32@npm:^1.1.1":
   version: 1.1.5
   resolution: "@scure/bip32@npm:1.1.5"
   dependencies:
@@ -21217,7 +21238,7 @@ colour@latest:
   languageName: node
   linkType: hard
 
-"jayson@npm:^3.4.4":
+"jayson@npm:^3.4.4, jayson@npm:^3.6.6":
   version: 3.7.0
   resolution: "jayson@npm:3.7.0"
   dependencies:
@@ -23203,6 +23224,13 @@ colour@latest:
   bin:
     loose-envify: cli.js
   checksum: 6517e24e0cad87ec9888f500c5b5947032cdfe6ef65e1c1936a0c48a524b81e65542c9c3edc91c97d5bddc806ee2a985dbc79be89215d613b1de5db6d1cfe6f4
+  languageName: node
+  linkType: hard
+
+"lossless-json@npm:^1.0.5":
+  version: 1.0.5
+  resolution: "lossless-json@npm:1.0.5"
+  checksum: c26a231aaaa334dda42ef74ccf01a8558d15de815fd72fd3e47c549da11e3f47ae8f57c5ea26a298473844f889d1645a8b7835d507db430887dd598e9b0a6648
   languageName: node
   linkType: hard
 
