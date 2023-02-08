@@ -155,7 +155,7 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_ETH}'/0'/0/x`,
       coinType: COINTYPE_ETH,
       label: 'BIP44 Standard',
-      desc: `OneKey, Metamask, Ledger Live m/44'/60'/0'/0/*`,
+      desc: `OneKey, Metamask, Ledger Live`,
       recommended: true,
     },
     etcNative: {
@@ -164,8 +164,6 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_ETC}'/0'/0/x`,
       coinType: COINTYPE_ETC,
       label: `BIP44 Standard (CoinType 61')`,
-      desc: `m/44'/61'/0'/0/*`,
-      recommended: true,
     },
     ledgerLive: {
       prefix: 'Ledger Live',
@@ -173,7 +171,6 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_ETH}'/x'/0/0`,
       coinType: COINTYPE_ETH,
       label: 'Ledger Live',
-      desc: `m/44'/60'/*'/0/0`,
     },
     ledgerLegacy: {
       prefix: 'Ledger Legacy',
@@ -181,7 +178,7 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_ETH}'/0'/x`,
       coinType: COINTYPE_ETH,
       label: 'Ledger Legacy',
-      desc: `Ledger ETH Wallet, MEW, MyCrypto m/44'/60'/0'/*`,
+      desc: `Ledger ETH Wallet, MEW, MyCrypto`,
     },
   },
   [IMPL_SOL]: {
@@ -191,7 +188,7 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_SOL}'/x'/0'`,
       coinType: COINTYPE_SOL,
       label: 'BIP44 Standard',
-      desc: 'OneKey, Phantom, Sollet',
+      desc: 'OneKey, Phantom,Sollet',
       recommended: true,
     },
     ledgerLive: {
@@ -245,15 +242,6 @@ const defaultAccountNameInfo: Record<
       desc: 'Start with “3”. Medium transaction transfer fee.',
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
-    BIP44: {
-      prefix: 'BTC Legacy',
-      category: `44'/${COINTYPE_BTC}'`,
-      template: `m/44'/${COINTYPE_BTC}'/x'/0/0`,
-      coinType: COINTYPE_BTC,
-      label: 'Legacy',
-      desc: 'Start with “1”. High transaction fee.',
-      subDesc: 'BIP44, P2PKH, Base58.',
-    },
     BIP84: {
       prefix: 'BTC Native SegWit',
       category: `84'/${COINTYPE_BTC}'`,
@@ -262,6 +250,16 @@ const defaultAccountNameInfo: Record<
       label: 'Native SegWit',
       desc: 'Start with with “bc1”. Low transaction fee.',
       subDesc: 'BIP84, P2WPKH, Bech32. ',
+    },
+    BIP44: {
+      prefix: 'BTC Legacy',
+      category: `44'/${COINTYPE_BTC}'`,
+      template: `m/44'/${COINTYPE_BTC}'/x'/0/0`,
+      coinType: COINTYPE_BTC,
+      label: 'Legacy',
+      desc: 'Start with “1”. High transaction fee.',
+      subDesc: 'BIP44, P2PKH, Base58.',
+      notRecommended: true,
     },
   },
   [IMPL_TBTC]: {
@@ -328,15 +326,6 @@ const defaultAccountNameInfo: Record<
       desc: 'Start with “M”. Medium transaction transfer fee.',
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
-    BIP44: {
-      prefix: 'LTC Legacy',
-      category: `44'/${COINTYPE_LTC}'`,
-      template: `m/44'/${COINTYPE_LTC}'/x'/0/0`,
-      coinType: COINTYPE_LTC,
-      label: 'Legacy',
-      desc: 'Start with “L”. High transaction fee.',
-      subDesc: 'BIP44, P2PKH, Base58.',
-    },
     BIP84: {
       prefix: 'LTC Native SegWit',
       category: `84'/${COINTYPE_LTC}'`,
@@ -345,6 +334,16 @@ const defaultAccountNameInfo: Record<
       label: 'Native SegWit',
       desc: 'Start with with “ltc1”. Low transaction fee.',
       subDesc: 'BIP84, P2WPKH, Bech32. ',
+    },
+    BIP44: {
+      prefix: 'LTC Legacy',
+      category: `44'/${COINTYPE_LTC}'`,
+      template: `m/44'/${COINTYPE_LTC}'/x'/0/0`,
+      coinType: COINTYPE_LTC,
+      label: 'Legacy',
+      desc: 'Start with “L”. High transaction fee.',
+      subDesc: 'BIP44, P2PKH, Base58.',
+      notRecommended: true,
     },
   },
   [IMPL_BCH]: {

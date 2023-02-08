@@ -57,37 +57,44 @@ export function useCreateAccountInWallet({
     }
 
     let isCreateAccountSupported = false;
+    let showCreateAccountMenu = false;
     if (network?.id) {
       if (
         activeWallet?.type === 'external' &&
         vaultSettings?.externalAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = false;
       }
       if (
         activeWallet?.type === 'imported' &&
         vaultSettings?.importedAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = false;
       }
       if (
         activeWallet?.type === 'watching' &&
         vaultSettings?.watchingAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = false;
       }
       if (
         activeWallet?.type === 'hw' &&
         vaultSettings?.hardwareAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = true;
       }
       if (activeWallet?.type === 'hd') {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = true;
       }
     } else {
       // AllNetwork
       isCreateAccountSupported = true;
+      showCreateAccountMenu = false;
     }
 
     return {
@@ -96,6 +103,7 @@ export function useCreateAccountInWallet({
       activeWallet,
       vaultSettings,
       isCreateAccountSupported,
+      showCreateAccountMenu,
     };
   }, [networkId, walletId]);
 
@@ -180,5 +188,6 @@ export function useCreateAccountInWallet({
   return {
     createAccount,
     isCreateAccountSupported: walletAndNetworkInfo?.isCreateAccountSupported,
+    showCreateAccountMenu: walletAndNetworkInfo?.showCreateAccountMenu,
   };
 }

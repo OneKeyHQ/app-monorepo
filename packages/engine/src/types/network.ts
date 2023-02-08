@@ -46,6 +46,7 @@ type AccountNameInfo = {
   desc?: string;
   subDesc?: string;
   recommended?: boolean;
+  notRecommended?: boolean;
 };
 
 type BlockExplorer = {
