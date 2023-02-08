@@ -1632,7 +1632,7 @@ class RealmDB implements DBAPI {
    * @param address
    * @throws {OneKeyInternalError, NotImplemented}
    */
-  addAccountAddress(
+  updateAccountAddresses(
     accountId: string,
     networkId: string,
     address: string,
@@ -1648,11 +1648,6 @@ class RealmDB implements DBAPI {
         );
       }
       switch (account.type) {
-        case AccountType.SIMPLE:
-          this.realm!.write(() => {
-            account.address = address;
-          });
-          break;
         case AccountType.VARIANT:
           this.realm!.write(() => {
             account.addresses![networkId] = address;

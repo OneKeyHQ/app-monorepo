@@ -1931,7 +1931,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  addAccountAddress(
+  updateAccountAddresses(
     accountId: string,
     networkId: string,
     address: string,
@@ -1952,9 +1952,6 @@ class IndexedDBApi implements DBAPI {
               return;
             }
             switch (account.type) {
-              case AccountType.SIMPLE:
-                account.address = address;
-                break;
               case AccountType.VARIANT:
                 if (
                   typeof (account as DBVariantAccount).addresses === 'undefined'
