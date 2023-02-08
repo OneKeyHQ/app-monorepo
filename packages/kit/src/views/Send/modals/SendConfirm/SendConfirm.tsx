@@ -6,7 +6,10 @@ import type {
 } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { IMPL_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_COSMOS,
+  IMPL_DOT,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
@@ -151,10 +154,8 @@ function SendConfirm({
           activeNetworkId: networkId,
         });
         if (routeParams.signOnly) {
-          if (
-            networkImpl === IMPL_COSMOS
-            // get(tx, 'encodedTx.mode') === 'amino'
-          ) {
+          // TODO Unified return to tx related processes to handle their own
+          if (networkImpl === IMPL_COSMOS || networkImpl === IMPL_DOT) {
             await dappApprove.resolve({ result: tx });
           } else {
             await dappApprove.resolve({ result: tx.rawTx });

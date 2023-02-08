@@ -622,4 +622,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       'hex',
     );
   }
+
+  async getMinDepositAmount(): Promise<BigNumber.Value> {
+    return '0';
+  }
 }

@@ -12,7 +12,7 @@ import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { stripHexPrefix } from '../../utils/hexUtils';
 
-import { baseAddressToAddress, pubkeyToBaseAddress } from './sdk/address';
+import { pubkeyToBaseAddress } from './sdk/address';
 import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';
 
 import type {
@@ -192,13 +192,5 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     throw convertDeviceError(response.payload);
-  }
-
-  override async addressFromBase(baseAddress: string) {
-    const chainInfo = await this.getChainInfo();
-    return baseAddressToAddress(
-      chainInfo.implOptions?.addressPrefix ?? 'cosmos',
-      baseAddress,
-    );
   }
 }

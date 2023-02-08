@@ -2,7 +2,7 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { getTime } from 'date-fns';
-import { get } from 'lodash';
+import { get, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -13,7 +13,10 @@ import {
 } from '@onekeyhq/engine/src/errors';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  DBAccount,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -1105,11 +1108,16 @@ export default class Vault extends VaultBase {
     );
   }
 
-  override async addressFromBase(baseAddress: string) {
-    const chainInfo = await this.getChainInfo();
-    return baseAddressToAddress(
-      chainInfo.implOptions?.addressPrefix ?? 'cosmos',
-      baseAddress,
-    );
+  override async addressFromBase(account: DBAccount) {
+    const variantAccount = account as DBVariantAccount;
+
+    if (isEmpty(variantAccount.addresses[this.networkId]?.trim())) {
+      const chainInfo = await this.getChainInfo();
+      return baseAddressToAddress(
+        chainInfo.implOptions?.addressPrefix ?? 'cosmos',
+        variantAccount.address,
+      );
+    }
+    return variantAccount.addresses[this.networkId];
   }
 }
