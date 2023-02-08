@@ -62,6 +62,7 @@
   "action__close": "يغلق",
   "action__close_all": "أغلق الكل",
   "action__close_all_tabs": "إغلاق كافة علامات التبويب",
+  "action__collapse": "ينهار",
   "action__collect_to_touch": "اجمع للمس",
   "action__confirm": "يتأكد",
   "action__connect": "الاتصال",
@@ -116,6 +117,7 @@
   "action__enter_amount": "أدخل المبلغ",
   "action__erase_data": "محو البيانات",
   "action__erase_str_data": "محو بيانات {0}",
+  "action__expand": "يوسع",
   "action__export": "يصدّر",
   "action__export_private_key": "تصدير المفتاح الخاص",
   "action__fill_in": "أملأ",
@@ -256,6 +258,7 @@
   "action__view_device_details": "تفاصيل الجهاز",
   "action__view_in_browser": "عرض في المستعرض",
   "action__view_in_explorer": "عرض في المستكشف",
+  "action__view_in_str": "عرض في {0}",
   "action__view_on_somewhere": "عرض على {where}",
   "action__view_recovery_phrase": "عرض عبارة الاسترداد",
   "action__view_recovery_seed": "مشاهدة عبارة الاسترداد",
@@ -355,6 +358,7 @@
   "content__bluetooth_firmware_version": "إصدار البرنامج الثابت للبلوتوث",
   "content__bluetooth_name": "اسم البلوتوث",
   "content__btc_dominance": "هيمنة BTC",
+  "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "بإرسال هذا الطلب ، فإنك تؤكد على مبادلة مدعومة بواسطة {0} api.",
   "content__calculate_fee": "لا توجد رسوم متاحة.",
   "content__categories": "فئات",
   "content__chain_is_not_matched": "السلسلة غير متطابقة",
@@ -1616,6 +1620,8 @@
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
   "msg__mismatched_networks": "شبكات غير متطابقة.",
+  "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "يتطلب تعديل الحد المصرح به لـ USDT إعادة تعيينه إلى الصفر أولاً ، لذلك يمكن بدء عمليتي تفويض.",
+  "msg__need_to_send_str_transactions_to_change_allowance": "تحتاج إلى إرسال {0} معاملات لتغيير البدل",
   "msg__network_added": "تمت إضافة الشبكة",
   "msg__network_removed": "إزالة الشبكة!",
   "msg__network_request_failed": "فشل طلب الشبكة",
