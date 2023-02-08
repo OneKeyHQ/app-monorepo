@@ -26,6 +26,7 @@ interface BottomSheetModalProps {
   headerRight?: HeaderProps['rightContent'];
   modalLizeProps?: ModalizeProps;
   showCloseButton?: boolean;
+  showHeader?: boolean;
 }
 
 const isFlatStyle = !platformEnv.isNativeIOS;
@@ -38,6 +39,7 @@ const Mobile: FC<BottomSheetModalProps> = ({
   headerDescription,
   headerRight,
   showCloseButton = true,
+  showHeader = true,
 }) => {
   const modalizeRef = useRef<Modalize>(null);
 
@@ -63,14 +65,17 @@ const Mobile: FC<BottomSheetModalProps> = ({
       {...modalLizeProps}
     >
       <Box pb={`${bottom}px`}>
-        <Header
-          header={title}
-          headerDescription={headerDescription}
-          hideBackButton
-          onPressCloseButton={closeOverlay}
-          closeable={showCloseButton}
-          rightContent={headerRight}
-        />
+        {showHeader && (
+          <Header
+            header={title}
+            headerDescription={headerDescription}
+            hideBackButton
+            onPressCloseButton={closeOverlay}
+            closeable={showCloseButton}
+            rightContent={headerRight}
+          />
+        )}
+
         <Box p={4}>{children}</Box>
       </Box>
     </Modalize>
@@ -83,6 +88,7 @@ const Desktop: FC<BottomSheetModalProps> = ({
   title,
   headerRight,
   showCloseButton = true,
+  showHeader = true,
 }) => (
   <Center position="absolute" w="full" h="full" zIndex={999}>
     <CloseBackDrop
@@ -97,13 +103,15 @@ const Desktop: FC<BottomSheetModalProps> = ({
       borderWidth="1px"
       borderColor="border-subdued"
     >
-      <Header
-        header={title}
-        hideBackButton
-        onPressCloseButton={closeOverlay}
-        closeable={showCloseButton}
-        rightContent={headerRight}
-      />
+      {showHeader && (
+        <Header
+          header={title}
+          hideBackButton
+          onPressCloseButton={closeOverlay}
+          closeable={showCloseButton}
+          rightContent={headerRight}
+        />
+      )}
       <Box p={6}>{children}</Box>
     </Box>
   </Center>

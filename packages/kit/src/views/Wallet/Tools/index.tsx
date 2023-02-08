@@ -20,6 +20,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import bg1 from '@onekeyhq/kit/assets/annual/tools_icon.jpg';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type {
@@ -71,12 +72,22 @@ const data: DataItem[] = [
     description: 'title__token_approvals_desc',
   },
   {
-    key: 'explorer',
+    key: 'bulkSender',
     icon: {
-      name: 'GlobeAltSolid',
+      name: 'BulkSenderMini',
       color: 'decorative-icon-two',
     },
     iconBg: 'decorative-surface-two',
+    title: 'title__bulksender',
+    description: 'title__bulksender_desc',
+  },
+  {
+    key: 'explorer',
+    icon: {
+      name: 'GlobeAltSolid',
+      color: 'decorative-icon-three',
+    },
+    iconBg: 'decorative-surface-three',
     title: 'title__blockchain_explorer',
     description: 'title__blockchain_explorer_desc',
   },
@@ -110,6 +121,8 @@ const ToolsPage: FC = () => {
   const annualReportEntryEnabled = useAppSelector(
     (s) => s.settings?.annualReportEntryEnabled ?? false,
   );
+
+  const enableDevMode = useAppSelector((s) => s.settings?.devMode?.enable);
   const tools = useTools(network?.id);
 
   const responsivePadding = useMemo(() => {
@@ -133,6 +146,24 @@ const ToolsPage: FC = () => {
     ) {
       allItems = allItems.filter((n) => n.key !== 'annual');
     }
+
+    if (
+      !network?.settings.supportBatchTransfer ||
+      (network.impl === IMPL_EVM &&
+        !batchTransferContractAddress[network.id]) ||
+      !enableDevMode
+    ) {
+      allItems = allItems.filter((n) => n.key !== 'bulkSender');
+    }
+
+    if (
+      (network?.impl === IMPL_EVM &&
+        !batchTransferContractAddress[network?.id]) ||
+      !enableDevMode
+    ) {
+      allItems = allItems.filter((n) => n.key !== 'bulkSender');
+    }
+
     return allItems.concat(
       tools.map((t) => ({
         key: t.title,
@@ -162,6 +193,8 @@ const ToolsPage: FC = () => {
         );
       } else if (key === 'pnl') {
         navigation.navigate(HomeRoutes.NFTPNLScreen);
+      } else if (key === 'bulkSender') {
+        navigation.navigate(HomeRoutes.BulkSender);
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {

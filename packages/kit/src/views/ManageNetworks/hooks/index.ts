@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-
-import { useIsFocused } from '@react-navigation/core';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../../hooks/useNetwork';
+import { useAppSelector } from '../../../hooks';
 import { getTimeDurationMs } from '../../../utils/helper';
 
 export const RpcSpeed = {
@@ -104,42 +102,33 @@ export const useRPCUrls = (networkId?: string) => {
   };
 };
 
-// TODO debounce and cache, multiple setInterval created
-export const useRpcMeasureStatus = (networkId: string) => {
-  const [loading, setLoading] = useState(false);
-  const { network } = useNetwork({ networkId });
-  const [status, setStatus] = useState<MeasureResult>();
-  const isFocused = useIsFocused();
+export const useRpcMeasureStatus = (networkId?: string) => {
+  const activeNetworkId = useAppSelector((s) => s.general.activeNetworkId);
+  const status = useAppSelector(
+    (s) => s.status.rpcStatus?.[networkId ?? activeNetworkId ?? ''],
+  );
 
-  const refresh = useCallback(() => {
-    setLoading(true);
-    measureRpc(network?.id ?? '', network?.rpcURL ?? '')
-      .then((newStatus) => {
-        if (isFocused) setStatus(newStatus);
-      })
-      .finally(() => {
-        if (isFocused) setLoading(false);
-      });
-  }, [network, isFocused]);
+  return useMemo(() => {
+    const isOutofDated =
+      Date.now() - (status?.updatedAt ?? 0) > getTimeDurationMs({ minute: 2 });
 
-  useEffect(() => {
-    const timer = setTimeout(() => refresh(), 600);
-    const interval = setInterval(() => {
-      refresh();
-    }, getTimeDurationMs({ minute: 1 }));
-    if (!isFocused) {
-      clearInterval(interval);
-      clearTimeout(timer);
+    if (!status || isOutofDated) {
+      return {
+        status: {
+          latestBlock: undefined,
+          responseTime: undefined,
+          ...RpcSpeed.Unavailable,
+        },
+        loading: true,
+      };
     }
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timer);
-    };
-  }, [refresh, isFocused]);
 
-  return {
-    loading,
-    status,
-    refresh,
-  };
+    return {
+      status: {
+        ...status,
+        ...getRpcStatusByResponseTime(status.responseTime),
+      },
+      loading: !status,
+    };
+  }, [status]);
 };

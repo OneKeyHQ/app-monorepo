@@ -272,7 +272,7 @@ export const SwapHeaderButtons = () => {
         <RefreshButton />
         <Box
           position="absolute"
-          display={error === SwapError.QuoteFailed ? 'block' : 'none'}
+          display={error === SwapError.QuoteFailed ? 'flex' : 'none'}
           bottom="1"
           right="1"
           pointerEvents="none"

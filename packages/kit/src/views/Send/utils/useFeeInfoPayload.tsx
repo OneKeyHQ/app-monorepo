@@ -23,13 +23,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 
+import { useFeePresetIndex } from './useFeePresetIndex';
+
 export const FEE_INFO_POLLING_INTERVAL = 5000;
 // export const FEE_INFO_POLLING_INTERVAL = platformEnv.isDev ? 60 * 1000 : 5000;
-
-function useFeePresetIndex(networkId: string) {
-  const feePresetIndexMap = useAppSelector((s) => s.data.feePresetIndexMap);
-  return feePresetIndexMap?.[networkId];
-}
 
 export function useFeeInfoPayload({
   encodedTx,

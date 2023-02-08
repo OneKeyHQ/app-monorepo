@@ -21,6 +21,7 @@ import {
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import {
   AptosMessageTypes,
+  CommonMessageTypes,
   ETHMessageTypes,
 } from '@onekeyhq/engine/src/types/message';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -37,7 +38,9 @@ type TypedDataV1 = {
   value: string;
 };
 
-const getSignTypeString = (signType: ETHMessageTypes | AptosMessageTypes) => {
+const getSignTypeString = (
+  signType: ETHMessageTypes | AptosMessageTypes | CommonMessageTypes,
+) => {
   const signTypeMap = {
     [ETHMessageTypes.ETH_SIGN]: 'eth_sign',
     [ETHMessageTypes.PERSONAL_SIGN]: 'personal_sign',
@@ -45,6 +48,7 @@ const getSignTypeString = (signType: ETHMessageTypes | AptosMessageTypes) => {
     [ETHMessageTypes.TYPED_DATA_V3]: 'signTypedData_v3',
     [ETHMessageTypes.TYPED_DATA_V4]: 'signTypedData_v4',
     [AptosMessageTypes.SIGN_MESSAGE]: 'signMessage',
+    [CommonMessageTypes.SIGN_MESSAGE]: 'signMessage',
   } as const;
   return signTypeMap[signType];
 };
@@ -118,6 +122,17 @@ const renderMessageCard = (unsignedMessage: IUnsignedMessageEvm) => {
     return renderCard(personalSignMsg);
   }
 
+  if (type === CommonMessageTypes.SIGN_MESSAGE) {
+    let personalSignMsg = message;
+    try {
+      const buffer = ethUtils.toBuffer(message);
+      personalSignMsg = buffer.toString('utf-8');
+    } catch (error) {
+      console.error(error);
+    }
+    return renderCard(personalSignMsg);
+  }
+
   let messageObject = JSON.parse(message) ?? {};
   messageObject = messageObject.message ?? messageObject;
 
@@ -155,6 +170,10 @@ const renderDataCard = (unsignedMessage: IUnsignedMessageEvm) => {
       console.error(error);
     }
     return renderCard(fullMessage);
+  }
+
+  if (type === CommonMessageTypes.SIGN_MESSAGE) {
+    return renderCard(message);
   }
 
   let formattedJson = '';
@@ -329,6 +348,9 @@ const SignDetail: FC<{
   ) : (
     <VStack>
       {header}
+      {type === CommonMessageTypes.SIGN_MESSAGE && !unsignedMessage.secure ? (
+        <>{warning}</>
+      ) : null}
       {renderTabBar()}
       {curTab === 'message' ? (
         <VStack>

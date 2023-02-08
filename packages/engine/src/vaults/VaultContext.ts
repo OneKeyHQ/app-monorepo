@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_DOT, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NotImplemented } from '../errors';
@@ -7,6 +7,7 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from '../managers/account';
+import { parseNetworkId } from '../managers/network';
 import { AccountType } from '../types/account';
 
 import type { Engine } from '../index';
@@ -74,18 +75,7 @@ export class VaultContext extends VaultContextBase {
       type === AccountType.VARIANT &&
       isAccountCompatibleWithNetwork(this.accountId, this.networkId)
     ) {
-      const accountAddress = ((this._dbAccount as DBVariantAccount).addresses ||
-        {})[this.networkId];
-
-      if (accountAddress) {
-        address = accountAddress;
-      } else {
-        if (typeof address === 'undefined' || address.length === 0) {
-          return this._dbAccount;
-        }
-
-        address = await this.addressFromBase(address);
-      }
+      address = await this.addressFromBase(this._dbAccount);
     }
 
     return {
@@ -102,7 +92,7 @@ export class VaultContext extends VaultContextBase {
     return (await this.getDbAccount()).address;
   }
 
-  async addressFromBase(baseAddress: string): Promise<string> {
+  async addressFromBase(account: DBAccount): Promise<string> {
     throw new NotImplemented();
   }
 
