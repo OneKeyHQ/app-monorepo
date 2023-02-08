@@ -29,16 +29,34 @@ import { usePriceImpact } from './hooks/useSwapUtils';
 import { SwapRoutes } from './typings';
 import { getTokenAmountValue } from './utils';
 
-const SwapProviders = () => (
-  <Box mt="2">
-    <Divider />
-    <Box py="4">
-      <Typography.Caption color="text-subdued">
-        By submitting this order, you are confirming a swap powered by 0x API.
-      </Typography.Caption>
+const SwapProviders = () => {
+  const intl = useIntl();
+  const quote = useAppSelector((s) => s.swap.quote);
+  if (!quote) {
+    return null;
+  }
+  const normalize = (text: string) => {
+    if (text === 'swftc') {
+      return 'SWFT';
+    }
+    return text;
+  };
+  return (
+    <Box mt="2">
+      <Divider />
+      <Box py="4">
+        <Typography.Caption color="text-subdued">
+          {intl.formatMessage(
+            {
+              id: 'content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api',
+            },
+            { '0': normalize(quote.type) },
+          )}
+        </Typography.Caption>
+      </Box>
     </Box>
-  </Box>
-);
+  );
+};
 
 const SwapArrivalTime = () => {
   const arrivalTime = useAppSelector((s) => s.swap.quote?.arrivalTime);
@@ -397,7 +415,7 @@ const SwapQuote = () => {
               backgroundApiProxy.serviceSwap.setShowMoreQuoteDetail(true)
             }
           >
-            Expand
+            {intl.formatMessage({ id: 'action__expand' })}
           </Button>
         ) : (
           <Button
@@ -409,7 +427,7 @@ const SwapQuote = () => {
               backgroundApiProxy.serviceSwap.setShowMoreQuoteDetail(false)
             }
           >
-            Collapse
+            {intl.formatMessage({ id: 'action__collapse' })}
           </Button>
         )}
       </Center>
