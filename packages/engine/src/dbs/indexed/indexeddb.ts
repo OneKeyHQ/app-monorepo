@@ -1687,6 +1687,8 @@ class IndexedDBApi implements DBAPI {
                 nextId = getNextAccountIdsWithAccountDerivation(
                   accountDerivation,
                   nextId,
+                  purpose,
+                  coinType,
                 );
                 wallet.nextAccountIds[template] = nextId;
 

@@ -38,6 +38,8 @@ import {
 
 import { OneKeyInternalError } from '../errors';
 
+import { getImplByCoinType } from './impl';
+
 import type { DBAccountDerivation } from '../types/accountDerivation';
 
 const purposeMap: Record<string, Array<number>> = {
@@ -135,14 +137,23 @@ function slicePathTemplate(template: string) {
 function getNextAccountIdsWithAccountDerivation(
   accountDerivation: DBAccountDerivation,
   index: number,
+  purpose: string,
+  coinType: string,
 ) {
   const { template, accounts } = accountDerivation;
   let nextId = index;
+  const impl = getImplByCoinType(coinType);
+  // NEAR、BTC、TBTC、DOGE、LTC、BCH、ADA
   const containPath = (accountIndex: number) => {
-    const path = template.replace('x', accountIndex.toString());
+    let path: string;
+    if ([IMPL_EVM, IMPL_SOL].includes(impl)) {
+      path = template.replace('x', accountIndex.toString());
+    } else {
+      path = getPath(purpose, coinType, accountIndex);
+    }
     return accounts.find((account) => {
       const accountIdPath = account.split('--')[1];
-      return path.indexOf(accountIdPath) > -1;
+      return path === accountIdPath;
     });
   };
   while (containPath(nextId)) {

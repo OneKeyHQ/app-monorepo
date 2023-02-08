@@ -870,6 +870,8 @@ class RealmDB implements DBAPI {
             nextId = getNextAccountIdsWithAccountDerivation(
               accountDerivation?.internalObj ?? ({} as DBAccountDerivation),
               nextId,
+              purpose,
+              coinType,
             );
             console.log('nextId after: ', nextId);
             wallet.nextAccountIds![template] = nextId;
