@@ -322,11 +322,14 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   }, [intl, onboarding, onboardingDone, navigation]);
 
   const onImportError = useCallback(() => {
-    ToastManager.show({
-      title: intl.formatMessage({
-        id: 'msg__import_icloud_backup_failed_version',
-      }),
-    });
+    ToastManager.show(
+      {
+        title: intl.formatMessage({
+          id: 'msg__import_icloud_backup_failed_version',
+        }),
+      },
+      { type: 'error' },
+    );
     navigation.goBack();
   }, [intl, navigation]);
 

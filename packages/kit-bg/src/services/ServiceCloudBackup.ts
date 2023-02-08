@@ -435,7 +435,11 @@ class ServiceCloudBackup extends ServiceBase {
       return RestoreResult.UNKNOWN_ERROR;
     }
     if (!activeAccountId) {
-      await serviceAccount.autoChangeWallet();
+      try {
+        await serviceAccount.autoChangeWallet();
+      } catch {
+        debugLogger.cloudBackup.error('autoChangeWallet error');
+      }
     } else {
       await serviceAccount.initWallets();
     }
