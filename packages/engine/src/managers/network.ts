@@ -199,6 +199,11 @@ function getNetworkImpl(networkId: string) {
   return impl;
 }
 
+function getChainIdFromNetworkId(networkId: string) {
+  const [, chainId] = networkId.split(SEPERATOR);
+  return chainId ?? '';
+}
+
 function getCoinTypeFromImpl(impl: string) {
   return implToCoinTypes[impl];
 }
@@ -233,6 +238,7 @@ export const fetchChainList = async (params: {
 };
 
 export {
+  getChainIdFromNetworkId,
   getNetworkImpl,
   getCoinTypeFromNetworkId,
   getCoinTypeFromImpl,
