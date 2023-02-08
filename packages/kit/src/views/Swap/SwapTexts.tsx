@@ -32,7 +32,7 @@ const SwapFeatureText = () => {
         <Box w="1" />
         <Typography.CaptionStrong color="text-subdued">
           {intl.formatMessage({
-            id: 'form__anti_sandwich_attack',
+            id: 'form__designated_recipient',
           })}
         </Typography.CaptionStrong>
       </Box>

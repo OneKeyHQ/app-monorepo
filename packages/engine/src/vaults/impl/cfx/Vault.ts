@@ -25,7 +25,6 @@ import {
   OneKeyInternalError,
 } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
-import { DBAccount } from '../../../types/account';
 import {
   IDecodedTxActionTokenTransfer,
   IDecodedTxActionType,
@@ -52,7 +51,11 @@ import {
   parseTransaction,
 } from './utils';
 
-import type { Account, DBVariantAccount } from '../../../types/account';
+import type {
+  Account,
+  DBAccount,
+  DBVariantAccount,
+} from '../../../types/account';
 import type { CoinInfo } from '../../../types/chain';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
@@ -773,9 +776,9 @@ export default class Vault extends VaultBase {
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
 
-  override async addressFromBase(baseAddress: string) {
+  override async addressFromBase(account: DBAccount) {
     const chainId = await this.getNetworkChainId();
-    return toCfxAddress(baseAddress, parseInt(chainId));
+    return toCfxAddress(account.address, parseInt(chainId));
   }
 
   override async addressToBase(address: string) {

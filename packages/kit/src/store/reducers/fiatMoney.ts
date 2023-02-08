@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { isEqual, merge } from 'lodash';
+import { isEqual } from 'lodash';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
 

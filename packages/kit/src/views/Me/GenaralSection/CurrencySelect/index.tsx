@@ -21,7 +21,6 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce, useSettings } from '../../../../hooks';
-import { setSelectedFiatMoneySymbol } from '../../../../store/reducers/settings';
 
 import { useCurrencyData, useCurrencyListData } from './hooks';
 import { fuseSearch } from './utils';

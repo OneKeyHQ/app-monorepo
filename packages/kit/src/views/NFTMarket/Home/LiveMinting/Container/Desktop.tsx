@@ -127,6 +127,7 @@ const Desktop = () => {
     [context?.selectedNetwork?.id, formatDistanceToNow, goToCollectionDetail],
   );
 
+  const Header = useCallback(() => <ListHeaderComponent />, []);
   if (
     context?.liveMintList === undefined ||
     context?.liveMintList?.length === 0 ||
@@ -134,7 +135,7 @@ const Desktop = () => {
   ) {
     return (
       <EmptyView
-        ListHeaderComponent={() => ListHeaderComponent()}
+        ListHeaderComponent={Header}
         isTab={context?.isTab}
         numberOfData={context?.isTab ? 5 : 10}
       />
@@ -142,9 +143,13 @@ const Desktop = () => {
   }
 
   return (
-    <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
+    <MotiView
+      from={{ opacity: 0.5 }}
+      animate={{ opacity: 1 }}
+      style={{ flex: 1 }}
+    >
       <List
-        ListHeaderComponent={() => ListHeaderComponent()}
+        ListHeaderComponent={Header}
         data={context?.liveMintList}
         renderItem={renderItem}
         showDivider

@@ -39,7 +39,7 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     logo: AptosMartianLogo,
     title: 'Martian',
     propertyKeys: ['martian'],
-    enable: true,
+    enable: false,
   },
   'SUI-Sui Wallet': {
     logo: SuiWalletLogo,
@@ -56,7 +56,7 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
   'TRON-TronLink': {
     logo: TronLinkLogo,
     title: 'TronLink',
-    propertyKeys: ['tronLink'],
+    propertyKeys: ['tronLink', 'tronWeb', 'sunWeb'],
     enable: true,
   },
   'CARDAND-Nami': {

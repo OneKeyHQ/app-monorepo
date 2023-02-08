@@ -150,6 +150,14 @@ const normalRouteWhiteList: WhiteListItemList = [
     path: `/pnl`,
     exact: true,
   },
+  {
+    screen: {
+      vertical: `${RootRoutes.Root}/${HomeRoutes.BulkSender}`,
+      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.BulkSender}`,
+    },
+    path: `/bulkSender`,
+    exact: true,
+  },
   /**
    * refresh page will flash the last item of normalRouteWhiteList
    * ** please add exact routes above here

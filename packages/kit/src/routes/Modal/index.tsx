@@ -62,6 +62,7 @@ const PushNotification = createLazyComponent(
 );
 const ReceiveToken = createLazyComponent(() => import('./ReceiveToken'));
 const Revoke = createLazyComponent(() => import('./Revoke'));
+const BulkSender = createLazyComponent(() => import('./BulkSender'));
 const ScanQrcode = createLazyComponent(() => import('./ScanQrcode'));
 const Send = createLazyComponent(() => import('./Send'));
 const StakingModal = createLazyComponent(() => import('./Staking'));
@@ -229,6 +230,10 @@ const modalStackScreenList = [
     component: AnnualReportModal,
   },
   { name: ModalRoutes.CurrencySelect, component: CurrencySelectModal },
+  {
+    name: ModalRoutes.BulkSender,
+    component: BulkSender,
+  },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

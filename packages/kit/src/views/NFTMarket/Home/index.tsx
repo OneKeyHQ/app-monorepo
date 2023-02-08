@@ -50,10 +50,15 @@ const Content = () => {
     return <Box />;
   }, []);
 
+  const ItemSeparatorComponent = useCallback(
+    () => <Box h={{ base: '32px', md: '48px' }} />,
+    [],
+  );
+
   return (
     <FlatList
       data={data}
-      ItemSeparatorComponent={() => <Box h={{ base: '32px', md: '48px' }} />}
+      ItemSeparatorComponent={ItemSeparatorComponent}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
       p={{ base: '16px', md: '32px' }}

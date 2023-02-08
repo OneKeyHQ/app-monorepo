@@ -1,4 +1,4 @@
-/* eslint-disable max-classes-per-file,@typescript-eslint/no-unsafe-return */
+/* eslint-disable max-classes-per-file,@typescript-eslint/no-unsafe-return,@typescript-eslint/no-unused-vars */
 import {
   BaseProvider,
   SimpleClient,
@@ -122,6 +122,7 @@ const IMPLS: { [key: string]: any } = {
   nmc: mockProvider,
   vtc: mockProvider,
   dash: mockProvider,
+  dot: mockProvider,
   sui: mockProvider,
   apt: mockProvider,
 };

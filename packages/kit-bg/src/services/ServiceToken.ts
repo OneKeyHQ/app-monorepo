@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, uniq } from 'lodash';
+import { debounce, isEmpty, uniq } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -18,7 +18,6 @@ import {
   fetchTools,
   getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
-import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
@@ -206,12 +205,7 @@ export default class ServiceToken extends ServiceBase {
             return { address };
           }
           if (a.type === AccountType.VARIANT) {
-            let address = (a as unknown as DBVariantAccount).addresses?.[
-              networkId
-            ];
-            if (!address) {
-              address = await vault.addressFromBase(a.address);
-            }
+            const address = await vault.addressFromBase(a);
             return { address };
           }
           return { address: a.address };
@@ -565,5 +559,38 @@ export default class ServiceToken extends ServiceBase {
     }
 
     return [balances, autodetectedTokens];
+  }
+
+  private _getMinDepositAmountWithMemo = memoizee(
+    async (accountId: string, networkId: string) => {
+      if (isEmpty(networkId) || isEmpty(accountId)) return 0;
+
+      const { engine } = this.backgroundApi;
+
+      const vault = await engine.getVault({
+        accountId,
+        networkId,
+      });
+
+      return vault.getMinDepositAmount();
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 10,
+      maxAge: 1000 * 60 * 30,
+      normalizer: ([, networkId]) => networkId,
+    },
+  );
+
+  @backgroundMethod()
+  async getMinDepositAmount({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    return this._getMinDepositAmountWithMemo(accountId, networkId);
   }
 }

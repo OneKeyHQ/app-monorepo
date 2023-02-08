@@ -67,6 +67,13 @@
 	<string>Use photo library to save QR images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app will be able to discover and connect to devices on the networks you use.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http-service._tcp</string>
+		<string>_http-service._udp</string>
+	</array>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.so.onekey.wallet</key>
@@ -139,6 +146,7 @@
 		<string>imtokenv2</string>
 		<string>bitkeep</string>
 		<string>oneinch</string>
+		<string>itms-apps</string>
 	</array>
 </dict>
 </plist>

@@ -21,6 +21,7 @@ import type {
 } from './impl/btc/types';
 import type { IEncodedTxCfx } from './impl/cfx/types';
 import type { IEncodedTxCosmos } from './impl/cosmos/type';
+import type { IEncodedTxDot } from './impl/dot/types';
 import type { EVMDecodedItem } from './impl/evm/decoder/types';
 import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -61,11 +62,20 @@ export type IVaultSettings = {
 
   cannotSendToSelf?: boolean;
 
+  /**
+   * Deposit in account.
+   * e.g. Polkadot https://wiki.polkadot.network/docs/build-protocol-info#existential-deposit
+   */
+  existDeposit?: boolean;
+
   subNetworkSettings?: {
     [networkId: string]: IVaultSubNetworkSettings;
   };
 
   supportFilterScam?: boolean;
+  supportBatchTransfer?: boolean;
+  supportDeflationary?: boolean;
+  batchTokenTransferApprovalRequired?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -91,6 +101,7 @@ export type ITransferInfo = {
   tokenId?: string; // NFT token id
   type?: string; // NFT standard: erc721/erc1155
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -158,7 +169,8 @@ export type IEncodedTx =
   | IEncodedTxCosmos
   | IEncodedTxADA
   | IEncodedTxSUI
-  | IEncodedTxFil;
+  | IEncodedTxFil
+  | IEncodedTxDot;
 
 export type INativeTx =
   | INativeTxEvm

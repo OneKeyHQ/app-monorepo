@@ -11,8 +11,8 @@ import {
   Icon,
   NumberInput,
   Pressable,
-  Tooltip,
   Typography,
+  useThemeValue,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -50,6 +50,7 @@ const TokenInputReceivingAddress: FC = () => {
   const recipient = useAppSelector((s) => s.swap.recipient);
   const [tooltip, setTooltip] = useState<string | undefined>();
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
+  const borderBottomColor = useThemeValue('surface-neutral-default');
 
   const onPress = useCallback(() => {
     setTooltip(undefined);
@@ -195,21 +196,41 @@ const TokenInputReceivingAddress: FC = () => {
             </Box>
           </Pressable>
         </Box>
-        <Box position="relative">
-          <Tooltip
-            isOpen={Boolean(tooltip)}
-            hasArrow
-            label={tooltip ?? ''}
-            bg="surface-neutral-default"
-            _text={{ color: 'text-default', fontSize: '14px' }}
-            px="16px"
-            py="8px"
-            borderRadius="12"
-            maxW="210px"
-          >
+        {tooltip ? (
+          <Box position="relative">
             <View style={{ height: StyleSheet.hairlineWidth, width: 210 }} />
-          </Tooltip>
-        </Box>
+            <Box
+              position="absolute"
+              zIndex={1}
+              top="2"
+              left="1"
+              bg="surface-neutral-default"
+              borderRadius={12}
+              width="56"
+            >
+              <Box
+                style={{
+                  width: 0,
+                  height: 0,
+                  backgroundColor: 'transparent',
+                  borderStyle: 'solid',
+                  borderLeftWidth: 5,
+                  borderRightWidth: 5,
+                  borderBottomWidth: 10,
+                  borderLeftColor: 'transparent',
+                  borderRightColor: 'transparent',
+                  borderBottomColor,
+                  position: 'absolute',
+                  top: -10,
+                  left: 14,
+                }}
+              />
+              <Box p="3">
+                <Typography.Body2>{tooltip}</Typography.Body2>
+              </Box>
+            </Box>
+          </Box>
+        ) : null}
       </Box>
     );
   }
@@ -257,6 +278,7 @@ const TokenInput: FC<TokenInputProps> = ({
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
+          zIndex={1}
         >
           <TokenInputReceivingAddress />
           <Pressable

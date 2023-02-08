@@ -323,17 +323,18 @@ const TransactionList: FC<ListProps> = ({
     [currentNetwork, isSmallScreen],
   );
 
+  const footer = useCallback(() => {
+    if (cursor.current !== null) {
+      return <Footer />;
+    }
+    return <Box />;
+  }, []);
   return (
     <FlatList<NFTTransaction>
       ListHeaderComponent={ListHeaderComponent ?? ListHeader}
       data={context?.txList}
       renderItem={renderItem}
-      ListFooterComponent={() => {
-        if (cursor.current !== null) {
-          return <Footer />;
-        }
-        return <Box />;
-      }}
+      ListFooterComponent={footer}
       style={{
         padding: isSmallScreen ? 16 : 32,
       }}
