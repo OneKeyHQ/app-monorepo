@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -31,6 +31,7 @@ import { HomeTabOrder, WalletHomeTabEnum } from './type';
 
 const AccountHeader = () => <AccountInfo />;
 
+// HomeTabs
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const { screenWidth } = useUserDevice();
@@ -58,6 +59,11 @@ const WalletTabs: FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet?.id, wallet?.backuped]);
+
+  useEffect(() => {
+    // reset to first Tab on mount
+    backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[0]));
+  }, []);
 
   return (
     <>

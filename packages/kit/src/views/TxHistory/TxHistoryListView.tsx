@@ -26,6 +26,7 @@ import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
 import { useFilterScamHistory } from '../../hooks/useScam';
 import { wait } from '../../utils/helper';
+import { useIsAtHomeTab } from '../../utils/routeUtils';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
 
@@ -250,7 +251,7 @@ function TxHistoryListViewComponent({
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
   const txDetailContext = useTxHistoryContext();
 
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const isAtHomeTabOfHistory = useIsAtHomeTab(WalletHomeTabEnum.History);
   const { serviceHistory } = backgroundApiProxy;
   const refreshHistoryTs = useAppSelector((s) => s.refresher.refreshHistoryTs);
 
@@ -301,10 +302,10 @@ function TxHistoryListViewComponent({
       return false;
     }
     if (isHomeTab) {
-      return homeTabName === WalletHomeTabEnum.History;
+      return isAtHomeTabOfHistory;
     }
     return true;
-  }, [accountId, homeTabName, isFocused, isHomeTab, networkId]);
+  }, [accountId, isAtHomeTabOfHistory, isFocused, isHomeTab, networkId]);
 
   // TODO isValidating, refreshHistoryTs cause re-render, please useContext instead
   const swrKey = isHomeTab ? 'fetchHistoryTx-homeTab' : 'fetchHistoryTx';
