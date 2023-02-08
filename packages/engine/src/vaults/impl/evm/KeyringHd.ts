@@ -2,7 +2,10 @@ import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 
 import { OneKeyInternalError } from '../../../errors';
-import { getAccountNameInfoByTemplate } from '../../../managers/impl';
+import {
+  getAccountNameInfoByImpl,
+  getAccountNameInfoByTemplate,
+} from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -71,8 +74,13 @@ export class KeyringHd extends KeyringHdBase {
         pub,
       );
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
+      const isLedgerLiveTemplate =
+        getAccountNameInfoByImpl(impl).ledgerLive.template === template;
       ret.push({
-        id: `${this.walletId}--${path}`,
+        id: isLedgerLiveTemplate
+          ? // because the first account path of ledger live template is the same as the bip44 account path
+            `${this.walletId}--${path}--LedgerLive`
+          : `${this.walletId}--${path}`,
         name,
         type: AccountType.SIMPLE,
         path,

@@ -8,7 +8,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { OneKeyHardwareError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
 import { slicePathTemplate } from '../../../managers/derivation';
-import { getAccountNameInfoByTemplate } from '../../../managers/impl';
+import {
+  getAccountNameInfoByImpl,
+  getAccountNameInfoByTemplate,
+} from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -127,11 +130,16 @@ export class KeyringHardware extends KeyringHardwareBase {
     let index = 0;
     const impl = await this.getNetworkImpl();
     const { prefix } = getAccountNameInfoByTemplate(impl, template);
+    const isLedgerLiveTemplate =
+      getAccountNameInfoByImpl(impl).ledgerLive.template === template;
     for (const info of addressInfos) {
       const { path, info: address } = info;
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
       ret.push({
-        id: `${this.walletId}--${path}`,
+        id: isLedgerLiveTemplate
+          ? // because the first account path of ledger live template is the same as the bip44 account path
+            `${this.walletId}--${path}--LedgerLive`
+          : `${this.walletId}--${path}`,
         name,
         type: AccountType.SIMPLE,
         path,
