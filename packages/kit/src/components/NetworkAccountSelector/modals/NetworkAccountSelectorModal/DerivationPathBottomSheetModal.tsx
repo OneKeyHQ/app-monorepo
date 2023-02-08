@@ -5,7 +5,6 @@ import {
   Badge,
   BottomSheetModal,
   Box,
-  Button,
   HStack,
   Icon,
   Text,
@@ -13,13 +12,12 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
-import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
 
 import { useNetwork } from '../../../../hooks';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { useDerivationPath } from '../../hooks/useDerivationPath';
 
-type IDerivationOption = AccountNameInfo & { key: string };
+import type { IDerivationOption } from '../../hooks/useDerivationPath';
 
 const DerivationPathHeader: FC<{ networkId: string | undefined }> = ({
   networkId,
@@ -117,27 +115,16 @@ const DerivationPathContent: FC<{ networkId: string | undefined }> = ({
   );
 };
 
-function DerivationPathBottomSheetModal({
-  networkId,
-}: {
-  networkId: string | undefined;
-}) {
-  const showBottomSheet = () => {
-    showOverlay((close) => (
-      <BottomSheetModal
-        title="Derivation Path"
-        headerDescription={<DerivationPathHeader networkId={networkId} />}
-        closeOverlay={close}
-      >
-        <DerivationPathContent networkId={networkId} />
-      </BottomSheetModal>
-    ));
-  };
-  return (
-    <Box>
-      <Button onPress={() => showBottomSheet()}>Button</Button>
-    </Box>
-  );
+function showDerivationPathBottomSheetModal(networkId: string | undefined) {
+  showOverlay((close) => (
+    <BottomSheetModal
+      title="Derivation Path"
+      headerDescription={<DerivationPathHeader networkId={networkId} />}
+      closeOverlay={close}
+    >
+      <DerivationPathContent networkId={networkId} />
+    </BottomSheetModal>
+  ));
 }
 
-export default DerivationPathBottomSheetModal;
+export default showDerivationPathBottomSheetModal;

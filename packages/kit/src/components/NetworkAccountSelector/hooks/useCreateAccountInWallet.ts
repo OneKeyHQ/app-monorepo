@@ -17,6 +17,7 @@ import {
   RootRoutes,
 } from '../../../routes/routesEnum';
 import { useConnectAndCreateExternalAccount } from '../../../views/ExternalAccount/useConnectAndCreateExternalAccount';
+import showDerivationPathBottomSheetModal from '../modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 
 export const AllNetwork = 'all';
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
@@ -118,6 +119,7 @@ export function useCreateAccountInWallet({
       selectedNetworkId,
       isCreateAccountSupported,
     } = walletAndNetworkInfo ?? {};
+    const { serviceAccountSelector, serviceAccount } = backgroundApiProxy;
     const showNotSupportToast = () => {
       ToastManager.show({
         title: intl.formatMessage(
@@ -167,16 +169,58 @@ export function useCreateAccountInWallet({
     if (isFromAccountSelector) {
       // TODO add back button in route params
     }
-    return navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateAccount,
-      params: {
-        screen: CreateAccountModalRoutes.CreateAccountForm,
-        params: {
-          walletId: activeWallet?.id || '',
-          selectedNetworkId,
-        },
-      },
-    });
+
+    if (!selectedNetworkId) {
+      return;
+    }
+
+    showDerivationPathBottomSheetModal(selectedNetworkId);
+
+    // serviceAccountSelector.preloadingCreateAccount({
+    //   walletId,
+    //   networkId: selectedNetworkId,
+    // });
+    // setTimeout(() => {
+    //   serviceAccount
+    //     .addHDAccounts(
+    //       password,
+    //       selectedWalletId,
+    //       network,
+    //       undefined,
+    //       [name],
+    //       purpose,
+    //       false,
+    //       template,
+    //     )
+    //     .then((acc) => {
+    //       addedAccount = acc?.[0];
+    //     })
+    //     .catch((e) => {
+    //       setTimeout(() => {
+    //         deviceUtils.showErrorToast(e);
+    //       }, 300);
+    //     })
+    //     .finally(() => {
+    //       serviceAccountSelector.preloadingCreateAccountDone({
+    //         walletId: selectedWalletId,
+    //         networkId: network,
+    //         accountId: addedAccount?.id,
+    //       });
+    //       // setIsLoading(false);
+    //       navigation.getParent()?.goBack?.();
+    //     });
+    // }, 10);
+
+    // return navigation.navigate(RootRoutes.Modal, {
+    //   screen: ModalRoutes.CreateAccount,
+    //   params: {
+    //     screen: CreateAccountModalRoutes.CreateAccountForm,
+    //     params: {
+    //       walletId: activeWallet?.id || '',
+    //       selectedNetworkId,
+    //     },
+    //   },
+    // });
   }, [
     connectAndCreateExternalAccount,
     intl,

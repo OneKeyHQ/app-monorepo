@@ -15,6 +15,7 @@ import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceDerivationPath from './services/ServiceDerivationPath';
 import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceHardware from './services/ServiceHardware';
@@ -101,4 +102,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDiscover: ServiceDiscover;
   serviceMigrate: ServiceMigrate;
   serviceHTTP: ServiceHTTP;
+  serviceDerivationPath: ServiceDerivationPath;
 }

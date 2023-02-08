@@ -354,5 +354,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
     return value;
   }
+
+  get serviceDerivationPath() {
+    const ServiceDerivationPath =
+      require('./services/ServiceDerivationPath') as typeof import('./services/ServiceDerivationPath');
+    const value = new ServiceDerivationPath.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDerivationPath', { value });
+
+    return value;
+  }
 }
 export default BackgroundApi;

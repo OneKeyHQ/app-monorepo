@@ -9,8 +9,6 @@ import { WALLET_CONNECT_NEW_CONNECTION_BUTTON_LOADING } from '../../../WalletCon
 import { InitWalletServicesData } from '../../../WalletConnect/WalletConnectQrcodeModal';
 import { useCreateAccountInWallet } from '../../hooks/useCreateAccountInWallet';
 
-import DerivationPathBottomSheetModal from './DerivationPathBottomSheetModal';
-
 export function CreateAccountButton({
   walletId,
   networkId,
@@ -79,7 +77,6 @@ export function CreateAccountButton({
       {/* TODO move to parent */}
       {initWalletServiceRef.current}
 
-      <DerivationPathBottomSheetModal networkId={networkId} />
       {showCreateAccountMenu ? (
         <AccountSelectorWalletMenu networkId={networkId} walletId={walletId}>
           <IconButton

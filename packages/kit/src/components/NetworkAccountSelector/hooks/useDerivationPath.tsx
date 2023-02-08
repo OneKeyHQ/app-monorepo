@@ -1,28 +1,30 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { omit } from 'lodash';
-
-import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
+import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
 import {
   IMPL_BTC,
-  IMPL_EVM,
   IMPL_LTC,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
+
+export type IDerivationOption = AccountNameInfo & { key: string };
 
 export function useDerivationPath(networkId: string | undefined) {
   const { network } = useNetwork({ networkId });
+  const [derivationOptions, setDerivationOptions] = useState<
+    IDerivationOption[]
+  >([]);
 
-  const derivationOptions = useMemo(() => {
-    if (!network?.impl) return [];
-    let accountNameInfo = getAccountNameInfoByImpl(network.impl);
-    if (network.impl === IMPL_EVM && network.symbol !== 'ETC') {
-      accountNameInfo = omit(accountNameInfo, 'etcNative');
-    }
-    return Object.entries(accountNameInfo).map(([k, v]) => ({ ...v, key: k }));
-  }, [network]);
+  useEffect(() => {
+    backgroundApiProxy.serviceDerivationPath
+      .getDerivationSelectOptions(networkId)
+      .then((options) => {
+        setDerivationOptions(options);
+      });
+  }, [networkId]);
 
   const isBTCLikeCoin = useMemo(
     () => [IMPL_BTC, IMPL_TBTC, IMPL_LTC].includes(network?.impl ?? ''),
