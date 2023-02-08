@@ -1,16 +1,20 @@
 import type { FC } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Divider,
+  Menu,
   Skeleton,
+  ToastManager,
   Typography,
   VStack,
 } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import { useSettings } from '@onekeyhq/kit/src/hooks';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { useNetwork, useSettings } from '@onekeyhq/kit/src/hooks';
 import type {
   MarketEXplorer,
   MarketLinks,
@@ -18,6 +22,7 @@ import type {
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
+import { buildAddressDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import { formatMarketValueForInfo } from '../../utils';
@@ -34,6 +39,65 @@ type DataViewComponentProps = {
   index?: number;
   isFetching?: boolean;
 };
+
+const ExplorerAction = ({
+  explorer,
+  index,
+}: {
+  index: number;
+  explorer: MarketEXplorer;
+}) => {
+  const intl = useIntl();
+  const { network } = useNetwork({ networkId: explorer.networkId });
+  const copyAction = useCallback(() => {
+    copyToClipboard(explorer.contractAddress ?? '');
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__copied' }),
+    });
+  }, [explorer.contractAddress, intl]);
+  const ExplorerComponent = useCallback(
+    (i, e, triggerProps) => (
+      <MarketInfoExplorer
+        key={i}
+        index={i}
+        explorer={e}
+        triggerProps={triggerProps}
+      />
+    ),
+    [],
+  );
+  return (
+    <Menu
+      trigger={(triggerProps) =>
+        ExplorerComponent(index, explorer, triggerProps)
+      }
+    >
+      <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
+        {intl.formatMessage({ id: 'action__copy_address' })}
+      </Menu.CustomItem>
+      {explorer?.networkId ? (
+        <Menu.CustomItem
+          onPress={() => {
+            openUrl(
+              buildAddressDetailsUrl(network, explorer.contractAddress ?? ''),
+              intl.formatMessage({ id: 'form__explorers' }),
+              {
+                modalMode: true,
+              },
+            );
+          }}
+          icon="ArrowTopRightOnSquareMini"
+        >
+          {intl.formatMessage(
+            { id: 'action__view_in_str' },
+            { 0: explorer.name },
+          )}
+        </Menu.CustomItem>
+      ) : null}
+    </Menu>
+  );
+};
+
 const DataViewComponent: FC<DataViewComponentProps> = ({
   title,
   value,
@@ -118,6 +182,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
+
   return (
     <Box px={px}>
       <VStack space={6} mt={2}>
@@ -167,14 +232,12 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               isFetching={atl?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_low' })}
               value={`${unit}${formatMarketValueForInfo(atl?.value)}`}
-              subValue={atl?.time}
             />
             <DataViewComponent
               index={7}
               isFetching={ath?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_high' })}
               value={`${unit}${formatMarketValueForInfo(ath?.value)}`}
-              subValue={ath?.time}
             />
           </Box>
         </Box>
@@ -184,20 +247,8 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               {intl.formatMessage({ id: 'form__explorers' })}
             </Typography.Heading>
             <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
-              {expolorers?.map((e, i) => (
-                <MarketInfoExplorer
-                  key={i}
-                  index={i}
-                  name={e.name}
-                  contractAddress={e.contractAddress}
-                  onPress={() => {
-                    openUrl(
-                      e.url ?? '',
-                      intl.formatMessage({ id: 'form__explorers' }),
-                      { modalMode: true },
-                    );
-                  }}
-                />
+              {expolorers?.map((e: MarketEXplorer, i) => (
+                <ExplorerAction explorer={e} index={i} />
               ))}
             </Box>
           </Box>
