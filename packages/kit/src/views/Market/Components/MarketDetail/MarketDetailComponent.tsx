@@ -167,12 +167,14 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               isFetching={atl?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_low' })}
               value={`${unit}${formatMarketValueForInfo(atl?.value)}`}
+              subValue={atl?.time}
             />
             <DataViewComponent
               index={7}
               isFetching={ath?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_high' })}
               value={`${unit}${formatMarketValueForInfo(ath?.value)}`}
+              subValue={ath?.time}
             />
           </Box>
         </Box>
