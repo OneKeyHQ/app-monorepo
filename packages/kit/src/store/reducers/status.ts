@@ -10,7 +10,7 @@ export type IRpcStatus =
     }
   | undefined;
 
-type StatusState = {
+export type StatusState = {
   isUnlock: boolean;
   boardingCompleted: boolean;
   webviewGlobalKey: number;

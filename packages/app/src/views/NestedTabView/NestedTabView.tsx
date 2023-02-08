@@ -1,7 +1,14 @@
-import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import type { ForwardRefRenderFunction } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 
 // import { useWindowDimensions } from 'react-native';
+import ReactNative, { UIManager } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   useSharedValue,
@@ -12,24 +19,37 @@ import {
 import { enableOnPressAnim } from '@onekeyhq/components/src/utils/beforeOnPress';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import NativeNestedTabView from './NativeNestedTabView';
+import NativeNestedTabView, {
+  getViewManagerConfig,
+} from './NativeNestedTabView';
 import { nestedTabStartX, nestedTabTransX } from './types';
 
 import type { NestedTabViewProps } from './types';
 import type { NativeSyntheticEvent } from 'react-native';
 import type { PanGestureHandlerEventPayload } from 'react-native-gesture-handler';
 
+export type ForwardRefHandle = {
+  setPageIndex: (pageIndex: number) => void;
+};
+
 const failOffsetY = 10;
 const native = Gesture.Native();
-const NestedTabView: FC<NestedTabViewProps> = ({
-  renderHeader,
-  children,
-  onChange,
-  defaultIndex,
-  canOpenDrawer,
-  scrollEnabled,
-  ...rest
-}) => {
+const NestedTabView: ForwardRefRenderFunction<
+  ForwardRefHandle,
+  NestedTabViewProps
+> = (
+  {
+    renderHeader,
+    children,
+    onChange,
+    defaultIndex,
+    canOpenDrawer,
+    scrollEnabled,
+    ...rest
+  },
+  ref,
+) => {
+  const tabRef = useRef<typeof NativeNestedTabView>(null);
   // const { width: screenWidth } = useWindowDimensions();
   const tabIndex = useSharedValue(defaultIndex);
   const offsetX = useSharedValue(0);
@@ -37,6 +57,20 @@ const NestedTabView: FC<NestedTabViewProps> = ({
   // only used on android cause touchMove event does not have translation values
   const lastTransX = useSharedValue(0);
   const startY = useSharedValue(0);
+
+  useImperativeHandle(ref, () => ({
+    setPageIndex: (pageIndex: number) => {
+      try {
+        UIManager.dispatchViewManagerCommand(
+          ReactNative.findNodeHandle(tabRef.current),
+          getViewManagerConfig().Commands.setPageIndex,
+          [pageIndex],
+        );
+      } catch (error) {
+        // pass
+      }
+    },
+  }));
 
   const onEnd = useCallback(
     ({ translationX, translationY }: PanGestureHandlerEventPayload) => {
@@ -124,6 +158,8 @@ const NestedTabView: FC<NestedTabViewProps> = ({
       defaultIndex={defaultIndex}
       onChange={onTabChange}
       scrollEnabled={scrollEnabled}
+      // @ts-ignore
+      ref={tabRef}
       {...rest}
     >
       {renderHeader?.()}
@@ -145,4 +181,4 @@ const NestedTabView: FC<NestedTabViewProps> = ({
   );
 };
 
-export default NestedTabView;
+export default forwardRef(NestedTabView);
