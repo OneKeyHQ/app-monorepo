@@ -152,6 +152,13 @@ function normalizeConfig({
     ];
   }
 
+  // https://polkadot.js.org/docs/usage/FAQ#on-webpack-4-i-have-a-parse-error-on-importmetaurl
+  config.module.rules.push({
+    test: /@polkadot/,
+    // test: /[\s\S]*node_modules[/\\]@polkadot[\s\S]*.c?js$/,
+    loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+  });
+
   // let file-loader skip handle wasm files
   config.module.rules.forEach((rule) => {
     (rule.oneOf || []).forEach((oneOf) => {

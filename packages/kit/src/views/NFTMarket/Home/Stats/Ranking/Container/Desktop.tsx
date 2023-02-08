@@ -288,11 +288,12 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
     },
     [context?.selectedNetwork?.id, goToCollectionDetail, hideSaleItem, intl],
   );
+  const ListHeader = useCallback(() => <ListHeaderComponent />, []);
 
   if (listData === undefined || listData?.length === 0 || context?.loading) {
     return (
       <EmptyView
-        ListHeaderComponent={() => ListHeaderComponent()}
+        ListHeaderComponent={ListHeader}
         isTab={context?.isTab}
         numberOfData={context?.isTab ? 5 : 10}
       />
@@ -302,7 +303,7 @@ const Desktop = ({ listData }: { listData: NFTMarketRanking[] }) => {
   return (
     <MotiView from={{ opacity: 0.5 }} animate={{ opacity: 1 }}>
       <List
-        ListHeaderComponent={() => ListHeaderComponent()}
+        ListHeaderComponent={ListHeader}
         data={listData}
         showDivider
         renderItem={renderItem}

@@ -12,6 +12,7 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
+  supportBatchTransfer: true,
 });
 
 export default settings;

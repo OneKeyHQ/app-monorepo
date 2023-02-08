@@ -71,6 +71,9 @@ const Mobile = () => {
     [context?.selectedNetwork?.id, formatDistanceToNow, goToCollectionDetail],
   );
 
+  const ItemSeparatorComponent = useCallback(() => <Box h="4px" />, []);
+  const ListFooterComponent = useCallback(() => <Box height="20px" />, []);
+
   if (
     context?.liveMintList === undefined ||
     context?.liveMintList?.length === 0 ||
@@ -96,8 +99,8 @@ const Mobile = () => {
         keyExtractor={(item) =>
           `${item.contractAddress as string}${item.tokenId as string}`
         }
-        ItemSeparatorComponent={() => <Box h="4px" />}
-        ListFooterComponent={() => <Box height="20px" />}
+        ItemSeparatorComponent={ItemSeparatorComponent}
+        ListFooterComponent={ListFooterComponent}
       />
     </MotiView>
   );

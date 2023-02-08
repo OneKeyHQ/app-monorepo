@@ -315,6 +315,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
     prevNonce?: number,
+    isDeflationary?: boolean,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
@@ -620,5 +621,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       credential.startsWith('0x') ? credential.slice(2) : credential,
       'hex',
     );
+  }
+
+  async getMinDepositAmount(): Promise<BigNumber.Value> {
+    return '0';
   }
 }

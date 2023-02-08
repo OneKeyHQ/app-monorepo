@@ -23,6 +23,7 @@ import { SendRoutes } from './enums';
 
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
+import type { BulkSenderTypeEnum } from '../BulkSender/types';
 import type { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 import type { SwapQuoteTx } from '../Swap/typings';
 import type { IWalletConnectSession } from '@walletconnect/types';
@@ -90,6 +91,7 @@ export type SendConfirmResendActionInfo = {
 };
 export type SendConfirmPayloadBase = {
   payloadType: 'Transfer' | 'InternalSwap';
+  keepAlive?: boolean;
 };
 export type SendConfirmPayload =
   | SendConfirmPayloadBase
@@ -298,6 +300,8 @@ export type BatchSendConfirmParams = BatchSendConfirmShared & {
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
   transferCount: number;
+  transferType: BulkSenderTypeEnum;
+  skipSaveHistory?: boolean;
 };
 
 export type IBatchTxsConfirmViewPropsHandleConfirm = ({
@@ -330,6 +334,7 @@ export type IBatchTxsConfirmViewProps = ModalProps & {
   feeInfoEditable?: boolean;
   totalFeeInNative: number;
   feeInput?: JSX.Element;
+  tokenTransferInfo?: JSX.Element | null;
   isSingleTransformMode?: boolean;
 
   confirmDisabled?: boolean;

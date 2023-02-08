@@ -1,5 +1,11 @@
 import type { FC } from 'react';
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -68,7 +74,6 @@ const CollectionDetail = () => {
     networkId,
   });
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const intl = useIntl();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -83,53 +88,59 @@ const CollectionDetail = () => {
     return !!find;
   }, [context.attributes]);
   const { collection: ctxCollection } = context;
+
+  const headerRight = useCallback(() => {
+    if (ctxCollection) {
+      return (
+        <Box mr={{ base: 2.5, md: 8 }}>
+          <FilterButton
+            isDisabled={
+              ctxCollection.attributes && ctxCollection.attributes.length === 0
+            }
+            onPress={() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.NFTMarket,
+                params: {
+                  screen: NFTMarketRoutes.FilterModal,
+                  params: {
+                    collection: ctxCollection,
+                    attributes: context.attributes,
+                    onAttributeSelected: (attributes) => {
+                      setContext((ctx) => ({
+                        ...ctx,
+                        refreshing: true,
+                        attributes,
+                      }));
+                    },
+                  },
+                },
+              });
+            }}
+          />
+          {isFilter && (
+            <Box
+              top={{ base: 1, md: -1.5 }}
+              right={{ base: 1, md: -1.5 }}
+              position="absolute"
+              size="12px"
+              bgColor="interactive-default"
+              borderRadius="full"
+              borderWidth="2px"
+              borderColor="background-default"
+            />
+          )}
+        </Box>
+      );
+    }
+  }, [context.attributes, ctxCollection, isFilter, navigation]);
+
   useEffect(() => {
     if (ctxCollection) {
       navigation.setOptions({
-        headerRight: () => (
-          <Box mr={{ base: 2.5, md: 8 }}>
-            <FilterButton
-              isDisabled={
-                ctxCollection.attributes &&
-                ctxCollection.attributes.length === 0
-              }
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.NFTMarket,
-                  params: {
-                    screen: NFTMarketRoutes.FilterModal,
-                    params: {
-                      collection: ctxCollection,
-                      attributes: context.attributes,
-                      onAttributeSelected: (attributes) => {
-                        setContext((ctx) => ({
-                          ...ctx,
-                          refreshing: true,
-                          attributes,
-                        }));
-                      },
-                    },
-                  },
-                });
-              }}
-            />
-            {isFilter && (
-              <Box
-                top={{ base: 1, md: -1.5 }}
-                right={{ base: 1, md: -1.5 }}
-                position="absolute"
-                size="12px"
-                bgColor="interactive-default"
-                borderRadius="full"
-                borderWidth="2px"
-                borderColor="background-default"
-              />
-            )}
-          </Box>
-        ),
+        headerRight,
       });
     }
-  }, [context.attributes, ctxCollection, intl, isFilter, navigation]);
+  }, [ctxCollection, headerRight, navigation]);
 
   const { serviceNFT } = backgroundApiProxy;
 

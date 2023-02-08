@@ -47,6 +47,7 @@ export enum ModalRoutes {
   Overview = 'Overview',
   AnnualReport = 'AnnualReport',
   CurrencySelect = 'CurrencySelect',
+  BulkSender = 'BulkSender',
 }
 
 export enum RootRoutes {
@@ -97,6 +98,7 @@ export enum HomeRoutes {
   WalletSwitch = 'WalletSwitch',
   AnnualLoading = 'AnnualLoading',
   AnnualReport = 'AnnualReport',
+  BulkSender = 'BulkSender',
 }
 export enum TabRoutes {
   // Overview = 'overview',
