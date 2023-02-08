@@ -42,6 +42,7 @@
   "action__back_up_wallet": "النسخ الاحتياطي للمحفظة",
   "action__backup": "دعم",
   "action__backup_to_icloud": "نسخ احتياطي إلى iCloud",
+  "action__bulk_add": "إضافة مجمعة",
   "action__buy": "يشتري",
   "action__buy_crypto": "شراء العملات المشفرة",
   "action__buy_crypto_desc": "مع خيارات دفع متعددة",
@@ -62,6 +63,7 @@
   "action__close": "يغلق",
   "action__close_all": "أغلق الكل",
   "action__close_all_tabs": "إغلاق كافة علامات التبويب",
+  "action__collapse": "ينهار",
   "action__collect_to_touch": "اجمع للمس",
   "action__confirm": "يتأكد",
   "action__connect": "الاتصال",
@@ -116,9 +118,11 @@
   "action__enter_amount": "أدخل المبلغ",
   "action__erase_data": "محو البيانات",
   "action__erase_str_data": "محو بيانات {0}",
+  "action__expand": "يوسع",
   "action__export": "يصدّر",
   "action__export_private_key": "تصدير المفتاح الخاص",
   "action__fill_in": "أملأ",
+  "action__find_an_address_by_path": "ابحث عن عنوان عن طريق المسار",
   "action__forget_password": "هل نسيت كلمة السر؟",
   "action__get_faucet": "صنبور",
   "action__get_started": "البدء",
@@ -145,6 +149,7 @@
   "action__load_more": "تحميل المزيد",
   "action__local_picture": "اختر من الألبوم",
   "action__lock_now": "اقفل الان",
+  "action__manage_account": "إضافة مجمعة",
   "action__manage_address": "إدارة العنوان",
   "action__max": "الأعلى",
   "action__merge": "دمج",
@@ -155,6 +160,7 @@
   "action__notnow": "ليس الآن",
   "action__ok": "نعم",
   "action__ok_im_done": "نعم. منتهي!",
+  "action__open_blockchain_browser": "افتح متصفح Blockchain",
   "action__open_finder": "افتح الباحث",
   "action__open_in_browser": "افتح في المتصفح",
   "action__open_system_preference": "افتح تفضيلات النظام",
@@ -209,8 +215,10 @@
   "action__set_to_mkt": "اضبط على MKT",
   "action__set_to_mkt_desc": "إعادة تعيين أمر الحد إلى سعر السوق الحالي",
   "action__share": "شارك",
+  "action__show_all_used_addresses": "إظهار كافة العناوين المستخدمة",
   "action__show_dotmap_for_keytag": "إظهار Dotmap لـ KeyTag",
   "action__show_more": "أظهر المزيد",
+  "action__show_path": "عرض المسار",
   "action__show_recovery_phrase": "إظهار عبارة الاسترداد",
   "action__show_result": "نتيجة العرض",
   "action__sign": "وقع",
@@ -256,6 +264,7 @@
   "action__view_device_details": "تفاصيل الجهاز",
   "action__view_in_browser": "عرض في المستعرض",
   "action__view_in_explorer": "عرض في المستكشف",
+  "action__view_in_str": "عرض في {0}",
   "action__view_on_somewhere": "عرض على {where}",
   "action__view_recovery_phrase": "عرض عبارة الاسترداد",
   "action__view_recovery_seed": "مشاهدة عبارة الاسترداد",
@@ -355,6 +364,7 @@
   "content__bluetooth_firmware_version": "إصدار البرنامج الثابت للبلوتوث",
   "content__bluetooth_name": "اسم البلوتوث",
   "content__btc_dominance": "هيمنة BTC",
+  "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "بإرسال هذا الطلب ، فإنك تؤكد على مبادلة مدعومة بواسطة {0} api.",
   "content__calculate_fee": "لا توجد رسوم متاحة.",
   "content__categories": "فئات",
   "content__chain_is_not_matched": "السلسلة غير متطابقة",
@@ -875,11 +885,16 @@
   "form__assinged_address_slippage_is_modifiable": "تعديل انزلاق العنوان",
   "form__assinged_address_slippage_is_modifiable_desc": "يجوز لصاحب العقد وضع معدل ضريبي مرتفع على العنوان المخصص لمنع التجارة.",
   "form__auto": "نظام",
+  "form__automatic": "Automatic",
   "form__back": "الجانب الخلفي",
   "form__balance": "الرصيد",
   "form__base_str": "القاعدة: {0}",
   "form__beginner_guide": "دليل المبتدئين",
   "form__best_rate": "👍 أفضل سعر",
+  "form__bitcoin__legacy_desc": "يبدأ بـ \"1\". رسوم معاملات عالية.",
+  "form__bitcoin__native_segwit_desc": "يبدأ بـ \"bc1\". رسوم معاملات منخفضة.",
+  "form__bitcoin__nested_segwit_desc": "يبدأ بـ \"3\". رسوم تحويل المعاملات المتوسطة.",
+  "form__bitcoin__taproot_desc": "يبدأ بـ \"bc1p\". رسوم معاملات منخفضة للغاية.",
   "form__blacklist_included": "وشملت القائمة السوداء",
   "form__blacklist_included_desc": "يمكن لمالك العقد إضافة أي عنوان إلى القائمة السوداء ، ولا يمكن لحاملي الرموز المدرجة في القائمة السوداء التداول. إساءة استخدام ميزة القائمة السوداء محفوفة بالمخاطر.",
   "form__ble_version": "إصدار BLE",
@@ -1045,6 +1060,7 @@
   "form__line_str": "خط {0}",
   "form__manage": "يدير",
   "form__manage_threshold": "إدارة العتبة",
+  "form__manually_added": "يضاف يدويا",
   "form__market_cap": "القيمة السوقية",
   "form__market_cap_dominance": "هيمنة القيمة السوقية",
   "form__market_cap_rank": "تصنيف القيمة السوقية",
@@ -1130,6 +1146,7 @@
   "form__ownership_can_be_taken_back_desc": "يمكن لصاحب المشروع استعادة الملكية حتى بعد التنازل عنها.",
   "form__ownership_cannot_be_taken_back": "لا يمكن استعادة الملكية",
   "form__ownership_cannot_be_taken_back_desc": "في حالة وجود هذه الوظيفة ، يمكن لمالك المشروع استعادة الملكية حتى بعد التنازل عنها",
+  "form__page_number_placeholder": "رقم الصفحة ، على سبيل المثال: 16",
   "form__passphrase_placeholder": "أدخل عبارة المرور",
   "form__password": "كلمه السر",
   "form__password_free_payment": "الدفع بدون كلمة مرور",
@@ -1616,6 +1633,8 @@
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
   "msg__mismatched_networks": "شبكات غير متطابقة.",
+  "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "يتطلب تعديل الحد المصرح به لـ USDT إعادة تعيينه إلى الصفر أولاً ، لذلك يمكن بدء عمليتي تفويض.",
+  "msg__need_to_send_str_transactions_to_change_allowance": "تحتاج إلى إرسال {0} معاملات لتغيير البدل",
   "msg__network_added": "تمت إضافة الشبكة",
   "msg__network_removed": "إزالة الشبكة!",
   "msg__network_request_failed": "فشل طلب الشبكة",
@@ -1823,6 +1842,7 @@
   "title__farm": "مزرعة",
   "title__favorite": "مفضل",
   "title__favorites": "المفضلة",
+  "title__fetching_addresses": "إحضار الإضافات ...",
   "title__filter": "منقي",
   "title__finding_the_best_channel": "البحث عن أفضل قناة",
   "title__get_started_with_keytag": "ابدأ مع KeyTag",
@@ -1835,12 +1855,14 @@
   "title__import_wallet_with_keytag": "استيراد Wallet باستخدام KeyTag",
   "title__import_wallet_with_keytag_desc": "املأ الفراغ وفقًا لنسخة KeyTag الاحتياطية.",
   "title__invest": "استثمار",
+  "title__jump_to_page": "انتقل إلى الصفحة",
   "title__launch_onekey": "قم بتشغيل OneKey",
   "title__leaderboard": "ليدربورد",
   "title__lets_play_the_dot_punching_game": "هيا نلعب\n لعبة نقطة اللكم",
   "title__lets_play_the_dot_punching_game_desc": "سيقوم OneKey بتحويل عبارة الاسترداد إلى BIP39 dotmap. كل ما عليك القيام به هو اتباع dotmap لكمة النقاط على KeyTag باستخدام ثقب مركزي تلقائي ، ثم ستنتهي من النسخ الاحتياطي لمحفظتك. استمتع!",
   "title__major_update": "تحديث رئيسي",
   "title__manage_account_dynamic": "إدارة الحساب الديناميكي",
+  "title__manage_accounts": "إدارة الحسابات",
   "title__manage_cryptos": "إدارة التشفير",
   "title__manage_news_sources": "إدارة مصادر الأخبار",
   "title__manage_price_alert": "إدارة تنبيه السعر",
