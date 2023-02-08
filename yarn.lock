@@ -4514,6 +4514,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mymonero/mymonero-monero-client@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@mymonero/mymonero-monero-client@npm:3.0.0"
+  checksum: 4d6e44f5c58a823225ab45a58749cbe539f6cbb1787ac643263e53c16a519b56ad7ba37e7f58196f5502feb443d1b0588d4613f7cd17dc392c7f1619771ab779
+  languageName: node
+  linkType: hard
+
 "@mysten/bcs@npm:0.5.0":
   version: 0.5.0
   resolution: "@mysten/bcs@npm:0.5.0"

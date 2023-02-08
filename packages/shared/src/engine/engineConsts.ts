@@ -64,7 +64,7 @@ const IMPL_DOT = 'dot';
 const COINTYPE_DOT = '354';
 
 const IMPL_XMR = 'xmr';
-const COINTYPE_XMR = '0';
+const COINTYPE_XMR = '128';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
