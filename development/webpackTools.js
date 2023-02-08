@@ -186,6 +186,7 @@ function normalizeConfig({
     'aptos': 'aptos/dist/index.js',
     'framer-motion': 'framer-motion/dist/framer-motion',
     '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
+    'superstruct': 'superstruct/lib/index.cjs',
   };
 
   // Why? do not change original config directly

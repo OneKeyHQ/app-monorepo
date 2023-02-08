@@ -16,6 +16,7 @@ const extModuleTranspile = [
   '@polkadot/wasm-bridge',
   '@polkadot/types-codec',
   '@polkadot/rpc-provider',
+  '@polkadot/rpc-core',
   '@polkadot/types',
   '@polkadot/util-crypto',
   '@polkadot/keyring',

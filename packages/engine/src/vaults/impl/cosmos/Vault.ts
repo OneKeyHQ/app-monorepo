@@ -2,7 +2,7 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { getTime } from 'date-fns';
-import { get, isEmpty } from 'lodash';
+import { get, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -1111,7 +1111,8 @@ export default class Vault extends VaultBase {
   override async addressFromBase(account: DBAccount) {
     const variantAccount = account as DBVariantAccount;
 
-    if (isEmpty(variantAccount.addresses[this.networkId]?.trim())) {
+    const existAddress = variantAccount.addresses[this.networkId]?.trim();
+    if (isNil(existAddress) || isEmpty(existAddress)) {
       const chainInfo = await this.getChainInfo();
       return baseAddressToAddress(
         chainInfo.implOptions?.addressPrefix ?? 'cosmos',
