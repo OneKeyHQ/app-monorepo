@@ -83,7 +83,7 @@ const Header: FC = () => {
         />
       </Box>
       <Divider mt="3" />
-      <Typography.DisplayLarge ml="6" mt="6">
+      <Typography.DisplayLarge ml="6" my="6">
         {intl.formatMessage({ id: 'title__market' })}
       </Typography.DisplayLarge>
     </Box>
@@ -99,7 +99,7 @@ const HeaderSmall: FC = () => {
   return (
     <Box
       px="4"
-      pt="4"
+      py="4"
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
