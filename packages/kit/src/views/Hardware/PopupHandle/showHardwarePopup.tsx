@@ -106,9 +106,11 @@ export default async function showHardwarePopup({
     if (payload?.deviceId) {
       try {
         const device = await engine.getHWDeviceByDeviceId(payload?.deviceId);
-        onDeviceInputPin = device?.payload?.onDeviceInputPin ?? true;
+        onDeviceInputPin =
+          device?.payload?.onDeviceInputPin ??
+          !payload.supportInputPinOnSoftware;
       } catch {
-        onDeviceInputPin = true;
+        onDeviceInputPin = !payload.supportInputPinOnSoftware;
       }
     }
     popupType = onDeviceInputPin ? 'normal' : 'inputPin';
