@@ -89,11 +89,14 @@ const PreviewImportData = () => {
   }, [intl, onboardingDone]);
 
   const onImportError = useCallback(() => {
-    ToastManager.show({
-      title: intl.formatMessage({
-        id: 'msg__import_icloud_backup_failed_version',
-      }),
-    });
+    ToastManager.show(
+      {
+        title: intl.formatMessage({
+          id: 'msg__import_icloud_backup_failed_version',
+        }),
+      },
+      { type: 'error' },
+    );
     navigation.goBack();
   }, [intl, navigation]);
 
@@ -158,17 +161,19 @@ const PreviewImportData = () => {
               await onImportDone();
               resolve(true);
             },
-            onImportError,
+            () => {
+              onImportError();
+              resolve(false);
+            },
             () => {
               resolve(false);
             },
           );
         }
       }),
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       backupData.notOnDevice,
+      data.private,
       isPasswordSet,
       onImportDone,
       onImportError,
