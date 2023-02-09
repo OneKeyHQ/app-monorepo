@@ -56,9 +56,13 @@ export default class ServiceDerivationPath extends ServiceBase {
       IMPL_ADA,
     ].includes(network.impl);
     const shouldQuickCreate = networkDerivations.length <= 1 && !isUTXOImpl;
+    const quickCreateAccountInfo =
+      networkDerivations.length > 0
+        ? networkDerivations[0]
+        : accountNameInfo.default;
     return {
       shouldQuickCreate,
-      quickCreateAccountInfo: shouldQuickCreate ? networkDerivations[0] : null,
+      quickCreateAccountInfo: shouldQuickCreate ? quickCreateAccountInfo : null,
       networkDerivations,
       accountNameInfo,
     };

@@ -328,9 +328,10 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'DOGE',
       category: `44'/${COINTYPE_DOGE}'`,
-      label: 'Legacy (P2PKH)',
       template: `m/44'/${COINTYPE_DOGE}'/x'/0/0`,
       coinType: COINTYPE_DOGE,
+      label: 'Legacy',
+      subDesc: 'BIP44, P2PKH, Base58.',
     },
   },
   [IMPL_LTC]: {
@@ -375,7 +376,8 @@ const defaultAccountNameInfo: Record<
       category: `44'/${COINTYPE_BCH}'`,
       template: `m/44'/${COINTYPE_BCH}'/x'/0/0`,
       coinType: COINTYPE_BCH,
-      label: 'Legacy (P2PKH)',
+      label: 'Legacy',
+      subDesc: 'BIP44, P2PKH, Base58.',
     },
   },
   [IMPL_XRP]: {

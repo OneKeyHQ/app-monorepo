@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
 import {
+  IMPL_ADA,
+  IMPL_BCH,
   IMPL_BTC,
+  IMPL_DOGE,
   IMPL_LTC,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -27,7 +30,10 @@ export function useDerivationPath(networkId: string | undefined) {
   }, [networkId]);
 
   const isBTCLikeCoin = useMemo(
-    () => [IMPL_BTC, IMPL_TBTC, IMPL_LTC].includes(network?.impl ?? ''),
+    () =>
+      [IMPL_BTC, IMPL_TBTC, IMPL_LTC, IMPL_DOGE, IMPL_BCH, IMPL_ADA].includes(
+        network?.impl ?? '',
+      ),
     [network],
   );
 

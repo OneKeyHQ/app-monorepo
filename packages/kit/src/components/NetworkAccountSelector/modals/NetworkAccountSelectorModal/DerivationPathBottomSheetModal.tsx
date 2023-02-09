@@ -84,33 +84,45 @@ const DerivationOption: FC<{
       <HStack alignItems="center" justifyContent="space-between">
         <VStack flex={1}>
           <HStack mb={1}>
-            <Text
-              typography={{ sm: 'Body1Strong', md: 'Body1Strong' }}
-              color={disabled ? 'text-subdued' : 'text-default'}
-            >
-              {typeof option.label === 'string'
-                ? option.label
-                : intl.formatMessage({ id: option.label?.id })}
-            </Text>
+            {option.label && (
+              <Text
+                typography={{ sm: 'Body1Strong', md: 'Body1Strong' }}
+                color={disabled ? 'text-subdued' : 'text-default'}
+              >
+                {typeof option.label === 'string'
+                  ? option.label
+                  : intl.formatMessage({ id: option.label?.id })}
+              </Text>
+            )}
             {option.recommended && (
-              <Badge ml={2} size="sm" title="Recommanded" />
+              <Badge
+                ml={2}
+                size="sm"
+                title={intl.formatMessage({ id: 'form__recommended' })}
+              />
             )}
             {option.notRecommended && (
-              <Badge ml={2} size="sm" title="Not Recommended" />
+              <Badge
+                ml={2}
+                size="sm"
+                title={intl.formatMessage({ id: 'form__not_recommended' })}
+              />
             )}
           </HStack>
-          <Text
-            typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
-            fontFamily="mono"
-            color={textColor}
-          >
-            {typeof option.desc === 'string'
-              ? option.desc
-              : intl.formatMessage(
-                  { id: option.desc?.id },
-                  option.desc?.placeholder,
-                )}
-          </Text>
+          {option.desc && (
+            <Text
+              typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
+              fontFamily="mono"
+              color={textColor}
+            >
+              {typeof option.desc === 'string'
+                ? option.desc
+                : intl.formatMessage(
+                    { id: option.desc?.id },
+                    option.desc?.placeholder,
+                  )}
+            </Text>
+          )}
           <Text
             typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
             fontFamily="mono"
@@ -195,13 +207,15 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
 
   return (
     <Box>
-      <Text typography={{ sm: 'Body2', md: 'Body2' }} mr="7px">
-        {intl.formatMessage({
-          id: 'content__if_you_dont_see_the_account_you_expect_try_switching_the_deriation_path',
-        })}
-      </Text>
+      {!isBTCLikeCoin && (
+        <Text typography={{ sm: 'Body2', md: 'Body2' }} mr="7px">
+          {intl.formatMessage({
+            id: 'content__if_you_dont_see_the_account_you_expect_try_switching_the_deriation_path',
+          })}
+        </Text>
+      )}
       {showValidOptions && (
-        <Box mt={4}>
+        <Box mt={isBTCLikeCoin ? 0 : 4}>
           {validOptions.map((option) => (
             <DerivationOption
               key={option.key}
