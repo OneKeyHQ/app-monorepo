@@ -9,4 +9,6 @@ export interface DotImplOptions {
 //   signingPayload?: string;
 // };
 
-export type IEncodedTxDot = UnsignedTransaction;
+export type IEncodedTxDot = UnsignedTransaction & {
+  specName?: string;
+};

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { ApiPromise, HttpProvider } from '@polkadot/api';
 import { EXTRINSIC_VERSION } from '@polkadot/types/extrinsic/v4/Extrinsic';
 import {
+  hexToNumber,
   hexToU8a,
   u8aConcat,
   u8aToHex,
@@ -45,6 +45,7 @@ import type {
   ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
+  IVaultOptions,
 } from '@onekeyhq/engine/src/vaults/types';
 import {
   IDecodedTxActionType,
@@ -67,15 +68,15 @@ import { accountIdToAddress } from './sdk/address';
 import settings from './settings';
 import { SubScanClient } from './substrate/query/subscan';
 import { getTransactionType, getTransactionTypeFromTxInfo } from './utils';
+import { getClientCache, getNodeClient } from './utils/nodeClient';
 
 import type { ExtrinsicParam } from './substrate/query/subscan/type';
 import type { DotImplOptions, IEncodedTxDot } from './types';
 import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { Metadata } from '@polkadot/types';
 import type { BlockHash, RuntimeVersion } from '@polkadot/types/interfaces';
-import type { TypeRegistry } from '@substrate/txwrapper-polkadot';
+import type { BaseTxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
 
-const SIG_TYPE_NONE = new Uint8Array();
 export const TYPE_PREFIX = {
   ecdsa: new Uint8Array([2]),
   ed25519: new Uint8Array([0]),
@@ -95,20 +96,12 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
-  settings = settings;
-
-  getNodeClient(url: string) {
-    const httpProvider = new HttpProvider(url);
-    // const httpProvider = new WsProvider('wss://rpc.polkadot.io');
-    return ApiPromise.create({
-      provider: httpProvider,
-    });
+  constructor(options: IVaultOptions) {
+    super(options);
+    console.log('=====>>>>> DOT Vault constructor init <<<<<=====');
   }
 
-  getClientCache = memoizee(async (rpcUrl) => this.getNodeClient(rpcUrl), {
-    promise: true,
-    max: 1,
-  });
+  settings = settings;
 
   getScanClientCache = memoizee(async () => new SubScanClient(), {
     promise: true,
@@ -158,17 +151,42 @@ export default class Vault extends VaultBase {
   );
 
   getRegistryCache = memoizee(
-    async (): Promise<TypeRegistry> => {
-      const { specVersion, specName } = await this.getRPCRuntimeVersionCache();
-      const metadataRpc = await this.getMetadataRpcCache();
+    async (params: {
+      metadataRpc?: `0x${string}`;
+      specVersion?: string;
+      specName?: string;
+    }): Promise<TypeRegistry> => {
       const network = await this.getNetwork();
+
+      let metadataRpcHex: `0x${string}`;
+      if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
+        metadataRpcHex = (await this.getMetadataRpcCache()).toHex();
+      } else {
+        metadataRpcHex = params.metadataRpc;
+      }
+
+      let specVersion: number;
+      let specName: string;
+      if (
+        !params.specVersion ||
+        isEmpty(params.specVersion) ||
+        !params.specName ||
+        isEmpty(params.specName)
+      ) {
+        const runtime = await this.getRPCRuntimeVersionCache();
+        specVersion = runtime.specVersion.toNumber();
+        specName = runtime.specName.toString();
+      } else {
+        specVersion = hexToNumber(addHexPrefix(params.specVersion));
+        specName = params.specName;
+      }
 
       return getRegistry({
         chainName: network.name,
         // @ts-expect-error
-        specName: specName.toString(),
-        specVersion: specVersion.toNumber(),
-        metadataRpc: metadataRpc.toHex(),
+        specName,
+        specVersion,
+        metadataRpc: metadataRpcHex,
       });
     },
     {
@@ -182,7 +200,7 @@ export default class Vault extends VaultBase {
   // API see https://polkadot.js.org/docs/substrate/runtime
   async getClient() {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    return this.getClientCache(rpcURL);
+    return getClientCache(rpcURL);
   }
 
   async getScanClient() {
@@ -215,7 +233,6 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only methods
-
   override createClientFromURL(_url: string): BaseClient {
     // This isn't needed.
     throw new NotImplemented();
@@ -224,11 +241,15 @@ export default class Vault extends VaultBase {
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const client = await this.getNodeClient(url);
+    const client = await getNodeClient(url);
     const start = performance.now();
     const version = await client.rpc.chain.getHeader();
-    const latestBlock = version.number.toNumber();
-    return { responseTime: Math.floor(performance.now() - start), latestBlock };
+    const responseTime = Math.floor(performance.now() - start);
+    client.disconnect();
+    return {
+      responseTime,
+      latestBlock: version.number.toNumber(),
+    };
   }
 
   async _getPublicKey({
@@ -273,7 +294,7 @@ export default class Vault extends VaultBase {
           // const balances = await client.query.balances.account(address);
           const {
             data: { free: previousFree },
-            nonce: previousNonce,
+            // nonce: previousNonce,
           } = await client.query.system.account(address);
 
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
@@ -297,16 +318,20 @@ export default class Vault extends VaultBase {
 
     const { block } = await client.rpc.chain.getBlock();
     const blockHash = await client.rpc.chain.getBlockHash();
-    const genesisHash = await client.rpc.chain.getBlockHash(0);
+    const genesisHash = await this.getGenesisHashCache();
     const metadataRpc = await this.getMetadataRpcCache();
-    const { specVersion, transactionVersion } =
+    const { specVersion, specName, transactionVersion } =
       await this.getRPCRuntimeVersionCache();
 
     const previousNonce = await client.call.accountNonceApi.accountNonce(from);
 
     const network = await this.getNetwork();
 
-    const registry = await this.getRegistryCache();
+    const registry = await this.getRegistryCache({
+      metadataRpc: metadataRpc.toHex(),
+      specVersion: specVersion.toHex(),
+      specName: specName.toString(),
+    });
 
     const info = {
       address: from,
@@ -392,7 +417,10 @@ export default class Vault extends VaultBase {
     // registry.setMetadata(createMetadata(registry, metadataRpc.toHex()));
     // const signingPayload = construct.signingPayload(unsigned, { registry });
 
-    return unsigned;
+    return {
+      ...unsigned,
+      specName: specName.toString(),
+    };
   }
 
   override decodedTxToLegacy(
@@ -593,43 +621,31 @@ export default class Vault extends VaultBase {
       const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
       if (type === IDecodedTxActionType.NATIVE_TRANSFER) {
         debugLogger.sendTx.debug('updateEncodedTx', 'send max amount');
-        const client = await this.getClient();
-
-        const { block } = await client.rpc.chain.getBlock();
-        const blockHash = await client.rpc.chain.getBlockHash();
-        const genesisHash = await this.getGenesisHashCache();
-        const metadataRpc = await this.getMetadataRpcCache();
-        const { specVersion, transactionVersion } =
-          await this.getRPCRuntimeVersionCache();
-
-        const previousNonce = await client.call.accountNonceApi.accountNonce(
-          decodeUnsignedTx.address,
-        );
 
         const {
           // @ts-expect-error
           dest: { id: toAddress },
         } = decodeUnsignedTx.method.args;
 
-        const registry = await this.getRegistryCache();
+        const registry = await this.getRegistryCache(encodedTx);
 
-        const info = {
+        const info: BaseTxInfo = {
           address: decodeUnsignedTx.address,
-          blockHash: blockHash.toHex(),
-          blockNumber: registry
-            .createType('BlockNumber', block.header.number)
-            .toNumber(),
+          blockHash: encodedTx.blockHash,
+          blockNumber: hexToNumber(addHexPrefix(encodedTx.blockNumber)),
           eraPeriod: 64,
-          genesisHash: genesisHash.toHex(),
-          metadataRpc: metadataRpc.toHex(),
-          nonce: parseInt(previousNonce.toString()),
-          specVersion: specVersion.toNumber(),
+          genesisHash: encodedTx.genesisHash as `0x${string}`,
+          metadataRpc: encodedTx.metadataRpc,
+          nonce: hexToNumber(addHexPrefix(encodedTx.nonce)),
+          specVersion: hexToNumber(addHexPrefix(encodedTx.specVersion)),
           tip: 0,
-          transactionVersion: transactionVersion.toNumber(),
+          transactionVersion: hexToNumber(
+            addHexPrefix(encodedTx.transactionVersion),
+          ),
         };
 
         const option = {
-          metadataRpc: metadataRpc.toHex(),
+          metadataRpc: encodedTx.metadataRpc,
           registry,
         };
 
@@ -943,7 +959,7 @@ export default class Vault extends VaultBase {
 
   // see https://github.com/paritytech/txwrapper-core/blob/main/packages/txwrapper-examples/polkadot/src/polkadot.ts
   async decodeUnsignedTx(unsigned: IEncodedTxDot) {
-    const registry = await this.getRegistryCache();
+    const registry = await this.getRegistryCache(unsigned);
 
     const { metadataRpc } = unsigned;
     const decodedUnsigned = decode(unsigned, {
@@ -961,7 +977,7 @@ export default class Vault extends VaultBase {
     const unsigned = encodedTx;
     const { metadataRpc } = unsigned;
 
-    const registry = await this.getRegistryCache();
+    const registry = await this.getRegistryCache(unsigned);
 
     registry.setMetadata(createMetadata(registry, metadataRpc));
     const signingPayload = construct.signingPayload(unsigned, { registry });
@@ -996,7 +1012,7 @@ export default class Vault extends VaultBase {
   ) {
     const { metadataRpc } = encodedTx;
 
-    const registry = await this.getRegistryCache();
+    const registry = await this.getRegistryCache(encodedTx);
 
     const tx = construct.signedTx(
       encodedTx,
@@ -1011,7 +1027,7 @@ export default class Vault extends VaultBase {
   }
 
   async encodeUnsignedTransaction(encodedTx: IEncodedTxDot) {
-    const registry = await this.getRegistryCache();
+    const registry = await this.getRegistryCache(encodedTx);
 
     const tx = construct.encodeUnsignedTransaction(encodedTx, {
       registry,
