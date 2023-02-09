@@ -18,7 +18,7 @@ import {
   methods,
 } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
-import { get, groupBy, isEmpty } from 'lodash';
+import { get, groupBy, isEmpty, isNil } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -201,13 +201,13 @@ export default class Vault extends VaultBase {
   override async addressFromBase(account: DBAccount) {
     const variantAccount = account as DBVariantAccount;
 
-    if (isEmpty(variantAccount.addresses[this.networkId]?.trim())) {
+    const existAddress = variantAccount.addresses[this.networkId]?.trim();
+    if (isNil(existAddress) || isEmpty(existAddress)) {
       const implOptions = await this.getChainInfoImplOptions();
       const address = accountIdToAddress(
         variantAccount.pub,
         implOptions?.addressPrefix ?? 0,
       ).getValue();
-      variantAccount.addresses[this.networkId] = address;
       return address;
     }
 
