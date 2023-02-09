@@ -345,3 +345,7 @@ export class OneKeyWalletConnectModalCloseError extends OneKeyError {
   override className = OneKeyErrorClassNames.OneKeyWalletConnectModalCloseError;
   // override key = 'msg__engine__internal_error';
 }
+
+export class FailedToEstimatedGasError extends OneKeyError {
+  override key = 'msg__estimated_gas_failure';
+}

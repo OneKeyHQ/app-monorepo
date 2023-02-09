@@ -40,7 +40,7 @@ import {
   getTokenAmountValue,
 } from './utils';
 
-import type { FetchQuoteParams, QuoteData } from './typings';
+import type { FetchQuoteParams, QuoteData, BuildTransactionResponse } from './typings';
 import type { TokenAmount } from './utils';
 
 type IConvertToSwapInfoOptions = {
@@ -127,8 +127,7 @@ const ExchangeButton = () => {
           { id: 'msg__account_deleted' },
           { '0': sendingAccount.name },
         ),
-        type: 'error',
-      });
+      }, { type: 'error' });
       return;
     }
 
@@ -160,17 +159,24 @@ const ExchangeButton = () => {
       }
     }
 
-    const res = await SwapQuoter.client.buildTransaction(quote.type, {
-      ...params,
-      activeAccount: sendingAccount,
-      receivingAddress: recipient?.address,
-      txData: quote.txData,
-      additionalParams: quote.additionalParams,
-      sellAmount: quote.sellAmount,
-      buyAmount: quote.buyAmount,
-    });
+    let res: BuildTransactionResponse | undefined = undefined;
+    try {
+      res = await SwapQuoter.client.buildTransaction(quote.type, {
+        ...params,
+        activeAccount: sendingAccount,
+        receivingAddress: recipient?.address,
+        txData: quote.txData,
+        additionalParams: quote.additionalParams,
+        sellAmount: quote.sellAmount,
+        buyAmount: quote.buyAmount,
+      });
+    } catch (e: any) {
+      const title = e?.response?.data?.message || e.message
+      ToastManager.show({ title }, { type: 'error' });
+      return
+    }
 
-    if (!res?.data) {
+    if (res === undefined || !res?.data) {
       const title =
         res?.error?.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
       ToastManager.show({ title });
@@ -201,7 +207,7 @@ const ExchangeButton = () => {
     if (encodedTx === undefined) {
       ToastManager.show({
         title: intl.formatMessage({ id: 'msg__unknown_error' }),
-      });
+      }, { type: 'error' });
       return;
     }
 
@@ -210,11 +216,12 @@ const ExchangeButton = () => {
     if (!newQuote) {
       ToastManager.show({
         title: intl.formatMessage({ id: 'msg__unknown_error' }),
-      });
+      }, { type: 'error' });
       return;
     }
 
     const addSwapTransaction = async (hash: string, nonce?: number) => {
+      if (res === undefined) { return }
       backgroundApiProxy.dispatch(
         addTransaction({
           accountId: sendingAccount.id,
@@ -340,6 +347,7 @@ const ExchangeButton = () => {
             await backgroundApiProxy.serviceSwap.sendTransaction({
               accountId: sendingAccount.id,
               networkId: targetNetworkId,
+              autoFallback: true,
               encodedTx: { ...(encodedTx as IEncodedTxEvm) },
               payload: {
                 type: 'InternalSwap',
@@ -421,6 +429,7 @@ const ExchangeButton = () => {
             await backgroundApiProxy.serviceSwap.sendTransaction({
               accountId: sendingAccount.id,
               networkId: targetNetworkId,
+              autoFallback: !!approveTx,
               encodedTx: { ...(encodedTx as IEncodedTxEvm) },
               payload: {
                 type: 'InternalSwap',
@@ -462,6 +471,7 @@ const ExchangeButton = () => {
                         accountId: sendingAccount.id,
                         networkId: targetNetworkId,
                         encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                        autoFallback: true,
                         payload: {
                           type: 'InternalSwap',
                           swapInfo,
