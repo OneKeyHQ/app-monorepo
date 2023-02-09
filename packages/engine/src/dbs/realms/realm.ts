@@ -1477,6 +1477,7 @@ class RealmDB implements DBAPI {
     accountId: string,
     password: string,
     rollbackNextAccountIds: Record<string, number>,
+    skipPasswordCheck?: boolean,
   ): Promise<void> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
@@ -1512,7 +1513,10 @@ class RealmDB implements DBAPI {
         if (typeof context === 'undefined') {
           return Promise.reject(new OneKeyInternalError('Context not found.'));
         }
-        if (!checkPassword(context.internalObj, password)) {
+        if (
+          !checkPassword(context.internalObj, password) &&
+          !skipPasswordCheck
+        ) {
           return Promise.reject(new WrongPassword());
         }
       }

@@ -1820,7 +1820,7 @@ class IndexedDBApi implements DBAPI {
     accountId: string,
     password: string,
     rollbackNextAccountIds: Record<string, number>,
-    force?: boolean,
+    skipPasswordCheck?: boolean,
   ): Promise<void> {
     const removingImported = walletIsImported(walletId);
     return this.ready.then(
@@ -1870,7 +1870,7 @@ class IndexedDBApi implements DBAPI {
               getMainContextRequest.onsuccess = (_cevent) => {
                 const context: OneKeyContext =
                   getMainContextRequest.result as OneKeyContext;
-                if (!checkPassword(context, password) && !force) {
+                if (!checkPassword(context, password) && !skipPasswordCheck) {
                   reject(new WrongPassword());
                   return;
                 }

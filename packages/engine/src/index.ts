@@ -759,10 +759,19 @@ class Engine {
                       .validateAddress(a.address)
                       .then((address) => {
                         if (!address) {
-                          this.removeAccount(a.id, '', true);
+                          setTimeout(
+                            () => this.removeAccount(a.id, '', true),
+                            100,
+                          );
                         }
                       })
-                      .catch(() => this.removeAccount(a.id, '', true));
+                      .catch((e) => {
+                        setTimeout(
+                          () => this.removeAccount(a.id, '', true),
+                          100,
+                        );
+                        throw e;
+                      });
                   }
                   return {} as Account;
                 }),
@@ -1115,7 +1124,7 @@ class Engine {
   async removeAccount(
     accountId: string,
     password: string,
-    force?: boolean,
+    skipPasswordCheck?: boolean,
   ): Promise<void> {
     // Remove an account. Raise an error if account doesn't exist or password is wrong.
     const walletId = getWalletIdFromAccountId(accountId);
@@ -1151,7 +1160,7 @@ class Engine {
       accountId,
       password,
       rollbackNextAccountIds,
-      force,
+      skipPasswordCheck,
     );
   }
 

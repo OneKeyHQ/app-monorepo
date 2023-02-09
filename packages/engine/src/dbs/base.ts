@@ -182,7 +182,7 @@ interface DBAPI {
     accountId: string,
     password: string,
     rollbackNextAccountIds: Record<string, number>,
-    force?: boolean,
+    skipPasswordCheck?: boolean,
   ): Promise<void>;
   setAccountName(accountId: string, name: string): Promise<DBAccount>;
   updateAccountAddresses(
