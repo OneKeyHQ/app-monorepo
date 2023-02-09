@@ -9,7 +9,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  IMPL_ADA,
+  IMPL_BCH,
   IMPL_BTC,
+  IMPL_DOGE,
   IMPL_EVM,
   IMPL_LTC,
   IMPL_TBTC,
@@ -44,9 +47,15 @@ export default class ServiceDerivationPath extends ServiceBase {
         Object.values(accountNameInfo).find((i) => i.template === v.template),
       )
       .map(([k, v]) => ({ ...v, key: k }));
-    const shouldQuickCreate =
-      networkDerivations.length <= 1 &&
-      ![IMPL_BTC, IMPL_TBTC, IMPL_LTC].includes(network.impl);
+    const isUTXOImpl = [
+      IMPL_BTC,
+      IMPL_TBTC,
+      IMPL_DOGE,
+      IMPL_LTC,
+      IMPL_BCH,
+      IMPL_ADA,
+    ].includes(network.impl);
+    const shouldQuickCreate = networkDerivations.length <= 1 && !isUTXOImpl;
     return {
       shouldQuickCreate,
       quickCreateAccountInfo: shouldQuickCreate ? networkDerivations[0] : null,

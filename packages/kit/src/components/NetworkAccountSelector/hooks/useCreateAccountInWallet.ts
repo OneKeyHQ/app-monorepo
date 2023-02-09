@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +19,8 @@ import {
 import { deviceUtils } from '../../../utils/hardware';
 import { useConnectAndCreateExternalAccount } from '../../../views/ExternalAccount/useConnectAndCreateExternalAccount';
 import showDerivationPathBottomSheetModal from '../modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
+
+import type { IDerivationOption } from './useDerivationPath';
 
 export const AllNetwork = 'all';
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
@@ -109,6 +111,7 @@ export function useCreateAccountInWallet({
     };
   }, [networkId, walletId]);
 
+  const selectedTemplateRef = useRef<IDerivationOption | null>();
   const quickCreateAccount = useCallback(
     async (password: string) => {
       const { selectedNetworkId } = walletAndNetworkInfo ?? {};
@@ -124,7 +127,9 @@ export function useCreateAccountInWallet({
           password,
           walletId,
           selectedNetworkId,
-          quickCreateAccountInfo?.template ?? '',
+          selectedTemplateRef.current
+            ? selectedTemplateRef.current.template
+            : quickCreateAccountInfo?.template ?? '',
         );
       } catch (e) {
         deviceUtils.showErrorToast(e);
@@ -207,6 +212,7 @@ export function useCreateAccountInWallet({
         selectedNetworkId,
       );
     if (shouldQuickCreate) {
+      selectedTemplateRef.current = null;
       return navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateAccount,
         params: {
@@ -219,53 +225,23 @@ export function useCreateAccountInWallet({
       });
     }
 
-    showDerivationPathBottomSheetModal(selectedNetworkId);
-
-    // serviceAccountSelector.preloadingCreateAccount({
-    //   walletId,
-    //   networkId: selectedNetworkId,
-    // });
-    // setTimeout(() => {
-    //   serviceAccount
-    //     .addHDAccounts(
-    //       password,
-    //       selectedWalletId,
-    //       network,
-    //       undefined,
-    //       [name],
-    //       purpose,
-    //       false,
-    //       template,
-    //     )
-    //     .then((acc) => {
-    //       addedAccount = acc?.[0];
-    //     })
-    //     .catch((e) => {
-    //       setTimeout(() => {
-    //         deviceUtils.showErrorToast(e);
-    //       }, 300);
-    //     })
-    //     .finally(() => {
-    //       serviceAccountSelector.preloadingCreateAccountDone({
-    //         walletId: selectedWalletId,
-    //         networkId: network,
-    //         accountId: addedAccount?.id,
-    //       });
-    //       // setIsLoading(false);
-    //       navigation.getParent()?.goBack?.();
-    //     });
-    // }, 10);
-
-    // return navigation.navigate(RootRoutes.Modal, {
-    //   screen: ModalRoutes.CreateAccount,
-    //   params: {
-    //     screen: CreateAccountModalRoutes.CreateAccountForm,
-    //     params: {
-    //       walletId: activeWallet?.id || '',
-    //       selectedNetworkId,
-    //     },
-    //   },
-    // });
+    showDerivationPathBottomSheetModal({
+      walletId,
+      networkId: selectedNetworkId,
+      onSelect: (options) => {
+        selectedTemplateRef.current = options;
+        return navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateAccount,
+          params: {
+            screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+            params: {
+              walletId: activeWallet?.id || '',
+              onDone: quickCreateAccount,
+            },
+          },
+        });
+      },
+    });
   }, [
     connectAndCreateExternalAccount,
     intl,
