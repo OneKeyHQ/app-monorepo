@@ -35,10 +35,12 @@ import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
+import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
 import { deviceUtils } from '../../../utils/hardware';
 
 import { FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
 
+import type { IDerivationOption } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
 import type {
   AdvancedValues,
   RecoverAccountType as RecoverAccountConfirmType,
@@ -149,6 +151,7 @@ const AccountCell: FC<CellProps> = ({
           />
         </Box>
       </ListItem.Column>
+      {/* TODO: change to menu */}
       {showPathAndLink && (
         <ListItem.Column>
           <IconButton
@@ -280,7 +283,7 @@ const PAGE_SIZE = 10;
 const RecoverAccounts: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { password, walletId, network, purpose, template } = route.params;
+  const { password, walletId, network } = route.params;
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 
@@ -349,6 +352,31 @@ const RecoverAccounts: FC = () => {
     }
     refreshActiveAccounts();
   }, [network, wallet, obj]);
+
+  const { derivationOptions } = useDerivationPath(network);
+  const [selectedDerivationOption, setSelectedDerivationOption] =
+    useState<IDerivationOption>();
+  const template = useMemo(() => {
+    if (selectedDerivationOption) {
+      return selectedDerivationOption.template;
+    }
+    return (
+      derivationOptions.find((item) => item.key === 'default')?.template ?? ''
+    );
+  }, [selectedDerivationOption, derivationOptions]);
+  const purpose = useMemo(() => {
+    if (selectedDerivationOption) {
+      return parseInt(selectedDerivationOption.category.split("'/")[0]);
+    }
+    const defaultOption = derivationOptions.find(
+      (item) => item.key === 'default',
+    );
+    if (defaultOption) {
+      setSelectedDerivationOption(defaultOption);
+      return parseInt(defaultOption.category.split("'/")[0]);
+    }
+    return 44;
+  }, [selectedDerivationOption, derivationOptions]);
 
   useEffect(() => {
     currentPageRef.current = config.currentPage;

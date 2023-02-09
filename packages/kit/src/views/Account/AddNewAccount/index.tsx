@@ -132,7 +132,13 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
         selectedNetwork.accountNameInfo,
       )) {
         ret.push({
-          label: value.label || '',
+          label:
+            // eslint-disable-next-line no-nested-ternary
+            typeof value.label === 'string'
+              ? value.label
+              : typeof value.label === 'object'
+              ? intl.formatMessage({ id: value.label?.id })
+              : '',
           value: key,
           description: value.addressPrefix
             ? intl.formatMessage(
