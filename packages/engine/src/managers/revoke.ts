@@ -315,7 +315,7 @@ export const isSpamToken = (token: Token) => {
   const includesHttp = /https?:\/\//i.test(token.symbol);
   // This is not exhaustive, but we can add more TLDs to the list as needed, better than nothing
   const includesTld =
-    /\.com|\.io|\.xyz|\.org|\.me|\.site|\.net|\.fi|\.vision|\.team|\.app|\.exchange|\.cash|\.finance/i.test(
+    /\.(com|io|xyz|org|me|site|net|fi|vision|team|app|exchange|cash|finance)/i.test(
       token.symbol,
     );
   return includesHttp || includesTld;
