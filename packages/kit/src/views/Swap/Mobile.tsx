@@ -14,12 +14,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import SwapAlert from './SwapAlert';
+import SwapBanner from './SwapBanner';
 import SwapButton from './SwapButton';
 import SwapContent from './SwapContent';
 import { SwapHeaderButtons } from './SwapHeader';
 import SwapObserver from './SwapObserver';
 import SwapQuote from './SwapQuote';
-import SwapTexts from './SwapTexts';
 import SwapUpdater from './SwapUpdater';
 
 export const Mobile = () => {
@@ -58,11 +58,13 @@ export const Mobile = () => {
           <Box px="4">
             <SwapAlert />
           </Box>
-          <Box my="6" px="4">
+          <Center py="3">
+            <SwapBanner />
+          </Center>
+          <Box mb="6" px="4">
             <SwapButton />
           </Box>
           <SwapQuote />
-          <SwapTexts />
         </Box>
       </Center>
       <SwapObserver />
