@@ -13,7 +13,7 @@ export class ResponseError extends Error {
       if ('jsonrpc' in response) {
         this.response = { ...response };
       } else {
-        this.response = response.clone();
+        this.response = response;
       }
     }
   }
