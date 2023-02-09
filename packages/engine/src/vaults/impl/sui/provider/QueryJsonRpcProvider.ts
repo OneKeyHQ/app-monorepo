@@ -2,17 +2,21 @@
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import {
   Coin,
-  GetObjectDataResponse,
   JsonRpcProvider,
   getMoveObject,
   getObjectExistsResponse,
+  isGetObjectDataResponse,
 } from '@mysten/sui.js';
 import { get } from 'lodash';
 
 import { Nft } from './NFT';
 
 import type { CoinObject, NftObject } from '../types';
-import type { SuiMoveObject, SuiObject } from '@mysten/sui.js';
+import type {
+  GetObjectDataResponse,
+  SuiMoveObject,
+  SuiObject,
+} from '@mysten/sui.js';
 
 function getCoinObject(obj: SuiMoveObject): CoinObject {
   const arg = Coin.getCoinTypeArg(obj);
@@ -33,7 +37,7 @@ export class QueryJsonRpcProvider extends JsonRpcProvider {
       return await this.client.requestWithType(
         'sui_tryGetPastObject',
         [objectId, version],
-        GetObjectDataResponse,
+        isGetObjectDataResponse,
         this.options.skipDataValidation,
       );
     } catch (err) {
@@ -54,7 +58,7 @@ export class QueryJsonRpcProvider extends JsonRpcProvider {
     try {
       return await this.client.batchRequestWithType(
         requests,
-        GetObjectDataResponse,
+        isGetObjectDataResponse,
         true,
       );
     } catch (err) {
