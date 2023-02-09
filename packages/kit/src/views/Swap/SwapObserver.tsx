@@ -3,7 +3,6 @@ import { useEffect, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -74,19 +73,19 @@ const WelcomeObserver = () => {
 };
 
 const NetworkStatusObserver = () => {
-  const networkStatus = useRpcMeasureStatus(OnekeyNetwork.eth);
-  const responseTime = networkStatus.status?.responseTime;
+  const { status, loading } = useRpcMeasureStatus();
+  const responseTime = status?.responseTime;
   const prevResponseTime = usePrevious(responseTime);
 
   useEffect(() => {
-    if (prevResponseTime === undefined && networkStatus.status?.responseTime) {
+    if (prevResponseTime === undefined && status?.responseTime && !loading) {
       backgroundApiProxy.serviceSwap.getSwapError().then((error) => {
         if (error === SwapError.QuoteFailed) {
           appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
         }
       });
     }
-  }, [networkStatus.status?.responseTime, prevResponseTime, responseTime]);
+  }, [status?.responseTime, prevResponseTime, responseTime, loading]);
   return null;
 };
 

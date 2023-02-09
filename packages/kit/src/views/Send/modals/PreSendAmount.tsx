@@ -15,6 +15,7 @@ import {
   Box,
   Button,
   Center,
+  CheckBox,
   HStack,
   Keyboard,
   Spinner,
@@ -27,7 +28,11 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { FormatBalanceTokenOfAccount } from '../../../components/Format';
+import {
+  FormatBalance,
+  FormatBalanceTokenOfAccount,
+  formatBalanceDisplay,
+} from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
@@ -122,13 +127,19 @@ function PreSendAmount() {
   const [amount, setAmount] = useState('');
   const { account, accountId, networkId, network } =
     useActiveSideAccount(transferInfo);
-  const { engine } = backgroundApiProxy;
+  const { engine, serviceToken } = backgroundApiProxy;
 
   const tokenIdOnNetwork = transferInfo.token;
   const { token: tokenInfo } = useSingleToken(
     networkId,
     tokenIdOnNetwork ?? '',
   );
+
+  const [existDeposit, setExistDeposit] = useState<boolean>(false);
+  const [depositAmountLoading, setDepositAmountLoading] =
+    useState<boolean>(false);
+  const [depositAmount, setDepositAmount] = useState<BigNumber.Value>('0');
+  const [keepAliveAccount, setKeepAliveAccount] = useState(false);
 
   const tokenBalance = useTokenBalance({
     networkId,
@@ -140,12 +151,38 @@ function PreSendAmount() {
     fallback: '0',
   });
 
+  const tokenBalanceMemo = useMemo(() => {
+    const balance = tokenBalance;
+
+    if (!existDeposit || !keepAliveAccount) return balance;
+
+    if (new BigNumber(balance).isLessThanOrEqualTo('0')) return balance;
+
+    if (!tokenInfo?.decimals) {
+      return balance;
+    }
+
+    const depositAmountDisplay = formatBalanceDisplay(depositAmount, null, {
+      unit: tokenInfo.decimals,
+    });
+
+    return new BigNumber(balance)
+      .minus(new BigNumber(depositAmountDisplay.amount ?? '0'))
+      .toString();
+  }, [
+    depositAmount,
+    existDeposit,
+    keepAliveAccount,
+    tokenBalance,
+    tokenInfo?.decimals,
+  ]);
+
   const getAmountValidateError = useCallback(() => {
     if (!tokenInfo || !amount) {
       return 'error';
     }
     const inputBN = new BigNumber(amount);
-    const balanceBN = new BigNumber(tokenBalance);
+    const balanceBN = new BigNumber(tokenBalanceMemo);
     if (inputBN.isNaN() || balanceBN.isNaN()) {
       return intl.formatMessage(
         { id: 'form__amount_invalid' },
@@ -159,7 +196,7 @@ function PreSendAmount() {
       );
     }
     return undefined;
-  }, [amount, intl, tokenBalance, tokenInfo]);
+  }, [amount, intl, tokenBalanceMemo, tokenInfo]);
   const errorMsg = getAmountValidateError();
 
   const minAmountBN = useMemo(
@@ -198,7 +235,7 @@ function PreSendAmount() {
         accountId,
         networkId,
         amount,
-        tokenBalance,
+        tokenBalance: tokenBalanceMemo,
         to: transferInfo.to,
       });
       return { result: true, errorInfo: null };
@@ -215,7 +252,7 @@ function PreSendAmount() {
     amount,
     engine,
     transferInfo,
-    tokenBalance,
+    tokenBalanceMemo,
     minAmountValidationPassed,
   ]);
   useEffect(() => {
@@ -225,6 +262,32 @@ function PreSendAmount() {
     };
     validFunc();
   }, [validateAmount]);
+
+  useMemo(async () => {
+    setDepositAmountLoading(true);
+
+    if (tokenInfo?.tokenIdOnNetwork) {
+      setDepositAmountLoading(false);
+      setExistDeposit(false);
+      return;
+    }
+
+    const setting = await engine.getVaultSettings(networkId);
+    setKeepAliveAccount(!!setting.existDeposit);
+
+    if (!setting.existDeposit) {
+      setDepositAmountLoading(false);
+      return setExistDeposit(false);
+    }
+
+    setExistDeposit(true);
+    const $amount = await serviceToken.getMinDepositAmount({
+      networkId,
+      accountId,
+    });
+    setDepositAmountLoading(false);
+    return setDepositAmount($amount);
+  }, [engine, serviceToken, accountId, networkId, tokenInfo?.tokenIdOnNetwork]);
 
   const desc = useMemo(
     () =>
@@ -268,7 +331,7 @@ function PreSendAmount() {
     network,
     amount,
     setAmount,
-    tokenBalance,
+    tokenBalance: tokenBalanceMemo,
     accountId,
     networkId,
   });
@@ -293,6 +356,7 @@ function PreSendAmount() {
         if (transferInfo) {
           transferInfo.amount = amountToSend;
           transferInfo.from = account.address;
+          transferInfo.keepAlive = keepAliveAccount;
         }
 
         try {
@@ -324,6 +388,7 @@ function PreSendAmount() {
               to: transferInfo.to,
               value: amountToSend,
               isMax: false,
+              keepAlive: keepAliveAccount,
             },
           });
         } catch (e: any) {
@@ -412,12 +477,64 @@ function PreSendAmount() {
             </Box>
             <Button
               onPress={() => {
-                setTextByAmount(tokenBalance ?? '0');
+                setTextByAmount(tokenBalanceMemo ?? '0');
               }}
             >
               {intl.formatMessage({ id: 'action__max' })}
             </Button>
           </Box>
+          {existDeposit && (
+            <>
+              <Box flexDirection="row" alignItems="center" mt={4}>
+                <Box flex={1}>
+                  <Typography.Caption color="text-subdued">
+                    {intl.formatMessage({
+                      id: 'msg__polkadot_account_deposit_amount',
+                    })}
+                  </Typography.Caption>
+                  <Box>
+                    {depositAmountLoading ? (
+                      <Box
+                        flex={1}
+                        flexDirection="row"
+                        justifyContent="flex-start"
+                      >
+                        <Spinner size="sm" />
+                      </Box>
+                    ) : (
+                      <FormatBalance
+                        balance={depositAmount}
+                        suffix={network?.symbol}
+                        formatOptions={{
+                          unit: network?.decimals ?? 12,
+                          fixed: network?.nativeDisplayDecimals ?? 4,
+                        }}
+                        render={(ele) => (
+                          <Typography.Body1Strong color="text-disabled">
+                            {ele}
+                          </Typography.Body1Strong>
+                        )}
+                      />
+                    )}
+                  </Box>
+                </Box>
+              </Box>
+              <Box flexDirection="row" alignItems="center" mt={4}>
+                <CheckBox
+                  flex={1}
+                  isChecked={keepAliveAccount}
+                  onChange={setKeepAliveAccount}
+                  title={intl.formatMessage({
+                    id: 'msg__polkadot_keep_account_alive',
+                  })}
+                  description={intl.formatMessage({
+                    id: 'msg__polkadot_info_keep_account_alive',
+                  })}
+                />
+              </Box>
+            </>
+          )}
+
           {(platformEnv.isNative || (platformEnv.isDev && isSmallScreen)) && (
             <Box mt={6}>
               <Keyboard

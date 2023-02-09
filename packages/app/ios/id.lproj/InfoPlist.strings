@@ -14,3 +14,4 @@
 "NSMicrophoneUsageDescription" = "Gunakan Mikrofon untuk merekam video";
 "NSPhotoLibraryAddUsageDescription" = "Gunakan pustaka foto untuk menyimpan gambar QR";
 "NSPhotoLibraryUsageDescription" = "Gunakan pustaka foto untuk membaca gambar QR";
+"NSLocalNetworkUsageDescription" = "Aplikasi ini akan dapat menemukan dan terhubung ke perangkat di jaringan yang Anda gunakan.";

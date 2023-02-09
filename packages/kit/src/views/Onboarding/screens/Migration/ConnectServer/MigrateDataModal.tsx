@@ -21,6 +21,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
@@ -40,6 +41,7 @@ type Props = {
 
 function isEmptyData(data: PublicBackupData) {
   let empty = true;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Object.entries(data).forEach(([_, value]) => {
     if (!isEmpty(value)) {
       empty = false;
@@ -120,6 +122,25 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
         ipAddress: serverAddress,
         data: JSON.stringify(data),
       });
+      if (success && parseToData) {
+        ToastManager.show({
+          title: `🧙 ${intl.formatMessage(
+            {
+              id: 'msg__data_sent_to_platform',
+            },
+            { platform: parseToData.name },
+          )}`,
+        });
+      } else {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'form__failed',
+            }),
+          },
+          { type: 'error' },
+        );
+      }
       return success;
     }
     if (status === ExportResult.EMPTY) {
@@ -133,15 +154,19 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
       );
     }
     return false;
-  }, [exportDataRequest, intl, serverAddress, serviceMigrate]);
+  }, [exportDataRequest, intl, parseToData, serverAddress, serviceMigrate]);
 
   const getDataAction = useCallback(async () => {
     const data = await serviceMigrate.getDataFromServer({
       ipAddress: serverAddress,
     });
-    console.log('getDataAction = ', data);
-
     if (data) {
+      if (typeof data === 'number') {
+        if (data === MigrateErrorCode.ConnectFail) {
+          updateConnectStatus(ConnectStatus.Fail);
+        }
+        return;
+      }
       if (isEmptyData(JSON.parse(data.public))) {
         ToastManager.show(
           {
@@ -168,17 +193,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
   const migrateAction = useCallback(async () => {
     setLoading(true);
     if (isSend) {
-      const success = await sendAction();
-      if (success && parseToData) {
-        ToastManager.show({
-          title: `🧙 ${intl.formatMessage(
-            {
-              id: 'msg__data_sent_to_platform',
-            },
-            { platform: parseToData.name },
-          )}`,
-        });
-      }
+      await sendAction();
       serviceMigrate.disConnectServer(serverAddress);
       closeOverlay();
     } else {
@@ -188,9 +203,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
   }, [
     closeOverlay,
     getDataAction,
-    intl,
     isSend,
-    parseToData,
     sendAction,
     serverAddress,
     serviceMigrate,

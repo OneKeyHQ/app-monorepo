@@ -1,4 +1,5 @@
 import { networkList } from '@onekeyfe/network-list';
+import { omit } from 'lodash';
 import semver from 'semver';
 
 import {
@@ -12,6 +13,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   ACCOUNT_DERIVATION_DB_MIGRATION_VERSION,
   AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
@@ -71,11 +73,20 @@ export default class ServiceBootstrap extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
 
-    const { serviceOverview, serviceToken } = this.backgroundApi;
+    const {
+      serviceOverview,
+      serviceAccount,
+      serviceToken,
+      serviceNetwork,
+      serviceSwap,
+    } = this.backgroundApi;
 
+    this.migrateAccountDerivationTable();
     serviceToken.registerEvents();
     serviceOverview.registerEvents();
-    this.migrateAccountDerivationTable();
+    serviceNetwork.registerEvents();
+    serviceSwap.registerEvents();
+    serviceAccount.registerEvents();
   }
   // eslint-disable-next-line
   @backgroundMethod()
@@ -227,5 +238,27 @@ export default class ServiceBootstrap extends ServiceBase {
       debugLogger.common.error('migrate error: ', e);
       throw e;
     }
+  }
+
+  @backgroundMethod()
+  async syncAccounts() {
+    const { engine, appSelector } = this.backgroundApi;
+    const wallets = appSelector((s) => s.runtime.wallets);
+    const instanceId = appSelector((state) => state?.settings?.instanceId);
+    const accounts = (
+      await engine.getAccounts(wallets.map((w) => w.accounts).flat())
+    ).map((n) => ({
+      ...omit(n, 'tokens'),
+      walletType: wallets.find((w) => w.accounts.includes(n.id))?.type,
+    }));
+    fetchData(
+      '/overview/syncAccounts',
+      {
+        accounts,
+        instanceId,
+      },
+      {},
+      'POST',
+    );
   }
 }

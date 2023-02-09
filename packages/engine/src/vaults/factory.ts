@@ -8,6 +8,7 @@ import {
   IMPL_CFX,
   IMPL_COSMOS,
   IMPL_DOGE,
+  IMPL_DOT,
   IMPL_EVM,
   IMPL_FIL,
   IMPL_LTC,
@@ -36,6 +37,7 @@ import VaultHelperBtc from './impl/btc/VaultHelper';
 import VaultHelperCfx from './impl/cfx/VaultHelper';
 import VaultHelperCosmos from './impl/cosmos/VaultHelper';
 import VaultHelperDoge from './impl/doge/VaultHelper';
+import VaultHelperDot from './impl/dot/VaultHelper';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultHelperFil from './impl/fil/VaultHelper';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
@@ -114,6 +116,9 @@ export function createVaultSettings(options: {
   if (impl === IMPL_FIL) {
     return require('./impl/fil/settings').default as IVaultSettings;
   }
+  if (impl === IMPL_DOT) {
+    return require('./impl/dot/settings').default as IVaultSettings;
+  }
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId}`,
   );
@@ -176,6 +181,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_FIL) {
     return new VaultHelperFil(options);
+  }
+  if (impl === IMPL_DOT) {
+    return new VaultHelperDot(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -289,6 +297,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_FIL) {
     const VaultFil = (await import('./impl/fil/Vault')).default;
     vault = new VaultFil(options);
+  }
+  if (network.impl === IMPL_DOT) {
+    const VaultDot = (await import('./impl/dot/Vault')).default;
+    vault = new VaultDot(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

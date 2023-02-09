@@ -14,6 +14,7 @@
       },
       "ios": {
         "image": "macos-monterey-12.3-xcode-13.3",
+        "resourceClass": "m1-medium",
         "env": {
           "PLATFORM": "ios"
         }

@@ -112,7 +112,6 @@ import type {
   Account,
   DBAccount,
   DBUTXOAccount,
-  DBVariantAccount,
   ImportableHDAccount,
 } from './types/account';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
@@ -784,6 +783,7 @@ class Engine {
       '1815': OnekeyNetwork.ada,
       '461': OnekeyNetwork.fil,
       '784': OnekeyNetwork.sui,
+      '354': OnekeyNetwork.dot,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -866,11 +866,7 @@ class Engine {
           return (a as DBUTXOAccount).address;
         }
         if (a.type === AccountType.VARIANT) {
-          let address = (a as DBVariantAccount).addresses[networkId];
-          if (!address) {
-            address = await vault.addressFromBase(a.address);
-          }
-          return address;
+          return vault.addressFromBase(a);
         }
         return a.address;
       }),
@@ -883,10 +879,7 @@ class Engine {
           return { address };
         }
         if (a.type === AccountType.VARIANT) {
-          let address = (a as DBVariantAccount).addresses[networkId];
-          if (!address) {
-            address = await vault.addressFromBase(a.address);
-          }
+          const address = await vault.addressFromBase(a);
           return { address };
         }
         return { address: a.address };
@@ -1948,16 +1941,19 @@ class Engine {
     accountId,
     transferInfos,
     prevNonce,
+    isDeflationary,
   }: {
     networkId: string;
     accountId: string;
     transferInfos: ITransferInfo[];
     prevNonce?: number;
+    isDeflationary?: boolean;
   }) {
     const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromBatchTransfer(
       transferInfos,
       prevNonce,
+      isDeflationary,
     );
     debugLogger.sendTx.info(
       'buildEncodedTxFromBatchTransfer: ',

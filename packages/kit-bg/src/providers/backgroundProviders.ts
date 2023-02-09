@@ -7,6 +7,7 @@ import ProviderApiConflux from './ProviderApiConflux';
 import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
+import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 import ProviderApiStarcoin from './ProviderApiStarcoin';
@@ -56,6 +57,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
       backgroundApi,
     }),
     // near

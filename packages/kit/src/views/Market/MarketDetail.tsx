@@ -23,7 +23,7 @@ import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/types';
 import { StakingRoutes } from '../Staking/typing';
 
-import MarketDetailTab from './Components/MarketDetail/MarketDetailTab';
+import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 import { useMarketDetail } from './hooks/useMarketDetail';
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
@@ -35,7 +35,6 @@ import type {
   TabRoutesParams,
 } from '../../routes/types';
 import type { MarketTokenItem } from '../../store/reducers/market';
-import type { CurrencyType } from '../FiatPay/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -316,7 +315,7 @@ const MarketDetail: FC = () => {
   const { tokenDetail } = useMarketDetail({ coingeckoId: marketTokenId });
   return (
     <MarketDetailLayout marketTokenId={marketTokenId}>
-      <MarketDetailTab
+      <MarketDetailContent
         tokenDetail={tokenDetail}
         marketTokenId={marketTokenId}
       />

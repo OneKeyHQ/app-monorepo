@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 
@@ -23,25 +23,31 @@ const List = () => {
   const setContext = useLiveMintContext()?.setContext;
   const context = useLiveMintContext()?.context;
   const defaultNetwork = useDefaultNetWork();
+
+  const headerRight = useCallback(
+    () => (
+      <ChainSelector
+        selectedNetwork={context?.selectedNetwork ?? defaultNetwork}
+        onChange={(n) => {
+          if (setContext) {
+            setContext((ctx) => ({
+              ...ctx,
+              selectedNetwork: n,
+            }));
+          }
+        }}
+        tiggerProps={{ paddingRight: '16px' }}
+      />
+    ),
+    [context?.selectedNetwork, defaultNetwork, setContext],
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: 'Live Minting',
-      headerRight: () => (
-        <ChainSelector
-          selectedNetwork={context?.selectedNetwork ?? defaultNetwork}
-          onChange={(n) => {
-            if (setContext) {
-              setContext((ctx) => ({
-                ...ctx,
-                selectedNetwork: n,
-              }));
-            }
-          }}
-          tiggerProps={{ paddingRight: '16px' }}
-        />
-      ),
+      headerRight,
     });
-  }, [context?.selectedNetwork, defaultNetwork, navigation, setContext]);
+  }, [headerRight, navigation]);
 
   return (
     <ScrollView

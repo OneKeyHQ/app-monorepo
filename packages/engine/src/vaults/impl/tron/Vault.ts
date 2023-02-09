@@ -1,7 +1,9 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 import { defaultAbiCoder } from '@ethersproject/abi';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { find } from 'lodash';
 import memoizee from 'memoizee';
 import TronWeb from 'tronweb';
 
@@ -46,6 +48,8 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type {
+  IAccountDetail,
+  IContractDetail,
   IEncodedTxTron,
   IOnChainHistoryTokenTx,
   IOnChainHistoryTx,
@@ -85,40 +89,100 @@ export default class Vault extends VaultBase {
     },
   );
 
+  private getApiExplorerCache = memoizee(
+    // eslint-disable-next-line @typescript-eslint/require-await
+    async (baseURL) => axios.create({ baseURL }),
+    {
+      primitive: true,
+      promise: true,
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  async getApiExplorer() {
+    const network = await this.engine.getNetwork(this.networkId);
+    let baseURL = network.blockExplorerURL.name;
+    if (network.isTestnet) {
+      baseURL = network.blockExplorerURL.name.replace(/shast/, 'shastapi');
+    } else {
+      baseURL = network.blockExplorerURL.name.replace(
+        /(tronscan)/,
+        'apilist.$1',
+      );
+    }
+    return this.getApiExplorerCache(baseURL);
+  }
+
   public async getClient() {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     return this.getTronWeb(rpcURL);
   }
 
-  getToken = memoizee(
-    async (tokenAddress, tronWeb: TronWeb) => {
-      const contract = await tronWeb.contract().at(tokenAddress);
-      if (!contract.name && !contract.symbol && !contract.decimals) {
-        return;
+  getTokenContact = memoizee(
+    async (tokenAddress) => {
+      const apiExplorer = await this.getApiExplorer();
+      const tokenContract = await apiExplorer.get<{
+        status: { code: number };
+        data: IContractDetail[];
+      }>('api/contract', {
+        params: {
+          contract: tokenAddress,
+        },
+      });
+
+      if (
+        tokenContract?.data?.status?.code === 0 &&
+        tokenContract?.data?.data?.length > 0
+      ) {
+        return tokenContract.data.data[0];
       }
-      return contract;
     },
-    { promise: true, max: 100, maxAge: getTimeDurationMs({ minute: 3 }) },
+    {
+      primitive: true,
+      promise: true,
+      max: 100,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
   );
 
   getTokenInfo = memoizee(
-    async (tokenAddress, tronWeb: TronWeb) => {
-      const contract = await this.getToken(tokenAddress, tronWeb);
-      if (contract) {
-        const [name, symbol, decimals] = await Promise.all([
-          contract.name().call(),
-          contract.symbol().call(),
-          contract.decimals().call(),
-        ]);
+    async (tokenAddress) => {
+      const tokenContract = await this.getTokenContact(tokenAddress);
+      if (tokenContract && tokenContract.tokenInfo?.tokenId) {
+        const { tokenInfo } = tokenContract;
         return {
-          name: typeof name === 'object' ? name._name : name,
-          symbol: typeof symbol === 'object' ? symbol._symbol : symbol,
-          decimals:
-            typeof decimals === 'object' ? decimals._decimals : decimals,
+          name: tokenInfo.tokenName,
+          symbol: tokenInfo.tokenAbbr,
+          decimals: tokenInfo.tokenDecimal,
+          logoURI: tokenInfo.tokenLogo,
         };
       }
     },
     { promise: true, max: 100, maxAge: getTimeDurationMs({ minute: 3 }) },
+  );
+
+  getAccountInfo = memoizee(
+    async (address: string) => {
+      try {
+        const apiExplorer = await this.getApiExplorer();
+        const resp = await apiExplorer.get<IAccountDetail>('api/account', {
+          params: {
+            address,
+          },
+        });
+
+        return resp.data;
+      } catch {
+        // pass
+      }
+    },
+    {
+      primitive: true,
+      promise: true,
+      max: 1,
+      maxAge: getTimeDurationMs({ seconds: 30 }),
+    },
   );
 
   getParameters = memoizee(
@@ -175,12 +239,10 @@ export default class Vault extends VaultBase {
   }
 
   override async fetchTokenInfos(tokenAddresses: string[]) {
-    const tronWeb = await this.getClient();
-
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          return await this.getTokenInfo(tokenAddress, tronWeb);
+          return await this.getTokenInfo(tokenAddress);
         } catch {
           // pass
         }
@@ -221,13 +283,18 @@ export default class Vault extends VaultBase {
           if (typeof tokenAddress === 'undefined') {
             return new BigNumber(await tronWeb.trx.getBalance(address));
           }
-          const contract = await this.getToken(tokenAddress, tronWeb);
-          if (contract) {
-            const result = await contract.balanceOf(address).call();
-            return new BigNumber(result.toString());
+
+          const accountInfo = await this.getAccountInfo(address);
+
+          if (accountInfo) {
+            const { tokens } = accountInfo;
+            const token = find(tokens, { tokenId: tokenAddress });
+            return new BigNumber(token?.balance ?? 0);
           }
+
+          return new BigNumber(0);
         } catch {
-          // pass
+          return new BigNumber(0);
         }
       }),
     );

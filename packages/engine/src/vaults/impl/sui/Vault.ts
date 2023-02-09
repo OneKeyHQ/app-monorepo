@@ -358,7 +358,7 @@ export default class Vault extends VaultBase {
     const { kind, data } = txData;
     let gasLimit = 0;
     if (data && 'gasBudget' in data) {
-      gasLimit = data.gasBudget;
+      gasLimit = data.gasBudget ?? 0;
     }
 
     switch (kind) {
@@ -911,11 +911,17 @@ export default class Vault extends VaultBase {
 
             const moveCall = getMoveCallTransaction(action);
             if (moveCall) {
+              let functionName = '';
+              if (moveCall.package && typeof moveCall.package === 'object') {
+                functionName = moveCall.package?.objectId ?? '';
+              } else {
+                functionName = moveCall.package;
+              }
               actions.push({
                 type: IDecodedTxActionType.FUNCTION_CALL,
                 'functionCall': {
                   target: moveCallTxnName(moveCall.function),
-                  functionName: moveCall.package?.objectId ?? '',
+                  functionName,
                   args: moveCall.arguments ?? [],
                   extraInfo: null,
                 },

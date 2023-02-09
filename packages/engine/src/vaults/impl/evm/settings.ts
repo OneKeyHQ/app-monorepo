@@ -20,7 +20,10 @@ const settings: IVaultSettings = Object.freeze({
     },
   },
 
+  supportDeflationary: true,
   supportFilterScam: true,
+  supportBatchTransfer: true,
+  batchTokenTransferApprovalRequired: true,
 });
 
 export default settings;

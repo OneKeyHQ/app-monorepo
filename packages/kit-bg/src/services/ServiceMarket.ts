@@ -149,6 +149,7 @@ export default class ServiceMarket extends ServiceBase {
         vs_currency: vsCurrency ?? 'usd',
         id: coingeckoId,
         locale: locale === 'system' ? getDefaultLocale() : locale,
+        explorer_platforms: true,
       },
       null,
     );

@@ -14,3 +14,4 @@
 "NSMicrophoneUsageDescription" = "Use Microphone to record videos.";
 "NSPhotoLibraryAddUsageDescription" = "Use photo library to save QR images.";
 "NSPhotoLibraryUsageDescription" = "Use photo library to read QR images.";
+"NSLocalNetworkUsageDescription" = "This app will be able to discover and connect to devices on the networks you use.";
