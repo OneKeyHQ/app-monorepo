@@ -132,6 +132,83 @@ function SideChainSelector({
       }),
     [scrollToItem],
   );
+
+  const renderItem = useCallback(
+    (options: { item: INetwork; index: number }) => {
+      const { item, index } = options;
+      const isLastItem = index === data.length - 1;
+      const isActive = selectedNetworkId === item.id;
+      return (
+        <Pressable
+          onPress={() => {
+            const id = (item.id === AllNetwork ? '' : item.id) || '';
+            serviceAccountSelector.updateSelectedNetwork(id);
+            onPress?.({ networkId: id });
+          }}
+        >
+          {({ isHovered, isPressed }) => (
+            <HStack
+              alignItems="center"
+              space={3}
+              p={1.5}
+              m={fullWidthMode ? 0 : 1}
+              borderWidth={2}
+              bgColor={
+                isPressed
+                  ? 'surface-pressed'
+                  : isHovered
+                  ? 'surface-hovered'
+                  : undefined
+              }
+              borderColor={(() => {
+                if (fullWidthMode) {
+                  return 'transparent';
+                }
+                return isActive ? 'interactive-default' : 'transparent';
+              })()}
+              rounded={fullWidthMode ? '12px' : 'full'}
+            >
+              <ChainNetworkIcon
+                item={item}
+                isLastItem={isLastItem}
+                onLastItemRender={scrollToItemDebounced}
+              />
+              {fullWidthMode ? (
+                <>
+                  <Text
+                    flex={1}
+                    typography="Body1Strong"
+                    isTruncated
+                    numberOfLines={1}
+                  >
+                    {item.name}
+                  </Text>
+                  {item.id === selectedNetworkId ? (
+                    <>
+                      <RpcStatusButton networkId={item.id} />
+                      <Icon
+                        color="interactive-default"
+                        name="CheckCircleSolid"
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </HStack>
+          )}
+        </Pressable>
+      );
+    },
+    [
+      data.length,
+      fullWidthMode,
+      scrollToItemDebounced,
+      onPress,
+      selectedNetworkId,
+      serviceAccountSelector,
+    ],
+  );
+
   return (
     <Box
       alignSelf="stretch"
@@ -160,71 +237,7 @@ function SideChainSelector({
           flex: 1,
         }}
         keyExtractor={(item: INetwork) => item.id}
-        renderItem={(options: { item: INetwork; index: number }) => {
-          const { item, index } = options;
-          const isLastItem = index === data.length - 1;
-          const isActive = selectedNetworkId === item.id;
-          return (
-            <Pressable
-              onPress={() => {
-                const id = (item.id === AllNetwork ? '' : item.id) || '';
-                serviceAccountSelector.updateSelectedNetwork(id);
-                onPress?.({ networkId: id });
-              }}
-            >
-              {({ isHovered, isPressed }) => (
-                <HStack
-                  alignItems="center"
-                  space={3}
-                  p={1.5}
-                  m={fullWidthMode ? 0 : 1}
-                  borderWidth={2}
-                  bgColor={
-                    isPressed
-                      ? 'surface-pressed'
-                      : isHovered
-                      ? 'surface-hovered'
-                      : undefined
-                  }
-                  borderColor={(() => {
-                    if (fullWidthMode) {
-                      return 'transparent';
-                    }
-                    return isActive ? 'interactive-default' : 'transparent';
-                  })()}
-                  rounded={fullWidthMode ? '12px' : 'full'}
-                >
-                  <ChainNetworkIcon
-                    item={item}
-                    isLastItem={isLastItem}
-                    onLastItemRender={scrollToItemDebounced}
-                  />
-                  {fullWidthMode ? (
-                    <>
-                      <Text
-                        flex={1}
-                        typography="Body1Strong"
-                        isTruncated
-                        numberOfLines={1}
-                      >
-                        {item.name}
-                      </Text>
-                      {item.id === selectedNetworkId ? (
-                        <>
-                          <RpcStatusButton networkId={item.id} />
-                          <Icon
-                            color="interactive-default"
-                            name="CheckCircleSolid"
-                          />
-                        </>
-                      ) : null}
-                    </>
-                  ) : null}
-                </HStack>
-              )}
-            </Pressable>
-          );
-        }}
+        renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         flex={1}
         p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
