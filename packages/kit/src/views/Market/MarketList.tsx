@@ -113,6 +113,14 @@ const MarketList: FC = () => {
     () => <MarketListHeader headTags={listHeadTags} />,
     [listHeadTags],
   );
+  const showRecomended = useMemo(
+    () =>
+      selectedCategory &&
+      selectedCategory.categoryId === MARKET_FAVORITES_CATEGORYID &&
+      !favoriteTokens.length &&
+      recommendedTokens.length > 0,
+    [favoriteTokens.length, recommendedTokens.length, selectedCategory],
+  );
   return (
     <Box flex={1}>
       <ScrollView
@@ -120,18 +128,19 @@ const MarketList: FC = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ref={scrollRef}
-        p={isVerticalLayout ? 2 : 3}
+        px={isVerticalLayout ? 2 : 3}
         bg="background-default"
         onScroll={onScroll}
         contentContainerStyle={{
           paddingBottom: 24,
         }}
+        stickyHeaderIndices={[0]}
       >
-        <MarketCategoryToggles categorys={categorys} />
-        {selectedCategory &&
-        selectedCategory.categoryId === MARKET_FAVORITES_CATEGORYID &&
-        !favoriteTokens.length &&
-        recommendedTokens.length > 0 ? (
+        <Box pt={1} mt={-1} bgColor="background-default">
+          <MarketCategoryToggles categorys={categorys} />
+          {!showRecomended ? listHeader : null}
+        </Box>
+        {showRecomended ? (
           <MarketRecomment tokens={recommendedTokens} />
         ) : (
           <FlatList
@@ -141,7 +150,7 @@ const MarketList: FC = () => {
                 : selectedCategory.coingeckoIds
             }
             renderItem={renderItem}
-            ListHeaderComponent={listHeader}
+            // ListHeaderComponent={listHeader}
             ItemSeparatorComponent={!isVerticalLayout ? Divider : null}
           />
         )}
