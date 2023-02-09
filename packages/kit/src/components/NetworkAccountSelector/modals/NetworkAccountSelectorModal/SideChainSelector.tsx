@@ -1,16 +1,19 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  Empty,
   HStack,
   Icon,
   IconButton,
   Pressable,
+  Searchbar,
   Text,
   Token,
 } from '@onekeyhq/components';
@@ -59,12 +62,37 @@ function SideChainSelector({
   onPress?: (payload: { networkId: string }) => void;
   fullWidthMode?: boolean;
 }) {
+  const intl = useIntl();
+  const [search, setSearch] = useState('');
   const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
   const { selectedNetworkId } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
 
+  const data = useMemo(
+    () =>
+      enabledNetworks.filter(
+        (d) =>
+          d.name.toLowerCase().includes(search.toLowerCase()) ||
+          d.shortName.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [enabledNetworks, search],
+  );
+
+  const emptyComponent = useCallback(
+    () => (
+      <Empty
+        flex="1"
+        emoji="🔍"
+        title={intl.formatMessage({
+          id: 'content__no_results',
+          defaultMessage: 'No Result',
+        })}
+      />
+    ),
+    [intl],
+  );
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
     if (
@@ -95,6 +123,7 @@ function SideChainSelector({
       }
     }, 0);
   }, [enabledNetworks, selectedNetworkId]);
+
   const scrollToItemDebounced = useMemo(
     () =>
       debounce(scrollToItem, ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK, {
@@ -112,15 +141,28 @@ function SideChainSelector({
       borderColor={fullWidthMode ? undefined : 'divider'}
       flex={fullWidthMode ? 1 : undefined}
     >
+      <Box p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}>
+        <Searchbar
+          w="full"
+          value={search}
+          onChangeText={(text) => setSearch(text)}
+          placeholder={intl.formatMessage({ id: 'content__search' })}
+          onClear={() => setSearch('')}
+        />
+      </Box>
       <FlatListRef
+        ListEmptyComponent={emptyComponent}
         initialNumToRender={20}
         // TODO auto scroll to active item
         ref={flatListRef}
-        data={enabledNetworks}
+        data={data}
+        contentContainerStyle={{
+          flex: 1,
+        }}
         keyExtractor={(item: INetwork) => item.id}
         renderItem={(options: { item: INetwork; index: number }) => {
           const { item, index } = options;
-          const isLastItem = index === enabledNetworks.length - 1;
+          const isLastItem = index === data.length - 1;
           const isActive = selectedNetworkId === item.id;
           return (
             <Pressable
