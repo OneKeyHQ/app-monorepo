@@ -159,8 +159,8 @@ const defaultAccountNameInfo: Record<
       category: `44'/${COINTYPE_ETH}'`,
       template: `m/44'/${COINTYPE_ETH}'/0'/0/x`,
       coinType: COINTYPE_ETH,
-      label: 'BIP44 Standard',
-      desc: `OneKey, Metamask, Ledger Live`,
+      label: { id: 'form__bip44_standard' },
+      desc: { id: `form__bip44_standard_desc` },
       recommended: true,
     },
     etcNative: {
@@ -168,7 +168,7 @@ const defaultAccountNameInfo: Record<
       category: `44'/${COINTYPE_ETC}'`,
       template: `m/44'/${COINTYPE_ETC}'/0'/0/x`,
       coinType: COINTYPE_ETC,
-      label: `BIP44 Standard (CoinType 61')`,
+      label: { id: 'form__bip44_standard' },
     },
     ledgerLive: {
       prefix: 'Ledger Live',
@@ -183,7 +183,7 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_ETH}'/0'/x`,
       coinType: COINTYPE_ETH,
       label: 'Ledger Legacy',
-      desc: `Ledger ETH Wallet, MEW, MyCrypto`,
+      desc: { id: 'form__ledger_legacy_desc' },
     },
   },
   [IMPL_SOL]: {
@@ -192,8 +192,8 @@ const defaultAccountNameInfo: Record<
       category: `44'/${COINTYPE_SOL}'`,
       template: `m/44'/${COINTYPE_SOL}'/x'/0'`,
       coinType: COINTYPE_SOL,
-      label: 'BIP44 Standard',
-      desc: 'OneKey, Phantom,Sollet',
+      label: { id: 'form__bip44_standard' },
+      desc: 'OneKey, Phantom, Sollet',
       recommended: true,
     },
     ledgerLive: {
@@ -244,7 +244,10 @@ const defaultAccountNameInfo: Record<
       template: `m/49'/${COINTYPE_BTC}'/x'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Nested SegWit',
-      desc: 'Start with “3”. Medium transaction transfer fee.',
+      desc: {
+        id: 'form__bitcoin__nested_segwit_desc',
+        placeholder: { 0: '3' },
+      },
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
     BIP84: {
@@ -253,8 +256,11 @@ const defaultAccountNameInfo: Record<
       template: `m/84'/${COINTYPE_BTC}'/x'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Native SegWit',
-      desc: 'Start with with “bc1”. Low transaction fee.',
-      subDesc: 'BIP84, P2WPKH, Bech32. ',
+      desc: {
+        id: 'form__bitcoin__native_segwit_desc',
+        placeholder: { 0: 'bc1' },
+      },
+      subDesc: 'BIP84, P2WPKH, Bech32.',
     },
     BIP44: {
       prefix: 'BTC Legacy',
@@ -262,7 +268,7 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_BTC}'/x'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Legacy',
-      desc: 'Start with “1”. High transaction fee.',
+      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: '1' } },
       subDesc: 'BIP44, P2PKH, Base58.',
       notRecommended: true,
     },
@@ -274,7 +280,10 @@ const defaultAccountNameInfo: Record<
       template: `m/49'/${COINTYPE_TBTC}'/x'/0/0`,
       coinType: COINTYPE_TBTC,
       label: 'Nested SegWit',
-      desc: 'Start with “2”. Medium transaction transfer fee.',
+      desc: {
+        id: 'form__bitcoin__nested_segwit_desc',
+        placeholder: { 0: '2' },
+      },
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
     BIP44: {
@@ -283,7 +292,7 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_TBTC}'/x'/0/0`,
       coinType: COINTYPE_TBTC,
       label: 'Legacy',
-      desc: 'Start with “m”. High transaction fee.',
+      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'm' } },
       subDesc: 'BIP44, P2PKH, Base58.',
     },
     BIP84: {
@@ -292,7 +301,10 @@ const defaultAccountNameInfo: Record<
       template: `m/84'/${COINTYPE_TBTC}'/x'/0/0`,
       coinType: COINTYPE_TBTC,
       label: 'Native SegWit',
-      desc: 'Start with with “tb1”. Low transaction fee.',
+      desc: {
+        id: 'form__bitcoin__native_segwit_desc',
+        placeholder: { 0: 'tb1' },
+      },
       subDesc: 'BIP84, P2WPKH, Bech32. ',
     },
   },
@@ -328,7 +340,10 @@ const defaultAccountNameInfo: Record<
       template: `m/49'/${COINTYPE_LTC}'/x'/0/0`,
       coinType: COINTYPE_LTC,
       label: 'Nested SegWit',
-      desc: 'Start with “M”. Medium transaction transfer fee.',
+      desc: {
+        id: 'form__bitcoin__nested_segwit_desc',
+        placeholder: { 0: 'M' },
+      },
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
     BIP84: {
@@ -337,7 +352,10 @@ const defaultAccountNameInfo: Record<
       template: `m/84'/${COINTYPE_LTC}'/x'/0/0`,
       coinType: COINTYPE_LTC,
       label: 'Native SegWit',
-      desc: 'Start with with “ltc1”. Low transaction fee.',
+      desc: {
+        id: 'form__bitcoin__native_segwit_desc',
+        placeholder: { 0: 'ltc1' },
+      },
       subDesc: 'BIP84, P2WPKH, Bech32. ',
     },
     BIP44: {
@@ -346,7 +364,7 @@ const defaultAccountNameInfo: Record<
       template: `m/44'/${COINTYPE_LTC}'/x'/0/0`,
       coinType: COINTYPE_LTC,
       label: 'Legacy',
-      desc: 'Start with “L”. High transaction fee.',
+      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'L' } },
       subDesc: 'BIP44, P2PKH, Base58.',
       notRecommended: true,
     },

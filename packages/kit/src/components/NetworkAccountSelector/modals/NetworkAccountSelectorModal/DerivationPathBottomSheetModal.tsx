@@ -2,14 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Alert,
   Badge,
   BottomSheetModal,
   Box,
-  Divider,
   HStack,
   Icon,
   Spinner,
@@ -18,6 +16,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../../hooks';
@@ -73,6 +72,7 @@ const DerivationOption: FC<{
   showTemplate,
   disabled,
 }) => {
+  const intl = useIntl();
   const textColor = disabled ? 'text-disabled' : 'text-subdued';
   return (
     <Pressable
@@ -88,7 +88,9 @@ const DerivationOption: FC<{
               typography={{ sm: 'Body1Strong', md: 'Body1Strong' }}
               color={disabled ? 'text-subdued' : 'text-default'}
             >
-              {option.label}
+              {typeof option.label === 'string'
+                ? option.label
+                : intl.formatMessage({ id: option.label?.id })}
             </Text>
             {option.recommended && (
               <Badge ml={2} size="sm" title="Recommanded" />
@@ -102,7 +104,12 @@ const DerivationOption: FC<{
             fontFamily="mono"
             color={textColor}
           >
-            {option.desc}
+            {typeof option.desc === 'string'
+              ? option.desc
+              : intl.formatMessage(
+                  { id: option.desc?.id },
+                  option.desc?.placeholder,
+                )}
           </Text>
           <Text
             typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
@@ -189,7 +196,9 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
   return (
     <Box>
       <Text typography={{ sm: 'Body2', md: 'Body2' }} mr="7px">
-        {`If you don't see the accounts you expect, try switching the HD Path.`}
+        {intl.formatMessage({
+          id: 'content__if_you_dont_see_the_account_you_expect_try_switching_the_deriation_path',
+        })}
       </Text>
       {showValidOptions && (
         <Box mt={4}>
@@ -208,11 +217,14 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
       )}
       {showInvalidOptions && (
         <Box>
-          {showValidOptions && <Divider h={StyleSheet.hairlineWidth} my={8} />}
-          <Box mb={2} mt={showValidOptions ? 0 : 8}>
+          <Box mb={2} mt={6}>
             <Alert
-              title="Last accounts of these types are not used"
-              description="You cannot create a new account when the last account of that type created has not yet received a transaction."
+              title={intl.formatMessage({
+                id: 'content__last_account_of_these_types_are_not_used',
+              })}
+              description={intl.formatMessage({
+                id: 'content__you_cannot_create_a_new_account_when_the_last_account_of_that_type_created',
+              })}
               dismiss={false}
               alertType="info"
             />
@@ -242,7 +254,7 @@ const showDerivationPathBottomSheetModal = ({
 }: IDerivationPathBottomSheetModalProps) => {
   showOverlay((close) => (
     <BottomSheetModal
-      title="Derivation Path"
+      title={formatMessage({ id: 'title__derivation_path' })}
       headerDescription={<DerivationPathHeader networkId={networkId} />}
       closeOverlay={close}
     >

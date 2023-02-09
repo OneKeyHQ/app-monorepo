@@ -1,5 +1,6 @@
 import type { IVaultSettings } from '../vaults/types';
 import type { HasName } from './base';
+import type { MessageDescriptor } from 'react-intl';
 
 type NetworkBase = HasName & {
   impl: string;
@@ -41,9 +42,9 @@ type AccountNameInfo = {
   category: string;
   template: string;
   coinType: string;
-  label?: string;
+  label?: { id: MessageDescriptor['id'] } | string;
   addressPrefix?: string;
-  desc?: string;
+  desc?: { id: MessageDescriptor['id']; placeholder?: any } | string;
   subDesc?: string;
   recommended?: boolean;
   notRecommended?: boolean;
