@@ -121,6 +121,7 @@ jobs:
           # create variables
           MAC_INSTALL_P12_PATH=$RUNNER_TEMP/mac_install_certificate.p12
           APPLE_DISTRIBUTION_P12_PATH=$RUNNER_TEMP/apple_distribution_certificate.p12
+          APPLE_WWDRCA_PATH=$RUNNER_TEMP/apple_WWDRCAG3.cer
           PP_PATH=./packages/desktop/OneKey_Mac_App.provisionprofile
           KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
@@ -128,6 +129,7 @@ jobs:
           echo -n "$MAC_INSTALL_P12_BASE64" | base64 --decode > $MAC_INSTALL_P12_PATH
           echo -n "$APPLE_DISTRIBUTION_P12_BASE64" | base64 --decode > $APPLE_DISTRIBUTION_P12_PATH
           echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode > $PP_PATH
+          # curl https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer > $APPLE_WWDRCA_PATH
 
           # create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
@@ -135,8 +137,9 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
           # import certificate to keychain
-          security import $MAC_INSTALL_P12_PATH -P "$MAC_INSTALL_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security import $APPLE_DISTRIBUTION_P12_PATH -P "$APPLE_DISTRIBUTION_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $MAC_INSTALL_P12_PATH -P "" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $APPLE_DISTRIBUTION_P12_PATH -P "" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          # security import $APPLE_WWDRCA_PATH -A -t cert -k $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
           # apply provisioning profile
@@ -151,6 +154,12 @@ jobs:
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: 'cd packages/desktop && yarn build:mas'
+
+      - name: Clean up keychain and provisioning profile
+        if: ${{ always() }}
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+          rm ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Mac_App.provisionprofile
 
       - name: Upload Artifacts mas
         uses: actions/upload-artifact@v3

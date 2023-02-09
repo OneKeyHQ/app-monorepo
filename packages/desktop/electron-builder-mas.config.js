@@ -75,5 +75,5 @@ module.exports = {
   },
   'afterSign': 'scripts/notarize.js',
   'afterPack': 'scripts/fileOperation.js',
-  // 'asarUnpack': ['**/*.node'],
+  'asarUnpack': ['**/*.node'],
 };
