@@ -1,14 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useRef, useState } from 'react';
+import type { FC } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, ToastManager } from '@onekeyhq/components';
+import {
+  BottomSheetModal,
+  Button,
+  Center,
+  HStack,
+  ToastManager,
+  Typography,
+} from '@onekeyhq/components';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -22,6 +31,7 @@ import { addTransaction } from '../../store/reducers/swapTransactions';
 import { deviceUtils } from '../../utils/hardware';
 import { wait } from '../../utils/helper';
 import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
+import { showOverlay } from '../../utils/overlayUtils';
 import { SendRoutes } from '../Send/types';
 
 import { reservedNetworkFee } from './config';
@@ -40,9 +50,12 @@ import {
   getTokenAmountValue,
 } from './utils';
 
-import type { FetchQuoteParams, QuoteData, BuildTransactionResponse } from './typings';
+import type {
+  BuildTransactionResponse,
+  FetchQuoteParams,
+  QuoteData,
+} from './typings';
 import type { TokenAmount } from './utils';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 type IConvertToSwapInfoOptions = {
   swapQuote: QuoteData;
@@ -51,6 +64,11 @@ type IConvertToSwapInfoOptions = {
   outputAmount: TokenAmount;
   account: BaseAccount;
   receivingAddress?: string;
+};
+
+type SwapTransactionsCancelApprovalBottomSheetModalProps = {
+  close: () => void;
+  onSubmit: () => void;
 };
 
 function convertToSwapInfo(options: IConvertToSwapInfoOptions): ISwapInfo {
@@ -92,6 +110,42 @@ function convertToSwapInfo(options: IConvertToSwapInfoOptions): ISwapInfo {
   return swapInfo;
 }
 
+const SwapTransactionsCancelApprovalBottomSheetModal: FC<
+  SwapTransactionsCancelApprovalBottomSheetModalProps
+> = ({ close, onSubmit }) => {
+  const intl = useIntl();
+  const onPress = useCallback(() => {
+    close();
+    onSubmit();
+  }, [close, onSubmit]);
+  return (
+    <BottomSheetModal closeOverlay={close} title="" showHeader={false}>
+      <Center h="16">
+        <Typography.Heading fontSize={60}> ℹ️ </Typography.Heading>
+      </Center>
+      <Typography.DisplayMedium mt="4">
+        {intl.formatMessage(
+          { id: 'msg__need_to_send_str_transactions_to_change_allowance' },
+          { '0': '2' },
+        )}
+      </Typography.DisplayMedium>
+      <Typography.Body1 color="text-subdued" my="4">
+        {intl.formatMessage({
+          id: 'msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated',
+        })}
+      </Typography.Body1>
+      <HStack flexDirection="row" space="4">
+        <Button size="xl" type="basic" onPress={close} flex="1">
+          {intl.formatMessage({ id: 'action__cancel' })}
+        </Button>
+        <Button size="xl" type="primary" onPress={onPress} flex="1">
+          {intl.formatMessage({ id: 'action__confirm' })}
+        </Button>
+      </HStack>
+    </BottomSheetModal>
+  );
+};
+
 const ExchangeButton = () => {
   const intl = useIntl();
 
@@ -123,12 +177,15 @@ const ExchangeButton = () => {
       );
 
     if (!accountInWallets) {
-      ToastManager.show({
-        title: intl.formatMessage(
-          { id: 'msg__account_deleted' },
-          { '0': sendingAccount.name },
-        ),
-      }, { type: 'error' });
+      ToastManager.show(
+        {
+          title: intl.formatMessage(
+            { id: 'msg__account_deleted' },
+            { '0': sendingAccount.name },
+          ),
+        },
+        { type: 'error' },
+      );
       return;
     }
 
@@ -160,7 +217,7 @@ const ExchangeButton = () => {
       }
     }
 
-    let res: BuildTransactionResponse | undefined = undefined;
+    let res: BuildTransactionResponse | undefined;
     try {
       res = await SwapQuoter.client.buildTransaction(quote.type, {
         ...params,
@@ -170,11 +227,12 @@ const ExchangeButton = () => {
         additionalParams: quote.additionalParams,
         sellAmount: quote.sellAmount,
         buyAmount: quote.buyAmount,
+        disableValidate: true,
       });
     } catch (e: any) {
-      const title = e?.response?.data?.message || e.message
+      const title = e?.response?.data?.message || e.message;
       ToastManager.show({ title }, { type: 'error' });
-      return
+      return;
     }
 
     if (res === undefined || !res?.data) {
@@ -206,18 +264,24 @@ const ExchangeButton = () => {
     }
 
     if (encodedTx === undefined) {
-      ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__unknown_error' }),
-      }, { type: 'error' });
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        },
+        { type: 'error' },
+      );
       return;
     }
 
     const newQuote = res.result;
 
     if (!newQuote) {
-      ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__unknown_error' }),
-      }, { type: 'error' });
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        },
+        { type: 'error' },
+      );
       return;
     }
 
@@ -241,10 +305,30 @@ const ExchangeButton = () => {
         ).lt(newQuote.sellAmount);
       }
 
+      const needCancelApproval =
+        needApproved &&
+        targetNetworkId === OnekeyNetwork.eth &&
+        params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
+          '0xdac17f958d2ee523a2206206994597c13d831ec7' &&
+        Number(allowance || '0') > 0;
+      if (needCancelApproval) {
+        cancelApproveTx =
+          (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+            spender: newQuote.allowanceTarget,
+            networkId: params.tokenIn.networkId,
+            accountId: sendingAccount.id,
+            token: inputAmount.token.tokenIdOnNetwork,
+            amount: '0',
+          })) as IEncodedTxEvm;
+      }
+
       if (needApproved) {
         const amount = disableSwapExactApproveAmount
           ? 'unlimited'
-          : getTokenAmountValue(inputAmount.token, newQuote.sellAmount).toFixed();
+          : getTokenAmountValue(
+              inputAmount.token,
+              newQuote.sellAmount,
+            ).toFixed();
 
         approveTx = (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           spender: newQuote.allowanceTarget,
@@ -253,21 +337,17 @@ const ExchangeButton = () => {
           token: inputAmount.token.tokenIdOnNetwork,
           amount,
         })) as IEncodedTxEvm;
-      }
 
-      if (needApproved && targetNetworkId === OnekeyNetwork.eth && params.tokenIn.tokenIdOnNetwork.toLowerCase() === '0xdac17f958d2ee523a2206206994597c13d831ec7' && Number(allowance ? allowance : '0') > 0) {
-        cancelApproveTx = (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-          spender: newQuote.allowanceTarget,
-          networkId: params.tokenIn.networkId,
-          accountId: sendingAccount.id,
-          token: inputAmount.token.tokenIdOnNetwork,
-          amount: '0',
-        })) as IEncodedTxEvm;
+        if (cancelApproveTx && cancelApproveTx.nonce) {
+          approveTx.nonce = Number(cancelApproveTx.nonce) + 1;
+        }
       }
     }
 
     const addSwapTransaction = async (hash: string, nonce?: number) => {
-      if (res === undefined) { return }
+      if (res === undefined) {
+        return;
+      }
       backgroundApiProxy.dispatch(
         addTransaction({
           accountId: sendingAccount.id,
@@ -336,7 +416,7 @@ const ExchangeButton = () => {
       }
     };
 
-    const main = async () => {
+    const main = async (options?: { skipSendFeedbackReceipt?: boolean }) => {
       try {
         if (wallet.type === 'hw') {
           if (approveTx) {
@@ -344,6 +424,7 @@ const ExchangeButton = () => {
               accountId: sendingAccount.id,
               networkId: targetNetworkId,
               encodedTx: approveTx,
+              autoFallback: Boolean(cancelApproveTx),
             });
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Send,
@@ -430,13 +511,15 @@ const ExchangeButton = () => {
             sendTx();
           }
         } else {
-          const password = await backgroundApiProxy.servicePassword.getPassword();
+          const password =
+            await backgroundApiProxy.servicePassword.getPassword();
           if (password && !validationSetting?.Payment) {
             if (approveTx) {
               await backgroundApiProxy.serviceSwap.sendTransaction({
                 accountId: sendingAccount.id,
                 networkId: targetNetworkId,
                 encodedTx: approveTx,
+                autoFallback: Boolean(cancelApproveTx),
               });
             }
             const { result, decodedTx } =
@@ -451,6 +534,9 @@ const ExchangeButton = () => {
                 },
               });
             addSwapTransaction(result.txid, decodedTx.nonce);
+            if (options?.skipSendFeedbackReceipt) {
+              return;
+            }
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Send,
               params: {
@@ -534,13 +620,84 @@ const ExchangeButton = () => {
       } catch (e: any) {
         deviceUtils.showErrorToast(e, e?.data?.message || e.message);
       }
-    }
+    };
 
-    if (cancelApproveTx) {
+    console.log('approveTx', approveTx);
+    console.log('cancelApproveTx', cancelApproveTx);
 
+    if (cancelApproveTx !== undefined) {
+      const onCancelApprovalSubmit = async () => {
+        try {
+          if (wallet.type === 'hw') {
+            await backgroundApiProxy.serviceSwap.sendTransaction({
+              accountId: sendingAccount.id,
+              networkId: targetNetworkId,
+              encodedTx: cancelApproveTx as IEncodedTxEvm,
+            });
+            await main();
+          } else if (wallet.type === 'external') {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Send,
+              params: {
+                screen: SendRoutes.SendConfirm,
+                params: {
+                  accountId: sendingAccount.id,
+                  networkId: targetNetworkId,
+                  payloadInfo: {
+                    type: 'InternalSwap',
+                  },
+                  feeInfoEditable: true,
+                  feeInfoUseFeeInTx: false,
+                  encodedTx: cancelApproveTx,
+                  onSuccess: () => main(),
+                },
+              },
+            });
+          } else {
+            const password =
+              await backgroundApiProxy.servicePassword.getPassword();
+            if (password && !validationSetting?.Payment) {
+              await backgroundApiProxy.serviceSwap.sendTransaction({
+                accountId: sendingAccount.id,
+                networkId: targetNetworkId,
+                encodedTx: cancelApproveTx as IEncodedTxEvm,
+              });
+              await main();
+            } else {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Send,
+                params: {
+                  screen: SendRoutes.SendConfirm,
+                  params: {
+                    accountId: sendingAccount.id,
+                    networkId: targetNetworkId,
+                    feeInfoEditable: true,
+                    feeInfoUseFeeInTx: false,
+                    encodedTx: { ...(cancelApproveTx as IEncodedTxEvm) },
+                    payloadInfo: {
+                      type: 'InternalSwap',
+                      swapInfo: { ...swapInfo, isApprove: true },
+                    },
+                    onSuccess: () => main({ skipSendFeedbackReceipt: true }),
+                  },
+                },
+              });
+            }
+          }
+        } catch (e: any) {
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
+        }
+      };
+      showOverlay((close) => (
+        <SwapTransactionsCancelApprovalBottomSheetModal
+          close={close}
+          onSubmit={onCancelApprovalSubmit}
+        />
+      ));
     } else {
-      main()
+      main();
     }
+    await wait(1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     params,

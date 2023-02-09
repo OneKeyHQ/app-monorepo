@@ -555,7 +555,7 @@ export default class ServiceSwap extends ServiceBase {
     networkId: string;
     encodedTx: IEncodedTx;
     payload?: SendConfirmParams['payloadInfo'];
-    autoFallback?: boolean
+    autoFallback?: boolean;
   }) {
     const { accountId, networkId, encodedTx, payload, autoFallback } = params;
     const { appSelector, serviceTransaction } = this.backgroundApi;
@@ -568,7 +568,7 @@ export default class ServiceSwap extends ServiceBase {
       encodedTx,
       payload,
       feePresetIndex: swapFeePresetIndex,
-      autoFallback
+      autoFallback,
     });
   }
 

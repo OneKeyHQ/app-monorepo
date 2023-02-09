@@ -1,15 +1,13 @@
+import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
 import type {
   IEncodedTx,
-  
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
-import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors'
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
@@ -25,13 +23,14 @@ export type ISendTransactionParams = {
   payload?: SendConfirmParams['payloadInfo'];
   feePresetIndex?: string;
   autoFallback?: boolean;
-}
+};
 
 @backgroundClass()
 export default class ServiceTransaction extends ServiceBase {
   @backgroundMethod()
   async sendTransaction(params: ISendTransactionParams) {
-    const { accountId, networkId, encodedTx, feePresetIndex, autoFallback } = params;
+    const { accountId, networkId, encodedTx, feePresetIndex, autoFallback } =
+      params;
     const { engine, servicePassword, serviceHistory, appSelector } =
       this.backgroundApi;
     const network = await engine.getNetwork(params.networkId);
@@ -86,27 +85,25 @@ export default class ServiceTransaction extends ServiceBase {
     } catch {
       if (autoFallback) {
         if (network.impl === IMPL_EVM) {
-          const txData = encodedTx as IEncodedTxEvm;
-          // dont fallback for approval
-          const isApproval = txData.data && txData.data?.slice(0, 8) === '0x095ea7b3' /* approve method */
-          if (!isApproval) {
-            const gasPrice = await engine.getGasPrice(params.networkId);
-            const blockData = await engine.proxyJsonRPCCall(params.networkId, {
-              method: 'eth_getBlockByNumber',
-              params: ['latest', false],
-            });
-    
-            const blockReceipt = blockData as { gasLimit: string; gasUsed: string };
-            const maxLimit = +blockReceipt.gasLimit / 10;
-            const gasUsed = 100 * 10000;
-            const limit = Math.min(maxLimit, gasUsed);
-    
-            feeInfoUnit = {
-              eip1559: typeof gasPrice[0] === 'object',
-              limit: String(limit),
-              price: gasPrice[gasPrice.length - 1],
-            };
-          }
+          const gasPrice = await engine.getGasPrice(params.networkId);
+          const blockData = await engine.proxyJsonRPCCall(params.networkId, {
+            method: 'eth_getBlockByNumber',
+            params: ['latest', false],
+          });
+
+          const blockReceipt = blockData as {
+            gasLimit: string;
+            gasUsed: string;
+          };
+          const maxLimit = +blockReceipt.gasLimit / 10;
+          const gasUsed = 100 * 10000;
+          const limit = Math.min(maxLimit, gasUsed);
+
+          feeInfoUnit = {
+            eip1559: typeof gasPrice[0] === 'object',
+            limit: String(limit),
+            price: gasPrice[gasPrice.length - 1],
+          };
         }
       }
     }

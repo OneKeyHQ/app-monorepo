@@ -160,6 +160,7 @@ export interface TransactionAttachment {
 export type BuildTransactionParams = FetchQuoteParams & {
   sellAmount: string;
   buyAmount: string;
+  disableValidate?: boolean;
   txData?: TransactionData;
   additionalParams?: BuildTransactionAdditionalParameters;
 };
