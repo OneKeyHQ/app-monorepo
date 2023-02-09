@@ -753,7 +753,7 @@ class Engine {
                 address: a.address,
               }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-                vault.getOutputAccount().catch(() => {
+                vault.getOutputAccount().catch((error) => {
                   if (a.type === AccountType.SIMPLE) {
                     vault
                       .validateAddress(a.address)
@@ -765,15 +765,14 @@ class Engine {
                           );
                         }
                       })
-                      .catch((e) => {
+                      .catch(() => {
                         setTimeout(
                           () => this.removeAccount(a.id, '', true),
                           100,
                         );
-                        throw e;
                       });
                   }
-                  return {} as Account;
+                  throw error;
                 }),
               ),
         ),
