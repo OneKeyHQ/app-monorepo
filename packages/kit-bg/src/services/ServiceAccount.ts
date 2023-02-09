@@ -39,6 +39,7 @@ import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -64,7 +65,6 @@ import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import ServiceBase from './ServiceBase';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
-import type { IServiceBaseProps } from './ServiceBase';
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
@@ -77,8 +77,8 @@ const REFRESH_ACCOUNT_IMPL = [IMPL_COSMOS, IMPL_FIL, IMPL_CFX, IMPL_DOT];
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
-  constructor(props: IServiceBaseProps) {
-    super(props);
+  @bindThis()
+  registerEvents() {
     appEventBus.on(AppEventBusNames.AccountNameChanged, () => {
       this.addressLabelCache = {};
     });
