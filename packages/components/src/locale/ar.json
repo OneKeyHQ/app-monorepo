@@ -481,6 +481,7 @@
   "content__i_am_aware_of_the_above_risks": "أنا على علم بالمخاطر المذكورة أعلاه",
   "content__if_the_price_drifts_against_you": "إذا انحرف السعر ضدك بأكثر من هذه النسبة المئوية ، يتم إنهاء الصفقة.",
   "content__if_you_choose_max": "إذا اخترت الحد الأقصى ، فإن الحد الأقصى للمبلغ الذي قد تنفقه على {0} لا نهائي.",
+  "content__if_you_dont_see_the_account_you_expect_try_switching_the_deriation_path": "إذا كنت لا ترى الحسابات التي تتوقعها ، فحاول تبديل مسار الاشتقاق.",
   "content__if_you_want_to_cancel_transactions_that_has_already_been_generated": "إذا كنت ترغب في إلغاء المعاملات التي تم إنشاؤها بالفعل ، يمكنك الانتقال إلى \"سجل الحساب\" لإلغائها.",
   "content__import_a_single_chain_wallet": "قم باستيراد محفظة أحادية السلسلة",
   "content__import_a_single_chain_wallet_desc": "قم باستيراد محفظتك ذات السلسلة الواحدة باستخدام مفتاح خاص أو ملف تخزين المفاتيح.",
@@ -887,12 +888,14 @@
   "form__assinged_address_slippage_is_modifiable": "تعديل انزلاق العنوان",
   "form__assinged_address_slippage_is_modifiable_desc": "يجوز لصاحب العقد وضع معدل ضريبي مرتفع على العنوان المخصص لمنع التجارة.",
   "form__auto": "نظام",
-  "form__automatic": "Automatic",
+  "form__automatic": "تلقائي",
   "form__back": "الجانب الخلفي",
   "form__balance": "الرصيد",
   "form__base_str": "القاعدة: {0}",
   "form__beginner_guide": "دليل المبتدئين",
   "form__best_rate": "👍 أفضل سعر",
+  "form__bip44_standard": "معيار BIP44",
+  "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "يبدأ بـ \"1\". رسوم معاملات عالية.",
   "form__bitcoin__native_segwit_desc": "يبدأ بـ \"bc1\". رسوم معاملات منخفضة.",
   "form__bitcoin__nested_segwit_desc": "يبدأ بـ \"3\". رسوم تحويل المعاملات المتوسطة.",
@@ -1057,6 +1060,7 @@
   "form__last_7_days_uppercase": "اخر 7 ايام",
   "form__last_price": "السعر الاخير",
   "form__last_update_utc": "آخر تحديث (التوقيت العالمي المنسق)",
+  "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "الإقراض",
   "form__light": "خفيفة",
   "form__line_str": "خط {0}",
@@ -1826,6 +1830,7 @@
   "title__cryptos": "التشفير",
   "title__dapp_connection": "اتصال dApp",
   "title__decrypt_message": "فك تشفير الرسالة",
+  "title__derivation_path": "مسار الاشتقاق",
   "title__disconnect_from_this_Site": "قطع الاتصال بهذا الموقع",
   "title__edit_address": "تعديل العنوان",
   "title__enter_address_or_connect_wallet": "أدخل العنوان أو ربط المحفظة",
@@ -1934,6 +1939,7 @@
   "title__select_blockchain_browser": "حدد متصفح Blockchain",
   "title__select_contact": "حدد جهة اتصال",
   "title__select_disk_and_continue": "الرجاء تحديد القرص \"ONEKEY DATA\" والنقر فوق \"متابعة\"",
+  "title__select_file_format": "حدد تنسيق الملف",
   "title__select_route": "حدد الطريق",
   "title__sell_str": "بيع {0}",
   "title__set_password": "ضبط كلمة السر",
