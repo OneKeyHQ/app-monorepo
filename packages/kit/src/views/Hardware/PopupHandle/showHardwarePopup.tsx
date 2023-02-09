@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { Modal as NBModal } from 'native-base';
-import { PermissionsAndroid } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import RootSiblingsManager from 'react-native-root-siblings';
 
@@ -250,9 +250,18 @@ export default async function showHardwarePopup({
     uiRequest === UI_REQUEST.LOCATION_PERMISSION ||
     uiRequest === UI_REQUEST.BLUETOOTH_PERMISSION
   ) {
-    const check = await PermissionsAndroid.check(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-    );
+    const checkPermission = () => {
+      if (Platform.Version >= 31) {
+        return PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        );
+      }
+      return PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+    };
+
+    const check = await checkPermission();
 
     if (check || platformEnv.isNativeIOS) {
       DialogManager.show({
@@ -269,9 +278,18 @@ export default async function showHardwarePopup({
       return;
     }
 
-    const result = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-    );
+    const requestPermission = () => {
+      if (Platform.Version >= 31) {
+        return PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        );
+      }
+      return PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+    };
+
+    const result = await requestPermission();
 
     if (
       result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
@@ -280,7 +298,7 @@ export default async function showHardwarePopup({
       DialogManager.show({
         render: (
           <PermissionDialog
-            type="location"
+            type={Platform.Version >= 31 ? 'bluetooth' : 'location'}
             onClose={() => {
               getAppNavigation()?.goBack();
               closeHardwarePopup();

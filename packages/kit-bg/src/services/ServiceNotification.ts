@@ -179,8 +179,8 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async syncLocalEnabledAccounts() {
-    const { serviceAccount } = this.backgroundApi;
-    const wallets = await serviceAccount.initWallets();
+    const { appSelector } = this.backgroundApi;
+    const wallets = appSelector((s) => s.runtime.wallets);
     const enabledAccounts = await this.queryAccountDynamic();
 
     const localEnabledAccounts = enabledAccounts

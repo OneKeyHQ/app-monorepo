@@ -1,4 +1,5 @@
 import { networkList } from '@onekeyfe/network-list';
+import { omit } from 'lodash';
 import semver from 'semver';
 
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
@@ -6,6 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
   enabledAccountDynamicNetworkIds,
@@ -63,13 +65,19 @@ export default class ServiceBootstrap extends ServiceBase {
   constructor(props: IServiceBaseProps) {
     super(props);
 
-    const { serviceOverview, serviceToken, serviceNetwork, serviceSwap } =
-      this.backgroundApi;
+    const {
+      serviceOverview,
+      serviceAccount,
+      serviceToken,
+      serviceNetwork,
+      serviceSwap,
+    } = this.backgroundApi;
 
     serviceToken.registerEvents();
     serviceOverview.registerEvents();
     serviceNetwork.registerEvents();
     serviceSwap.registerEvents();
+    serviceAccount.registerEvents();
   }
   // eslint-disable-next-line
   @backgroundMethod()
@@ -148,5 +156,27 @@ export default class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceCronJob.getFiatMoney();
       }, 5 * 60 * 1000);
     }
+  }
+
+  @backgroundMethod()
+  async syncAccounts() {
+    const { engine, appSelector } = this.backgroundApi;
+    const wallets = appSelector((s) => s.runtime.wallets);
+    const instanceId = appSelector((state) => state?.settings?.instanceId);
+    const accounts = (
+      await engine.getAccounts(wallets.map((w) => w.accounts).flat())
+    ).map((n) => ({
+      ...omit(n, 'tokens'),
+      walletType: wallets.find((w) => w.accounts.includes(n.id))?.type,
+    }));
+    fetchData(
+      '/overview/syncAccounts',
+      {
+        accounts,
+        instanceId,
+      },
+      {},
+      'POST',
+    );
   }
 }
