@@ -221,6 +221,10 @@ export default class Vault extends VaultBase {
 
     const existAddress = variantAccount.addresses[this.networkId]?.trim();
     if (isNil(existAddress) || isEmpty(existAddress)) {
+      if (isNil(variantAccount.pub) || isEmpty(variantAccount.pub)) {
+        return '';
+      }
+
       const implOptions = await this.getChainInfoImplOptions();
       const address = accountIdToAddress(
         variantAccount.pub,
