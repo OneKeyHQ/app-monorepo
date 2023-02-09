@@ -336,6 +336,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
+            true,
             new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
           );
         if (isArray(decode)) {
@@ -678,6 +679,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
+            true,
             new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
           );
         let data;
