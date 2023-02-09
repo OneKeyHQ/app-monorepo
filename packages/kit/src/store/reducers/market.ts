@@ -75,6 +75,7 @@ export type MarketEXplorer = {
   contractAddress?: string;
   name?: string;
   url?: string;
+  networkId?: string;
 };
 
 export type MarketNews = {
