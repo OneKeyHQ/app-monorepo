@@ -1,21 +1,28 @@
 /* eslint-disable max-classes-per-file */
-// import type { IJsonRpcResponsePro } from '@onekeyhq/engine/src/types';
+import type { IJsonRpcResponsePro } from '@onekeyhq/engine/src/types';
 
 // import type { Response as FetchResponse } from 'cross-fetch';
 
+type ErrorResponse = Response | IJsonRpcResponsePro<any>;
 export class ResponseError extends Error {
-  readonly response?: Response;
+  readonly response?: ErrorResponse;
 
-  constructor(message?: string, response?: Response) {
+  constructor(message?: string, response?: ErrorResponse) {
     super(message);
-    this.response = response?.clone();
+    if (response) {
+      if ('jsonrpc' in response) {
+        this.response = { ...response };
+      } else {
+        this.response = response.clone();
+      }
+    }
   }
 }
 
 export class JsonPRCResponseError extends ResponseError {
   readonly error?: unknown;
 
-  constructor(message?: string, response?: Response, error?: unknown) {
+  constructor(message?: string, response?: ErrorResponse, error?: unknown) {
     super(message, response);
     this.error = error;
   }
