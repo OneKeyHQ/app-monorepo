@@ -179,9 +179,9 @@ const ToolsPage: FC = () => {
   }, [
     hasAvailable,
     accountAddress,
-    network.impl,
+    network?.impl,
     network?.settings.supportBatchTransfer,
-    network.id,
+    network?.id,
     annualReportEntryEnabled,
     enableDevMode,
     tools,
