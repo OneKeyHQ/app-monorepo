@@ -3,7 +3,11 @@ import { useCallback, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Box, Divider, HStack, Icon, Typography } from '@onekeyhq/components';
+import { Box, HStack, Icon, Typography } from '@onekeyhq/components';
+
+import { useAppSelector } from '../../hooks';
+
+import TransactionRate from './components/TransactionRate';
 
 const SwapFeatureText = () => {
   const intl = useIntl();
@@ -71,10 +75,7 @@ const SwapTexts = () => {
   }, [animatedValue]);
 
   return (
-    <Box pb="4">
-      <Box px="4">
-        <Divider />
-      </Box>
+    <Box pb="4" w="full">
       <Box mt="4" px="4">
         <Box
           w="full"
@@ -118,4 +119,22 @@ const SwapTexts = () => {
   );
 };
 
-export default SwapTexts;
+const SwapBanner = () => {
+  const quote = useAppSelector((s) => s.swap.quote);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  if (quote) {
+    return (
+      <TransactionRate
+        tokenA={inputToken}
+        tokenB={outputToken}
+        rate={quote?.instantRate}
+        typography="Body2"
+        color="text-subdued"
+      />
+    );
+  }
+  return <SwapTexts />;
+};
+
+export default SwapBanner;
