@@ -34,10 +34,7 @@ export const SendSpecialWarning = () => {
         onModalClose?.();
         closeExtensionWindowIfOnboardingFinished();
       }}
-      onSecondaryActionPress={() => {
-        onModalClose?.();
-        closeExtensionWindowIfOnboardingFinished();
-      }}
+      hideSecondaryAction
       onPrimaryActionPress={() => {
         sendConfirmParamsParsed.navigation.navigate(
           SendRoutes.SendAuthentication,

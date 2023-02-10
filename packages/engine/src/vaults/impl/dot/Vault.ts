@@ -38,7 +38,6 @@ import type {
   IDecodedTxAction,
   IDecodedTxActionTokenTransfer,
   IDecodedTxLegacy,
-  IEncodedTx,
   IEncodedTxUpdateOptions,
   IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
@@ -47,7 +46,6 @@ import type {
   ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
-  IVaultOptions,
 } from '@onekeyhq/engine/src/vaults/types';
 import {
   IDecodedTxActionType,
