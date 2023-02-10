@@ -1096,6 +1096,9 @@ export default class Vault extends VaultBase {
     to: string,
   ): Promise<boolean> {
     try {
+      if (isNil(amount) || isEmpty(amount)) {
+        return true;
+      }
       const network = await this.getNetwork();
 
       const depositAmountOnChain =
@@ -1104,10 +1107,7 @@ export default class Vault extends VaultBase {
           accountId: this.accountId,
         });
       const depositAmount = new BigNumber(depositAmountOnChain);
-      const normalizeAmount = isNil(amount) || isEmpty(amount) ? '0' : amount;
-      const sendAmount = new BigNumber(normalizeAmount).shiftedBy(
-        network.decimals,
-      );
+      const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
 
       const [accountBalance] = await this.getBalances([{ address: to }]);
 
