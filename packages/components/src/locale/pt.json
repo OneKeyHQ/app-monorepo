@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "Não há moedas suficientes para concluir a transação.",
   "msg__error_aptos_nft_token_already_exists": "O Token NFT já existe.",
   "msg__error_aptso_account_does_not_exist": "Conta não existe.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "As transferências podem reduzir o saldo abaixo de {0} , resultando na desativação da conta e compensação do saldo. Confirme antes de prosseguir.",
   "msg__error_mnemonics_can_only_be_12_24": "A conta permite apenas mnemônicos de 12 e 24 bits.",
   "msg__estimate_str_minutes": "estimar {0} minutos",
   "msg__estimated_gas_failure": "Falha ao estimar o gás",

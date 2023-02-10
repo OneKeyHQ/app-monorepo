@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "เหรียญไม่เพียงพอในการทำธุรกรรม",
   "msg__error_aptos_nft_token_already_exists": "มีโทเค็น NFT อยู่แล้ว",
   "msg__error_aptso_account_does_not_exist": "ไม่มีบัญชี",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "การโอนอาจทำให้ยอดคงเหลือต่ำกว่า {0} ส่งผลให้บัญชีถูกปิดใช้งานและหักล้างยอดคงเหลือ ยืนยันก่อนดำเนินการต่อ",
   "msg__error_mnemonics_can_only_be_12_24": "บัญชีอนุญาตเฉพาะช่วยจำ 12 - และ 24 บิต",
   "msg__estimate_str_minutes": "ประมาณ {0} นาที",
   "msg__estimated_gas_failure": "การประเมินก๊าซล้มเหลว",
