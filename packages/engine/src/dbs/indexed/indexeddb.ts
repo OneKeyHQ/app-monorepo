@@ -1820,6 +1820,7 @@ class IndexedDBApi implements DBAPI {
     accountId: string,
     password: string,
     rollbackNextAccountIds: Record<string, number>,
+    skipPasswordCheck?: boolean,
   ): Promise<void> {
     const removingImported = walletIsImported(walletId);
     return this.ready.then(
@@ -1869,7 +1870,7 @@ class IndexedDBApi implements DBAPI {
               getMainContextRequest.onsuccess = (_cevent) => {
                 const context: OneKeyContext =
                   getMainContextRequest.result as OneKeyContext;
-                if (!checkPassword(context, password)) {
+                if (!checkPassword(context, password) && !skipPasswordCheck) {
                   reject(new WrongPassword());
                   return;
                 }
@@ -1930,7 +1931,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  addAccountAddress(
+  updateAccountAddresses(
     accountId: string,
     networkId: string,
     address: string,
@@ -1951,9 +1952,6 @@ class IndexedDBApi implements DBAPI {
               return;
             }
             switch (account.type) {
-              case AccountType.SIMPLE:
-                account.address = address;
-                break;
               case AccountType.VARIANT:
                 if (
                   typeof (account as DBVariantAccount).addresses === 'undefined'
