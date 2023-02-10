@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
