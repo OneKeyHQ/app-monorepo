@@ -226,15 +226,17 @@ function SideChainSelector({
       borderColor={fullWidthMode ? undefined : 'divider'}
       flex={fullWidthMode ? 1 : undefined}
     >
-      <Box p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}>
-        <Searchbar
-          w="full"
-          value={search}
-          onChangeText={(text) => setSearch(text)}
-          placeholder={intl.formatMessage({ id: 'content__search' })}
-          onClear={() => setSearch('')}
-        />
-      </Box>
+      {fullWidthMode ? (
+        <Box p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}>
+          <Searchbar
+            w="full"
+            value={search}
+            onChangeText={(text) => setSearch(text)}
+            placeholder={intl.formatMessage({ id: 'content__search' })}
+            onClear={() => setSearch('')}
+          />
+        </Box>
+      ) : null}
       <FlatListRef
         ListEmptyComponent={emptyComponent}
         initialNumToRender={20}

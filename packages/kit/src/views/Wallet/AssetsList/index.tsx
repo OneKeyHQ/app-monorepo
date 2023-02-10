@@ -116,12 +116,6 @@ function AssetsList({
     }, [account, network]),
   );
 
-  useEffect(() => {
-    if (account && network) {
-      backgroundApiProxy.serviceOverview.subscribe();
-    }
-  }, [account, network]);
-
   const onTokenCellPress = useCallback(
     (item: SimplifiedToken) => {
       if (onTokenPress) {

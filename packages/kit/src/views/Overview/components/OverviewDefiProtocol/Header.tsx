@@ -17,11 +17,13 @@ export const OverviewDefiBoxHeader: FC<{
   rate: B;
   icon: string;
   name: string;
+  url?: string;
   desc: ReactElement;
   extra?: ReactElement;
   toggle?: () => void;
   collapsed?: boolean;
-}> = ({ icon, name, rate, desc, extra, toggle, collapsed }) => {
+  onOpenDapp?: () => void;
+}> = ({ icon, name, rate, desc, extra, toggle, collapsed, onOpenDapp }) => {
   const isVertical = useIsVerticalLayout();
   if (isVertical) {
     return (
@@ -42,9 +44,11 @@ export const OverviewDefiBoxHeader: FC<{
                   name,
                 }}
               />
-              <Text typography="Body1Strong" ml="2">
-                {name}
-              </Text>
+              <Pressable onPress={onOpenDapp}>
+                <Text typography="Body1Strong" ml="2">
+                  {name}
+                </Text>
+              </Pressable>
               {rate.isNaN() ? null : (
                 <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
               )}
@@ -84,9 +88,11 @@ export const OverviewDefiBoxHeader: FC<{
               name,
             }}
           />
-          <Text typography="Heading" ml="2">
-            {name}
-          </Text>
+          <Pressable onPress={onOpenDapp}>
+            <Text typography="Heading" ml="2">
+              {name}
+            </Text>
+          </Pressable>
           {rate.isNaN() ? null : (
             <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
           )}
