@@ -95,6 +95,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
+  async getApiClient(): Promise<any> {
+    throw new NotImplemented();
+  }
+
   async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
@@ -625,5 +629,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getMinDepositAmount(): Promise<BigNumber.Value> {
     return '0';
+  }
+
+  async specialCheckEncodedTx(encodedTx: IEncodedTx): Promise<{
+    success: boolean;
+    key?: string;
+    params?: Record<string, any>;
+  }> {
+    return { success: true };
   }
 }

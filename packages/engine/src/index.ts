@@ -1919,6 +1919,20 @@ class Engine {
   }
 
   @backgroundMethod()
+  async specialCheckEncodedTx({
+    networkId,
+    accountId,
+    encodedTx,
+  }: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTx;
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    return vault.specialCheckEncodedTx(encodedTx);
+  }
+
+  @backgroundMethod()
   async updateEncodedTx({
     networkId,
     accountId,
@@ -2033,6 +2047,7 @@ class Engine {
     return this.vaultFactory.getVault({ ...options, rpcURL });
   }
 
+  @backgroundMethod()
   async getChainOnlyVault(networkId: string) {
     return this.vaultFactory.getChainOnlyVault(networkId);
   }
