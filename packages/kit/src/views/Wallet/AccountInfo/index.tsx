@@ -69,7 +69,7 @@ const AccountAmountInfo: FC = () => {
       accountAllValues.value.isNaN() ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
-        <HStack flex="1">
+        <HStack flex="1" alignItems="center">
           <Typography.Display2XLarge numberOfLines={2} isTruncated>
             <FormatCurrencyNumber decimals={2} value={accountAllValues.value} />
           </Typography.Display2XLarge>
@@ -108,7 +108,7 @@ const AccountAmountInfo: FC = () => {
 
   return (
     <Box alignItems="flex-start" flex="1">
-      <Box mx="-8px" my="-4px" flexDir="row">
+      <Box mx="-8px" my="-4px" flexDir="row" alignItems="center">
         <Tooltip
           hasArrow
           placement="top"
@@ -145,8 +145,6 @@ const AccountAmountInfo: FC = () => {
             label={intl.formatMessage({ id: 'form__blockchain_browser' })}
           >
             <Pressable
-              flexDirection="row"
-              alignItems="center"
               p={1}
               rounded="full"
               _hover={{ bg: 'surface-hovered' }}
