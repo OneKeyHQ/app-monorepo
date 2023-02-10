@@ -139,6 +139,13 @@ function SendConfirm({
           feeInfoValue,
         });
       }
+
+      const result = await engine.specialCheckEncodedTx({
+        networkId,
+        accountId,
+        encodedTx: encodedTxWithFee,
+      });
+
       const onFail = (error: Error) => {
         dappApprove.reject({
           error,
@@ -227,10 +234,19 @@ function SendConfirm({
         await wait(600);
         nextRouteAction = 'replace';
       }
-      return navigation[nextRouteAction](
-        SendRoutes.SendAuthentication,
-        nextRouteParams,
-      );
+
+      if (result.success) {
+        return navigation[nextRouteAction](
+          SendRoutes.SendAuthentication,
+          nextRouteParams,
+        );
+      }
+
+      return navigation[nextRouteAction](SendRoutes.SendSpecialWarning, {
+        ...nextRouteParams,
+        hintMsgKey: result.key ?? '',
+        hintMsgParams: result.params,
+      });
     },
     [
       feeInfoEditable,

@@ -11,4 +11,5 @@ export interface DotImplOptions {
 
 export type IEncodedTxDot = UnsignedTransaction & {
   specName?: string;
+  estimatedFee?: string;
 };

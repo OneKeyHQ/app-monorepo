@@ -23,6 +23,7 @@ import memoizee from 'memoizee';
 
 import {
   InvalidAddress,
+  InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
@@ -37,6 +38,7 @@ import type {
   IDecodedTxAction,
   IDecodedTxActionTokenTransfer,
   IDecodedTxLegacy,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
@@ -52,12 +54,17 @@ import {
   IDecodedTxDirection,
   IDecodedTxStatus,
 } from '@onekeyhq/engine/src/vaults/types';
-import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import {
+  convertFeeGweiToValue,
+  convertFeeValueToGwei,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import {
   addHexPrefix,
   stripHexPrefix,
 } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { formatBalanceDisplay } from '@onekeyhq/kit/src/components/Format';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -95,11 +102,6 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringWatching,
   };
-
-  constructor(options: IVaultOptions) {
-    super(options);
-    console.log('=====>>>>> DOT Vault constructor init <<<<<=====');
-  }
 
   settings = settings;
 
@@ -610,7 +612,84 @@ export default class Vault extends VaultBase {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxDot> {
     // No fee for transfer
-    return Promise.resolve(params.encodedTx);
+    const { price, limit } = params.feeInfoValue;
+
+    if (!price || typeof price !== 'string') {
+      throw new OneKeyInternalError('Invalid gas price.');
+    }
+    if (typeof limit !== 'string') {
+      throw new OneKeyInternalError('Invalid fee limit');
+    }
+
+    const network = await this.getNetwork();
+
+    const priceValue = convertFeeGweiToValue({
+      value: price,
+      network,
+    });
+
+    const txPrice = new BigNumber(
+      parseFloat(priceValue) * parseFloat(limit),
+    ).toFixed(0);
+
+    return Promise.resolve({
+      ...params.encodedTx,
+      estimatedFee: txPrice,
+    });
+  }
+
+  override async specialCheckEncodedTx(
+    encodedTx: IEncodedTxDot,
+  ): Promise<{ success: boolean; key?: string; params?: object | undefined }> {
+    const [balance] = await this.getAccountBalance([]);
+
+    const decodeUnsignedTx = await this.decodeUnsignedTx(encodedTx);
+
+    const actionType = getTransactionTypeFromTxInfo(decodeUnsignedTx);
+
+    if (actionType === IDecodedTxActionType.NATIVE_TRANSFER) {
+      const {
+        // @ts-expect-error
+        dest: { id: toAddress },
+        value: tokenAmount,
+      } = decodeUnsignedTx.method.args;
+      if (toAddress === encodedTx.address)
+        return Promise.resolve({ success: true });
+
+      // Read in the cache minDepositAmount，Do not use directly this.getMinDepositAmount
+      const minDepositAmount =
+        await backgroundApiProxy.serviceToken.getMinDepositAmount({
+          networkId: this.networkId,
+          accountId: this.accountId,
+        });
+
+      const network = await this.getNetwork();
+
+      const depositAmountDisplay = formatBalanceDisplay(
+        minDepositAmount,
+        null,
+        {
+          unit: network.decimals,
+        },
+      );
+
+      if (
+        balance
+          ?.minus(tokenAmount?.toString() ?? '0')
+          ?.minus(encodedTx.estimatedFee ?? '0')
+          .lt(minDepositAmount)
+      ) {
+        return Promise.resolve({
+          success: false,
+          key: 'msg__error_dot_account_retention_prompt',
+          params: {
+            0: `${depositAmountDisplay.amount ?? '0'} ${network.symbol}`,
+          },
+        });
+      }
+    }
+
+    return Promise.resolve({ success: true });
   }
 
   override async updateEncodedTx(
@@ -957,6 +1036,46 @@ export default class Vault extends VaultBase {
         }
       }),
     );
+  }
+
+  override async validateSendAmount(
+    amount: string,
+    tokenBalance: string,
+    to: string,
+  ): Promise<boolean> {
+    try {
+      const network = await this.getNetwork();
+
+      const depositAmountOnChain =
+        await backgroundApiProxy.serviceToken.getMinDepositAmount({
+          networkId: this.networkId,
+          accountId: this.accountId,
+        });
+      const depositAmount = new BigNumber(depositAmountOnChain);
+      const normalizeAmount = isNil(amount) || isEmpty(amount) ? '0' : amount;
+      const sendAmount = new BigNumber(normalizeAmount).shiftedBy(
+        network.decimals,
+      );
+
+      const [accountBalance] = await this.getBalances([{ address: to }]);
+
+      const depositAmountDisplay = formatBalanceDisplay(depositAmount, null, {
+        unit: network.decimals,
+      });
+
+      if (!depositAmountDisplay.amount) return false;
+
+      if (accountBalance?.plus(sendAmount).lt(depositAmount)) {
+        throw new InvalidTransferValue('form__amount_recipient_activate', {
+          amount: depositAmountDisplay.amount,
+          unit: network.symbol,
+        });
+      }
+      return true;
+    } catch (err: any) {
+      console.log(err);
+      throw err;
+    }
   }
 
   // ======== Keyring Utils ========

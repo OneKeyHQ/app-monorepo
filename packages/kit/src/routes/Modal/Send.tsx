@@ -14,6 +14,7 @@ import { SendConfirm } from '../../views/Send/modals/SendConfirm';
 import { SendConfirmFromDapp } from '../../views/Send/modals/SendConfirmFromDapp';
 import { SendEditFee } from '../../views/Send/modals/SendEditFee';
 import { SendFeedbackReceipt } from '../../views/Send/modals/SendFeedbackReceipt';
+import { SendSpecialWarning } from '../../views/Send/modals/SendSpecialWarning';
 import { SignMessageConfirm } from '../../views/Send/modals/SignMessageConfirm';
 import { TokenApproveAmountEdit } from '../../views/Send/modals/TokenApproveAmountEdit';
 import { TransactionSendContextProvider } from '../../views/Send/utils/TransactionSendContext';
@@ -65,6 +66,10 @@ const modalRoutes = [
   {
     name: SendRoutes.TokenApproveAmountEdit,
     component: BaseSendRouteScreen.wrap(TokenApproveAmountEdit),
+  },
+  {
+    name: SendRoutes.SendSpecialWarning,
+    component: BaseSendRouteScreen.wrap(SendSpecialWarning),
   },
   {
     name: SendRoutes.SendAuthentication,
