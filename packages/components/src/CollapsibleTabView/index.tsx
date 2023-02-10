@@ -82,7 +82,7 @@ const Container: FC<CollapsibleContainerProps> = ({
           backgroundColor: 'transparent',
           width: '100%',
           height: tabbarHeight,
-          borderBottomWidth: 1,
+          borderBottomWidth: 0,
           borderBottomColor: borderDefault,
         },
         indicator: {

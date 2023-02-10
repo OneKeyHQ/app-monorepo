@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "لا توجد عملات كافية لإتمام المعاملة.",
   "msg__error_aptos_nft_token_already_exists": "رمز NFT موجود بالفعل.",
   "msg__error_aptso_account_does_not_exist": "الحساب غير موجود.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "قد تقلل التحويلات من الرصيد أدناه {0} ، مما يؤدي إلى إلغاء تنشيط الحساب ومقاصة الرصيد. قم بالتأكيد قبل المتابعة.",
   "msg__error_mnemonics_can_only_be_12_24": "يسمح الحساب فقط بذكريات 12 و 24 بت.",
   "msg__estimate_str_minutes": "تقدير {0} دقيقة",
   "msg__estimated_gas_failure": "فشل في تقدير الغاز",

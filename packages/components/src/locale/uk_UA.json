@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "Недостатньо монет для завершення транзакції.",
   "msg__error_aptos_nft_token_already_exists": "Токен NFT вже існує.",
   "msg__error_aptso_account_does_not_exist": "Обліковий запис не існує.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "Перекази можуть зменшити баланс нижче {0} , що призведе до деактивації рахунку та очищення балансу. Підтвердьте, перш ніж продовжити.",
   "msg__error_mnemonics_can_only_be_12_24": "Обліковий запис дозволяє лише 12- і 24-розрядні мнемоніки.",
   "msg__estimate_str_minutes": "приблизно {0} хвилин",
   "msg__estimated_gas_failure": "Не вдалося оцінити газ",

@@ -50,6 +50,14 @@ function getWalletIdFromAccountId(accountId: string): string {
   throw new OneKeyInternalError(`Invalid accountId ${accountId}.`);
 }
 
+function getWalletTypeFromAccountId(accountId: string): string {
+  const walletType = accountId?.split('-')?.[0];
+  if (walletType) {
+    return walletType;
+  }
+  throw new OneKeyInternalError(`Invalid accountId ${accountId}.`);
+}
+
 function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
   if (!networkId || !accountId) {
     return false;
@@ -69,6 +77,7 @@ function isAccountWithAddress(account: Account) {
 
 export {
   getWalletIdFromAccountId,
+  getWalletTypeFromAccountId,
   isAccountCompatibleWithNetwork,
   isAccountWithAddress,
 };

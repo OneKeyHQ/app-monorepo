@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "लेन-देन पूरा करने के लिए पर्याप्त सिक्के नहीं हैं।",
   "msg__error_aptos_nft_token_already_exists": "NFT टोकन पहले से मौजूद है।",
   "msg__error_aptso_account_does_not_exist": "खाता मौजूद नहीं हैं।",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "स्थानान्तरण {0} से नीचे की शेष राशि को कम कर सकता है, जिसके परिणामस्वरूप खाता निष्क्रियता और समाशोधन शेष राशि हो सकती है। आगे बढ़ने से पहले पुष्टि करें।",
   "msg__error_mnemonics_can_only_be_12_24": "खाता केवल 12- और 24-बिट mnemonics की अनुमति देता है।",
   "msg__estimate_str_minutes": "अनुमान {0} मिनट",
   "msg__estimated_gas_failure": "गैस का अनुमान लगाने में विफल",
