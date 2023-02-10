@@ -16,17 +16,12 @@ function normalizePayload(
   params: JsonRpcParams,
   id = 0,
 ): IJsonRpcRequest {
-  const payload: IJsonRpcRequest = {
+  return {
     jsonrpc: '2.0',
     id,
     method,
+    params,
   };
-
-  if (typeof payload !== 'undefined') {
-    payload.params = params;
-  }
-
-  return payload;
 }
 
 class JsonRPCRequest {
@@ -74,15 +69,11 @@ class JsonRPCRequest {
     headers?: Record<string, string>,
     timeout?: number,
   ): Promise<T> {
-    // eslint-disable-next-line no-param-reassign
-    headers = this.assembleHeaders(headers);
-    const payload = normalizePayload(method, params);
-
     const signal = timeoutSignal(timeout || this.timeout) as any;
     const response = await fetch(this.url, {
-      headers,
+      headers: this.assembleHeaders(headers),
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizePayload(method, params)),
       signal,
     });
 
@@ -100,14 +91,12 @@ class JsonRPCRequest {
     timeout?: number,
     ignoreSoloError = true,
   ): Promise<T> {
-    // eslint-disable-next-line no-param-reassign
-    headers = this.assembleHeaders(headers);
     const payload = calls.map(([method, params], index) =>
       normalizePayload(method, params, index),
     );
 
     const response = await fetch(this.url, {
-      headers,
+      headers: this.assembleHeaders(headers),
       method: 'POST',
       body: JSON.stringify(payload),
       signal: timeoutSignal(timeout || this.timeout) as any,
@@ -146,10 +135,8 @@ class JsonRPCRequest {
   }
 
   private assembleHeaders(
-    headers?: Record<string, string>,
+    headers: Record<string, string> = {},
   ): Record<string, string> {
-    // eslint-disable-next-line no-param-reassign
-    headers = headers || {};
     return { ...this.headers, ...headers };
   }
 }
