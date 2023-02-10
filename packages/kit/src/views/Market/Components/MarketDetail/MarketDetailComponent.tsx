@@ -54,9 +54,10 @@ const ExplorerAction = ({
     outPadding: 32,
   });
   const copyAction = useCallback(() => {
-    if (!explorer.contractAddress) return;
-    console.log('address--', explorer.contractAddress);
-    copyToClipboard(explorer.contractAddress);
+    setTimeout(() => {
+      if (!explorer.contractAddress) return;
+      copyToClipboard(explorer.contractAddress);
+    }, 100);
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__copied' }),
     });
