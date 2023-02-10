@@ -268,6 +268,7 @@
   "action__view_on_somewhere": "عرض على {where}",
   "action__view_recovery_phrase": "عرض عبارة الاسترداد",
   "action__view_recovery_seed": "مشاهدة عبارة الاسترداد",
+  "action__visit": "يزور",
   "action__watch_lowercase": "راقب",
   "action__yes_i_have": "نعم لدي",
   "action_retry": "أعد المحاولة",
@@ -481,6 +482,7 @@
   "content__i_am_aware_of_the_above_risks": "أنا على علم بالمخاطر المذكورة أعلاه",
   "content__if_the_price_drifts_against_you": "إذا انحرف السعر ضدك بأكثر من هذه النسبة المئوية ، يتم إنهاء الصفقة.",
   "content__if_you_choose_max": "إذا اخترت الحد الأقصى ، فإن الحد الأقصى للمبلغ الذي قد تنفقه على {0} لا نهائي.",
+  "content__if_you_dont_see_the_account_you_expect_try_switching_the_deriation_path": "إذا كنت لا ترى الحسابات التي تتوقعها ، فحاول تبديل مسار الاشتقاق.",
   "content__if_you_want_to_cancel_transactions_that_has_already_been_generated": "إذا كنت ترغب في إلغاء المعاملات التي تم إنشاؤها بالفعل ، يمكنك الانتقال إلى \"سجل الحساب\" لإلغائها.",
   "content__import_a_single_chain_wallet": "قم باستيراد محفظة أحادية السلسلة",
   "content__import_a_single_chain_wallet_desc": "قم باستيراد محفظتك ذات السلسلة الواحدة باستخدام مفتاح خاص أو ملف تخزين المفاتيح.",
@@ -518,6 +520,7 @@
   "content__keyboard_shortcut": "اختصار لوحة المفاتيح",
   "content__keychain": "سلسلة مفاتيح",
   "content__keychain_desc": "يتم تخزين مفاتيح إعادة الإعادة الخاصة بك بشكل آمن على هذا الجهاز باستخدام Apple Keychain. إذا حذفت التطبيق وأعدت تثبيته ، فلا يزال بإمكانك الوصول إلى حساباتك.",
+  "content__last_account_of_these_types_are_not_used": "لا يتم استخدام الحسابات الأخيرة من هذه الأنواع",
   "content__last_sale": "آخر بيع",
   "content__likely_less_than_15s": "من المحتمل أن يكون عمره < من 15 ثانية",
   "content__limit_price_is_str_lower_than_the_market": "⚠️ السعر المحدد أقل من السوق {0} . سوف تبيع {0} بسعر رخيص للغاية.",
@@ -725,9 +728,11 @@
   "content__wont_backup": "لن يتم نسخ محفظة الأجهزة احتياطيًا إلى iCloud. يجب عليك كتابة العبارة الخاصة بك والاحتفاظ بها آمنة.",
   "content__write_down_all_recovery_seed": "اكتب كل عبارة الاسترداد",
   "content__write_down_all_recovery_seed_desc": "اتبع التعليمات انسخ جميع الكلمات وأكمل الفحص.",
+  "content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue": "أنت على وشك زيارة هذا الموقع في متصفح dApp ، هل تريد المتابعة؟",
   "content__you_can_also_find_the_bip39_dotmap_in_the_following_site": "يمكنك أيضًا العثور على جدول BIP39 dotmap في الموقع التالي.",
   "content__you_can_change_this_option_later_in_the_settings": "يمكنك تغيير هذا الخيار لاحقًا في الإعدادات",
   "content__you_can_use_it_as_a_new_onekey_lite": "يمكنك استخدامه باعتباره OneKey Lite جديدًا",
+  "content__you_cannot_create_a_new_account_when_the_last_account_of_that_type_created": "لا يمكنك إنشاء حساب جديد عندما لا يكون آخر حساب تم إنشاؤه من هذا النوع قد تلقى معاملة بعد.",
   "content__you_don_t_have_a_str_account": "ليس لديك حساب {0} .",
   "content__you_dont_have_any_nft_in_your_wallet": "ليس لديك أي NFT في محفظتك",
   "content__you_dont_need _to_approve_again_in_the_future": "لا تحتاج إلى الموافقة مرة أخرى في المستقبل مما يعني أنه سيوفر لك بعض الغاز ، ولكنه يزيد أيضًا من التعرض للمخاطر.",
@@ -865,6 +870,7 @@
   "form__amount_invalid": "رصيد {0} غير كافٍ",
   "form__amount_max_amount": "الحد الأقصى للمبلغ",
   "form__amount_recipient_activate": "المستلم يتطلب حجز {amount} {unit} للتفعيل",
+  "form__and_the_other_str_actions": "وإجراءات {remain_count} الأخرى",
   "form__anti_sandwich_attack": "هجوم مضاد للساندويتش",
   "form__anti_sandwich_attack_desc": "نجد أفضل الطرق للتداول اللامركزي (DEX) مع تجنب الانزلاق وهجمات MEV.",
   "form__anti_scam": "مكافحة الغش",
@@ -885,16 +891,18 @@
   "form__assinged_address_slippage_is_modifiable": "تعديل انزلاق العنوان",
   "form__assinged_address_slippage_is_modifiable_desc": "يجوز لصاحب العقد وضع معدل ضريبي مرتفع على العنوان المخصص لمنع التجارة.",
   "form__auto": "نظام",
-  "form__automatic": "Automatic",
+  "form__automatic": "تلقائي",
   "form__back": "الجانب الخلفي",
   "form__balance": "الرصيد",
   "form__base_str": "القاعدة: {0}",
   "form__beginner_guide": "دليل المبتدئين",
   "form__best_rate": "👍 أفضل سعر",
-  "form__bitcoin__legacy_desc": "يبدأ بـ \"1\". رسوم معاملات عالية.",
-  "form__bitcoin__native_segwit_desc": "يبدأ بـ \"bc1\". رسوم معاملات منخفضة.",
-  "form__bitcoin__nested_segwit_desc": "يبدأ بـ \"3\". رسوم تحويل المعاملات المتوسطة.",
-  "form__bitcoin__taproot_desc": "يبدأ بـ \"bc1p\". رسوم معاملات منخفضة للغاية.",
+  "form__bip44_standard": "معيار BIP44",
+  "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
+  "form__bitcoin__legacy_desc": "يبدأ بـ \"{0}\". رسوم معاملات عالية.",
+  "form__bitcoin__native_segwit_desc": "يبدأ بـ \"{0}\". رسوم معاملات منخفضة.",
+  "form__bitcoin__nested_segwit_desc": "يبدأ بـ \"{0}\". رسوم تحويل المعاملات المتوسطة.",
+  "form__bitcoin__taproot_desc": "يبدأ بـ \" {0} \". رسوم معاملات منخفضة للغاية.",
   "form__blacklist_included": "وشملت القائمة السوداء",
   "form__blacklist_included_desc": "يمكن لمالك العقد إضافة أي عنوان إلى القائمة السوداء ، ولا يمكن لحاملي الرموز المدرجة في القائمة السوداء التداول. إساءة استخدام ميزة القائمة السوداء محفوفة بالمخاطر.",
   "form__ble_version": "إصدار BLE",
@@ -1055,6 +1063,7 @@
   "form__last_7_days_uppercase": "اخر 7 ايام",
   "form__last_price": "السعر الاخير",
   "form__last_update_utc": "آخر تحديث (التوقيت العالمي المنسق)",
+  "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "الإقراض",
   "form__light": "خفيفة",
   "form__line_str": "خط {0}",
@@ -1130,6 +1139,7 @@
   "form__not_appear_to_be_a_honeypot": "ليس موضع جذب",
   "form__not_appear_to_be_a_honeypot_desc": "لا يوجد ترميز نعرفه يمنع مبيعات الرمز المميز.",
   "form__not_enough_confirmations": "التأكيدات غير كافية.",
+  "form__not_recommended": "لا ينصح",
   "form__notification": "تنبيه",
   "form__one_year_high": "1 سنة عالية",
   "form__one_year_low": "1 سنة منخفضة",
@@ -1190,6 +1200,7 @@
   "form__receiver_address_token_id_amount": "عنوان المستلم ، معرف الرمز ، المبلغ",
   "form__receiving_address": "عنوان الاستلام",
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
+  "form__recommended": "مُستَحسَن",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "سجل عبارة الاسترداد الخاصة بك مثل لعبة التثقيب.",
   "form__recovery_phrase": "عبارة الاسترداد",
   "form__recovery_seed_invalid": "عبارة الاسترداد الخاصة بك غير صالحة.",
@@ -1537,7 +1548,7 @@
   "msg__amount_too_small": "مبلغ التحويل صغير جدًا",
   "msg__aptos_first_activation_token": "إذا تم تنشيط الرمز المميز لأول مرة ، فسيتم إصدار معاملة عملة.",
   "msg__backup_imported": "البيانات المستوردة",
-  "msg__broadcast_dot_tx_Insufficient_fee": "الرصيد غير كافٍ أو أقل من 1.",
+  "msg__broadcast_dot_tx_Insufficient_fee": "الرصيد غير كاف.",
   "msg__broadcast_dot_tx_outdated": "الصفقة عفا عليها الزمن.",
   "msg__broadcast_tx_Insufficient_fee": "رسوم غير كافية: يرجى التحقق مما إذا كان الرصيد كافياً أو حاول تبديل ترس الرسوم.",
   "msg__broadcast_tx_sequence_number_error": "توجد بالفعل معاملات تم تأكيدها أو فشل العقدة.",
@@ -1580,8 +1591,10 @@
   "msg__error_aptos_insufficient_coin": "لا توجد عملات كافية لإتمام المعاملة.",
   "msg__error_aptos_nft_token_already_exists": "رمز NFT موجود بالفعل.",
   "msg__error_aptso_account_does_not_exist": "الحساب غير موجود.",
+  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
   "msg__error_mnemonics_can_only_be_12_24": "يسمح الحساب فقط بذكريات 12 و 24 بت.",
   "msg__estimate_str_minutes": "تقدير {0} دقيقة",
+  "msg__estimated_gas_failure": "فشل في تقدير الغاز",
   "msg__exceeding_the_maximum_word_limit": "تجاوز الحد الأقصى لعدد الكلمات.",
   "msg__failed_to_add_token": "فشل إضافة الرمز المميز",
   "msg__failed_to_get_price": "فشل في الحصول على السعر",
@@ -1824,6 +1837,7 @@
   "title__cryptos": "التشفير",
   "title__dapp_connection": "اتصال dApp",
   "title__decrypt_message": "فك تشفير الرسالة",
+  "title__derivation_path": "مسار الاشتقاق",
   "title__disconnect_from_this_Site": "قطع الاتصال بهذا الموقع",
   "title__edit_address": "تعديل العنوان",
   "title__enter_address_or_connect_wallet": "أدخل العنوان أو ربط المحفظة",
@@ -1932,6 +1946,7 @@
   "title__select_blockchain_browser": "حدد متصفح Blockchain",
   "title__select_contact": "حدد جهة اتصال",
   "title__select_disk_and_continue": "الرجاء تحديد القرص \"ONEKEY DATA\" والنقر فوق \"متابعة\"",
+  "title__select_file_format": "حدد تنسيق الملف",
   "title__select_route": "حدد الطريق",
   "title__sell_str": "بيع {0}",
   "title__set_password": "ضبط كلمة السر",

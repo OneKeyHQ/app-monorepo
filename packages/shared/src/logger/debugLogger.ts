@@ -1,7 +1,6 @@
 import { format as fnsFormat } from 'date-fns';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
-import RNFS from 'react-native-fs';
 import {
   logger as RNLogger,
   consoleTransport,
@@ -13,6 +12,10 @@ import { stringify } from 'circular-json';
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 import { toPlainErrorObject } from '../utils/errorUtils';
+
+const RNFS: typeof import('react-native-fs') = platformEnv.isNative
+  ? require('react-native-fs')
+  : {};
 
 type IConsoleFuncProps = {
   msg: any;

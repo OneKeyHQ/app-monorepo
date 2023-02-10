@@ -6,6 +6,7 @@ export enum SendRoutes {
   SendConfirmFromDapp = 'SendConfirmFromDapp',
   SendEditFee = 'SendEditFee',
   TokenApproveAmountEdit = 'TokenApproveAmountEdit',
+  SendSpecialWarning = 'SendSpecialWarning',
   SendAuthentication = 'SendAuthentication',
   SignMessageConfirm = 'SignMessageConfirm',
   SendFeedbackReceipt = 'SendFeedbackReceipt',
