@@ -1,7 +1,8 @@
 import { networkList } from '@onekeyfe/network-list';
-import { omit } from 'lodash';
+import { pick } from 'lodash';
 import semver from 'semver';
 
+import { getWalletTypeFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
   backgroundClass,
@@ -166,8 +167,8 @@ export default class ServiceBootstrap extends ServiceBase {
     const accounts = (
       await engine.getAccounts(wallets.map((w) => w.accounts).flat())
     ).map((n) => ({
-      ...omit(n, 'tokens'),
-      walletType: wallets.find((w) => w.accounts.includes(n.id))?.type,
+      ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
+      walletType: getWalletTypeFromAccountId(n.id),
     }));
     fetchData(
       '/overview/syncAccounts',
