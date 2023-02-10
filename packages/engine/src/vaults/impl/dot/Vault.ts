@@ -218,21 +218,25 @@ export default class Vault extends VaultBase {
     return chainInfo.implOptions as DotImplOptions;
   }
 
+  async addressFromAccountId(accountId: string) {
+    if (isNil(accountId) || isEmpty(accountId)) {
+      return '';
+    }
+
+    const implOptions = await this.getChainInfoImplOptions();
+    const address = accountIdToAddress(
+      accountId,
+      implOptions?.addressPrefix ?? 0,
+    ).getValue();
+    return address;
+  }
+
   override async addressFromBase(account: DBAccount) {
     const variantAccount = account as DBVariantAccount;
 
     const existAddress = variantAccount.addresses[this.networkId]?.trim();
     if (isNil(existAddress) || isEmpty(existAddress)) {
-      if (isNil(variantAccount.pub) || isEmpty(variantAccount.pub)) {
-        return '';
-      }
-
-      const implOptions = await this.getChainInfoImplOptions();
-      const address = accountIdToAddress(
-        variantAccount.pub,
-        implOptions?.addressPrefix ?? 0,
-      ).getValue();
-      return address;
+      return this.addressFromAccountId(variantAccount.pub);
     }
 
     return variantAccount.addresses[this.networkId];
@@ -535,7 +539,8 @@ export default class Vault extends VaultBase {
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
-      feeInfo: {
+      // Transaction sending completes parsing the real feeInfo
+      feeInfo: encodedTx?.feeInfo ?? {
         price: convertFeeValueToGwei({
           value: '1',
           network,
@@ -628,13 +633,13 @@ export default class Vault extends VaultBase {
       network,
     });
 
-    const txPrice = new BigNumber(
-      parseFloat(priceValue) * parseFloat(limit),
-    ).toFixed(0);
-
     return Promise.resolve({
       ...params.encodedTx,
-      estimatedFee: txPrice,
+      // Temporarily store the fee info
+      feeInfo: {
+        price,
+        limit,
+      },
     });
   }
 
@@ -673,10 +678,19 @@ export default class Vault extends VaultBase {
         },
       );
 
+      const priceValue = convertFeeGweiToValue({
+        value: encodedTx?.feeInfo?.price?.toString() ?? '0',
+        network,
+      });
+
+      const txPrice = new BigNumber(
+        parseFloat(priceValue) * parseFloat(encodedTx?.feeInfo?.limit ?? '0'),
+      ).toFixed(0);
+
       if (
         balance
           ?.minus(tokenAmount?.toString() ?? '0')
-          ?.minus(encodedTx.estimatedFee ?? '0')
+          ?.minus(txPrice)
           .lt(minDepositAmount)
       ) {
         return Promise.resolve({
@@ -747,14 +761,6 @@ export default class Vault extends VaultBase {
             option,
           );
         }
-        // return methods.balances.transfer(
-        //   {
-        //     value: amountValue,
-        //     dest: toAddress,
-        //   },
-        //   info,
-        //   option,
-        // );
 
         return methods.balances.transferAll(
           {
@@ -910,14 +916,14 @@ export default class Vault extends VaultBase {
           ) {
             const [toParam, amountParam] = params;
 
-            to = await this.addressFromBase(get(toParam, 'value.Id', ''));
+            to = await this.addressFromAccountId(get(toParam, 'value.Id', ''));
             amountValue = amountParam.value.toString();
           }
 
           if (tx.call_module_function === 'transfer_all') {
             const [toParam] = params;
 
-            to = await this.addressFromBase(get(toParam, 'value.Id', ''));
+            to = await this.addressFromAccountId(get(toParam, 'value.Id', ''));
             amountValue = '0';
           }
 
@@ -925,7 +931,9 @@ export default class Vault extends VaultBase {
             const [idParam, targetParam, amountParam] = params;
 
             coinType = idParam.value.toString();
-            to = await this.addressFromBase(get(targetParam, 'value.Id', ''));
+            to = await this.addressFromAccountId(
+              get(targetParam, 'value.Id', ''),
+            );
             amountValue = amountParam.value.toString();
           }
 

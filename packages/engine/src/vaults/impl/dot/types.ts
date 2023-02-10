@@ -1,3 +1,4 @@
+import type { IFeeInfoUnit } from '../../types';
 import type { UnsignedTransaction } from '@substrate/txwrapper-polkadot';
 
 export interface DotImplOptions {
@@ -11,5 +12,5 @@ export interface DotImplOptions {
 
 export type IEncodedTxDot = UnsignedTransaction & {
   specName?: string;
-  estimatedFee?: string;
+  feeInfo?: IFeeInfoUnit;
 };
