@@ -1,16 +1,19 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-nested-ternary */
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
+import { debounce, pick } from 'lodash';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  Empty,
   HStack,
   Icon,
   IconButton,
   Pressable,
+  Searchbar,
   Text,
   Token,
 } from '@onekeyhq/components';
@@ -50,6 +53,9 @@ function ChainNetworkIcon({
   );
 }
 
+const strIncludes = (a: string, b: string) =>
+  a.toLowerCase().includes(b.toLowerCase());
+
 function SideChainSelector({
   accountSelectorInfo,
   onPress,
@@ -59,12 +65,42 @@ function SideChainSelector({
   onPress?: (payload: { networkId: string }) => void;
   fullWidthMode?: boolean;
 }) {
+  const intl = useIntl();
+  const [search, setSearch] = useState('');
   const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
   const { selectedNetworkId } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
 
+  const data = useMemo(
+    () =>
+      enabledNetworks.filter((d) => {
+        for (const v of Object.values(
+          pick(d, 'name', 'shortName', 'id', 'symbol'),
+        )) {
+          if (strIncludes(String(v), search)) {
+            return true;
+          }
+        }
+        return false;
+      }),
+    [enabledNetworks, search],
+  );
+
+  const emptyComponent = useCallback(
+    () => (
+      <Empty
+        flex="1"
+        emoji="🔍"
+        title={intl.formatMessage({
+          id: 'content__no_results',
+          defaultMessage: 'No Result',
+        })}
+      />
+    ),
+    [intl],
+  );
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
     if (
@@ -95,6 +131,7 @@ function SideChainSelector({
       }
     }, 0);
   }, [enabledNetworks, selectedNetworkId]);
+
   const scrollToItemDebounced = useMemo(
     () =>
       debounce(scrollToItem, ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK, {
@@ -103,6 +140,83 @@ function SideChainSelector({
       }),
     [scrollToItem],
   );
+
+  const renderItem = useCallback(
+    (options: { item: INetwork; index: number }) => {
+      const { item, index } = options;
+      const isLastItem = index === data.length - 1;
+      const isActive = selectedNetworkId === item.id;
+      return (
+        <Pressable
+          onPress={() => {
+            const id = (item.id === AllNetwork ? '' : item.id) || '';
+            serviceAccountSelector.updateSelectedNetwork(id);
+            onPress?.({ networkId: id });
+          }}
+        >
+          {({ isHovered, isPressed }) => (
+            <HStack
+              alignItems="center"
+              space={3}
+              p={1.5}
+              m={fullWidthMode ? 0 : 1}
+              borderWidth={2}
+              bgColor={
+                isPressed
+                  ? 'surface-pressed'
+                  : isHovered
+                  ? 'surface-hovered'
+                  : undefined
+              }
+              borderColor={(() => {
+                if (fullWidthMode) {
+                  return 'transparent';
+                }
+                return isActive ? 'interactive-default' : 'transparent';
+              })()}
+              rounded={fullWidthMode ? '12px' : 'full'}
+            >
+              <ChainNetworkIcon
+                item={item}
+                isLastItem={isLastItem}
+                onLastItemRender={scrollToItemDebounced}
+              />
+              {fullWidthMode ? (
+                <>
+                  <Text
+                    flex={1}
+                    typography="Body1Strong"
+                    isTruncated
+                    numberOfLines={1}
+                  >
+                    {item.name}
+                  </Text>
+                  {item.id === selectedNetworkId ? (
+                    <>
+                      <RpcStatusButton networkId={item.id} />
+                      <Icon
+                        color="interactive-default"
+                        name="CheckCircleSolid"
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </HStack>
+          )}
+        </Pressable>
+      );
+    },
+    [
+      data.length,
+      fullWidthMode,
+      scrollToItemDebounced,
+      onPress,
+      selectedNetworkId,
+      serviceAccountSelector,
+    ],
+  );
+
   return (
     <Box
       alignSelf="stretch"
@@ -112,77 +226,26 @@ function SideChainSelector({
       borderColor={fullWidthMode ? undefined : 'divider'}
       flex={fullWidthMode ? 1 : undefined}
     >
+      <Box p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}>
+        <Searchbar
+          w="full"
+          value={search}
+          onChangeText={(text) => setSearch(text)}
+          placeholder={intl.formatMessage({ id: 'content__search' })}
+          onClear={() => setSearch('')}
+        />
+      </Box>
       <FlatListRef
+        ListEmptyComponent={emptyComponent}
         initialNumToRender={20}
         // TODO auto scroll to active item
         ref={flatListRef}
-        data={enabledNetworks}
-        keyExtractor={(item: INetwork) => item.id}
-        renderItem={(options: { item: INetwork; index: number }) => {
-          const { item, index } = options;
-          const isLastItem = index === enabledNetworks.length - 1;
-          const isActive = selectedNetworkId === item.id;
-          return (
-            <Pressable
-              onPress={() => {
-                const id = (item.id === AllNetwork ? '' : item.id) || '';
-                serviceAccountSelector.updateSelectedNetwork(id);
-                onPress?.({ networkId: id });
-              }}
-            >
-              {({ isHovered, isPressed }) => (
-                <HStack
-                  alignItems="center"
-                  space={3}
-                  p={1.5}
-                  m={fullWidthMode ? 0 : 1}
-                  borderWidth={2}
-                  bgColor={
-                    isPressed
-                      ? 'surface-pressed'
-                      : isHovered
-                      ? 'surface-hovered'
-                      : undefined
-                  }
-                  borderColor={(() => {
-                    if (fullWidthMode) {
-                      return 'transparent';
-                    }
-                    return isActive ? 'interactive-default' : 'transparent';
-                  })()}
-                  rounded={fullWidthMode ? '12px' : 'full'}
-                >
-                  <ChainNetworkIcon
-                    item={item}
-                    isLastItem={isLastItem}
-                    onLastItemRender={scrollToItemDebounced}
-                  />
-                  {fullWidthMode ? (
-                    <>
-                      <Text
-                        flex={1}
-                        typography="Body1Strong"
-                        isTruncated
-                        numberOfLines={1}
-                      >
-                        {item.name}
-                      </Text>
-                      {item.id === selectedNetworkId ? (
-                        <>
-                          <RpcStatusButton networkId={item.id} />
-                          <Icon
-                            color="interactive-default"
-                            name="CheckCircleSolid"
-                          />
-                        </>
-                      ) : null}
-                    </>
-                  ) : null}
-                </HStack>
-              )}
-            </Pressable>
-          );
+        data={data}
+        contentContainerStyle={{
+          flex: 1,
         }}
+        keyExtractor={(item: INetwork) => item.id}
+        renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         flex={1}
         p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
