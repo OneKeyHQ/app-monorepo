@@ -95,6 +95,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
+  async getApiClient(): Promise<any> {
+    throw new NotImplemented();
+  }
+
   async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {

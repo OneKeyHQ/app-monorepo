@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { ApiPromise, HttpProvider, WsProvider } from '@polkadot/api';
 import { EXTRINSIC_VERSION } from '@polkadot/types/extrinsic/v4/Extrinsic';
 import {
   hexToNumber,
@@ -73,7 +74,6 @@ import { accountIdToAddress } from './sdk/address';
 import settings from './settings';
 import { SubScanClient } from './substrate/query/subscan';
 import { getTransactionType, getTransactionTypeFromTxInfo } from './utils';
-import { getClientCache, getNodeClient } from './utils/nodeClient';
 
 import type { ExtrinsicParam } from './substrate/query/subscan/type';
 import type { DotImplOptions, IEncodedTxDot } from './types';
@@ -108,9 +108,10 @@ export default class Vault extends VaultBase {
     max: 1,
   });
 
+  // ======== Chain Vault Methods ========
   getRPCRuntimeVersionCache = memoizee(
     async (): Promise<RuntimeVersion> => {
-      const client = await this.getClient();
+      const client = await this.getApiClient();
       return client.rpc.state.getRuntimeVersion();
     },
     {
@@ -124,7 +125,7 @@ export default class Vault extends VaultBase {
 
   getGenesisHashCache = memoizee(
     async (): Promise<BlockHash> => {
-      const client = await this.getClient();
+      const client = await this.getApiClient();
       return client.rpc.chain.getBlockHash(0);
     },
     {
@@ -138,7 +139,7 @@ export default class Vault extends VaultBase {
 
   getMetadataRpcCache = memoizee(
     async (): Promise<Metadata> => {
-      const client = await this.getClient();
+      const client = await this.getApiClient();
       return client.rpc.state.getMetadata();
     },
     {
@@ -197,10 +198,53 @@ export default class Vault extends VaultBase {
     },
   );
 
+  // ======== END Chain Vault Methods ========
+
+  getNodeClient = async (rpcUrl: string) => {
+    const uri = new URL(rpcUrl);
+    let provider;
+    if (uri.protocol === 'wss:') {
+      provider = new WsProvider(rpcUrl);
+    } else {
+      provider = new HttpProvider(rpcUrl);
+    }
+    return ApiPromise.create({ provider });
+  };
+
+  getClientCache = memoizee(
+    async (rpcUrl: string) => this.getNodeClient(rpcUrl),
+    {
+      promise: true,
+      primitive: true,
+      maxAge: 1000 * 60 * 15,
+      max: 1,
+      normalizer: (args) => args[0],
+      dispose: (client) => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          client.disconnect();
+        } catch (e) {
+          // ignore
+        }
+      },
+    },
+  );
+
+  override async getApiClient(): Promise<ApiPromise> {
+    const { rpcURL } = await this.engine.getNetwork(this.networkId);
+    return this.getClientCache(rpcURL);
+  }
+
   // API see https://polkadot.js.org/docs/substrate/runtime
   async getClient() {
-    const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    return getClientCache(rpcURL);
+    const vault = await this.getChainVault();
+    const client = vault.getApiClient();
+    await vault.getMetadataRpcCache();
+    return client;
+  }
+
+  async getChainVault(): Promise<Vault> {
+    return this.engine.getChainOnlyVault(this.networkId) as Promise<Vault>;
   }
 
   async getScanClient() {
@@ -249,7 +293,7 @@ export default class Vault extends VaultBase {
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const client = await getNodeClient(url);
+    const client = await this.getNodeClient(url);
     const start = performance.now();
     const version = await client.rpc.chain.getHeader();
     const responseTime = Math.floor(performance.now() - start);
@@ -326,16 +370,17 @@ export default class Vault extends VaultBase {
 
     const { block } = await client.rpc.chain.getBlock();
     const blockHash = await client.rpc.chain.getBlockHash();
-    const genesisHash = await this.getGenesisHashCache();
-    const metadataRpc = await this.getMetadataRpcCache();
+    const chainVault = await this.getChainVault();
+    const genesisHash = await chainVault.getGenesisHashCache();
+    const metadataRpc = await chainVault.getMetadataRpcCache();
     const { specVersion, specName, transactionVersion } =
-      await this.getRPCRuntimeVersionCache();
+      await chainVault.getRPCRuntimeVersionCache();
 
     const previousNonce = await client.call.accountNonceApi.accountNonce(from);
 
     const network = await this.getNetwork();
 
-    const registry = await this.getRegistryCache({
+    const registry = await chainVault.getRegistryCache({
       metadataRpc: metadataRpc.toHex(),
       specVersion: specVersion.toHex(),
       specName: specName.toString(),
@@ -722,7 +767,8 @@ export default class Vault extends VaultBase {
           dest: { id: toAddress },
         } = decodeUnsignedTx.method.args;
 
-        const registry = await this.getRegistryCache(encodedTx);
+        const chainVault = await this.getChainVault();
+        const registry = await chainVault.getRegistryCache(encodedTx);
 
         const info: BaseTxInfo = {
           address: decodeUnsignedTx.address,
@@ -1088,7 +1134,8 @@ export default class Vault extends VaultBase {
 
   // see https://github.com/paritytech/txwrapper-core/blob/main/packages/txwrapper-examples/polkadot/src/polkadot.ts
   async decodeUnsignedTx(unsigned: IEncodedTxDot) {
-    const registry = await this.getRegistryCache(unsigned);
+    const chainVault = await this.getChainVault();
+    const registry = await chainVault.getRegistryCache(unsigned);
 
     const { metadataRpc } = unsigned;
     const decodedUnsigned = decode(unsigned, {
@@ -1106,7 +1153,8 @@ export default class Vault extends VaultBase {
     const unsigned = encodedTx;
     const { metadataRpc } = unsigned;
 
-    const registry = await this.getRegistryCache(unsigned);
+    const chainVault = await this.getChainVault();
+    const registry = await chainVault.getRegistryCache(unsigned);
 
     registry.setMetadata(createMetadata(registry, metadataRpc));
     const signingPayload = construct.signingPayload(unsigned, { registry });
@@ -1140,8 +1188,8 @@ export default class Vault extends VaultBase {
     signature: string,
   ) {
     const { metadataRpc } = encodedTx;
-
-    const registry = await this.getRegistryCache(encodedTx);
+    const chainVault = await this.getChainVault();
+    const registry = await chainVault.getRegistryCache(encodedTx);
 
     const tx = construct.signedTx(
       encodedTx,
@@ -1156,7 +1204,8 @@ export default class Vault extends VaultBase {
   }
 
   async encodeUnsignedTransaction(encodedTx: IEncodedTxDot) {
-    const registry = await this.getRegistryCache(encodedTx);
+    const chainVault = await this.getChainVault();
+    const registry = await chainVault.getRegistryCache(encodedTx);
 
     const tx = construct.encodeUnsignedTransaction(encodedTx, {
       registry,

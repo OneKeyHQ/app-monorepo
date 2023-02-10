@@ -2047,6 +2047,7 @@ class Engine {
     return this.vaultFactory.getVault({ ...options, rpcURL });
   }
 
+  @backgroundMethod()
   async getChainOnlyVault(networkId: string) {
     return this.vaultFactory.getChainOnlyVault(networkId);
   }
