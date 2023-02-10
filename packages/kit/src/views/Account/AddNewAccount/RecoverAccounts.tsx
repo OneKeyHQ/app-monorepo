@@ -41,8 +41,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
+import { usePrevious } from '../../../hooks';
 import { deviceUtils } from '../../../utils/hardware';
 
+import { showJumpPageDialog } from './JumpPage';
 import { FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
 
 import type { IDerivationOption } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
@@ -70,6 +72,7 @@ type CellProps = {
   item: RecoverAccountType;
   state: SelectStateType | undefined;
   decimal: number;
+  symbol: string;
   showPathAndLink: boolean;
   onChange: (select: boolean) => void;
   openBlockExplorer: (address: string) => void;
@@ -80,6 +83,7 @@ const AccountCell: FC<CellProps> = ({
   state,
   onChange,
   decimal,
+  symbol,
   showPathAndLink,
   openBlockExplorer,
 }) => {
@@ -141,6 +145,7 @@ const AccountCell: FC<CellProps> = ({
             formatOptions={{
               fixed: decimal ?? 4,
             }}
+            suffix={symbol}
             render={(ele) => (
               <Typography.Body2
                 style={{
@@ -183,7 +188,6 @@ type ListTableHeaderProps = {
 } & ComponentProps<typeof Box>;
 
 const ListTableHeader: FC<ListTableHeaderProps> = ({
-  symbol,
   isAllSelected,
   showPathAndLink,
   onChange,
@@ -212,7 +216,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
       <ListItem.Column
         alignItems="flex-end"
         text={{
-          label: symbol,
+          label: intl.formatMessage({ id: 'form__balance' }),
           labelProps: {
             typography: 'Subheading',
             textAlign: 'right',
@@ -233,8 +237,10 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
 type ListTableFooterProps = {
   minLimit?: number;
   count?: number;
+  currentPage?: number;
   prevButtonDisabled?: boolean;
   nextButtonDisabled?: boolean;
+  onPagePress: () => void;
   onAdvancedPress: () => void;
   onNextPagePress: () => void;
   onPrevPagePress: () => void;
@@ -243,14 +249,21 @@ type ListTableFooterProps = {
 const ListTableFooter: FC<ListTableFooterProps> = ({
   minLimit,
   count,
+  currentPage,
   prevButtonDisabled,
   nextButtonDisabled,
+  onPagePress,
   onAdvancedPress,
   onNextPagePress,
   onPrevPagePress,
 }) => {
   const intl = useIntl();
   const maxLimit = (minLimit ?? 0) + (count ?? 0) - 1;
+
+  const page = useMemo(() => {
+    if (!currentPage) return 1;
+    return currentPage + 1;
+  }, [currentPage]);
 
   return (
     <HStack flexDirection="row" justifyContent="space-between" pt={4}>
@@ -266,15 +279,34 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
           ? `${minLimit} - ${maxLimit}`
           : intl.formatMessage({ id: 'content__advanced' })}
       </Button>
-      <HStack space={2} alignItems="flex-end">
+      <HStack space={0} alignItems="flex-end">
         <Button
+          w="40px"
           type="basic"
+          borderRightRadius={0}
           leftIconName="ChevronLeftMini"
           onPress={onPrevPagePress}
           isDisabled={prevButtonDisabled}
         />
         <Button
+          w="39px"
+          h="38px"
           type="basic"
+          onPress={onPagePress}
+          isDisabled={false}
+          borderLeftWidth={0}
+          borderRightWidth={0}
+          borderLeftRadius={0}
+          borderRightRadius={0}
+        >
+          <Text maxW="30px" maxH="38px" isTruncated>
+            {page}
+          </Text>
+        </Button>
+        <Button
+          w="40px"
+          type="basic"
+          borderLeftRadius={0}
           leftIconName="ChevronRightMini"
           onPress={onNextPagePress}
           isDisabled={nextButtonDisabled}
@@ -314,11 +346,12 @@ const DerivationPathForm: FC<{
     setValue('derivationType', value ?? '');
   }, [value, setValue]);
 
+  if (!derivationOptions || derivationOptions.length < 2) return null;
+
   return (
     <Form w="full" mb="26px">
       <Pressable
         onPress={() => {
-          console.log('press');
           showDerivationPathBottomSheetModal({
             walletId,
             networkId,
@@ -419,6 +452,7 @@ const RecoverAccounts: FC = () => {
       derivationOptions.find((item) => item.key === 'default')?.template ?? ''
     );
   }, [selectedDerivationOption, derivationOptions]);
+  const previousTemplate = usePrevious(template);
   const purpose = useMemo(() => {
     if (selectedDerivationOption) {
       return parseInt(selectedDerivationOption.category.split("'/")[0]);
@@ -486,14 +520,14 @@ const RecoverAccounts: FC = () => {
           return true;
         }
         return false;
-      })
+      }) &&
+      template === previousTemplate
     ) {
       updateCurrentPageData(currentPageArray);
       isFetchingData.current = false;
       setLoading(false);
       return;
     }
-
     backgroundApiProxy.engine
       .searchHDAccounts(
         walletId,
@@ -569,8 +603,8 @@ const RecoverAccounts: FC = () => {
     navigation,
     network,
     password,
-    purpose,
     walletId,
+    template,
   ]);
 
   const checkBoxOnChange = useCallback(
@@ -632,6 +666,7 @@ const RecoverAccounts: FC = () => {
     ({ item }: ListRenderItemInfo<RecoverAccountType>) => (
       <AccountCell
         decimal={decimal}
+        symbol={symbol}
         showPathAndLink={config.showPathAndLink}
         flex={1}
         item={item}
@@ -689,6 +724,14 @@ const RecoverAccounts: FC = () => {
     config.currentPage,
     currentPageData.length,
   ]);
+
+  const maxPage = useMemo(() => {
+    if (config.fromIndex >= FROM_INDEX_MAX) return 1;
+    if (config.generateCount) {
+      return Math.ceil(config.generateCount / PAGE_SIZE) - 1;
+    }
+    return Math.ceil(FROM_INDEX_MAX / PAGE_SIZE) - 1;
+  }, [config.fromIndex, config.generateCount]);
 
   const isLoadingState = useMemo(
     () => pendRefreshData || isLoading || !depDataInit,
@@ -830,8 +873,24 @@ const RecoverAccounts: FC = () => {
           <ListTableFooter
             minLimit={config.fromIndex}
             count={config.generateCount}
+            currentPage={config.currentPage}
             prevButtonDisabled={config.currentPage === 0}
             nextButtonDisabled={isMaxPage}
+            onPagePress={() => {
+              showJumpPageDialog({
+                currentPage: config.currentPage,
+                maxPage,
+                onConfirm: (page) => {
+                  setConfig((prev) => {
+                    if (isMaxPage) return prev;
+                    return {
+                      ...prev,
+                      currentPage: page - 1,
+                    };
+                  });
+                },
+              });
+            }}
             onPrevPagePress={() => {
               setConfig((prev) => {
                 if (prev.currentPage === 0) return prev;
