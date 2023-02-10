@@ -1,7 +1,7 @@
 import { format as fnsFormat } from 'date-fns';
-import * as FileSystem from 'expo-file-system';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
+import RNFS from 'react-native-fs';
 import {
   logger as RNLogger,
   consoleTransport,
@@ -76,9 +76,9 @@ const NATIVE_TRANSPORT_CONFIG = {
     ? [fileAsyncTransport, consoleTransport]
     : [fileAsyncTransport],
   transportOptions: {
-    FS: FileSystem,
+    FS: RNFS,
     fileName: 'log.txt',
-    filePath: FileSystem.cacheDirectory,
+    filePath: RNFS.CachesDirectoryPath,
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       if (platformEnv.isDev) {
         logToConsole(props);
@@ -193,12 +193,9 @@ if (platformEnv.isDev) {
 if (platformEnv.isNative) {
   const removePreviousLogFile = async () => {
     try {
-      const filePath = `${FileSystem.cacheDirectory ?? ''}log.txt`;
-      const fileInfo = await FileSystem.getInfoAsync(filePath);
-      if (fileInfo.exists) {
-        await FileSystem.deleteAsync(filePath);
-        debugLogger.backgroundApi.info('previous log file deleted at init');
-      }
+      const filePath = `${RNFS.CachesDirectoryPath ?? ''}log.txt`;
+      await RNFS.unlink(filePath);
+      debugLogger.backgroundApi.info('previous log file deleted at init');
     } catch (e) {
       // ignore
     }

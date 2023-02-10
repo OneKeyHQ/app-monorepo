@@ -69,7 +69,7 @@ export const webHandler: WebHandler = (() => {
 })();
 
 export const isValidWebUrl = (url: string) =>
-  /\.(ai|app|art|co|com|club|dev|ee|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(\/\S*)*$/.test(
+  /\.(ai|app|art|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(\/\S*)*$/.test(
     url,
   );
 

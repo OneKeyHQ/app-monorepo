@@ -176,7 +176,16 @@ const ToolsPage: FC = () => {
         link: t.link,
       })),
     );
-  }, [hasAvailable, accountAddress, tools, network, annualReportEntryEnabled]);
+  }, [
+    hasAvailable,
+    accountAddress,
+    network?.impl,
+    network?.settings.supportBatchTransfer,
+    network?.id,
+    annualReportEntryEnabled,
+    enableDevMode,
+    tools,
+  ]);
 
   const handlePress = useCallback(
     (key: string) => {
