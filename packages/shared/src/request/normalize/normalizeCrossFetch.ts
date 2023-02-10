@@ -15,7 +15,7 @@ ctx.fetch = require('@onekeyhq/shared/src/request/normalize/normalizeCrossFetch'
 
  */
 
-type ICrossFetch = typeof import('cross-fetch');
+type ICrossFetch = typeof fetch;
 
 class RequestInterceptorFetch extends RequestInterceptorBase {
   constructor(options: RequestInit) {
@@ -97,9 +97,13 @@ export function normalizeCrossFetch({
       // );
     }
 
-    // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
-    return fetchOrigin.call(this, resource, options, ...others);
+    return (
+      fetchOrigin
+        // @ts-ignore
+        .call(this, resource, options, ...others)
+        .then((res) => res.clone())
+    );
   };
   newFetch.isNormalizedByOneKey = true;
 
