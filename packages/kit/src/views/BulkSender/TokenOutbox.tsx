@@ -13,6 +13,7 @@ import {
   Text,
   Token as TokenComponent,
   useIsVerticalLayout,
+  ToastManager,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -69,7 +70,7 @@ function TokenOutbox(props: Props) {
   const isNative = type === BulkSenderTypeEnum.NativeToken;
   const initialToken = isNative ? nativeToken : tokens[0];
 
-  const balance = useTokenBalance({
+  const tokenBalnace = useTokenBalance({
     accountId,
     networkId,
     token: selectedToken || initialToken,
@@ -80,10 +81,10 @@ function TokenOutbox(props: Props) {
       intl.formatMessage(
         { id: 'content__balance_str' },
         {
-          0: balance,
+          0: tokenBalnace,
         },
       ),
-    [intl, balance],
+    [intl, tokenBalnace],
   );
 
   const { isValid, isValidating, errors } = useValidteReceiver({
@@ -134,6 +135,31 @@ function TokenOutbox(props: Props) {
     });
   }, [isUnlimited]);
 
+  const verifyBulkTransferBeforeConfirm = useCallback(
+    (transferInfos: ITransferInfo[], token?: Token) => {
+      const totalAmount = transferInfos.reduce(
+        (sum, next) => sum.plus(next.amount),
+        new BigNumber(0),
+      );
+
+      if (totalAmount.gt(tokenBalnace)) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              { id: 'form__amount_invalid' },
+              { '0': token?.symbol },
+            ),
+          },
+          { type: 'error' },
+        );
+        return false;
+      }
+
+      return true;
+    },
+    [tokenBalnace, intl],
+  );
+
   const handlePreviewTransfer = useCallback(async () => {
     if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
       return;
@@ -151,6 +177,14 @@ function TokenOutbox(props: Props) {
         sendAddress: token?.sendAddress,
       });
     }
+
+    const verified = verifyBulkTransferBeforeConfirm(transferInfos, token);
+
+    if (!verified) {
+      setIsBuildingTx(false);
+      return;
+    }
+
     const encodedApproveTxs =
       await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
         networkId,
@@ -212,6 +246,7 @@ function TokenOutbox(props: Props) {
     selectedToken,
     serviceBatchTransfer,
     type,
+    verifyBulkTransferBeforeConfirm,
   ]);
 
   useFocusEffect(
