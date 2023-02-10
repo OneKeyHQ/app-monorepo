@@ -11,6 +11,7 @@ import {
   Center,
   CheckBox,
   Empty,
+  Form,
   HStack,
   IconButton,
   List,
@@ -18,14 +19,18 @@ import {
   Modal,
   Spinner,
   Text,
+  Token,
   Typography,
+  useForm,
 } from '@onekeyhq/components';
+import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type {
   Account,
   ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import showDerivationPathBottomSheetModal from '@onekeyhq/kit/src/components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
@@ -276,6 +281,56 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
         />
       </HStack>
     </HStack>
+  );
+};
+
+const DerivationPathForm: FC<{
+  walletId: string;
+  networkId: string | undefined;
+  derivationOptions: IDerivationOption[];
+  selectedOption?: IDerivationOption;
+  onChange: (option: IDerivationOption) => void;
+}> = ({ walletId, networkId, derivationOptions, selectedOption, onChange }) => {
+  const intl = useIntl();
+  const { control, setValue } = useForm<{ derivationType: string }>({
+    defaultValues: { derivationType: 'default' },
+  });
+
+  const value = useMemo(() => {
+    let label: IDerivationOption['label'];
+    if (selectedOption) {
+      label = selectedOption.label;
+    } else {
+      label =
+        (derivationOptions ?? []).find((item) => item.key === 'default')
+          ?.label || '';
+    }
+    if (!label) return '';
+    if (typeof label === 'string') return label;
+    if (typeof label === 'object') return intl.formatMessage({ id: label.id });
+  }, [selectedOption, derivationOptions, intl]);
+
+  useEffect(() => {
+    setValue('derivationType', value ?? '');
+  }, [value, setValue]);
+
+  return (
+    <Form w="full" mb="26px">
+      <Pressable
+        onPress={() => {
+          console.log('press');
+          showDerivationPathBottomSheetModal({
+            walletId,
+            networkId,
+            onSelect: (option) => onChange?.(option),
+          });
+        }}
+      >
+        <Form.Item name="derivationType" control={control}>
+          <Form.Input size="lg" rightIconName="ChevronDownMini" isReadOnly />
+        </Form.Item>
+      </Pressable>
+    </Form>
   );
 };
 
@@ -651,11 +706,32 @@ const RecoverAccounts: FC = () => {
     [config.showPathAndLink],
   );
 
+  const headerDescription = useMemo(
+    () => (
+      <Token
+        size={4}
+        showInfo
+        showName
+        showTokenVerifiedIcon={false}
+        token={{
+          name: selectedNetWork?.name,
+          logoURI: selectedNetWork?.logoURI,
+        }}
+        nameProps={{
+          typography: { sm: 'Caption', md: 'Caption' },
+          color: 'text-subdued',
+          ml: '-6px',
+        }}
+      />
+    ),
+    [selectedNetWork],
+  );
+
   return (
     <Modal
       height="640px"
-      header={intl.formatMessage({ id: 'action__recover_accounts' })}
-      headerDescription={`${selectedNetWork?.name}`}
+      header={intl.formatMessage({ id: 'action__manage_account' })}
+      headerDescription={headerDescription}
       primaryActionTranslationId="action__recover"
       onPrimaryActionPress={() => {
         hardwareCancel();
@@ -705,6 +781,15 @@ const RecoverAccounts: FC = () => {
         </Center>
       ) : (
         <Box flex={1}>
+          <DerivationPathForm
+            walletId={walletId}
+            networkId={network}
+            derivationOptions={derivationOptions}
+            selectedOption={selectedDerivationOption}
+            onChange={(option) => {
+              setSelectedDerivationOption(option);
+            }}
+          />
           <ListTableHeader
             symbol={symbol}
             isAllSelected={isAllSelected}

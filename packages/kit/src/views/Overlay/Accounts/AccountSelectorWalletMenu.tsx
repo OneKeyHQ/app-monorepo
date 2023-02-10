@@ -41,16 +41,18 @@ const AccountSelectorWalletMenu: FC<
         params: {
           walletId,
           onDone: (password) => {
-            navigation.replace(
-              CreateAccountModalRoutes.RecoverAccountsList as any,
-              {
-                walletId,
-                network: networkId,
-                password,
-                purpose: '60',
-                template: `m/44'/60'/0'/0/x`,
-              },
-            );
+            setTimeout(() => {
+              navigation.replace(
+                CreateAccountModalRoutes.RecoverAccountsList as any,
+                {
+                  walletId,
+                  network: networkId,
+                  password,
+                  purpose: '',
+                  template: '',
+                },
+              );
+            }, 20);
           },
         },
       },
