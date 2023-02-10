@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "লেনদেন সম্পূর্ণ করার জন্য পর্যাপ্ত কয়েন নেই।",
   "msg__error_aptos_nft_token_already_exists": "NFT টোকেন ইতিমধ্যেই বিদ্যমান।",
   "msg__error_aptso_account_does_not_exist": "অ্যাকাউন্ট এর অস্তিত্ব নেই.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "স্থানান্তরগুলি {0} -এর নীচে ব্যালেন্স কমাতে পারে, যার ফলে অ্যাকাউন্ট নিষ্ক্রিয় হয়ে যায় এবং ব্যালেন্স সাফ হয়৷ এগিয়ে যাওয়ার আগে নিশ্চিত করুন।",
   "msg__error_mnemonics_can_only_be_12_24": "অ্যাকাউন্ট শুধুমাত্র 12 - এবং 24-বিট স্মৃতিবিদ্যার অনুমতি দেয়।",
   "msg__estimate_str_minutes": "অনুমান {0} মিনিট",
   "msg__estimated_gas_failure": "গ্যাস অনুমান করতে ব্যর্থ",

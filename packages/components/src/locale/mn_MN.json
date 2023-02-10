@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "Гүйлгээг дуусгахад зоос хүрэлцэхгүй байна.",
   "msg__error_aptos_nft_token_already_exists": "NFT токен аль хэдийн бий.",
   "msg__error_aptso_account_does_not_exist": "Бүртгэл байхгүй байна.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "Шилжүүлгийн дүнд дансны үлдэгдлийг {0} -ээс доош бууруулж, данс идэвхгүй болж, үлдэгдлийг арилгахад хүргэж болзошгүй. Үргэлжлүүлэхийн өмнө баталгаажуулна уу.",
   "msg__error_mnemonics_can_only_be_12_24": "Данс нь зөвхөн 12 ба 24 битийн мнемоникийг зөвшөөрдөг.",
   "msg__estimate_str_minutes": "{0} минутыг тооцоол",
   "msg__estimated_gas_failure": "Газыг тооцоолж чадсангүй",

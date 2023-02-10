@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "Koin tidak cukup untuk menyelesaikan transaksi.",
   "msg__error_aptos_nft_token_already_exists": "Token NFT sudah ada.",
   "msg__error_aptso_account_does_not_exist": "Akun tidak ada.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "Transfer dapat mengurangi saldo di bawah {0} , yang mengakibatkan penonaktifan akun dan saldo kliring. Konfirmasikan sebelum melanjutkan.",
   "msg__error_mnemonics_can_only_be_12_24": "Akun hanya mengizinkan mnemonik 12 - dan 24-bit.",
   "msg__estimate_str_minutes": "perkirakan {0} menit",
   "msg__estimated_gas_failure": "Gagal memperkirakan gas",
