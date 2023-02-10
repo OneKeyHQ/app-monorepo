@@ -753,7 +753,27 @@ class Engine {
                 address: a.address,
               }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-                vault.getOutputAccount(),
+                vault.getOutputAccount().catch((error) => {
+                  if (a.type === AccountType.SIMPLE) {
+                    vault
+                      .validateAddress(a.address)
+                      .then((address) => {
+                        if (!address) {
+                          setTimeout(
+                            () => this.removeAccount(a.id, '', true),
+                            100,
+                          );
+                        }
+                      })
+                      .catch(() => {
+                        setTimeout(
+                          () => this.removeAccount(a.id, '', true),
+                          100,
+                        );
+                      });
+                  }
+                  throw error;
+                }),
               ),
         ),
     );
@@ -1100,7 +1120,11 @@ class Engine {
   }
 
   @backgroundMethod()
-  async removeAccount(accountId: string, password: string): Promise<void> {
+  async removeAccount(
+    accountId: string,
+    password: string,
+    skipPasswordCheck?: boolean,
+  ): Promise<void> {
     // Remove an account. Raise an error if account doesn't exist or password is wrong.
     const walletId = getWalletIdFromAccountId(accountId);
     const [wallet, dbAccount] = await Promise.all([
@@ -1135,6 +1159,7 @@ class Engine {
       accountId,
       password,
       rollbackNextAccountIds,
+      skipPasswordCheck,
     );
   }
 
