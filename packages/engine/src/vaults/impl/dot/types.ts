@@ -1,3 +1,4 @@
+import type { IFeeInfoUnit } from '../../types';
 import type { UnsignedTransaction } from '@substrate/txwrapper-polkadot';
 
 export interface DotImplOptions {
@@ -9,4 +10,7 @@ export interface DotImplOptions {
 //   signingPayload?: string;
 // };
 
-export type IEncodedTxDot = UnsignedTransaction;
+export type IEncodedTxDot = UnsignedTransaction & {
+  specName?: string;
+  feeInfo?: IFeeInfoUnit;
+};
