@@ -2,7 +2,7 @@
 /* eslint-disable no-nested-ternary */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
+import { debounce, pick } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -53,6 +53,9 @@ function ChainNetworkIcon({
   );
 }
 
+const strIncludes = (a: string, b: string) =>
+  a.toLowerCase().includes(b.toLowerCase());
+
 function SideChainSelector({
   accountSelectorInfo,
   onPress,
@@ -72,11 +75,16 @@ function SideChainSelector({
 
   const data = useMemo(
     () =>
-      enabledNetworks.filter(
-        (d) =>
-          d.name.toLowerCase().includes(search.toLowerCase()) ||
-          d.shortName.toLowerCase().includes(search.toLowerCase()),
-      ),
+      enabledNetworks.filter((d) => {
+        for (const v of Object.values(
+          pick(d, 'name', 'shortName', 'id', 'symbol'),
+        )) {
+          if (strIncludes(String(v), search)) {
+            return true;
+          }
+        }
+        return false;
+      }),
     [enabledNetworks, search],
   );
 
