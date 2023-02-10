@@ -30,6 +30,7 @@ type RecoverConfirmDoneProps = {
   walletId: string;
   network: string;
   purpose: number;
+  template: string;
   config: AdvancedValues;
   stopFlag: boolean;
   onDone: () => void;
@@ -40,6 +41,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   walletId,
   network,
   purpose,
+  template,
   config,
   stopFlag,
   onDone,
@@ -73,6 +75,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
       undefined,
       purpose,
       true,
+      template,
     );
   };
 
@@ -185,7 +188,8 @@ type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 const RecoverConfirm: FC = () => {
   const route = useRoute<RouteProps>();
-  const { accounts, walletId, network, purpose, config } = route.params;
+  const { accounts, walletId, network, purpose, config, template } =
+    route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const [stopFlag, setStopFlag] = useState(false);
@@ -218,6 +222,7 @@ const RecoverConfirm: FC = () => {
               walletId={walletId}
               network={network}
               purpose={purpose}
+              template={template}
               config={config}
               stopFlag={stopFlag}
               onDone={() => {

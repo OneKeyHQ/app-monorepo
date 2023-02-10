@@ -53,6 +53,7 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     network: string;
     purpose: number;
+    template: string;
     existingAccounts: Account[];
     config: RecoverAccountsAdvancedParams;
   };

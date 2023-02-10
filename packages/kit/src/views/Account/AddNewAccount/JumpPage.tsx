@@ -31,7 +31,7 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
 }) => {
   const intl = useIntl();
   const { control, handleSubmit } = useForm<{ pageNumber: string }>({
-    defaultValues: { pageNumber: `${!currentPage ? '' : currentPage}` },
+    defaultValues: { pageNumber: `${!currentPage ? '' : currentPage + 1}` },
   });
 
   const isSmallLayout = useIsVerticalLayout();
@@ -71,7 +71,6 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
           >
             <Form.Input
               onKeyPress={(e) => {
-                console.log(e);
                 if (e.nativeEvent.key === 'Enter') {
                   handleSubmit(onSubmit)();
                   return;

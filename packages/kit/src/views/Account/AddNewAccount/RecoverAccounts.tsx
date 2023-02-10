@@ -728,9 +728,9 @@ const RecoverAccounts: FC = () => {
   const maxPage = useMemo(() => {
     if (config.fromIndex >= FROM_INDEX_MAX) return 1;
     if (config.generateCount) {
-      return Math.ceil(config.generateCount / PAGE_SIZE) - 1;
+      return Math.ceil(config.generateCount / PAGE_SIZE);
     }
-    return Math.ceil(FROM_INDEX_MAX / PAGE_SIZE) - 1;
+    return Math.ceil(FROM_INDEX_MAX / PAGE_SIZE);
   }, [config.fromIndex, config.generateCount]);
 
   const isLoadingState = useMemo(
@@ -775,7 +775,7 @@ const RecoverAccounts: FC = () => {
       height="640px"
       header={intl.formatMessage({ id: 'action__manage_account' })}
       headerDescription={headerDescription}
-      primaryActionTranslationId="action__recover"
+      primaryActionTranslationId="action__done"
       onPrimaryActionPress={() => {
         hardwareCancel();
 
@@ -794,6 +794,7 @@ const RecoverAccounts: FC = () => {
           walletId,
           network,
           purpose,
+          template,
           existingAccounts: activeAccounts.current,
           config: {
             ...config,
@@ -881,13 +882,10 @@ const RecoverAccounts: FC = () => {
                 currentPage: config.currentPage,
                 maxPage,
                 onConfirm: (page) => {
-                  setConfig((prev) => {
-                    if (isMaxPage) return prev;
-                    return {
-                      ...prev,
-                      currentPage: page - 1,
-                    };
-                  });
+                  setConfig((prev) => ({
+                    ...prev,
+                    currentPage: page - 1,
+                  }));
                 },
               });
             }}
