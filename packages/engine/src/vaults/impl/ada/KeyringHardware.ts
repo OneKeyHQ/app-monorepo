@@ -1,4 +1,5 @@
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import { NewFirmwareUnRelease } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { COINTYPE_ADA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -44,8 +45,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     const showOnOneKey = false;
     const { PROTO } = await CoreSDKLoader();
     const HardwareSDK = await this.getHardwareSDKInstance();
-    const { connectId, deviceId } = await this.getHardwareInfo();
+    const { connectId, deviceId, deviceType } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
+
+    if (deviceType !== 'touch') {
+      throw new NewFirmwareUnRelease();
+    }
 
     const bundle = paths.map((path, index) => ({
       addressParameters: {
