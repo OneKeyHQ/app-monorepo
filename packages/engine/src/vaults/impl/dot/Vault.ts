@@ -1044,7 +1044,7 @@ export default class Vault extends VaultBase {
             .shiftedBy(-decimals)
             .toFixed(),
         };
-        decodedTx.updatedAt = tx.block_timestamp;
+        decodedTx.updatedAt = tx.block_timestamp * 1000;
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
