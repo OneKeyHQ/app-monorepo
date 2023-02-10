@@ -7,7 +7,7 @@ const settings: IVaultSettings = Object.freeze({
   txCanBeReplaced: false,
 
   importedAccountEnabled: true,
-  hardwareAccountEnabled: true,
+  hardwareAccountEnabled: false,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
