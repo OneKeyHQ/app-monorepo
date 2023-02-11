@@ -149,7 +149,7 @@ export class SwapQuoter {
       toTokenAmount = getTokenAmountString(params.tokenOut, params.typedValue);
     }
 
-    const urlParams: Record<string, string | number> = {
+    const urlParams: Record<string, string | number | boolean> = {
       toNetworkId,
       fromNetworkId,
       toTokenAddress,
@@ -364,6 +364,7 @@ export class SwapQuoter {
     delete urlParams.toTokenAmount;
 
     urlParams.quoterType = quoterType;
+    urlParams.disableValidate = Boolean(params.disableValidate);
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
     const url = `${serverEndPont}/swap/build_tx`;
