@@ -40,6 +40,7 @@ function TextareaWithLineNumber(props: Props) {
         value={receiverString}
         pl="46px"
         h="240px"
+        margin="1px"
         shadow="none"
         fontFamily="monospace"
         onChangeText={(text) => setReceiverString(text)}
@@ -54,10 +55,10 @@ function TextareaWithLineNumber(props: Props) {
         fontFamily="monospace"
         position="absolute"
         zIndex={-1}
-        left={0}
-        top={0}
-        right={0}
-        bottom={0}
+        left="1px"
+        top="1px"
+        right="1px"
+        bottom="1px"
         isReadOnly
       />
     </Box>
