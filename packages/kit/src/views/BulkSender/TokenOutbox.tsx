@@ -91,6 +91,7 @@ function TokenOutbox(props: Props) {
     networkId,
     receiver,
     type,
+    token: selectedToken || initialToken,
   });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
