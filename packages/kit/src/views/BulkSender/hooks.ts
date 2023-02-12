@@ -62,7 +62,7 @@ export function useValidteReceiver({
   networkId: string;
   receiver: TokenReceiver[];
   type: BulkSenderTypeEnum;
-  token: Token;
+  token: Token | null | undefined;
 }) {
   const [isValid, setIsValid] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
@@ -94,7 +94,7 @@ export function useValidteReceiver({
             }
           }
 
-          if (!hasError) {
+          if (!hasError && token?.decimals) {
             const minTokenBanance = new BigNumber(1).shiftedBy(-token.decimals);
             if (amountBN.lt(minTokenBanance) && !amountBN.isZero()) {
               validateErrors.push({
@@ -134,7 +134,7 @@ export function useValidteReceiver({
         setErrors(validateErrors);
       }
     })();
-  }, [intl, networkId, receiver, token.decimals, type]);
+  }, [intl, networkId, receiver, token?.decimals, type]);
 
   return {
     isValid,

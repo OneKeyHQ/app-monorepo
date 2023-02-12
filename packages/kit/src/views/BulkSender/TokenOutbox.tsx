@@ -223,6 +223,7 @@ function TokenOutbox(props: Props) {
     const encodedTxs = [];
 
     for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
+      // @ts-ignore
       const encodedTx =
         await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
           networkId,
