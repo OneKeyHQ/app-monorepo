@@ -341,6 +341,7 @@ export type IBatchTxsConfirmViewProps = ModalProps & {
   totalFeeInNative: number;
   feeInput?: JSX.Element;
   tokenTransferInfo?: JSX.Element | null;
+  isWaitingTxReady?: boolean;
   isSingleTransformMode?: boolean;
 
   confirmDisabled?: boolean;
