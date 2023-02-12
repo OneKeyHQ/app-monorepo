@@ -57,7 +57,7 @@ module.exports = {
     'target': [{ target: 'mas', arch: 'universal' }],
     'entitlements': 'entitlements.mac.plist',
     'extendInfo': {
-      'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
+      'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
     },
   },
   'mas': {
@@ -75,5 +75,5 @@ module.exports = {
   },
   'afterSign': 'scripts/notarize.js',
   'afterPack': 'scripts/fileOperation.js',
-  // 'asarUnpack': ['**/*.node'],
+  'asarUnpack': ['**/*.node'],
 };

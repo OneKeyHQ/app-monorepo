@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "거래를 완료하기에 코인이 부족합니다.",
   "msg__error_aptos_nft_token_already_exists": "NFT 토큰이 이미 존재합니다.",
   "msg__error_aptso_account_does_not_exist": "계정이 존재하지 않습니다.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "이체하면 잔액이 {0} 미만으로 줄어들어 계정이 비활성화되고 잔액이 정리될 수 있습니다. 계속하기 전에 확인하십시오.",
   "msg__error_mnemonics_can_only_be_12_24": "계정은 12비트 및 24비트 니모닉만 허용합니다.",
   "msg__estimate_str_minutes": "추정 {0} 분",
   "msg__estimated_gas_failure": "가스 추정 실패",

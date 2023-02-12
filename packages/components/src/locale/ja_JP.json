@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "取引を完了するための十分なコインがない。",
   "msg__error_aptos_nft_token_already_exists": "NFT トークンは既に存在済み。",
   "msg__error_aptso_account_does_not_exist": "アカウントが存在しない。",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "送金により残高が{0}未満に減少し、アカウントが無効になり、残高が消去される可能性があります。続行する前に確認してください。",
   "msg__error_mnemonics_can_only_be_12_24": "このアカウントでは、12 桁および 24 桁のシードフレーズのみ利用可能。",
   "msg__estimate_str_minutes": "推定{0}分",
   "msg__estimated_gas_failure": "ガスの見積もりに失敗しました",

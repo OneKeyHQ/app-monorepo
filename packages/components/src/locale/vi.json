@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "Không đủ tiền để hoàn thành giao dịch.",
   "msg__error_aptos_nft_token_already_exists": "Mã thông báo NFT đã tồn tại.",
   "msg__error_aptso_account_does_not_exist": "Tài khoản không tồn tại.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "Việc chuyển khoản có thể làm giảm số dư xuống dưới {0} , dẫn đến việc hủy kích hoạt tài khoản và số dư thanh toán bù trừ. Xác nhận trước khi tiếp tục.",
   "msg__error_mnemonics_can_only_be_12_24": "Tài khoản chỉ cho phép ghi nhớ 12 - và 24 bit.",
   "msg__estimate_str_minutes": "ước tính {0} phút",
   "msg__estimated_gas_failure": "Không thể ước tính khí",

@@ -1,8 +1,7 @@
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Image, Typography } from '@onekeyhq/components';
-import WalletWarning from '@onekeyhq/kit/assets/wallet/ic_backup_wallet_manual_warning.png';
+import { Box, Center, Icon, Typography } from '@onekeyhq/components';
 
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { BaseSendModal } from '../components/BaseSendModal';
@@ -42,15 +41,20 @@ export const SendSpecialWarning = () => {
         );
       }}
     >
-      <Box flex={1}>
+      <Center flex={1}>
         <DecodeTxButtonTest
           accountId={accountId}
           networkId={networkId}
           encodedTx={params.encodedTx}
         />
-        <Center mb={8}>
-          <Image size="100px" source={WalletWarning} />
-        </Center>
+        <Box
+          mb="16px"
+          p="12px"
+          rounded="full"
+          bgColor="surface-warning-subdued"
+        >
+          <Icon name="ExclamationTriangleOutline" color="icon-warning" />
+        </Box>
         <Typography.Body1 textAlign="center">
           {intl.formatMessage(
             {
@@ -60,7 +64,7 @@ export const SendSpecialWarning = () => {
             params.hintMsgParams,
           )}
         </Typography.Body1>
-      </Box>
+      </Center>
     </BaseSendModal>
   );
 };

@@ -10,7 +10,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Center,
   Empty,
   List,
   ListItem,
@@ -153,15 +152,14 @@ export const Listing: FC = () => {
 
   const emptyComponent = useCallback(
     () => (
-      <Center h="full">
-        <Empty
-          emoji="🔍"
-          title={intl.formatMessage({
-            id: 'content__no_results',
-            defaultMessage: 'No Result',
-          })}
-        />
-      </Center>
+      <Empty
+        flex="1"
+        emoji="🔍"
+        title={intl.formatMessage({
+          id: 'content__no_results',
+          defaultMessage: 'No Result',
+        })}
+      />
     ),
     [intl],
   );
@@ -200,6 +198,9 @@ export const Listing: FC = () => {
       />
       <List
         data={data}
+        contentContainerStyle={{
+          flex: 1,
+        }}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={emptyComponent}

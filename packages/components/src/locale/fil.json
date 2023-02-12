@@ -1591,7 +1591,7 @@
   "msg__error_aptos_insufficient_coin": "Hindi sapat ang mga barya para makumpleto ang transaksyon.",
   "msg__error_aptos_nft_token_already_exists": "Umiiral na ang NFT Token.",
   "msg__error_aptso_account_does_not_exist": "Walang account.",
-  "msg__error_dot_account_retention_prompt": "This transaction may cause the account balance to be less than {0} deposit, and the account may be deleted. Do you want to continue?",
+  "msg__error_dot_account_retention_prompt": "Maaaring bawasan ng mga paglilipat ang balanse sa ibaba ng {0} , na magreresulta sa pag-deactivate ng account at pag-clear ng balanse. Kumpirmahin bago magpatuloy.",
   "msg__error_mnemonics_can_only_be_12_24": "Pinapayagan lamang ng account ang 12 - at 24-bit na mnemonics.",
   "msg__estimate_str_minutes": "tantyahin ang {0} minuto",
   "msg__estimated_gas_failure": "Nabigong tantyahin ang gas",
