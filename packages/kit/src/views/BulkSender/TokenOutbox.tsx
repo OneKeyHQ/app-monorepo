@@ -324,7 +324,7 @@ function TokenOutbox(props: Props) {
               showInfo
               showTokenVerifiedIcon={false}
               token={selectedToken || initialToken}
-              name={selectedToken?.symbol || initialToken?.symbol}
+              name={selectedToken?.name || initialToken?.name}
               showExtra={false}
               description={formatedBalance}
             />

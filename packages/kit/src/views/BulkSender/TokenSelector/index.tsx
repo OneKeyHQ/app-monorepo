@@ -113,7 +113,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         showInfo
         showTokenVerifiedIcon={false}
         token={token}
-        name={token.symbol}
+        name={token.name}
         showExtra={false}
         description={intl.formatMessage(
           { id: 'content__balance_str' },
@@ -147,6 +147,7 @@ function TokenSelector() {
         ? listedTokens.filter(
             (token) =>
               token.symbol.toLowerCase().includes(searchQuery) ||
+              token.name.toLocaleLowerCase().includes(searchQuery) ||
               token.tokenIdOnNetwork.includes(searchQuery),
           )
         : listedTokens;
