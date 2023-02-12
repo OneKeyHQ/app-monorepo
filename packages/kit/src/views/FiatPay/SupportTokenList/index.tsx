@@ -15,18 +15,21 @@ import {
   Text,
   Token as TokenImage,
 } from '@onekeyhq/components';
-import { CDN_PREFIX } from '@onekeyhq/components/src/utils';
+import type { Token } from '@onekeyhq/engine/src/types/token';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensBalance } from '../../../hooks';
-import { useActiveWalletAccount, useFiatPay } from '../../../hooks/redux';
 import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
+import { useFiatPayTokens } from '../../ManageTokens/hooks';
 
 import type { FiatPayModalRoutesParams } from '../../../routes/Modal/FiatPay';
 import type { TokenBalanceValue } from '../../../store/reducers/tokens';
-import type { CurrencyType } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
+
+type TokenWithBalance = Token & { balance: string };
 
 type RouteProps = RouteProp<
   FiatPayModalRoutesParams,
@@ -45,9 +48,9 @@ const options = {
 };
 
 export function searchTokens(
-  tokens: CurrencyType[],
+  tokens: TokenWithBalance[],
   terms: string,
-): CurrencyType[] {
+): TokenWithBalance[] {
   const fuse = new Fuse(tokens, options);
   const searchResult = fuse.search(terms);
   return searchResult.map((item) => item.item);
@@ -83,47 +86,73 @@ const Header: FC<HeaderProps> = ({ onChange }) => {
   );
 };
 
-const buildUrl = (_chain = '', _address = '') => {
-  const chain = _chain.toLowerCase();
-  const address = _address.toLowerCase();
-  if (chain && !address) return `${CDN_PREFIX}assets/${chain}/${chain}.png`;
-  return `${CDN_PREFIX}assets/${chain}/${address}.png`;
-};
-
 function fetchBalance(
-  currencies: CurrencyType[],
+  currencies: Token[],
   balances: Record<string, TokenBalanceValue>,
-): CurrencyType[] {
+): TokenWithBalance[] {
   return currencies.map((item) => {
     let balance: TokenBalanceValue = {
       balance: '0',
     };
-    const logoURI = buildUrl(item.networkName, item.contract);
-    if (item.contract === '') {
+    const address = item.address as string;
+    if (address === '') {
       balance = balances.main;
     } else {
-      balance = balances[item.contract];
+      balance = balances[address];
     }
-    return { ...item, balance: balance?.balance ?? '0', logoURI };
+    return { ...item, balance: balance?.balance ?? '0' };
   });
 }
 export const SupportTokenList: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { networkId, type = 'Buy' } = route.params;
-  const currenciesNobalance = useFiatPay(networkId);
-  const { accountId } = useActiveWalletAccount();
+  const { networkId, type = 'buy' } = route.params;
+  const { tokenList: tokenListNobalance } = useFiatPayTokens(networkId, type);
+  const { accountId, account } = useActiveWalletAccount();
   const balances = useAccountTokensBalance(networkId, accountId);
-  const currencies = fetchBalance(currenciesNobalance, balances);
-  const [searchResult, updateSearchResult] = useState<CurrencyType[]>([]);
+  const currencies = fetchBalance(tokenListNobalance, balances);
+  const [searchResult, updateSearchResult] = useState<TokenWithBalance[]>([]);
   const [searchText, updateSearchText] = useState<string>('');
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const { serviceFiatPay } = backgroundApiProxy;
 
   const flatListData = useMemo(
     () => (searchText.length > 0 ? searchResult : currencies),
     [currencies, searchResult, searchText.length],
   );
-  const renderItem: ListRenderItem<CurrencyType> = useCallback(
+
+  const buyAction = useCallback(
+    async (token: TokenWithBalance) => {
+      const signedUrl = await serviceFiatPay.getFiatPayUrl({
+        type,
+        cryptoCode: token.onramperId,
+        address: account?.address,
+      });
+      if (signedUrl.length > 0) {
+        navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
+          url: signedUrl,
+        });
+      }
+    },
+    [account?.address, navigation, serviceFiatPay, type],
+  );
+  const sellAction = useCallback(
+    async (token: TokenWithBalance) => {
+      const signedUrl = await serviceFiatPay.getFiatPayUrl({
+        type,
+        cryptoCode: token.moonpayId,
+        address: account?.address,
+      });
+      if (signedUrl.length > 0) {
+        navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
+          url: signedUrl,
+        });
+      }
+    },
+    [account?.address, navigation, serviceFiatPay, type],
+  );
+
+  const renderItem: ListRenderItem<TokenWithBalance> = useCallback(
     ({ item }) => (
       <Pressable
         flex={1}
@@ -134,17 +163,18 @@ export const SupportTokenList: FC = () => {
         _hover={{ bgColor: 'surface-hovered' }}
         _pressed={{ bgColor: 'surface-pressed' }}
         onPress={() => {
-          navigation.navigate(FiatPayRoutes.AmountInputModal, {
-            token: item,
-            type,
-          });
+          if (type === 'buy') {
+            buyAction(item);
+          } else {
+            sellAction(item);
+          }
         }}
       >
         <Box flex={1} flexDirection="row" alignItems="center">
           <TokenImage
             size={8}
             token={{ logoURI: item.logoURI }}
-            name={item.tokenName}
+            name={item.name}
           />
           <Text typography="Body1Strong" ml="12px">
             {item.symbol}
@@ -156,7 +186,7 @@ export const SupportTokenList: FC = () => {
         <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
       </Pressable>
     ),
-    [navigation, type],
+    [buyAction, sellAction, type],
   );
 
   const ListEmptyComponent = useCallback(
@@ -165,7 +195,7 @@ export const SupportTokenList: FC = () => {
         <Empty
           title={intl.formatMessage({
             id:
-              type === 'Buy'
+              type === 'buy'
                 ? 'empty__no_purchasable_tokens'
                 : 'empty__no_salable_tokens',
           })}
@@ -184,8 +214,9 @@ export const SupportTokenList: FC = () => {
   return (
     <Modal
       maxHeight="560px"
+      height="560px"
       header={intl.formatMessage({
-        id: type === 'Buy' ? 'action__buy' : 'action__sell',
+        id: type === 'buy' ? 'action__buy' : 'action__sell',
       })}
       hideSecondaryAction
       primaryActionProps={{
@@ -197,7 +228,7 @@ export const SupportTokenList: FC = () => {
         // @ts-ignore
         renderItem,
         showsVerticalScrollIndicator: false,
-        keyExtractor: (item) => (item as CurrencyType).tokenName,
+        keyExtractor: (item) => (item as TokenWithBalance).address ?? '',
         ItemSeparatorComponent: separator,
         ListEmptyComponent,
         ListHeaderComponent: (

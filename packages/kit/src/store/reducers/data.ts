@@ -4,7 +4,6 @@ import type { Tool } from '@onekeyhq/engine/src/types/token';
 import { stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { CurrencyType, MoonpayListType } from '../../views/FiatPay/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type DataInitialState = {
@@ -13,8 +12,6 @@ export type DataInitialState = {
   isPasswordSet: boolean;
   homePageCheckBoarding: boolean;
   isExtUiReduxReady?: boolean;
-  onekeySupportList: CurrencyType[];
-  currencyList: MoonpayListType[];
   cursorMap: Record<string, string>;
   handOperatedLock?: boolean;
   feePresetIndexMap?: Record<string, string | undefined>;
@@ -27,8 +24,6 @@ const initialState: DataInitialState = {
   isPasswordSet: false,
   isExtUiReduxReady: false,
   homePageCheckBoarding: false,
-  onekeySupportList: [],
-  currencyList: [],
   isAppRenderReady: false,
   cursorMap: {},
   tools: [],
@@ -54,16 +49,6 @@ export const dataSlice = createSlice({
     },
     passwordSet(state) {
       state.isPasswordSet = true;
-    },
-    currenciesSet(
-      state,
-      action: PayloadAction<{
-        onekeySupportList: CurrencyType[];
-        currencyList: MoonpayListType[];
-      }>,
-    ) {
-      state.onekeySupportList = action.payload.onekeySupportList;
-      state.currencyList = action.payload.currencyList;
     },
     cursorMapSet(
       state,
@@ -105,7 +90,6 @@ export const {
   release,
   passwordSet,
   setHomePageCheckBoarding,
-  currenciesSet,
   setAppRenderReady,
   setIsExtUiReduxReady,
   cursorMapSet,

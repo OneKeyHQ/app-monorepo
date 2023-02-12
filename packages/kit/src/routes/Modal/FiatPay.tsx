@@ -1,28 +1,21 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import AmountInput from '@onekeyhq/kit/src/views/FiatPay/AmountInput';
 import MoonpayWebView from '@onekeyhq/kit/src/views/FiatPay/MoonpayWebView';
 import SupportTokenList from '@onekeyhq/kit/src/views/FiatPay/SupportTokenList';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
-import type { CurrencyType } from '../../views/FiatPay/types';
+import type { FiatPayModeType } from '../../views/FiatPay/types';
 
 export enum FiatPayRoutes {
   SupportTokenListModal = 'SupportTokenList',
-  AmountInputModal = 'AmountInputModal',
   MoonpayWebViewModal = 'MoonpayWebViewModal',
 }
 
 export type FiatPayModalRoutesParams = {
   [FiatPayRoutes.SupportTokenListModal]: {
     networkId: string;
-    type?: 'Buy' | 'Sell';
-  };
-
-  [FiatPayRoutes.AmountInputModal]: {
-    token: CurrencyType;
-    type: 'Buy' | 'Sell';
+    type?: FiatPayModeType;
   };
   [FiatPayRoutes.MoonpayWebViewModal]: { url: string };
 };
@@ -32,10 +25,6 @@ const modalRoutes = [
   {
     name: FiatPayRoutes.SupportTokenListModal,
     component: SupportTokenList,
-  },
-  {
-    name: FiatPayRoutes.AmountInputModal,
-    component: AmountInput,
   },
   {
     name: FiatPayRoutes.MoonpayWebViewModal,

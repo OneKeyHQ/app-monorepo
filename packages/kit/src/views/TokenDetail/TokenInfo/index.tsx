@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,12 +12,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
+import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
-import {
-  useActiveWalletAccount,
-  useMoonpaySell,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
 import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
@@ -27,10 +25,10 @@ import {
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import type { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAccountTokensBalance } from '../../../hooks';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
@@ -47,16 +45,60 @@ export type TokenInfoProps = {
 const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const { wallet, network, networkId, accountId } = useActiveWalletAccount();
+  const { wallet, network, networkId, accountId, account } =
+    useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { sellEnable, balances, cryptoCurrency, amount } = useMoonpaySell(
-    network?.id,
-    token
-      ? {
-          ...token,
-          sendAddress,
-        }
-      : undefined,
+
+  const balances = useAccountTokensBalance(networkId, accountId);
+  const { balance: amount } = balances[getBalanceKey(token)] ?? {
+    balance: '0',
+  };
+
+  const buyEnable = !!(token?.onramperId && token?.onramperId?.length > 0);
+  const sellEnable = !!(token?.moonpayId && token?.moonpayId?.length > 0);
+
+  const buyAction = useCallback(
+    async (t: TokenDO) => {
+      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+        type: 'buy',
+        address: account?.id,
+        cryptoCode: t.onramperId,
+      });
+      if (signedUrl) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.FiatPay,
+          params: {
+            screen: FiatPayRoutes.MoonpayWebViewModal,
+            params: {
+              url: signedUrl,
+            },
+          },
+        });
+      }
+    },
+    [account?.id, navigation],
+  );
+
+  const sellAction = useCallback(
+    async (t: TokenDO) => {
+      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+        type: 'sell',
+        address: account?.id,
+        cryptoCode: t.onramperId,
+      });
+      if (signedUrl) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.FiatPay,
+          params: {
+            screen: FiatPayRoutes.MoonpayWebViewModal,
+            params: {
+              url: signedUrl,
+            },
+          },
+        });
+      }
+    },
+    [account?.id, navigation],
   );
 
   const renderAccountAmountInfo = useMemo(
@@ -234,7 +276,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
         </Box>
         {isVertical ? null : (
           <>
-            {cryptoCurrency && (
+            {buyEnable && (
               <Box flex={1} mx={3} minW="56px" alignItems="center">
                 <IconButton
                   circle
@@ -243,16 +285,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                   type="basic"
                   isDisabled={wallet?.type === 'watching'}
                   onPress={() => {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.FiatPay,
-                      params: {
-                        screen: FiatPayRoutes.AmountInputModal,
-                        params: {
-                          token: cryptoCurrency,
-                          type: 'Buy',
-                        },
-                      },
-                    });
+                    buyAction(token);
                   }}
                 />
                 <Typography.CaptionStrong
@@ -277,16 +310,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                   type="basic"
                   isDisabled={wallet?.type === 'watching'}
                   onPress={() => {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.FiatPay,
-                      params: {
-                        screen: FiatPayRoutes.AmountInputModal,
-                        params: {
-                          token: cryptoCurrency as CurrencyType,
-                          type: 'Sell',
-                        },
-                      },
-                    });
+                    sellAction(token);
                   }}
                 />
                 <Typography.CaptionStrong
@@ -335,17 +359,19 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       </Box>
     ),
     [
-      sendAddress,
       isVertical,
       wallet?.type,
       intl,
-      cryptoCurrency,
+      buyEnable,
       sellEnable,
       priceReady,
       navigation,
       accountId,
       networkId,
       token,
+      sendAddress,
+      buyAction,
+      sellAction,
     ],
   );
 

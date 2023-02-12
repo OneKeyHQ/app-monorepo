@@ -27,6 +27,7 @@ import {
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -592,5 +593,17 @@ export default class ServiceToken extends ServiceBase {
     networkId: string;
   }) {
     return this._getMinDepositAmountWithMemo(accountId, networkId);
+  }
+
+  @backgroundMethod()
+  async fetchFiatPlayTokens({
+    networkId,
+    type,
+  }: {
+    type: FiatPayModeType;
+    networkId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+    return engine.getFiatPayTokens(networkId, type);
   }
 }

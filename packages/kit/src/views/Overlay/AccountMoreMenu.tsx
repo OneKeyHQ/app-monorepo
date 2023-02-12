@@ -196,7 +196,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
               screen: FiatPayRoutes.SupportTokenListModal,
               params: {
                 networkId: network?.id ?? '',
-                type: 'Sell',
+                type: 'sell',
               },
             },
           });
