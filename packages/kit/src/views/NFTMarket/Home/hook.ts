@@ -6,7 +6,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import { useRuntime } from '../../../hooks/redux';
+import { useNetworks } from '../../../hooks/redux';
 import { HomeRoutes } from '../../../routes/types';
 
 import type { HomeRoutesParams } from '../../../routes/types';
@@ -20,7 +20,7 @@ type NavigationProps = NativeStackNavigationProp<
 >;
 
 export function useDefaultNetWork() {
-  const { networks } = useRuntime();
+  const networks = useNetworks();
   return useMemo(() => {
     const ethNetWork = networks.find((n) => n.id === ethNetwokId);
     return ethNetWork as Network;

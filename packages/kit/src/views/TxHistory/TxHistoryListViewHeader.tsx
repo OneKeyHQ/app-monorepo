@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { Box, IconButton, Typography } from '@onekeyhq/components';
 
 import { useNetwork } from '../../hooks';
-import { showAccountValueSettings } from '../Overlay/AccountHistorySettings';
+import { showTokenValueSettings } from '../Overlay/TokenValueSettings';
 
 import { useTxHistoryContext } from './TxHistoryContext';
 
@@ -42,7 +42,7 @@ export function TxHistoryListViewHeaderBar({
         />
         {network?.settings?.supportFilterScam && (
           <IconButton
-            onPress={showAccountValueSettings}
+            onPress={showTokenValueSettings}
             ml={3}
             p={2}
             size="sm"

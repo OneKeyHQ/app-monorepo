@@ -8,7 +8,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { openUrl } from '../utils/openUrl';
 
-import { useRuntime } from './redux';
+import { useNetworks } from './redux';
+import { useIsVerticalLayout } from '@onekeyhq/components';
 
 function fixBlockExplorerUrl(network: Network | null | undefined, url: string) {
   if (
@@ -61,7 +62,11 @@ export default function useOpenBlockBrowser(
 ) {
   const intl = useIntl();
 
-  const { networks } = useRuntime();
+  const networks = useNetworks();
+
+  const isVertical = useIsVerticalLayout();
+
+  const modalMode = !isVertical;
 
   const hasAvailable = useMemo(() => {
     if (!network) return false;
@@ -77,11 +82,11 @@ export default function useOpenBlockBrowser(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
         {
-          modalMode: true,
+          modalMode,
         },
       );
     },
-    [intl, network],
+    [intl, modalMode, network],
   );
 
   const openAddressDetails = useCallback(
@@ -92,11 +97,11 @@ export default function useOpenBlockBrowser(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
         {
-          modalMode: true,
+          modalMode,
         },
       );
     },
-    [intl, network],
+    [intl, modalMode, network],
   );
 
   const openBlockDetails = useCallback(
@@ -107,25 +112,17 @@ export default function useOpenBlockBrowser(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
         {
-          modalMode: true,
+          modalMode,
         },
       );
     },
-    [intl, network],
+    [intl, modalMode, network],
   );
 
-  return useMemo(
-    () => ({
-      hasAvailable,
-      openTransactionDetails,
-      openAddressDetails,
-      openBlockDetails,
-    }),
-    [
-      hasAvailable,
-      openAddressDetails,
-      openBlockDetails,
-      openTransactionDetails,
-    ],
-  );
+  return {
+    hasAvailable,
+    openTransactionDetails,
+    openAddressDetails,
+    openBlockDetails,
+  };
 }
