@@ -104,7 +104,7 @@ function SendProgress({
 
   const txCount = encodedTxs.length;
   const progress = new BigNumber(currentFinished / txCount).toNumber();
-  const canPause = inProgress && currentProgerss < txCount - 1;
+  const canPause = inProgress && currentProgerss < txCount - 2;
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (progressState.current === BatchSendState.inProgress)
