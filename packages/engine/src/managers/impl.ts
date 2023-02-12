@@ -79,7 +79,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_EVM]: AccountType.SIMPLE,
   [IMPL_SOL]: AccountType.SIMPLE,
   [IMPL_ALGO]: AccountType.SIMPLE,
-  [IMPL_NEAR]: AccountType.SIMPLE,
+  [IMPL_NEAR]: AccountType.VARIANT,
   [IMPL_STC]: AccountType.SIMPLE,
   [IMPL_CFX]: AccountType.VARIANT,
   [IMPL_BTC]: AccountType.UTXO,
