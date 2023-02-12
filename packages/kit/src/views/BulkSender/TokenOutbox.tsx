@@ -11,9 +11,9 @@ import {
   Icon,
   Pressable,
   Text,
+  ToastManager,
   Token as TokenComponent,
   useIsVerticalLayout,
-  ToastManager,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -203,13 +203,39 @@ function TokenOutbox(props: Props) {
           : prevNonce;
     }
 
-    const encodedTx =
-      await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
-        networkId,
-        accountId,
-        transferInfos,
-        prevNonce,
-      });
+    const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
+    // const maxActionsInTx = 9;
+    const transferInfoGroup = [];
+
+    if (maxActionsInTx > 0) {
+      for (
+        let i = 0, len = transferInfos.length;
+        i < len;
+        i += maxActionsInTx
+      ) {
+        transferInfoGroup.push(transferInfos.slice(i, i + maxActionsInTx));
+      }
+    } else {
+      transferInfoGroup.push(transferInfos);
+    }
+
+    const encodedTxs = [];
+
+    for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
+      const encodedTx =
+        await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
+          networkId,
+          accountId,
+          transferInfos: transferInfoGroup[i],
+          prevNonce,
+        });
+      prevNonce = (encodedTx as IEncodedTxEvm).nonce;
+      prevNonce =
+        prevNonce !== undefined
+          ? new BigNumber(prevNonce).toNumber()
+          : prevNonce;
+      encodedTxs.push(encodedTx);
+    }
 
     setIsBuildingTx(false);
 
@@ -222,7 +248,7 @@ function TokenOutbox(props: Props) {
           accountId,
           feeInfoUseFeeInTx: false,
           feeInfoEditable: true,
-          encodedTxs: [...encodedApproveTxs, encodedTx],
+          encodedTxs: [...encodedApproveTxs, ...encodedTxs],
           transferCount: transferInfos.length,
           transferType: type,
           payloadInfo: {
@@ -241,6 +267,7 @@ function TokenOutbox(props: Props) {
     isValid,
     isValidating,
     navigation,
+    network?.settings?.maxActionsInTx,
     networkId,
     receiver,
     selectedToken,

@@ -76,6 +76,7 @@ export type IVaultSettings = {
   supportBatchTransfer?: boolean;
   supportDeflationary?: boolean;
   batchTokenTransferApprovalRequired?: boolean;
+  maxActionsInTx?: number;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
