@@ -12,6 +12,7 @@ import {
   HStack,
   Icon,
   IconButton,
+  KeyboardDismissView,
   Pressable,
   Searchbar,
   Text,
@@ -90,14 +91,16 @@ function SideChainSelector({
 
   const emptyComponent = useCallback(
     () => (
-      <Empty
-        flex="1"
-        emoji="🔍"
-        title={intl.formatMessage({
-          id: 'content__no_results',
-          defaultMessage: 'No Result',
-        })}
-      />
+      <KeyboardDismissView>
+        <Empty
+          flex="1"
+          emoji="🔍"
+          title={intl.formatMessage({
+            id: 'content__no_results',
+            defaultMessage: 'No Result',
+          })}
+        />
+      </KeyboardDismissView>
     ),
     [intl],
   );
@@ -226,15 +229,17 @@ function SideChainSelector({
       borderColor={fullWidthMode ? undefined : 'divider'}
       flex={fullWidthMode ? 1 : undefined}
     >
-      <Box p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}>
-        <Searchbar
-          w="full"
-          value={search}
-          onChangeText={(text) => setSearch(text)}
-          placeholder={intl.formatMessage({ id: 'content__search' })}
-          onClear={() => setSearch('')}
-        />
-      </Box>
+      {fullWidthMode ? (
+        <Box p={{ base: 2, md: 4 }}>
+          <Searchbar
+            w="full"
+            value={search}
+            onChangeText={(text) => setSearch(text)}
+            placeholder={intl.formatMessage({ id: 'content__search' })}
+            onClear={() => setSearch('')}
+          />
+        </Box>
+      ) : null}
       <FlatListRef
         ListEmptyComponent={emptyComponent}
         initialNumToRender={20}
@@ -242,7 +247,7 @@ function SideChainSelector({
         ref={flatListRef}
         data={data}
         contentContainerStyle={{
-          flex: 1,
+          flex: data?.length ? undefined : 1,
         }}
         keyExtractor={(item: INetwork) => item.id}
         renderItem={renderItem}

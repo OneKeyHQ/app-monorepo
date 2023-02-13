@@ -297,12 +297,6 @@ function TokenOutbox(props: Props) {
 
   useEffect(() => {
     if (accountId && networkId) {
-      backgroundApiProxy.serviceOverview.subscribe();
-    }
-  }, [accountId, networkId]);
-
-  useEffect(() => {
-    if (accountId && networkId) {
       setSelectedToken(null);
     }
   }, [accountId, networkId]);
