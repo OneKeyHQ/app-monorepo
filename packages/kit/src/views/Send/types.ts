@@ -91,7 +91,6 @@ export type SendConfirmResendActionInfo = {
 };
 export type SendConfirmPayloadBase = {
   payloadType: 'Transfer' | 'InternalSwap';
-  keepAlive?: boolean;
 };
 export type SendConfirmPayload =
   | SendConfirmPayloadBase
