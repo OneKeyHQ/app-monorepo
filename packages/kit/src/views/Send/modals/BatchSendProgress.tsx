@@ -15,14 +15,17 @@ import {
 } from '@onekeyhq/components';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   IEncodedTx,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../../components/Protected';
+import { useNetwork } from '../../../hooks';
 import { useInteractWithInfo } from '../../../hooks/useDecodedTx';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { useWallet } from '../../../hooks/useWallet';
@@ -52,6 +55,8 @@ type EnableLocalAuthenticationProps = {
   setCurrentState: (state: BatchSendState) => void;
   setTitleInfo: (titleInfo: ISendAuthenticationModalTitleInfo) => void;
 };
+
+const MAX_CONFIRM_RETRY = 10;
 
 function SendProgress({
   password,
@@ -85,6 +90,7 @@ function SendProgress({
   const interactInfo = useInteractWithInfo({ sourceInfo });
   const progressState = useRef(currentState);
   const { wallet } = useWallet({ walletId });
+  const { network } = useNetwork({ networkId });
 
   const inProgress = currentState === BatchSendState.inProgress;
 
@@ -98,7 +104,7 @@ function SendProgress({
 
   const txCount = encodedTxs.length;
   const progress = new BigNumber(currentFinished / txCount).toNumber();
-  const canPause = inProgress && currentProgerss < txCount - 1;
+  const canPause = inProgress && currentProgerss < txCount - 2;
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (progressState.current === BatchSendState.inProgress)
@@ -109,7 +115,7 @@ function SendProgress({
 
   const sendTxs = useCallback(async (): Promise<ISignedTxPro[]> => {
     const result: ISignedTxPro[] = [];
-    for (let i = 0; i < encodedTxs.length; i += 1) {
+    for (let i = 0, txsLength = encodedTxs.length; i < txsLength; i += 1) {
       await waitUntilInProgress();
       setCurrentProgress(i + 1);
       debugLogger.sendTx.info('Authentication sendTx:', route.params);
@@ -124,6 +130,7 @@ function SendProgress({
             id: tx.txid,
           })),
         });
+
       result.push(signedTx as ISignedTxPro);
       if (signedTx) {
         await backgroundApiProxy.serviceHistory.saveSendConfirmHistory({
@@ -153,6 +160,28 @@ function SendProgress({
       );
       // eslint-disable-next-line @typescript-eslint/no-shadow
       setCurrentFinished(i + 1);
+
+      if (signedTx?.txid && i < txsLength - 1 && network?.impl === IMPL_SOL) {
+        let status =
+          await backgroundApiProxy.serviceBatchTransfer.confirmTransaction({
+            networkId,
+            txid: signedTx?.txid,
+          });
+        let retryTime = 0;
+        while (
+          status !== TransactionStatus.CONFIRM_AND_SUCCESS &&
+          status !== TransactionStatus.CONFIRM_BUT_FAILED &&
+          retryTime < MAX_CONFIRM_RETRY
+        ) {
+          await wait(5000);
+          status =
+            await backgroundApiProxy.serviceBatchTransfer.confirmTransaction({
+              networkId,
+              txid: signedTx?.txid,
+            });
+          retryTime += 1;
+        }
+      }
     }
     return result;
   }, [
@@ -161,6 +190,7 @@ function SendProgress({
     feeInfoPayloads,
     interactInfo,
     networkId,
+    network,
     password,
     payload,
     route.params,

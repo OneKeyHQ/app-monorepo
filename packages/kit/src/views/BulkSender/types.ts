@@ -15,11 +15,6 @@ export enum BulkSenderRoutes {
   TokenSelector = 'TokenSelectorModal',
 }
 
-export enum ReceiverErrorEnum {
-  IcorrectFormat = 'IcorrectFormat',
-  IcorrectAddress = 'IcorrectAddress',
-}
-
 export type BulkSenderRoutesParams = {
   [BulkSenderRoutes.TokenSelector]: {
     accountId: string;
@@ -44,7 +39,7 @@ export type NFTReceiver = {
 
 export type ReceiverError = {
   lineNumber: number;
-  type: ReceiverErrorEnum;
+  message: string;
 };
 
 export type ReceiverInputParams = {
