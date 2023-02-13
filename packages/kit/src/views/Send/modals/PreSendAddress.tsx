@@ -72,7 +72,7 @@ function NFTView({ asset, total }: { asset?: NFTAsset; total: number }) {
 
 function PreSendAddress() {
   const intl = useIntl();
-  const timer = useRef<NodeJS.Timeout>();
+  const timer = useRef<ReturnType<typeof setTimeout>>();
   const route = useRoute<RouteProps>();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusAddressSecurity)[]
