@@ -17,6 +17,9 @@ export const getSize = (screenWidth: number): DeviceState['size'] => {
   }
 
   // (0, SCREEN_SIZE.MEDIUM)
+  // https://www.ios-resolution.com/
+  // iPad Mini (6th gen)	744
+  // iPad Mini (5th gen)	768
   if (screenWidth <= SCREEN_SIZE.MEDIUM) {
     return 'SMALL';
   }
