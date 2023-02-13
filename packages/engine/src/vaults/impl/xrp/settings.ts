@@ -5,6 +5,7 @@ const settings: IVaultSettings = Object.freeze({
   privateKeyExportEnabled: true,
   tokenEnabled: false,
   txCanBeReplaced: false,
+  withDestinationTag: true,
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
