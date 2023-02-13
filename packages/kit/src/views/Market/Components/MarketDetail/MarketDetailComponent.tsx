@@ -60,7 +60,7 @@ const ExplorerAction = ({
     setTimeout(() => {
       if (!explorer.contractAddress) return;
       copyToClipboard(explorer.contractAddress);
-    }, 100);
+    }, 200);
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__copied' }),
     });
