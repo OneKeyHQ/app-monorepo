@@ -59,7 +59,7 @@ const OpenDappDialog: FC<{
               alt={protocol.protocolName}
             />
             <Image
-              src={defiLogoShadow}
+              source={defiLogoShadow}
               w="35px"
               h="25px"
               position="absolute"
