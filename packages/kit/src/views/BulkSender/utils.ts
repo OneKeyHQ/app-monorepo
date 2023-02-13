@@ -1,3 +1,5 @@
+import { trim } from 'lodash';
+
 import { openUrlExternal } from '../../utils/openUrl';
 
 import { BulkSenderTypeEnum } from './types';
@@ -40,8 +42,8 @@ export function decodeReceiver<T>(
     const receiverData = line.split(',');
     if (type === BulkSenderTypeEnum.Token || BulkSenderTypeEnum.NativeToken) {
       receiver.push({
-        Address: receiverData[0],
-        Amount: receiverData[1],
+        Address: trim(receiverData[0]),
+        Amount: trim(receiverData[1]),
       } as T);
     }
   }
