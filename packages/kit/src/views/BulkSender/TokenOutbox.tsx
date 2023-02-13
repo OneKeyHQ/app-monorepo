@@ -68,11 +68,12 @@ function TokenOutbox(props: Props) {
 
   const isNative = type === BulkSenderTypeEnum.NativeToken;
   const initialToken = isNative ? nativeToken : tokens[0];
+  const currentToken = selectedToken || initialToken;
 
   const tokenBalnace = useTokenBalance({
     accountId,
     networkId,
-    token: selectedToken || initialToken,
+    token: currentToken,
     fallback: '0',
   });
   const formatedBalance = useMemo(
@@ -80,10 +81,10 @@ function TokenOutbox(props: Props) {
       intl.formatMessage(
         { id: 'content__balance_str' },
         {
-          0: tokenBalnace,
+          0: `${tokenBalnace} ${currentToken?.symbol ?? ''}`,
         },
       ),
-    [intl, tokenBalnace],
+    [currentToken?.symbol, intl, tokenBalnace],
   );
 
   const { isValid, isValidating, errors } = useValidteReceiver({
