@@ -77,6 +77,7 @@ function PreSendAddress() {
     (keyof GoPlusAddressSecurity)[]
   >([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
+  const [displayDestinationTag, setDisplayDestinationTag] = useState(false);
   const { serviceNFT, serviceBatchTransfer, engine } = backgroundApiProxy;
   const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
   const { transferInfos, accountId, networkId, closeModal, ...reset } =
@@ -190,6 +191,15 @@ function PreSendAddress() {
     },
     [trigger, onNameServiceChange],
   );
+
+  useEffect(() => {
+    (async () => {
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+        networkId,
+      );
+      setDisplayDestinationTag(vaultSettings?.withDestinationTag ?? false);
+    })();
+  }, [networkId]);
 
   const nftSendConfirm = useCallback(
     async (toVal: string) => {
@@ -339,7 +349,9 @@ function PreSendAddress() {
   const doSubmit = handleSubmit(onSubmit);
 
   const DestinationTagForm = useMemo(() => {
-    if (networkId !== 'xrp--0') return null;
+    // if (networkId !== 'xrp--0') return null;
+    if (!displayDestinationTag) return null;
+
     return (
       <Form.Item
         control={control}
@@ -370,7 +382,7 @@ function PreSendAddress() {
         />
       </Form.Item>
     );
-  }, [control, intl, networkId]);
+  }, [control, displayDestinationTag, intl]);
 
   const helpTextOfNameServiceResolver = useCallback(
     (value) => (

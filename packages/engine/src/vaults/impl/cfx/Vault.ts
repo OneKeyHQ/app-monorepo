@@ -460,6 +460,14 @@ export default class Vault extends VaultBase {
       tokens: [],
       address: dbAccount.addresses?.[this.networkId] || '',
     };
+
+    const existsPub = !!dbAccount.pub && !isEmpty(dbAccount.pub);
+
+    if (!existsPub) {
+      // Watch only account
+      return ret;
+    }
+
     if (
       ret.address.length === 0 &&
       isAccountCompatibleWithNetwork(dbAccount.id, this.networkId)
