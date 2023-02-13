@@ -1,17 +1,12 @@
 import { TabActions } from '@react-navigation/routers';
-import * as Linking from 'expo-linking';
+import { openURL as LinkingOpenURL } from 'expo-linking';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { WebviewRoutesModalRoutes } from '../routes/Modal/WebView';
-import {
-  HomeRoutes,
-  ModalRoutes,
-  RootRoutes,
-  TabRoutes,
-} from '../routes/routesEnum';
+import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/routesEnum';
 import { setIncomingUrl } from '../store/reducers/webTabs';
 
 export const openUrlByWebview = (
@@ -23,27 +18,17 @@ export const openUrlByWebview = (
 ) => {
   const navigation = getAppNavigation();
 
-  if (options?.modalMode) {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Webview,
-      params: {
-        screen: WebviewRoutesModalRoutes.WebviewModel,
-        params: {
-          url,
-          title,
-          modalMode: true,
-        },
-      },
-    });
-  } else {
-    navigation.navigate(RootRoutes.Root, {
-      screen: HomeRoutes.SettingsWebviewScreen,
+  navigation.navigate(RootRoutes.Modal, {
+    screen: ModalRoutes.Webview,
+    params: {
+      screen: WebviewRoutesModalRoutes.WebviewModal,
       params: {
         url,
         title,
+        modalMode: options?.modalMode,
       },
-    });
-  }
+    },
+  });
 };
 
 export const openUrl = (
@@ -74,7 +59,7 @@ export const openDapp = (url: string) => {
 export const openUrlExternal = (url: string) => {
   if (platformEnv.isNative) {
     // open by OS default browser
-    Linking.openURL(url);
+    LinkingOpenURL(url);
   } else {
     window.open(url, '_blank');
   }
