@@ -25,7 +25,10 @@ import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { buildAddressDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
-import { formatMarketValueForInfo } from '../../utils';
+import {
+  formatMarketUnitPosition,
+  formatMarketValueForInfo,
+} from '../../utils';
 
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoLinks } from './MarketInfoLinks';
@@ -203,7 +206,10 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               index={0}
               isFetching={marketCap === undefined}
               title={intl.formatMessage({ id: 'form__market_cap' })}
-              value={`${unit}${formatMarketValueForInfo(marketCap)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(marketCap),
+              )}
             />
             <DataViewComponent
               index={1}
@@ -221,31 +227,46 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               index={3}
               isFetching={volume24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_volume' })}
-              value={`${unit}${formatMarketValueForInfo(volume24h)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(volume24h),
+              )}
             />
             <DataViewComponent
               index={4}
               isFetching={low24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_low' })}
-              value={`${unit}${formatMarketValueForInfo(low24h)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(low24h),
+              )}
             />
             <DataViewComponent
               index={5}
               isFetching={high24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_high' })}
-              value={`${unit}${formatMarketValueForInfo(high24h)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(high24h),
+              )}
             />
             <DataViewComponent
               index={6}
               isFetching={atl?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_low' })}
-              value={`${unit}${formatMarketValueForInfo(atl?.value)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(atl?.value),
+              )}
             />
             <DataViewComponent
               index={7}
               isFetching={ath?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_high' })}
-              value={`${unit}${formatMarketValueForInfo(ath?.value)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(ath?.value),
+              )}
             />
           </Box>
         </Box>

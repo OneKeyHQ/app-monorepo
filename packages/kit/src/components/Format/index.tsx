@@ -188,12 +188,18 @@ export const FormatCurrency: FC<{
   const amount = useFormatCurrencyDisplay(numbers, formatOptions);
 
   const child = useMemo(
-    () => (
-      <>
-        {numbers.length ? amount.amount : '--'}
-        &nbsp;{amount.unit}
-      </>
-    ),
+    () =>
+      amount.unit?.toLowerCase() === 'sats' ? (
+        <>
+          {numbers.length ? amount.amount : '--'}
+          &nbsp;{` ${amount.unit}`}
+        </>
+      ) : (
+        <>
+          {amount.unit}
+          &nbsp;{numbers.length ? amount.amount : '--'}
+        </>
+      ),
     [amount.amount, amount.unit, numbers.length],
   );
 
@@ -408,7 +414,24 @@ export function FormatCurrencyNumber({
     ? new BigNumber(fiat).multipliedBy(convertValue).toNumber()
     : 0;
   const resNumber = numberValue + numberConvertValue;
-  return (
+  return unit.toLowerCase() === 'sats' ? (
+    <>
+      {resNumber < 0.01 ? (
+        `${formatDecimalZero(resNumber)}`
+      ) : (
+        <FormattedNumber
+          value={resNumber ?? 0}
+          // currencyDisplay="narrowSymbol"
+          // eslint-disable-next-line react/style-prop-object
+          style="decimal"
+          minimumFractionDigits={2}
+          maximumFractionDigits={maxDecimals}
+          // currency={selectedFiatMoneySymbol}
+        />
+      )}
+      {` ${!onlyNumber ? unit : ''}`}
+    </>
+  ) : (
     <>
       {`${!onlyNumber ? unit : ''}`}
       {resNumber < 0.01 ? (
