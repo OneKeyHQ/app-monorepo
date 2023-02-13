@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/kit/src/routes/types';
 import type { CurrencyType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
@@ -219,7 +220,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
             {intl.formatMessage({ id: 'title__swap' })}
           </Typography.CaptionStrong>
         </Box>
-        {isVertical ? null : (
+        {isVertical || platformEnv.isNativeIOSPad ? null : (
           <>
             {cryptoCurrency && (
               <Box flex={1} mx={3} minW="56px" alignItems="center">
