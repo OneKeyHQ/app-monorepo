@@ -21,7 +21,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useRuntime } from '../../../hooks/redux';
+import { useNetworks } from '../../../hooks/redux';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { useGridListLayout } from '../../Wallet/NFT/SendNFTList';
@@ -289,7 +289,7 @@ const AssetsList = ({
     setContext,
   ]);
 
-  const { networks } = useRuntime();
+  const networks = useNetworks();
 
   const network = networks.find((item) => item.id === networkId);
 

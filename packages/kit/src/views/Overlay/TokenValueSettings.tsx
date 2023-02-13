@@ -13,7 +13,7 @@ import { useAppSelector } from '../../hooks';
 import { setHideScamHistory } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
 
-function AccountHistorySettingsBottomSheetModal({
+function TokenValueSettingsBottomSheetModal({
   closeOverlay,
 }: {
   closeOverlay: () => void;
@@ -52,10 +52,8 @@ function AccountHistorySettingsBottomSheetModal({
   );
 }
 
-const showAccountValueSettings = () => {
+export const showTokenValueSettings = () => {
   showOverlay((close) => (
-    <AccountHistorySettingsBottomSheetModal closeOverlay={close} />
+    <TokenValueSettingsBottomSheetModal closeOverlay={close} />
   ));
 };
-
-export { showAccountValueSettings };

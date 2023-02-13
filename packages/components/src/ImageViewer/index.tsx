@@ -1,8 +1,12 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
+import { documentDirectory, downloadAsync } from 'expo-file-system';
+import {
+  getPermissionsAsync,
+  requestPermissionsAsync,
+  saveToLibraryAsync,
+} from 'expo-media-library';
 import { PermissionStatus } from 'expo-modules-core';
 import { Box, Center, Image } from 'native-base';
 import { useIntl } from 'react-intl';
@@ -52,18 +56,18 @@ const ImageViewer: FC<ImageViewerProps> = ({
   }, [visible, onToggle]);
 
   const handleSave = useCallback(async () => {
-    let cameraPrmissions = await MediaLibrary.getPermissionsAsync(true);
+    let cameraPrmissions = await getPermissionsAsync(true);
     if (cameraPrmissions.status !== PermissionStatus.GRANTED) {
-      cameraPrmissions = await MediaLibrary.requestPermissionsAsync(true);
+      cameraPrmissions = await requestPermissionsAsync(true);
     }
     if (cameraPrmissions.status === 'granted') {
       const uuidStr = uuid.v4() as string;
       const imageName = `${uuidStr}.png`;
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      const imagePath = `${FileSystem.documentDirectory}${imageName}`;
-      FileSystem.downloadAsync(imageUri, imagePath)
+      const imagePath = `${documentDirectory}${imageName}`;
+      downloadAsync(imageUri, imagePath)
         .then(({ uri }) => {
-          MediaLibrary.saveToLibraryAsync(uri);
+          saveToLibraryAsync(uri);
           ToastManager.show({
             title: intl.formatMessage({ id: 'msg__image_saved' }),
           });

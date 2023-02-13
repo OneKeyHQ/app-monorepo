@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import * as FileSystem from 'expo-file-system';
+import { cacheDirectory } from 'expo-file-system';
 import { useIntl } from 'react-intl';
 
 import {
@@ -47,7 +47,7 @@ export const FooterAction = () => {
   }, [getLogName]);
 
   const shareLogFile = useCallback(async () => {
-    const logFilePath = `${FileSystem.cacheDirectory ?? ''}log.txt`;
+    const logFilePath = `${cacheDirectory ?? ''}log.txt`;
     const shareFileName = getLogName();
     const Share = await getShareModule();
     if (!Share) return;
