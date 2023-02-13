@@ -18,6 +18,11 @@ import type {
 } from '../types';
 import type { AxiosInstance } from 'axios';
 
+function isInvalidTokenName(text: string) {
+  // eslint-disable-next-line no-control-regex
+  return !/^[\x00-\x7F]+$/.test(text);
+}
+
 class ClientAda {
   readonly request: AxiosInstance;
 
@@ -173,15 +178,17 @@ class ClientAda {
       const { data } = await this.request.get<IAsset>(`/assets/${asset}`);
       const { asset_name: assetName, metadata } = data;
       const decodeName = Buffer.from(assetName, 'hex').toString('utf8');
+      const isValidTokenName = !isInvalidTokenName(decodeName);
+      const name = isValidTokenName ? decodeName : assetName;
       return {
         id: `${networkId}--${asset}`,
         address: asset,
-        decimals: metadata?.decimals ?? 6,
+        decimals: metadata?.decimals ?? isValidTokenName ? 6 : 0,
         impl: 'ada',
         isNative: false,
         networkId,
-        symbol: metadata?.ticker ?? decodeName,
-        name: metadata?.name ?? decodeName,
+        symbol: metadata?.ticker ?? name,
+        name: metadata?.name ?? name,
         tokenIdOnNetwork: asset,
         logoURI: '',
       };
