@@ -51,13 +51,21 @@ const ExplorerAction = ({
   explorer: MarketEXplorer;
 }) => {
   const intl = useIntl();
-  const { network } = useNetwork({ networkId: explorer.networkId });
+  const { width } = useGridBoxStyle({
+    index,
+    maxW: SCREEN_SIZE.LARGE,
+    outPadding: 32,
+  });
   const copyAction = useCallback(() => {
-    copyToClipboard(explorer.contractAddress ?? '');
+    setTimeout(() => {
+      if (!explorer.contractAddress) return;
+      copyToClipboard(explorer.contractAddress);
+    }, 100);
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__copied' }),
     });
   }, [explorer.contractAddress, intl]);
+  const { network } = useNetwork({ networkId: explorer.networkId });
   const ExplorerComponent = useCallback(
     (i, e, triggerProps) => (
       <MarketInfoExplorer
@@ -71,6 +79,7 @@ const ExplorerAction = ({
   );
   return (
     <Menu
+      width={width}
       trigger={(triggerProps) =>
         ExplorerComponent(index, explorer, triggerProps)
       }
@@ -185,7 +194,6 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
-
   return (
     <Box px={px}>
       <VStack space={6} mt={2}>
@@ -268,9 +276,27 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               {intl.formatMessage({ id: 'form__explorers' })}
             </Typography.Heading>
             <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
-              {expolorers?.map((e: MarketEXplorer, i) => (
-                <ExplorerAction explorer={e} index={i} />
-              ))}
+              {expolorers?.map((e: MarketEXplorer, i) => {
+                if (e.url) {
+                  return (
+                    <MarketInfoExplorer
+                      key={i}
+                      index={i}
+                      explorer={e}
+                      onPress={() => {
+                        openUrl(
+                          e.url ?? '',
+                          intl.formatMessage({ id: 'form__explorers' }),
+                          {
+                            modalMode: true,
+                          },
+                        );
+                      }}
+                    />
+                  );
+                }
+                return <ExplorerAction explorer={e} index={i} />;
+              })}
             </Box>
           </Box>
         ) : null}
