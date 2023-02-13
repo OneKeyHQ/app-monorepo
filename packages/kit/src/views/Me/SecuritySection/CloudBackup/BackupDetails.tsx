@@ -223,7 +223,7 @@ const BackupActions = ({
       {typeof onImport !== 'undefined' && !ready ? (
         <Button
           onPress={onImport}
-          type="basic"
+          type="primary"
           size={size}
           flexGrow={{ base: 1, sm: 0 }}
         >
