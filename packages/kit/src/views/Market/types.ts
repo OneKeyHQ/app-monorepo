@@ -5,6 +5,14 @@ import type { MarketCategory } from '../../store/reducers/market';
 import type { EMarketCellData } from './config';
 import type { MessageDescriptor } from 'react-intl';
 
+export enum MarketRoutes {
+  MarketSearchModal = 'MarketSearchModal',
+}
+
+export type MarketRoutesParams = {
+  [MarketRoutes.MarketSearchModal]: undefined;
+};
+
 export type CommonPriceCardProps = {
   onPress?: () => void;
   token: TokenType;
