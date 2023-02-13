@@ -121,21 +121,23 @@ class ServiceCloudBackup extends ServiceBase {
     const backupObject = await this.backgroundApi.engine.dumpDataForBackup(
       password,
     );
-    for (const [importedAccountUUID, { name, address }] of Object.entries(
+    for (const [importedAccountUUID, { name, id, address }] of Object.entries(
       backupObject.importedAccounts,
     )) {
+      const longAddress = id.split('--')[2] ?? address;
       publicBackupData.importedAccounts[importedAccountUUID] = {
         name,
-        address: shortenAddress(address),
+        address: shortenAddress(longAddress),
       };
     }
 
-    for (const [watchingAccountUUID, { name, address }] of Object.entries(
+    for (const [watchingAccountUUID, { name, id, address }] of Object.entries(
       backupObject.watchingAccounts,
     )) {
+      const longAddress = id.split('--')[2] ?? address;
       publicBackupData.watchingAccounts[watchingAccountUUID] = {
         name,
-        address: shortenAddress(address),
+        address: shortenAddress(longAddress),
       };
     }
 
