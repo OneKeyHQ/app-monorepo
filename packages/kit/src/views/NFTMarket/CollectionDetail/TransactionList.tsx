@@ -20,7 +20,7 @@ import type { NFTTransaction } from '@onekeyhq/engine/src/types/nft';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useRuntime } from '../../../hooks/redux';
+import { useNetworks } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
@@ -307,7 +307,7 @@ const TransactionList: FC<ListProps> = ({
     setContext,
   ]);
 
-  const { networks } = useRuntime();
+  const networks = useNetworks();
   const currentNetwork = useMemo(
     () => networks.find((n) => n.id === networkId),
     [networkId, networks],

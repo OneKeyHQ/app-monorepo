@@ -2,26 +2,22 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import Webview from '@onekeyhq/kit/src/views/Webview';
 
-import { CreateAccountModalRoutes } from '../routesEnum';
-
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
 
-export { CreateAccountModalRoutes };
-
 export enum WebviewRoutesModalRoutes {
-  WebviewModel = 'WebviewModel',
+  WebviewModal = 'WebviewModal',
 }
 
 export type WebviewRoutesParams = {
-  [WebviewRoutesModalRoutes.WebviewModel]: HomeRoutesParams['SettingsWebviewScreen'];
+  [WebviewRoutesModalRoutes.WebviewModal]: HomeRoutesParams['SettingsWebviewScreen'];
 };
 
 const WebViewNavigator = createStackNavigator<WebviewRoutesParams>();
 
 const modalRoutes = [
   {
-    name: WebviewRoutesModalRoutes.WebviewModel,
+    name: WebviewRoutesModalRoutes.WebviewModal,
     component: Webview,
   },
 ];
@@ -32,7 +28,7 @@ const WebviewModalStack = () => {
     <WebViewNavigator.Navigator
       screenOptions={() => ({
         ...buildModalOpenAnimationOptions({ isVerticalLayout }),
-        headerShown: true,
+        headerShown: false,
       })}
     >
       {modalRoutes.map((route) => (

@@ -1,10 +1,11 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
-import { OverviewDefiProtocol } from './index';
+import { OverviewDefiProtocol, useOpenProtocolUrl } from './index';
 
 import { useRoute } from '@react-navigation/core';
 import B from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -32,7 +33,9 @@ type RouteProps = RouteProp<
   OverviewModalRoutesParams,
   OverviewModalRoutes.OverviewProtocolDetail
 >;
+
 const OverviewProtocolDetail: FC = () => {
+  const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
   const close = useModalClose();
@@ -86,7 +89,7 @@ const OverviewProtocolDetail: FC = () => {
     }
 
     return (
-      <HStack>
+      <HStack alignItems="center">
         <Token token={{ logoURI: protocol?.protocolIcon }} size={8} />
         <Typography.Heading ml="3">{protocol?.protocolName}</Typography.Heading>
         <Box
@@ -110,6 +113,8 @@ const OverviewProtocolDetail: FC = () => {
     );
   }, [isVertical, protocol, rate]);
 
+  const open = useOpenProtocolUrl(protocol);
+
   if (!protocol) {
     goBack();
     return null;
@@ -118,12 +123,21 @@ const OverviewProtocolDetail: FC = () => {
   return (
     <Modal
       size="2xl"
-      hideSecondaryAction
       hidePrimaryAction
-      footer={null}
+      hideSecondaryAction={!protocol.protocolUrl}
       // @ts-ignore
       header={header}
+      footer={!protocol.protocolUrl ? null : undefined}
       headerDescription={headerDescription}
+      onSecondaryActionPress={open}
+      secondaryActionProps={{
+        children: intl.formatMessage(
+          { id: 'form__visit_str' },
+          {
+            0: protocol.protocolName,
+          },
+        ),
+      }}
       scrollViewProps={{
         children: (
           <OverviewDefiProtocol
