@@ -61,29 +61,17 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
 
   const renderAccountAmountInfo = useMemo(
     () => (
-      <Box
-        w="100%"
-        flexDirection={isVertical ? 'column' : 'row'}
-        alignItems="center"
-      >
+      <Box flexDirection={isVertical ? 'column' : 'row'} alignItems="center">
         <Token
           size={12}
           showTokenVerifiedIcon
           token={{ ...token, logoURI: token?.logoURI || network?.logoURI }}
         />
         <Box
-          width="100%"
-          flex={1}
           ml={isVertical ? 0 : 4}
           alignItems={isVertical ? 'center' : 'flex-start'}
         >
-          <Box
-            flex={1}
-            width="100%"
-            flexDirection="row"
-            mt={2}
-            mx={isVertical ? 4 : 0}
-          >
+          <Box flexDirection="row" mt={2} mx={isVertical ? 4 : 0}>
             <FormatBalance
               balance={amount}
               suffix={token?.tokenIdOnNetwork ? token?.symbol : network?.symbol}
@@ -98,7 +86,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                 <Box
                   flexDirection="row"
                   alignItems="center"
-                  flex={1}
                   justifyContent="center"
                 >
                   <Typography.DisplayXLarge

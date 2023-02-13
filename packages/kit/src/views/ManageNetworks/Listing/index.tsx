@@ -11,6 +11,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Empty,
+  KeyboardDismissView,
   List,
   ListItem,
   Modal,
@@ -152,14 +153,16 @@ export const Listing: FC = () => {
 
   const emptyComponent = useCallback(
     () => (
-      <Empty
-        flex="1"
-        emoji="🔍"
-        title={intl.formatMessage({
-          id: 'content__no_results',
-          defaultMessage: 'No Result',
-        })}
-      />
+      <KeyboardDismissView>
+        <Empty
+          flex="1"
+          emoji="🔍"
+          title={intl.formatMessage({
+            id: 'content__no_results',
+            defaultMessage: 'No Result',
+          })}
+        />
+      </KeyboardDismissView>
     ),
     [intl],
   );
@@ -199,7 +202,7 @@ export const Listing: FC = () => {
       <List
         data={data}
         contentContainerStyle={{
-          flex: 1,
+          flex: data?.length ? undefined : 1,
         }}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
