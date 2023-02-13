@@ -11,6 +11,7 @@ import {
   Pressable,
   Typography,
   useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
@@ -27,9 +28,15 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
   const listSort = useListSort();
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
+  const { size } = useUserDevice();
+  const isNormalDevice = useMemo(() => ['NORMAL'].includes(size), [size]);
   const ContainComponent = useMemo(
     () => (isVertical ? Box : ListItem),
     [isVertical],
+  );
+  const useDislocation = useMemo(
+    () => isVertical || isNormalDevice,
+    [isNormalDevice, isVertical],
   );
   return (
     <Box mt="2" w="full">
@@ -63,6 +70,12 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
               tag.id === EMarketCellData.Token24hChange
                 ? { w: tag.minW }
                 : { flex: 1 };
+            const dislocationId = useDislocation
+              ? tag.dislocation?.id ?? tag.id
+              : tag.id;
+            const dislocationTitle = useDislocation
+              ? tag.dislocation?.title ?? tag.title
+              : tag.title;
             return (
               <ListItem.Column key={`${tag.title ?? ''}--${tag.id}`}>
                 <Pressable
@@ -70,13 +83,13 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                     let direction: 'up' | 'down' = 'down';
                     if (
                       listSort &&
-                      listSort.id === tag.id &&
+                      listSort.id === dislocationId &&
                       listSort.direction === 'down'
                     ) {
                       direction = 'up';
                     }
                     backgroundApiProxy.serviceMarket.updateMarketListSort({
-                      id: tag.id,
+                      id: dislocationId,
                       direction,
                     });
                   }}
@@ -93,19 +106,21 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                     color="text-subdued"
                     textAlign={tag.textAlign}
                   >
-                    {intl.formatMessage({ id: tag.title })}
+                    {intl.formatMessage({
+                      id: dislocationTitle,
+                    })}
                   </Typography.Subheading>
                   <Icon
                     name={
                       listSort &&
-                      listSort.id === tag.id &&
+                      listSort.id === dislocationId &&
                       listSort.direction === 'up'
                         ? 'ChevronUpMini'
                         : 'ChevronDownMini'
                     }
                     size={16}
                     color={
-                      listSort && listSort.id === tag.id
+                      listSort && listSort.id === dislocationId
                         ? 'icon-success'
                         : 'icon-subdued'
                     }

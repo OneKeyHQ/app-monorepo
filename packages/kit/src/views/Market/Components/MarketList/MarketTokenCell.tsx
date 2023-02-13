@@ -210,21 +210,14 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       <Skeleton shape="Body2" />
                     )}
                     {marketTokenItem &&
-                    marketTokenItem.totalVolume !== undefined ? (
+                    marketTokenItem.marketCap !== undefined ? (
                       <Typography.Body2 numberOfLines={1} color="text-subdued">
                         {isVerticalLayout || isNormalDevice
-                          ? intl.formatMessage(
-                              {
-                                id: 'form__vol_str',
-                              },
-                              {
-                                0: formatMarketUnitPosition(
-                                  unit,
-                                  formatMarketValueForInfo(
-                                    marketTokenItem.totalVolume,
-                                  ),
-                                ),
-                              },
+                          ? formatMarketUnitPosition(
+                              unit,
+                              formatMarketValueForInfo(
+                                marketTokenItem.marketCap,
+                              ),
                             )
                           : marketTokenItem.name}
                       </Typography.Body2>

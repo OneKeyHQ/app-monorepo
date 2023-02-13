@@ -130,15 +130,20 @@ const DataViewComponent: FC<DataViewComponentProps> = ({
         alignItems="center"
         justifyContent="space-between"
         mb="3"
+        flex={1}
       >
         <Typography.Body2Strong color="text-subdued">
           {title}
         </Typography.Body2Strong>
-        <Box alignItems="flex-end">
+        <Box alignItems="flex-end" flex={1}>
           {isFetching ? (
             <Skeleton shape="Body2" />
           ) : (
-            <Typography.Body2Strong color={valueColor ?? 'text-default'}>
+            <Typography.Body2Strong
+              textAlign="right"
+              numberOfLines={2}
+              color={valueColor ?? 'text-default'}
+            >
               {value}
             </Typography.Body2Strong>
           )}
@@ -220,7 +225,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
             <DataViewComponent
               index={2}
               isFetching={marketCapDominance === undefined}
-              title={intl.formatMessage({ id: 'form__market_cap_dominance' })}
+              title={intl.formatMessage({ id: 'form__dominance' })}
               value={`${marketCapDominance || 0}`}
             />
             <DataViewComponent
