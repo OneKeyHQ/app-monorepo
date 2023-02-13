@@ -249,7 +249,8 @@ function SideChainSelector({
           keyExtractor={(item: INetwork) => item.id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          px={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
+          p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
+          pt={0}
         />
       </KeyboardAvoidingView>
     </Box>
