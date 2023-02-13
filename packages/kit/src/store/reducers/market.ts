@@ -328,7 +328,6 @@ export const MarketSlicer = createSlice({
     ) {
       const { payload } = action;
       state.listSort = payload;
-      console.log('updateMarketListSort', payload);
       if (payload) {
         const { selectedCategoryId, marketTokens, categorys } = state;
         if (selectedCategoryId) {
