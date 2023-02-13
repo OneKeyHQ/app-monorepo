@@ -1,4 +1,4 @@
-import { pick } from 'lodash';
+import { debounce, pick, uniqBy } from 'lodash';
 
 import { setOverviewPortfolioDefi } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -30,9 +30,11 @@ class ServiceOverview extends ServiceBase {
   @bindThis()
   registerEvents() {
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.AccountChanged, this.subscribe);
+    appEventBus.on(AppEventBusNames.AccountChanged, this.subscribeDebounced);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribe);
+    appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribeDebounced);
+
+    this.subscribeDebounced();
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -54,6 +56,16 @@ class ServiceOverview extends ServiceBase {
     clearInterval(this.interval);
     this.interval = null;
   }
+
+  subscribeDebounced = debounce(
+    // eslint-disable-next-line
+    this.subscribe,
+    getTimeDurationMs({ seconds: 5 }),
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @bindThis()
   @backgroundMethod()
@@ -115,7 +127,10 @@ class ServiceOverview extends ServiceBase {
       'token',
       'nfts',
     ] as IOverviewScanTaskType[]) {
-      const tasks = pendingTasks.filter((t) => t.scanTypes?.includes(taskType));
+      const tasks = uniqBy(
+        pendingTasks.filter((t) => t.scanTypes?.includes(taskType)),
+        (n) => `${n.networkId}--${n.address}`,
+      );
       try {
         if (taskType === 'defi') {
           newPendingTasks = newPendingTasks.concat(

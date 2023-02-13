@@ -9,6 +9,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   HStack,
+  Text,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -39,32 +40,44 @@ const GenernalTokens = ({
 }: {
   pool: IOverviewDeFiPortfolioItem;
   tokenKey: 'supplyTokens' | 'rewardTokens' | 'borrowTokens';
-}) => (
-  <VStack>
-    {pool?.[tokenKey]?.map((t, i) => (
-      <HStack alignItems="center" mt={i > 0 ? '4px' : 0} key={t.tokenAddress}>
-        <TokenIcon token={t} size={4} mr="1" />
-        <Typography.Body2Strong mr="1">
-          <FormatCurrencyNumber
-            onlyNumber
-            value={new B(t.balanceParsed ?? 0)}
-          />
-        </Typography.Body2Strong>
-        <Typography.Body2Strong mx="1">{t.symbol}</Typography.Body2Strong>
-        <Typography.Body2 color="text-subdued">
-          <FormatCurrencyNumber value={0} convertValue={new B(t.value ?? 0)} />
-        </Typography.Body2>
-      </HStack>
-    ))}
-  </VStack>
-);
+}) => {
+  const isVertical = useIsVerticalLayout();
+  return (
+    <VStack>
+      {pool?.[tokenKey]?.map((t, i) => (
+        <HStack
+          alignItems="center"
+          mt={i > 0 ? '4px' : 0}
+          key={t.tokenAddress}
+          flexWrap="wrap"
+        >
+          <TokenIcon token={t} size={isVertical ? 5 : 4} mr="1" />
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }} mr="1">
+            <FormatCurrencyNumber
+              onlyNumber
+              value={new B(t.balanceParsed ?? 0)}
+            />
+          </Text>
+          <Text typography={{ sm: 'Body1Strong', md: 'Body2Strong' }} mx="1">
+            {t.symbol}
+          </Text>
+          <Typography.Body2 color="text-subdued">
+            <FormatCurrencyNumber
+              value={0}
+              convertValue={new B(t.value ?? 0)}
+            />
+          </Typography.Body2>
+        </HStack>
+      ))}
+    </VStack>
+  );
+};
 
 const getPoolColumn = (): ColumnItem => ({
   dataIndex: 'supplyTokens',
   header: 'form__pool_uppercase',
   render: (params) => <GenernalTokens {...params} tokenKey="supplyTokens" />,
   visibleOn: ({ pools }) => pools.some((p) => p.supplyTokens?.length > 0),
-  boxProps: { minW: '300px' },
 });
 
 const getRewardsColumn = (): ColumnItem => ({
@@ -94,7 +107,6 @@ const getValueColumn = (): ColumnItem => ({
   ),
   boxProps: {
     textAlign: 'right',
-    maxW: '200px',
     justifyContent: 'flex-end',
   },
 });
@@ -110,9 +122,6 @@ const getPriceColumn = (tokenKey: TokenKey): ColumnItem => ({
       ))}
     </VStack>
   ),
-  boxProps: {
-    maxW: '200px',
-  },
   dataIndex: tokenKey,
 });
 
@@ -125,9 +134,6 @@ const getAprColumn = (): ColumnItem => ({
       <FormatCurrencyNumber onlyNumber value={new B(pool.apr ?? 0)} />%
     </Typography.Body2Strong>
   ),
-  boxProps: {
-    maxW: '100px',
-  },
 });
 
 const getUnlockTimeColumn = (): ColumnItem => ({
@@ -206,7 +212,7 @@ export const OverviewDefiPool: FC<{
             }
             return (
               <VStack mt={i === 0 ? 0 : '4'} key={c.header}>
-                <Typography.Subheading mb="4">
+                <Typography.Subheading mb="4" color="text-subdued">
                   {intl.formatMessage({ id: c.header })}
                 </Typography.Subheading>
                 {c.dataIndex && !isEmpty(item[c.dataIndex])

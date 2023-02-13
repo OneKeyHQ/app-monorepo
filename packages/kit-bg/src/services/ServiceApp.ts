@@ -274,11 +274,7 @@ class ServiceApp extends ServiceBase {
       serviceNetwork,
       appSelector,
       serviceBootstrap,
-      serviceOnboarding,
       serviceSetting,
-      serviceCloudBackup,
-      serviceTranslation,
-      serviceDiscover,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -320,14 +316,7 @@ class ServiceApp extends ServiceBase {
         activeNetworkId,
       }),
     );
-    serviceBootstrap.syncAccounts();
-    serviceBootstrap.fetchFiatMoneyRate();
-    serviceBootstrap.switchDefaultRpcToOnekeyRpcNode();
-    serviceOnboarding.checkOnboardingStatus();
-    serviceSetting.updateRemoteSetting();
-    serviceCloudBackup.initCloudBackup();
-    serviceTranslation.getTranslations();
-    serviceDiscover.getCompactList();
+    serviceBootstrap.bootstrap();
     this._appInited = true;
   }
 
