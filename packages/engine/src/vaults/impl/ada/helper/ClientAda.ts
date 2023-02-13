@@ -176,21 +176,25 @@ class ClientAda {
   }
 
   getAssetDetail = memoizee(
-    async (asset: string, networkId: string): Promise<Token> => {
+    async (
+      asset: string,
+      networkId: string,
+      isDAppRequest = false,
+    ): Promise<Token> => {
       const { data } = await this.request.get<IAsset>(`/assets/${asset}`);
       const { asset_name: assetName, metadata } = data;
       const decodeName = Buffer.from(assetName, 'hex').toString('utf8');
       const isValidTokenName = !isInvalidTokenName(decodeName);
       const name = isValidTokenName ? decodeName : assetName;
 
-      if (typeof metadata?.decimals === 'undefined') {
+      if (typeof metadata?.decimals === 'undefined' && !isDAppRequest) {
         throw new OneKeyInternalError(`Invalid token address: ${asset}`);
       }
 
       return {
         id: `${networkId}--${asset}`,
         address: asset,
-        decimals: metadata?.decimals,
+        decimals: metadata?.decimals ?? 0,
         impl: 'ada',
         isNative: false,
         networkId,

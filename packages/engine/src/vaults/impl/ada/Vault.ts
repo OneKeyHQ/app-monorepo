@@ -226,6 +226,7 @@ export default class Vault extends VaultBase {
         token = await client.getAssetDetail(
           transferInfo.token ?? '',
           this.networkId,
+          encodedTx.signOnly,
         );
       }
 
@@ -364,7 +365,7 @@ export default class Vault extends VaultBase {
       this.networkId,
       tokenAddress ?? '',
     );
-    if (!token) {
+    if (!token || typeof token.decimals === 'undefined') {
       throw new OneKeyInternalError(
         `Token not found: ${tokenAddress || 'main'}`,
       );
