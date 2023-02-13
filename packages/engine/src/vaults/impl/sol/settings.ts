@@ -13,6 +13,7 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: false,
   supportBatchTransfer: true,
+  maxActionsInTx: 8,
 });
 
 export default settings;

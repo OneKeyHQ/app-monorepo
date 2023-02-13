@@ -84,10 +84,13 @@ function BatchSendTokenInfo(props: Props) {
       </HStack>
       <Divider />
       <HStack paddingY={4} space={2}>
-        <TokenInfoBlock
-          title={intl.formatMessage({ id: 'form__token_balance' })}
-          content={`${tokenBalance ?? 0} ${token?.symbol ?? ''}`}
-        />
+        {!token?.isNative && (
+          <TokenInfoBlock
+            title={intl.formatMessage({ id: 'form__token_balance' })}
+            content={`${tokenBalance ?? 0} ${token?.symbol ?? ''}`}
+          />
+        )}
+
         <TokenInfoBlock
           title={intl.formatMessage(
             { id: 'form__str_balance' },
