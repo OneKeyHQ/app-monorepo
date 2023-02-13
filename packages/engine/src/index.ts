@@ -2732,10 +2732,10 @@ class Engine {
             debugLogger.cloudBackup.debug(
               `Backup HDWallets account coinType ${coinType} isn't support`,
             );
-            return;
+          } else {
+            accountToAdd.id = accountToAdd.id.replace(reIdPrefix, wallet.id);
+            await this.dbApi.addAccountToWallet(wallet.id, accountToAdd);
           }
-          accountToAdd.id = accountToAdd.id.replace(reIdPrefix, wallet.id);
-          await this.dbApi.addAccountToWallet(wallet.id, accountToAdd);
         }
         await this.dbApi.confirmWalletCreated(wallet.id);
       }),
