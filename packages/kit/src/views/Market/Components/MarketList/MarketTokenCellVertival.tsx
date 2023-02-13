@@ -16,6 +16,7 @@ import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
   formatDecimalZero,
+  formatMarketUnitPosition,
   formatMarketValueForComma,
   formatMarketValueForInfo,
   formatMarketVolatility,
@@ -44,17 +45,21 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
     if (!marketTokenItem?.totalVolume) {
       return '';
     }
-    return `${unit}${formatMarketValueForInfo(marketTokenItem?.totalVolume)}`;
+    return formatMarketUnitPosition(
+      unit,
+      formatMarketValueForInfo(marketTokenItem?.totalVolume),
+    );
   }, [marketTokenItem?.totalVolume, unit]);
   const tokenPrice = useMemo(() => {
     if (!marketTokenItem?.price) {
       return '';
     }
-    return `${unit}${
+    return formatMarketUnitPosition(
+      unit,
       marketTokenItem.price <= 1
         ? formatDecimalZero(marketTokenItem.price)
-        : formatMarketValueForComma(marketTokenItem.price)
-    }`;
+        : formatMarketValueForComma(marketTokenItem.price),
+    );
   }, [marketTokenItem?.price, unit]);
   const percentage = useMemo(() => {
     if (!marketTokenItem?.priceChangePercentage24H) {
