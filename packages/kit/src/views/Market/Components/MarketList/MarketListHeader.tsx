@@ -107,7 +107,7 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
                     textAlign={tag.textAlign}
                   >
                     {intl.formatMessage({
-                      id: dislocationTitle ?? '',
+                      id: dislocationTitle,
                     })}
                   </Typography.Subheading>
                   <Icon
