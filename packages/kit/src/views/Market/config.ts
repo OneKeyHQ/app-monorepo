@@ -58,6 +58,10 @@ export const ListHeadTags: ListHeadTagType[] = [
     textAlign: 'left',
     showVerticalLayout: true,
     showNorMalDevice: true,
+    dislocation: {
+      id: EMarketCellData.TokenMarketCap,
+      title: 'form__market_cap_uppercase',
+    },
   },
   {
     id: EMarketCellData.TokenPrice,
