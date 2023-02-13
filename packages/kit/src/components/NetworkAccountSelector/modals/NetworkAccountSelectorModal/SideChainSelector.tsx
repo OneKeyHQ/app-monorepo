@@ -11,11 +11,12 @@ import {
   Empty,
   HStack,
   Icon,
-  IconButton,
+  KeyboardAvoidingView,
   Pressable,
   Searchbar,
   Text,
   Token,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import type { INetwork } from '@onekeyhq/engine/src/types';
@@ -24,9 +25,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../../hooks';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
-import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
 import { RpcStatusButton } from '../../RpcStatusButton';
@@ -66,8 +64,8 @@ function SideChainSelector({
   fullWidthMode?: boolean;
 }) {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const [search, setSearch] = useState('');
-  const navigation = useAppNavigation();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
   const { selectedNetworkId } = accountSelectorInfo;
@@ -226,48 +224,35 @@ function SideChainSelector({
       borderColor={fullWidthMode ? undefined : 'divider'}
       flex={fullWidthMode ? 1 : undefined}
     >
-      <Box p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}>
-        <Searchbar
-          w="full"
-          value={search}
-          onChangeText={(text) => setSearch(text)}
-          placeholder={intl.formatMessage({ id: 'content__search' })}
-          onClear={() => setSearch('')}
+      {fullWidthMode ? (
+        <Box p={{ base: 4, md: 6 }} pb={2}>
+          <Searchbar
+            w="full"
+            value={search}
+            onChangeText={(text) => setSearch(text)}
+            placeholder={intl.formatMessage({ id: 'content__search' })}
+            onClear={() => setSearch('')}
+          />
+        </Box>
+      ) : null}
+      <KeyboardAvoidingView flex={1}>
+        <FlatListRef
+          ListEmptyComponent={emptyComponent}
+          initialNumToRender={20}
+          // TODO auto scroll to active item
+          ref={flatListRef}
+          data={data}
+          contentContainerStyle={{
+            flex: data?.length ? undefined : 1,
+            paddingBottom: bottom,
+          }}
+          keyExtractor={(item: INetwork) => item.id}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
+          pt={0}
         />
-      </Box>
-      <FlatListRef
-        ListEmptyComponent={emptyComponent}
-        initialNumToRender={20}
-        // TODO auto scroll to active item
-        ref={flatListRef}
-        data={data}
-        contentContainerStyle={{
-          flex: 1,
-        }}
-        keyExtractor={(item: INetwork) => item.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        flex={1}
-        p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}
-        ListFooterComponent={
-          fullWidthMode ? null : (
-            <Box p="4px">
-              <IconButton
-                type="plain"
-                size="xl"
-                circle
-                name="BarsArrowUpOutline"
-                onPress={() => {
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.ManageNetwork,
-                    params: { screen: ManageNetworkRoutes.Sort },
-                  });
-                }}
-              />
-            </Box>
-          )
-        }
-      />
+      </KeyboardAvoidingView>
     </Box>
   );
 }

@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { ToastManager } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useRuntime } from '../../../hooks/redux';
+import { useNetworks } from '../../../hooks/redux';
 import { create } from '../../../store/reducers/contacts';
 import AddressBookModalView from '../components/AddressBookModalView';
 
@@ -27,7 +27,7 @@ const NewAddress = () => {
   const navigation = useNavigation();
   const route = useRoute<NewAddressRouteProp>();
   const { address = '' } = route.params || {};
-  const { networks } = useRuntime();
+  const networks = useNetworks();
   const onSubmit = useCallback(
     async (values: ContactValues) => {
       const net = networks.find((network) => network.id === values.networkId);

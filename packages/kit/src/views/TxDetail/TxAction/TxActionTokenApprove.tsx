@@ -78,6 +78,7 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
 
   const context = useTxDetailContext();
   const isSendConfirm = context?.context?.isSendConfirm;
+  const isCollapse = context?.context?.isCollapse;
   const sendConfirmParamsParsed = context?.context?.sendConfirmParamsParsed;
 
   // TODO sourceInfo get from Tx history
@@ -90,7 +91,7 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
       amount={amount}
       symbol={symbol}
       onPress={
-        isSendConfirm
+        isSendConfirm && !isCollapse
           ? () => {
               const routeName = SendRoutes.TokenApproveAmountEdit;
               if (!sendConfirmParamsParsed?.routeParams) {

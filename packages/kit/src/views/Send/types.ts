@@ -91,7 +91,6 @@ export type SendConfirmResendActionInfo = {
 };
 export type SendConfirmPayloadBase = {
   payloadType: 'Transfer' | 'InternalSwap';
-  keepAlive?: boolean;
 };
 export type SendConfirmPayload =
   | SendConfirmPayloadBase
@@ -341,6 +340,7 @@ export type IBatchTxsConfirmViewProps = ModalProps & {
   totalFeeInNative: number;
   feeInput?: JSX.Element;
   tokenTransferInfo?: JSX.Element | null;
+  isWaitingTxReady?: boolean;
   isSingleTransformMode?: boolean;
 
   confirmDisabled?: boolean;

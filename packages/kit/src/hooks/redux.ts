@@ -71,6 +71,8 @@ export const useGeneral = () => {
 
 export const useRuntime = () => useAppSelector((s) => s.runtime);
 
+export const useNetworks = () => useAppSelector((s) => s.runtime.networks);
+
 // TODO rename like useManageNetworks
 export const useRuntimeWallets = () => {
   const wallets = useAppSelector((s) => s.runtime.wallets);

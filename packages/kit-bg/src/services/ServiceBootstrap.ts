@@ -7,6 +7,7 @@ import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/red
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
@@ -15,8 +16,6 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
-
-import type { IServiceBaseProps } from './ServiceBase';
 
 // should upate AUTO_SWITCH_DEFAULT_RPC_AT_VERSION version first
 const defaultNetworkRpcs: Record<string, string> = {
@@ -63,15 +62,19 @@ const defaultNetworkRpcs: Record<string, string> = {
 export default class ServiceBootstrap extends ServiceBase {
   private fetchFiatTimer: NodeJS.Timeout | null = null;
 
-  constructor(props: IServiceBaseProps) {
-    super(props);
-
+  @bindThis()
+  bootstrap() {
     const {
       serviceOverview,
       serviceAccount,
       serviceToken,
       serviceNetwork,
       serviceSwap,
+      serviceSetting,
+      serviceOnboarding,
+      serviceCloudBackup,
+      serviceTranslation,
+      serviceDiscover,
     } = this.backgroundApi;
 
     serviceToken.registerEvents();
@@ -79,6 +82,15 @@ export default class ServiceBootstrap extends ServiceBase {
     serviceNetwork.registerEvents();
     serviceSwap.registerEvents();
     serviceAccount.registerEvents();
+
+    this.syncAccounts();
+    this.fetchFiatMoneyRate();
+    this.switchDefaultRpcToOnekeyRpcNode();
+    serviceOnboarding.checkOnboardingStatus();
+    serviceSetting.updateRemoteSetting();
+    serviceCloudBackup.initCloudBackup();
+    serviceTranslation.getTranslations();
+    serviceDiscover.getCompactList();
   }
   // eslint-disable-next-line
   @backgroundMethod()
