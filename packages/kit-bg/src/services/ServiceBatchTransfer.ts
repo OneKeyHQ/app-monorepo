@@ -9,6 +9,7 @@ import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxSol } from '@onekeyhq/engine/src/vaults/impl/sol/types';
 import type {
   IEncodedTx,
   ISetApprovalForAll,
@@ -21,6 +22,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -167,7 +169,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     pendingTxs?: { id: string }[];
   }) {
     const { engine } = this.backgroundApi;
-    const { networkId, pendingTxs, encodedTx } = params;
+    const { accountId, networkId, pendingTxs, encodedTx } = params;
     const network = await engine.getNetwork(networkId);
     const vaultSettings = await engine.getVaultSettings(networkId);
     const { wait } = await CoreSDKLoader();
@@ -217,6 +219,14 @@ export default class ServiceBatchTransfer extends ServiceBase {
       await refreshPendingTxs();
       await resendTx();
       return signedTx;
+    }
+    if (network.impl === IMPL_SOL) {
+      const transaction = await engine.solanaRefreshRecentBlockBash({
+        accountId,
+        networkId,
+        transaction: params.encodedTx as IEncodedTxSol,
+      });
+      params.encodedTx = transaction;
     }
 
     return engine.signAndSendEncodedTx(params);
@@ -270,5 +280,15 @@ export default class ServiceBatchTransfer extends ServiceBase {
     } catch {
       return false;
     }
+  }
+
+  @backgroundMethod()
+  async confirmTransaction(params: { networkId: string; txid: string }) {
+    const { networkId, txid } = params;
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(networkId);
+
+    const [status] = await vault.getTransactionStatuses([txid]);
+    return status;
   }
 }

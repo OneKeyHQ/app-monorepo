@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useDropzone } from 'react-dropzone';
+import { useIntl } from 'react-intl';
 import { read, utils } from 'xlsx';
+
+import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import { BulkSenderTypeEnum, ReceiverErrorEnum } from './types';
+import { BulkSenderTypeEnum } from './types';
 
 import type { ReceiverError, TokenReceiver } from './types';
 import type { DropzoneOptions } from 'react-dropzone';
@@ -54,14 +57,17 @@ export function useValidteReceiver({
   networkId,
   receiver,
   type,
+  token,
 }: {
   networkId: string;
   receiver: TokenReceiver[];
   type: BulkSenderTypeEnum;
+  token: Token | null | undefined;
 }) {
   const [isValid, setIsValid] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [errors, setErrors] = useState<ReceiverError[]>([]);
+  const intl = useIntl();
 
   useEffect(() => {
     (async () => {
@@ -73,14 +79,40 @@ export function useValidteReceiver({
       ) {
         for (let i = 0; i < receiver.length; i += 1) {
           const { Address, Amount } = receiver[i];
+          let hasError = false;
 
           const amountBN = new BigNumber(Amount);
-          if (amountBN.isNaN() || amountBN.isNegative()) {
-            validateErrors.push({
-              lineNumber: i + 1,
-              type: ReceiverErrorEnum.IcorrectFormat,
-            });
-          } else {
+          if (!hasError) {
+            if (amountBN.isNaN() || amountBN.isNegative()) {
+              validateErrors.push({
+                lineNumber: i + 1,
+                message: intl.formatMessage({
+                  id: 'form__modify_the_line_with_the_correct_format',
+                }),
+              });
+              hasError = true;
+            }
+          }
+
+          if (!hasError && token?.decimals) {
+            const minTokenBanance = new BigNumber(1).shiftedBy(-token.decimals);
+            if (amountBN.lt(minTokenBanance) && !amountBN.isZero()) {
+              validateErrors.push({
+                lineNumber: i + 1,
+                message: intl.formatMessage(
+                  {
+                    id: 'form__str_minimum_transfer',
+                  },
+                  {
+                    '0': minTokenBanance.toFixed(),
+                  },
+                ),
+              });
+              hasError = true;
+            }
+          }
+
+          if (!hasError) {
             try {
               await backgroundApiProxy.validator.validateAddress(
                 networkId,
@@ -89,8 +121,11 @@ export function useValidteReceiver({
             } catch {
               validateErrors.push({
                 lineNumber: i + 1,
-                type: ReceiverErrorEnum.IcorrectAddress,
+                message: intl.formatMessage({
+                  id: 'form__incorrect_address_format',
+                }),
               });
+              hasError = true;
             }
           }
         }
@@ -99,7 +134,7 @@ export function useValidteReceiver({
         setErrors(validateErrors);
       }
     })();
-  }, [networkId, receiver, type]);
+  }, [intl, networkId, receiver, token?.decimals, type]);
 
   return {
     isValid,
