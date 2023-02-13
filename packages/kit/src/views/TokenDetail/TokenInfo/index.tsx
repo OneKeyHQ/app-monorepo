@@ -188,7 +188,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
             {intl.formatMessage({ id: 'action__receive' })}
           </Typography.CaptionStrong>
         </Box>
-        <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+        <Box flex={1} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle
             size={isVertical ? 'xl' : 'lg'}
