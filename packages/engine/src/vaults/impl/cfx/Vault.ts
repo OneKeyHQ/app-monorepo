@@ -24,6 +24,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
+import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
 import {
   IDecodedTxActionTokenTransfer,
@@ -459,17 +460,30 @@ export default class Vault extends VaultBase {
       tokens: [],
       address: dbAccount.addresses?.[this.networkId] || '',
     };
-    if (ret.address.length === 0) {
+
+    const existsPub = !!dbAccount.pub && !isEmpty(dbAccount.pub);
+
+    if (!existsPub) {
+      // Watch only account
+      return ret;
+    }
+
+    if (
+      ret.address.length === 0 &&
+      isAccountCompatibleWithNetwork(dbAccount.id, this.networkId)
+    ) {
       const addressOnNetwork = await this.engine.providerManager.addressFromPub(
         this.networkId,
         dbAccount.pub,
       );
-      await this.engine.dbApi.addAccountAddress(
+
+      ret.address = addressOnNetwork;
+
+      await this.engine.dbApi.updateAccountAddresses(
         dbAccount.id,
         this.networkId,
         addressOnNetwork,
       );
-      ret.address = addressOnNetwork;
     }
     return ret;
   }

@@ -2,6 +2,9 @@
 
 import memoizee from 'memoizee';
 
+import { OneKeyInternalError } from '../errors';
+import { isAccountCompatibleWithNetwork } from '../managers/account';
+
 import { createVaultInstance } from './factory';
 
 import type { Engine } from '../index';
@@ -43,8 +46,19 @@ export class VaultFactory {
       rpcURL,
     }: Omit<IVaultFactoryOptions, 'walletId'> & {
       rpcURL?: string;
-    }): Promise<VaultBase> =>
-      this._getVaultWithoutCache({ networkId, accountId, rpcURL }),
+    }): Promise<VaultBase> => {
+      if (
+        accountId &&
+        networkId &&
+        !isAccountCompatibleWithNetwork(accountId, networkId)
+      ) {
+        throw new OneKeyInternalError(
+          `NetworkId and AccountId are incompatible: accountId=${accountId}, networkId=${networkId}`,
+        );
+      }
+
+      return this._getVaultWithoutCache({ networkId, accountId, rpcURL });
+    },
     {
       promise: true,
       primitive: true,

@@ -17,6 +17,7 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { InvalidAddress, OneKeyInternalError } from '../../../errors';
+import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -421,7 +422,10 @@ export default class Vault extends VaultBase {
       tokens: [],
       address: dbAccount.addresses?.[this.networkId] || '',
     };
-    if (ret.address.length === 0) {
+    if (
+      ret.address.length === 0 &&
+      isAccountCompatibleWithNetwork(dbAccount.id, this.networkId)
+    ) {
       try {
         const network = await this.getNetwork();
         const addressObj = decode(dbAccount.address);
@@ -430,12 +434,13 @@ export default class Vault extends VaultBase {
           addressObj,
         );
 
-        await this.engine.dbApi.addAccountAddress(
+        ret.address = address;
+
+        await this.engine.dbApi.updateAccountAddresses(
           dbAccount.id,
           this.networkId,
           address,
         );
-        ret.address = address;
       } catch {
         // pass
       }

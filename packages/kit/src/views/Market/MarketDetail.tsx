@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import type { FC, ReactElement } from 'react';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -47,21 +47,15 @@ const FavoritButton = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
 
   const intl = useIntl();
-  const iconName = useMemo(() => {
-    if (tokenItem?.favorited) {
-      return 'StarMini';
-    }
-    return isVertical ? 'StarOutline' : 'StarMini';
-  }, [isVertical, tokenItem?.favorited]);
   return (
     <Box>
       <IconButton
         ml={4}
         mr={2}
         type={isVertical ? 'plain' : 'basic'}
-        name={iconName}
+        name={tokenItem?.favorited ? 'StarSolid' : 'StarOutline'}
         size={isVertical ? 'xl' : 'base'}
-        circle={!isVertical}
+        circle
         iconColor={tokenItem?.favorited ? 'icon-warning' : 'icon-default'}
         onPress={() => {
           if (tokenItem) {

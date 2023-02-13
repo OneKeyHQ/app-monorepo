@@ -13,6 +13,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     return {
       connectId: device?.mac ?? '',
       deviceId: device?.deviceId ?? '',
+      deviceType: device?.deviceType ?? '',
     };
   }
 

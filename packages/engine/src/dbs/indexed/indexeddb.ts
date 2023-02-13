@@ -1904,6 +1904,7 @@ class IndexedDBApi implements DBAPI {
     accountId: string,
     password: string,
     rollbackNextAccountIds: Record<string, number>,
+    skipPasswordCheck?: boolean,
   ): Promise<void> {
     const removingImported = walletIsImported(walletId);
     return this.ready.then(
@@ -1953,7 +1954,7 @@ class IndexedDBApi implements DBAPI {
               getMainContextRequest.onsuccess = (_cevent) => {
                 const context: OneKeyContext =
                   getMainContextRequest.result as OneKeyContext;
-                if (!checkPassword(context, password)) {
+                if (!checkPassword(context, password) && !skipPasswordCheck) {
                   reject(new WrongPassword());
                   return;
                 }
@@ -2045,7 +2046,7 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  addAccountAddress(
+  updateAccountAddresses(
     accountId: string,
     networkId: string,
     address: string,
@@ -2066,9 +2067,6 @@ class IndexedDBApi implements DBAPI {
               return;
             }
             switch (account.type) {
-              case AccountType.SIMPLE:
-                account.address = address;
-                break;
               case AccountType.VARIANT:
                 if (
                   typeof (account as DBVariantAccount).addresses === 'undefined'
@@ -2449,8 +2447,7 @@ class IndexedDBApi implements DBAPI {
           const id = `${walletId}-${impl}-${template}`;
           const getExistRecordRequest = accountDerivationStore.get(id);
           getExistRecordRequest.onsuccess = (_event) => {
-            const accountDerivation =
-              getExistRecordRequest.result as DBAccountDerivation;
+            const accountDerivation = getExistRecordRequest.result;
             if (accountDerivation) {
               accountDerivation.accounts = [
                 ...new Set([...accountDerivation.accounts, accountId]),
@@ -2510,8 +2507,7 @@ class IndexedDBApi implements DBAPI {
           const request = accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
-              const accountDerivations =
-                request.result as Array<DBAccountDerivation>;
+              const accountDerivations = request.result;
               accountDerivations.forEach((accountDerivation) => {
                 if (accountDerivation.walletId === walletId) {
                   accountDerivationStore.delete(accountDerivation.id);
@@ -2552,8 +2548,7 @@ class IndexedDBApi implements DBAPI {
           const request = accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
-              const accountDerivations =
-                request.result as Array<DBAccountDerivation>;
+              const accountDerivations = request.result;
               accountDerivations.forEach((accountDerivation) => {
                 if (accountDerivation.walletId === walletId) {
                   accountDerivation.accounts =
@@ -2593,8 +2588,7 @@ class IndexedDBApi implements DBAPI {
           const request = accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
-              const accountDerivations =
-                request.result as Array<DBAccountDerivation>;
+              const accountDerivations = request.result;
               const result = accountDerivations
                 .filter((item) => item.walletId === walletId)
                 .reduce((acc, item) => {
@@ -2621,8 +2615,7 @@ class IndexedDBApi implements DBAPI {
         if (getExistRecordRequest.result === 'undefined') {
           reject(new OneKeyInternalError(`AccountDerivation ${id} not found.`));
         }
-        const accountDerivation =
-          getExistRecordRequest.result as DBAccountDerivation;
+        const accountDerivation = getExistRecordRequest.result;
         resolve(accountDerivation);
       };
     });

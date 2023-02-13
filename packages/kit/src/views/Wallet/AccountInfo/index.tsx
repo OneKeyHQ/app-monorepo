@@ -69,7 +69,7 @@ const AccountAmountInfo: FC = () => {
       accountAllValues.value.isNaN() ? (
         <Skeleton shape="DisplayXLarge" />
       ) : (
-        <HStack flex="1">
+        <HStack flex="1" alignItems="center">
           <Typography.Display2XLarge numberOfLines={2} isTruncated>
             <FormatCurrencyNumber decimals={2} value={accountAllValues.value} />
           </Typography.Display2XLarge>
@@ -108,7 +108,7 @@ const AccountAmountInfo: FC = () => {
 
   return (
     <Box alignItems="flex-start" flex="1">
-      <Box mx="-8px" my="-4px" flexDir="row">
+      <Box mx="-8px" my="-4px" flexDir="row" alignItems="center">
         <Tooltip
           hasArrow
           placement="top"
@@ -145,8 +145,6 @@ const AccountAmountInfo: FC = () => {
             label={intl.formatMessage({ id: 'form__blockchain_browser' })}
           >
             <Pressable
-              flexDirection="row"
-              alignItems="center"
               p={1}
               rounded="full"
               _hover={{ bg: 'surface-hovered' }}
@@ -176,10 +174,11 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { wallet, account } = useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
+  const iconBoxFlex = isVertical ? 1 : 0;
 
   return (
-    <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+    <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -203,7 +202,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__send' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -232,7 +231,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -263,7 +262,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <AccountMoreMenu offset={platformEnv.isNativeAndroid ? 55 : 30}>
           <IconButton
             circle

@@ -29,8 +29,6 @@ import {
 } from '../../utils/useBatchSendConfirmFeeInfoPayload';
 import { useReloadAccountBalance } from '../../utils/useReloadAccountBalance';
 
-import { BatchSendConfirmLoading } from './BatchSendConfirmLoading';
-
 import type {
   BatchSendProgressParams,
   IBatchTxsConfirmViewProps,
@@ -239,6 +237,8 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     />
   );
 
+  const isWaitingTxReady = !decodedTx || !encodedTx;
+
   const tokenTransferInfo =
     transferType === BulkSenderTypeEnum.NativeToken ||
     transferType === BulkSenderTypeEnum.Token ? (
@@ -267,6 +267,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     totalFeeInNative,
     feeInput,
     tokenTransferInfo,
+    isWaitingTxReady,
     isSingleTransformMode,
 
     handleConfirm,
@@ -313,11 +314,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       )}
     />
   );
-
-  const isWaitingTxReady = !decodedTx || !encodedTx;
-  if (isWaitingTxReady) {
-    return <BatchSendConfirmLoading {...sharedProps} />;
-  }
 
   return <BatchSendConfirmModalBase {...sharedProps} />;
 }

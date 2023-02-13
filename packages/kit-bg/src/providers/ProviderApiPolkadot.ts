@@ -250,10 +250,9 @@ class ProviderApiPolkadot extends ProviderApiBase {
       });
     }
 
-    const vault = (await this.backgroundApi.engine.getVault({
+    const vault = (await this.backgroundApi.engine.getChainOnlyVault(
       networkId,
-      accountId: selectAccount.id,
-    })) as VaultDot;
+    )) as VaultDot;
 
     const metadata = await vault.getMetadataRpcCache();
 

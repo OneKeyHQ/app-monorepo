@@ -1556,6 +1556,7 @@ class RealmDB implements DBAPI {
     accountId: string,
     password: string,
     rollbackNextAccountIds: Record<string, number>,
+    skipPasswordCheck?: boolean,
   ): Promise<void> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
@@ -1591,7 +1592,10 @@ class RealmDB implements DBAPI {
         if (typeof context === 'undefined') {
           return Promise.reject(new OneKeyInternalError('Context not found.'));
         }
-        if (!checkPassword(context.internalObj, password)) {
+        if (
+          !checkPassword(context.internalObj, password) &&
+          !skipPasswordCheck
+        ) {
           return Promise.reject(new WrongPassword());
         }
       }
@@ -1732,7 +1736,7 @@ class RealmDB implements DBAPI {
    * @param address
    * @throws {OneKeyInternalError, NotImplemented}
    */
-  addAccountAddress(
+  updateAccountAddresses(
     accountId: string,
     networkId: string,
     address: string,
@@ -1748,11 +1752,6 @@ class RealmDB implements DBAPI {
         );
       }
       switch (account.type) {
-        case AccountType.SIMPLE:
-          this.realm!.write(() => {
-            account.address = address;
-          });
-          break;
         case AccountType.VARIANT:
           this.realm!.write(() => {
             account.addresses![networkId] = address;

@@ -91,7 +91,6 @@ export type SendConfirmResendActionInfo = {
 };
 export type SendConfirmPayloadBase = {
   payloadType: 'Transfer' | 'InternalSwap';
-  keepAlive?: boolean;
 };
 export type SendConfirmPayload =
   | SendConfirmPayloadBase
@@ -159,6 +158,11 @@ export type SendAuthenticationParams = Omit<
   encodedTx?: IEncodedTx;
 };
 
+export type SendSpecialWarningParams = SendAuthenticationParams & {
+  hintMsgKey: string;
+  hintMsgParams?: any;
+};
+
 export type SendFeedbackReceiptParams = {
   networkId: string;
   accountId: string;
@@ -184,6 +188,7 @@ export type SendRoutesParams = {
   [SendRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
   [SendRoutes.SendConfirm]: SendConfirmParams;
   [SendRoutes.SendAuthentication]: SendAuthenticationParams;
+  [SendRoutes.SendSpecialWarning]: SendSpecialWarningParams;
   [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
   [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
   [SendRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
@@ -335,6 +340,7 @@ export type IBatchTxsConfirmViewProps = ModalProps & {
   totalFeeInNative: number;
   feeInput?: JSX.Element;
   tokenTransferInfo?: JSX.Element | null;
+  isWaitingTxReady?: boolean;
   isSingleTransformMode?: boolean;
 
   confirmDisabled?: boolean;

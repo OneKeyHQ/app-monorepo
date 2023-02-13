@@ -11,6 +11,7 @@ import {
   Icon,
   Pressable,
   Text,
+  ToastManager,
   Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -30,7 +31,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { showAmountEditor } from './AmountEditor';
 import { showApprovalSelector } from './ApprovalSelector';
-import { showDeflationaryTip } from './DeflationaryTip';
+// import { showDeflationaryTip } from './DeflationaryTip';
 import { useValidteReceiver } from './hooks';
 import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
@@ -69,7 +70,7 @@ function TokenOutbox(props: Props) {
   const isNative = type === BulkSenderTypeEnum.NativeToken;
   const initialToken = isNative ? nativeToken : tokens[0];
 
-  const balance = useTokenBalance({
+  const tokenBalnace = useTokenBalance({
     accountId,
     networkId,
     token: selectedToken || initialToken,
@@ -80,16 +81,17 @@ function TokenOutbox(props: Props) {
       intl.formatMessage(
         { id: 'content__balance_str' },
         {
-          0: balance,
+          0: tokenBalnace,
         },
       ),
-    [intl, balance],
+    [intl, tokenBalnace],
   );
 
   const { isValid, isValidating, errors } = useValidteReceiver({
     networkId,
     receiver,
     type,
+    token: selectedToken || initialToken,
   });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
@@ -134,6 +136,31 @@ function TokenOutbox(props: Props) {
     });
   }, [isUnlimited]);
 
+  const verifyBulkTransferBeforeConfirm = useCallback(
+    (transferInfos: ITransferInfo[], token?: Token) => {
+      const totalAmount = transferInfos.reduce(
+        (sum, next) => sum.plus(next.amount),
+        new BigNumber(0),
+      );
+
+      if (totalAmount.gt(tokenBalnace)) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              { id: 'form__amount_invalid' },
+              { '0': token?.symbol },
+            ),
+          },
+          { type: 'error' },
+        );
+        return false;
+      }
+
+      return true;
+    },
+    [tokenBalnace, intl],
+  );
+
   const handlePreviewTransfer = useCallback(async () => {
     if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
       return;
@@ -151,6 +178,14 @@ function TokenOutbox(props: Props) {
         sendAddress: token?.sendAddress,
       });
     }
+
+    const verified = verifyBulkTransferBeforeConfirm(transferInfos, token);
+
+    if (!verified) {
+      setIsBuildingTx(false);
+      return;
+    }
+
     const encodedApproveTxs =
       await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
         networkId,
@@ -169,13 +204,40 @@ function TokenOutbox(props: Props) {
           : prevNonce;
     }
 
-    const encodedTx =
-      await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
-        networkId,
-        accountId,
-        transferInfos,
-        prevNonce,
-      });
+    const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
+    // const maxActionsInTx = 9;
+    const transferInfoGroup = [];
+
+    if (maxActionsInTx > 0) {
+      for (
+        let i = 0, len = transferInfos.length;
+        i < len;
+        i += maxActionsInTx
+      ) {
+        transferInfoGroup.push(transferInfos.slice(i, i + maxActionsInTx));
+      }
+    } else {
+      transferInfoGroup.push(transferInfos);
+    }
+
+    const encodedTxs = [];
+
+    for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
+      // @ts-ignore
+      const encodedTx =
+        await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
+          networkId,
+          accountId,
+          transferInfos: transferInfoGroup[i],
+          prevNonce,
+        });
+      prevNonce = (encodedTx as IEncodedTxEvm).nonce;
+      prevNonce =
+        prevNonce !== undefined
+          ? new BigNumber(prevNonce).toNumber()
+          : prevNonce;
+      encodedTxs.push(encodedTx);
+    }
 
     setIsBuildingTx(false);
 
@@ -188,7 +250,7 @@ function TokenOutbox(props: Props) {
           accountId,
           feeInfoUseFeeInTx: false,
           feeInfoEditable: true,
-          encodedTxs: [...encodedApproveTxs, encodedTx],
+          encodedTxs: [...encodedApproveTxs, ...encodedTxs],
           transferCount: transferInfos.length,
           transferType: type,
           payloadInfo: {
@@ -207,11 +269,13 @@ function TokenOutbox(props: Props) {
     isValid,
     isValidating,
     navigation,
+    network?.settings?.maxActionsInTx,
     networkId,
     receiver,
     selectedToken,
     serviceBatchTransfer,
     type,
+    verifyBulkTransferBeforeConfirm,
   ]);
 
   useFocusEffect(
@@ -230,12 +294,6 @@ function TokenOutbox(props: Props) {
       };
     }, [accountId, networkId, serviceOverview, serviceToken]),
   );
-
-  useEffect(() => {
-    if (accountId && networkId) {
-      backgroundApiProxy.serviceOverview.subscribe();
-    }
-  }, [accountId, networkId]);
 
   useEffect(() => {
     if (accountId && networkId) {
@@ -262,7 +320,7 @@ function TokenOutbox(props: Props) {
               showInfo
               showTokenVerifiedIcon={false}
               token={selectedToken || initialToken}
-              name={selectedToken?.symbol || initialToken?.symbol}
+              name={selectedToken?.name || initialToken?.name}
               showExtra={false}
               description={formatedBalance}
             />

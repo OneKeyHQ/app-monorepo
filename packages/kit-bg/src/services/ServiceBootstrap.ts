@@ -1,7 +1,8 @@
 import { networkList } from '@onekeyfe/network-list';
-import { omit } from 'lodash';
+import { pick } from 'lodash';
 import semver from 'semver';
 
+import { getWalletTypeFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import {
   convertCategoryToTemplate,
   getDBAccountTemplate,
@@ -12,6 +13,7 @@ import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/red
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
@@ -22,8 +24,6 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
-
-import type { IServiceBaseProps } from './ServiceBase';
 
 // should upate AUTO_SWITCH_DEFAULT_RPC_AT_VERSION version first
 const defaultNetworkRpcs: Record<string, string> = {
@@ -70,15 +70,19 @@ const defaultNetworkRpcs: Record<string, string> = {
 export default class ServiceBootstrap extends ServiceBase {
   private fetchFiatTimer: NodeJS.Timeout | null = null;
 
-  constructor(props: IServiceBaseProps) {
-    super(props);
-
+  @bindThis()
+  bootstrap() {
     const {
       serviceOverview,
       serviceAccount,
       serviceToken,
       serviceNetwork,
       serviceSwap,
+      serviceSetting,
+      serviceOnboarding,
+      serviceCloudBackup,
+      serviceTranslation,
+      serviceDiscover,
     } = this.backgroundApi;
 
     this.migrateAccountDerivationTable();
@@ -87,6 +91,15 @@ export default class ServiceBootstrap extends ServiceBase {
     serviceNetwork.registerEvents();
     serviceSwap.registerEvents();
     serviceAccount.registerEvents();
+
+    this.syncAccounts();
+    this.fetchFiatMoneyRate();
+    this.switchDefaultRpcToOnekeyRpcNode();
+    serviceOnboarding.checkOnboardingStatus();
+    serviceSetting.updateRemoteSetting();
+    serviceCloudBackup.initCloudBackup();
+    serviceTranslation.getTranslations();
+    serviceDiscover.getCompactList();
   }
   // eslint-disable-next-line
   @backgroundMethod()
@@ -248,8 +261,8 @@ export default class ServiceBootstrap extends ServiceBase {
     const accounts = (
       await engine.getAccounts(wallets.map((w) => w.accounts).flat())
     ).map((n) => ({
-      ...omit(n, 'tokens'),
-      walletType: wallets.find((w) => w.accounts.includes(n.id))?.type,
+      ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
+      walletType: getWalletTypeFromAccountId(n.id),
     }));
     fetchData(
       '/overview/syncAccounts',

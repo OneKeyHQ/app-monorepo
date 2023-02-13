@@ -12,6 +12,7 @@ import {
   IMPL_BTC,
   IMPL_COSMOS,
   IMPL_DOGE,
+  IMPL_DOT,
   IMPL_LTC,
   IMPL_TBTC,
   SEPERATOR,
@@ -32,6 +33,8 @@ import type { UserInputCheckResult } from './types/credential';
 
 const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
 const FEE_PRICE_HIGH_VALUE_TIMES = 4;
+
+const FORK_CHAIN_ADDRESS_NOT_DIFFERENT = [IMPL_COSMOS, IMPL_DOT];
 
 class Validators {
   private _dbApi: DBAPI;
@@ -134,7 +137,7 @@ class Validators {
     for (const [impl, networks] of Object.entries(
       await this.engine.listEnabledNetworksGroupedByVault(),
     )) {
-      if (impl === IMPL_COSMOS) {
+      if (FORK_CHAIN_ADDRESS_NOT_DIFFERENT.includes(impl)) {
         for (const network of networks) {
           const result = await this.matchingInputType(
             input,

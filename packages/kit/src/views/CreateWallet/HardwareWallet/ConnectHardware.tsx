@@ -239,7 +239,7 @@ const ConnectHardwareModal: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<ReturnType<typeof setInterval>>();
   const waitPreviousSearchFinished = (device: SearchDevice) =>
     new Promise<void>((resolve) => {
       if (!deviceUtils) return;

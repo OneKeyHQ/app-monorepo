@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,21 +7,126 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Collapse,
+  Dialog,
+  DialogManager,
+  Image,
   Text,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import defiLogoShadow from '@onekeyhq/kit/assets/defiLogoShadow.png';
 
 import { ErrorBoundary } from '../../../../components/ErrorBoundary';
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountValues, useActiveWalletAccount } from '../../../../hooks';
+import {
+  useAccountValues,
+  useActiveWalletAccount,
+  useNavigation,
+} from '../../../../hooks';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
+import { openDapp } from '../../../../utils/openUrl';
 
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
 
 import type { OverviewDeFiPoolType, OverviewDefiRes } from '../../types';
+
+const OpenDappDialog: FC<{
+  protocol: OverviewDefiRes;
+  onClose?: () => void;
+  onConfirm: () => void;
+}> = ({ onConfirm, protocol, onClose }) => {
+  const intl = useIntl();
+  const { network } = useActiveWalletAccount();
+  return (
+    <Dialog
+      visible
+      onClose={onClose}
+      contentProps={{
+        icon: (
+          <Box
+            size="52px"
+            borderRadius="12px"
+            borderWidth="1px"
+            borderColor="border-subdued"
+            overflow="hidden"
+            position="relative"
+          >
+            <Image
+              size="full"
+              src={protocol.protocolIcon}
+              alt={protocol.protocolName}
+            />
+            <Image
+              source={defiLogoShadow}
+              w="35px"
+              h="25px"
+              position="absolute"
+              bottom="0"
+              right="0"
+              zIndex="1"
+            />
+            <Image
+              src={network?.logoURI ?? ''}
+              w="12px"
+              h="12px"
+              position="absolute"
+              bottom="2px"
+              right="2px"
+              zIndex="2"
+            />
+          </Box>
+        ),
+        title: protocol.protocolName,
+        contentElement: (
+          <VStack>
+            <Typography.Body2 textAlign="center">
+              {protocol.protocolUrl ?? ''}
+            </Typography.Body2>
+            <Typography.Body2 mt="6" textAlign="center">
+              {intl.formatMessage({
+                id: 'content__you_are_about_to_visit_this_site_in_a_dapp_browser_do_you_want_to_continue',
+              })}
+            </Typography.Body2>
+          </VStack>
+        ),
+      }}
+      footerButtonProps={{
+        primaryActionTranslationId: 'action__visit',
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        onPrimaryActionPress: ({ onClose }) => {
+          onClose?.();
+          onConfirm?.();
+        },
+      }}
+    />
+  );
+};
+
+export const useOpenProtocolUrl = (protocol: OverviewDefiRes | undefined) => {
+  const navigation = useNavigation();
+  const isVertical = useIsVerticalLayout();
+
+  const open = useCallback(() => {
+    openDapp(protocol?.protocolUrl ?? '');
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [protocol?.protocolUrl, navigation]);
+
+  return useCallback(() => {
+    if (!protocol?.protocolUrl) {
+      return;
+    }
+    if (!isVertical) {
+      return open();
+    }
+    DialogManager.show({
+      render: <OpenDappDialog protocol={protocol} onConfirm={open} />,
+    });
+  }, [protocol, isVertical, open]);
+};
 
 const PoolName: FC<{
   poolType: OverviewDeFiPoolType;
@@ -44,16 +149,18 @@ export const OverviewDefiProtocol: FC<
     showHeader?: boolean;
     bgColor?: string;
   }
-> = ({
-  _id,
-  pools,
-  protocolValue,
-  protocolName,
-  protocolIcon,
-  claimableValue,
-  showHeader = true,
-  bgColor,
-}) => {
+> = (props) => {
+  const {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    _id,
+    pools,
+    protocolValue,
+    protocolName,
+    protocolIcon,
+    claimableValue,
+    showHeader = true,
+    bgColor,
+  } = props;
   const intl = useIntl();
 
   const fiat = useCurrentFiatValue();
@@ -64,6 +171,8 @@ export const OverviewDefiProtocol: FC<
     networkId,
     accountId,
   });
+
+  const open = useOpenProtocolUrl(props);
 
   const rate = useMemo(
     () =>
@@ -110,6 +219,7 @@ export const OverviewDefiProtocol: FC<
           showHeader ? (
             <OverviewDefiBoxHeader
               name={protocolName}
+              onOpenDapp={open}
               rate={rate}
               desc={
                 <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>

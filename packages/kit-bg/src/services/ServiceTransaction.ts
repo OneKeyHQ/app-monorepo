@@ -1,3 +1,4 @@
+import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
 import type {
   IEncodedTx,
   IFeeInfoUnit,
@@ -15,17 +16,21 @@ export type IServiceBaseProps = {
   backgroundApi: any;
 };
 
+export type ISendTransactionParams = {
+  accountId: string;
+  networkId: string;
+  encodedTx: IEncodedTx;
+  payload?: SendConfirmParams['payloadInfo'];
+  feePresetIndex?: string;
+  autoFallback?: boolean;
+};
+
 @backgroundClass()
 export default class ServiceTransaction extends ServiceBase {
   @backgroundMethod()
-  async sendTransaction(params: {
-    accountId: string;
-    networkId: string;
-    encodedTx: IEncodedTx;
-    payload?: SendConfirmParams['payloadInfo'];
-    feePresetIndex?: string;
-  }) {
-    const { accountId, networkId, encodedTx, feePresetIndex } = params;
+  async sendTransaction(params: ISendTransactionParams) {
+    const { accountId, networkId, encodedTx, feePresetIndex, autoFallback } =
+      params;
     const { engine, servicePassword, serviceHistory, appSelector } =
       this.backgroundApi;
     const network = await engine.getNetwork(params.networkId);
@@ -33,7 +38,6 @@ export default class ServiceTransaction extends ServiceBase {
     const activeWallet = wallets.find((wallet) =>
       wallet.accounts.includes(accountId),
     );
-
     let password: string | undefined;
     if (activeWallet?.type === 'hw') {
       password = '';
@@ -55,11 +59,13 @@ export default class ServiceTransaction extends ServiceBase {
       });
 
       if (Number.isNaN(Number(feeInfo.limit))) {
-        throw Error('bad limit');
+        // throw Error('bad limit');
+        throw new FailedToEstimatedGasError();
       }
 
       if (network.impl === IMPL_EVM && Number(feeInfo.limit) <= 0) {
-        throw Error('gas limit <= 0');
+        // throw Error('gas limit <= 0');
+        throw new FailedToEstimatedGasError();
       }
 
       let price = feeInfo.prices[feeInfo.prices.length - 1];
@@ -77,29 +83,33 @@ export default class ServiceTransaction extends ServiceBase {
         price,
       };
     } catch {
-      if (network.impl === IMPL_EVM) {
-        const gasPrice = await engine.getGasPrice(params.networkId);
+      if (autoFallback) {
+        if (network.impl === IMPL_EVM) {
+          const gasPrice = await engine.getGasPrice(params.networkId);
+          const blockData = await engine.proxyJsonRPCCall(params.networkId, {
+            method: 'eth_getBlockByNumber',
+            params: ['latest', false],
+          });
 
-        const blockData = await engine.proxyJsonRPCCall(params.networkId, {
-          method: 'eth_getBlockByNumber',
-          params: ['latest', false],
-        });
+          const blockReceipt = blockData as {
+            gasLimit: string;
+            gasUsed: string;
+          };
+          const maxLimit = +blockReceipt.gasLimit / 10;
+          const gasUsed = 100 * 10000;
+          const limit = Math.min(maxLimit, gasUsed);
 
-        const blockReceipt = blockData as { gasLimit: string; gasUsed: string };
-        const maxLimit = +blockReceipt.gasLimit / 10;
-        const gasUsed = 100 * 10000;
-        const limit = Math.min(maxLimit, gasUsed);
-
-        feeInfoUnit = {
-          eip1559: typeof gasPrice[0] === 'object',
-          limit: String(limit),
-          price: gasPrice[gasPrice.length - 1],
-        };
+          feeInfoUnit = {
+            eip1559: typeof gasPrice[0] === 'object',
+            limit: String(limit),
+            price: gasPrice[gasPrice.length - 1],
+          };
+        }
       }
     }
 
     if (!feeInfoUnit) {
-      throw new Error('failed to estimate gas');
+      throw new FailedToEstimatedGasError();
     }
 
     const encodedTxWithFee = await engine.attachFeeInfoToEncodedTx({

@@ -16,6 +16,7 @@ import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
   formatDecimalZero,
+  formatMarketUnitPosition,
   formatMarketValueForComma,
   formatMarketValueForInfo,
   formatMarketVolatility,
@@ -35,26 +36,29 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
 }) => {
   const { selectedFiatMoneySymbol } = useSettings();
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
-  const intl = useIntl();
   const marketTokenItem: MarketTokenItem = useMarketTokenItem({
     coingeckoId: marketTokenId,
     isList: true,
   });
-  const totalVolume = useMemo(() => {
-    if (!marketTokenItem?.totalVolume) {
+  const marketCap = useMemo(() => {
+    if (!marketTokenItem?.marketCap) {
       return '';
     }
-    return `${unit}${formatMarketValueForInfo(marketTokenItem?.totalVolume)}`;
-  }, [marketTokenItem?.totalVolume, unit]);
+    return formatMarketUnitPosition(
+      unit,
+      formatMarketValueForInfo(marketTokenItem?.marketCap),
+    );
+  }, [marketTokenItem?.marketCap, unit]);
   const tokenPrice = useMemo(() => {
     if (!marketTokenItem?.price) {
       return '';
     }
-    return `${unit}${
+    return formatMarketUnitPosition(
+      unit,
       marketTokenItem.price <= 1
         ? formatDecimalZero(marketTokenItem.price)
-        : formatMarketValueForComma(marketTokenItem.price)
-    }`;
+        : formatMarketValueForComma(marketTokenItem.price),
+    );
   }, [marketTokenItem?.price, unit]);
   const percentage = useMemo(() => {
     if (!marketTokenItem?.priceChangePercentage24H) {
@@ -109,16 +113,9 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
               ) : (
                 <Skeleton shape="Body2" />
               )}
-              {marketTokenItem && marketTokenItem.totalVolume !== undefined ? (
+              {marketTokenItem && marketTokenItem.marketCap !== undefined ? (
                 <Typography.Body2 numberOfLines={1} color="text-subdued">
-                  {intl.formatMessage(
-                    {
-                      id: 'form__vol_str',
-                    },
-                    {
-                      0: totalVolume,
-                    },
-                  )}
+                  {marketCap}
                 </Typography.Body2>
               ) : (
                 <Skeleton shape="Body2" />
@@ -154,19 +151,15 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
                   borderRadius="6px"
                   backgroundColor={
                     marketTokenItem.priceChangePercentage24H >= 0
-                      ? 'surface-success-subdued'
-                      : 'surface-critical-subdued'
+                      ? 'focused-default'
+                      : 'focused-critical'
                   }
                   alignItems="center"
                   justifyContent="center"
                 >
                   <Typography.Body2Strong
                     textAlign="center"
-                    color={
-                      marketTokenItem.priceChangePercentage24H >= 0
-                        ? 'text-success'
-                        : 'text-critical'
-                    }
+                    color="text-on-primary"
                   >
                     {percentage}
                   </Typography.Body2Strong>

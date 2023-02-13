@@ -30,6 +30,7 @@ type FormItemProps = {
   helpText?: string | ((v: any) => string | ReactElement) | ReactElement;
   successMessage?: string | undefined;
   warningMessage?: string | undefined;
+  errorMessage?: string | undefined;
   onLabelAddonPress?: () => void;
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
@@ -40,6 +41,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   helpText,
   successMessage,
   warningMessage,
+  errorMessage,
   children,
   name,
   rules,
@@ -182,6 +184,9 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             ) : null}
             {error && error?.message ? (
               <FormControlMessage type="error" message={error?.message} />
+            ) : null}
+            {!error && errorMessage ? (
+              <FormControlMessage type="error" message={errorMessage} />
             ) : null}
             {warningMessage ? (
               <FormControlMessage type="warning" message={warningMessage} />

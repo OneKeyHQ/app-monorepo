@@ -217,6 +217,7 @@ export type OverviewDefiRes = {
   pools: [OverviewDeFiPoolType, IOverviewDeFiPortfolioItem[]][];
   poolSize: number;
   protocolValue: string;
+  protocolUrl?: string;
   protocolValue24h: string;
   claimableValue: string;
   protocolName: string;

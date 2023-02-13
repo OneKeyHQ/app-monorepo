@@ -33,4 +33,5 @@ export type ListHeadTagType = {
   textAlign?: 'center' | 'left' | 'right';
   showVerticalLayout?: boolean;
   showNorMalDevice?: boolean;
+  dislocation?: { id: EMarketCellData; title: MessageDescriptor['id'] };
 };

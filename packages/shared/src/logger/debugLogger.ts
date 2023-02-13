@@ -1,5 +1,4 @@
 import { format as fnsFormat } from 'date-fns';
-import * as FileSystem from 'expo-file-system';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
 import {
@@ -13,6 +12,10 @@ import { stringify } from 'circular-json';
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 import { toPlainErrorObject } from '../utils/errorUtils';
+
+const RNFS: typeof import('react-native-fs') = platformEnv.isNative
+  ? require('react-native-fs')
+  : {};
 
 type IConsoleFuncProps = {
   msg: any;
@@ -76,9 +79,9 @@ const NATIVE_TRANSPORT_CONFIG = {
     ? [fileAsyncTransport, consoleTransport]
     : [fileAsyncTransport],
   transportOptions: {
-    FS: FileSystem,
+    FS: RNFS,
     fileName: 'log.txt',
-    filePath: FileSystem.cacheDirectory,
+    filePath: RNFS.CachesDirectoryPath,
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       if (platformEnv.isDev) {
         logToConsole(props);
@@ -193,12 +196,9 @@ if (platformEnv.isDev) {
 if (platformEnv.isNative) {
   const removePreviousLogFile = async () => {
     try {
-      const filePath = `${FileSystem.cacheDirectory ?? ''}log.txt`;
-      const fileInfo = await FileSystem.getInfoAsync(filePath);
-      if (fileInfo.exists) {
-        await FileSystem.deleteAsync(filePath);
-        debugLogger.backgroundApi.info('previous log file deleted at init');
-      }
+      const filePath = `${RNFS.CachesDirectoryPath ?? ''}log.txt`;
+      await RNFS.unlink(filePath);
+      debugLogger.backgroundApi.info('previous log file deleted at init');
     } catch (e) {
       // ignore
     }

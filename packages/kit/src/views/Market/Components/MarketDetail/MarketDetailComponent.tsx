@@ -25,7 +25,10 @@ import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { buildAddressDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
-import { formatMarketValueForInfo } from '../../utils';
+import {
+  formatMarketUnitPosition,
+  formatMarketValueForInfo,
+} from '../../utils';
 
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoLinks } from './MarketInfoLinks';
@@ -48,13 +51,21 @@ const ExplorerAction = ({
   explorer: MarketEXplorer;
 }) => {
   const intl = useIntl();
-  const { network } = useNetwork({ networkId: explorer.networkId });
+  const { width } = useGridBoxStyle({
+    index,
+    maxW: SCREEN_SIZE.LARGE,
+    outPadding: 32,
+  });
   const copyAction = useCallback(() => {
-    copyToClipboard(explorer.contractAddress ?? '');
+    setTimeout(() => {
+      if (!explorer.contractAddress) return;
+      copyToClipboard(explorer.contractAddress);
+    }, 200);
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__copied' }),
     });
   }, [explorer.contractAddress, intl]);
+  const { network } = useNetwork({ networkId: explorer.networkId });
   const ExplorerComponent = useCallback(
     (i, e, triggerProps) => (
       <MarketInfoExplorer
@@ -68,6 +79,7 @@ const ExplorerAction = ({
   );
   return (
     <Menu
+      width={width}
       trigger={(triggerProps) =>
         ExplorerComponent(index, explorer, triggerProps)
       }
@@ -118,15 +130,20 @@ const DataViewComponent: FC<DataViewComponentProps> = ({
         alignItems="center"
         justifyContent="space-between"
         mb="3"
+        flex={1}
       >
         <Typography.Body2Strong color="text-subdued">
           {title}
         </Typography.Body2Strong>
-        <Box alignItems="flex-end">
+        <Box alignItems="flex-end" flex={1}>
           {isFetching ? (
             <Skeleton shape="Body2" />
           ) : (
-            <Typography.Body2Strong color={valueColor ?? 'text-default'}>
+            <Typography.Body2Strong
+              textAlign="right"
+              numberOfLines={2}
+              color={valueColor ?? 'text-default'}
+            >
               {value}
             </Typography.Body2Strong>
           )}
@@ -182,7 +199,6 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
-
   return (
     <Box px={px}>
       <VStack space={6} mt={2}>
@@ -195,7 +211,10 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               index={0}
               isFetching={marketCap === undefined}
               title={intl.formatMessage({ id: 'form__market_cap' })}
-              value={`${unit}${formatMarketValueForInfo(marketCap)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(marketCap),
+              )}
             />
             <DataViewComponent
               index={1}
@@ -206,38 +225,53 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
             <DataViewComponent
               index={2}
               isFetching={marketCapDominance === undefined}
-              title={intl.formatMessage({ id: 'form__market_cap_dominance' })}
+              title={intl.formatMessage({ id: 'form__dominance' })}
               value={`${marketCapDominance || 0}`}
             />
             <DataViewComponent
               index={3}
               isFetching={volume24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_volume' })}
-              value={`${unit}${formatMarketValueForInfo(volume24h)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(volume24h),
+              )}
             />
             <DataViewComponent
               index={4}
               isFetching={low24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_low' })}
-              value={`${unit}${formatMarketValueForInfo(low24h)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(low24h),
+              )}
             />
             <DataViewComponent
               index={5}
               isFetching={high24h === undefined}
               title={intl.formatMessage({ id: 'form__24h_high' })}
-              value={`${unit}${formatMarketValueForInfo(high24h)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(high24h),
+              )}
             />
             <DataViewComponent
               index={6}
               isFetching={atl?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_low' })}
-              value={`${unit}${formatMarketValueForInfo(atl?.value)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(atl?.value),
+              )}
             />
             <DataViewComponent
               index={7}
               isFetching={ath?.value === undefined}
               title={intl.formatMessage({ id: 'form__all_time_high' })}
-              value={`${unit}${formatMarketValueForInfo(ath?.value)}`}
+              value={formatMarketUnitPosition(
+                unit,
+                formatMarketValueForInfo(ath?.value),
+              )}
             />
           </Box>
         </Box>
@@ -247,9 +281,27 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               {intl.formatMessage({ id: 'form__explorers' })}
             </Typography.Heading>
             <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
-              {expolorers?.map((e: MarketEXplorer, i) => (
-                <ExplorerAction explorer={e} index={i} />
-              ))}
+              {expolorers?.map((e: MarketEXplorer, i) => {
+                if (e.url) {
+                  return (
+                    <MarketInfoExplorer
+                      key={i}
+                      index={i}
+                      explorer={e}
+                      onPress={() => {
+                        openUrl(
+                          e.url ?? '',
+                          intl.formatMessage({ id: 'form__explorers' }),
+                          {
+                            modalMode: true,
+                          },
+                        );
+                      }}
+                    />
+                  );
+                }
+                return <ExplorerAction explorer={e} index={i} />;
+              })}
             </Box>
           </Box>
         ) : null}

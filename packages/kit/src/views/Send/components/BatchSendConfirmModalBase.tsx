@@ -7,7 +7,9 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Box,
+  Center,
   HStack,
+  Spinner,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -43,6 +45,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
     sourceInfo,
     feeInput,
     tokenTransferInfo,
+    isWaitingTxReady,
     isSingleTransformMode,
     ...others
   } = props;
@@ -158,6 +161,7 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
           !feeInfoPayload ||
           !encodedTx ||
           !decodedTx ||
+          isWaitingTxReady ||
           confirmDisabled,
       }}
       secondaryActionTranslationId="action__cancel"
@@ -170,18 +174,27 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
       onPrimaryActionPress={confirmAction}
       {...others}
       scrollViewProps={{
-        children:
-          !isVertical && !isSingleTransformMode ? (
-            <HStack space={6}>
-              <Box flex={1}>{transactionDetailView}</Box>
-              <Box flex={1}>{transactionInfoView}</Box>
-            </HStack>
-          ) : (
-            <>
-              {transactionInfoView}
-              {transactionDetailView}
-            </>
-          ),
+        children: (
+          <>
+            {isWaitingTxReady && (
+              <Center minH="320px" w="full" h="full" flex={1}>
+                <Spinner size="lg" />
+              </Center>
+            )}
+            {!isWaitingTxReady &&
+              (!isVertical && !isSingleTransformMode ? (
+                <HStack space={6}>
+                  <Box flex={1}>{transactionDetailView}</Box>
+                  <Box flex={1}>{transactionInfoView}</Box>
+                </HStack>
+              ) : (
+                <>
+                  {transactionInfoView}
+                  {transactionDetailView}
+                </>
+              ))}
+          </>
+        ),
       }}
     />
   );
