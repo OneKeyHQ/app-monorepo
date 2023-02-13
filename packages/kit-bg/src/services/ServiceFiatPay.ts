@@ -8,7 +8,7 @@ import {
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
-class FiatPayNFT extends ServiceBase {
+class ServiceFiatPay extends ServiceBase {
   get baseUrl() {
     return `${getFiatEndpoint()}/moonpay`;
   }
@@ -36,4 +36,4 @@ class FiatPayNFT extends ServiceBase {
   }
 }
 
-export default FiatPayNFT;
+export default ServiceFiatPay;
