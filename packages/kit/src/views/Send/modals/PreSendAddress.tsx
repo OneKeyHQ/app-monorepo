@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -72,6 +72,7 @@ function NFTView({ asset, total }: { asset?: NFTAsset; total: number }) {
 
 function PreSendAddress() {
   const intl = useIntl();
+  const timer = useRef<ReturnType<typeof setTimeout>>();
   const route = useRoute<RouteProps>();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusAddressSecurity)[]
@@ -135,15 +136,19 @@ function PreSendAddress() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transferInfo.tokenId, transferInfo.token]);
 
+  const [validateMessage, setvalidateMessage] = useState({
+    warningMessage: '',
+    successMessage: '',
+    errorMessage: '',
+  });
+
   const submitDisabled =
     isLoading ||
     !formValues?.to ||
     !isValid ||
     formState.isValidating ||
-    disableSubmitBtn;
-
-  const [warningMessage, setWarningMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+    disableSubmitBtn ||
+    validateMessage.errorMessage.length > 0;
 
   const fetchSecurityInfo = useCallback(async () => {
     if (submitDisabled) {
@@ -396,6 +401,90 @@ function PreSendAddress() {
     [networkId, syncStateAndReTriggerValidate],
   );
 
+  const validateHandle = useCallback(
+    (value: string) => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+      }
+      timer.current = setTimeout(async () => {
+        const toAddress = resolvedAddress || value || '';
+        setvalidateMessage({
+          warningMessage: '',
+          errorMessage: '',
+          successMessage: '',
+        });
+        if (!toAddress) {
+          return undefined;
+          // return intl.formatMessage({
+          //   id: 'form__address_invalid',
+          // });
+        }
+        try {
+          await backgroundApiProxy.validator.validateAddress(
+            networkId,
+            toAddress,
+          );
+          await backgroundApiProxy.validator.validatePreSendAddress({
+            address: toAddress,
+            networkId,
+            accountId,
+          });
+        } catch (error0: any) {
+          if (isValidNameServiceName && !resolvedAddress) return undefined;
+          const { key, info } = error0;
+          if (key) {
+            setvalidateMessage({
+              warningMessage: '',
+              successMessage: '',
+              errorMessage: intl.formatMessage(
+                {
+                  id: key,
+                },
+                info ?? {},
+              ),
+            });
+            return false;
+          }
+          setvalidateMessage({
+            warningMessage: '',
+            successMessage: '',
+            errorMessage: intl.formatMessage({
+              id: 'form__address_invalid',
+            }),
+          });
+          return false;
+        }
+        const isContractAddress = await isContractAddressCheck(toAddress);
+        if (isContractAddress) {
+          setvalidateMessage({
+            warningMessage: intl.formatMessage({
+              id: 'msg__the_recipient_address_is_a_contract_address',
+            }),
+            successMessage: '',
+            errorMessage: '',
+          });
+        } else {
+          setvalidateMessage({
+            warningMessage: '',
+            successMessage: intl.formatMessage({
+              id: 'form__enter_recipient_address_valid',
+            }),
+            errorMessage: '',
+          });
+        }
+        return true;
+      }, 100);
+    },
+    [
+      accountId,
+      intl,
+      isContractAddressCheck,
+      isValidNameServiceName,
+      networkId,
+      resolvedAddress,
+    ],
+  );
+
   return (
     <BaseSendModal
       accountId={accountId}
@@ -425,8 +514,9 @@ function PreSendAddress() {
               )}
               <Form.Item
                 control={control}
-                warningMessage={warningMessage}
-                successMessage={successMessage}
+                warningMessage={validateMessage.warningMessage}
+                successMessage={validateMessage.successMessage}
+                errorMessage={validateMessage.errorMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 helpText={helpTextOfNameServiceResolver}
@@ -434,65 +524,7 @@ function PreSendAddress() {
                   // required is NOT needed, as submit button should be disabled
                   // required: intl.formatMessage({ id: 'form__address_invalid' }),
                   // @ts-expect-error
-                  validate: async (value: string) => {
-                    const toAddress = resolvedAddress || value || '';
-                    setSuccessMessage('');
-                    setWarningMessage('');
-                    if (!toAddress) {
-                      return undefined;
-                      // return intl.formatMessage({
-                      //   id: 'form__address_invalid',
-                      // });
-                    }
-                    try {
-                      await backgroundApiProxy.validator.validateAddress(
-                        networkId,
-                        toAddress,
-                      );
-                      await backgroundApiProxy.validator.validatePreSendAddress(
-                        {
-                          address: toAddress,
-                          networkId,
-                          accountId,
-                        },
-                      );
-                    } catch (error0: any) {
-                      if (isValidNameServiceName && !resolvedAddress)
-                        return undefined;
-
-                      const { key, info } = error0;
-                      if (key) {
-                        return intl.formatMessage(
-                          {
-                            id: key,
-                          },
-                          info ?? {},
-                        );
-                      }
-                      return intl.formatMessage({
-                        id: 'form__address_invalid',
-                      });
-                    }
-                    const isContractAddress = await isContractAddressCheck(
-                      toAddress,
-                    );
-                    if (isContractAddress) {
-                      setWarningMessage(
-                        intl.formatMessage({
-                          id: 'msg__the_recipient_address_is_a_contract_address',
-                        }),
-                      );
-                      setSuccessMessage('');
-                    } else {
-                      setWarningMessage('');
-                      setSuccessMessage(
-                        intl.formatMessage({
-                          id: 'form__enter_recipient_address_valid',
-                        }),
-                      );
-                    }
-                    return true;
-                  },
+                  validate: validateHandle,
                 }}
                 defaultValue=""
               >
@@ -509,8 +541,9 @@ function PreSendAddress() {
             </Form>
             <Box
               height={
-                warningMessage?.length > 0 ||
-                successMessage?.length > 0 ||
+                validateMessage.warningMessage?.length > 0 ||
+                validateMessage.successMessage?.length > 0 ||
+                validateMessage.errorMessage?.length > 0 ||
                 // @ts-ignore
                 formState?.errors?.to?.message?.length > 0
                   ? 0
