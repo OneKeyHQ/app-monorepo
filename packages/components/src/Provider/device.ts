@@ -17,22 +17,22 @@ export const getSize = (screenWidth: number): DeviceState['size'] => {
   }
 
   // (0, SCREEN_SIZE.MEDIUM)
-  if (screenWidth < SCREEN_SIZE.MEDIUM) {
+  if (screenWidth <= SCREEN_SIZE.MEDIUM) {
     return 'SMALL';
   }
 
   // [SCREEN_SIZE.MEDIUM, SCREEN_SIZE.LARGE)
-  if (screenWidth < SCREEN_SIZE.LARGE) {
+  if (screenWidth <= SCREEN_SIZE.LARGE) {
     return 'NORMAL';
   }
 
   // [SCREEN_SIZE.LARGE, SCREEN_SIZE.XLARGE)
-  if (screenWidth < SCREEN_SIZE.XLARGE) {
+  if (screenWidth <= SCREEN_SIZE.XLARGE) {
     return 'LARGE';
   }
 
   // [SCREEN_SIZE.XLARGE, ∞)
-  if (screenWidth >= SCREEN_SIZE.XLARGE) {
+  if (screenWidth > SCREEN_SIZE.XLARGE) {
     return 'XLARGE';
   }
 

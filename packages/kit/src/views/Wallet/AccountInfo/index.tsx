@@ -174,10 +174,11 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { wallet, account } = useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
+  const iconBoxFlex = isVertical ? 1 : 0;
 
   return (
-    <Box flexDirection="row" px={{ base: 1, md: 0 }} mx={-3}>
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+    <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -201,7 +202,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__send' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -230,7 +231,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
@@ -261,7 +262,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         </Typography.CaptionStrong>
       </Box>
 
-      <Box flex={{ base: 1, sm: 0 }} mx={3} minW="56px" alignItems="center">
+      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <AccountMoreMenu offset={platformEnv.isNativeAndroid ? 55 : 30}>
           <IconButton
             circle
