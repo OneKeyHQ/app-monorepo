@@ -165,12 +165,16 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       }}
                     >
                       <Icon
-                        name="StarMini"
+                        name={
+                          marketTokenItem.favorited
+                            ? 'StarSolid'
+                            : 'StarOutline'
+                        }
                         size={20}
                         color={
                           marketTokenItem.favorited
                             ? 'icon-warning'
-                            : 'icon-default'
+                            : 'icon-subdued'
                         }
                       />
                     </Pressable>
