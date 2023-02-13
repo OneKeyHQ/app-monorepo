@@ -72,7 +72,7 @@ function NFTView({ asset, total }: { asset?: NFTAsset; total: number }) {
 
 function PreSendAddress() {
   const intl = useIntl();
-  const timer = useRef<any>();
+  const timer = useRef<NodeJS.Timeout>();
   const route = useRoute<RouteProps>();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusAddressSecurity)[]
@@ -135,9 +135,11 @@ function PreSendAddress() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transferInfo.tokenId, transferInfo.token]);
 
-  const [warningMessage, setWarningMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [validateMessage, setvalidateMessage] = useState({
+    warningMessage: '',
+    successMessage: '',
+    errorMessage: '',
+  });
 
   const submitDisabled =
     isLoading ||
@@ -145,7 +147,7 @@ function PreSendAddress() {
     !isValid ||
     formState.isValidating ||
     disableSubmitBtn ||
-    errorMessage.length > 0;
+    validateMessage.errorMessage.length > 0;
 
   const fetchSecurityInfo = useCallback(async () => {
     if (submitDisabled) {
@@ -394,9 +396,11 @@ function PreSendAddress() {
       }
       timer.current = setTimeout(async () => {
         const toAddress = resolvedAddress || value || '';
-        setSuccessMessage('');
-        setWarningMessage('');
-        setErrorMessage('');
+        setvalidateMessage({
+          warningMessage: '',
+          errorMessage: '',
+          successMessage: '',
+        });
         if (!toAddress) {
           return undefined;
           // return intl.formatMessage({
@@ -416,43 +420,45 @@ function PreSendAddress() {
         } catch (error0: any) {
           if (isValidNameServiceName && !resolvedAddress) return undefined;
           const { key, info } = error0;
-          setSuccessMessage('');
-          setWarningMessage('');
           if (key) {
-            setErrorMessage(
-              intl.formatMessage(
+            setvalidateMessage({
+              warningMessage: '',
+              successMessage: '',
+              errorMessage: intl.formatMessage(
                 {
                   id: key,
                 },
                 info ?? {},
               ),
-            );
+            });
             return false;
           }
-          setErrorMessage(
-            intl.formatMessage({
+          setvalidateMessage({
+            warningMessage: '',
+            successMessage: '',
+            errorMessage: intl.formatMessage({
               id: 'form__address_invalid',
             }),
-          );
+          });
           return false;
         }
         const isContractAddress = await isContractAddressCheck(toAddress);
         if (isContractAddress) {
-          setWarningMessage(
-            intl.formatMessage({
+          setvalidateMessage({
+            warningMessage: intl.formatMessage({
               id: 'msg__the_recipient_address_is_a_contract_address',
             }),
-          );
-          setErrorMessage('');
-          setSuccessMessage('');
+            successMessage: '',
+            errorMessage: '',
+          });
         } else {
-          setWarningMessage('');
-          setErrorMessage('');
-          setSuccessMessage(
-            intl.formatMessage({
+          setvalidateMessage({
+            warningMessage: '',
+            successMessage: intl.formatMessage({
               id: 'form__enter_recipient_address_valid',
             }),
-          );
+            errorMessage: '',
+          });
         }
         return true;
       }, 100);
@@ -496,9 +502,9 @@ function PreSendAddress() {
               )}
               <Form.Item
                 control={control}
-                warningMessage={warningMessage}
-                successMessage={successMessage}
-                errorMessage={errorMessage}
+                warningMessage={validateMessage.warningMessage}
+                successMessage={validateMessage.successMessage}
+                errorMessage={validateMessage.errorMessage}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 helpText={helpTextOfNameServiceResolver}
@@ -523,8 +529,9 @@ function PreSendAddress() {
             </Form>
             <Box
               height={
-                warningMessage?.length > 0 ||
-                successMessage?.length > 0 ||
+                validateMessage.warningMessage?.length > 0 ||
+                validateMessage.successMessage?.length > 0 ||
+                validateMessage.errorMessage?.length > 0 ||
                 // @ts-ignore
                 formState?.errors?.to?.message?.length > 0
                   ? 0
