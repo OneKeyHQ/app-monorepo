@@ -25,7 +25,24 @@ export function FormatCurrencyNumber({
   if (typeof value !== 'number') {
     return null;
   }
-  return (
+  return unit.toLowerCase() === 'sats' ? (
+    <>
+      {value < 0.01 ? (
+        `${formatDecimalZero(value)}`
+      ) : (
+        <FormattedNumber
+          value={value ?? 0}
+          // currencyDisplay="narrowSymbol"
+          // eslint-disable-next-line react/style-prop-object
+          style="decimal"
+          minimumFractionDigits={2}
+          maximumFractionDigits={10}
+          // currency={selectedFiatMoneySymbol}
+        />
+      )}
+      {` ${!onlyNumber ? unit : ''}`}
+    </>
+  ) : (
     <>
       {`${!onlyNumber ? unit : ''}`}
       {value < 0.01 ? (
