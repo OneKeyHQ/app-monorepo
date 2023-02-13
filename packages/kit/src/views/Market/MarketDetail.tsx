@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import type { FC, ReactElement } from 'react';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';

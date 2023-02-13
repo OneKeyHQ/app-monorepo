@@ -1,4 +1,4 @@
-import * as Device from 'expo-device';
+import { deviceName } from 'expo-device';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
@@ -87,7 +87,7 @@ function parseDeviceInfo(info: DeviceInfo) {
 function deviceInfo() {
   const { version, buildNumber } = store.getState().settings;
   return {
-    deviceName: Device.deviceName ?? 'unknown',
+    deviceName: deviceName ?? 'unknown',
     platform: process.env.ONEKEY_PLATFORM ?? 'unknown',
     channel: platformEnv.distributionChannel,
     version,
