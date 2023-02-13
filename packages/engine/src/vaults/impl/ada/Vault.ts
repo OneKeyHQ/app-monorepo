@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import memoizee from 'memoizee';
 
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
@@ -226,7 +227,7 @@ export default class Vault extends VaultBase {
         token = await client.getAssetDetail(
           transferInfo.token ?? '',
           this.networkId,
-          encodedTx.signOnly,
+          0,
         );
       }
 
@@ -365,7 +366,7 @@ export default class Vault extends VaultBase {
       this.networkId,
       tokenAddress ?? '',
     );
-    if (!token || typeof token.decimals === 'undefined') {
+    if (!token || isUndefined(token.decimals)) {
       throw new OneKeyInternalError(
         `Token not found: ${tokenAddress || 'main'}`,
       );

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
@@ -179,7 +180,7 @@ class ClientAda {
     async (
       asset: string,
       networkId: string,
-      isDAppRequest = false,
+      dangerouseFallbackDecimals?: number,
     ): Promise<Token> => {
       const { data } = await this.request.get<IAsset>(`/assets/${asset}`);
       const { asset_name: assetName, metadata } = data;
@@ -187,14 +188,17 @@ class ClientAda {
       const isValidTokenName = !isInvalidTokenName(decodeName);
       const name = isValidTokenName ? decodeName : assetName;
 
-      if (typeof metadata?.decimals === 'undefined' && !isDAppRequest) {
+      if (
+        isUndefined(metadata?.decimals) &&
+        isUndefined(dangerouseFallbackDecimals)
+      ) {
         throw new OneKeyInternalError(`Invalid token address: ${asset}`);
       }
 
       return {
         id: `${networkId}--${asset}`,
         address: asset,
-        decimals: metadata?.decimals ?? 0,
+        decimals: metadata?.decimals ?? (dangerouseFallbackDecimals as number),
         impl: 'ada',
         isNative: false,
         networkId,
