@@ -57,13 +57,16 @@ class ProviderApiSui extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = () => {
-      const params = this.network();
-      const result = {
-        // TODO do not emit events to EVM Dapps, injected provider check scope
-        method: 'wallet_events_networkChange',
-        params,
-      };
-      return result;
+      try {
+        const params = this.network();
+        const result = {
+          method: 'wallet_events_networkChange',
+          params,
+        };
+        return result;
+      } catch (error) {
+        return null;
+      }
     };
     info.send(data);
   }
