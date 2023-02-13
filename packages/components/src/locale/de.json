@@ -960,7 +960,7 @@
   "form__default_currency": "Standardwährung",
   "form__designated_recipient": "Ausgewiesener Empfänger",
   "form__designated_recipient_desc": "Sie können ein anderes Konto auswählen, um den Swap zu erhalten.",
-  "form__destination_tag_placeholder": "Etikett (optional)",
+  "form__destination_tag_placeholder": "Tag/Memo (optional)",
   "form__dev_mode": "Entwicklermodus",
   "form__dev_platform_channel": "Plattformen und Kanäle",
   "form__dev_pre_update": "Vorschauversion aktualisieren",

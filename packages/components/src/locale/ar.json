@@ -960,7 +960,7 @@
   "form__default_currency": "العملة الافتراضية",
   "form__designated_recipient": "المستلم المعين",
   "form__designated_recipient_desc": "يمكنك اختيار حساب آخر لاستلام المبادلة.",
-  "form__destination_tag_placeholder": "علامة (اختياري)",
+  "form__destination_tag_placeholder": "علامة / مذكرة (اختياري)",
   "form__dev_mode": "وضع المطور",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",

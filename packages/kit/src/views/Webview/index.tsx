@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import type { FC } from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -30,8 +30,9 @@ export const SettingsWebViews: FC = () => {
   const [currentUrl, setCurrentUrl] = useState(url);
   const containerRef = useRef<typeof Box>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     navigation.setOptions({
+      headerShown: true,
       header: () => (
         <Box
           ref={containerRef}

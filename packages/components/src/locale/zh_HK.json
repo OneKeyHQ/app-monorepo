@@ -960,7 +960,7 @@
   "form__default_currency": "默認貨幣",
   "form__designated_recipient": "任意收款賬戶",
   "form__designated_recipient_desc": "您可以選擇另一個帳戶來接收代幣",
-  "form__destination_tag_placeholder": "標籤（可選）",
+  "form__destination_tag_placeholder": "標籤/備忘（可選）",
   "form__dev_mode": "開發者模式",
   "form__dev_platform_channel": "平台和渠道",
   "form__dev_pre_update": "升級預覽版",

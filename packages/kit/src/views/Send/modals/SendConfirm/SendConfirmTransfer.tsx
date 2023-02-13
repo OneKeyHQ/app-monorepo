@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type {
   IDecodedTx,
   IEncodedTxUpdatePayloadTransfer,
@@ -10,7 +9,6 @@ import type {
 import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { formatBalanceDisplay } from '../../../../components/Format';
 import { useActiveSideAccount } from '../../../../hooks';
 import { useTokenBalance } from '../../../../hooks/useTokens';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
@@ -30,24 +28,6 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
   const isTransferNativeToken = !transferPayload?.token?.idOnNetwork;
 
   // TODO check only supports transferPayload, decodedTx.actions[0].type=== nativeTransfer
-  const [depositAmount, setDepositAmount] = useState<BigNumber.Value>('0');
-  useEffect(() => {
-    (async () => {
-      const minDepositAmount =
-        await backgroundApiProxy.serviceToken.getMinDepositAmount({
-          networkId,
-          accountId,
-        });
-
-      // @ts-expect-error
-      const network: Network = payload?.network ?? undefined;
-
-      const { amount } = formatBalanceDisplay(minDepositAmount, null, {
-        unit: network?.decimals ?? 12,
-      });
-      setDepositAmount(amount ?? '0');
-    })();
-  }, [networkId, accountId, payload]);
 
   const balance = useTokenBalance({
     networkId,
@@ -68,24 +48,12 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       const balanceBN = new BigNumber(balance);
       const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
 
-      if (payload?.keepAlive) {
-        if (amountBN.plus(feeBN).gte(balanceBN.minus(depositAmount))) {
-          return true;
-        }
-      }
       if (amountBN.plus(feeBN).gte(balanceBN)) {
         return true;
       }
     }
     return false;
-  }, [
-    transferPayload,
-    isTransferNativeToken,
-    balance,
-    feeInfoPayload,
-    payload?.keepAlive,
-    depositAmount,
-  ]);
+  }, [transferPayload, isTransferNativeToken, balance, feeInfoPayload]);
   const transferAmount = useMemo(() => {
     if (!transferPayload) {
       return '0';
@@ -105,9 +73,6 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       const amountBN = new BigNumber(transferPayload.value ?? 0);
       const transferAmountBn = BigNumber.min(balanceBN, amountBN);
       const feeBN = new BigNumber(feeInfoPayload?.current?.totalNative ?? 0);
-      if (payload?.keepAlive) {
-        return transferAmountBn.minus(feeBN).minus(depositAmount).toFixed();
-      }
       return transferAmountBn.minus(feeBN).toFixed();
     }
 
@@ -118,8 +83,6 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     decodedTx.actions,
     balance,
     feeInfoPayload,
-    payload?.keepAlive,
-    depositAmount,
   ]);
 
   const isAmountNegative = useMemo(

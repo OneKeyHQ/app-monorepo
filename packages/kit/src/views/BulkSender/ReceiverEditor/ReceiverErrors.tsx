@@ -2,19 +2,10 @@ import { useIntl } from 'react-intl';
 
 import { HStack, Icon, Text } from '@onekeyhq/components';
 
-import { ReceiverErrorEnum } from '../types';
-
 import type { ReceiverError } from '../types';
 
 interface Props {
   errors: ReceiverError[];
-}
-
-function getErrorMessageId(errorType: ReceiverErrorEnum) {
-  if (errorType === ReceiverErrorEnum.IcorrectAddress)
-    return 'form__incorrect_address_format';
-  if (errorType === ReceiverErrorEnum.IcorrectFormat)
-    return 'form__modify_the_line_with_the_correct_format';
 }
 
 function ReceiverErrors(props: Props) {
@@ -40,7 +31,7 @@ function ReceiverErrors(props: Props) {
               { id: 'form__line_str' },
               { 0: error.lineNumber },
             )}
-            : {intl.formatMessage({ id: getErrorMessageId(error.type) })}
+            : {error.message}
           </Text>
         </HStack>
       ))}

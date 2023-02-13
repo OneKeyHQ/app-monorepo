@@ -960,7 +960,7 @@
   "form__default_currency": "Default Currency",
   "form__designated_recipient": "Designated Recipient",
   "form__designated_recipient_desc": "You can choose another account to receive the swap.",
-  "form__destination_tag_placeholder": "Tag (optional)",
+  "form__destination_tag_placeholder": "Tag/Memo (optional)",
   "form__dev_mode": "Developer Mode",
   "form__dev_platform_channel": "Platforms and channels",
   "form__dev_pre_update": "Upgrade preview Version",

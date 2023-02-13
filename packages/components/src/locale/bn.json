@@ -960,7 +960,7 @@
   "form__default_currency": "ডিফল্ট মুদ্রা",
   "form__designated_recipient": "মনোনীত প্রাপক",
   "form__designated_recipient_desc": "অদলবদল পাওয়ার জন্য আপনি অন্য অ্যাকাউন্ট বেছে নিতে পারেন।",
-  "form__destination_tag_placeholder": "ট্যাগ (ঐচ্ছিক)",
+  "form__destination_tag_placeholder": "ট্যাগ/মেমো (ঐচ্ছিক)",
   "form__dev_mode": "বিকাশকারী মোড",
   "form__dev_platform_channel": "প্ল্যাটফর্ম এবং চ্যানেল",
   "form__dev_pre_update": "পূর্বরূপ আপগ্রেড করুন",
