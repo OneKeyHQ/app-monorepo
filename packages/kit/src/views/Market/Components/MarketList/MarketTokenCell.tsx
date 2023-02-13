@@ -33,6 +33,7 @@ import { useMarketSelectedCategoryId } from '../../hooks/useMarketCategory';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 import {
   formatDecimalZero,
+  formatMarketUnitPosition,
   formatMarketValueForComma,
   formatMarketValueForInfo,
   formatMarketVolatility,
@@ -164,12 +165,16 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                       }}
                     >
                       <Icon
-                        name="StarMini"
+                        name={
+                          marketTokenItem.favorited
+                            ? 'StarSolid'
+                            : 'StarOutline'
+                        }
                         size={20}
                         color={
                           marketTokenItem.favorited
                             ? 'icon-warning'
-                            : 'icon-default'
+                            : 'icon-subdued'
                         }
                       />
                     </Pressable>
@@ -213,9 +218,12 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                                 id: 'form__vol_str',
                               },
                               {
-                                0: `${unit}${formatMarketValueForInfo(
-                                  marketTokenItem.totalVolume,
-                                )}`,
+                                0: formatMarketUnitPosition(
+                                  unit,
+                                  formatMarketValueForInfo(
+                                    marketTokenItem.totalVolume,
+                                  ),
+                                ),
                               },
                             )
                           : marketTokenItem.name}
@@ -233,11 +241,12 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column
                 key={tag.id}
                 text={{
-                  label: `${unit}${
+                  label: formatMarketUnitPosition(
+                    unit,
                     marketTokenItem.price <= 1
                       ? formatDecimalZero(marketTokenItem.price)
-                      : formatMarketValueForComma(marketTokenItem.price)
-                  }`,
+                      : formatMarketValueForComma(marketTokenItem.price),
+                  ),
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
@@ -340,9 +349,10 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column
                 key={tag.id}
                 text={{
-                  label: `${unit}${formatMarketValueForComma(
-                    marketTokenItem.totalVolume,
-                  )}`,
+                  label: formatMarketUnitPosition(
+                    unit,
+                    formatMarketValueForComma(marketTokenItem.totalVolume),
+                  ),
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
@@ -367,9 +377,10 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               <ListItem.Column
                 key={tag.id}
                 text={{
-                  label: `${unit}${formatMarketValueForComma(
-                    marketTokenItem.marketCap,
-                  )}`,
+                  label: formatMarketUnitPosition(
+                    unit,
+                    formatMarketValueForComma(marketTokenItem.marketCap),
+                  ),
                   labelProps: { textAlign: tag.textAlign },
                   size: 'sm',
                 }}
