@@ -68,6 +68,14 @@ export type IVaultSettings = {
    */
   existDeposit?: boolean;
 
+  /**
+   * xrp destination tag
+   * cosmos memo
+   * https://xrpl.org/source-and-destination-tags.html
+   * https://support.ledger.com/hc/en-us/articles/4409603715217-What-is-a-Memo-Tag-?support=true
+   */
+  withDestinationTag?: boolean;
+
   subNetworkSettings?: {
     [networkId: string]: IVaultSubNetworkSettings;
   };
