@@ -44,11 +44,9 @@ export const OverviewDefiBoxHeader: FC<{
                   name,
                 }}
               />
-              <Pressable onPress={onOpenDapp}>
-                <Text typography="Body1Strong" ml="2">
-                  {name}
-                </Text>
-              </Pressable>
+              <Text onPress={onOpenDapp} typography="Body1Strong" ml="2">
+                {name}
+              </Text>
               {rate.isNaN() ? null : (
                 <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
               )}
@@ -88,11 +86,9 @@ export const OverviewDefiBoxHeader: FC<{
               name,
             }}
           />
-          <Pressable onPress={onOpenDapp}>
-            <Text typography="Heading" ml="2">
-              {name}
-            </Text>
-          </Pressable>
+          <Text typography="Heading" ml="2" onPress={onOpenDapp}>
+            {name}
+          </Text>
           {rate.isNaN() ? null : (
             <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
           )}

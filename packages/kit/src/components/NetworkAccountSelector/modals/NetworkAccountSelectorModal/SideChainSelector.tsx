@@ -12,6 +12,7 @@ import {
   HStack,
   Icon,
   IconButton,
+  KeyboardDismissView,
   Pressable,
   Searchbar,
   Text,
@@ -90,14 +91,16 @@ function SideChainSelector({
 
   const emptyComponent = useCallback(
     () => (
-      <Empty
-        flex="1"
-        emoji="🔍"
-        title={intl.formatMessage({
-          id: 'content__no_results',
-          defaultMessage: 'No Result',
-        })}
-      />
+      <KeyboardDismissView>
+        <Empty
+          flex="1"
+          emoji="🔍"
+          title={intl.formatMessage({
+            id: 'content__no_results',
+            defaultMessage: 'No Result',
+          })}
+        />
+      </KeyboardDismissView>
     ),
     [intl],
   );
@@ -227,7 +230,7 @@ function SideChainSelector({
       flex={fullWidthMode ? 1 : undefined}
     >
       {fullWidthMode ? (
-        <Box p={{ base: fullWidthMode ? 2 : 1, md: fullWidthMode ? 4 : 1 }}>
+        <Box p={{ base: 2, md: 4 }}>
           <Searchbar
             w="full"
             value={search}
@@ -244,7 +247,7 @@ function SideChainSelector({
         ref={flatListRef}
         data={data}
         contentContainerStyle={{
-          flex: 1,
+          flex: data?.length ? undefined : 1,
         }}
         keyExtractor={(item: INetwork) => item.id}
         renderItem={renderItem}
