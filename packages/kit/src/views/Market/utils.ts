@@ -103,3 +103,13 @@ export function formatLocalDate(date?: string, locale?: string) {
   }
   return '';
 }
+
+export function formatMarketUnitPosition(
+  unit?: string,
+  value?: number | string,
+) {
+  if (unit?.toLowerCase() === 'sats') {
+    return `${value ?? ''} ${unit ?? ''}`;
+  }
+  return `${unit ?? ''}${value ?? ''}`;
+}
