@@ -5,6 +5,8 @@ import memoizee from 'memoizee';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
+import { OneKeyInternalError } from '../../../../errors';
+
 import type { Token } from '../../../../types/token';
 import type {
   IAdaAccount,
@@ -180,10 +182,15 @@ class ClientAda {
       const decodeName = Buffer.from(assetName, 'hex').toString('utf8');
       const isValidTokenName = !isInvalidTokenName(decodeName);
       const name = isValidTokenName ? decodeName : assetName;
+
+      if (typeof metadata?.decimals === 'undefined') {
+        throw new OneKeyInternalError(`Invalid token address: ${asset}`);
+      }
+
       return {
         id: `${networkId}--${asset}`,
         address: asset,
-        decimals: metadata?.decimals ?? isValidTokenName ? 6 : 0,
+        decimals: metadata?.decimals,
         impl: 'ada',
         isNative: false,
         networkId,

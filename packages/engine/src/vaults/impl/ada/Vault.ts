@@ -472,7 +472,7 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
-    const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
+    const { decimals } = await this.engine.getNetwork(this.networkId);
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     let txs: IAdaHistory[] = [];
 
@@ -521,6 +521,9 @@ export default class Vault extends VaultBase {
               this.networkId,
               action.token.tokenIdOnNetwork,
             );
+            if (!token || typeof token.decimals === 'undefined') {
+              return false;
+            }
             return {
               type: IDecodedTxActionType.TOKEN_TRANSFER,
               direction,
@@ -538,9 +541,9 @@ export default class Vault extends VaultBase {
           }
         });
 
-        const decodeActions = (await Promise.all(
-          promiseActions,
-        )) as unknown as IDecodedTxAction[];
+        const decodeActions = (await Promise.all(promiseActions)).filter(
+          Boolean,
+        ) as unknown as IDecodedTxAction[];
 
         const decodedTx: IDecodedTx = {
           txid: tx.tx_hash,
