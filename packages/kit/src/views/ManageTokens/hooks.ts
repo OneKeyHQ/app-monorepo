@@ -157,7 +157,7 @@ export const useFiatPayTokens = (networkId: string, type: FiatPayModeType) => {
   useEffect(() => {
     setLoading(true);
     backgroundApiProxy.serviceToken
-      .fetchFiatPlayTokens({ networkId, type })
+      .fetchFiatPayTokens({ networkId, type })
       .then((list) => {
         updateTokenList(list);
       })

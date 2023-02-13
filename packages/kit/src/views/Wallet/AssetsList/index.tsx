@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
@@ -224,7 +224,7 @@ function AssetsList({
         loading
           ? AssetsListSkeleton
           : // eslint-disable-next-line react/no-unstable-nested-components
-            () => <EmptyListOfAccount network={network} />
+            () => <EmptyListOfAccount network={network} accountId={accountId} />
       }
       ListFooterComponent={footer}
       keyExtractor={(_item: SimplifiedToken) =>

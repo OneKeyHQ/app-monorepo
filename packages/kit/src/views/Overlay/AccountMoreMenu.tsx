@@ -40,7 +40,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
 
   const navigation = useNavigation();
-  const { network, account, wallet } = useActiveWalletAccount();
+  const { network, account, wallet, accountId } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
   const { enabledAccounts, loading, refresh } =
@@ -180,6 +180,8 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
               screen: FiatPayRoutes.SupportTokenListModal,
               params: {
                 networkId: network?.id ?? '',
+                accountId,
+                type: 'buy',
               },
             },
           });
@@ -197,6 +199,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
               params: {
                 networkId: network?.id ?? '',
                 type: 'sell',
+                accountId,
               },
             },
           });
@@ -243,6 +246,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       account,
       network,
       navigation,
+      accountId,
       copyAddress,
     ],
   );

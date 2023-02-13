@@ -11,8 +11,10 @@ import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 
 function EmptyListOfAccount({
   network,
+  accountId,
 }: {
   network: INetwork | null | undefined;
+  accountId: string;
 }) {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -30,6 +32,7 @@ function EmptyListOfAccount({
               screen: FiatPayRoutes.SupportTokenListModal,
               params: {
                 networkId: network?.id ?? '',
+                accountId,
               },
             },
           });
@@ -100,9 +103,9 @@ function EmptyListOfAccount({
 }
 
 function EmptyList() {
-  const { network } = useActiveWalletAccount();
+  const { network, accountId } = useActiveWalletAccount();
 
-  return <EmptyListOfAccount network={network} />;
+  return <EmptyListOfAccount network={network} accountId={accountId} />;
 }
 
 export { EmptyListOfAccount };

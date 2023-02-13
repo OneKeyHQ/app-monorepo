@@ -596,7 +596,7 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchFiatPlayTokens({
+  async fetchFiatPayTokens({
     networkId,
     type,
   }: {
@@ -604,6 +604,16 @@ export default class ServiceToken extends ServiceBase {
     networkId: string;
   }) {
     const { engine } = this.backgroundApi;
-    return engine.getFiatPayTokens(networkId, type);
+    const tokens = await engine.getTokens(networkId);
+    if (type === 'buy') {
+      return tokens.filter((t) => {
+        const { onramperId } = t;
+        return typeof onramperId === 'string' && onramperId.length > 0;
+      });
+    }
+    return tokens.filter((t) => {
+      const { moonpayId } = t;
+      return typeof moonpayId === 'string' && moonpayId.length > 0;
+    });
   }
 }

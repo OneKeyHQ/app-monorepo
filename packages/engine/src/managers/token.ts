@@ -2,7 +2,6 @@ import axios from 'axios';
 import qs from 'qs';
 
 import type { ServerToken, Token } from '@onekeyhq/kit/src/store/typings';
-import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import {
   IMPL_APTOS,
   IMPL_SOL,
@@ -179,21 +178,6 @@ export const getBalanceKey = (token?: Partial<Token> | null) => {
     return `${tokenAddress}--${sendAddress}`;
   }
   return tokenAddress;
-};
-
-export const fetchFiatPlayTokens = async (params: {
-  networkId: string;
-  type: FiatPayModeType;
-}): Promise<ServerToken[]> => {
-  const { networkId, type } = params;
-  return fetchData(
-    '/token/fiatpay',
-    {
-      networkId,
-      type,
-    },
-    [],
-  );
 };
 
 export { getNetworkIdFromTokenId };

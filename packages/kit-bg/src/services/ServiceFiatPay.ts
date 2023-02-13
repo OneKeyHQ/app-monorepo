@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import {
@@ -11,8 +9,6 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class FiatPayNFT extends ServiceBase {
-  private client = axios.create({ timeout: 60 * 1000 });
-
   get baseUrl() {
     return `${getFiatEndpoint()}/moonpay`;
   }

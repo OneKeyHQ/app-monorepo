@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/require-await */
-import axios from 'axios';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { setTranslations } from '@onekeyhq/kit/src/store/reducers/data';
@@ -13,10 +12,6 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 class ServicTranslation extends ServiceBase {
   updatedAt = 0;
-
-  get client() {
-    return axios.create({ timeout: 60 * 30 * 1000 });
-  }
 
   get baseUrl() {
     const url = getFiatEndpoint();

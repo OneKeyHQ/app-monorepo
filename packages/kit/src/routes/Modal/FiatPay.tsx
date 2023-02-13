@@ -15,6 +15,7 @@ export enum FiatPayRoutes {
 export type FiatPayModalRoutesParams = {
   [FiatPayRoutes.SupportTokenListModal]: {
     networkId: string;
+    accountId: string;
     type?: FiatPayModeType;
   };
   [FiatPayRoutes.MoonpayWebViewModal]: { url: string };

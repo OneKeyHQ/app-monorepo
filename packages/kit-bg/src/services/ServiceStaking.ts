@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-member-access */
-import axios from 'axios';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
@@ -20,8 +19,6 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
-
-import type { Axios } from 'axios';
 
 const TestnetContractAddress = '0xdCAe38cC28606e61B1e54D8b4b134588e4ca7Ab7';
 const MainnetContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';
@@ -52,8 +49,6 @@ export default class ServiceStaking extends ServiceBase {
     }
     throw new Error('Not supported network');
   }
-
-  private client: Axios = axios.create({ timeout: 60 * 1000 });
 
   @backgroundMethod()
   async registerOnKele(params: { payeeAddr: string; networdId: string }) {

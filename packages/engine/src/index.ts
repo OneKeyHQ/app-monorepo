@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
-import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
@@ -73,7 +72,6 @@ import {
   parseNetworkId,
 } from './managers/network';
 import {
-  fetchFiatPlayTokens,
   fetchOnlineTokens,
   fetchTokenDetail,
   formatServerToken,
@@ -1580,31 +1578,6 @@ class Engine {
       debugLogger.engine.error(`updateOnlineTokens error`, error);
     }
     updateTokenCache[networkId] = true;
-  }
-
-  @backgroundMethod()
-  async getFiatPayTokens(
-    networkId: string,
-    type: FiatPayModeType,
-  ): Promise<Array<Token>> {
-    const tokens = await simpleDb.token.getTokens({ networkId });
-    let fiatPayTokens = [];
-    if (type === 'buy') {
-      fiatPayTokens = tokens.filter((t) => {
-        const { onramperId } = t;
-        return typeof onramperId === 'string' && onramperId.length > 0;
-      });
-    } else {
-      fiatPayTokens = tokens.filter((t) => {
-        const { moonpayId } = t;
-        return typeof moonpayId === 'string' && moonpayId.length > 0;
-      });
-    }
-    if (fiatPayTokens.length === 0) {
-      const serverTokens = await fetchFiatPlayTokens({ networkId, type });
-      fiatPayTokens = serverTokens.map((t) => formatServerToken(t));
-    }
-    return fiatPayTokens;
   }
 
   @backgroundMethod()
