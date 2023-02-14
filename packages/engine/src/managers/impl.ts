@@ -177,14 +177,6 @@ const defaultAccountNameInfo: Record<
       coinType: COINTYPE_ETH,
       label: 'Ledger Live',
     },
-    ledgerLegacy: {
-      prefix: 'Ledger Legacy',
-      category: `44'/${COINTYPE_ETH}'`,
-      template: `m/44'/${COINTYPE_ETH}'/0'/x`,
-      coinType: COINTYPE_ETH,
-      label: 'Ledger Legacy',
-      desc: { id: 'form__ledger_legacy_desc' },
-    },
   },
   [IMPL_SOL]: {
     default: {
