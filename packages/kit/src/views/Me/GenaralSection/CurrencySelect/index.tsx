@@ -285,6 +285,7 @@ const CurrencySelectModal: FC = () => {
           contentContainerStyle={{ paddingBottom: bottom }}
           sections={terms.length > 0 ? searchList : ratesSectionList}
           renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
           ListHeaderComponent={terms.length > 0 ? null : headerComponent}
           renderSectionHeader={({ section: { title } }) => (
             <CurrencySectionLable
