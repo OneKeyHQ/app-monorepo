@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import memoizee from 'memoizee';
 
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
@@ -223,10 +224,11 @@ export default class Vault extends VaultBase {
         transferInfo.token ?? '',
       )) as Token;
       if (!token) {
-        token = await client.getAssetDetail(
-          transferInfo.token ?? '',
-          this.networkId,
-        );
+        token = await client.getAssetDetail({
+          asset: transferInfo.token ?? '',
+          networkId: this.networkId,
+          dangerouseFallbackDecimals: encodedTx.signOnly ? 0 : undefined,
+        });
       }
 
       // build tokenTransfer
@@ -364,7 +366,7 @@ export default class Vault extends VaultBase {
       this.networkId,
       tokenAddress ?? '',
     );
-    if (!token) {
+    if (!token || isUndefined(token.decimals)) {
       throw new OneKeyInternalError(
         `Token not found: ${tokenAddress || 'main'}`,
       );
@@ -472,7 +474,7 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
-    const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
+    const { decimals } = await this.engine.getNetwork(this.networkId);
     const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
     let txs: IAdaHistory[] = [];
 
@@ -521,6 +523,9 @@ export default class Vault extends VaultBase {
               this.networkId,
               action.token.tokenIdOnNetwork,
             );
+            if (!token || typeof token.decimals === 'undefined') {
+              return false;
+            }
             return {
               type: IDecodedTxActionType.TOKEN_TRANSFER,
               direction,
@@ -538,9 +543,9 @@ export default class Vault extends VaultBase {
           }
         });
 
-        const decodeActions = (await Promise.all(
-          promiseActions,
-        )) as unknown as IDecodedTxAction[];
+        const decodeActions = (await Promise.all(promiseActions)).filter(
+          Boolean,
+        ) as unknown as IDecodedTxAction[];
 
         const decodedTx: IDecodedTx = {
           txid: tx.tx_hash,
@@ -682,7 +687,10 @@ export default class Vault extends VaultBase {
   override async validateTokenAddress(address: string): Promise<string> {
     const client = await this.getClient();
     try {
-      const res = await client.getAssetDetail(address, this.networkId);
+      const res = await client.getAssetDetail({
+        asset: address,
+        networkId: this.networkId,
+      });
       return res.address ?? res.tokenIdOnNetwork;
     } catch (e) {
       console.error(e);
@@ -696,7 +704,10 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
-        const asset = await client.getAssetDetail(tokenAddress, this.networkId);
+        const asset = await client.getAssetDetail({
+          asset: tokenAddress,
+          networkId: this.networkId,
+        });
         return {
           decimals: asset.decimals,
           name: asset.name,
