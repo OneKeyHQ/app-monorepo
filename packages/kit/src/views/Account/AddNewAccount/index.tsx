@@ -168,7 +168,6 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             await backgroundApiProxy.validator.validateCanCreateNextAccount(
               selectedWalletId,
               selectedNetwork.id,
-              usedPurpose,
               template,
             );
             setCannotCreateAccountReason('');

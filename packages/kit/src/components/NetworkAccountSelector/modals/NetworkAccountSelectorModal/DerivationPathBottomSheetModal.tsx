@@ -155,11 +155,9 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
     const promises = derivationOptions.map(async (option) => {
       let canCreateNextAccount = false;
       try {
-        const usedPurpose = parseInt(option.category.split("'/")[0]);
         await backgroundApiProxy.validator.validateCanCreateNextAccount(
           walletId,
           networkId ?? '',
-          usedPurpose,
           option.template,
         );
         canCreateNextAccount = true;

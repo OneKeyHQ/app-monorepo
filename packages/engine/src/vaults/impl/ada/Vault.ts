@@ -15,7 +15,10 @@ import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
+  PreviousAccountIsEmpty,
 } from '../../../errors';
+import { getLastAccountId } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import {
   IDecodedTxActionType,
@@ -134,6 +137,33 @@ export default class Vault extends VaultBase {
       responseTime: Math.floor(performance.now() - start),
       latestBlock: result.height,
     };
+  }
+
+  override async validateCanCreateNextAccount(
+    walletId: string,
+    template: string,
+  ): Promise<boolean> {
+    const [wallet, network] = await Promise.all([
+      this.engine.getWallet(walletId),
+      this.engine.getNetwork(this.networkId),
+    ]);
+    const lastAccountId = getLastAccountId(wallet, network.impl, template);
+    if (!lastAccountId) return true;
+
+    const [lastAccount] = (await this.engine.dbApi.getAccounts([
+      lastAccountId,
+    ])) as DBUTXOAccount[];
+    if (typeof lastAccount !== 'undefined') {
+      const accountExisted = await this.checkAccountExistence(
+        lastAccount.address,
+      );
+      if (!accountExisted) {
+        const { label } = getAccountNameInfoByTemplate(network.impl, template);
+        throw new PreviousAccountIsEmpty(label as string);
+      }
+    }
+
+    return true;
   }
 
   override async checkAccountExistence(

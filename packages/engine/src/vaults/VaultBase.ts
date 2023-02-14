@@ -146,6 +146,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve(normalizedAddress);
   }
 
+  async validateCanCreateNextAccount(walletId: string, template: string) {
+    return Promise.resolve(true);
+  }
+
   async checkAccountExistence(accountIdOnNetwork: string): Promise<boolean> {
     return Promise.resolve(true);
   }

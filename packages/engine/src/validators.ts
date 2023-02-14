@@ -586,46 +586,10 @@ class Validators {
   async validateCanCreateNextAccount(
     walletId: string,
     networkId: string,
-    purpose: number,
     template: string,
   ): Promise<void> {
-    const [wallet, network] = await Promise.all([
-      this.engine.getWallet(walletId),
-      this.engine.getNetwork(networkId),
-    ]);
-    if (
-      [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH, IMPL_ADA].includes(
-        network.impl,
-      )
-    ) {
-      const coinType =
-        (implToCoinTypes[network.impl] as string) ?? COINTYPE_BTC;
-      const accountPathPrefix = `${purpose}'/${coinType}'`;
-      const nextAccountId = getNextAccountId(wallet.nextAccountIds, template);
-      if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
-        const lastAccountId = `${walletId}${SEPERATOR}m/${accountPathPrefix}/${
-          nextAccountId - 1
-        }'`;
-        const [lastAccount] = await this.dbApi.getAccounts([lastAccountId]);
-        if (typeof lastAccount !== 'undefined') {
-          const vault = await this.engine.getChainOnlyVault(networkId);
-          const accountExisted = await vault.checkAccountExistence(
-            network.impl === IMPL_ADA
-              ? lastAccount.address
-              : (lastAccount as DBUTXOAccount).xpub,
-          );
-          if (!accountExisted) {
-            const accountTypeStr =
-              (
-                Object.values(network.accountNameInfo).find(
-                  ({ category }) => accountPathPrefix === category,
-                ) || {}
-              ).label || '';
-            throw new errors.PreviousAccountIsEmpty(accountTypeStr);
-          }
-        }
-      }
-    }
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    await vault.validateCanCreateNextAccount(walletId, template);
     return Promise.resolve();
   }
 }

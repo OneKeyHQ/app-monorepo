@@ -36,13 +36,20 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
+  SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../errors';
 
-import { getImplByCoinType } from './impl';
+import {
+  getAccountNameInfoByImpl,
+  getAccountNameInfoByTemplate,
+  getImplByCoinType,
+  implToCoinTypes,
+} from './impl';
 
 import type { DBAccountDerivation } from '../types/accountDerivation';
+import type { Wallet } from '../types/wallet';
 
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
@@ -178,6 +185,20 @@ function getNextAccountId(
   return nextAccountIds?.[template] ?? 0;
 }
 
+// Get UTXO account last account id
+function getLastAccountId(wallet: Wallet, impl: string, template: string) {
+  const { category } = getAccountNameInfoByTemplate(impl, template);
+  const nextAccountId = getNextAccountId(wallet.nextAccountIds, template);
+  if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
+    const lastAccountId = `${wallet.id}${SEPERATOR}m/${category}/${
+      nextAccountId - 1
+    }'`;
+    return lastAccountId;
+  }
+
+  return null;
+}
+
 export {
   getPath,
   getDefaultPurpose,
@@ -185,4 +206,5 @@ export {
   slicePathTemplate,
   getNextAccountId,
   getNextAccountIdsWithAccountDerivation,
+  getLastAccountId,
 };
