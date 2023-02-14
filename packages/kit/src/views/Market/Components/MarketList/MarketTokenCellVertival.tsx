@@ -1,8 +1,6 @@
 import type { FC } from 'react';
 import { memo, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import {
   Box,
   Pressable,
