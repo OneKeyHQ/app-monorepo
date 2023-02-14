@@ -618,7 +618,11 @@ class Validators {
                   ({ category }) => accountPathPrefix === category,
                 ) || {}
               ).label || '';
-            throw new errors.PreviousAccountIsEmpty(accountTypeStr);
+            const key =
+              network.impl === IMPL_ADA
+                ? 'msg__previous_account_is_empty'
+                : undefined;
+            throw new errors.PreviousAccountIsEmpty(accountTypeStr, key);
           }
         }
       }

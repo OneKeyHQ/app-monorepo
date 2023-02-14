@@ -1,5 +1,5 @@
 const getCardanoApi = async () => {
-  const Loader = await import('cardano-coin-selection');
+  const Loader = await import('@onekeyfe/cardano-coin-selection');
   return {
     composeTxPlan: Loader.onekeyUtils.composeTxPlan,
     signTransaction: Loader.onekeyUtils.signTransaction,
