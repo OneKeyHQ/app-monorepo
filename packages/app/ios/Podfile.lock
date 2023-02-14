@@ -30,8 +30,6 @@ PODS:
     - React-Core
   - EXLocalAuthentication (12.2.0):
     - ExpoModulesCore
-  - EXLocation (14.2.2):
-    - ExpoModulesCore
   - EXMediaLibrary (14.1.0):
     - ExpoModulesCore
     - React-Core
@@ -743,7 +741,6 @@ DEPENDENCIES:
   - EXFont (from `../../../node_modules/expo-font/ios`)
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - EXLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
-  - EXLocation (from `../../../node_modules/expo-location/ios`)
   - EXMediaLibrary (from `../../../node_modules/expo-media-library/ios`)
   - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo/ios`)
@@ -929,8 +926,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-image-loader/ios"
   EXLocalAuthentication:
     :path: "../../../node_modules/expo-local-authentication/ios"
-  EXLocation:
-    :path: "../../../node_modules/expo-location/ios"
   EXMediaLibrary:
     :path: "../../../node_modules/expo-media-library/ios"
   EXNotifications:
@@ -1105,7 +1100,6 @@ SPEC CHECKSUMS:
   EXFont: 04235cc22e6fef86028feb67db452978dc6f240f
   EXImageLoader: b88e053d760f85a82405b1db2de4abf11978fc9f
   EXLocalAuthentication: 7f37b242eae73f9acf111d39bdee3f1379e68902
-  EXLocation: f9811c5a78e07894429e7e0620b30f2395564fc0
   EXMediaLibrary: 84cddf988a089e28070790438caf58d8b265b37a
   EXNotifications: 297bb555bbd26fd7aa8ff3bf7e724d4d65f7e895
   Expo: b9fff0a1eac0f424fc68ea49b4347fb308e52e17

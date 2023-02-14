@@ -1,100 +1,63 @@
 import type { FC } from 'react';
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
-  Divider,
+  Icon,
   IconButton,
-  Input,
   Pressable,
   Typography,
   useIsVerticalLayout,
-  useThemeValue,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   MARKET_TAB_NAME,
   SWAP_TAB_NAME,
 } from '@onekeyhq/kit/src/store/reducers/market';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import { SwapHeaderButtons } from '../../../Swap/SwapHeader';
 import { useMarketTopTabName } from '../../hooks/useMarketList';
-import { useMarketSearchTokenChange } from '../../hooks/useMarketSearch';
-import { showMarketSearch } from '../../MarketSearch';
+import { MarketRoutes } from '../../types';
 
-const Header: FC = () => {
+import type { ModalScreenProps } from '../../../../routes/types';
+import type { MarketRoutesParams } from '../../types';
+
+type ModalNavigationProps = ModalScreenProps<MarketRoutesParams>;
+
+const Header: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
   const intl = useIntl();
-  const searchOnChangeDebounce = useMarketSearchTokenChange();
-  const [searchInput, setSearchInput] = useState(() => '');
-  const [searchFocused, setSearchFocused] = useState(() => false);
-  const rightIconName = searchInput ? 'XCircleMini' : undefined;
-  const inputRef = useRef(null);
-  const searchBarRef = useRef();
-  useFocusEffect(
-    useCallback(() => {
-      if (platformEnv.isRuntimeBrowser) {
-        const triggleerSearch = (e: KeyboardEvent) => {
-          if (e.code === 'KeyF' && !searchFocused) {
-            // @ts-ignore
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            inputRef?.current?.focus?.();
-          }
-        };
-        document.addEventListener('keydown', triggleerSearch);
-        return () => {
-          document.removeEventListener('keydown', triggleerSearch);
-        };
-      }
-    }, [searchFocused]),
-  );
 
   return (
-    <Box flexDirection="column">
-      <Box mt="3" ml="6" ref={searchBarRef} width="360px">
-        <Input
-          ref={inputRef}
-          placeholder={intl.formatMessage({ id: 'form__search_tokens' })}
-          w="full"
-          rightIconName={rightIconName}
-          leftIconName="SearchOutline"
-          value={searchInput}
-          onChangeText={(text) => {
-            setSearchInput(text);
-            searchOnChangeDebounce(text);
-          }}
-          onPressRightIcon={() => {
-            setSearchInput('');
-            searchOnChangeDebounce('');
-          }}
-          onFocus={() => {
-            setSearchFocused(true);
-            showMarketSearch({
-              triggerEle: searchBarRef?.current,
-              searchOnChangeDebounce,
-            });
-          }}
-          onBlur={() => {
-            setSearchFocused(false);
-          }}
+    <Box flexDirection="column" w="full" mb={4}>
+      <Box mt="4" ml="6" flexDirection="row" alignItems="center">
+        <Typography.DisplayLarge>
+          {intl.formatMessage({ id: 'title__market' })}
+        </Typography.DisplayLarge>
+        <Box
+          h="20px"
+          borderLeftWidth={StyleSheet.hairlineWidth}
+          borderLeftColor="border-subdued"
+          mx={3}
         />
+        <Pressable flexDirection="row" onPress={onPressSearch}>
+          <Icon name="MagnifyingGlassMini" size={24} />
+          <Typography.Body1Strong ml={1} color="text-subdued">
+            {intl.formatMessage({ id: 'form__search_tokens' })}
+          </Typography.Body1Strong>
+        </Pressable>
       </Box>
-      <Divider mt="3" />
-      <Typography.DisplayLarge ml="6" my="6">
-        {intl.formatMessage({ id: 'title__market' })}
-      </Typography.DisplayLarge>
     </Box>
   );
 };
 
-const HeaderSmall: FC = () => {
+const HeaderSmall: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
   const tabName = useMarketTopTabName();
-  const handleBg = useThemeValue('icon-subdued');
   const intl = useIntl();
-  const searchOnChangeDebounce = useMarketSearchTokenChange();
   const marketTopTabName = useMarketTopTabName();
   return (
     <Box
@@ -141,22 +104,7 @@ const HeaderSmall: FC = () => {
             name="MagnifyingGlassMini"
             type="plain"
             // iconSize={16}
-            onPress={() => {
-              showMarketSearch({
-                modalProps: {
-                  headerShown: false,
-                  hideBackButton: true,
-                },
-                modalLizeProps: {
-                  handleStyle: { backgroundColor: handleBg },
-                  withHandle: true,
-                  handlePosition: 'inside',
-                  tapGestureEnabled: false,
-                  scrollViewProps: { keyboardShouldPersistTaps: 'handled' },
-                },
-                searchOnChangeDebounce,
-              });
-            }}
+            onPress={onPressSearch}
           />
         ) : null}
         {marketTopTabName === SWAP_TAB_NAME ? <SwapHeaderButtons /> : null}
@@ -166,9 +114,21 @@ const HeaderSmall: FC = () => {
 };
 
 const MarketHeader: FC = () => {
+  const navigation = useNavigation<ModalNavigationProps['navigation']>();
   const isVerticalLayout = useIsVerticalLayout();
-
-  return isVerticalLayout ? <HeaderSmall /> : <Header />;
+  const onPressSearch = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Market,
+      params: {
+        screen: MarketRoutes.MarketSearchModal,
+      },
+    });
+  }, [navigation]);
+  return isVerticalLayout ? (
+    <HeaderSmall onPressSearch={onPressSearch} />
+  ) : (
+    <Header onPressSearch={onPressSearch} />
+  );
 };
 
 export default memo(MarketHeader);

@@ -47,7 +47,6 @@
     "expo-device": "^4.3.0",
     "expo-haptics": "^11.2.0",
     "expo-image-picker": "^13.1.1",
-    "expo-location": "^14.2.2",
     "expo-media-library": "^14.1.0",
     "expo-splash-screen": "^0.15.1",
     "expo-yarn-workspaces": "2.0.3",
