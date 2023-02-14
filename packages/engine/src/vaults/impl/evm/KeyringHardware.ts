@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -78,18 +79,37 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
+    const accountNameInfos = await this.vault.getAccountNameInfoMap();
+    const isLedgerLive = template === accountNameInfos.ledgerLive.template;
+
+    const paths = indexes.map(
+      (index) => `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+    );
+
     let addressInfos;
     if (type === 'SEARCH_ACCOUNTS') {
       // When searching for accounts, we only get the PATH_PREFIX's xpub
       // and derive the addresses to reduce the number of calls to the device
       // therefore better performance.
       let response;
+      let publicKeyParams: any = {
+        path: pathPrefix,
+        showOnOneKey: false,
+        chainId: Number(chainId),
+      };
+      if (isLedgerLive) {
+        publicKeyParams = {
+          bundle: paths.map((path) => ({
+            path,
+            showOnOneKey: false,
+            chainId: Number(chainId),
+          })),
+          useBatch: true,
+        };
+      }
       try {
         response = await HardwareSDK.evmGetPublicKey(connectId, deviceId, {
-          // TODO: maybe bug
-          path: pathPrefix,
-          showOnOneKey: false,
-          chainId: Number(chainId),
+          ...publicKeyParams,
           ...passphraseState,
         });
       } catch (e: any) {
@@ -100,19 +120,37 @@ export class KeyringHardware extends KeyringHardwareBase {
       if (!response.success) {
         throw convertDeviceError(response.payload);
       }
-      const { xpub } = response.payload;
-      const node = ethers.utils.HDNode.fromExtendedKey(xpub);
-      addressInfos = indexes.map((index) => ({
-        path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
-        info: engineUtils.fixAddressCase({
-          address: node.derivePath(`${index}`).address,
-          impl: IMPL_EVM,
-        }),
-      }));
+
+      if (isLedgerLive) {
+        addressInfos = await Promise.all(
+          (
+            response.payload as unknown as {
+              path: string;
+              publicKey: string;
+            }[]
+          ).map(async (item) => ({
+            path: item.path,
+            info: engineUtils.fixAddressCase({
+              address: await this.engine.providerManager.addressFromPub(
+                this.networkId,
+                item.publicKey,
+              ),
+              impl: IMPL_EVM,
+            }),
+          })),
+        );
+      } else {
+        const { xpub } = response.payload;
+        const node = ethers.utils.HDNode.fromExtendedKey(xpub);
+        addressInfos = indexes.map((index) => ({
+          path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+          info: engineUtils.fixAddressCase({
+            address: node.derivePath(`${index}`).address,
+            impl: IMPL_EVM,
+          }),
+        }));
+      }
     } else {
-      const paths = indexes.map(
-        (index) => `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
-      );
       addressInfos = await OneKeyHardware.getXpubs(
         HardwareSDK,
         IMPL_EVM,
@@ -150,6 +188,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       });
       index += 1;
     }
+
     return ret;
   }
 

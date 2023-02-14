@@ -1,4 +1,7 @@
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_ETH,
+  IMPL_EVM,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getAccountNameInfoByImpl } from '../../../src/managers/impl';
 
@@ -75,8 +78,8 @@ const fixtures: {
       prepareAccountParams: {
         password: '',
         indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-        coinType: ethAccountNameInfo.ledgerLegacy.coinType,
-        template: ethAccountNameInfo.ledgerLegacy.template,
+        coinType: COINTYPE_ETH,
+        template: `m/44'/${COINTYPE_ETH}'/0'/x`,
       },
       mnemonic,
     },
