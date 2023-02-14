@@ -1,21 +1,35 @@
 /* eslint-disable @typescript-eslint/ban-types */
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, IconButton, Modal } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
-import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
+import {
+  ManageNetworkRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/routesEnum';
 import { LazyDisplayView } from '../../../LazyDisplayView';
 import { useAccountSelectorChangeAccountOnPress } from '../../hooks/useAccountSelectorChangeAccountOnPress';
 import { useAccountSelectorModalInfo } from '../../hooks/useAccountSelectorModalInfo';
 import SideChainSelector from '../NetworkAccountSelectorModal/SideChainSelector';
 
+import type { ManageNetworkRoutesParams } from '../../../../views/ManageNetworks/types';
+import type { RouteProp } from '@react-navigation/core';
+
+type RouteProps = RouteProp<
+  ManageNetworkRoutesParams,
+  ManageNetworkRoutes.NetworkSelector
+>;
+
 function NetworkSelectorModal() {
   const intl = useIntl();
   const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
   const navigation = useAppNavigation();
+  const route = useRoute<RouteProps>();
+  const networkImpl = route.params?.networkImpl;
 
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();
@@ -64,6 +78,7 @@ function NetworkSelectorModal() {
       <LazyDisplayView delay={0}>
         <Box flex={1} flexDirection="row">
           <SideChainSelector
+            networkImpl={networkImpl}
             fullWidthMode // should be fullWidthMode here
             accountSelectorInfo={accountSelectorInfo}
             onPress={async ({ networkId }) => {
