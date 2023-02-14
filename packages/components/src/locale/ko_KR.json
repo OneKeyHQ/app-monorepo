@@ -899,6 +899,7 @@
   "form__beginner_guide": "초보자 가이드",
   "form__best_rate": "👍 최저 요금",
   "form__bip44_standard": "BIP44 표준",
+  "form__bip44_standard_cointype_61": "BIP44 표준(CoinType 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "\"{0}\"로 시작합니다. 높은 거래 수수료.",
   "form__bitcoin__native_segwit_desc": "\"{0}\"로 시작합니다. 낮은 거래 수수료.",

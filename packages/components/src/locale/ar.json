@@ -899,6 +899,7 @@
   "form__beginner_guide": "دليل المبتدئين",
   "form__best_rate": "👍 أفضل سعر",
   "form__bip44_standard": "معيار BIP44",
+  "form__bip44_standard_cointype_61": "معيار BIP44 (CoinType 61 ')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "يبدأ بـ \"{0}\". رسوم معاملات عالية.",
   "form__bitcoin__native_segwit_desc": "يبدأ بـ \"{0}\". رسوم معاملات منخفضة.",

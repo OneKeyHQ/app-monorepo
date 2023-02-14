@@ -899,6 +899,7 @@
   "form__beginner_guide": "Руководство для начинающих",
   "form__best_rate": "👍 Лучшая цена",
   "form__bip44_standard": "Стандарт BIP44",
+  "form__bip44_standard_cointype_61": "Стандарт BIP44 (CoinType 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "Начинается с «{0}». Высокая комиссия за транзакцию.",
   "form__bitcoin__native_segwit_desc": "Начинается с «{0}». Низкая комиссия за транзакцию.",

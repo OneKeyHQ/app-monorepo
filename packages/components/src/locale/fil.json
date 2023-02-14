@@ -899,6 +899,7 @@
   "form__beginner_guide": "Gabay sa Baguhan",
   "form__best_rate": "👍 Pinakamahusay na Rate",
   "form__bip44_standard": "Pamantayang BIP44",
+  "form__bip44_standard_cointype_61": "BIP44 Standard (CoinType 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "Nagsisimula sa \"{0}\". Mataas na bayad sa transaksyon.",
   "form__bitcoin__native_segwit_desc": "Nagsisimula sa \"{0}\". Mababang bayad sa transaksyon.",

@@ -899,6 +899,7 @@
   "form__beginner_guide": "初心者案内",
   "form__best_rate": "👍 ベストレート",
   "form__bip44_standard": "BIP44規格",
+  "form__bip44_standard_cointype_61": "BIP44 標準 (コインタイプ 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "「{0}」から始まります。取引手数料が高い。",
   "form__bitcoin__native_segwit_desc": "「{0}」で始まります。取引手数料が安い。",

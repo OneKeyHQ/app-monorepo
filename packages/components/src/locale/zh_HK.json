@@ -899,6 +899,7 @@
   "form__beginner_guide": "使用指南",
   "form__best_rate": "👍  最佳價格",
   "form__bip44_standard": "BIP44標準",
+  "form__bip44_standard_cointype_61": "BIP44 標準 (CoinType 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "以「{0}」開頭。交易手續費高。",
   "form__bitcoin__native_segwit_desc": "以「{0}」開頭。交易費用低。",

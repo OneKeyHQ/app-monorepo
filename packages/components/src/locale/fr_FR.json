@@ -899,6 +899,7 @@
   "form__beginner_guide": "Guide du débutant",
   "form__best_rate": "👍 Meilleur tarif",
   "form__bip44_standard": "Norme BIP44",
+  "form__bip44_standard_cointype_61": "Norme BIP44 (CoinType 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "Commence par \"{0}\". Frais de transaction élevés.",
   "form__bitcoin__native_segwit_desc": "Commence par \"{0}\". Frais de transaction peu élevés.",

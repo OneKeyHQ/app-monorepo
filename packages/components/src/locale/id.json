@@ -899,6 +899,7 @@
   "form__beginner_guide": "Panduan Pemula",
   "form__best_rate": "👍 Tarif Terbaik",
   "form__bip44_standard": "Standar BIP44",
+  "form__bip44_standard_cointype_61": "Standar BIP44 (CoinType 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "Dimulai dengan \"{0}\". Biaya transaksi tinggi.",
   "form__bitcoin__native_segwit_desc": "Dimulai dengan \"{0}\". Biaya transaksi rendah.",

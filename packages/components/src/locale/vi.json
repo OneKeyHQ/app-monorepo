@@ -899,6 +899,7 @@
   "form__beginner_guide": "Hướng dẫn cho người mới bắt đầu",
   "form__best_rate": "👍 Tỷ lệ tốt nhất",
   "form__bip44_standard": "Tiêu chuẩn BIP44",
+  "form__bip44_standard_cointype_61": "Tiêu chuẩn BIP44 (CoinType 61')",
   "form__bip44_standard_desc": "OneKey, MetaMask, Trezor, imToken",
   "form__bitcoin__legacy_desc": "Bắt đầu với “{0}”. Phí giao dịch cao.",
   "form__bitcoin__native_segwit_desc": "Bắt đầu với “{0}”. Phí giao dịch thấp.",
