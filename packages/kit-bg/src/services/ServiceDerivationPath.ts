@@ -8,15 +8,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  IMPL_ADA,
-  IMPL_BCH,
-  IMPL_BTC,
-  IMPL_DOGE,
-  IMPL_EVM,
-  IMPL_LTC,
-  IMPL_TBTC,
-} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -25,11 +16,8 @@ export default class ServiceDerivationPath extends ServiceBase {
   @backgroundMethod()
   async getDerivationSelectOptions(networkId: string | undefined) {
     if (!networkId) return [];
-    const network = await this.backgroundApi.engine.getNetwork(networkId);
-    let accountNameInfo = getAccountNameInfoByImpl(network.impl);
-    if (network.impl === IMPL_EVM && network.symbol !== 'ETC') {
-      accountNameInfo = omit(accountNameInfo, 'etcNative');
-    }
+    const vault = await this.backgroundApi.engine.getChainOnlyVault(networkId);
+    const accountNameInfo = await vault.getAccountNameInfoMap();
     return Object.entries(accountNameInfo).map(([k, v]) => ({ ...v, key: k }));
   }
 
@@ -40,6 +28,7 @@ export default class ServiceDerivationPath extends ServiceBase {
         walletId,
       );
     const network = await this.backgroundApi.engine.getNetwork(networkId);
+
     const accountNameInfo = getAccountNameInfoByImpl(network.impl);
     const networkDerivations = Object.entries(walletDerivations)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -47,19 +36,14 @@ export default class ServiceDerivationPath extends ServiceBase {
         Object.values(accountNameInfo).find((i) => i.template === v.template),
       )
       .map(([k, v]) => ({ ...v, key: k }));
-    const isUTXOImpl = [
-      IMPL_BTC,
-      IMPL_TBTC,
-      IMPL_DOGE,
-      IMPL_LTC,
-      IMPL_BCH,
-      IMPL_ADA,
-    ].includes(network.impl);
-    const shouldQuickCreate = networkDerivations.length <= 1 && !isUTXOImpl;
+
+    const shouldQuickCreate =
+      networkDerivations.length <= 1 && network.settings.isUTXOModel;
     const quickCreateAccountInfo =
       networkDerivations.length > 0
         ? networkDerivations[0]
         : accountNameInfo.default;
+
     return {
       shouldQuickCreate,
       quickCreateAccountInfo: shouldQuickCreate ? quickCreateAccountInfo : null,

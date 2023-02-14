@@ -24,6 +24,7 @@ import {
   NotImplemented,
   PendingQueueTooLong,
 } from '../errors';
+import { getAccountNameInfoByImpl } from '../managers/impl';
 import { IMPL_MAPPINGS } from '../proxyUtils';
 
 import { IDecodedTxActionType, IDecodedTxDirection } from './types';
@@ -31,6 +32,7 @@ import { VaultContext } from './VaultContext';
 
 import type { Account, DBAccount } from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
+import type { AccountNameInfo } from '../types/network';
 import type { WalletType } from '../types/wallet';
 import type { ethers } from './impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -186,6 +188,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async isContractAddress(address: string): Promise<boolean> {
     return false;
+  }
+
+  async getAccountNameInfoMap(): Promise<Record<string, AccountNameInfo>> {
+    const network = await this.getNetwork();
+    return getAccountNameInfoByImpl(network.impl);
   }
 }
 

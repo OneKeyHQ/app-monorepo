@@ -2,7 +2,15 @@
 
 import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
-import { difference, isNil, isString, merge, reduce, toLower } from 'lodash';
+import {
+  difference,
+  isNil,
+  isString,
+  merge,
+  omit,
+  reduce,
+  toLower,
+} from 'lodash';
 import memoizee from 'memoizee';
 
 import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
@@ -25,6 +33,7 @@ import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
+import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {
   buildEncodeDataWithABI,
   createOutputActionFromNFTTransaction,
@@ -74,7 +83,7 @@ import type {
   CommonMessage,
   ETHMessage,
 } from '../../../types/message';
-import type { EIP1559Fee } from '../../../types/network';
+import type { AccountNameInfo, EIP1559Fee } from '../../../types/network';
 import type { NFTTransaction } from '../../../types/nft';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -1796,4 +1805,15 @@ export default class Vault extends VaultBase {
       max: 50,
     },
   );
+
+  override async getAccountNameInfoMap(): Promise<
+    Record<string, AccountNameInfo>
+  > {
+    const network = await this.getNetwork();
+    let accountNameInfo = getAccountNameInfoByImpl(network.impl);
+    if (network.id !== 'evm--61') {
+      accountNameInfo = omit(accountNameInfo, 'etcNative');
+    }
+    return accountNameInfo;
+  }
 }

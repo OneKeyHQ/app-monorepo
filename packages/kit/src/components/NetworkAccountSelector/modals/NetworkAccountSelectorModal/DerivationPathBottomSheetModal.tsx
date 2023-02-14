@@ -146,7 +146,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
   onSelect,
 }) => {
   const intl = useIntl();
-  const { derivationOptions, isBTCLikeCoin } = useDerivationPath(networkId);
+  const { derivationOptions, isUTXOModel } = useDerivationPath(networkId);
   const [selectedOption, setSelectedOption] = useState('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [verifiedOptions, setVerifiedOptions] = useState<IVerifiedOption[]>([]);
@@ -205,7 +205,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
 
   return (
     <Box>
-      {!isBTCLikeCoin && (
+      {!isUTXOModel && (
         <Text typography={{ sm: 'Body2', md: 'Body2' }} mr="7px">
           {intl.formatMessage({
             id: 'content__if_you_dont_see_the_account_you_expect_try_switching_the_deriation_path',
@@ -213,15 +213,15 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
         </Text>
       )}
       {showValidOptions && (
-        <Box mt={isBTCLikeCoin ? 0 : 4}>
+        <Box mt={isUTXOModel ? 0 : 4}>
           {validOptions.map((option) => (
             <DerivationOption
               key={option.key}
               option={option}
               onPress={handleSelect}
               selectedOption={selectedOption}
-              showSubDesc={isBTCLikeCoin}
-              showTemplate={!isBTCLikeCoin}
+              showSubDesc={!!isUTXOModel}
+              showTemplate={!isUTXOModel}
               disabled={isLoading}
             />
           ))}
@@ -247,8 +247,8 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
               option={option}
               onPress={handleSelect}
               selectedOption={selectedOption}
-              showSubDesc={isBTCLikeCoin}
-              showTemplate={!isBTCLikeCoin}
+              showSubDesc={!!isUTXOModel}
+              showTemplate={!isUTXOModel}
               disabled
             />
           ))}

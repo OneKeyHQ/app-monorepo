@@ -1,5 +1,6 @@
 import { flatten } from 'lodash';
 
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import {
   COINTYPE_ADA,
   COINTYPE_ALGO,
@@ -168,7 +169,7 @@ const defaultAccountNameInfo: Record<
       category: `44'/${COINTYPE_ETC}'`,
       template: `m/44'/${COINTYPE_ETC}'/0'/0/x`,
       coinType: COINTYPE_ETC,
-      label: { id: 'form__bip44_standard' },
+      label: { id: 'form__bip44_standard_cointype_61' },
     },
     ledgerLive: {
       prefix: 'Ledger Live',
