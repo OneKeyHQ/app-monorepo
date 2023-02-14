@@ -58,6 +58,10 @@ export const ListHeadTags: ListHeadTagType[] = [
     textAlign: 'left',
     showVerticalLayout: true,
     showNorMalDevice: true,
+    dislocation: {
+      id: EMarketCellData.TokenMarketCap,
+      title: 'form__market_cap_uppercase',
+    },
   },
   {
     id: EMarketCellData.TokenPrice,
@@ -76,16 +80,16 @@ export const ListHeadTags: ListHeadTagType[] = [
     showNorMalDevice: true,
   },
   {
-    id: EMarketCellData.Token24hVolume,
-    title: 'form__24h_volume_uppercase',
-    minW: '120px',
+    id: EMarketCellData.TokenMarketCap,
+    title: 'form__market_cap_uppercase',
+    minW: '130px',
     textAlign: 'right',
     showVerticalLayout: false,
   },
   {
-    id: EMarketCellData.TokenMarketCap,
-    title: 'form__market_cap_uppercase',
-    minW: '130px',
+    id: EMarketCellData.Token24hVolume,
+    title: 'form__24h_volume_uppercase',
+    minW: '120px',
     textAlign: 'right',
     showVerticalLayout: false,
   },

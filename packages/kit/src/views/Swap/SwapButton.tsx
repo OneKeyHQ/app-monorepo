@@ -307,9 +307,15 @@ const ExchangeButton = () => {
 
       const needCancelApproval =
         needApproved &&
-        targetNetworkId === OnekeyNetwork.eth &&
-        params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-          '0xdac17f958d2ee523a2206206994597c13d831ec7' &&
+        (
+          (targetNetworkId === OnekeyNetwork.eth &&
+            params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
+            '0xdac17f958d2ee523a2206206994597c13d831ec7') || (
+            targetNetworkId === OnekeyNetwork.heco &&
+            params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
+            '0x897442804e4c8ac3a28fadb217f08b401411183e'
+          )
+        ) &&
         Number(allowance || '0') > 0;
       if (needCancelApproval) {
         cancelApproveTx =
@@ -326,9 +332,9 @@ const ExchangeButton = () => {
         const amount = disableSwapExactApproveAmount
           ? 'unlimited'
           : getTokenAmountValue(
-              inputAmount.token,
-              newQuote.sellAmount,
-            ).toFixed();
+            inputAmount.token,
+            newQuote.sellAmount,
+          ).toFixed();
 
         approveTx = (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           spender: newQuote.allowanceTarget,
