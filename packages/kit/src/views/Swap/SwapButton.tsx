@@ -307,15 +307,12 @@ const ExchangeButton = () => {
 
       const needCancelApproval =
         needApproved &&
-        (
-          (targetNetworkId === OnekeyNetwork.eth &&
+        ((targetNetworkId === OnekeyNetwork.eth &&
+          params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
+            '0xdac17f958d2ee523a2206206994597c13d831ec7') ||
+          (targetNetworkId === OnekeyNetwork.heco &&
             params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-            '0xdac17f958d2ee523a2206206994597c13d831ec7') || (
-            targetNetworkId === OnekeyNetwork.heco &&
-            params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-            '0x897442804e4c8ac3a28fadb217f08b401411183e'
-          )
-        ) &&
+              '0x897442804e4c8ac3a28fadb217f08b401411183e')) &&
         Number(allowance || '0') > 0;
       if (needCancelApproval) {
         cancelApproveTx =
@@ -332,9 +329,9 @@ const ExchangeButton = () => {
         const amount = disableSwapExactApproveAmount
           ? 'unlimited'
           : getTokenAmountValue(
-            inputAmount.token,
-            newQuote.sellAmount,
-          ).toFixed();
+              inputAmount.token,
+              newQuote.sellAmount,
+            ).toFixed();
 
         approveTx = (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           spender: newQuote.allowanceTarget,
@@ -449,7 +446,7 @@ const ExchangeButton = () => {
                 accountId: sendingAccount.id,
                 networkId: targetNetworkId,
                 autoFallback: true,
-                encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                encodedTx: encodedTx as IEncodedTxEvm,
                 payload: {
                   type: 'InternalSwap',
                   swapInfo,
@@ -533,7 +530,7 @@ const ExchangeButton = () => {
                 accountId: sendingAccount.id,
                 networkId: targetNetworkId,
                 autoFallback: !!approveTx,
-                encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                encodedTx: encodedTx as IEncodedTxEvm,
                 payload: {
                   type: 'InternalSwap',
                   swapInfo,
@@ -576,7 +573,7 @@ const ExchangeButton = () => {
                         await backgroundApiProxy.serviceSwap.sendTransaction({
                           accountId: sendingAccount.id,
                           networkId: targetNetworkId,
-                          encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                          encodedTx: encodedTx as IEncodedTxEvm,
                           autoFallback: true,
                           payload: {
                             type: 'InternalSwap',
@@ -599,7 +596,7 @@ const ExchangeButton = () => {
                   networkId: targetNetworkId,
                   feeInfoEditable: true,
                   feeInfoUseFeeInTx: false,
-                  encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                  encodedTx: encodedTx as IEncodedTxEvm,
                   payloadInfo: {
                     type: 'InternalSwap',
                     swapInfo,
@@ -627,9 +624,6 @@ const ExchangeButton = () => {
         deviceUtils.showErrorToast(e, e?.data?.message || e.message);
       }
     };
-
-    console.log('approveTx', approveTx);
-    console.log('cancelApproveTx', cancelApproveTx);
 
     if (cancelApproveTx !== undefined) {
       const onCancelApprovalSubmit = async () => {
@@ -679,7 +673,7 @@ const ExchangeButton = () => {
                     networkId: targetNetworkId,
                     feeInfoEditable: true,
                     feeInfoUseFeeInTx: false,
-                    encodedTx: { ...(cancelApproveTx as IEncodedTxEvm) },
+                    encodedTx: cancelApproveTx as IEncodedTxEvm,
                     payloadInfo: {
                       type: 'InternalSwap',
                       swapInfo: { ...swapInfo, isApprove: true },
@@ -701,7 +695,7 @@ const ExchangeButton = () => {
         />
       ));
     } else {
-      main();
+      await main();
     }
     await wait(1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
