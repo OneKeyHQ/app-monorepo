@@ -11,9 +11,9 @@
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "dependencies": {
+    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
-    "cardano-coin-selection-asmjs": "1.1.5",
     "expo": "^45.0.5",
     "expo-yarn-workspaces": "2.0.3",
     "firebase": "^9.8.2",
