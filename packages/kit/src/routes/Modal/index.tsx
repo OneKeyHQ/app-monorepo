@@ -78,6 +78,7 @@ const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
 const AnnualReportModal = createLazyComponent(() => import('./AnnualReport'));
 
 const OverviewModal = createLazyComponent(() => import('./Overview'));
+const Market = createLazyComponent(() => import('./Market'));
 
 const CurrencySelectModal = createLazyComponent(
   () => import('./CurrencySelect'),
@@ -234,6 +235,7 @@ const modalStackScreenList = [
     name: ModalRoutes.BulkSender,
     component: BulkSender,
   },
+  { name: ModalRoutes.Market, component: Market },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

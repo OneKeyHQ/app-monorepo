@@ -5506,7 +5506,6 @@ __metadata:
     expo-device: ^4.3.0
     expo-haptics: ^11.2.0
     expo-image-picker: ^13.1.1
-    expo-location: ^14.2.2
     expo-media-library: ^14.1.0
     expo-splash-screen: ^0.15.1
     expo-yarn-workspaces: 2.0.3
@@ -17492,17 +17491,6 @@ colour@latest:
   peerDependencies:
     expo: "*"
   checksum: 844ad044fc3b7d284666d5234c7a5a10f09a1eb27a6388f1b9398f79f0a20ffc404100d31212fba281e161c2f1ebdf2511da55463e885e158cd5d120e4fd9d20
-  languageName: node
-  linkType: hard
-
-"expo-location@npm:^14.2.2":
-  version: 14.2.2
-  resolution: "expo-location@npm:14.2.2"
-  dependencies:
-    "@expo/config-plugins": ^4.0.14
-  peerDependencies:
-    expo: "*"
-  checksum: 78a10dbcec174d99fd0fe081cdab83d143a34b9e9da42ce4ee0ba9572ef36aaa2f1276ac04dac9da4daac44dcd831e6fc485a8b7668dc4c21d10af882bb079cd
   languageName: node
   linkType: hard
 
