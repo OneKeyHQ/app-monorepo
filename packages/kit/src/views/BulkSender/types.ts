@@ -15,6 +15,12 @@ export enum BulkSenderRoutes {
   TokenSelector = 'TokenSelectorModal',
 }
 
+export enum ReceiverExampleType {
+  TXT = 'TXT',
+  CSV = 'CSV',
+  Excel = 'Excel',
+}
+
 export type BulkSenderRoutesParams = {
   [BulkSenderRoutes.TokenSelector]: {
     accountId: string;

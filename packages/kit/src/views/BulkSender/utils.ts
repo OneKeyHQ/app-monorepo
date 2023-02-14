@@ -2,12 +2,16 @@ import { trim } from 'lodash';
 
 import { openUrlExternal } from '../../utils/openUrl';
 
-import { BulkSenderTypeEnum } from './types';
+import { BulkSenderTypeEnum, ReceiverExampleType } from './types';
 
 import type { TokenReceiver } from './types';
 
-const RECEIVER_EXAMPLE_URL =
+const RECEIVER_EXAMPLE_URL_EXCEL =
   'https://onekey-devops.s3.ap-southeast-1.amazonaws.com/send_ERC20.xlsx';
+const RECEIVER_EXAMPLE_URL_CSV =
+  'https://onekey-devops.s3.ap-southeast-1.amazonaws.com/send_ERC20.csv';
+const RECEIVER_EXAMPLE_URL_TXT =
+  'https://onekey-devops.s3.ap-southeast-1.amazonaws.com/send_ERC20.txt';
 
 export function encodeReceiver(receiver: TokenReceiver[]): string {
   const count = receiver.length;
@@ -51,6 +55,20 @@ export function decodeReceiver<T>(
   return receiver;
 }
 
-export function downloadReceiverExample() {
-  openUrlExternal(RECEIVER_EXAMPLE_URL);
+export function downloadReceiverExample(type: ReceiverExampleType) {
+  let url = '';
+  switch (type) {
+    case ReceiverExampleType.CSV:
+      url = RECEIVER_EXAMPLE_URL_CSV;
+      break;
+    case ReceiverExampleType.TXT:
+      url = RECEIVER_EXAMPLE_URL_TXT;
+      break;
+    case ReceiverExampleType.Excel:
+      url = RECEIVER_EXAMPLE_URL_EXCEL;
+      break;
+    default:
+      url = RECEIVER_EXAMPLE_URL_TXT;
+  }
+  openUrlExternal(url);
 }

@@ -43,54 +43,58 @@ export function useSignOrSendOfExternalAccount({
     });
 
   // use background service is not available here, as walletconnect connector is in UI )
-  const sendTxForExternalAccount = useCallback(async () => {
-    if (!encodedTx) {
-      throw new Error('encodedTx is missing!');
-    }
-    let txid = '';
-    const { wcConnector, injectedConnectorInfo, accountInfo } =
-      await getExternalConnector();
-    if (accountInfo?.type === 'walletConnect') {
-      if (!wcConnector) {
-        return;
+  const sendTxForExternalAccount = useCallback(
+    async (txForExternalAccount?: IEncodedTx) => {
+      const tx = txForExternalAccount || encodedTx;
+      if (!tx) {
+        throw new Error('encodedTx is missing!');
       }
-      if (signOnly) {
-        txid = await wcConnector.signTransaction(encodedTx as IEncodedTxEvm);
-      } else {
-        txid = await wcConnector.sendTransaction(encodedTx as IEncodedTxEvm);
+      let txid = '';
+      const { wcConnector, injectedConnectorInfo, accountInfo } =
+        await getExternalConnector();
+      if (accountInfo?.type === 'walletConnect') {
+        if (!wcConnector) {
+          return;
+        }
+        if (signOnly) {
+          txid = await wcConnector.signTransaction(tx as IEncodedTxEvm);
+        } else {
+          txid = await wcConnector.sendTransaction(tx as IEncodedTxEvm);
+        }
       }
-    }
-    if (accountInfo?.type === 'injectedProvider') {
-      const connector = injectedConnectorInfo?.connector;
-      if (!connector) {
-        return;
+      if (accountInfo?.type === 'injectedProvider') {
+        const connector = injectedConnectorInfo?.connector;
+        if (!connector) {
+          return;
+        }
+        txid = (await connector?.provider?.request({
+          method: signOnly ? 'eth_signTransaction' : 'eth_sendTransaction',
+          params: [tx],
+        })) as string;
       }
-      txid = (await connector?.provider?.request({
-        method: signOnly ? 'eth_signTransaction' : 'eth_sendTransaction',
-        params: [encodedTx],
-      })) as string;
-    }
 
-    debugLogger.walletConnect.info(
-      'sendTxForExternalAccount -> sendTransaction txid: ',
-      txid,
-    );
-    // TODO currently ExternalAccount is for EVM only
-    if (txid && (await validator.isValidEvmTxid({ txid }))) {
-      return {
+      debugLogger.walletConnect.info(
+        'sendTxForExternalAccount -> sendTransaction txid: ',
         txid,
-        rawTx: '',
-        encodedTx,
-      };
-    }
+      );
+      // TODO currently ExternalAccount is for EVM only
+      if (txid && (await validator.isValidEvmTxid({ txid }))) {
+        return {
+          txid,
+          rawTx: '',
+          encodedTx: tx,
+        };
+      }
 
-    // BitKeep resolve('拒绝') but not reject(error)
-    const errorMsg =
-      txid && isString(txid)
-        ? txid
-        : intl.formatMessage({ id: 'msg__transaction_failed' });
-    throw new Error(errorMsg);
-  }, [encodedTx, validator, intl, getExternalConnector, signOnly]);
+      // BitKeep resolve('拒绝') but not reject(error)
+      const errorMsg =
+        txid && isString(txid)
+          ? txid
+          : intl.formatMessage({ id: 'msg__transaction_failed' });
+      throw new Error(errorMsg);
+    },
+    [encodedTx, validator, intl, getExternalConnector, signOnly],
+  );
 
   const signMsgForExternalAccount = useCallback(async () => {
     if (!unsignedMessage) {
