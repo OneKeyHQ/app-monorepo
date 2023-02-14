@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
@@ -22,6 +22,14 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import type { CollectionAttribute } from '@onekeyhq/engine/src/types/nft';
 
 import { NFTAttributesContext, useNFTAttributesContext } from './context';
+import {
+  clearAttributeStatus,
+  generteAttributeParams,
+  getAttributesStatus,
+  isAttributeNameSelected,
+  isSelectedAttribute,
+  setAttributesStatus,
+} from './refs';
 
 import type { NFTMarketRoutes, NFTMarketRoutesParams } from '../type';
 import type { NFTAttributesContextValue } from './context';
@@ -37,38 +45,34 @@ type SubItemProps = {
 };
 
 const SubItem: FC<SubItemProps> = ({ attributeName, value }) => {
-  // const [selected, setSelected] = useState(false);
+  const [selected, setSelected] = useState(
+    getAttributesStatus({
+      attributeName,
+      attributesValue: value.attributes_value,
+    }),
+  );
   const context = useNFTAttributesContext()?.context;
-  const setContext = useNFTAttributesContext()?.setContext;
-
-  const selected = useMemo(() => {
-    if (context) {
-      const item = context.selectedAttributes[attributeName];
-      if (item && item.includes(value.attributes_value)) {
-        return true;
-      }
-      return false;
-    }
-  }, [attributeName, context, value.attributes_value]);
+  useEffect(() => {
+    const status = getAttributesStatus({
+      attributeName,
+      attributesValue: value.attributes_value,
+    });
+    setSelected(status);
+  }, [attributeName, context?.clearFlag, value.attributes_value]);
 
   const onPressHandle = useCallback(() => {
-    if (setContext) {
-      setContext((ctx) => {
-        const { selectedAttributes } = ctx;
-        const item = selectedAttributes[attributeName] ?? [];
-        if (item.includes(value.attributes_value)) {
-          const index = item.findIndex((v) => v === value.attributes_value);
-          item.splice(index, 1);
-        } else {
-          item.push(value.attributes_value);
-        }
-        selectedAttributes[attributeName] = item;
-        return {
-          selectedAttributes,
-        };
+    setSelected((prev) => {
+      setAttributesStatus({
+        attributeName,
+        attributesValue: value.attributes_value,
+        enable: !prev,
       });
-    }
-  }, [attributeName, setContext, value.attributes_value]);
+      if (context && context.setIsDisabled) {
+        context.setIsDisabled(!isSelectedAttribute());
+      }
+      return !prev;
+    });
+  }, [attributeName, context, value.attributes_value]);
 
   return (
     <TouchableOpacity onPress={onPressHandle}>
@@ -122,18 +126,9 @@ const ItemList: FC<ItemProps> = ({ attribute }) => {
     ),
     [attribute.attributes_name, attribute.attributes_values],
   );
-  const context = useNFTAttributesContext()?.context;
-
-  const defaultCollapsed = useMemo(() => {
-    if (context?.selectedAttributes) {
-      const item = context?.selectedAttributes[attribute.attributes_name] ?? [];
-      return item.length === 0;
-    }
-  }, [attribute.attributes_name, context?.selectedAttributes]);
-
   return (
     <Collapse
-      defaultCollapsed={defaultCollapsed}
+      defaultCollapsed={!isAttributeNameSelected(attribute.attributes_name)}
       renderCustomTrigger={(onPress, collapsed) => (
         <TouchableOpacity onPress={onPress}>
           <Box
@@ -165,64 +160,74 @@ const NFTAttributesModal: FC = () => {
     attributes: routeAttributes,
     onAttributeSelected,
   } = route.params;
-  const attributes = collection.attributes as CollectionAttribute[];
+
+  const [flatListData, updateListData] = useState<CollectionAttribute[]>([]);
+
+  const [isDisabled, setIsDisabled] = useState(false);
+  const [context, setContext] = useState<NFTAttributesContextValue>({
+    clearFlag: 0,
+    setIsDisabled,
+  });
+
+  const loadData = useCallback(async () => {
+    routeAttributes.forEach(
+      ({ attribute_name: attributeName, attribute_values }) => {
+        attribute_values.forEach((attributesValue) => {
+          setAttributesStatus({ attributeName, attributesValue, enable: true });
+        });
+      },
+    );
+    const data = collection.attributes?.filter(
+      ({ attributes_values }) => attributes_values.length < 100,
+    ) as CollectionAttribute[];
+    return Promise.resolve(data);
+  }, [collection.attributes, routeAttributes]);
+
+  useEffect(() => {
+    // const startDate = new Date().getTime();
+    loadData().then((data) => {
+      // console.log('time : ', new Date().getTime() - startDate);
+      updateListData(data);
+      setIsDisabled(!isSelectedAttribute());
+    });
+
+    return () => {
+      clearAttributeStatus();
+    };
+  }, [loadData, routeAttributes]);
+
+  const closeModal = useModalClose();
+
+  const onPrimaryActionPress = useCallback(() => {
+    const result = generteAttributeParams();
+    if (onAttributeSelected) {
+      closeModal();
+      onAttributeSelected(result);
+    }
+  }, [closeModal, onAttributeSelected]);
+
+  const isVerticalLayout = useIsVerticalLayout();
+
+  const contextValue = useMemo(() => ({ context, setContext }), [context]);
+
   const renderItem: ListRenderItem<CollectionAttribute> = useCallback(
     ({ item }) => <ItemList attribute={item} />,
     [],
   );
 
-  const defaultAtts = useMemo(() => {
-    const result: Record<string, string[] | undefined> = {};
-    routeAttributes.forEach((item) => {
-      result[item.attribute_name] = item.attribute_values;
-    });
-    return result;
-  }, [routeAttributes]);
+  const flatListProps = useMemo(
+    () => ({
+      contentContainerStyle: {
+        padding: 0,
+        paddingTop: isVerticalLayout ? 4 : 12,
+      },
+      data: flatListData,
+      renderItem,
+      keyExtractor: (item: CollectionAttribute) => item.attributes_name,
+    }),
+    [isVerticalLayout, renderItem, flatListData],
+  );
 
-  const [context, setContext] = useState<NFTAttributesContextValue>({
-    selectedAttributes: defaultAtts,
-  });
-
-  const isDisabled = useMemo(() => {
-    const { selectedAttributes } = context;
-    for (let i = 0; i < attributes.length; i += 1) {
-      const item = attributes[i];
-      const { attributes_name } = item;
-      const items = selectedAttributes[attributes_name];
-      if (items && items.length > 0) {
-        return false;
-      }
-    }
-    return true;
-  }, [attributes, context]);
-  const closeModal = useModalClose();
-
-  const onPrimaryActionPress = useCallback(() => {
-    const result: Array<{
-      attribute_name: string;
-      attribute_values: string[];
-    }> = [];
-    const { selectedAttributes } = context;
-
-    attributes.forEach((item) => {
-      const { attributes_name } = item;
-      const items = selectedAttributes[attributes_name];
-      if (items && items.length > 0) {
-        result.push({
-          attribute_name: attributes_name,
-          attribute_values: items,
-        });
-      }
-    });
-    if (onAttributeSelected) {
-      closeModal();
-      onAttributeSelected(result);
-    }
-  }, [attributes, closeModal, context, onAttributeSelected]);
-
-  const isVerticalLayout = useIsVerticalLayout();
-
-  const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (
     <NFTAttributesContext.Provider value={contextValue}>
       <Modal
@@ -231,23 +236,18 @@ const NFTAttributesModal: FC = () => {
         primaryActionTranslationId="action__apply"
         secondaryActionTranslationId="action__clear"
         onSecondaryActionPress={() => {
-          if (setContext) {
-            setContext({ selectedAttributes: {} });
-          }
+          clearAttributeStatus();
+          setIsDisabled(true);
+          setContext((ctx) => ({
+            ...ctx,
+            clearFlag: ctx.clearFlag + 1,
+          }));
         }}
         header={intl.formatMessage({ id: 'title__filter' })}
         size="md"
         height="640px"
-        flatListProps={{
-          contentContainerStyle: {
-            padding: 0,
-            paddingTop: isVerticalLayout ? 4 : 12,
-          },
-          data: attributes,
-          // @ts-ignore
-          renderItem,
-          keyExtractor: (item) => (item as CollectionAttribute).attributes_name,
-        }}
+        // @ts-ignore
+        flatListProps={flatListProps}
       />
     </NFTAttributesContext.Provider>
   );

@@ -2,7 +2,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import { createContext, useContext } from 'react';
 
 export type NFTAttributesContextValue = {
-  selectedAttributes: Record<string, string[] | undefined>;
+  clearFlag: number;
+  setIsDisabled?: (isDisabled: boolean) => void;
 };
 
 export type INFTAttributesContent = {
