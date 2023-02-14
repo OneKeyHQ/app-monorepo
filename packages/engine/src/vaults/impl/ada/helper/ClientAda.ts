@@ -177,11 +177,15 @@ class ClientAda {
   }
 
   getAssetDetail = memoizee(
-    async (
-      asset: string,
-      networkId: string,
-      dangerouseFallbackDecimals?: number,
-    ): Promise<Token> => {
+    async ({
+      asset,
+      networkId,
+      dangerouseFallbackDecimals,
+    }: {
+      asset: string;
+      networkId: string;
+      dangerouseFallbackDecimals?: number;
+    }): Promise<Token> => {
       const { data } = await this.request.get<IAsset>(`/assets/${asset}`);
       const { asset_name: assetName, metadata } = data;
       const decodeName = Buffer.from(assetName, 'hex').toString('utf8');
@@ -211,6 +215,7 @@ class ClientAda {
     {
       promise: true,
       maxAge: getTimeDurationMs({ minute: 1 }),
+      normalizer: (...args) => JSON.stringify(args),
     },
   );
 
