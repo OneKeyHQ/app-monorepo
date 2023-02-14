@@ -1,9 +1,9 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
 
 import { Box, Textarea } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { encodeReceiverWithLineNumber } from '../utils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type Props = {
   receiverString: string;

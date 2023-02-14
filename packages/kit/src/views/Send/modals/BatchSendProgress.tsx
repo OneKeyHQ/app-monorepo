@@ -94,14 +94,13 @@ function SendProgress({
     () => isExternalAccount({ accountId }),
     [accountId],
   );
-  const { externalAccountInfo, sendTxForExternalAccount } =
-    useSignOrSendOfExternalAccount({
-      encodedTx: undefined,
-      sourceInfo,
-      networkId,
-      accountId,
-      signOnly,
-    });
+  const { sendTxForExternalAccount } = useSignOrSendOfExternalAccount({
+    encodedTx: undefined,
+    sourceInfo,
+    networkId,
+    accountId,
+    signOnly,
+  });
   const progressState = useRef(currentState);
   const { wallet } = useWallet({ walletId });
   const { network } = useNetwork({ networkId });
@@ -207,17 +206,19 @@ function SendProgress({
     }
     return result;
   }, [
-    accountId,
     encodedTxs,
-    feeInfoPayloads,
-    interactInfo,
-    networkId,
-    network,
-    password,
-    payload,
-    route.params,
-    signOnly,
     waitUntilInProgress,
+    route.params,
+    isExternal,
+    network?.impl,
+    sendTxForExternalAccount,
+    password,
+    networkId,
+    accountId,
+    signOnly,
+    payload,
+    interactInfo,
+    feeInfoPayloads,
   ]);
 
   const submit = useCallback(async () => {
