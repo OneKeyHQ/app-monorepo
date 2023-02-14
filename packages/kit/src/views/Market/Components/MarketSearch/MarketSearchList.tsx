@@ -8,6 +8,7 @@ import {
   FlatList,
   Icon,
   useIsVerticalLayout,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -22,6 +23,7 @@ const MarketSearchList: FC<{
   onPress: (marketTokenId: MarketTokenItem) => void;
 }> = ({ data, onPress }) => {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const isVertical = useIsVerticalLayout();
   const renderItem = useCallback(
     ({ item }) =>
@@ -39,7 +41,7 @@ const MarketSearchList: FC<{
   return (
     <FlatList
       data={data}
-      contentContainerStyle={{ paddingTop: 24 }}
+      contentContainerStyle={{ paddingTop: 24, paddingBottom: bottom }}
       showsVerticalScrollIndicator={false}
       renderItem={renderItem}
       ListEmptyComponent={

@@ -3,25 +3,27 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
   Center,
   Empty,
+  HStack,
+  Modal,
   Searchbar,
   Spinner,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type { ModalProps } from '@onekeyhq/components/src/Modal';
-import type { SelectProps } from '@onekeyhq/components/src/Select';
+import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { showOverlay } from '../../utils/overlayUtils';
-import { OverlayPanel } from '../Overlay/OverlayPanel';
 
 import MarketSearchList from './Components/MarketSearch/MarketSearchList';
 import MarketSearchTabView from './Components/MarketSearch/MarketSearchTabView';
@@ -29,7 +31,6 @@ import TokenTag from './Components/MarketSearch/TokenTag';
 import { MARKET_FAKE_SKELETON_LIST_ARRAY } from './config';
 import { useMarketSearchCategoryList } from './hooks/useMarketCategory';
 import {
-  useMarketSearchContainerStyle,
   useMarketSearchHistory,
   useMarketSearchSelectedCategory,
   useMarketSearchTokenChange,
@@ -39,7 +40,6 @@ import {
 import type { MarketTokenItem } from '../../store/reducers/market';
 import type { SearchTabItem } from './Components/MarketSearch/MarketSearchTabView';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { ModalizeProps } from 'react-native-modalize';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
@@ -47,12 +47,11 @@ const MarketSearch: FC<{
   closeOverlay: () => void;
 }> = ({ closeOverlay }) => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
   const searchHistory = useMarketSearchHistory();
   const searchCategorys = useMarketSearchCategoryList();
   const searchSelectedCategory = useMarketSearchSelectedCategory();
   const { searchTokens, searchKeyword } = useMarketSearchTokens();
-  const style = useMarketSearchContainerStyle();
+  const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
   const onTokenPress = useCallback(
     (marketTokenItem: MarketTokenItem) => {
@@ -187,60 +186,73 @@ const MarketSearch: FC<{
     searchTokens,
     onTokenPress,
   ]);
-  const [searchInput, setSearchInput] = useState(() => '');
-  const searchOnChangeDebounce = useMarketSearchTokenChange();
   return (
-    <Box {...style} mt={1}>
-      {isVertical ? (
-        <Searchbar
-          placeholder={intl.formatMessage({ id: 'form__search_tokens' })}
-          value={searchInput}
-          autoFocus
-          w="full"
-          mb={7}
-          onChangeText={(text) => {
-            setSearchInput(text);
-            searchOnChangeDebounce(text);
-          }}
-          onClear={() => {
-            setSearchInput('');
-            searchOnChangeDebounce('');
-          }}
-        />
-      ) : null}
+    <Box flex={1} px={isVertical ? 4 : 6} mt={isVertical ? 3 : 5}>
       {searchContent}
     </Box>
   );
 };
 
-export const showMarketSearch = ({
-  modalProps,
-  triggerEle,
-  modalLizeProps,
-  searchOnChangeDebounce,
-}: {
-  modalProps?: ModalProps;
-  triggerEle?: SelectProps['triggerEle'];
-  modalLizeProps?: ModalizeProps;
-  searchOnChangeDebounce: (text: string) => void;
-}) =>
-  showOverlay((closeOverlay) => (
-    <OverlayPanel
-      triggerEle={triggerEle}
-      closeOverlay={() => {
-        searchOnChangeDebounce('');
-        closeOverlay();
-      }}
-      modalProps={modalProps}
-      modalLizeProps={modalLizeProps}
-      dropdownPosition="left"
-      dropdownStyle={{ w: '360px', bg: 'surface-default', p: 0 }}
+type SearchHeaderProps = {
+  keyword: string;
+  setKeyword: (keyword: string) => void;
+};
+
+const SearchHeader: FC<SearchHeaderProps> = ({ keyword, setKeyword }) => {
+  const intl = useIntl();
+  const modalClose = useModalClose();
+  return (
+    <HStack
+      alignItems="center"
+      borderBottomWidth={StyleSheet.hairlineWidth}
+      borderBottomColor="border-subdued"
+      pl={{ base: '4px', md: '12px' }}
+      pr={{ base: '16px', md: '24px' }}
+      h="57px"
     >
-      <MarketSearch
-        closeOverlay={() => {
-          searchOnChangeDebounce('');
-          closeOverlay();
+      <Searchbar
+        autoFocus
+        flex={1}
+        w="auto"
+        bgColor="transparent"
+        borderWidth={0}
+        focusOutlineColor="transparent"
+        placeholder={intl.formatMessage({
+          id: 'form__search_tokens',
+        })}
+        value={keyword}
+        onClear={() => {
+          setKeyword('');
+        }}
+        onChangeText={(text) => {
+          setKeyword(text);
         }}
       />
-    </OverlayPanel>
-  ));
+      {!platformEnv.isNativeIOS && <NavigationButton onPress={modalClose} />}
+    </HStack>
+  );
+};
+
+const MarketSrarchModal: FC = () => {
+  const onSearchKeywordChangeDebounce = useMarketSearchTokenChange();
+  const modalClose = useModalClose();
+  const [keyword, setKeyword] = useState('');
+  onSearchKeywordChangeDebounce(keyword);
+  return (
+    <Modal
+      size="sm"
+      footer={null}
+      height="640px"
+      headerShown={false}
+      staticChildrenProps={{
+        flex: 1,
+        overflow: 'hidden',
+      }}
+    >
+      <SearchHeader keyword={keyword} setKeyword={setKeyword} />
+      <MarketSearch closeOverlay={modalClose} />
+    </Modal>
+  );
+};
+
+export default MarketSrarchModal;
